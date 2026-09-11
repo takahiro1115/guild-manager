@@ -9,9 +9,9 @@ namespace GuildManager.Core.Systems
     /// <summary>
     /// 満足度（Satisfaction）変動と契約交渉・退団フロー。仕様書 03 §5.1・§5.2 参照。
     ///
-    /// 依存先システムが未実装のため、今回のスコープに含めない項目（TODO、依存先実装後に接続）：
+    /// 自然回復の酒場Lv連動（→ §6）は施設Lv投資システムの実装により接続済み。
+    /// 依存先システムが依然として未実装のため、今回のスコープに含めない項目：
     ///  - 人間関係：相性「険悪」による減点（→ §5.3 相性・特性システム、未実装）。
-    ///  - 自然回復の酒場Lv連動（→ §6 施設・インフラ拡張、未実装）。代わりに固定の週次回復量を適用する。
     ///  - 仲間ロストの余波（→ §4.3 不可逆障害・戦死＝ロスト、未実装）。ApplyPartyLossPenalty
     ///    メソッドとしては用意するが、死亡イベント自体が無いため現状どこからも呼び出されない
     ///    （§4.3実装時にQuestResolver側から接続する想定）。
@@ -53,8 +53,8 @@ namespace GuildManager.Core.Systems
                 if (adventurer.WeeklyWage < GetAppropriateWage(adventurer) * SatisfactionBalance.WageAdequacyRatio)
                     delta -= SatisfactionBalance.UnderpaidPenalty;
 
-                // 自然回復（→ 03 §5.1・§6。酒場Lv未実装のため固定値）。
-                delta += SatisfactionBalance.NaturalRecoveryPerWeek;
+                // 自然回復（→ 03 §5.1・§6）。ギルド酒場（Tavern）の現在Lvに連動する。
+                delta += FacilityBalance.GetTavernSatisfactionRecovery(state.GetFacilityLevel(FacilityType.Tavern));
 
                 Adjust(adventurer, delta);
             }

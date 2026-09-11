@@ -2,21 +2,17 @@ namespace GuildManager.Core.Balance
 {
     /// <summary>
     /// 訓練場配置関連の暫定バランス値。仕様書 03 §3.1〜3.4（経路2・運用ルール確定）・
-    /// §3.5改（訓練週のHP処理）・§6（施設・インフラ拡張）参照。
+    /// §3.5改（訓練週のHP処理）参照。
     ///
-    /// 施設Lv本体（§6）は未実装のため、Lv→枠数の対応は固定値（Lv1相当）で代用する。
+    /// 枠数（Lv→枠数の対応）は FacilityBalance.GetTrainingSlotCapacity に移動した
+    /// （施設Lv投資システム、§6実装に伴う接続）。ここには施設Lvに依存しない、
+    /// 配置1名あたりの費用・HP消費量のみを残す。
     /// 05技術メモ§3の方針（数値を各Systemクラスへ直書きしない）に沿い、ここへ集約した。
     /// 04_バランス表.xlsx からの読み込みへの置き換え（Phase 4での外部化）はまだ行っておらず、
     /// 現状はすべて仮値の定数。
     /// </summary>
     public static class TrainingBalance
     {
-        /// <summary>
-        /// 訓練場の現在の枠数上限。→ BAL: 施設/訓練場。現状はLv1相当（1名）の固定値。
-        /// TODO(→ 03 §6 施設・インフラ拡張): 施設Lvに連動させ、Lv上昇で枠数を開放する。
-        /// </summary>
-        public const int SlotCapacity = 1;
-
         /// <summary>配置1名あたりの週次利用費用（都度払い）。→ BAL: 訓練/週次費用。現状は仮値。</summary>
         public const int WeeklyCost = 20;
 

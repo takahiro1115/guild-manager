@@ -33,12 +33,6 @@ namespace GuildManager.Core.Balance
         /// <summary>仲間ロストの余波（§5.1）。→ 03 §4.3（未実装）の致死判定確定後に接続予定。</summary>
         public const int PartyLossPenalty = 30;
 
-        /// <summary>
-        /// 自然回復（酒場Lvにより毎週+、§5.1・§6）。
-        /// TODO(→ 03 §6 施設・インフラ拡張): 酒場Lvに連動させる。現状は固定値。
-        /// </summary>
-        public const int NaturalRecoveryPerWeek = 1;
-
         // ---- 契約交渉（§5.2） ----
         public const int NegotiationThreshold = 20;
         public const int NegotiationGraceWeeks = 2;

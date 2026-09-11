@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using GuildManager.Core.Balance;
 using GuildManager.Core.Models;
 
 namespace GuildManager.Core.Systems
@@ -17,16 +18,14 @@ namespace GuildManager.Core.Systems
     ///   （出撃／訓練場配置／単純待機は互いに排他。→ 03 §3.5改）。
     /// - 重傷（Severe）はこの処理の対象外。§3.6 の InjuryRecoverySystem が別管理する
     ///   （全治週数のカウントダウン → 全快）。
-    /// - 回復量は暫定定数（→ BAL: 静養/待機回復。現状は仮値）。上限は MaxHP。
+    /// - 回復量は暫定定数（→ BAL: 静養/待機回復。現状は仮値）に、医務室（Infirmary）の
+    ///   現在Lvに連動する倍率を掛ける（→ FacilityBalance.GetInfirmaryHpRecoveryMultiplier）。
+    ///   上限は MaxHP。
     /// </summary>
     public class RestRecoverySystem
     {
         // → BAL: 静養/待機回復。現状は仮値（MaxHPの15%を毎週回復）。
         private const double RestRecoveryRatio = 0.15;
-
-        // TODO(→ 03 §6 施設・インフラ拡張): 宿舎・医務室Lvによる回復量倍率のフック。
-        // 施設システムが未実装のため、現状は常に1.0倍固定。施設実装時にここへ倍率を接続する。
-        private const double FacilityRecoveryMultiplier = 1.0;
 
         /// <summary>
         /// 静養によるHP自然回復を処理する。
@@ -49,7 +48,8 @@ namespace GuildManager.Core.Systems
                 if (adventurer.CurrentHP >= adventurer.MaxHP)
                     continue;
 
-                int recovery = (int)(adventurer.MaxHP * RestRecoveryRatio * FacilityRecoveryMultiplier);
+                double facilityMultiplier = FacilityBalance.GetInfirmaryHpRecoveryMultiplier(state.GetFacilityLevel(FacilityType.Infirmary));
+                int recovery = (int)(adventurer.MaxHP * RestRecoveryRatio * facilityMultiplier);
                 adventurer.CurrentHP = Math.Min(adventurer.MaxHP, adventurer.CurrentHP + recovery);
             }
         }

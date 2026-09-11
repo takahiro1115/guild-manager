@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://cetk7jmxgq0vi" path="res://scripts/MainDashboard.cs" id="1_i48iu"]
 [ext_resource type="PackedScene" path="res://recruitment_popup.tscn" id="2_recruit"]
+[ext_resource type="PackedScene" path="res://facility_popup.tscn" id="3_facility"]
 
 [node name="MainDashboard" type="Control" unique_id=210796005]
 layout_mode = 3
@@ -102,10 +103,18 @@ layout_mode = 2
 size_flags_vertical = 3
 bbcode_enabled = true
 
+[node name="FacilityButton" type="Button" parent="Root" unique_id=220254194]
+unique_name_in_owner = true
+layout_mode = 2
+text = "施設投資"
+
 [node name="NextWeekButton" type="Button" parent="Root" unique_id=22271400]
 unique_name_in_owner = true
 layout_mode = 2
 text = "次週へ進める (Next Week)"
 
 [node name="RecruitmentPopup" parent="." instance=ExtResource("2_recruit")]
+unique_name_in_owner = true
+
+[node name="FacilityPopup" parent="." instance=ExtResource("3_facility")]
 unique_name_in_owner = true

@@ -102,7 +102,14 @@ namespace GuildManager.Core.Models
 
         public int WeeklyWage { get; set; }
 
-        /// <summary>出撃可能かどうか（重傷・引退済みなら不可）。疲労（Fatigue）は廃止済み（→ 03 §3.5改）。</summary>
-        public bool IsAvailable => Injury != InjurySeverity.Severe && !IsRetired;
+        /// <summary>
+        /// 複数週クエストに派遣中かどうか（仕様書 03 §4.0.1）。拘束期間が満了し
+        /// QuestDispatchSystemが解決するまでtrueのまま。派遣中は他クエストへの
+        /// 再編成・訓練場への配置ができない（IsAvailableに反映）。中断（呼び戻し）は実装しない。
+        /// </summary>
+        public bool IsDispatched { get; set; } = false;
+
+        /// <summary>出撃可能かどうか（重傷・引退済み・派遣中なら不可）。疲労（Fatigue）は廃止済み（→ 03 §3.5改）。</summary>
+        public bool IsAvailable => Injury != InjurySeverity.Severe && !IsRetired && !IsDispatched;
     }
 }

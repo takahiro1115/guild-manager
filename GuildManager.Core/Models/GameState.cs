@@ -26,14 +26,41 @@ namespace GuildManager.Core.Models
 
         public List<Quest> AvailableQuests { get; set; } = new();
 
-        /// <summary>クエストIDをキーに、そのクエストへ派遣中のパーティを保持する。</summary>
-        public Dictionary<Guid, Party> DispatchedParties { get; set; } = new();
+        /// <summary>
+        /// 進行中（派遣中）の複数週クエスト一覧（仕様書 03 §4.0.1）。満了週になるまで
+        /// QuestDispatchSystem.ProcessWeeklyDispatches がここから取り除かない限り残り続ける。
+        /// </summary>
+        public List<ActiveDispatch> ActiveDispatches { get; set; } = new();
+
+        /// <summary>訓練場に配置されている冒険者ID（→ 03 §3.1〜3.4「成長トリガー・経路2」）。</summary>
+        public HashSet<Guid> TrainingAssignments { get; set; } = new();
 
         /// <summary>
-        /// 訓練場に配置されている冒険者ID（→ 03 §3.1〜3.4「成長トリガー・経路2」）。
-        /// 施設Lv投資（§6）自体は未実装のため、枠数上限・Lv別補正を持たない最小限のフック。
-        /// TODO(→ 03 §6): 訓練場の枠数上限・Lv別成長補正を実装する際、ここに制約を追加する。
+        /// 4大施設の現在状態（仕様書 03 §6）。デフォルトで全種Lv1を1つずつ持つ。
         /// </summary>
-        public HashSet<Guid> TrainingAssignments { get; set; } = new();
+        public List<Facility> Facilities { get; set; } = CreateDefaultFacilities();
+
+        /// <summary>
+        /// 現在の建設キュー（仕様書 03 §6.1）。null＝工事中の施設なし。
+        /// 同時に2件以上を持てない設計を、単一のnull許容フィールドで表現する。
+        /// </summary>
+        public FacilityConstruction? UnderConstruction { get; set; }
+
+        /// <summary>指定した種類の施設の現在Lvを返す。該当データが無い場合は1を返す（防御的フォールバック）。</summary>
+        public int GetFacilityLevel(FacilityType type)
+        {
+            foreach (var facility in Facilities)
+                if (facility.Type == type) return facility.CurrentLevel;
+            return 1;
+        }
+
+        private static List<Facility> CreateDefaultFacilities() => new()
+        {
+            new Facility { Type = FacilityType.Dormitory, CurrentLevel = 1 },
+            new Facility { Type = FacilityType.Infirmary, CurrentLevel = 1 },
+            new Facility { Type = FacilityType.TrainingGround, CurrentLevel = 1 },
+            new Facility { Type = FacilityType.WarRoom, CurrentLevel = 1 },
+            new Facility { Type = FacilityType.Tavern, CurrentLevel = 1 },
+        };
     }
 }

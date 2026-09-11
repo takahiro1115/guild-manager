@@ -73,10 +73,21 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
-        public void SlotCapacity_MatchesLevel1Value()
+        public void GetSlotCapacity_MatchesTrainingGroundLevel1ByDefault()
         {
             var system = new TrainingSystem();
-            Assert.Equal(1, system.SlotCapacity);
+            Assert.Equal(1, system.GetSlotCapacity(new GameState()));
+        }
+
+        [Fact]
+        public void GetSlotCapacity_IncreasesWithTrainingGroundLevel()
+        {
+            var system = new TrainingSystem();
+            var state = new GameState();
+            foreach (var f in state.Facilities)
+                if (f.Type == FacilityType.TrainingGround) f.CurrentLevel = 3;
+
+            Assert.Equal(3, system.GetSlotCapacity(state));
         }
 
         // ---------------- 週次費用（都度払い） ----------------

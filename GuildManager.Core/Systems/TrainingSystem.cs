@@ -12,7 +12,8 @@ namespace GuildManager.Core.Systems
     /// 前回（項目7）追加した GameState.TrainingAssignments という最小限フックに、
     /// 枠数制約・週次費用・訓練週固有のHP処理を追加するもの。
     ///
-    /// - 枠数：SlotCapacity（現状はLv1相当で固定1名。→ TrainingBalance）。
+    /// - 枠数：GetSlotCapacity(state)。訓練場・道場（TrainingGround）のLvに連動する
+    ///   （→ FacilityBalance.GetTrainingSlotCapacity。Lv1＝1名は施設システム導入前と同じ値）。
     ///   満杯時の追加配置は Party.TryAdd と同様に失敗（false）で表現する。
     /// - 費用：配置されている限り毎週発生する都度払い（宿舎枠のような無料保有ではない）。
     ///   週給引落しと同じタイミングで ProcessWeeklyTraining を呼ぶ想定。
@@ -23,8 +24,9 @@ namespace GuildManager.Core.Systems
     /// </summary>
     public class TrainingSystem
     {
-        /// <summary>訓練場の現在の枠数上限（→ TrainingBalance.SlotCapacity）。</summary>
-        public int SlotCapacity => TrainingBalance.SlotCapacity;
+        /// <summary>訓練場・道場（TrainingGround）の現在Lvに連動する枠数上限。</summary>
+        public int GetSlotCapacity(GameState state) =>
+            FacilityBalance.GetTrainingSlotCapacity(state.GetFacilityLevel(FacilityType.TrainingGround));
 
         /// <summary>
         /// 冒険者を訓練場に配置する。既に配置済みなら何もせず成功扱い。
@@ -35,7 +37,7 @@ namespace GuildManager.Core.Systems
             if (state.TrainingAssignments.Contains(adventurerId))
                 return true;
 
-            if (state.TrainingAssignments.Count >= SlotCapacity)
+            if (state.TrainingAssignments.Count >= GetSlotCapacity(state))
                 return false;
 
             state.TrainingAssignments.Add(adventurerId);

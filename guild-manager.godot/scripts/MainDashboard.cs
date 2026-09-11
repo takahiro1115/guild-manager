@@ -31,6 +31,8 @@ public partial class MainDashboard : Control
 	private TrainingSystem _trainingSystem = null!;
 	private RecruitmentSystem _recruitmentSystem = null!;
 	private SatisfactionSystem _satisfactionSystem = null!;
+	private FacilitySystem _facilitySystem = null!;
+	private QuestDispatchSystem _questDispatchSystem = null!;
 
 	private Label _weekLabel = null!;
 	private Label _goldLabel = null!;
@@ -43,6 +45,8 @@ public partial class MainDashboard : Control
 	private Button _raiseWageButton = null!;
 	private Button _payBonusButton = null!;
 	private Button _placementButton = null!;
+	private FacilityPopup _facilityPopup = null!;
+	private Button _facilityButton = null!;
 
 	/// <summary>ステータス詳細パネルに表示中の冒険者。週送り後もこの人物の表示を維持する。</summary>
 	private Guid? _detailAdventurerId;
@@ -60,6 +64,8 @@ public partial class MainDashboard : Control
 		_raiseWageButton = GetNode<Button>("%RaiseWageButton");
 		_payBonusButton = GetNode<Button>("%PayBonusButton");
 		_placementButton = GetNode<Button>("%PlacementButton");
+		_facilityPopup = GetNode<FacilityPopup>("%FacilityPopup");
+		_facilityButton = GetNode<Button>("%FacilityButton");
 
 		_adventurerList.SelectMode = ItemList.SelectModeEnum.Multi;
 		_adventurerList.MultiSelected += OnAdventurerMultiSelected;
@@ -69,6 +75,8 @@ public partial class MainDashboard : Control
 		_raiseWageButton.Pressed += OnRaiseWagePressed;
 		_payBonusButton.Pressed += OnPayBonusPressed;
 		_placementButton.Pressed += OnPlacementTogglePressed;
+		_facilityButton.Pressed += OnFacilityButtonPressed;
+		_facilityPopup.Closed += OnFacilityPopupClosed;
 
 		_state = new GameState
 		{
@@ -86,6 +94,8 @@ public partial class MainDashboard : Control
 		_trainingSystem = new TrainingSystem();
 		_recruitmentSystem = new RecruitmentSystem(new SeededRng(2024));
 		_satisfactionSystem = new SatisfactionSystem();
+		_facilitySystem = new FacilitySystem();
+		_questDispatchSystem = new QuestDispatchSystem(_questResolver, _growthSystem, _economySystem, _satisfactionSystem);
 
 		RefreshAll();
 
@@ -105,7 +115,7 @@ public partial class MainDashboard : Control
 	/// <summary>
 	/// 冒険者一覧の選択制御。
 	/// ・5人目以降が選ばれそうになったら取り消す
-	/// ・重傷（出撃不可）の冒険者は選択させない（→ 03 §3.6：本来は毎週回復するが未実装のため応急処置）
+	/// ・重傷・引退済み・派遣中の冒険者は選択させない（IsAvailableで判定）
 	/// </summary>
 	private void OnAdventurerMultiSelected(long index, bool selected)
 	{
@@ -115,7 +125,8 @@ public partial class MainDashboard : Control
 		if (!adventurer.IsAvailable)
 		{
 			_adventurerList.Deselect((int)index);
-			AppendLog($"[color=gray]{adventurer.Name} は重傷のため出撃できません。[/color]");
+			string reason = adventurer.IsDispatched ? "派遣中" : adventurer.IsRetired ? "引退済み" : "重傷";
+			AppendLog($"[color=gray]{adventurer.Name} は{reason}のため出撃できません。[/color]");
 			return;
 		}
 
@@ -146,9 +157,9 @@ public partial class MainDashboard : Control
 
 	/// <summary>
 	/// 「次週へ」の本体。
-	/// パーティを選んでいれば遠征を解決し、選んでいなければ「休養」として扱う。
-	/// どちらの場合も、週給引き落とし・負傷回復・週数の進行は必ず行う
-	/// （→ 03 §3.6：全員負傷中でも時間を進めて回復を待てるようにするため）。
+	/// パーティを選んでいれば派遣（複数週クエストは満了週まで結果が出ない。→ 03 §4.0.1）し、
+	/// 選んでいなければ「休養」として扱う。どちらの場合も、週給引き落とし・負傷回復・
+	/// 週数の進行は必ず行う（→ 03 §3.6：全員負傷中でも時間を進めて回復を待てるようにするため）。
 	/// </summary>
 	private void OnNextWeekPressed()
 	{
@@ -156,7 +167,6 @@ public partial class MainDashboard : Control
 		var selectedQuestIndices = _questList.GetSelectedItems();
 		var selectedAdventurerIndices = _adventurerList.GetSelectedItems();
 		bool wantsToDispatch = selectedAdventurerIndices.Length > 0;
-		var dispatchedIds = new HashSet<Guid>();
 
 		if (wantsToDispatch)
 		{
@@ -172,18 +182,29 @@ public partial class MainDashboard : Control
 			{
 				party.TryAdd(_state.Adventurers[idx]);
 			}
-			dispatchedIds = party.Members.Select(m => m.Id).ToHashSet();
 
-			var result = _questResolver.Resolve(party, quest);
-			_economySystem.ApplyReward(_state, result.RewardGold);
-			var deploymentGrowth = _growthSystem.ProcessDeploymentGrowth(party, quest); // → 03 §3.1〜3.4：成長トリガー経路1（出撃）
-			_satisfactionSystem.ApplyQuestAchievementBonus(party, quest, result.QuestAchieved); // → 03 §5.1：勝利・功績ボーナス
-			LogResult(thisWeek, quest, result);
-			LogGrowthEvents(deploymentGrowth);
+			_questDispatchSystem.Dispatch(_state, party, quest);
+
+			if (quest.DurationWeeks > 1)
+			{
+				AppendLog($"[color=cyan]第{thisWeek}週：{quest.Name}へ出発した" +
+					$"（拘束{quest.DurationWeeks}週間、第{thisWeek + quest.DurationWeeks - 1}週に結果判明）。[/color]");
+			}
 		}
 		else
 		{
 			AppendLog($"[color=gray]第{thisWeek}週：今週は誰も出撃せず、静養に努めた。[/color]");
+		}
+
+		// 派遣中（今週出発した分も含む）の冒険者は、HP自然回復・訓練場成長の対象から外す（→ 03 §4.0.1）。
+		var dispatchedIds = _state.Adventurers.Where(a => a.IsDispatched).Select(a => a.Id).ToHashSet();
+
+		// 満了した派遣（1週クエストは今週のうちに満了する）を解決し、結果を週報へ。
+		var resolutions = _questDispatchSystem.ProcessWeeklyDispatches(_state);
+		foreach (var resolution in resolutions)
+		{
+			LogResult(thisWeek, resolution.Quest, resolution.Result);
+			LogGrowthEvents(resolution.GrowthEvents);
 		}
 
 		// 出撃の有無にかかわらず、時間は必ず進む。
@@ -197,6 +218,11 @@ public partial class MainDashboard : Control
 		var terminated = _satisfactionSystem.ProcessWeeklyNegotiation(_state); // → 03 §5.2：契約交渉・退団
 		LogNegotiationStatus(terminated);
 		_agingSystem.ProcessWeeklyAging(_state); // → 03 §3：加齢・衰微モデル
+
+		var completedFacility = _facilitySystem.ProcessWeeklyConstruction(_state); // → 03 §6.1：施設Lv投資
+		if (completedFacility != null)
+			AppendLog($"[color=lime][b]🏗 {FacilityLabel(completedFacility.Type)}がLv{completedFacility.CurrentLevel}に完成した！[/b][/color]");
+
 		_state.WeekNumber++;
 
 		RefreshAll();
@@ -207,6 +233,18 @@ public partial class MainDashboard : Control
 			_nextWeekButton.Disabled = true;
 			_recruitmentPopup.Open(_state, _recruitmentSystem);
 		}
+	}
+
+	/// <summary>「施設投資」ボタン。施設投資ポップアップを開く（採用試験とは異なり、いつでも自由に開閉できる）。</summary>
+	private void OnFacilityButtonPressed()
+	{
+		_facilityPopup.Open(_state, _facilitySystem);
+	}
+
+	/// <summary>施設投資ポップアップが閉じた時のコールバック。着工・所持金の変化を反映する。</summary>
+	private void OnFacilityPopupClosed()
+	{
+		RefreshAll();
 	}
 
 	private void LogResult(int weekNumber, Quest quest, WeekResolutionResult result)
@@ -322,7 +360,7 @@ public partial class MainDashboard : Control
 		_questList.Clear();
 		foreach (var q in _state.AvailableQuests)
 		{
-			_questList.AddItem($"[{q.Rank}] {q.Name}（難易度{q.Difficulty} / 報酬{q.RewardGold}G）");
+			_questList.AddItem($"[{q.Rank}] {q.Name}（難易度{q.Difficulty} / 規模{ScaleLabel(q.Scale)}・{q.DurationWeeks}週 / 報酬{q.RewardGold}G）");
 		}
 
 		_adventurerList.Clear();
@@ -330,7 +368,9 @@ public partial class MainDashboard : Control
 		{
 			string status = a.Injury == InjurySeverity.Severe
 				? $"【重傷・出撃不可・回復まで{a.InjuryWeeksRemaining}週】"
-				: "";
+				: a.IsDispatched
+					? $"【派遣中・残り{GetDispatchWeeksRemaining(a)}週】"
+					: "";
 			_adventurerList.AddItem($"{a.Name}（{a.JobClass}・{PlacementLabel(a.Placement)}） HP{a.CurrentHP}/{a.MaxHP} {status}");
 		}
 
@@ -388,6 +428,33 @@ public partial class MainDashboard : Control
 		Placement.Back => "後衛",
 		_ => placement.ToString()
 	};
+
+	private static string ScaleLabel(QuestScale scale) => scale switch
+	{
+		QuestScale.Small => "小",
+		QuestScale.Medium => "中",
+		QuestScale.Large => "大",
+		_ => scale.ToString()
+	};
+
+	private static string FacilityLabel(FacilityType type) => type switch
+	{
+		FacilityType.Dormitory => "宿舎",
+		FacilityType.Infirmary => "医務室",
+		FacilityType.TrainingGround => "訓練場・道場",
+		FacilityType.WarRoom => "作戦資料室",
+		FacilityType.Tavern => "ギルド酒場",
+		_ => type.ToString()
+	};
+
+	/// <summary>指定した冒険者が派遣中の案件の残り週数を返す（派遣中でなければ0）。</summary>
+	private int GetDispatchWeeksRemaining(Adventurer a)
+	{
+		foreach (var dispatch in _state.ActiveDispatches)
+			if (dispatch.Party.Members.Contains(a))
+				return dispatch.WeeksRemaining;
+		return 0;
+	}
 
 	private static string AgeBandLabel(AgeBand band) => band switch
 	{

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using GuildManager.Core.Balance;
 using GuildManager.Core.Models;
 using GuildManager.Core.Rng;
 
@@ -10,9 +11,9 @@ namespace GuildManager.Core.Systems
     ///
     /// 年1回・新年（各年度の第1週）にのみ応募者が提示される。途中採用なし。
     ///
-    /// 他システムに依存する部分は、そのシステムが未実装のため固定値／TODOフックで
-    /// スタブしてある（ユーザー決定：「他システム依存部分は固定値/TODOフックでスタブして先に進む」）。
-    ///  - 雇用枠の宿舎Lv連動（→ §6 施設・インフラ拡張、未実装）→ 固定8枠で代用
+    /// 他システムに依存する部分のうち、施設Lv連動（雇用枠の宿舎Lv連動）は
+    /// §6施設Lv投資システムの実装により接続済み。残り2項目は該当システムが
+    /// 依然として未実装のため固定値／TODOフックでスタブしたままにしてある：
     ///  - 応募の質の格付け連動（→ §8.1 ギルド格付け、未実装）→ 格付けに依らない固定の生成分布
     ///  - スカウト顧問+25%（→ §7 顧問制度、未実装）→ 未反映
     ///
@@ -23,9 +24,6 @@ namespace GuildManager.Core.Systems
     public class RecruitmentSystem
     {
         private const int WeeksPerYear = 48; // 仕様書 03 §1.2
-
-        // TODO(→ 03 §6 施設・インフラ拡張): 宿舎Lvに連動させる。現状は宿舎Lv1相当（8枠）で固定。
-        private const int DefaultActiveSlotCap = 8;
 
         private const int CandidateCount = 5; // → BAL: 採用/応募者数。現状は仮値
 
@@ -65,8 +63,9 @@ namespace GuildManager.Core.Systems
             return ((weekNumber - 1) % WeeksPerYear) + 1 == 1;
         }
 
-        /// <summary>現役枠の上限（→ 03 §2.4「雇用枠」。施設Lv未実装のため固定値）。</summary>
-        public int GetActiveSlotCap(GameState state) => DefaultActiveSlotCap;
+        /// <summary>現役枠の上限（→ 03 §2.4「雇用枠」）。宿舎（Dormitory）の現在Lvに連動する。</summary>
+        public int GetActiveSlotCap(GameState state) =>
+            FacilityBalance.GetDormitoryCapacity(state.GetFacilityLevel(FacilityType.Dormitory));
 
         /// <summary>現役枠の空き数。引退済み（顧問化予定）の者は占有しない（→ 03 §2.4・§7）。</summary>
         public int GetOpenSlotCount(GameState state)
