@@ -72,8 +72,8 @@ namespace GuildManager.Core.Systems
             }
 
             // ================= フェーズ2：戦闘比率計算（仕様書 03 §4.2） =================
-            double partyCp = party.Members.Sum(PersonalCp) * combatMultiplier
-                              * (100 - party.AverageFatigue) / 100.0;
+            // 疲労（Fatigue）は廃止済み（→ 03 §3.5改）。HPの影響は PersonalCp の ×(現在HP/最大HP) で保持。
+            double partyCp = party.Members.Sum(PersonalCp) * combatMultiplier;
 
             double enemyCp = quest.Difficulty * EnemyCpCoefficient;
             if (result.Encounter == EncounterResult.Ambushed)

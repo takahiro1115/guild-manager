@@ -1,0 +1,51 @@
+using System;
+using System.Collections.Generic;
+using GuildManager.Core.Models;
+
+namespace GuildManager.Core.Systems
+{
+    /// <summary>
+    /// 静養・HP自然回復。仕様書 03 §3.5改 参照（疲労Fatigueを廃止し、回復をHPに一本化した後の新規実装）。
+    ///
+    /// 毎週の決算処理で ProcessWeeklyRest を1回呼び出す想定
+    /// （InjuryRecoverySystem.ProcessWeeklyRecovery と同様の使い方。§3.6の重傷回復とは別管理）。
+    ///
+    /// - 対象：今週このパーティに選ばれず出撃しなかった、かつ重傷以外（無傷・軽傷）の冒険者。
+    ///   出撃した者は同じ週の戦闘でHPが増減するため、ここでの回復対象からは外す。
+    /// - 重傷（Severe）はこの処理の対象外。§3.6 の InjuryRecoverySystem が別管理する
+    ///   （全治週数のカウントダウン → 全快）。
+    /// - 回復量は暫定定数（→ BAL: 静養/待機回復。現状は仮値）。上限は MaxHP。
+    /// </summary>
+    public class RestRecoverySystem
+    {
+        // → BAL: 静養/待機回復。現状は仮値（MaxHPの15%を毎週回復）。
+        private const double RestRecoveryRatio = 0.15;
+
+        // TODO(→ 03 §6 施設・インフラ拡張): 宿舎・医務室Lvによる回復量倍率のフック。
+        // 施設システムが未実装のため、現状は常に1.0倍固定。施設実装時にここへ倍率を接続する。
+        private const double FacilityRecoveryMultiplier = 1.0;
+
+        /// <summary>
+        /// 静養によるHP自然回復を処理する。
+        /// </summary>
+        /// <param name="state">ゲーム状態。</param>
+        /// <param name="dispatchedAdventurerIds">今週出撃したパーティのメンバーID（出撃なしの週は空集合）。</param>
+        public void ProcessWeeklyRest(GameState state, IReadOnlySet<Guid> dispatchedAdventurerIds)
+        {
+            foreach (var adventurer in state.Adventurers)
+            {
+                if (dispatchedAdventurerIds.Contains(adventurer.Id))
+                    continue; // 今週出撃した者は静養扱いにしない
+
+                if (adventurer.Injury == InjurySeverity.Severe)
+                    continue; // 重傷は§3.6（InjuryRecoverySystem）が別管理
+
+                if (adventurer.CurrentHP >= adventurer.MaxHP)
+                    continue;
+
+                int recovery = (int)(adventurer.MaxHP * RestRecoveryRatio * FacilityRecoveryMultiplier);
+                adventurer.CurrentHP = Math.Min(adventurer.MaxHP, adventurer.CurrentHP + recovery);
+            }
+        }
+    }
+}

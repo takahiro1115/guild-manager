@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 
 namespace GuildManager.Core.Models
 {
@@ -29,9 +28,5 @@ namespace GuildManager.Core.Models
         }
 
         public bool Remove(Adventurer adventurer) => _members.Remove(adventurer);
-
-        /// <summary>パーティの平均疲労度（戦闘比率計算で使用。仕様書 03 §4.2）。</summary>
-        public double AverageFatigue =>
-            _members.Count == 0 ? 0 : _members.Average(a => a.Fatigue);
     }
 }

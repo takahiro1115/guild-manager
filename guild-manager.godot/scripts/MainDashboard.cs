@@ -26,6 +26,7 @@ public partial class MainDashboard : Control
 	private InjuryRecoverySystem _injuryRecoverySystem = null!;
 	private AgingSystem _agingSystem = null!;
 	private LevelingSystem _levelingSystem = null!;
+	private RestRecoverySystem _restRecoverySystem = null!;
 
 	private Label _weekLabel = null!;
 	private Label _goldLabel = null!;
@@ -65,6 +66,7 @@ public partial class MainDashboard : Control
 		_injuryRecoverySystem = new InjuryRecoverySystem();
 		_agingSystem = new AgingSystem(new SeededRng(99));
 		_levelingSystem = new LevelingSystem(new SeededRng(7));
+		_restRecoverySystem = new RestRecoverySystem();
 
 		RefreshAll();
 
@@ -125,6 +127,7 @@ public partial class MainDashboard : Control
 		var selectedQuestIndices = _questList.GetSelectedItems();
 		var selectedAdventurerIndices = _adventurerList.GetSelectedItems();
 		bool wantsToDispatch = selectedAdventurerIndices.Length > 0;
+		var dispatchedIds = new HashSet<Guid>();
 
 		if (wantsToDispatch)
 		{
@@ -140,6 +143,7 @@ public partial class MainDashboard : Control
 			{
 				party.TryAdd(_state.Adventurers[idx]);
 			}
+			dispatchedIds = party.Members.Select(m => m.Id).ToHashSet();
 
 			var levelsBeforeQuest = party.Members.ToDictionary(m => m.Id, m => m.Level);
 
@@ -157,6 +161,7 @@ public partial class MainDashboard : Control
 		// 出撃の有無にかかわらず、時間は必ず進む。
 		_economySystem.ApplyWeeklyWages(_state);
 		_injuryRecoverySystem.ProcessWeeklyRecovery(_state);
+		_restRecoverySystem.ProcessWeeklyRest(_state, dispatchedIds); // → 03 §3.5改：静養・HP自然回復
 		_agingSystem.ProcessWeeklyAging(_state); // → 03 §3：加齢・成長・衰微モデル
 		_state.WeekNumber++;
 
@@ -245,7 +250,7 @@ public partial class MainDashboard : Control
 
 		var sb = new StringBuilder();
 		sb.AppendLine($"[b]{a.Name}[/b]（{a.JobClass}） {a.Age}歳・{AgeBandLabel(a.AgeBand)}　Lv {a.Level} {LevelLabel(a)}");
-		sb.AppendLine($"HP {a.CurrentHP}/{a.MaxHP}　疲労度 {a.Fatigue}/100　満足度 {a.Satisfaction}/100");
+		sb.AppendLine($"HP {a.CurrentHP}/{a.MaxHP}　満足度 {a.Satisfaction}/100");
 		sb.AppendLine(InjuryLabel(a));
 		sb.AppendLine();
 		sb.AppendLine("[b]能力値（実効値 / 潜在能力PA）[/b]");

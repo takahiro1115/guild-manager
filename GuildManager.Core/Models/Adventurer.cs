@@ -55,7 +55,6 @@ namespace GuildManager.Core.Models
         public int MaxHP => END * 2 + 50;
 
         public int CurrentHP { get; set; }
-        public int Fatigue { get; set; } = 0;
         public int Satisfaction { get; set; } = 70;
         public InjurySeverity Injury { get; set; } = InjurySeverity.None;
 
@@ -64,7 +63,7 @@ namespace GuildManager.Core.Models
 
         public int WeeklyWage { get; set; }
 
-        /// <summary>出撃可能かどうか（重傷・過労・引退済みなら不可）。</summary>
-        public bool IsAvailable => Injury != InjurySeverity.Severe && Fatigue < 100 && !IsRetired;
+        /// <summary>出撃可能かどうか（重傷・引退済みなら不可）。疲労（Fatigue）は廃止済み（→ 03 §3.5改）。</summary>
+        public bool IsAvailable => Injury != InjurySeverity.Severe && !IsRetired;
     }
 }
