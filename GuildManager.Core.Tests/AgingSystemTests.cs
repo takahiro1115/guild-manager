@@ -6,16 +6,16 @@ using Xunit;
 namespace GuildManager.Core.Tests
 {
     /// <summary>
-    /// 加齢・成長・衰微モデル（仕様書 03 §3）のテスト。
+    /// 加齢・衰微モデル（仕様書 03 §3）のテスト。「伸びる」側（成長トリガー）は
+    /// GrowthSystem へ移動したため GrowthSystemTests でカバーする。
     /// 実行方法: このフォルダで `dotnet test`
     ///
-    /// AlwaysMinRng で乱数を「常に範囲の下限」に固定し、成長ロール・衰微対象の抽選・
+    /// AlwaysMinRng で乱数を「常に範囲の下限」に固定し、衰微対象の抽選・
     /// 低下量ロールをすべて決定的にしてから境界を検証する。
     /// </summary>
     public class AgingSystemTests
     {
-        /// <summary>NextInt(min, max) が常に min を返すテスト用スタブ。
-        /// 成長ロールの閾値（1〜15）を確実に満たし、抽選も先頭要素に固定できる。</summary>
+        /// <summary>NextInt(min, max) が常に min を返すテスト用スタブ。</summary>
         private class AlwaysMinRng : IRng
         {
             public int NextInt(int min, int max) => min;
@@ -41,56 +41,26 @@ namespace GuildManager.Core.Tests
             Assert.Equal(expected, adventurer.AgeBand);
         }
 
-        // ---------------- 成長期（§3.1〜3.4） ----------------
+        // ---------------- 成長期・全盛期はAgingSystem内では何もしない（成長はGrowthSystemへ移動） ----------------
 
         [Fact]
-        public void ProcessWeeklyAging_GrowthPeriod_GrowsOneStatTowardPa()
+        public void ProcessWeeklyAging_GrowthPeriod_DoesNothingToStats()
         {
-            // STRだけがPA未到達。他は実効値=PAにして成長対象から外す。
             var adventurer = new Adventurer
             {
                 Age = 18,
                 STR = 10, PA_STR = 50,
                 AGI = 20, PA_AGI = 20,
                 END = 20, PA_END = 20,
-                MAG = 20, PA_MAG = 20,
-                SCT = 20, PA_SCT = 20,
-                LDR = 20, PA_LDR = 20,
             };
             var state = CreateState(adventurer, weekNumber: 5);
             var system = new AgingSystem(new AlwaysMinRng());
 
             system.ProcessWeeklyAging(state);
 
-            Assert.Equal(11, adventurer.STR);
+            Assert.Equal(10, adventurer.STR); // AgingSystemはもう成長を扱わない（→ GrowthSystem）
             Assert.Equal(20, adventurer.AGI);
             Assert.Equal(20, adventurer.END);
-        }
-
-        [Fact]
-        public void ProcessWeeklyAging_GrowthPeriod_DoesNotExceedPaCapWhenAllStatsAreCapped()
-        {
-            var adventurer = new Adventurer
-            {
-                Age = 18,
-                STR = 20, PA_STR = 20,
-                AGI = 20, PA_AGI = 20,
-                END = 20, PA_END = 20,
-                MAG = 20, PA_MAG = 20,
-                SCT = 20, PA_SCT = 20,
-                LDR = 20, PA_LDR = 20,
-            };
-            var state = CreateState(adventurer, weekNumber: 5);
-            var system = new AgingSystem(new AlwaysMinRng());
-
-            system.ProcessWeeklyAging(state);
-
-            Assert.Equal(20, adventurer.STR);
-            Assert.Equal(20, adventurer.AGI);
-            Assert.Equal(20, adventurer.END);
-            Assert.Equal(20, adventurer.MAG);
-            Assert.Equal(20, adventurer.SCT);
-            Assert.Equal(20, adventurer.LDR);
         }
 
         [Fact]

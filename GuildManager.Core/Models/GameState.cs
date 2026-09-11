@@ -19,5 +19,12 @@ namespace GuildManager.Core.Models
 
         /// <summary>クエストIDをキーに、そのクエストへ派遣中のパーティを保持する。</summary>
         public Dictionary<Guid, Party> DispatchedParties { get; set; } = new();
+
+        /// <summary>
+        /// 訓練場に配置されている冒険者ID（→ 03 §3.1〜3.4「成長トリガー・経路2」）。
+        /// 施設Lv投資（§6）自体は未実装のため、枠数上限・Lv別補正を持たない最小限のフック。
+        /// TODO(→ 03 §6): 訓練場の枠数上限・Lv別成長補正を実装する際、ここに制約を追加する。
+        /// </summary>
+        public HashSet<Guid> TrainingAssignments { get; set; } = new();
     }
 }

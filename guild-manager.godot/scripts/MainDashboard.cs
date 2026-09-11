@@ -25,7 +25,7 @@ public partial class MainDashboard : Control
 	private EconomySystem _economySystem = null!;
 	private InjuryRecoverySystem _injuryRecoverySystem = null!;
 	private AgingSystem _agingSystem = null!;
-	private LevelingSystem _levelingSystem = null!;
+	private GrowthSystem _growthSystem = null!;
 	private RestRecoverySystem _restRecoverySystem = null!;
 	private RecruitmentSystem _recruitmentSystem = null!;
 
@@ -69,7 +69,7 @@ public partial class MainDashboard : Control
 		_economySystem = new EconomySystem();
 		_injuryRecoverySystem = new InjuryRecoverySystem();
 		_agingSystem = new AgingSystem(new SeededRng(99));
-		_levelingSystem = new LevelingSystem(new SeededRng(7));
+		_growthSystem = new GrowthSystem(new SeededRng(7));
 		_restRecoverySystem = new RestRecoverySystem();
 		_recruitmentSystem = new RecruitmentSystem(new SeededRng(2024));
 
@@ -160,13 +160,10 @@ public partial class MainDashboard : Control
 			}
 			dispatchedIds = party.Members.Select(m => m.Id).ToHashSet();
 
-			var levelsBeforeQuest = party.Members.ToDictionary(m => m.Id, m => m.Level);
-
 			var result = _questResolver.Resolve(party, quest);
 			_economySystem.ApplyReward(_state, result.RewardGold);
-			_levelingSystem.AwardExperience(party, quest, result); // → 03 §3.8：レベルアップ制度
+			_growthSystem.ProcessDeploymentGrowth(party, quest); // → 03 §3.1〜3.4：成長トリガー経路1（出撃）
 			LogResult(thisWeek, quest, result);
-			LogLevelUps(party, levelsBeforeQuest);
 		}
 		else
 		{
@@ -177,7 +174,8 @@ public partial class MainDashboard : Control
 		_economySystem.ApplyWeeklyWages(_state);
 		_injuryRecoverySystem.ProcessWeeklyRecovery(_state);
 		_restRecoverySystem.ProcessWeeklyRest(_state, dispatchedIds); // → 03 §3.5改：静養・HP自然回復
-		_agingSystem.ProcessWeeklyAging(_state); // → 03 §3：加齢・成長・衰微モデル
+		_growthSystem.ProcessTrainingGrowth(_state, dispatchedIds); // → 03 §3.1〜3.4：成長トリガー経路2（訓練場配置）
+		_agingSystem.ProcessWeeklyAging(_state); // → 03 §3：加齢・衰微モデル
 		_state.WeekNumber++;
 
 		RefreshAll();
@@ -207,19 +205,6 @@ public partial class MainDashboard : Control
 		}
 
 		AppendLog(sb.ToString());
-	}
-
-	/// <summary>
-	/// 今回の遠征でレベルが上がった参加者を週報ログに追記する（→ 03 §3.8）。
-	/// ダウンして無報酬だった者は Level が変わらないので、ここには出てこない。
-	/// </summary>
-	private void LogLevelUps(Party party, Dictionary<Guid, int> levelsBeforeQuest)
-	{
-		foreach (var member in party.Members)
-		{
-			if (levelsBeforeQuest.TryGetValue(member.Id, out int before) && member.Level > before)
-				AppendLog($"[color=yellow]★ {member.Name} はレベル{before}→{member.Level}に上がった！[/color]");
-		}
 	}
 
 	private void AppendLog(string bbcodeText)
@@ -271,7 +256,7 @@ public partial class MainDashboard : Control
 		_detailAdventurerId = a.Id;
 
 		var sb = new StringBuilder();
-		sb.AppendLine($"[b]{a.Name}[/b]（{a.JobClass}） {a.Age}歳・{AgeBandLabel(a.AgeBand)}　Lv {a.Level} {LevelLabel(a)}");
+		sb.AppendLine($"[b]{a.Name}[/b]（{a.JobClass}） {a.Age}歳・{AgeBandLabel(a.AgeBand)}");
 		sb.AppendLine($"HP {a.CurrentHP}/{a.MaxHP}　満足度 {a.Satisfaction}/100");
 		sb.AppendLine(InjuryLabel(a));
 		sb.AppendLine();
@@ -294,13 +279,6 @@ public partial class MainDashboard : Control
 		AgeBand.LimitPeriod => "限界期",
 		_ => band.ToString()
 	};
-
-	/// <summary>Lv表示の補足（EXPゲージ、または上限到達表示）。→ 03 §3.8</summary>
-	private static string LevelLabel(Adventurer a)
-	{
-		int required = LevelingSystem.GetExperienceRequiredForNextLevel(a.Level);
-		return required == 0 ? "（MAX）" : $"（EXP {a.Experience}/{required}）";
-	}
 
 	private static string InjuryLabel(Adventurer a) => a.Injury switch
 	{

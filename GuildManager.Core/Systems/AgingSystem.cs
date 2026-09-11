@@ -1,35 +1,32 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using GuildManager.Core.Models;
 using GuildManager.Core.Rng;
 
 namespace GuildManager.Core.Systems
 {
     /// <summary>
-    /// 加齢・成長・衰微モデル。仕様書 03 §3 参照。
+    /// 加齢・衰微モデル。仕様書 03 §3 参照。
     ///
     /// 毎週の決算処理で ProcessWeeklyAging を1回呼び出す想定
     /// （InjuryRecoverySystem.ProcessWeeklyRecovery と同様の使い方）。
     ///
-    /// - 成長期（15〜21歳）：毎週一定確率で、PA未到達のステータスから1つがランダムに+1成長する（§3.1〜3.4）。
+    /// 「伸びる」側（実効値の成長）は GrowthSystem が別途担当する（→ 03 §3.1〜3.4）。
+    /// このクラスは「衰える」「歳を取る」側のみを扱う：
     /// - 円熟期（28〜34歳）：年1回（年度末＝48週目）、STR/AGI/ENDから1〜2項目が恒久低下する。
     /// - 限界期（35〜40歳）：年2回、円熟期より大きい低下量で恒久低下する。
     /// - 低下時はPA自体も同じ量だけ引き下げる（§2.2「加齢でPA自体が低下していく」）。
+    ///   GrowthSystemによる成長分も区別なく減算対象になる（レベルアップ等の特別扱いはしない）。
     /// - 年度末（48週目）にAgeを+1する。40歳の年度末に達していた場合は+1せず
     ///   IsRetired=true とする（§3.7）。顧問への転用は別タスク「顧問制度」で扱う。
     ///
-    /// 成長率倍率・自律成長ロール確率・衰微の実行週・低下量は本来 → BAL: 加齢 に集約する数値だが、
+    /// 衰微の実行週・低下量は本来 → BAL: 加齢 に集約する数値だが、
     /// 04_バランス表.xlsx はまだコードから読み込めない（Phase 4で外部化予定）ため、
     /// QuestResolver と同様に現状は仮値を定数として直書きする。
     /// </summary>
     public class AgingSystem
     {
         private const int WeeksPerYear = 48; // 仕様書 03 §1.2
-
-        // ---- 成長期（→ BAL: 加齢/自律成長ロール確率。現状は仮値） ----
-        private const int GrowthRollChancePercent = 15;
-        private const int GrowthAmountPerRoll = 1;
 
         // ---- 衰微の対象ステータス。仕様書 03 §3.0「フィジカル衰微」＝STR/AGI/ENDのみ ----
         private static readonly string[] DeclineTargetStats = { "STR", "AGI", "END" };
@@ -66,10 +63,6 @@ namespace GuildManager.Core.Systems
 
                 switch (adventurer.AgeBand)
                 {
-                    case AgeBand.GrowthPeriod:
-                        ApplyGrowth(adventurer);
-                        break;
-
                     case AgeBand.MaturePeriod:
                         if (weekOfYear == MatureDeclineWeek)
                             ApplyDecline(adventurer, MatureDeclineAmountMin, MatureDeclineAmountMax);
@@ -93,24 +86,6 @@ namespace GuildManager.Core.Systems
             else
                 adventurer.Age++;
         }
-
-        private void ApplyGrowth(Adventurer adventurer)
-        {
-            if (_rng.NextInt(1, 100) > GrowthRollChancePercent)
-                return;
-
-            var growable = GrowableStats(adventurer);
-            if (growable.Count == 0)
-                return;
-
-            string stat = growable[_rng.NextInt(0, growable.Count - 1)];
-            AdventurerStatAccessor.SetStat(adventurer, stat, AdventurerStatAccessor.GetStat(adventurer, stat) + GrowthAmountPerRoll);
-        }
-
-        private static List<string> GrowableStats(Adventurer adventurer) =>
-            AdventurerStatAccessor.AllStatNames
-                .Where(s => AdventurerStatAccessor.GetStat(adventurer, s) < AdventurerStatAccessor.GetPa(adventurer, s))
-                .ToList();
 
         private void ApplyDecline(Adventurer adventurer, int amountMin, int amountMax)
         {

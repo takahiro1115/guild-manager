@@ -20,7 +20,8 @@ namespace GuildManager.Core.Systems
 
         /// <summary>
         /// 今回の遠征でダウンした（現在HPが0になった）冒険者ID。
-        /// LevelingSystem がこれを見て、ダウンした者を経験値の対象から除外する（→ 03 §3.8）。
+        /// 現状どのSystemもまだ参照していないが、§4.3の本来の致死判定（不可逆障害・戦死）
+        /// を実装する際にダウン者の絞り込みとして使う想定で残してある。
         /// </summary>
         public HashSet<Guid> DownedAdventurerIds { get; set; } = new();
     }
