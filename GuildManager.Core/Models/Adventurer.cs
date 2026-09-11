@@ -44,6 +44,11 @@ namespace GuildManager.Core.Models
         /// <summary>40歳年度末で強制引退したか（仕様書 03 §3.7）。→ AgingSystem が設定する。</summary>
         public bool IsRetired { get; set; } = false;
 
+        // ---- レベルアップ制度（仕様書 03 §3.8）。加齢による成長・衰微（AgingSystem）とは独立した、
+        // クエスト参加による成長経路。→ LevelingSystem が更新する。 ----
+        public int Level { get; set; } = 1;
+        public int Experience { get; set; } = 0;
+
         // ---- 動的・コンディション属性。仕様書 03 §2.3 ----
 
         /// <summary>最大HP = END×2 + 50（仕様書 03 §2.3）。</summary>

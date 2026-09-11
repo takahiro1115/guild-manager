@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using GuildManager.Core.Data;
@@ -24,6 +25,7 @@ public partial class MainDashboard : Control
 	private EconomySystem _economySystem = null!;
 	private InjuryRecoverySystem _injuryRecoverySystem = null!;
 	private AgingSystem _agingSystem = null!;
+	private LevelingSystem _levelingSystem = null!;
 
 	private Label _weekLabel = null!;
 	private Label _goldLabel = null!;
@@ -62,6 +64,7 @@ public partial class MainDashboard : Control
 		_economySystem = new EconomySystem();
 		_injuryRecoverySystem = new InjuryRecoverySystem();
 		_agingSystem = new AgingSystem(new SeededRng(99));
+		_levelingSystem = new LevelingSystem(new SeededRng(7));
 
 		RefreshAll();
 
@@ -138,9 +141,13 @@ public partial class MainDashboard : Control
 				party.TryAdd(_state.Adventurers[idx]);
 			}
 
+			var levelsBeforeQuest = party.Members.ToDictionary(m => m.Id, m => m.Level);
+
 			var result = _questResolver.Resolve(party, quest);
 			_economySystem.ApplyReward(_state, result.RewardGold);
+			_levelingSystem.AwardExperience(party, quest, result); // → 03 §3.8：レベルアップ制度
 			LogResult(thisWeek, quest, result);
+			LogLevelUps(party, levelsBeforeQuest);
 		}
 		else
 		{
@@ -173,6 +180,19 @@ public partial class MainDashboard : Control
 		}
 
 		AppendLog(sb.ToString());
+	}
+
+	/// <summary>
+	/// 今回の遠征でレベルが上がった参加者を週報ログに追記する（→ 03 §3.8）。
+	/// ダウンして無報酬だった者は Level が変わらないので、ここには出てこない。
+	/// </summary>
+	private void LogLevelUps(Party party, Dictionary<Guid, int> levelsBeforeQuest)
+	{
+		foreach (var member in party.Members)
+		{
+			if (levelsBeforeQuest.TryGetValue(member.Id, out int before) && member.Level > before)
+				AppendLog($"[color=yellow]★ {member.Name} はレベル{before}→{member.Level}に上がった！[/color]");
+		}
 	}
 
 	private void AppendLog(string bbcodeText)
@@ -224,7 +244,7 @@ public partial class MainDashboard : Control
 		_detailAdventurerId = a.Id;
 
 		var sb = new StringBuilder();
-		sb.AppendLine($"[b]{a.Name}[/b]（{a.JobClass}） {a.Age}歳・{AgeBandLabel(a.AgeBand)}");
+		sb.AppendLine($"[b]{a.Name}[/b]（{a.JobClass}） {a.Age}歳・{AgeBandLabel(a.AgeBand)}　Lv {a.Level} {LevelLabel(a)}");
 		sb.AppendLine($"HP {a.CurrentHP}/{a.MaxHP}　疲労度 {a.Fatigue}/100　満足度 {a.Satisfaction}/100");
 		sb.AppendLine(InjuryLabel(a));
 		sb.AppendLine();
@@ -247,6 +267,13 @@ public partial class MainDashboard : Control
 		AgeBand.LimitPeriod => "限界期",
 		_ => band.ToString()
 	};
+
+	/// <summary>Lv表示の補足（EXPゲージ、または上限到達表示）。→ 03 §3.8</summary>
+	private static string LevelLabel(Adventurer a)
+	{
+		int required = LevelingSystem.GetExperienceRequiredForNextLevel(a.Level);
+		return required == 0 ? "（MAX）" : $"（EXP {a.Experience}/{required}）";
+	}
 
 	private static string InjuryLabel(Adventurer a) => a.Injury switch
 	{

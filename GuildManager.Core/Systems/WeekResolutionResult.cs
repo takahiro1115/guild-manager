@@ -17,5 +17,11 @@ namespace GuildManager.Core.Systems
 
         /// <summary>冒険者IDごとの、今回の遠征で失ったHP量。</summary>
         public Dictionary<Guid, int> HpLostByAdventurer { get; set; } = new();
+
+        /// <summary>
+        /// 今回の遠征でダウンした（現在HPが0になった）冒険者ID。
+        /// LevelingSystem がこれを見て、ダウンした者を経験値の対象から除外する（→ 03 §3.8）。
+        /// </summary>
+        public HashSet<Guid> DownedAdventurerIds { get; set; } = new();
     }
 }

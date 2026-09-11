@@ -101,6 +101,7 @@ namespace GuildManager.Core.Systems
                     member.Injury = InjurySeverity.Severe;
                     member.InjuryWeeksRemaining = _rng.NextInt(3, 8); // → 03 §2.3「重傷: 全治3〜8週」
                     member.CurrentHP = 1;
+                    result.DownedAdventurerIds.Add(member.Id); // → 03 §3.8：LevelingSystemが経験値対象から除外する
                 }
             }
 

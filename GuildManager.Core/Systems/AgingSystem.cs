@@ -104,11 +104,13 @@ namespace GuildManager.Core.Systems
                 return;
 
             string stat = growable[_rng.NextInt(0, growable.Count - 1)];
-            SetStat(adventurer, stat, GetStat(adventurer, stat) + GrowthAmountPerRoll);
+            AdventurerStatAccessor.SetStat(adventurer, stat, AdventurerStatAccessor.GetStat(adventurer, stat) + GrowthAmountPerRoll);
         }
 
         private static List<string> GrowableStats(Adventurer adventurer) =>
-            AllStats.Where(s => GetStat(adventurer, s) < GetPa(adventurer, s)).ToList();
+            AdventurerStatAccessor.AllStatNames
+                .Where(s => AdventurerStatAccessor.GetStat(adventurer, s) < AdventurerStatAccessor.GetPa(adventurer, s))
+                .ToList();
 
         private void ApplyDecline(Adventurer adventurer, int amountMin, int amountMax)
         {
@@ -117,10 +119,10 @@ namespace GuildManager.Core.Systems
             foreach (var stat in PickRandomDistinct(DeclineTargetStats, statCount))
             {
                 int amount = _rng.NextInt(amountMin, amountMax);
-                int newActual = Math.Max(MinStatValue, GetStat(adventurer, stat) - amount);
-                int newPa = Math.Max(MinStatValue, GetPa(adventurer, stat) - amount);
-                SetStat(adventurer, stat, newActual);
-                SetPa(adventurer, stat, newPa);
+                int newActual = Math.Max(MinStatValue, AdventurerStatAccessor.GetStat(adventurer, stat) - amount);
+                int newPa = Math.Max(MinStatValue, AdventurerStatAccessor.GetPa(adventurer, stat) - amount);
+                AdventurerStatAccessor.SetStat(adventurer, stat, newActual);
+                AdventurerStatAccessor.SetPa(adventurer, stat, newPa);
             }
         }
 
@@ -135,60 +137,6 @@ namespace GuildManager.Core.Systems
                 pool.RemoveAt(index);
             }
             return picked;
-        }
-
-        // ---- ステータス名によるgetter/setter（成長・衰微でSTR〜LDRを横断的に扱うため） ----
-
-        private static readonly string[] AllStats = { "STR", "AGI", "END", "MAG", "SCT", "LDR" };
-
-        private static int GetStat(Adventurer a, string name) => name switch
-        {
-            "STR" => a.STR,
-            "AGI" => a.AGI,
-            "END" => a.END,
-            "MAG" => a.MAG,
-            "SCT" => a.SCT,
-            "LDR" => a.LDR,
-            _ => throw new ArgumentOutOfRangeException(nameof(name), name, "未知のステータス名")
-        };
-
-        private static void SetStat(Adventurer a, string name, int value)
-        {
-            switch (name)
-            {
-                case "STR": a.STR = value; break;
-                case "AGI": a.AGI = value; break;
-                case "END": a.END = value; break;
-                case "MAG": a.MAG = value; break;
-                case "SCT": a.SCT = value; break;
-                case "LDR": a.LDR = value; break;
-                default: throw new ArgumentOutOfRangeException(nameof(name), name, "未知のステータス名");
-            }
-        }
-
-        private static int GetPa(Adventurer a, string name) => name switch
-        {
-            "STR" => a.PA_STR,
-            "AGI" => a.PA_AGI,
-            "END" => a.PA_END,
-            "MAG" => a.PA_MAG,
-            "SCT" => a.PA_SCT,
-            "LDR" => a.PA_LDR,
-            _ => throw new ArgumentOutOfRangeException(nameof(name), name, "未知のステータス名")
-        };
-
-        private static void SetPa(Adventurer a, string name, int value)
-        {
-            switch (name)
-            {
-                case "STR": a.PA_STR = value; break;
-                case "AGI": a.PA_AGI = value; break;
-                case "END": a.PA_END = value; break;
-                case "MAG": a.PA_MAG = value; break;
-                case "SCT": a.PA_SCT = value; break;
-                case "LDR": a.PA_LDR = value; break;
-                default: throw new ArgumentOutOfRangeException(nameof(name), name, "未知のステータス名");
-            }
         }
     }
 }
