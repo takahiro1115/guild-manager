@@ -32,6 +32,10 @@ layout_mode = 2
 unique_name_in_owner = true
 layout_mode = 2
 
+[node name="RankLabel" type="Label" parent="Root/HeaderPanel" unique_id=765417512]
+unique_name_in_owner = true
+layout_mode = 2
+
 [node name="BodyPanel" type="HBoxContainer" parent="Root" unique_id=1658892758]
 layout_mode = 2
 size_flags_vertical = 3

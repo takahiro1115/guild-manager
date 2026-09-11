@@ -46,6 +46,19 @@ namespace GuildManager.Core.Models
         /// </summary>
         public FacilityConstruction? UnderConstruction { get; set; }
 
+        /// <summary>ギルドの名声（仕様書 03 §8.1）。0未満にはならない。</summary>
+        public int Reputation { get; set; } = 0;
+
+        /// <summary>ギルドの現在の格付け。初期値はG（最下位）。</summary>
+        public GuildRank GuildRank { get; set; } = GuildRank.G;
+
+        /// <summary>
+        /// 現ランク相当（同ランク帯以上）のクエストを最後に達成してから経過した週数（→ 03 §8.1.1）。
+        /// 該当クエストを達成した週に0へリセットされ、それ以外の週は+1される
+        /// （Adventurer.WeeksSinceLastDeploymentと同じパターン）。
+        /// </summary>
+        public int WeeksSinceLastRankAppropriateQuest { get; set; } = 0;
+
         /// <summary>指定した種類の施設の現在Lvを返す。該当データが無い場合は1を返す（防御的フォールバック）。</summary>
         public int GetFacilityLevel(FacilityType type)
         {

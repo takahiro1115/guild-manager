@@ -33,9 +33,11 @@ public partial class MainDashboard : Control
 	private SatisfactionSystem _satisfactionSystem = null!;
 	private FacilitySystem _facilitySystem = null!;
 	private QuestDispatchSystem _questDispatchSystem = null!;
+	private GuildRankSystem _guildRankSystem = null!;
 
 	private Label _weekLabel = null!;
 	private Label _goldLabel = null!;
+	private Label _rankLabel = null!;
 	private ItemList _questList = null!;
 	private ItemList _adventurerList = null!;
 	private RichTextLabel _adventurerDetailLabel = null!;
@@ -55,6 +57,7 @@ public partial class MainDashboard : Control
 	{
 		_weekLabel = GetNode<Label>("%WeekLabel");
 		_goldLabel = GetNode<Label>("%GoldLabel");
+		_rankLabel = GetNode<Label>("%RankLabel");
 		_questList = GetNode<ItemList>("%QuestList");
 		_adventurerList = GetNode<ItemList>("%AdventurerList");
 		_adventurerDetailLabel = GetNode<RichTextLabel>("%AdventurerDetailLabel");
@@ -96,6 +99,7 @@ public partial class MainDashboard : Control
 		_satisfactionSystem = new SatisfactionSystem();
 		_facilitySystem = new FacilitySystem();
 		_questDispatchSystem = new QuestDispatchSystem(_questResolver, _growthSystem, _economySystem, _satisfactionSystem);
+		_guildRankSystem = new GuildRankSystem();
 
 		RefreshAll();
 
@@ -201,10 +205,21 @@ public partial class MainDashboard : Control
 
 		// 満了した派遣（1週クエストは今週のうちに満了する）を解決し、結果を週報へ。
 		var resolutions = _questDispatchSystem.ProcessWeeklyDispatches(_state);
+		bool achievedRankAppropriateQuestThisWeek = false;
 		foreach (var resolution in resolutions)
 		{
 			LogResult(thisWeek, resolution.Quest, resolution.Result);
 			LogGrowthEvents(resolution.GrowthEvents);
+
+			// ギルド格付け（→ 03 §8.1）：名声は解決の都度加減算する。
+			// 「現ランク相当のクエストを達成したか」は今週の全解決結果から判定し、
+			// 週次決算（ProcessWeeklySettlement）へまとめて渡す。
+			_guildRankSystem.ApplyQuestResult(_state, resolution.Result.QuestAchieved);
+			if (resolution.Result.QuestAchieved &&
+				resolution.Quest.Rank >= GuildRankBalance.ToQuestRankFloor(_state.GuildRank))
+			{
+				achievedRankAppropriateQuestThisWeek = true;
+			}
 		}
 
 		// 出撃の有無にかかわらず、時間は必ず進む。
@@ -222,6 +237,16 @@ public partial class MainDashboard : Control
 		var completedFacility = _facilitySystem.ProcessWeeklyConstruction(_state); // → 03 §6.1：施設Lv投資
 		if (completedFacility != null)
 			AppendLog($"[color=lime][b]🏗 {FacilityLabel(completedFacility.Type)}がLv{completedFacility.CurrentLevel}に完成した！[/b][/color]");
+
+		// ギルド格付け（→ 03 §8.1・§8.1.1）：名声自然減衰の判定と昇格・降格判定は週次決算で1回だけ行う。
+		var rankChange = _guildRankSystem.ProcessWeeklySettlement(_state, achievedRankAppropriateQuestThisWeek);
+		if (rankChange != null)
+		{
+			string message = rankChange.IsPromotion
+				? $"[color=gold][b]🏅 ギルド格付けが{rankChange.Current}ランクに昇格しました！[/b][/color]"
+				: $"[color=orange][b]⚠ ギルド格付けが{rankChange.Current}ランクに降格しました。[/b][/color]";
+			AppendLog(message);
+		}
 
 		_state.WeekNumber++;
 
@@ -356,6 +381,7 @@ public partial class MainDashboard : Control
 	{
 		_weekLabel.Text = $"週: {_state.WeekNumber}";
 		_goldLabel.Text = $"所持金: {_state.Gold} G";
+		_rankLabel.Text = $"ギルド格付け: {_state.GuildRank}ランク（名声 {_state.Reputation}）";
 
 		_questList.Clear();
 		foreach (var q in _state.AvailableQuests)
