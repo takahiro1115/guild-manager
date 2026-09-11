@@ -4,8 +4,7 @@ namespace GuildManager.Core.Models
 {
     /// <summary>
     /// 冒険者データモデル。仕様書 03 §2 参照。
-    /// MVPでは加齢・PA（潜在能力）・性格・相性はまだ実装しない
-    /// （→ docs/06_タスクリスト.md Phase 3 で追加予定）。
+    /// 性格・相性はまだ実装しない（→ docs/06_タスクリスト.md Phase 3 で追加予定）。
     /// </summary>
     public class Adventurer
     {
@@ -22,6 +21,29 @@ namespace GuildManager.Core.Models
         public int SCT { get; set; }
         public int LDR { get; set; }
 
+        // ---- 潜在能力 PA（各ステータスの成長上限。1〜100）。仕様書 03 §2.2 ----
+        // 実効値はデフォルトでは0から始まるため、PAのデフォルトは範囲の最大値にしておき、
+        // 明示的に潜在能力を絞らない限り既存の挙動（成長上限なし相当）を壊さないようにする。
+        public int PA_STR { get; set; } = 100;
+        public int PA_AGI { get; set; } = 100;
+        public int PA_END { get; set; } = 100;
+        public int PA_MAG { get; set; } = 100;
+        public int PA_SCT { get; set; } = 100;
+        public int PA_LDR { get; set; } = 100;
+
+        /// <summary>総合PA＝6つのPAの平均（採用試験・スカウト評価用。仕様書 03 §2.2）。</summary>
+        public double TotalPA => (PA_STR + PA_AGI + PA_END + PA_MAG + PA_SCT + PA_LDR) / 6.0;
+
+        /// <summary>年齢帯（仕様書 03 §3.0 の定義表）。表の範囲外は近い側の帯に丸める。</summary>
+        public AgeBand AgeBand =>
+            Age <= 21 ? AgeBand.GrowthPeriod :
+            Age <= 27 ? AgeBand.PrimePeriod :
+            Age <= 34 ? AgeBand.MaturePeriod :
+            AgeBand.LimitPeriod;
+
+        /// <summary>40歳年度末で強制引退したか（仕様書 03 §3.7）。→ AgingSystem が設定する。</summary>
+        public bool IsRetired { get; set; } = false;
+
         // ---- 動的・コンディション属性。仕様書 03 §2.3 ----
 
         /// <summary>最大HP = END×2 + 50（仕様書 03 §2.3）。</summary>
@@ -37,7 +59,7 @@ namespace GuildManager.Core.Models
 
         public int WeeklyWage { get; set; }
 
-        /// <summary>出撃可能かどうか（重傷または過労なら不可）。</summary>
-        public bool IsAvailable => Injury != InjurySeverity.Severe && Fatigue < 100;
+        /// <summary>出撃可能かどうか（重傷・過労・引退済みなら不可）。</summary>
+        public bool IsAvailable => Injury != InjurySeverity.Severe && Fatigue < 100 && !IsRetired;
     }
 }
