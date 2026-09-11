@@ -27,6 +27,7 @@ public partial class MainDashboard : Control
 	private AgingSystem _agingSystem = null!;
 	private LevelingSystem _levelingSystem = null!;
 	private RestRecoverySystem _restRecoverySystem = null!;
+	private RecruitmentSystem _recruitmentSystem = null!;
 
 	private Label _weekLabel = null!;
 	private Label _goldLabel = null!;
@@ -35,9 +36,17 @@ public partial class MainDashboard : Control
 	private RichTextLabel _adventurerDetailLabel = null!;
 	private RichTextLabel _resultLog = null!;
 	private Button _nextWeekButton = null!;
+	private ItemList _candidateList = null!;
+	private Button _hireButton = null!;
 
 	/// <summary>ステータス詳細パネルに表示中の冒険者。週送り後もこの人物の表示を維持する。</summary>
 	private Guid? _detailAdventurerId;
+
+	/// <summary>今年の新春採用試験（→ 03 §2.4）の応募者一覧。募集週以外は空。</summary>
+	private List<RecruitmentOffer> _pendingCandidates = new();
+
+	/// <summary>今年すでに応募者を提示済みか（同じ週で全員採用してもリストを再生成しないため）。</summary>
+	private bool _recruitmentOfferedThisYear;
 
 	public override void _Ready()
 	{
@@ -48,11 +57,14 @@ public partial class MainDashboard : Control
 		_adventurerDetailLabel = GetNode<RichTextLabel>("%AdventurerDetailLabel");
 		_resultLog = GetNode<RichTextLabel>("%ResultLog");
 		_nextWeekButton = GetNode<Button>("%NextWeekButton");
+		_candidateList = GetNode<ItemList>("%CandidateList");
+		_hireButton = GetNode<Button>("%HireButton");
 
 		_adventurerList.SelectMode = ItemList.SelectModeEnum.Multi;
 		_adventurerList.MultiSelected += OnAdventurerMultiSelected;
 		_adventurerList.ItemClicked += OnAdventurerItemClicked;
 		_nextWeekButton.Pressed += OnNextWeekPressed;
+		_hireButton.Pressed += OnHirePressed;
 
 		_state = new GameState
 		{
@@ -67,6 +79,7 @@ public partial class MainDashboard : Control
 		_agingSystem = new AgingSystem(new SeededRng(99));
 		_levelingSystem = new LevelingSystem(new SeededRng(7));
 		_restRecoverySystem = new RestRecoverySystem();
+		_recruitmentSystem = new RecruitmentSystem(new SeededRng(2024));
 
 		RefreshAll();
 
@@ -113,6 +126,39 @@ public partial class MainDashboard : Control
 	private void OnAdventurerItemClicked(long index, Vector2 atPosition, long mouseButtonIndex)
 	{
 		ShowAdventurerDetail(_state.Adventurers[(int)index]);
+	}
+
+	/// <summary>
+	/// 候補者一覧から選択した1名を採用する（→ 03 §2.4）。
+	/// 空き枠が無い／契約金が足りない場合は理由をログに出して何もしない。
+	/// </summary>
+	private void OnHirePressed()
+	{
+		var selected = _candidateList.GetSelectedItems();
+		if (selected.Length == 0)
+		{
+			AppendLog("[color=orange]採用する候補者を選択してください。[/color]");
+			return;
+		}
+
+		var offer = _pendingCandidates[selected[0]];
+
+		if (_recruitmentSystem.GetOpenSlotCount(_state) <= 0)
+		{
+			AppendLog("[color=orange]現役枠がいっぱいで採用できません（→ 03 §6：施設拡張は未実装）。[/color]");
+			return;
+		}
+		if (_state.Gold < offer.SigningBonus)
+		{
+			AppendLog($"[color=orange]契約金 {offer.SigningBonus}G が足りません（所持金 {_state.Gold}G）。[/color]");
+			return;
+		}
+
+		_recruitmentSystem.TryHire(_state, offer);
+		_pendingCandidates.RemoveAt(selected[0]);
+		AppendLog($"[color=lime]★ {offer.Candidate.Name}（{offer.Candidate.JobClass}）を契約金{offer.SigningBonus}Gで採用した！[/color]");
+
+		RefreshAll();
 	}
 
 	/// <summary>
@@ -226,6 +272,39 @@ public partial class MainDashboard : Control
 		}
 
 		RefreshAdventurerDetail();
+		RefreshRecruitment();
+	}
+
+	/// <summary>
+	/// 新春採用試験（→ 03 §2.4）の候補者一覧を更新する。
+	/// 年度の第1週にだけ応募者を提示し、その週を過ぎたら未契約分は解散扱いで消える（途中採用なし）。
+	/// 同じ週の間に何度 RefreshAll が呼ばれても（＝候補者を1人採用するたび）応募者一覧は再生成しない。
+	/// </summary>
+	private void RefreshRecruitment()
+	{
+		bool isRecruitmentWeek = _recruitmentSystem.IsRecruitmentWeek(_state.WeekNumber);
+
+		if (isRecruitmentWeek && !_recruitmentOfferedThisYear)
+		{
+			_pendingCandidates = _recruitmentSystem.GenerateCandidates();
+			_recruitmentOfferedThisYear = true;
+			AppendLog($"[color=cyan]★ 第{_state.WeekNumber}週：新春採用試験。応募者が{_pendingCandidates.Count}名来た" +
+				$"（現役枠の空き {_recruitmentSystem.GetOpenSlotCount(_state)}）。[/color]");
+		}
+		else if (!isRecruitmentWeek)
+		{
+			if (_pendingCandidates.Count > 0)
+				AppendLog("[color=gray]新春採用試験の応募期間が終了。未契約の応募者は解散した（途中採用なし）。[/color]");
+			_pendingCandidates.Clear();
+			_recruitmentOfferedThisYear = false;
+		}
+
+		_candidateList.Clear();
+		foreach (var offer in _pendingCandidates)
+		{
+			var c = offer.Candidate;
+			_candidateList.AddItem($"{c.Name}（{c.JobClass}）{c.Age}歳 総合PA{c.TotalPA:F0} 契約金{offer.SigningBonus}G 週給{c.WeeklyWage}G");
+		}
 	}
 
 	/// <summary>
