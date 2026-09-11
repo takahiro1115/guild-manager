@@ -57,6 +57,16 @@ layout_mode = 2
 size_flags_vertical = 3
 select_mode = 1
 
+[node name="Label3" type="Label" parent="Root/BodyPanel/CenterPanel" unique_id=220254184]
+layout_mode = 2
+text = "ステータス詳細（クリックで表示）"
+
+[node name="AdventurerDetailLabel" type="RichTextLabel" parent="Root/BodyPanel/CenterPanel" unique_id=220254185]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 170)
+layout_mode = 2
+bbcode_enabled = true
+
 [node name="RightPanel" type="VBoxContainer" parent="Root/BodyPanel" unique_id=763252257]
 layout_mode = 2
 size_flags_horizontal = 3

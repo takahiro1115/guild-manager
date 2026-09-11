@@ -1,4 +1,5 @@
 using Godot;
+using System;
 using System.Linq;
 using System.Text;
 using GuildManager.Core.Data;
@@ -8,7 +9,7 @@ using GuildManager.Core.Systems;
 
 /// <summary>
 /// Phase 2 最小UI。「編成→週送り→結果→資金」の輪を一周させるためだけの画面。
-/// 加齢・満足度・施設・格付け等はまだ扱わない（→ docs/06_タスクリスト.md Phase 3以降）。
+/// 満足度・施設・格付け等はまだ扱わない（→ docs/06_タスクリスト.md Phase 3以降）。
 ///
 /// 既知の割り切り（MVPの簡略化）：
 ///  - 週送りのたびにクエスト一覧・冒険者一覧の選択状態はリセットされる（毎週選び直す）。
@@ -27,8 +28,12 @@ public partial class MainDashboard : Control
     private Label _goldLabel = null!;
     private ItemList _questList = null!;
     private ItemList _adventurerList = null!;
+    private RichTextLabel _adventurerDetailLabel = null!;
     private RichTextLabel _resultLog = null!;
     private Button _nextWeekButton = null!;
+
+    /// <summary>ステータス詳細パネルに表示中の冒険者。週送り後もこの人物の表示を維持する。</summary>
+    private Guid? _detailAdventurerId;
 
     public override void _Ready()
     {
@@ -36,11 +41,13 @@ public partial class MainDashboard : Control
         _goldLabel = GetNode<Label>("%GoldLabel");
         _questList = GetNode<ItemList>("%QuestList");
         _adventurerList = GetNode<ItemList>("%AdventurerList");
+        _adventurerDetailLabel = GetNode<RichTextLabel>("%AdventurerDetailLabel");
         _resultLog = GetNode<RichTextLabel>("%ResultLog");
         _nextWeekButton = GetNode<Button>("%NextWeekButton");
 
         _adventurerList.SelectMode = ItemList.SelectModeEnum.Multi;
         _adventurerList.MultiSelected += OnAdventurerMultiSelected;
+        _adventurerList.ItemClicked += OnAdventurerItemClicked;
         _nextWeekButton.Pressed += OnNextWeekPressed;
 
         _state = new GameState
@@ -90,6 +97,14 @@ public partial class MainDashboard : Control
         {
             _adventurerList.Deselect((int)index);
         }
+    }
+
+    /// <summary>
+    /// 冒険者一覧のクリックでステータス詳細パネルを更新する（編成の選択/解除とは独立）。
+    /// </summary>
+    private void OnAdventurerItemClicked(long index, Vector2 atPosition, long mouseButtonIndex)
+    {
+        ShowAdventurerDetail(_state.Adventurers[(int)index]);
     }
 
     /// <summary>
@@ -180,5 +195,60 @@ public partial class MainDashboard : Control
                 : "";
             _adventurerList.AddItem($"{a.Name}（{a.JobClass}） HP{a.CurrentHP}/{a.MaxHP} {status}");
         }
+
+        RefreshAdventurerDetail();
     }
+
+    /// <summary>
+    /// ステータス詳細パネルを、直近にクリックされた冒険者（居なければ先頭）の最新の値で再描画する。
+    /// 週送り直後もパネルの表示対象を維持するため RefreshAll から毎回呼び出す。
+    /// </summary>
+    private void RefreshAdventurerDetail()
+    {
+        var target = _detailAdventurerId.HasValue
+            ? _state.Adventurers.FirstOrDefault(a => a.Id == _detailAdventurerId.Value)
+            : null;
+        target ??= _state.Adventurers.FirstOrDefault();
+
+        if (target != null)
+            ShowAdventurerDetail(target);
+    }
+
+    /// <summary>冒険者1名分のステータス詳細（仕様書 03 §2）を詳細パネルに表示する。</summary>
+    private void ShowAdventurerDetail(Adventurer a)
+    {
+        _detailAdventurerId = a.Id;
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"[b]{a.Name}[/b]（{a.JobClass}） {a.Age}歳・{AgeBandLabel(a.AgeBand)}");
+        sb.AppendLine($"HP {a.CurrentHP}/{a.MaxHP}　疲労度 {a.Fatigue}/100　満足度 {a.Satisfaction}/100");
+        sb.AppendLine(InjuryLabel(a));
+        sb.AppendLine();
+        sb.AppendLine("[b]能力値（実効値 / 潜在能力PA）[/b]");
+        sb.AppendLine($"STR {a.STR} / {a.PA_STR}　　AGI {a.AGI} / {a.PA_AGI}　　END {a.END} / {a.PA_END}");
+        sb.AppendLine($"MAG {a.MAG} / {a.PA_MAG}　　SCT {a.SCT} / {a.PA_SCT}　　LDR {a.LDR} / {a.PA_LDR}");
+        sb.AppendLine($"総合PA: {a.TotalPA:F1}");
+        sb.AppendLine();
+        sb.AppendLine($"週給: {a.WeeklyWage} G");
+
+        _adventurerDetailLabel.Clear();
+        _adventurerDetailLabel.AppendText(sb.ToString());
+    }
+
+    private static string AgeBandLabel(AgeBand band) => band switch
+    {
+        AgeBand.GrowthPeriod => "成長期",
+        AgeBand.PrimePeriod => "全盛期",
+        AgeBand.MaturePeriod => "円熟期",
+        AgeBand.LimitPeriod => "限界期",
+        _ => band.ToString()
+    };
+
+    private static string InjuryLabel(Adventurer a) => a.Injury switch
+    {
+        InjurySeverity.None => "負傷: なし",
+        InjurySeverity.Light => $"負傷: 軽傷（全治まで{a.InjuryWeeksRemaining}週）",
+        InjurySeverity.Severe => $"[color=red]負傷: 重傷・出撃不可（全治まで{a.InjuryWeeksRemaining}週）[/color]",
+        _ => a.Injury.ToString()
+    };
 }
