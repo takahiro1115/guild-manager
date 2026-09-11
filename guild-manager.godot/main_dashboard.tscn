@@ -68,6 +68,21 @@ custom_minimum_size = Vector2(0, 170)
 layout_mode = 2
 bbcode_enabled = true
 
+[node name="NegotiationRow" type="HBoxContainer" parent="Root/BodyPanel/CenterPanel" unique_id=220254190]
+layout_mode = 2
+
+[node name="RaiseWageButton" type="Button" parent="Root/BodyPanel/CenterPanel/NegotiationRow" unique_id=220254191]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "昇給する（週給1.5倍）"
+
+[node name="PayBonusButton" type="Button" parent="Root/BodyPanel/CenterPanel/NegotiationRow" unique_id=220254192]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "ボーナスを払う"
+
 [node name="RightPanel" type="VBoxContainer" parent="Root/BodyPanel" unique_id=763252257]
 layout_mode = 2
 size_flags_horizontal = 3

@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using GuildManager.Core.Balance;
 using GuildManager.Core.Data;
 using GuildManager.Core.Models;
 using GuildManager.Core.Rng;
@@ -29,6 +30,7 @@ public partial class MainDashboard : Control
 	private RestRecoverySystem _restRecoverySystem = null!;
 	private TrainingSystem _trainingSystem = null!;
 	private RecruitmentSystem _recruitmentSystem = null!;
+	private SatisfactionSystem _satisfactionSystem = null!;
 
 	private Label _weekLabel = null!;
 	private Label _goldLabel = null!;
@@ -38,6 +40,8 @@ public partial class MainDashboard : Control
 	private RichTextLabel _resultLog = null!;
 	private Button _nextWeekButton = null!;
 	private RecruitmentPopup _recruitmentPopup = null!;
+	private Button _raiseWageButton = null!;
+	private Button _payBonusButton = null!;
 
 	/// <summary>ステータス詳細パネルに表示中の冒険者。週送り後もこの人物の表示を維持する。</summary>
 	private Guid? _detailAdventurerId;
@@ -52,12 +56,16 @@ public partial class MainDashboard : Control
 		_resultLog = GetNode<RichTextLabel>("%ResultLog");
 		_nextWeekButton = GetNode<Button>("%NextWeekButton");
 		_recruitmentPopup = GetNode<RecruitmentPopup>("%RecruitmentPopup");
+		_raiseWageButton = GetNode<Button>("%RaiseWageButton");
+		_payBonusButton = GetNode<Button>("%PayBonusButton");
 
 		_adventurerList.SelectMode = ItemList.SelectModeEnum.Multi;
 		_adventurerList.MultiSelected += OnAdventurerMultiSelected;
 		_adventurerList.ItemClicked += OnAdventurerItemClicked;
 		_nextWeekButton.Pressed += OnNextWeekPressed;
 		_recruitmentPopup.Closed += OnRecruitmentPopupClosed;
+		_raiseWageButton.Pressed += OnRaiseWagePressed;
+		_payBonusButton.Pressed += OnPayBonusPressed;
 
 		_state = new GameState
 		{
@@ -74,6 +82,7 @@ public partial class MainDashboard : Control
 		_restRecoverySystem = new RestRecoverySystem();
 		_trainingSystem = new TrainingSystem();
 		_recruitmentSystem = new RecruitmentSystem(new SeededRng(2024));
+		_satisfactionSystem = new SatisfactionSystem();
 
 		RefreshAll();
 
@@ -165,6 +174,7 @@ public partial class MainDashboard : Control
 			var result = _questResolver.Resolve(party, quest);
 			_economySystem.ApplyReward(_state, result.RewardGold);
 			var deploymentGrowth = _growthSystem.ProcessDeploymentGrowth(party, quest); // → 03 §3.1〜3.4：成長トリガー経路1（出撃）
+			_satisfactionSystem.ApplyQuestAchievementBonus(party, quest, result.QuestAchieved); // → 03 §5.1：勝利・功績ボーナス
 			LogResult(thisWeek, quest, result);
 			LogGrowthEvents(deploymentGrowth);
 		}
@@ -180,6 +190,9 @@ public partial class MainDashboard : Control
 		_restRecoverySystem.ProcessWeeklyRest(_state, dispatchedIds); // → 03 §3.5改：静養・HP自然回復（訓練場配置中は対象外）
 		var trainingGrowth = _growthSystem.ProcessTrainingGrowth(_state, dispatchedIds); // → 03 §3.1〜3.4：成長トリガー経路2（訓練場配置）
 		LogGrowthEvents(trainingGrowth);
+		_satisfactionSystem.ProcessWeeklySatisfaction(_state, dispatchedIds); // → 03 §5.1：満足度変動
+		var terminated = _satisfactionSystem.ProcessWeeklyNegotiation(_state); // → 03 §5.2：契約交渉・退団
+		LogNegotiationStatus(terminated);
 		_agingSystem.ProcessWeeklyAging(_state); // → 03 §3：加齢・衰微モデル
 		_state.WeekNumber++;
 
@@ -224,6 +237,57 @@ public partial class MainDashboard : Control
 				$"[color=yellow][font_size=20][b]▲ {e.Adventurer.Name} の {e.Stat} が上昇！ {e.Before} → {e.After}[/b][/font_size][/color]");
 		}
 	}
+
+	/// <summary>
+	/// 契約交渉の状況を週報ログに報告する（→ 03 §5.2）。
+	/// 警告中の全員に残り猶予週数を毎週リマインドし、契約解除された者を報告する。
+	/// </summary>
+	private void LogNegotiationStatus(List<Adventurer> terminated)
+	{
+		foreach (var a in _state.Adventurers)
+		{
+			if (!a.NeedsNegotiation) continue;
+			int remaining = Math.Max(0, SatisfactionBalance.NegotiationGraceWeeks - a.NegotiationWeeksElapsed);
+			AppendLog($"[color=orange][b]⚠ {a.Name} が契約に不満（満足度{a.Satisfaction}）。" +
+				$"あと{remaining}週以内に昇給かボーナスで対応しないと退団する。[/b][/color]");
+		}
+
+		foreach (var a in terminated)
+		{
+			AppendLog($"[color=red][b]✕ {a.Name} が契約を解除し、他都市へ移籍した。[/b][/color]");
+		}
+	}
+
+	/// <summary>
+	/// 「昇給する」ボタン（→ 03 §5.2）。表示中の冒険者の週給を1.5倍に引き上げる
+	/// （倍率選択UIは未実装のため、仕様の下限=最小限の昇給で固定。→ 03 §5.2）。
+	/// </summary>
+	private void OnRaiseWagePressed()
+	{
+		var target = CurrentDetailAdventurer();
+		if (target == null) return;
+
+		_satisfactionSystem.RaiseWage(target, 1.5);
+		AppendLog($"[color=lime]{target.Name} の週給を {target.WeeklyWage}G に引き上げた。[/color]");
+		RefreshAll();
+	}
+
+	/// <summary>「ボーナスを払う」ボタン（→ 03 §5.2）。表示中の冒険者に一時金を支給する。</summary>
+	private void OnPayBonusPressed()
+	{
+		var target = CurrentDetailAdventurer();
+		if (target == null) return;
+
+		int bonus = target.WeeklyWage * SatisfactionBalance.BonusWeeksEquivalent;
+		_satisfactionSystem.PayBonus(_state, target);
+		AppendLog($"[color=lime]{target.Name} にボーナス {bonus}G を支給した。[/color]");
+		RefreshAll();
+	}
+
+	private Adventurer CurrentDetailAdventurer() =>
+		_detailAdventurerId.HasValue
+			? _state.Adventurers.FirstOrDefault(a => a.Id == _detailAdventurerId.Value)
+			: null;
 
 	private void AppendLog(string bbcodeText)
 	{
@@ -277,6 +341,11 @@ public partial class MainDashboard : Control
 		sb.AppendLine($"[b]{a.Name}[/b]（{a.JobClass}） {a.Age}歳・{AgeBandLabel(a.AgeBand)}");
 		sb.AppendLine($"HP {a.CurrentHP}/{a.MaxHP}　満足度 {a.Satisfaction}/100");
 		sb.AppendLine(InjuryLabel(a));
+		if (a.NeedsNegotiation)
+		{
+			int remaining = Math.Max(0, SatisfactionBalance.NegotiationGraceWeeks - a.NegotiationWeeksElapsed);
+			sb.AppendLine($"[color=orange]⚠ 契約交渉中（あと{remaining}週で対応しないと退団）[/color]");
+		}
 		sb.AppendLine();
 		sb.AppendLine("[b]能力値（実効値 / 潜在能力PA）[/b]");
 		sb.AppendLine($"STR {a.STR} / {a.PA_STR}　　AGI {a.AGI} / {a.PA_AGI}　　END {a.END} / {a.PA_END}");

@@ -66,6 +66,17 @@ namespace GuildManager.Core.Models
         public int Satisfaction { get; set; } = 70;
         public InjurySeverity Injury { get; set; } = InjurySeverity.None;
 
+        // ---- 満足度・契約交渉（仕様書 03 §5.1・§5.2）。→ SatisfactionSystem が更新する。 ----
+
+        /// <summary>直近出撃してからの連続週数（出撃した週に0へリセット）。出場機会ペナルティ判定に使う（§5.1）。</summary>
+        public int WeeksSinceLastDeployment { get; set; } = 0;
+
+        /// <summary>満足度20未満で立つ交渉警告フラグ（§5.2「昇給要求」「移籍検討」）。</summary>
+        public bool NeedsNegotiation { get; set; } = false;
+
+        /// <summary>交渉警告が立ってから経過した週数。2週を超えて未対応だと契約解除される。</summary>
+        public int NegotiationWeeksElapsed { get; set; } = 0;
+
         /// <summary>負傷が治るまでの残り週数。0ならNoneに戻る（→ 03 §3.6 負傷回復処理）。</summary>
         public int InjuryWeeksRemaining { get; set; } = 0;
 
