@@ -27,13 +27,13 @@ namespace GuildManager.Core.Tests
         // ---------------- 新春採用試験の週判定（§2.4「タイミング」） ----------------
 
         [Theory]
-        [InlineData(1, true)]    // 1年目・第1週
+        [InlineData(1, false)]   // 1年目・第1週：初期メンバー配備済みのため対象外
         [InlineData(2, false)]
         [InlineData(48, false)]  // 1年目・年度末
-        [InlineData(49, true)]   // 2年目・第1週
+        [InlineData(49, true)]   // 2年目・第1週：最初の採用試験
         [InlineData(96, false)]  // 2年目・年度末
         [InlineData(97, true)]   // 3年目・第1週
-        public void IsRecruitmentWeek_OnlyTrueAtWeekOneOfEachYear(int weekNumber, bool expected)
+        public void IsRecruitmentWeek_OnlyTrueAtWeekOneOfEachYearExceptTheFirst(int weekNumber, bool expected)
         {
             var system = new RecruitmentSystem(new AlwaysMinRng());
             Assert.Equal(expected, system.IsRecruitmentWeek(weekNumber));

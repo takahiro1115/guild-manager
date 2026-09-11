@@ -54,9 +54,16 @@ namespace GuildManager.Core.Systems
             _rng = rng;
         }
 
-        /// <summary>新春採用試験の週（各年度の第1週）かどうか。</summary>
-        public bool IsRecruitmentWeek(int weekNumber) =>
-            ((weekNumber - 1) % WeeksPerYear) + 1 == 1;
+        /// <summary>
+        /// 新春採用試験の週（2年目以降・各年度の第1週）かどうか。
+        /// 1年目（ゲーム開始時点の第1週）は初期メンバーが既に配備されているため対象外
+        /// （→ 03 §2.4「初期メンバーは採用システム対象外」）。
+        /// </summary>
+        public bool IsRecruitmentWeek(int weekNumber)
+        {
+            if (weekNumber <= WeeksPerYear) return false; // 1年目は対象外
+            return ((weekNumber - 1) % WeeksPerYear) + 1 == 1;
+        }
 
         /// <summary>現役枠の上限（→ 03 §2.4「雇用枠」。施設Lv未実装のため固定値）。</summary>
         public int GetActiveSlotCap(GameState state) => DefaultActiveSlotCap;
