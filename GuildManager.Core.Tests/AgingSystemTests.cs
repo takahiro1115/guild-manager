@@ -111,22 +111,22 @@ namespace GuildManager.Core.Tests
 
             // AlwaysMinRng: 対象数=1、抽選プール["STR","AGI","END"]の先頭=STR、低下量=下限(1)
             Assert.Equal(39, adventurer.STR);
-            Assert.Equal(79, adventurer.PA_STR); // PAも同じ量だけ低下する（§2.2）
+            Assert.Equal(80, adventurer.PA_STR); // PAには影響しない（成長上限は変わらない。新仕様）
             Assert.Equal(40, adventurer.AGI);
             Assert.Equal(40, adventurer.END);
         }
 
         [Fact]
-        public void ProcessWeeklyAging_Decline_NeverDropsBelowOne()
+        public void ProcessWeeklyAging_Decline_NeverDropsBelowZero()
         {
-            var adventurer = new Adventurer { Age = 30, STR = 1, PA_STR = 1, AGI = 40, PA_AGI = 80, END = 40, PA_END = 80 };
+            var adventurer = new Adventurer { Age = 30, STR = 0, PA_STR = 80, AGI = 40, PA_AGI = 80, END = 40, PA_END = 80 };
             var state = CreateState(adventurer, weekNumber: 48);
             var system = new AgingSystem(new AlwaysMinRng());
 
             system.ProcessWeeklyAging(state);
 
-            Assert.Equal(1, adventurer.STR);
-            Assert.Equal(1, adventurer.PA_STR);
+            Assert.Equal(0, adventurer.STR); // 実効値の下限は0（新仕様）
+            Assert.Equal(80, adventurer.PA_STR); // PAは不変
         }
 
         // ---------------- 限界期の衰微（年2回・低下量拡大） ----------------
@@ -190,7 +190,7 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void ProcessWeeklyAging_RetiresAtFortyYearEnd()
         {
-            var adventurer = new Adventurer { Age = 40, STR = 30, PA_STR = 60 };
+            var adventurer = new Adventurer { Age = 40, STR = 30, PA_STR = 60, WeeklyWage = 50 };
             var state = CreateState(adventurer, weekNumber: 48);
             var system = new AgingSystem(new AlwaysMinRng());
 
@@ -199,6 +199,59 @@ namespace GuildManager.Core.Tests
             Assert.True(adventurer.IsRetired);
             Assert.Equal(40, adventurer.Age); // それ以上は加齢しない
             Assert.False(adventurer.IsAvailable);
+        }
+
+        [Fact]
+        public void ProcessWeeklyAging_Retirement_MovesFromActiveToRetiredRoster()
+        {
+            var adventurer = new Adventurer { Age = 40 };
+            var state = CreateState(adventurer, weekNumber: 48);
+            var system = new AgingSystem(new AlwaysMinRng());
+
+            system.ProcessWeeklyAging(state);
+
+            Assert.DoesNotContain(adventurer, state.Adventurers);
+            Assert.Contains(adventurer, state.RetiredAdventurers);
+        }
+
+        [Fact]
+        public void ProcessWeeklyAging_Retirement_PaysSeveranceOfTwelveWeeksWage()
+        {
+            var adventurer = new Adventurer { Age = 40, WeeklyWage = 50 };
+            var state = CreateState(adventurer, weekNumber: 48);
+            state.Gold = 1000;
+            var system = new AgingSystem(new AlwaysMinRng());
+
+            system.ProcessWeeklyAging(state);
+
+            Assert.Equal(1000 - 50 * 12, state.Gold);
+            Assert.True(adventurer.SeverancePaid);
+        }
+
+        [Fact]
+        public void ProcessWeeklyAging_Retirement_RecordsAgeAndWeek()
+        {
+            var adventurer = new Adventurer { Age = 40 };
+            var state = CreateState(adventurer, weekNumber: 48);
+            var system = new AgingSystem(new AlwaysMinRng());
+
+            system.ProcessWeeklyAging(state);
+
+            Assert.Equal(40, adventurer.RetiredAtAge);
+            Assert.Equal(48, adventurer.RetiredAtWeek);
+        }
+
+        [Fact]
+        public void ProcessWeeklyAging_Retirement_FreesTrainingSlot()
+        {
+            var adventurer = new Adventurer { Age = 40 };
+            var state = CreateState(adventurer, weekNumber: 48);
+            state.TrainingAssignments.Add(adventurer.Id);
+            var system = new AgingSystem(new AlwaysMinRng());
+
+            system.ProcessWeeklyAging(state);
+
+            Assert.DoesNotContain(adventurer.Id, state.TrainingAssignments);
         }
 
         [Fact]
@@ -212,6 +265,28 @@ namespace GuildManager.Core.Tests
 
             Assert.Equal(30, adventurer.STR); // 衰微処理も年齢処理も走らない
             Assert.Equal(40, adventurer.Age);
+        }
+
+        [Fact]
+        public void ProcessWeeklyAging_OneRetirement_DoesNotSkipProcessingOtherAdventurers()
+        {
+            // state.Adventurersを直接foreachすると、途中でRemoveしたときに
+            // コレクション変更例外や後続要素のスキップが起こりうる。スナップショットで
+            // 回避できていることを、複数人・年度末処理で確認する。
+            var retiring = new Adventurer { Age = 40 };
+            var stayingYoung = new Adventurer { Age = 20 };
+            var state = new GameState
+            {
+                WeekNumber = 48,
+                Adventurers = { retiring, stayingYoung },
+            };
+            var system = new AgingSystem(new AlwaysMinRng());
+
+            system.ProcessWeeklyAging(state);
+
+            Assert.Contains(retiring, state.RetiredAdventurers);
+            Assert.Contains(stayingYoung, state.Adventurers);
+            Assert.Equal(21, stayingYoung.Age); // 年度末の加齢が正しく適用されている
         }
     }
 }

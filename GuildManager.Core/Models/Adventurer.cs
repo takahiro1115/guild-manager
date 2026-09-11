@@ -41,8 +41,21 @@ namespace GuildManager.Core.Models
             Age <= 34 ? AgeBand.MaturePeriod :
             AgeBand.LimitPeriod;
 
-        /// <summary>40歳年度末で強制引退したか（仕様書 03 §3.7）。→ AgingSystem が設定する。</summary>
+        /// <summary>40歳年度末で強制引退したか（仕様書 03 §3.7）。→ AgingSystem が設定する。
+        /// 引退した冒険者は GameState.Adventurers から GameState.RetiredAdventurers へ移される。
+        /// このフラグ自体は移動後も参照できるよう残す（防御的なガード・監査用）。</summary>
         public bool IsRetired { get; set; } = false;
+
+        // ---- 引退記録（仕様書 03 §3.7つづき）。§7顧問制度が未実装の間の「引退済み・顧問候補」データ。 ----
+
+        /// <summary>引退時点の年齢。強制引退は常に40だが、将来の任意引退等に備えて記録する。</summary>
+        public int? RetiredAtAge { get; set; }
+
+        /// <summary>引退した週番号（GameState.WeekNumber）。§7実装時の参考情報として保持。</summary>
+        public int? RetiredAtWeek { get; set; }
+
+        /// <summary>退職金（週給×12週。仕様書 03 §7）が支給済みか。</summary>
+        public bool SeverancePaid { get; set; } = false;
 
         // ---- 動的・コンディション属性。仕様書 03 §2.3 ----
 

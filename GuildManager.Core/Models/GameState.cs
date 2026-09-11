@@ -15,6 +15,15 @@ namespace GuildManager.Core.Models
         public int Gold { get; set; } = 3000;
 
         public List<Adventurer> Adventurers { get; set; } = new();
+
+        /// <summary>
+        /// 40歳強制引退した冒険者の一覧（仕様書 03 §3.7つづき）。現役ロースター
+        /// （Adventurers）からは除外しつつ、データとしては破棄しない。
+        /// §7顧問制度が未実装の間は「引退済み・顧問候補」として保持するのみで、
+        /// 教官・スカウト・参謀としての実際の効果は付与しない。§7実装時にここから再任用する想定。
+        /// </summary>
+        public List<Adventurer> RetiredAdventurers { get; set; } = new();
+
         public List<Quest> AvailableQuests { get; set; } = new();
 
         /// <summary>クエストIDをキーに、そのクエストへ派遣中のパーティを保持する。</summary>
