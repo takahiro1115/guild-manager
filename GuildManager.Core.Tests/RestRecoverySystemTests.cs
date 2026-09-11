@@ -98,5 +98,20 @@ namespace GuildManager.Core.Tests
 
             Assert.Equal(90, adventurer.CurrentHP);
         }
+
+        [Fact]
+        public void ProcessWeeklyRest_DoesNotHealTrainingAssignedAdventurer()
+        {
+            // 訓練場配置中はTrainingSystemが別のHP処理を行うため、静養回復の対象外
+            // （出撃／訓練場配置／単純待機は互いに排他。→ 03 §3.5改）。
+            var adventurer = new Adventurer { END = 20, CurrentHP = 50 };
+            var state = new GameState { Adventurers = { adventurer } };
+            state.TrainingAssignments.Add(adventurer.Id);
+            var system = new RestRecoverySystem();
+
+            system.ProcessWeeklyRest(state, NoDispatch);
+
+            Assert.Equal(50, adventurer.CurrentHP);
+        }
     }
 }

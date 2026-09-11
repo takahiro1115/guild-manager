@@ -27,6 +27,7 @@ public partial class MainDashboard : Control
 	private AgingSystem _agingSystem = null!;
 	private GrowthSystem _growthSystem = null!;
 	private RestRecoverySystem _restRecoverySystem = null!;
+	private TrainingSystem _trainingSystem = null!;
 	private RecruitmentSystem _recruitmentSystem = null!;
 
 	private Label _weekLabel = null!;
@@ -71,6 +72,7 @@ public partial class MainDashboard : Control
 		_agingSystem = new AgingSystem(new SeededRng(99));
 		_growthSystem = new GrowthSystem(new SeededRng(7));
 		_restRecoverySystem = new RestRecoverySystem();
+		_trainingSystem = new TrainingSystem();
 		_recruitmentSystem = new RecruitmentSystem(new SeededRng(2024));
 
 		RefreshAll();
@@ -173,8 +175,9 @@ public partial class MainDashboard : Control
 
 		// 出撃の有無にかかわらず、時間は必ず進む。
 		_economySystem.ApplyWeeklyWages(_state);
+		_trainingSystem.ProcessWeeklyTraining(_state, dispatchedIds); // → 03 §3.1〜3.4・§3.5改：訓練場の週次費用・HP微減
 		_injuryRecoverySystem.ProcessWeeklyRecovery(_state);
-		_restRecoverySystem.ProcessWeeklyRest(_state, dispatchedIds); // → 03 §3.5改：静養・HP自然回復
+		_restRecoverySystem.ProcessWeeklyRest(_state, dispatchedIds); // → 03 §3.5改：静養・HP自然回復（訓練場配置中は対象外）
 		var trainingGrowth = _growthSystem.ProcessTrainingGrowth(_state, dispatchedIds); // → 03 §3.1〜3.4：成長トリガー経路2（訓練場配置）
 		LogGrowthEvents(trainingGrowth);
 		_agingSystem.ProcessWeeklyAging(_state); // → 03 §3：加齢・衰微モデル

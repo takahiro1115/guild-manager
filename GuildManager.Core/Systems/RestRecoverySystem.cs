@@ -10,8 +10,11 @@ namespace GuildManager.Core.Systems
     /// 毎週の決算処理で ProcessWeeklyRest を1回呼び出す想定
     /// （InjuryRecoverySystem.ProcessWeeklyRecovery と同様の使い方。§3.6の重傷回復とは別管理）。
     ///
-    /// - 対象：今週このパーティに選ばれず出撃しなかった、かつ重傷以外（無傷・軽傷）の冒険者。
+    /// - 対象：今週このパーティに選ばれず出撃しなかった、かつ訓練場にも配置されていない
+    ///   （＝単純待機の）、重傷以外（無傷・軽傷）の冒険者。
     ///   出撃した者は同じ週の戦闘でHPが増減するため、ここでの回復対象からは外す。
+    ///   訓練場配置中の者は TrainingSystem が別のHP処理（微減・回復なし）を行うため対象外
+    ///   （出撃／訓練場配置／単純待機は互いに排他。→ 03 §3.5改）。
     /// - 重傷（Severe）はこの処理の対象外。§3.6 の InjuryRecoverySystem が別管理する
     ///   （全治週数のカウントダウン → 全快）。
     /// - 回復量は暫定定数（→ BAL: 静養/待機回復。現状は仮値）。上限は MaxHP。
@@ -36,6 +39,9 @@ namespace GuildManager.Core.Systems
             {
                 if (dispatchedAdventurerIds.Contains(adventurer.Id))
                     continue; // 今週出撃した者は静養扱いにしない
+
+                if (state.TrainingAssignments.Contains(adventurer.Id))
+                    continue; // 訓練場配置中はTrainingSystemが別途処理する（§3.5改：排他）
 
                 if (adventurer.Injury == InjurySeverity.Severe)
                     continue; // 重傷は§3.6（InjuryRecoverySystem）が別管理
