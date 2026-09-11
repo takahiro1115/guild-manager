@@ -14,8 +14,8 @@ namespace GuildManager.Core.Balance
         /// 職業×配置による個人CP補正倍率（→ 03 §4.2「職業配置補正(職業, 配置)」。→ BAL: 戦闘/配置補正）。
         /// 本来の役割どおりの配置（前衛職が前衛、後衛専任職が後衛）はボーナス、外れた配置はペナルティ。
         /// Ranger は前衛/後衛どちらも適性がある職業のため補正なし（仕様書 03 §2.1）。
-        /// Mage/ClericのFrontはTrySetPlacementで到達不能な組み合わせだが、直接フィールド操作等で
-        /// 万一発生した場合に備え定義だけは用意しておく。
+        /// 配置は職業で固定されないため（→ PlacementRules）、Mage/ClericのFrontも実際に選べる
+        /// 組み合わせ：役割から外れる分のペナルティ（0.8倍）としてここに反映している。
         /// </summary>
         public static double GetPersonalCpCorrection(JobClass jobClass, Placement placement) => (jobClass, placement) switch
         {

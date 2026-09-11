@@ -288,9 +288,8 @@ public partial class MainDashboard : Control
 	}
 
 	/// <summary>
-	/// 「前衛⇔後衛を切り替える」ボタン（→ 03 §4.2）。魔導士・神官（後衛固定職）は
-	/// ボタン自体を無効化しているため、ここに来る時点でTrySetPlacementは常に成功するはずだが、
-	/// 念のため戻り値も確認する。
+	/// 「前衛⇔後衛を切り替える」ボタン（→ 03 §4.2）。配置は職業で固定されないため
+	/// 全職業で常に切り替え可能（TrySetPlacementは常に成功する）。
 	/// </summary>
 	private void OnPlacementTogglePressed()
 	{
@@ -379,8 +378,7 @@ public partial class MainDashboard : Control
 		_adventurerDetailLabel.Clear();
 		_adventurerDetailLabel.AppendText(sb.ToString());
 
-		// 魔導士・神官（後衛固定職）は切り替え操作自体を無効化する（→ 03 §4.2）。
-		_placementButton.Disabled = PlacementRules.IsBackOnly(a.JobClass);
+		// 配置は職業で固定されないため、常に切り替え可能（→ 03 §4.2）。
 		_placementButton.Text = a.Placement == Placement.Front ? "後衛に変更する" : "前衛に変更する";
 	}
 

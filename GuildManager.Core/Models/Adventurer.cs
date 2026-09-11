@@ -17,19 +17,18 @@ namespace GuildManager.Core.Models
         /// 配置（前衛/後衛）。仕様書 03 §4.2 参照。冒険者個人に紐づく永続状態で、
         /// クエストをまたいで保持される。生成時に PlacementRules.GetDefault(JobClass) で
         /// 職業に応じた初期値を設定する想定（→ SampleData・RecruitmentSystem）。
-        /// 直接変更せず TrySetPlacement を使うこと（後衛固定職のガードがあるため）。
+        /// 配置は職業で固定されない。どの職業でも自由に前衛/後衛を選べる
+        /// （ユーザー決定：「魔法使いや僧侶も前衛になることができる。職業で固定になることはない」）。
+        /// 役割から外れた配置のペナルティは個人CP補正（→ Balance/PlacementBalance）で表現する。
         /// </summary>
         public Placement Placement { get; set; } = Placement.Front;
 
         /// <summary>
-        /// 配置を変更する。魔導士・神官（後衛固定職）をFrontにしようとした場合は失敗しfalseを返す
-        /// （Party.TryAddの失敗パターンに倣う）。
+        /// 配置を変更する。職業による制約は無いため常に成功するが、Party.TryAdd等の
+        /// 既存の「Try」系メソッドと同じ形（bool戻り値）に揃えてある。
         /// </summary>
         public bool TrySetPlacement(Placement placement)
         {
-            if (placement == Placement.Front && PlacementRules.IsBackOnly(JobClass))
-                return false;
-
             Placement = placement;
             return true;
         }

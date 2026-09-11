@@ -5,11 +5,14 @@ namespace GuildManager.Core.Tests
 {
     /// <summary>
     /// 配置（Placement）のルール（仕様書 03 §4.2）のテスト。
+    /// 配置は職業で固定されない：どの職業でも自由に前衛/後衛を選べる
+    /// （ユーザー決定：「魔法使いや僧侶も前衛になることができる。職業で固定になることはない」）。
+    /// 職業ごとに決まるのは生成時のデフォルト値のみ。
     /// 実行方法: このフォルダで `dotnet test`
     /// </summary>
     public class PlacementTests
     {
-        // ---------------- 職業デフォルト（PlacementRules） ----------------
+        // ---------------- 職業デフォルト（PlacementRules.GetDefault） ----------------
 
         [Theory]
         [InlineData(JobClass.Warrior, Placement.Front)]
@@ -21,35 +24,14 @@ namespace GuildManager.Core.Tests
             Assert.Equal(expected, PlacementRules.GetDefault(jobClass));
         }
 
-        [Theory]
-        [InlineData(JobClass.Mage, true)]
-        [InlineData(JobClass.Cleric, true)]
-        [InlineData(JobClass.Warrior, false)]
-        [InlineData(JobClass.Ranger, false)]
-        public void IsBackOnly_MatchesJobClassRule(JobClass jobClass, bool expected)
-        {
-            Assert.Equal(expected, PlacementRules.IsBackOnly(jobClass));
-        }
-
-        // ---------------- Adventurer.TrySetPlacement ----------------
+        // ---------------- Adventurer.TrySetPlacement：全職業で自由に変更できる ----------------
 
         [Theory]
         [InlineData(JobClass.Warrior)]
         [InlineData(JobClass.Ranger)]
-        public void TrySetPlacement_AllowsBackForFrontEligibleJobs(JobClass jobClass)
-        {
-            var adventurer = new Adventurer { JobClass = jobClass, Placement = Placement.Front };
-
-            bool result = adventurer.TrySetPlacement(Placement.Back);
-
-            Assert.True(result);
-            Assert.Equal(Placement.Back, adventurer.Placement);
-        }
-
-        [Theory]
-        [InlineData(JobClass.Warrior)]
-        [InlineData(JobClass.Ranger)]
-        public void TrySetPlacement_AllowsFrontAgain_ForFrontEligibleJobs(JobClass jobClass)
+        [InlineData(JobClass.Mage)]
+        [InlineData(JobClass.Cleric)]
+        public void TrySetPlacement_AllowsFrontForEveryJobClass(JobClass jobClass)
         {
             var adventurer = new Adventurer { JobClass = jobClass, Placement = Placement.Back };
 
@@ -60,25 +42,13 @@ namespace GuildManager.Core.Tests
         }
 
         [Theory]
+        [InlineData(JobClass.Warrior)]
+        [InlineData(JobClass.Ranger)]
         [InlineData(JobClass.Mage)]
         [InlineData(JobClass.Cleric)]
-        public void TrySetPlacement_RejectsFront_ForBackOnlyJobs(JobClass jobClass)
+        public void TrySetPlacement_AllowsBackForEveryJobClass(JobClass jobClass)
         {
-            var adventurer = new Adventurer { JobClass = jobClass, Placement = Placement.Back };
-
-            bool result = adventurer.TrySetPlacement(Placement.Front);
-
-            Assert.False(result);
-            Assert.Equal(Placement.Back, adventurer.Placement); // 変更されない
-        }
-
-        [Theory]
-        [InlineData(JobClass.Mage)]
-        [InlineData(JobClass.Cleric)]
-        public void TrySetPlacement_AllowsBack_ForBackOnlyJobs(JobClass jobClass)
-        {
-            // 既に後衛の後衛固定職に対してBackを指定しても、当然成功する（変化なしでもOK扱い）。
-            var adventurer = new Adventurer { JobClass = jobClass, Placement = Placement.Back };
+            var adventurer = new Adventurer { JobClass = jobClass, Placement = Placement.Front };
 
             bool result = adventurer.TrySetPlacement(Placement.Back);
 
