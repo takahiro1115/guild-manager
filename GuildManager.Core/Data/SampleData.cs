@@ -45,10 +45,15 @@ namespace GuildManager.Core.Data
                 },
             };
 
-            // 開始時はHPを満タンにしておく（MaxHPはENDから計算されるため、
-            // ステータス設定後にここで初期化する）。
             foreach (var a in list)
+            {
+                // 開始時はHPを満タンにしておく（MaxHPはENDから計算されるため、
+                // ステータス設定後にここで初期化する）。
                 a.CurrentHP = a.MaxHP;
+
+                // 配置（Placement）の初期値は職業から自動決定する（→ 03 §4.2）。
+                a.Placement = PlacementRules.GetDefault(a.JobClass);
+            }
 
             return list;
         }

@@ -1,3 +1,4 @@
+using System;
 using GuildManager.Core.Models;
 using GuildManager.Core.Rng;
 using GuildManager.Core.Systems;
@@ -15,6 +16,14 @@ namespace GuildManager.Core.Tests
         private class AlwaysMaxRng : IRng
         {
             public int NextInt(int min, int max) => max;
+        }
+
+        /// <summary>NextInt(min, max) が固定値を [min, max] にクランプして返すテスト用スタブ。</summary>
+        private class FixedRng : IRng
+        {
+            private readonly int _value;
+            public FixedRng(int value) => _value = value;
+            public int NextInt(int min, int max) => Math.Clamp(_value, min, max);
         }
 
         [Theory]
@@ -49,8 +58,8 @@ namespace GuildManager.Core.Tests
         }
 
         /// <summary>
-        /// Resolve()がHP0到達を検知したら、LevelingSystem（→ 03 §3.8）が経験値対象から
-        /// 除外できるよう DownedAdventurerIds に記録することを確認する。
+        /// Resolve()がHP0到達を検知したら DownedAdventurerIds に記録することを確認する
+        /// （→ 03 §4.3の本来の致死判定を実装する際に使う想定。現状はどのSystemも未参照）。
         /// </summary>
         [Fact]
         public void Resolve_RecordsDownedAdventurer_WhenHpHitsZero()
@@ -69,6 +78,80 @@ namespace GuildManager.Core.Tests
             Assert.Equal(CombatOutcome.Rout, result.Outcome);
             Assert.Contains(weakling.Id, result.DownedAdventurerIds);
             Assert.Equal(1, weakling.CurrentHP); // §4.3のMVP簡易版：ダウン後はHP1で重傷に留まる
+        }
+
+        // ---------------- 配置（Placement）による個人CP補正（→ 03 §4.2） ----------------
+
+        [Fact]
+        public void Resolve_FrontPlacement_YieldsHigherRatioThanBackPlacement_ForSameStats()
+        {
+            // Warriorは前衛が本来の役割（補正1.2倍）、後衛は役割から外れる（0.8倍）。
+            // ステータス・職業を揃え、配置だけを変えて比較する。
+            var frontWarrior = new Adventurer { JobClass = JobClass.Warrior, Placement = Placement.Front, STR = 50, AGI = 50, END = 50, MAG = 50, SCT = 50, LDR = 50 };
+            frontWarrior.CurrentHP = frontWarrior.MaxHP;
+            var backWarrior = new Adventurer { JobClass = JobClass.Warrior, Placement = Placement.Back, STR = 50, AGI = 50, END = 50, MAG = 50, SCT = 50, LDR = 50 };
+            backWarrior.CurrentHP = backWarrior.MaxHP;
+
+            var quest = new Quest { Difficulty = 50, ScoutRequirement = 75 }; // 索敵ぴったり合わせて「通常交戦」域に
+            var resolver = new QuestResolver(new FixedRng(50));
+
+            var frontParty = new Party();
+            frontParty.TryAdd(frontWarrior);
+            var backParty = new Party();
+            backParty.TryAdd(backWarrior);
+
+            var frontResult = resolver.Resolve(frontParty, quest);
+            var backResult = resolver.Resolve(backParty, quest);
+
+            Assert.True(frontResult.Ratio > backResult.Ratio,
+                $"前衛Ratio({frontResult.Ratio})は後衛Ratio({backResult.Ratio})より高いはず");
+        }
+
+        // ---------------- 不意打ち時の後衛被弾ウェイト（→ 03 §4.1↔§4.2） ----------------
+
+        [Fact]
+        public void Resolve_Ambush_AppliesHeavierHpLossToBackRowThanFrontRow()
+        {
+            var front = new Adventurer { Placement = Placement.Front, STR = 1, AGI = 1, END = 50, MAG = 1, SCT = 1, LDR = 1 };
+            front.CurrentHP = front.MaxHP;
+            var back = new Adventurer { Placement = Placement.Back, STR = 1, AGI = 1, END = 50, MAG = 1, SCT = 1, LDR = 1 };
+            back.CurrentHP = back.MaxHP;
+            var party = new Party();
+            party.TryAdd(front);
+            party.TryAdd(back);
+
+            // ScoutRequirementを極端に高くし、AlwaysMaxRngのscoutRoll=100が確実に
+            // 上限（クランプ後、最大でも99）を超えるようにして「不意打ち」を確定させる。
+            var quest = new Quest { Difficulty = 1, ScoutRequirement = 100 };
+            var resolver = new QuestResolver(new AlwaysMaxRng());
+
+            var result = resolver.Resolve(party, quest);
+
+            Assert.Equal(EncounterResult.Ambushed, result.Encounter);
+            int frontLoss = result.HpLostByAdventurer[front.Id];
+            int backLoss = result.HpLostByAdventurer[back.Id];
+            Assert.True(backLoss > frontLoss, $"不意打ち時は後衛の被弾({backLoss})が前衛({frontLoss})より重いはず");
+        }
+
+        [Fact]
+        public void Resolve_NonAmbushEncounter_AppliesSameHpLossRegardlessOfPlacement()
+        {
+            // 奇襲成功・通常交戦では前衛/後衛で差をつけない（→ 03 §4.2追記）。
+            var front = new Adventurer { Placement = Placement.Front, STR = 50, AGI = 50, END = 50, MAG = 50, SCT = 50, LDR = 50 };
+            front.CurrentHP = front.MaxHP;
+            var back = new Adventurer { Placement = Placement.Back, STR = 50, AGI = 50, END = 50, MAG = 50, SCT = 50, LDR = 50 };
+            back.CurrentHP = back.MaxHP;
+            var party = new Party();
+            party.TryAdd(front);
+            party.TryAdd(back);
+
+            var quest = new Quest { Difficulty = 50, ScoutRequirement = 75 }; // 「通常交戦」域に収める
+            var resolver = new QuestResolver(new FixedRng(50));
+
+            var result = resolver.Resolve(party, quest);
+
+            Assert.NotEqual(EncounterResult.Ambushed, result.Encounter);
+            Assert.Equal(result.HpLostByAdventurer[front.Id], result.HpLostByAdventurer[back.Id]);
         }
     }
 }

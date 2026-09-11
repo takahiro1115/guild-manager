@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using GuildManager.Core.Balance;
 using GuildManager.Core.Models;
 using GuildManager.Core.Rng;
 
@@ -91,6 +92,17 @@ namespace GuildManager.Core.Systems
             foreach (var member in party.Members)
             {
                 int lossPct = _rng.NextInt(hpLossMinPct, hpLossMaxPct);
+
+                // 不意打ち時のみ、配置に応じて被弾ウェイトを掛ける（§4.1↔§4.2の接続）。
+                // 奇襲成功・通常交戦では前衛/後衛による差はつけない。
+                if (result.Encounter == EncounterResult.Ambushed)
+                {
+                    double weight = member.Placement == Placement.Back
+                        ? PlacementBalance.AmbushBackRowWeight
+                        : PlacementBalance.AmbushFrontRowWeight;
+                    lossPct = Math.Min(100, (int)Math.Round(lossPct * weight));
+                }
+
                 int hpLoss = member.MaxHP * lossPct / 100;
                 member.CurrentHP = Math.Max(0, member.CurrentHP - hpLoss);
                 result.HpLostByAdventurer[member.Id] = hpLoss;
@@ -101,7 +113,7 @@ namespace GuildManager.Core.Systems
                     member.Injury = InjurySeverity.Severe;
                     member.InjuryWeeksRemaining = _rng.NextInt(3, 8); // → 03 §2.3「重傷: 全治3〜8週」
                     member.CurrentHP = 1;
-                    result.DownedAdventurerIds.Add(member.Id); // → 03 §3.8：LevelingSystemが経験値対象から除外する
+                    result.DownedAdventurerIds.Add(member.Id); // → 03 §4.3の致死判定接続時に使う想定（現状は未参照）
                 }
             }
 
@@ -113,7 +125,8 @@ namespace GuildManager.Core.Systems
             double hpRatio = (double)a.CurrentHP / a.MaxHP;
             double baseCp = a.STR * WeightSTR + a.AGI * WeightAGI + a.END * WeightEND
                             + a.MAG * WeightMAG + a.LDR * WeightLDR;
-            return baseCp * hpRatio;
+            double placementCorrection = PlacementBalance.GetPersonalCpCorrection(a.JobClass, a.Placement);
+            return baseCp * placementCorrection * hpRatio;
         }
 
         /// <summary>

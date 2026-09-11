@@ -42,6 +42,7 @@ public partial class MainDashboard : Control
 	private RecruitmentPopup _recruitmentPopup = null!;
 	private Button _raiseWageButton = null!;
 	private Button _payBonusButton = null!;
+	private Button _placementButton = null!;
 
 	/// <summary>ステータス詳細パネルに表示中の冒険者。週送り後もこの人物の表示を維持する。</summary>
 	private Guid? _detailAdventurerId;
@@ -58,6 +59,7 @@ public partial class MainDashboard : Control
 		_recruitmentPopup = GetNode<RecruitmentPopup>("%RecruitmentPopup");
 		_raiseWageButton = GetNode<Button>("%RaiseWageButton");
 		_payBonusButton = GetNode<Button>("%PayBonusButton");
+		_placementButton = GetNode<Button>("%PlacementButton");
 
 		_adventurerList.SelectMode = ItemList.SelectModeEnum.Multi;
 		_adventurerList.MultiSelected += OnAdventurerMultiSelected;
@@ -66,6 +68,7 @@ public partial class MainDashboard : Control
 		_recruitmentPopup.Closed += OnRecruitmentPopupClosed;
 		_raiseWageButton.Pressed += OnRaiseWagePressed;
 		_payBonusButton.Pressed += OnPayBonusPressed;
+		_placementButton.Pressed += OnPlacementTogglePressed;
 
 		_state = new GameState
 		{
@@ -284,6 +287,24 @@ public partial class MainDashboard : Control
 		RefreshAll();
 	}
 
+	/// <summary>
+	/// 「前衛⇔後衛を切り替える」ボタン（→ 03 §4.2）。魔導士・神官（後衛固定職）は
+	/// ボタン自体を無効化しているため、ここに来る時点でTrySetPlacementは常に成功するはずだが、
+	/// 念のため戻り値も確認する。
+	/// </summary>
+	private void OnPlacementTogglePressed()
+	{
+		var target = CurrentDetailAdventurer();
+		if (target == null) return;
+
+		var newPlacement = target.Placement == Placement.Front ? Placement.Back : Placement.Front;
+		if (target.TrySetPlacement(newPlacement))
+		{
+			AppendLog($"[color=lime]{target.Name} の配置を{PlacementLabel(newPlacement)}に変更した。[/color]");
+			RefreshAll();
+		}
+	}
+
 	private Adventurer CurrentDetailAdventurer() =>
 		_detailAdventurerId.HasValue
 			? _state.Adventurers.FirstOrDefault(a => a.Id == _detailAdventurerId.Value)
@@ -311,7 +332,7 @@ public partial class MainDashboard : Control
 			string status = a.Injury == InjurySeverity.Severe
 				? $"【重傷・出撃不可・回復まで{a.InjuryWeeksRemaining}週】"
 				: "";
-			_adventurerList.AddItem($"{a.Name}（{a.JobClass}） HP{a.CurrentHP}/{a.MaxHP} {status}");
+			_adventurerList.AddItem($"{a.Name}（{a.JobClass}・{PlacementLabel(a.Placement)}） HP{a.CurrentHP}/{a.MaxHP} {status}");
 		}
 
 		RefreshAdventurerDetail();
@@ -339,6 +360,7 @@ public partial class MainDashboard : Control
 
 		var sb = new StringBuilder();
 		sb.AppendLine($"[b]{a.Name}[/b]（{a.JobClass}） {a.Age}歳・{AgeBandLabel(a.AgeBand)}");
+		sb.AppendLine($"配置: {PlacementLabel(a.Placement)}");
 		sb.AppendLine($"HP {a.CurrentHP}/{a.MaxHP}　満足度 {a.Satisfaction}/100");
 		sb.AppendLine(InjuryLabel(a));
 		if (a.NeedsNegotiation)
@@ -356,7 +378,18 @@ public partial class MainDashboard : Control
 
 		_adventurerDetailLabel.Clear();
 		_adventurerDetailLabel.AppendText(sb.ToString());
+
+		// 魔導士・神官（後衛固定職）は切り替え操作自体を無効化する（→ 03 §4.2）。
+		_placementButton.Disabled = PlacementRules.IsBackOnly(a.JobClass);
+		_placementButton.Text = a.Placement == Placement.Front ? "後衛に変更する" : "前衛に変更する";
 	}
+
+	private static string PlacementLabel(Placement placement) => placement switch
+	{
+		Placement.Front => "前衛",
+		Placement.Back => "後衛",
+		_ => placement.ToString()
+	};
 
 	private static string AgeBandLabel(AgeBand band) => band switch
 	{

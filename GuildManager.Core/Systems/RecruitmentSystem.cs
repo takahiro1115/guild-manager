@@ -112,12 +112,14 @@ namespace GuildManager.Core.Systems
             int ageBonus = (int)Math.Round(YoungestAgePaBonus * (1 - ageT));
             double growthRatio = YoungestGrowthRatio + (OldestGrowthRatio - YoungestGrowthRatio) * ageT;
 
+            var jobClass = (JobClass)_rng.NextInt(0, 3);
             var candidate = new Adventurer
             {
                 // 氏名ジェネレータは別タスク（→ docs/06_タスクリスト.md Phase 4）。ここでは仮の識別名。
                 Name = $"新人応募者{(char)('A' + index)}",
                 Age = age,
-                JobClass = (JobClass)_rng.NextInt(0, 3),
+                JobClass = jobClass,
+                Placement = PlacementRules.GetDefault(jobClass), // → 03 §4.2：配置の初期値は職業から自動決定
             };
 
             foreach (var stat in AdventurerStatAccessor.AllStatNames)

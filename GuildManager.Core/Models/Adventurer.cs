@@ -13,6 +13,27 @@ namespace GuildManager.Core.Models
         public int Age { get; set; } = 18;
         public JobClass JobClass { get; set; }
 
+        /// <summary>
+        /// 配置（前衛/後衛）。仕様書 03 §4.2 参照。冒険者個人に紐づく永続状態で、
+        /// クエストをまたいで保持される。生成時に PlacementRules.GetDefault(JobClass) で
+        /// 職業に応じた初期値を設定する想定（→ SampleData・RecruitmentSystem）。
+        /// 直接変更せず TrySetPlacement を使うこと（後衛固定職のガードがあるため）。
+        /// </summary>
+        public Placement Placement { get; set; } = Placement.Front;
+
+        /// <summary>
+        /// 配置を変更する。魔導士・神官（後衛固定職）をFrontにしようとした場合は失敗しfalseを返す
+        /// （Party.TryAddの失敗パターンに倣う）。
+        /// </summary>
+        public bool TrySetPlacement(Placement placement)
+        {
+            if (placement == Placement.Front && PlacementRules.IsBackOnly(JobClass))
+                return false;
+
+            Placement = placement;
+            return true;
+        }
+
         // ---- 能力値（実効値 1〜100）。仕様書 03 §2.2 ----
         public int STR { get; set; }
         public int AGI { get; set; }
