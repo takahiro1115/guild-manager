@@ -99,6 +99,7 @@ namespace GuildManager.Core.Systems
                 {
                     // MVP簡易版：戦死・不可逆障害は判定せず、重傷でHP1に留まる扱いにする
                     member.Injury = InjurySeverity.Severe;
+                    member.InjuryWeeksRemaining = _rng.NextInt(3, 8); // → 03 §2.3「重傷: 全治3〜8週」
                     member.CurrentHP = 1;
                 }
             }

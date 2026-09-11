@@ -1,0 +1,77 @@
+[gd_scene format=3 uid="uid://nvspjatohrx0"]
+
+[ext_resource type="Script" uid="uid://cetk7jmxgq0vi" path="res://scripts/MainDashboard.cs" id="1_i48iu"]
+
+[node name="MainDashboard" type="Control" unique_id=210796005]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_i48iu")
+
+[node name="Root" type="VBoxContainer" parent="." unique_id=905062048]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="HeaderPanel" type="HBoxContainer" parent="Root" unique_id=310294111]
+layout_mode = 2
+
+[node name="WeekLabel" type="Label" parent="Root/HeaderPanel" unique_id=942733365]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="GoldLabel" type="Label" parent="Root/HeaderPanel" unique_id=765417511]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="BodyPanel" type="HBoxContainer" parent="Root" unique_id=1658892758]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="CenterPanel" type="VBoxContainer" parent="Root/BodyPanel" unique_id=176574631]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Label1" type="Label" parent="Root/BodyPanel/CenterPanel" unique_id=653772536]
+layout_mode = 2
+text = "受注可能クエスト"
+
+[node name="QuestList" type="ItemList" parent="Root/BodyPanel/CenterPanel" unique_id=1073934146]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Label2" type="Label" parent="Root/BodyPanel/CenterPanel" unique_id=619444891]
+layout_mode = 2
+text = "冒険者を選択（最大4人）"
+
+[node name="AdventurerList" type="ItemList" parent="Root/BodyPanel/CenterPanel" unique_id=220254183]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+select_mode = 1
+
+[node name="RightPanel" type="VBoxContainer" parent="Root/BodyPanel" unique_id=763252257]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Label" type="Label" parent="Root/BodyPanel/RightPanel" unique_id=1329327818]
+layout_mode = 2
+text = "週報"
+
+[node name="ResultLog" type="RichTextLabel" parent="Root/BodyPanel/RightPanel" unique_id=1076099228]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+bbcode_enabled = true
+
+[node name="NextWeekButton" type="Button" parent="Root" unique_id=22271400]
+unique_name_in_owner = true
+layout_mode = 2
+text = "次週へ進める (Next Week)"

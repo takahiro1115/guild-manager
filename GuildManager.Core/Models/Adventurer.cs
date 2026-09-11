@@ -31,6 +31,10 @@ namespace GuildManager.Core.Models
         public int Fatigue { get; set; } = 0;
         public int Satisfaction { get; set; } = 70;
         public InjurySeverity Injury { get; set; } = InjurySeverity.None;
+
+        /// <summary>負傷が治るまでの残り週数。0ならNoneに戻る（→ 03 §3.6 負傷回復処理）。</summary>
+        public int InjuryWeeksRemaining { get; set; } = 0;
+
         public int WeeklyWage { get; set; }
 
         /// <summary>出撃可能かどうか（重傷または過労なら不可）。</summary>
