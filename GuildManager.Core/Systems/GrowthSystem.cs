@@ -29,21 +29,32 @@ namespace GuildManager.Core.Systems
         /// <summary>
         /// 経路1：出撃による成長。今週派遣されたパーティの全員に成長ロールを適用する
         /// （クエストの成否は問わない。§3.1〜3.4「出撃した週」）。
+        /// 実際に成長した分だけ GrowthEvent として返す（UI側の週報表示用）。
         /// </summary>
-        public void ProcessDeploymentGrowth(Party party, Quest quest)
+        public List<GrowthEvent> ProcessDeploymentGrowth(Party party, Quest quest)
         {
             double difficultyCoefficient = GrowthBalance.GetDifficultyCoefficient(quest.Difficulty);
+            var events = new List<GrowthEvent>();
 
             foreach (var member in party.Members)
-                TryGrowOne(member, difficultyCoefficient, JobWeightedStat);
+            {
+                var growthEvent = TryGrowOne(member, difficultyCoefficient, JobWeightedStat);
+                if (growthEvent != null)
+                    events.Add(growthEvent);
+            }
+
+            return events;
         }
 
         /// <summary>
         /// 経路2：訓練場配置による成長。今週出撃しておらず、かつ訓練場に配置されている者のみ対象
         /// （出撃した週は経路1側で処理済みのため二重成長させない）。
+        /// 実際に成長した分だけ GrowthEvent として返す（UI側の週報表示用）。
         /// </summary>
-        public void ProcessTrainingGrowth(GameState state, IReadOnlySet<Guid> dispatchedAdventurerIds)
+        public List<GrowthEvent> ProcessTrainingGrowth(GameState state, IReadOnlySet<Guid> dispatchedAdventurerIds)
         {
+            var events = new List<GrowthEvent>();
+
             foreach (var adventurer in state.Adventurers)
             {
                 if (dispatchedAdventurerIds.Contains(adventurer.Id))
@@ -52,24 +63,33 @@ namespace GuildManager.Core.Systems
                 if (!state.TrainingAssignments.Contains(adventurer.Id))
                     continue; // 訓練場未配置＝単純待機（成長ロールなし）
 
-                TryGrowOne(adventurer, GrowthBalance.TrainingFacilityMultiplier, UniformStat);
+                var growthEvent = TryGrowOne(adventurer, GrowthBalance.TrainingFacilityMultiplier, UniformStat);
+                if (growthEvent != null)
+                    events.Add(growthEvent);
             }
+
+            return events;
         }
 
-        private void TryGrowOne(Adventurer adventurer, double multiplier, Func<Adventurer, string> pickStat)
+        private GrowthEvent? TryGrowOne(Adventurer adventurer, double multiplier, Func<Adventurer, string> pickStat)
         {
             double probability = GrowthBalance.GetBaseProbability(adventurer.AgeBand) * multiplier;
             int roll = _rng.NextInt(1, 100);
             if (roll > (int)Math.Round(probability * 100))
-                return;
+                return null;
 
             string stat = pickStat(adventurer);
             int amount = _rng.NextInt(GrowthBalance.MinGrowthAmount, GrowthBalance.MaxGrowthAmount);
 
-            int currentActual = AdventurerStatAccessor.GetStat(adventurer, stat);
+            int before = AdventurerStatAccessor.GetStat(adventurer, stat);
             int pa = AdventurerStatAccessor.GetPa(adventurer, stat);
-            int newActual = Math.Min(pa, currentActual + amount); // PAクランプ＝成長打ち止め（§3.1〜3.4）
-            AdventurerStatAccessor.SetStat(adventurer, stat, newActual);
+            int after = Math.Min(pa, before + amount); // PAクランプ＝成長打ち止め（§3.1〜3.4）
+            AdventurerStatAccessor.SetStat(adventurer, stat, after);
+
+            if (after == before)
+                return null; // 既にPA上限で実質変化なし＝報告しない
+
+            return new GrowthEvent(adventurer, stat, before, after);
         }
 
         private string JobWeightedStat(Adventurer adventurer) =>

@@ -50,10 +50,17 @@ namespace GuildManager.Core.Tests
             party.TryAdd(adventurer);
             var system = new GrowthSystem(new AlwaysMinRng());
 
-            system.ProcessDeploymentGrowth(party, new Quest { Difficulty = 50 });
+            var events = system.ProcessDeploymentGrowth(party, new Quest { Difficulty = 50 });
 
             // Warrior重み表の先頭(累積>=1)はSTR。成長量もAlwaysMinRngで下限(1)。
             Assert.Equal(41, adventurer.STR);
+
+            // 実際に伸びた分がGrowthEventとして返る（→ UI週報表示用）。
+            var growthEvent = Assert.Single(events);
+            Assert.Same(adventurer, growthEvent.Adventurer);
+            Assert.Equal("STR", growthEvent.Stat);
+            Assert.Equal(40, growthEvent.Before);
+            Assert.Equal(41, growthEvent.After);
         }
 
         [Fact]
@@ -64,9 +71,10 @@ namespace GuildManager.Core.Tests
             party.TryAdd(adventurer);
             var system = new GrowthSystem(new AlwaysMaxRng());
 
-            system.ProcessDeploymentGrowth(party, new Quest { Difficulty = 100 });
+            var events = system.ProcessDeploymentGrowth(party, new Quest { Difficulty = 100 });
 
             Assert.Equal(40, adventurer.STR); // 成長期・難易度100でも閾値は60%止まり、roll=100は必ず外れる
+            Assert.Empty(events);
         }
 
         [Fact]
@@ -106,6 +114,21 @@ namespace GuildManager.Core.Tests
             system.ProcessDeploymentGrowth(party, new Quest { Difficulty = 0 });
 
             Assert.Equal(80, adventurer.STR);
+        }
+
+        [Fact]
+        public void ProcessDeploymentGrowth_NoEvent_WhenAlreadyAtPaCap()
+        {
+            // 既にPA上限（STR=PA_STR=80）のため、ロールが成功しても実質変化なし＝報告しない。
+            var adventurer = new Adventurer { Age = 18, JobClass = JobClass.Warrior, STR = 80, PA_STR = 80 };
+            var party = new Party();
+            party.TryAdd(adventurer);
+            var system = new GrowthSystem(new FixedRollRng(3));
+
+            var events = system.ProcessDeploymentGrowth(party, new Quest { Difficulty = 0 });
+
+            Assert.Equal(80, adventurer.STR);
+            Assert.Empty(events);
         }
 
         [Fact]

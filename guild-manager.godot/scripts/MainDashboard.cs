@@ -162,8 +162,9 @@ public partial class MainDashboard : Control
 
 			var result = _questResolver.Resolve(party, quest);
 			_economySystem.ApplyReward(_state, result.RewardGold);
-			_growthSystem.ProcessDeploymentGrowth(party, quest); // → 03 §3.1〜3.4：成長トリガー経路1（出撃）
+			var deploymentGrowth = _growthSystem.ProcessDeploymentGrowth(party, quest); // → 03 §3.1〜3.4：成長トリガー経路1（出撃）
 			LogResult(thisWeek, quest, result);
+			LogGrowthEvents(deploymentGrowth);
 		}
 		else
 		{
@@ -174,7 +175,8 @@ public partial class MainDashboard : Control
 		_economySystem.ApplyWeeklyWages(_state);
 		_injuryRecoverySystem.ProcessWeeklyRecovery(_state);
 		_restRecoverySystem.ProcessWeeklyRest(_state, dispatchedIds); // → 03 §3.5改：静養・HP自然回復
-		_growthSystem.ProcessTrainingGrowth(_state, dispatchedIds); // → 03 §3.1〜3.4：成長トリガー経路2（訓練場配置）
+		var trainingGrowth = _growthSystem.ProcessTrainingGrowth(_state, dispatchedIds); // → 03 §3.1〜3.4：成長トリガー経路2（訓練場配置）
+		LogGrowthEvents(trainingGrowth);
 		_agingSystem.ProcessWeeklyAging(_state); // → 03 §3：加齢・衰微モデル
 		_state.WeekNumber++;
 
@@ -205,6 +207,19 @@ public partial class MainDashboard : Control
 		}
 
 		AppendLog(sb.ToString());
+	}
+
+	/// <summary>
+	/// 今週の成長トリガー（→ 03 §3.1〜3.4）で実際にステータスが伸びた者を週報ログに報告する。
+	/// 見逃さないよう、色（黄）＋太字＋大きめフォントサイズで目立たせる（→ ユーザー要望）。
+	/// </summary>
+	private void LogGrowthEvents(List<GrowthEvent> events)
+	{
+		foreach (var e in events)
+		{
+			AppendLog(
+				$"[color=yellow][font_size=20][b]▲ {e.Adventurer.Name} の {e.Stat} が上昇！ {e.Before} → {e.After}[/b][/font_size][/color]");
+		}
 	}
 
 	private void AppendLog(string bbcodeText)
