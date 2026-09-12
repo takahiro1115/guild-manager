@@ -210,6 +210,7 @@ public partial class MainDashboard : Control
 		{
 			LogResult(thisWeek, resolution.Quest, resolution.Result);
 			LogGrowthEvents(resolution.GrowthEvents);
+			LogFallenAdventurers(thisWeek, resolution.Party, resolution.Result.FallenAdventurerIds); // → 03 §4.3.1
 
 			// ギルド格付け（→ 03 §8.1）：名声は解決の都度加減算する。
 			// 「現ランク相当のクエストを達成したか」は今週の全解決結果から判定し、
@@ -301,6 +302,21 @@ public partial class MainDashboard : Control
 		{
 			AppendLog(
 				$"[color=yellow][font_size=20][b]▲ {e.Adventurer.Name} の {e.Stat} が上昇！ {e.Before} → {e.After}[/b][/font_size][/color]");
+		}
+	}
+
+	/// <summary>
+	/// 戦死した冒険者を週報ログに報告する（→ 03 §4.3・§4.3.1）。
+	/// 見逃さないよう赤・太字で目立たせる。氏名はPartyから引く
+	/// （戦死者はGameState.Adventurersから既に除外済みのため）。
+	/// </summary>
+	private void LogFallenAdventurers(int weekNumber, Party party, HashSet<Guid> fallenIds)
+	{
+		foreach (var id in fallenIds)
+		{
+			var fallen = party.Members.FirstOrDefault(m => m.Id == id);
+			if (fallen != null)
+				AppendLog($"[color=red][b]† {fallen.Name} が戦死しました（第{weekNumber}週）。[/b][/color]");
 		}
 	}
 
@@ -428,6 +444,8 @@ public partial class MainDashboard : Control
 		sb.AppendLine($"配置: {PlacementLabel(a.Placement)}");
 		sb.AppendLine($"HP {a.CurrentHP}/{a.MaxHP}　満足度 {a.Satisfaction}/100");
 		sb.AppendLine(InjuryLabel(a));
+		if (a.TraitIds.Count > 0)
+			sb.AppendLine($"特性: {string.Join("、", a.TraitIds.Select(TraitLabel))}");
 		if (a.NeedsNegotiation)
 		{
 			int remaining = Math.Max(0, SatisfactionBalance.NegotiationGraceWeeks - a.NegotiationWeeksElapsed);
@@ -499,4 +517,7 @@ public partial class MainDashboard : Control
 		InjurySeverity.Severe => $"[color=red]負傷: 重傷・出撃不可（全治まで{a.InjuryWeeksRemaining}週）[/color]",
 		_ => a.Injury.ToString()
 	};
+
+	/// <summary>特性IDの表示名を返す（→ 03 §5.3）。カタログに無いIDはそのまま表示する（防御的フォールバック）。</summary>
+	private static string TraitLabel(string traitId) => TraitCatalog.FindById(traitId)?.DisplayName ?? traitId;
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using GuildManager.Core.Models;
 using GuildManager.Core.Rng;
 using GuildManager.Core.Systems;
@@ -24,6 +25,20 @@ namespace GuildManager.Core.Tests
             private readonly int _value;
             public FixedRng(int value) => _value = value;
             public int NextInt(int min, int max) => Math.Clamp(_value, min, max);
+        }
+
+        /// <summary>
+        /// 呼び出し順に決め打ちの値を1つずつ返すテスト用スタブ（[min,max]にクランプ）。
+        /// フェーズ3の致死判定（生存/古傷/戦死の3分岐）のように、同じ_rng上で
+        /// 複数の異なる乱数呼び出し（索敵ロール→HP消費%→致死判定ロール→全治週数）を
+        /// 個別に制御したいテストで使う。値が尽きたら以降はminを返す。
+        /// </summary>
+        private class SequenceRng : IRng
+        {
+            private readonly Queue<int> _values;
+            public SequenceRng(params int[] values) => _values = new Queue<int>(values);
+            public int NextInt(int min, int max) =>
+                Math.Clamp(_values.Count > 0 ? _values.Dequeue() : min, min, max);
         }
 
         [Theory]
@@ -110,7 +125,9 @@ namespace GuildManager.Core.Tests
 
         /// <summary>
         /// Resolve()がHP0到達を検知したら DownedAdventurerIds に記録することを確認する
-        /// （→ 03 §4.3の本来の致死判定を実装する際に使う想定。現状はどのSystemも未参照）。
+        /// （フェーズ3・致死判定の対象の絞り込みに使う。→ 03 §4.3）。
+        /// AlwaysMaxRngは致死判定ロールも最大値になるため、このケースは戦死に至る
+        /// （具体的な生存/古傷/戦死の分岐は下の Resolve_DeathJudgment_* 系で個別に検証する）。
         /// </summary>
         [Fact]
         public void Resolve_RecordsDownedAdventurer_WhenHpHitsZero()
@@ -128,7 +145,92 @@ namespace GuildManager.Core.Tests
 
             Assert.Equal(CombatOutcome.Rout, result.Outcome);
             Assert.Contains(weakling.Id, result.DownedAdventurerIds);
-            Assert.Equal(1, weakling.CurrentHP); // §4.3のMVP簡易版：ダウン後はHP1で重傷に留まる
+            Assert.Contains(weakling.Id, result.FallenAdventurerIds); // AlwaysMaxRng＝致死判定ロールも最大→戦死
+            Assert.Equal(0, weakling.CurrentHP); // 戦死：HPは0のまま（生存時のHP1レスキューはしない）
+        }
+
+        // ---------------- フェーズ3：負傷・致死判定の3分岐（→ 03 §4.3） ----------------
+
+        /// <summary>
+        /// 致死判定に使う一人パーティを組み立てる。VIT=1・LDR=1・神官なしのため
+        /// SurvivalThresholdは下限の5にクランプされる（clamp(1+0+0.2,5,90)=5）。
+        /// PermanentBand=20なので、致死判定ロールは 1〜5=生存・6〜25=古傷判定域・26〜100=戦死
+        /// にきれいに区切られる。
+        /// </summary>
+        private static (Party Party, Adventurer Member) BuildDeathJudgmentParty()
+        {
+            var member = new Adventurer { STR = 1, AGI = 1, VIT = 1, MND = 1, DEX = 1, LDR = 1 };
+            member.CurrentHP = member.MaxHP;
+            var party = new Party();
+            party.TryAdd(member);
+            return (party, member);
+        }
+
+        /// <summary>索敵ロール・HP消費%ロールは結果に影響しない値、致死判定ロールだけを差し替えるための共通クエスト。</summary>
+        private static Quest DeathJudgmentQuest() => new Quest { Difficulty = 100, ScoutRequirement = 1 };
+
+        [Fact]
+        public void Resolve_DeathJudgment_Survives_WhenRollAtOrBelowSurvivalThreshold()
+        {
+            var (party, member) = BuildDeathJudgmentParty();
+            // [索敵ロール, HP消費%(強制的に上限へ), 致死判定ロール=3(<=5→生存), 全治週数=5]
+            var resolver = new QuestResolver(new SequenceRng(50, 1000, 3, 5));
+
+            var result = resolver.Resolve(party, DeathJudgmentQuest());
+
+            Assert.Contains(member.Id, result.DownedAdventurerIds);
+            Assert.DoesNotContain(member.Id, result.FallenAdventurerIds);
+            Assert.Empty(member.TraitIds);
+            Assert.Equal(InjurySeverity.Severe, member.Injury);
+            Assert.Equal(5, member.InjuryWeeksRemaining);
+            Assert.Equal(1, member.CurrentHP);
+        }
+
+        [Fact]
+        public void Resolve_DeathJudgment_GrantsOldWoundTrait_WhenRollInPermanentBand()
+        {
+            var (party, member) = BuildDeathJudgmentParty();
+            // 致死判定ロール=15（5<15<=25＝古傷判定域）
+            var resolver = new QuestResolver(new SequenceRng(50, 1000, 15, 5));
+
+            var result = resolver.Resolve(party, DeathJudgmentQuest());
+
+            Assert.DoesNotContain(member.Id, result.FallenAdventurerIds);
+            Assert.True(member.HasTrait(TraitCatalog.OldWoundId));
+            Assert.Equal(InjurySeverity.Severe, member.Injury); // 古傷を負った直後は重傷も併発
+            Assert.Equal(1, member.CurrentHP);
+        }
+
+        [Fact]
+        public void Resolve_DeathJudgment_RoundsToSevereInjury_WhenAlreadyHasOldWound()
+        {
+            // 重複禁止：既に古傷を持つ冒険者が再び古傷判定域に入っても新たな付与はせず、
+            // 「生存（重傷）」として扱う（→ 03 §4.3）。
+            var (party, member) = BuildDeathJudgmentParty();
+            member.TryAddTrait(TraitCatalog.OldWoundId);
+            member.CurrentHP = member.MaxHP; // 古傷適用後のMaxHP（実効VIT低下を反映）で満タンに再設定
+            var resolver = new QuestResolver(new SequenceRng(50, 1000, 15, 5));
+
+            var result = resolver.Resolve(party, DeathJudgmentQuest());
+
+            Assert.DoesNotContain(member.Id, result.FallenAdventurerIds);
+            Assert.Single(member.TraitIds); // 重複追加されていない
+            Assert.Equal(InjurySeverity.Severe, member.Injury);
+            Assert.Equal(1, member.CurrentHP);
+        }
+
+        [Fact]
+        public void Resolve_DeathJudgment_RecordsDeath_WhenRollExceedsPermanentBand()
+        {
+            var (party, member) = BuildDeathJudgmentParty();
+            // 致死判定ロール=50（>25＝戦死）
+            var resolver = new QuestResolver(new SequenceRng(50, 1000, 50));
+
+            var result = resolver.Resolve(party, DeathJudgmentQuest());
+
+            Assert.Contains(member.Id, result.FallenAdventurerIds);
+            Assert.Equal(0, member.CurrentHP); // 戦死：HP1へのレスキューはしない
+            Assert.Empty(member.TraitIds); // 戦死時は古傷を付与しない
         }
 
         // ---------------- 配置（Placement）による個人CP補正（→ 03 §4.2） ----------------

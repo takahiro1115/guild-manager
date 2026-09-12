@@ -24,6 +24,14 @@ namespace GuildManager.Core.Models
         /// </summary>
         public List<Adventurer> RetiredAdventurers { get; set; } = new();
 
+        /// <summary>
+        /// 戦死した冒険者の一覧（仕様書 03 §4.3.1）。現役ロースター（Adventurers）・
+        /// パーティ編成・訓練場配置からは完全に除外する。氏名・戦死週（FellAtWeek）・
+        /// 戦死時の年齢（Age）・職業（JobClass）は Adventurer 自身が保持したまま移される
+        /// （RetiredAdventurersと同じパターン）。
+        /// </summary>
+        public List<Adventurer> FallenAdventurers { get; set; } = new();
+
         public List<Quest> AvailableQuests { get; set; } = new();
 
         /// <summary>

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using GuildManager.Core.Models;
 using GuildManager.Core.Rng;
 using GuildManager.Core.Systems;
@@ -15,6 +16,21 @@ namespace GuildManager.Core.Tests
         private class AlwaysMinRng : IRng
         {
             public int NextInt(int min, int max) => min;
+        }
+
+        /// <summary>NextInt(min, max) が常に max を返すテスト用スタブ。</summary>
+        private class AlwaysMaxRng : IRng
+        {
+            public int NextInt(int min, int max) => max;
+        }
+
+        /// <summary>呼び出し順に決め打ちの値を1つずつ返すテスト用スタブ（[min,max]にクランプ）。</summary>
+        private class SequenceRng : IRng
+        {
+            private readonly Queue<int> _values;
+            public SequenceRng(params int[] values) => _values = new Queue<int>(values);
+            public int NextInt(int min, int max) =>
+                System.Math.Clamp(_values.Count > 0 ? _values.Dequeue() : min, min, max);
         }
 
         private static QuestDispatchSystem BuildSystem(IRng rng) =>
@@ -177,6 +193,60 @@ namespace GuildManager.Core.Tests
             var resolutions = system.ProcessWeeklyDispatches(state);
 
             Assert.Empty(resolutions);
+        }
+
+        // ---------------- 戦死処理（→ 03 §4.3.1） ----------------
+
+        [Fact]
+        public void ProcessWeeklyDispatches_OnDeath_RemovesFromRosterAndRecordsFallen_AndPenalizesSurvivors()
+        {
+            // リーダー(高VIT)は不可逆障害の判定域に収まり生存、weakling(低VIT)は戦死する
+            // ようにAlwaysMaxRngで固定する（致死判定ロールが常に最大値になるため）。
+            var leader = new Adventurer { Name = "リーダー", JobClass = JobClass.Warrior, STR = 50, AGI = 50, VIT = 100, MND = 50, DEX = 50, LDR = 1, Satisfaction = 80 };
+            leader.CurrentHP = leader.MaxHP;
+            var weakling = new Adventurer { Name = "weakling", STR = 1, AGI = 1, VIT = 1, MND = 1, DEX = 1, LDR = 1 };
+            weakling.CurrentHP = weakling.MaxHP;
+            var party = PartyOf(leader, weakling);
+            var quest = new Quest { Scale = QuestScale.Small, Difficulty = 100, ScoutRequirement = 1 };
+            var state = new GameState { Adventurers = { leader, weakling } };
+            var system = BuildSystem(new AlwaysMaxRng());
+
+            system.Dispatch(state, party, quest);
+            var resolutions = system.ProcessWeeklyDispatches(state);
+
+            var resolution = Assert.Single(resolutions);
+            Assert.Contains(weakling.Id, resolution.Result.FallenAdventurerIds);
+            Assert.DoesNotContain(leader.Id, resolution.Result.FallenAdventurerIds);
+
+            // ロースターから除外され、戦死者記録へ移されている
+            Assert.DoesNotContain(weakling, state.Adventurers);
+            Assert.Contains(weakling, state.FallenAdventurers);
+            Assert.Equal(1, weakling.FellAtWeek);
+
+            // 生存者（リーダー）は現役のまま、仲間ロストの余波で満足度-30
+            Assert.Contains(leader, state.Adventurers);
+            Assert.Equal(50, leader.Satisfaction); // 80-30
+        }
+
+        [Fact]
+        public void ProcessWeeklyDispatches_ExcludesFallenAdventurer_FromGrowthEventReport()
+        {
+            // 戦死した者に成長イベントが生じても、週報に報告される GrowthEvents には含めない
+            // （戦死報告の直前に成長報告が出るのは不自然なため。→ QuestDispatchSystem独自の対応）。
+            var adventurer = new Adventurer { Age = 18, JobClass = JobClass.Warrior, STR = 1, AGI = 1, VIT = 1, MND = 1, DEX = 1, LDR = 1 };
+            adventurer.CurrentHP = adventurer.MaxHP;
+            var party = PartyOf(adventurer);
+            var quest = new Quest { Scale = QuestScale.Small, Difficulty = 100, ScoutRequirement = 1 };
+            var state = new GameState { Adventurers = { adventurer } };
+            // [索敵ロール, HP消費%(強制上限), 致死判定ロール(戦死), 成長ロール(成功), 職業重み抽選, 成長量]
+            var system = BuildSystem(new SequenceRng(50, 1000, 100, 1, 1, 1));
+
+            system.Dispatch(state, party, quest);
+            var resolutions = system.ProcessWeeklyDispatches(state);
+
+            var resolution = Assert.Single(resolutions);
+            Assert.Contains(adventurer.Id, resolution.Result.FallenAdventurerIds);
+            Assert.Empty(resolution.GrowthEvents); // 戦死者の成長は報告されない
         }
     }
 }

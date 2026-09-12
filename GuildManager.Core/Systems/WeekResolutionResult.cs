@@ -20,9 +20,16 @@ namespace GuildManager.Core.Systems
 
         /// <summary>
         /// 今回の遠征でダウンした（現在HPが0になった）冒険者ID。
-        /// 現状どのSystemもまだ参照していないが、§4.3の本来の致死判定（不可逆障害・戦死）
-        /// を実装する際にダウン者の絞り込みとして使う想定で残してある。
+        /// フェーズ3の致死判定対象の絞り込みに使う（→ 03 §4.3）。生存・古傷・戦死のいずれの
+        /// 結果になった者も含む（戦死者はさらに FallenAdventurerIds にも含まれる）。
         /// </summary>
         public HashSet<Guid> DownedAdventurerIds { get; set; } = new();
+
+        /// <summary>
+        /// 今回の遠征で戦死した冒険者ID（→ 03 §4.3・§4.3.1）。
+        /// QuestDispatchSystem側でこれを見て、GameState.Adventurers から
+        /// GameState.FallenAdventurers への移動と、仲間ロストの満足度ペナルティ（§5.1）を行う。
+        /// </summary>
+        public HashSet<Guid> FallenAdventurerIds { get; set; } = new();
     }
 }

@@ -75,8 +75,31 @@ namespace GuildManager.Core.Systems
 
                 var result = _questResolver.Resolve(dispatch.Party, dispatch.Quest);
                 _economySystem.ApplyReward(state, result.RewardGold);
-                var growthEvents = _growthSystem.ProcessDeploymentGrowth(dispatch.Party, dispatch.Quest); // 経路1：満了週にのみ1回
+
+                // 経路1：満了週にのみ1回。戦死した者は成長ロールの結果を報告しない
+                // （直後に「〇〇が戦死しました」と報告するのに、その直前に成長報告が出るのは
+                // 不自然なため → 03 §4.3）。
+                var growthEvents = _growthSystem.ProcessDeploymentGrowth(dispatch.Party, dispatch.Quest)
+                    .Where(e => !result.FallenAdventurerIds.Contains(e.Adventurer.Id))
+                    .ToList();
+
                 _satisfactionSystem.ApplyQuestAchievementBonus(dispatch.Party, dispatch.Quest, result.QuestAchieved);
+
+                // 戦死処理（→ 03 §4.3.1）：ロースターから除外し戦死者記録へ移す。
+                // 仲間ロストの余波（§5.1）として、生存メンバー全員の満足度を-30する。
+                foreach (var fallenId in result.FallenAdventurerIds)
+                {
+                    _satisfactionSystem.ApplyPartyLossPenalty(dispatch.Party, fallenId);
+
+                    var fallen = dispatch.Party.Members.FirstOrDefault(m => m.Id == fallenId);
+                    if (fallen == null)
+                        continue;
+
+                    fallen.FellAtWeek = state.WeekNumber;
+                    state.TrainingAssignments.Remove(fallen.Id); // 訓練場配置からも外れる（枠を解放。AgingSystem.Retireと同じ防御的処理）
+                    state.Adventurers.Remove(fallen);
+                    state.FallenAdventurers.Add(fallen);
+                }
 
                 foreach (var member in dispatch.Party.Members)
                     member.IsDispatched = false;

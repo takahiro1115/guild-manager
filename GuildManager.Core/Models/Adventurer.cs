@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace GuildManager.Core.Models
 {
@@ -61,6 +62,60 @@ namespace GuildManager.Core.Models
         /// <summary>総合PA＝7つのPAの平均（v1.2改訂：INT活性化に伴い6値→7値平均。採用試験・スカウト評価用。仕様書 03 §2.2）。</summary>
         public double TotalPA => (PA_STR + PA_AGI + PA_VIT + PA_MND + PA_DEX + PA_LDR + PA_INT) / 7.0;
 
+        // ---- 特性（Trait）。仕様書 03 §5.3・§4.3 参照。 ----
+
+        /// <summary>この冒険者が保持している特性のIdリスト。重複するIdは持てない。</summary>
+        public List<string> TraitIds { get; set; } = new();
+
+        public bool HasTrait(string traitId) => TraitIds.Contains(traitId);
+
+        /// <summary>特性を付与する。既に持っていれば何もせずfalseを返す（重複禁止）。</summary>
+        public bool TryAddTrait(string traitId)
+        {
+            if (TraitIds.Contains(traitId)) return false;
+            TraitIds.Add(traitId);
+            return true;
+        }
+
+        /// <summary>
+        /// 特性による効果（StatPercentReduction）を反映した実効値を返す
+        /// （→ 03 §4.3・§5.3）。個人CP計算・最大HP計算の両方から使う共通ヘルパー。
+        /// </summary>
+        public double GetEffectiveStat(string statName)
+        {
+            int baseValue = statName switch
+            {
+                "STR" => STR,
+                "VIT" => VIT,
+                "AGI" => AGI,
+                "DEX" => DEX,
+                "MND" => MND,
+                "INT" => INT,
+                "LDR" => LDR,
+                _ => throw new ArgumentException($"未知のステータス: {statName}")
+            };
+
+            double totalReduction = 0;
+            foreach (var traitId in TraitIds)
+            {
+                var def = TraitCatalog.FindById(traitId);
+                if (def == null) continue;
+
+                foreach (var effect in def.Effects)
+                {
+                    if (effect.EffectType == TraitEffectType.StatPercentReduction
+                        && effect.TargetStat == statName)
+                    {
+                        totalReduction += effect.Value; // 負の値なので加算で減少方向
+                    }
+                }
+            }
+
+            // 減少しすぎて0以下にならないよう下限をクランプ（暫定：最大80%減まで）
+            double multiplier = Math.Max(1.0 + totalReduction, 0.2);
+            return baseValue * multiplier;
+        }
+
         /// <summary>年齢帯（仕様書 03 §3.0 の定義表）。表の範囲外は近い側の帯に丸める。</summary>
         public AgeBand AgeBand =>
             Age <= 21 ? AgeBand.GrowthPeriod :
@@ -84,10 +139,14 @@ namespace GuildManager.Core.Models
         /// <summary>退職金（週給×12週。仕様書 03 §7）が支給済みか。</summary>
         public bool SeverancePaid { get; set; } = false;
 
+        /// <summary>戦死した週番号（GameState.WeekNumber）。null＝戦死していない（仕様書 03 §4.3.1）。
+        /// 戦死者記録として保持し、GameState.Adventurers から GameState.FallenAdventurers へ移される。</summary>
+        public int? FellAtWeek { get; set; }
+
         // ---- 動的・コンディション属性。仕様書 03 §2.3 ----
 
-        /// <summary>最大HP = VIT×2 + 50（仕様書 03 §2.3）。</summary>
-        public int MaxHP => VIT * 2 + 50;
+        /// <summary>最大HP = 実効VIT×2 + 50（仕様書 03 §2.3）。特性（例：古傷）による実効値低下を反映する。</summary>
+        public int MaxHP => (int)(GetEffectiveStat("VIT") * 2) + 50;
 
         public int CurrentHP { get; set; }
         public int Satisfaction { get; set; } = 70;
