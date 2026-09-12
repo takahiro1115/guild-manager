@@ -36,6 +36,15 @@ namespace GuildManager.Core.Models
         public List<Quest> AvailableQuests { get; set; } = new();
 
         /// <summary>
+        /// 冒険者2人1組ごとの相性値（0〜100。仕様書 03 §5.3.1）。キーは常に
+        /// (小さいGuid, 大きいGuid) の順に正規化して格納する（→ CompatibilitySystem.
+        /// NormalizeKey）。未登録のペアは初期値50（中立）として扱う
+        /// （→ CompatibilitySystem.GetCompatibility。値が変化するまでは
+        /// このDictionaryにエントリを作らない）。
+        /// </summary>
+        public Dictionary<(Guid, Guid), int> Compatibility { get; set; } = new();
+
+        /// <summary>
         /// 進行中（派遣中）の複数週クエスト一覧（仕様書 03 §4.0.1）。満了週になるまで
         /// QuestDispatchSystem.ProcessWeeklyDispatches がここから取り除かない限り残り続ける。
         /// </summary>

@@ -31,6 +31,7 @@ public partial class MainDashboard : Control
 	private TrainingSystem _trainingSystem = null!;
 	private RecruitmentSystem _recruitmentSystem = null!;
 	private SatisfactionSystem _satisfactionSystem = null!;
+	private CompatibilitySystem _compatibilitySystem = null!;
 	private FacilitySystem _facilitySystem = null!;
 	private QuestDispatchSystem _questDispatchSystem = null!;
 	private GuildRankSystem _guildRankSystem = null!;
@@ -113,8 +114,9 @@ public partial class MainDashboard : Control
 		_trainingSystem = new TrainingSystem();
 		_recruitmentSystem = new RecruitmentSystem(new SeededRng(2024));
 		_satisfactionSystem = new SatisfactionSystem();
+		_compatibilitySystem = new CompatibilitySystem(new SeededRng(2525));
 		_facilitySystem = new FacilitySystem();
-		_questDispatchSystem = new QuestDispatchSystem(_questResolver, _growthSystem, _economySystem, _satisfactionSystem);
+		_questDispatchSystem = new QuestDispatchSystem(_questResolver, _growthSystem, _economySystem, _satisfactionSystem, _compatibilitySystem);
 		_guildRankSystem = new GuildRankSystem();
 		_securitySystem = new SecuritySystem(new SeededRng(4649));
 		_questBoardSystem = new QuestBoardSystem(new SeededRng(1192));

@@ -12,19 +12,21 @@ namespace GuildManager.Core.Systems
     /// 自然回復の酒場Lv連動（→ §6）は施設Lv投資システムの実装により接続済み。
     /// 仲間ロストの余波（ApplyPartyLossPenalty）は、致死判定の本実装（→ §4.3）に伴い
     /// QuestDispatchSystem.ProcessWeeklyDispatches から接続済み（戦死判定時に呼ばれる）。
-    /// 依存先システムが依然として未実装のため、今回のスコープに含めない項目：
-    ///  - 人間関係：相性「険悪」による減点（→ §5.3 相性・特性システム、他特性は未接続）。
+    /// 人間関係：相性「険悪」による減点（→ §5.3.1）は、相性システムの実装（v1.4改訂）に
+    /// 伴い接続済み（v1.5からの保留を解消）。
     /// </summary>
     public class SatisfactionSystem
     {
         /// <summary>
-        /// 毎週の決算処理。出場機会・賃金妥当性・自然回復による満足度の増減と、
+        /// 毎週の決算処理。出場機会・賃金妥当性・自然回復・相性険悪ペアによる満足度の増減と、
         /// 出撃履歴（連続不出撃週数）の更新を行う。
         /// </summary>
         /// <param name="state">ゲーム状態。</param>
         /// <param name="dispatchedAdventurerIds">今週出撃したパーティのメンバーID（出撃なしの週は空集合）。</param>
         public void ProcessWeeklySatisfaction(GameState state, IReadOnlySet<Guid> dispatchedAdventurerIds)
         {
+            var hostilePairPenalty = ComputeHostilePairPenalty(state);
+
             foreach (var adventurer in state.Adventurers)
             {
                 // 各要因の増減は単純に加算し、まとめて1回だけ0〜100にクランプする
@@ -52,11 +54,45 @@ namespace GuildManager.Core.Systems
                 if (adventurer.WeeklyWage < GetAppropriateWage(adventurer) * SatisfactionBalance.WageAdequacyRatio)
                     delta -= SatisfactionBalance.UnderpaidPenalty;
 
+                // 人間関係：相性「険悪」のペアと同パーティで出撃している週、毎週-10（→ 03 §5.1・§5.3.1）。
+                // 複数の険悪ペアに同時に該当する場合はその件数分だけ加算される。
+                if (hostilePairPenalty.TryGetValue(adventurer.Id, out var penalty))
+                    delta -= penalty;
+
                 // 自然回復（→ 03 §5.1・§6）。ギルド酒場（Tavern）の現在Lvに連動する。
                 delta += FacilityBalance.GetTavernSatisfactionRecovery(state.GetFacilityLevel(FacilityType.Tavern));
 
                 Adjust(adventurer, delta);
             }
+        }
+
+        /// <summary>
+        /// 現在進行中（派遣中）の全パーティについて、相性が険悪（30未満）なペアを洗い出し、
+        /// 該当する各冒険者が今週受けるペナルティ合計を返す（→ 03 §5.1・§5.3.1）。
+        /// 派遣中は毎週「同じパーティで出撃している」状態が続くため、拘束期間中は
+        /// 満了週に限らず毎週この判定を行う。
+        /// </summary>
+        private static Dictionary<Guid, int> ComputeHostilePairPenalty(GameState state)
+        {
+            var penalty = new Dictionary<Guid, int>();
+
+            foreach (var dispatch in state.ActiveDispatches)
+            {
+                var members = dispatch.Party.Members;
+                for (int i = 0; i < members.Count; i++)
+                {
+                    for (int j = i + 1; j < members.Count; j++)
+                    {
+                        if (!CompatibilitySystem.IsHostile(state, members[i].Id, members[j].Id))
+                            continue;
+
+                        penalty[members[i].Id] = penalty.GetValueOrDefault(members[i].Id) + SatisfactionBalance.HostilePairPenalty;
+                        penalty[members[j].Id] = penalty.GetValueOrDefault(members[j].Id) + SatisfactionBalance.HostilePairPenalty;
+                    }
+                }
+            }
+
+            return penalty;
         }
 
         /// <summary>勝利・功績ボーナス：Bランク以上のクエスト達成でパーティ全員+10（→ 03 §5.1）。</summary>

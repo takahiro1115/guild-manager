@@ -38,7 +38,8 @@ namespace GuildManager.Core.Tests
                 new QuestResolver(rng),
                 new GrowthSystem(rng),
                 new EconomySystem(),
-                new SatisfactionSystem());
+                new SatisfactionSystem(),
+                new CompatibilitySystem(rng));
 
         private static Party PartyOf(params Adventurer[] members)
         {

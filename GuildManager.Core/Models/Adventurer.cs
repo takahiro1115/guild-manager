@@ -112,7 +112,24 @@ namespace GuildManager.Core.Models
                 _ => throw new ArgumentException($"未知のステータス: {statName}")
             };
 
-            double totalReduction = 0;
+            double totalReduction = SumTraitEffect(TraitEffectType.StatPercentReduction, statName);
+
+            // 減少しすぎて0以下にならないよう下限をクランプ（暫定：最大80%減まで）
+            double multiplier = Math.Max(1.0 + totalReduction, 0.2);
+            return baseValue * multiplier;
+        }
+
+        /// <summary>
+        /// 保有する特性のうち、指定した効果種別（・対象ステータス）に該当する効果量の合計を返す
+        /// （→ 03 §5.3）。GetEffectiveStat・QuestResolverの索敵/致死判定補正が共通で使う。
+        /// targetStatをnullにすると対象ステータスを問わず合算する（SurvivalThresholdModifier等、
+        /// TargetStatを使わない効果種別向け）。
+        /// 乗数として使う効果種別（CompatibilityGainMultiplier）は加算ではなく積で合成すべきため、
+        /// このヘルパーの対象外（呼び出し側で個別に扱う）。
+        /// </summary>
+        public double SumTraitEffect(TraitEffectType effectType, string? targetStat = null)
+        {
+            double total = 0;
             foreach (var traitId in TraitIds)
             {
                 var def = TraitCatalog.FindById(traitId);
@@ -120,17 +137,11 @@ namespace GuildManager.Core.Models
 
                 foreach (var effect in def.Effects)
                 {
-                    if (effect.EffectType == TraitEffectType.StatPercentReduction
-                        && effect.TargetStat == statName)
-                    {
-                        totalReduction += effect.Value; // 負の値なので加算で減少方向
-                    }
+                    if (effect.EffectType == effectType && (targetStat == null || effect.TargetStat == targetStat))
+                        total += effect.Value;
                 }
             }
-
-            // 減少しすぎて0以下にならないよう下限をクランプ（暫定：最大80%減まで）
-            double multiplier = Math.Max(1.0 + totalReduction, 0.2);
-            return baseValue * multiplier;
+            return total;
         }
 
         /// <summary>年齢帯（仕様書 03 §3.0 の定義表）。表の範囲外は近い側の帯に丸める。</summary>

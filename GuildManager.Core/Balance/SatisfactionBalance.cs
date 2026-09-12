@@ -30,8 +30,15 @@ namespace GuildManager.Core.Balance
         // ---- 勝利・功績（§5.1）。Bランク以上のクエスト達成が対象。 ----
         public const int VictoryBonus = 10;
 
-        /// <summary>仲間ロストの余波（§5.1）。→ 03 §4.3（未実装）の致死判定確定後に接続予定。</summary>
+        /// <summary>仲間ロストの余波（§5.1）。→ 03 §4.3の致死判定（戦死）に接続済み。</summary>
         public const int PartyLossPenalty = 30;
+
+        /// <summary>
+        /// 人間関係：相性「険悪」（→ 03 §5.3.1、CompatibilityBalance.HostileThreshold未満）の
+        /// ペアと同パーティで出撃した週、毎週この分だけ減点する（v1.5からの保留を解消）。
+        /// 1人が複数の険悪ペアに同時に該当する場合は、その件数分だけ加算される。
+        /// </summary>
+        public const int HostilePairPenalty = 10;
 
         // ---- 契約交渉（§5.2） ----
         public const int NegotiationThreshold = 20;

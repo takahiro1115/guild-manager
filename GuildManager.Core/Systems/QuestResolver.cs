@@ -59,7 +59,9 @@ namespace GuildManager.Core.Systems
             var result = new WeekResolutionResult();
 
             // ================= フェーズ1：索敵・遭遇判定（仕様書 03 §4.1） =================
-            var scoutValues = party.Members.Select(a => a.GetEffectiveStat("DEX")).ToList();
+            // 「注意深い」特性（ScoutingModifier）は各メンバー自身のDEX寄与率を補正する
+            // （例：+0.10で+10%）。v1.4改訂。
+            var scoutValues = party.Members.Select(GetScoutingDex).ToList();
             double maxScout = scoutValues.Max();
             double avgScout = scoutValues.Average();
             double leaderLdr = party.Members[0].GetEffectiveStat("LDR"); // MVP: 先頭メンバーを隊長とみなす
@@ -132,8 +134,11 @@ namespace GuildManager.Core.Systems
                 {
                     result.DownedAdventurerIds.Add(member.Id);
 
+                    // 「豪胆」特性（SurvivalThresholdModifier）は生存判定対象者自身の
+                    // SurvivalThresholdに固定加算される（v1.4改訂）。
                     double survivalThreshold = Clamp(
-                        member.GetEffectiveStat("VIT") + clericMnd * 0.4 + leaderLdr * 0.2 + advisorBonus, 5, 90);
+                        member.GetEffectiveStat("VIT") + clericMnd * 0.4 + leaderLdr * 0.2 + advisorBonus
+                        + member.SumTraitEffect(TraitEffectType.SurvivalThresholdModifier), 5, 90);
                     int deathRoll = _rng.NextInt(1, 100);
 
                     if (deathRoll <= survivalThreshold)
@@ -158,6 +163,13 @@ namespace GuildManager.Core.Systems
 
             return result;
         }
+
+        /// <summary>
+        /// 索敵フェーズ（PartyScout）に使う、このメンバー自身のDEX寄与値。「注意深い」特性
+        /// （ScoutingModifier、TargetStat="DEX"）を持っていれば寄与率を補正する（→ 03 §4.1）。
+        /// </summary>
+        private static double GetScoutingDex(Adventurer a) =>
+            a.GetEffectiveStat("DEX") * (1 + a.SumTraitEffect(TraitEffectType.ScoutingModifier, "DEX"));
 
         /// <summary>致死判定で「生存」と判定された場合の共通処理：重傷でHP1に留まる（→ 03 §4.3・§3.6）。</summary>
         private void ApplySurvival(Adventurer member)

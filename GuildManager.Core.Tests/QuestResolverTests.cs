@@ -233,6 +233,64 @@ namespace GuildManager.Core.Tests
             Assert.Empty(member.TraitIds); // 戦死時は古傷を付与しない
         }
 
+        // ---------------- 特性による索敵・致死判定の補正（→ 03 §5.3・v1.4改訂） ----------------
+
+        [Fact]
+        public void Resolve_AttentiveTrait_IncreasesPartyScout_ViaHigherDexContribution()
+        {
+            // 「注意深い」はこのメンバー自身のDEX寄与を+10%する（GetScoutingDex）。
+            // 索敵値が上がるほど下限・上限帯がプラス側にシフトし、同じscoutRollでも
+            // 遭遇区分が「不意打ち」から「通常交戦」以上へ変わりうる（→ 03 §4.1）。
+            var plain = new Adventurer { STR = 50, AGI = 50, VIT = 50, MND = 50, DEX = 50, LDR = 50 };
+            plain.CurrentHP = plain.MaxHP;
+            var attentive = new Adventurer { STR = 50, AGI = 50, VIT = 50, MND = 50, DEX = 50, LDR = 50 };
+            attentive.CurrentHP = attentive.MaxHP;
+            attentive.TryAddTrait(TraitCatalog.AttentiveId);
+
+            var quest = new Quest { Difficulty = 50, ScoutRequirement = 50 };
+            var resolver = new QuestResolver(new FixedRng(50));
+
+            var plainResult = resolver.Resolve(PartyOf(plain), quest);
+            var attentiveResult = resolver.Resolve(PartyOf(attentive), quest);
+
+            Assert.True(attentiveResult.Ratio >= plainResult.Ratio,
+                "「注意深い」で索敵値が上がった分、遭遇が有利側（Normal以上）にシフトするはず");
+            Assert.NotEqual(EncounterResult.Ambushed, attentiveResult.Encounter);
+        }
+
+        [Fact]
+        public void Resolve_BraveTrait_AddsFixedBonusToSurvivalThreshold()
+        {
+            // 「豪胆」はSurvivalThresholdに固定+5（→ TraitCatalog.Brave）。
+            // BuildDeathJudgmentPartyと同条件（VIT=1,LDR=1,神官なし）だと、
+            // 通常はclamp(1+0+0.2,5,90)=5だが、豪胆込みでclamp(6.2,5,90)=6.2になる。
+            // 致死判定ロール=6（豪胆なしなら6>5=戦死、豪胆ありなら6<=6.2=生存）で判定させる。
+            var (party, member) = BuildDeathJudgmentParty();
+            member.TryAddTrait(TraitCatalog.BraveId);
+            var resolver = new QuestResolver(new SequenceRng(50, 1000, 6, 5));
+
+            var result = resolver.Resolve(party, DeathJudgmentQuest());
+
+            Assert.DoesNotContain(member.Id, result.FallenAdventurerIds);
+            Assert.Contains(member.Id, result.DownedAdventurerIds);
+            Assert.Equal(1, member.CurrentHP);
+        }
+
+        [Fact]
+        public void Resolve_WithoutBraveTrait_SameRollFallsIntoPermanentBand_InsteadOfSurviving()
+        {
+            // 上のテストとの対比：豪胆を持たなければSurvivalThresholdは5のままなので、
+            // 同じロール=6は「生存」ではなく古傷判定域（6〜25）に入る
+            // （豪胆の+5固定ボーナスが無ければ、6<=閾値の生存判定を満たせないことの確認）。
+            var (party, member) = BuildDeathJudgmentParty();
+            var resolver = new QuestResolver(new SequenceRng(50, 1000, 6, 5));
+
+            var result = resolver.Resolve(party, DeathJudgmentQuest());
+
+            Assert.DoesNotContain(member.Id, result.FallenAdventurerIds);
+            Assert.True(member.HasTrait(TraitCatalog.OldWoundId));
+        }
+
         // ---------------- 配置（Placement）による個人CP補正（→ 03 §4.2） ----------------
 
         [Fact]

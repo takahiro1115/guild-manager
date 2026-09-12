@@ -225,6 +225,82 @@ namespace GuildManager.Core.Tests
             Assert.Equal(20, survivor2.Satisfaction);
         }
 
+        // ---------------- 人間関係：相性「険悪」ペナルティ（§5.1・§5.3.1、v1.5からの保留を解消） ----------------
+
+        [Fact]
+        public void ProcessWeeklySatisfaction_AppliesHostilePairPenalty_ForDispatchedHostilePair()
+        {
+            var a = new Adventurer { Age = 30, Satisfaction = 70, WeeklyWage = 1000 };
+            var b = new Adventurer { Age = 30, Satisfaction = 70, WeeklyWage = 1000 };
+            var party = PartyOf(a, b);
+            var state = new GameState { Adventurers = { a, b } };
+            state.Compatibility[CompatibilitySystem.NormalizeKey(a.Id, b.Id)] = CompatibilityBalance.HostileThreshold - 1;
+            state.ActiveDispatches.Add(new ActiveDispatch { Party = party, WeeksRemaining = 2 });
+            var system = new SatisfactionSystem();
+
+            system.ProcessWeeklySatisfaction(state, new HashSet<Guid> { a.Id, b.Id });
+
+            // -10(険悪ペナルティ) +1(自然回復) = -9
+            Assert.Equal(61, a.Satisfaction);
+            Assert.Equal(61, b.Satisfaction);
+        }
+
+        [Fact]
+        public void ProcessWeeklySatisfaction_NoHostilePairPenalty_WhenCompatibilityAtOrAboveThreshold()
+        {
+            var a = new Adventurer { Age = 30, Satisfaction = 70, WeeklyWage = 1000 };
+            var b = new Adventurer { Age = 30, Satisfaction = 70, WeeklyWage = 1000 };
+            var party = PartyOf(a, b);
+            var state = new GameState { Adventurers = { a, b } };
+            state.Compatibility[CompatibilitySystem.NormalizeKey(a.Id, b.Id)] = CompatibilityBalance.HostileThreshold;
+            state.ActiveDispatches.Add(new ActiveDispatch { Party = party, WeeksRemaining = 2 });
+            var system = new SatisfactionSystem();
+
+            system.ProcessWeeklySatisfaction(state, new HashSet<Guid> { a.Id, b.Id });
+
+            Assert.Equal(71, a.Satisfaction); // 自然回復+1のみ
+            Assert.Equal(71, b.Satisfaction);
+        }
+
+        [Fact]
+        public void ProcessWeeklySatisfaction_StacksHostilePairPenalty_ForMultipleSimultaneousHostilePairs()
+        {
+            // cが a・b両方と険悪な3人パーティ：cは2件分のペナルティを受ける。
+            var a = new Adventurer { Age = 30, Satisfaction = 70, WeeklyWage = 1000 };
+            var b = new Adventurer { Age = 30, Satisfaction = 70, WeeklyWage = 1000 };
+            var c = new Adventurer { Age = 30, Satisfaction = 70, WeeklyWage = 1000 };
+            var party = PartyOf(a, b, c);
+            var state = new GameState { Adventurers = { a, b, c } };
+            state.Compatibility[CompatibilitySystem.NormalizeKey(a.Id, c.Id)] = CompatibilityBalance.HostileThreshold - 1;
+            state.Compatibility[CompatibilitySystem.NormalizeKey(b.Id, c.Id)] = CompatibilityBalance.HostileThreshold - 1;
+            state.ActiveDispatches.Add(new ActiveDispatch { Party = party, WeeksRemaining = 2 });
+            var system = new SatisfactionSystem();
+
+            system.ProcessWeeklySatisfaction(state, new HashSet<Guid> { a.Id, b.Id, c.Id });
+
+            // a・b：-10(険悪1件) +1(自然回復) = -9
+            Assert.Equal(61, a.Satisfaction);
+            Assert.Equal(61, b.Satisfaction);
+            // c：-20(険悪2件) +1(自然回復) = -19
+            Assert.Equal(51, c.Satisfaction);
+        }
+
+        [Fact]
+        public void ProcessWeeklySatisfaction_NoHostilePairPenalty_WhenNotCurrentlyDispatchedTogether()
+        {
+            var a = new Adventurer { Age = 30, Satisfaction = 70, WeeklyWage = 1000 };
+            var b = new Adventurer { Age = 30, Satisfaction = 70, WeeklyWage = 1000 };
+            var state = new GameState { Adventurers = { a, b } };
+            state.Compatibility[CompatibilitySystem.NormalizeKey(a.Id, b.Id)] = CompatibilityBalance.HostileThreshold - 1;
+            // ActiveDispatchesに登録しない＝現在同パーティで出撃中ではない
+            var system = new SatisfactionSystem();
+
+            system.ProcessWeeklySatisfaction(state, new HashSet<Guid> { a.Id, b.Id });
+
+            Assert.Equal(71, a.Satisfaction); // 自然回復+1のみ
+            Assert.Equal(71, b.Satisfaction);
+        }
+
         // ---------------- 契約交渉フロー（§5.2） ----------------
 
         [Fact]

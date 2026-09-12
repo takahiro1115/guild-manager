@@ -96,6 +96,56 @@ namespace GuildManager.Core.Tests
             Assert.Equal(220, maxHpAfter);
         }
 
+        // ---------------- 相性/特性拡充：新特性4種とSumTraitEffect（→ 03 §5.3、v1.4改訂） ----------------
+
+        [Fact]
+        public void GetEffectiveStat_AppliesTraumaReduction_ToMndOnly()
+        {
+            var a = new Adventurer { STR = 100, VIT = 100, AGI = 100, DEX = 100, MND = 100, INT = 100, LDR = 100 };
+            a.TryAddTrait(TraitCatalog.TraumaId);
+
+            Assert.Equal(85.0, a.GetEffectiveStat("MND"));
+            Assert.Equal(100.0, a.GetEffectiveStat("STR")); // MND以外は対象外
+        }
+
+        [Fact]
+        public void SumTraitEffect_ReturnsZero_WhenNoMatchingTraitHeld()
+        {
+            var a = new Adventurer();
+            a.TryAddTrait(TraitCatalog.OldWoundId);
+
+            Assert.Equal(0, a.SumTraitEffect(TraitEffectType.SurvivalThresholdModifier));
+        }
+
+        [Fact]
+        public void SumTraitEffect_ReturnsBraveBonus_ForSurvivalThresholdModifier()
+        {
+            var a = new Adventurer();
+            a.TryAddTrait(TraitCatalog.BraveId);
+
+            Assert.Equal(5, a.SumTraitEffect(TraitEffectType.SurvivalThresholdModifier));
+        }
+
+        [Fact]
+        public void SumTraitEffect_ReturnsAttentiveBonus_ForScoutingModifier_OnDexOnly()
+        {
+            var a = new Adventurer();
+            a.TryAddTrait(TraitCatalog.AttentiveId);
+
+            Assert.Equal(0.10, a.SumTraitEffect(TraitEffectType.ScoutingModifier, "DEX"));
+            Assert.Equal(0, a.SumTraitEffect(TraitEffectType.ScoutingModifier, "STR")); // 対象ステータス違いは合算しない
+        }
+
+        [Fact]
+        public void SumTraitEffect_TargetStatNull_SumsAcrossAllTargetStats()
+        {
+            // TargetStatをnullにすると対象ステータスを問わず合算する（SurvivalThresholdModifier等向け）。
+            var a = new Adventurer();
+            a.TryAddTrait(TraitCatalog.OldWoundId); // STR/VIT/AGI/DEXの4件、各-0.15
+
+            Assert.Equal(-0.6, a.SumTraitEffect(TraitEffectType.StatPercentReduction), precision: 10);
+        }
+
         // ---------------- 生涯ピーク値（→ 03 §2.2新規・§7） ----------------
 
         [Fact]

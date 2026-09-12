@@ -55,6 +55,12 @@ namespace GuildManager.Core.Systems
         private const double YoungestGrowthRatio = 0.3;
         private const double OldestGrowthRatio = 0.7;
 
+        // ---- 先天特性（豪胆・注意深い・容姿秀麗）の付与判定（→ 03 §5.3.2） ----
+        // v1.4改訂。3つとも独立判定のため、1人が複数の先天特性を併せ持つことも起こりうる。
+        // トラウマ（後天的）はここでは扱わない（→ CompatibilitySystem.ApplyDeathAftermath）。
+        // → BAL: 採用/先天特性付与率。現状は仮値（各5%）。
+        private const int InnateTraitChancePercent = 5;
+
         private const double SigningBonusCoefficient = 3.0; // → BAL: 採用/契約金。現状は仮値
         private const double WeeklyWageCoefficient = 0.6;   // → BAL: 経済/週給基準。現状は仮値
 
@@ -156,6 +162,14 @@ namespace GuildManager.Core.Systems
 
             candidate.CurrentHP = candidate.MaxHP;
             candidate.WeeklyWage = Math.Max(1, (int)(candidate.TotalPA * WeeklyWageCoefficient));
+
+            // 先天特性の付与判定（→ 03 §5.3.2）。3つとも独立判定（1人が複数持つこともありうる）。
+            if (_rng.NextInt(1, 100) <= InnateTraitChancePercent)
+                candidate.TryAddTrait(TraitCatalog.BraveId);
+            if (_rng.NextInt(1, 100) <= InnateTraitChancePercent)
+                candidate.TryAddTrait(TraitCatalog.AttentiveId);
+            if (_rng.NextInt(1, 100) <= InnateTraitChancePercent)
+                candidate.TryAddTrait(TraitCatalog.BeautifulId);
 
             int signingBonus = (int)(candidate.TotalPA * candidate.Age * SigningBonusCoefficient);
 

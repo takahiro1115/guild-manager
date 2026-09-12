@@ -26,17 +26,20 @@ namespace GuildManager.Core.Systems
         private readonly GrowthSystem _growthSystem;
         private readonly EconomySystem _economySystem;
         private readonly SatisfactionSystem _satisfactionSystem;
+        private readonly CompatibilitySystem _compatibilitySystem;
 
         public QuestDispatchSystem(
             QuestResolver questResolver,
             GrowthSystem growthSystem,
             EconomySystem economySystem,
-            SatisfactionSystem satisfactionSystem)
+            SatisfactionSystem satisfactionSystem,
+            CompatibilitySystem compatibilitySystem)
         {
             _questResolver = questResolver;
             _growthSystem = growthSystem;
             _economySystem = economySystem;
             _satisfactionSystem = satisfactionSystem;
+            _compatibilitySystem = compatibilitySystem;
         }
 
         /// <summary>
@@ -91,11 +94,17 @@ namespace GuildManager.Core.Systems
 
                 _satisfactionSystem.ApplyQuestAchievementBonus(dispatch.Party, dispatch.Quest, result.QuestAchieved);
 
+                // 相性（→ 03 §5.3.1）：同パーティで出撃した全ペアの相性を達成/失敗に応じて増減。
+                _compatibilitySystem.ApplyQuestOutcome(state, dispatch.Party, result.QuestAchieved);
+
                 // 戦死処理（→ 03 §4.3.1）：ロースターから除外し戦死者記録へ移す。
                 // 仲間ロストの余波（§5.1）として、生存メンバー全員の満足度を-30する。
+                // あわせて、居合わせた生存者同士の相性を大きく下降させ、確率でトラウマを付与する
+                // （→ 03 §5.3.1）。
                 foreach (var fallenId in result.FallenAdventurerIds)
                 {
                     _satisfactionSystem.ApplyPartyLossPenalty(dispatch.Party, fallenId);
+                    _compatibilitySystem.ApplyDeathAftermath(state, dispatch.Party, fallenId);
 
                     var fallen = dispatch.Party.Members.FirstOrDefault(m => m.Id == fallenId);
                     if (fallen == null)

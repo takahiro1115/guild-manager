@@ -166,6 +166,35 @@ namespace GuildManager.Core.Tests
             Assert.Equal(withExplicitZero[0].Candidate.PA_STR, withDefault[0].Candidate.PA_STR);
         }
 
+        // ---------------- 先天特性の付与判定（→ 03 §5.3.2、v1.4改訂） ----------------
+
+        [Fact]
+        public void GenerateCandidates_GrantsAllThreeInnateTraits_WhenRollsAlwaysSucceed()
+        {
+            // AlwaysMinRngはNextInt(1,100)=1を返す。付与率は仮値5%なので1<=5は必ず成功する。
+            var system = new RecruitmentSystem(new AlwaysMinRng());
+
+            var candidate = system.GenerateCandidates()[0].Candidate;
+
+            Assert.True(candidate.HasTrait(TraitCatalog.BraveId));
+            Assert.True(candidate.HasTrait(TraitCatalog.AttentiveId));
+            Assert.True(candidate.HasTrait(TraitCatalog.BeautifulId));
+        }
+
+        [Fact]
+        public void GenerateCandidates_GrantsNoInnateTraits_WhenRollsAlwaysFail()
+        {
+            // AlwaysMaxRngはNextInt(1,100)=100を返す。付与率5%を上回るため必ず失敗する。
+            var system = new RecruitmentSystem(new AlwaysMaxRng());
+
+            var candidate = system.GenerateCandidates()[0].Candidate;
+
+            Assert.False(candidate.HasTrait(TraitCatalog.BraveId));
+            Assert.False(candidate.HasTrait(TraitCatalog.AttentiveId));
+            Assert.False(candidate.HasTrait(TraitCatalog.BeautifulId));
+            Assert.Empty(candidate.TraitIds);
+        }
+
         // ---------------- 雇用枠（§2.4「雇用枠」） ----------------
 
         [Fact]
