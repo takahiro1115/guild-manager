@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using GuildManager.Core.Balance;
 
 namespace GuildManager.Core.Models
@@ -125,6 +126,162 @@ namespace GuildManager.Core.Models
             foreach (var facility in Facilities)
                 if (facility.Type == type) return facility.CurrentLevel;
             return 1;
+        }
+
+        // ==================== セーブ/ロード（→ 03 §12） ====================
+
+        /// <summary>
+        /// 現在の状態をセーブ用データ（SaveData）へ変換する。System.Text.Jsonで
+        /// 直接シリアライズできない形（タプルキーの辞書・Party等）を、
+        /// JSON化可能な形（一覧・文字列キーの辞書）に変換する処理を担う。
+        /// </summary>
+        public SaveData ToSaveData()
+        {
+            var data = new SaveData
+            {
+                CurrentTurn = WeekNumber,
+                Money = Gold,
+                Reputation = Reputation,
+                GuildRank = GuildRank.ToString(),
+                ThreatLevel = ThreatLevel,
+                ConsecutiveNegativeGoldWeeks = ConsecutiveNegativeGoldWeeks,
+                DefeatReason = DefeatReason?.ToString(),
+                WeeksSinceLastRankAppropriateQuest = WeeksSinceLastRankAppropriateQuest,
+                ActiveAdventurers = new List<Adventurer>(Adventurers),
+                RetiredAdvisorCandidates = new List<Adventurer>(RetiredAdventurers),
+                FallenAdventurers = new List<Adventurer>(FallenAdventurers),
+                AvailableQuests = new List<Quest>(AvailableQuests),
+            };
+
+            foreach (var kv in Compatibility)
+                data.CompatibilityPairs.Add(new CompatibilityPairRecord { IdA = kv.Key.Item1, IdB = kv.Key.Item2, Value = kv.Value });
+
+            foreach (var kv in TrainingAssignments)
+                data.TrainingAssignments.Add(new TrainingAssignmentRecord { AdventurerId = kv.Key, Facility = kv.Value.ToString() });
+
+            foreach (var facility in Facilities)
+                data.FacilityLevels[facility.Type.ToString()] = facility.CurrentLevel;
+
+            if (UnderConstruction != null)
+            {
+                data.FacilityUnderConstruction = UnderConstruction.Type.ToString();
+                data.ConstructionTargetLevel = UnderConstruction.TargetLevel;
+                data.ConstructionWeeksRemaining = UnderConstruction.WeeksRemaining;
+            }
+
+            // 教官（訓練施設ごと）・参謀（作戦資料室＝WarRoom）・スカウト（冒険者支援室＝
+            // RecruitmentOffice）を、施設種別名→冒険者Idの単一辞書に統合する（v1.4改訂で
+            // 参謀・スカウトも施設に紐づくポストになったため。→ SaveData.AdvisorAssignments）。
+            foreach (var kv in AssignedTrainers)
+                data.AdvisorAssignments[kv.Key.ToString()] = kv.Value;
+            if (AssignedAdvisor.HasValue)
+                data.AdvisorAssignments[FacilityType.WarRoom.ToString()] = AssignedAdvisor;
+            if (AssignedScoutMaster.HasValue)
+                data.AdvisorAssignments[FacilityType.RecruitmentOffice.ToString()] = AssignedScoutMaster;
+
+            foreach (var dispatch in ActiveDispatches)
+            {
+                data.DispatchedQuests.Add(new DispatchedQuestRecord
+                {
+                    Quest = dispatch.Quest,
+                    PartyMemberIds = dispatch.Party.Members.Select(m => m.Id).ToList(),
+                    WeeksRemaining = dispatch.WeeksRemaining,
+                });
+            }
+
+            return data;
+        }
+
+        /// <summary>
+        /// セーブ用データ（SaveData）から状態を復元する。列挙型の文字列パースに
+        /// 失敗した場合（セーブフォーマットの破損・非対応バージョンとの混入等）は
+        /// FormatExceptionを投げる。呼び出し側（SaveLoadService.Load）はこれを
+        /// 捕捉し、ロード失敗として扱う想定（→ 03 §12「ロード失敗時は新規ゲームの
+        /// みを提示し、既存セーブを保護する」）。
+        /// </summary>
+        public static GameState FromSaveData(SaveData data)
+        {
+            var state = new GameState
+            {
+                WeekNumber = data.CurrentTurn,
+                Gold = data.Money,
+                Reputation = data.Reputation,
+                GuildRank = ParseEnum<GuildRank>(data.GuildRank, nameof(GuildRank)),
+                ThreatLevel = data.ThreatLevel,
+                ConsecutiveNegativeGoldWeeks = data.ConsecutiveNegativeGoldWeeks,
+                DefeatReason = data.DefeatReason == null ? null : ParseEnum<DefeatReason>(data.DefeatReason, nameof(DefeatReason)),
+                WeeksSinceLastRankAppropriateQuest = data.WeeksSinceLastRankAppropriateQuest,
+                Adventurers = new List<Adventurer>(data.ActiveAdventurers),
+                RetiredAdventurers = new List<Adventurer>(data.RetiredAdvisorCandidates),
+                FallenAdventurers = new List<Adventurer>(data.FallenAdventurers),
+                AvailableQuests = new List<Quest>(data.AvailableQuests),
+                Facilities = new List<Facility>(),
+            };
+
+            foreach (var record in data.CompatibilityPairs)
+            {
+                // CompatibilitySystem.NormalizeKeyと同じ正規化ルール（小さいGuid,大きいGuid）。
+                // Modelsレイヤーの循環参照を避けるため、Systems層を参照せずここで直接計算する。
+                var key = record.IdA.CompareTo(record.IdB) <= 0 ? (record.IdA, record.IdB) : (record.IdB, record.IdA);
+                state.Compatibility[key] = record.Value;
+            }
+
+            foreach (var record in data.TrainingAssignments)
+                state.TrainingAssignments[record.AdventurerId] = ParseEnum<FacilityType>(record.Facility, nameof(FacilityType));
+
+            foreach (var kv in data.FacilityLevels)
+                state.Facilities.Add(new Facility { Type = ParseEnum<FacilityType>(kv.Key, nameof(FacilityType)), CurrentLevel = kv.Value });
+
+            if (data.FacilityUnderConstruction != null)
+            {
+                state.UnderConstruction = new FacilityConstruction
+                {
+                    Type = ParseEnum<FacilityType>(data.FacilityUnderConstruction, nameof(FacilityType)),
+                    TargetLevel = data.ConstructionTargetLevel,
+                    WeeksRemaining = data.ConstructionWeeksRemaining,
+                };
+            }
+
+            foreach (var kv in data.AdvisorAssignments)
+            {
+                var facilityType = ParseEnum<FacilityType>(kv.Key, nameof(FacilityType));
+                if (facilityType == FacilityType.WarRoom)
+                    state.AssignedAdvisor = kv.Value;
+                else if (facilityType == FacilityType.RecruitmentOffice)
+                    state.AssignedScoutMaster = kv.Value;
+                else
+                    state.AssignedTrainers[facilityType] = kv.Value;
+            }
+
+            // Party・派遣中クエストの復元：同一のAdventurerインスタンスを使い回すため
+            // （派遣中メンバーの状態変化が現役ロースター側にも同じインスタンスとして
+            // 反映されるよう）、Id→Adventurerの参照辞書を1つ作ってから引く。
+            var adventurersById = state.Adventurers
+                .Concat(state.RetiredAdventurers)
+                .Concat(state.FallenAdventurers)
+                .ToDictionary(a => a.Id);
+
+            foreach (var record in data.DispatchedQuests)
+            {
+                var party = new Party();
+                foreach (var memberId in record.PartyMemberIds)
+                {
+                    if (!adventurersById.TryGetValue(memberId, out var member))
+                        throw new FormatException($"セーブデータが破損しています：派遣中パーティのメンバーId {memberId} が見つかりません。");
+                    party.TryAdd(member);
+                }
+
+                state.ActiveDispatches.Add(new ActiveDispatch { Party = party, Quest = record.Quest, WeeksRemaining = record.WeeksRemaining });
+            }
+
+            return state;
+        }
+
+        private static TEnum ParseEnum<TEnum>(string value, string enumTypeName) where TEnum : struct, Enum
+        {
+            if (Enum.TryParse<TEnum>(value, out var result))
+                return result;
+            throw new FormatException($"セーブデータが破損しています：'{value}' は有効な{enumTypeName}ではありません。");
         }
 
         /// <summary>

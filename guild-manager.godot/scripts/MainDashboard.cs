@@ -41,6 +41,7 @@ public partial class MainDashboard : Control
 	private DefeatSystem _defeatSystem = null!;
 	private AdvisorSystem _advisorSystem = null!;
 	private EquipmentSystem _equipmentSystem = null!;
+	private SaveLoadService _saveLoadService = null!;
 
 	private Label _weekLabel = null!;
 	private Label _goldLabel = null!;
@@ -62,6 +63,7 @@ public partial class MainDashboard : Control
 	private Button _retireButton = null!;
 	private EquipmentPopup _equipmentPopup = null!;
 	private Button _equipmentButton = null!;
+	private Button _saveButton = null!;
 
 	/// <summary>ステータス詳細パネルに表示中の冒険者。週送り後もこの人物の表示を維持する。</summary>
 	private Guid? _detailAdventurerId;
@@ -104,12 +106,9 @@ public partial class MainDashboard : Control
 		_retireButton.Pressed += OnRetirePressed;
 		_equipmentButton.Pressed += OnEquipmentButtonPressed;
 		_equipmentPopup.Closed += OnEquipmentPopupClosed;
+		_saveButton = GetNode<Button>("%SaveButton");
+		_saveButton.Pressed += OnSaveButtonPressed;
 
-		_state = new GameState
-		{
-			Adventurers = SampleData.CreateStarterAdventurers(),
-			AvailableQuests = SampleData.CreateStarterQuests(),
-		};
 		// シード固定の乱数。同じシードなら毎回同じ結果になる（デバッグしやすくするため）。
 		// 戦闘用と加齢用で別インスタンス・別シードにし、互いの抽選回数が結果に影響しないようにする。
 		_questResolver = new QuestResolver(new SeededRng(42));
@@ -131,11 +130,95 @@ public partial class MainDashboard : Control
 		_defeatSystem = new DefeatSystem();
 		_advisorSystem = new AdvisorSystem();
 		_equipmentSystem = new EquipmentSystem();
+		// GuildManager.CoreはGodotに依存しない方針（→ 05技術メモ）のため、保存先の実パスは
+		// Godot側からOS.GetUserDataDir()（user://に対応する実ディレクトリ）を注入する（→ 03 §12）。
+		_saveLoadService = new SaveLoadService(OS.GetUserDataDir());
+
+		if (_saveLoadService.SaveFileExists())
+			ShowContinueOrNewGamePrompt();
+		else
+			StartNewGame();
+	}
+
+	/// <summary>新規ゲームとして開始する（既存の初期化処理。→ 03 §12「セーブが無ければ新規ゲーム」）。</summary>
+	private void StartNewGame()
+	{
+		_state = new GameState
+		{
+			Adventurers = SampleData.CreateStarterAdventurers(),
+			AvailableQuests = SampleData.CreateStarterQuests(),
+		};
 
 		RefreshAll();
 
 		if (_questList.ItemCount > 0)
 			_questList.Select(0);
+	}
+
+	/// <summary>
+	/// 起動時、セーブファイルが存在する場合に表示する「続きから／新規ゲーム」の選択ダイアログ
+	/// （→ 03 §12・タイトル画面が無いMVPのため起動直後にモーダルで割り込む）。
+	/// </summary>
+	private void ShowContinueOrNewGamePrompt()
+	{
+		var dialog = new ConfirmationDialog
+		{
+			DialogText = "セーブデータが見つかりました。続きから再開しますか？",
+			OkButtonText = "続きから",
+			CancelButtonText = "新規ゲーム",
+		};
+		dialog.Confirmed += () => OnContinueChosen(dialog);
+		dialog.Canceled += () => OnNewGameChosen(dialog);
+		AddChild(dialog);
+		dialog.PopupCentered();
+	}
+
+	private void OnContinueChosen(ConfirmationDialog dialog)
+	{
+		dialog.QueueFree();
+
+		var loaded = _saveLoadService.Load();
+		if (loaded == null)
+		{
+			ShowLoadFailedPrompt();
+			return;
+		}
+
+		_state = loaded;
+		RefreshAll();
+		if (_questList.ItemCount > 0)
+			_questList.Select(0);
+		AppendLog($"[color=cyan]セーブデータから再開しました（第{_state.WeekNumber}週）。[/color]");
+	}
+
+	private void OnNewGameChosen(ConfirmationDialog dialog)
+	{
+		dialog.QueueFree();
+		StartNewGame();
+	}
+
+	/// <summary>
+	/// ロード失敗時（破損ファイル・バージョン不一致等）のフォールバック（→ 03 §12）。
+	/// 新規ゲーム開始のみ選択でき、既存セーブは上書きしない（プレイヤーが新規ゲームを
+	/// 選んで初めて次の自動保存で上書きされる）。
+	/// </summary>
+	private void ShowLoadFailedPrompt()
+	{
+		var dialog = new AcceptDialog
+		{
+			DialogText = "セーブデータの読み込みに失敗しました。新規ゲームを開始します。",
+		};
+		dialog.Confirmed += () => { dialog.QueueFree(); StartNewGame(); };
+		dialog.Canceled += () => { dialog.QueueFree(); StartNewGame(); };
+		AddChild(dialog);
+		dialog.PopupCentered();
+	}
+
+	/// <summary>「セーブ」ボタン（手動保存）。押すと即座にセーブし、完了を週報ログに通知する（→ 03 §12）。</summary>
+	private void OnSaveButtonPressed()
+	{
+		_saveLoadService.Save(_state);
+		AppendLog("[color=lime]セーブしました。[/color]");
 	}
 
 	public override void _UnhandledInput(InputEvent @event)
@@ -313,6 +396,9 @@ public partial class MainDashboard : Control
 		}
 
 		_state.WeekNumber++;
+
+		// 自動保存：毎週の決算処理完了後、次週の番号に進めた直後に行う（→ 03 §12）。
+		_saveLoadService.Save(_state);
 
 		RefreshAll();
 
