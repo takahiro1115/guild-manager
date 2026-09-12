@@ -92,7 +92,9 @@ namespace GuildManager.Core.Systems
 
             // ================= フェーズ2：戦闘比率計算（仕様書 03 §4.2） =================
             // 疲労（Fatigue）は廃止済み（→ 03 §3.5改）。HPの影響は PersonalCp の ×(現在HP/最大HP) で保持。
-            double partyCp = party.Members.Sum(PersonalCp) * combatMultiplier;
+            // クエスト適性ボーナス（→ 03 §4.2.1、v1.7改訂）：基礎PartyCP算出後、クエスト種別に
+            // 応じた適性倍率（1.0以上、ボーナスのみ）を追加で乗算する。
+            double partyCp = party.Members.Sum(PersonalCp) * combatMultiplier * GetAptitudeMultiplier(party, quest.QuestType);
 
             double enemyCp = quest.Difficulty * EnemyCpCoefficient;
             if (result.Encounter == EncounterResult.Ambushed)
@@ -171,6 +173,21 @@ namespace GuildManager.Core.Systems
         private static double GetScoutingDex(Adventurer a) =>
             a.GetEffectiveStat("DEX") * (1 + a.SumTraitEffect(TraitEffectType.ScoutingModifier, "DEX"));
 
+        /// <summary>
+        /// クエスト適性ボーナス（→ 03 §4.2.1）：クエスト種別が定める対象ステータス群の
+        /// パーティ平均実効値から、1.0〜1.3倍（ペナルティなし）の適性倍率を算出する。
+        /// 討伐は7能力全体が対象＝既存の基礎CPとほぼ同じ考え方になるため、実質ほぼ標準
+        /// （倍率が1.0に近い）クエストという位置づけになる（仕様どおり）。
+        /// </summary>
+        private static double GetAptitudeMultiplier(Party party, QuestType questType)
+        {
+            var stats = QuestAptitudeBalance.GetAptitudeStats(questType);
+            double average = party.Members
+                .SelectMany(_ => stats, (member, stat) => member.GetEffectiveStat(stat))
+                .Average();
+            return QuestAptitudeBalance.GetMultiplier(average);
+        }
+
         /// <summary>致死判定で「生存」と判定された場合の共通処理：重傷でHP1に留まる（→ 03 §4.3・§3.6）。</summary>
         private void ApplySurvival(Adventurer member)
         {
@@ -185,7 +202,10 @@ namespace GuildManager.Core.Systems
             double baseCp = a.GetEffectiveStat("STR") * WeightSTR + a.GetEffectiveStat("AGI") * WeightAGI
                             + a.GetEffectiveStat("VIT") * WeightVIT + a.GetEffectiveStat("DEX") * WeightDEX
                             + a.GetEffectiveStat("MND") * WeightMND + a.GetEffectiveStat("INT") * WeightINT
-                            + a.GetEffectiveStat("LDR") * WeightLDR;
+                            + a.GetEffectiveStat("LDR") * WeightLDR
+                            // 装備（武器・アクセサリー）のCP固定加算（→ 03 §4.2.2）。ステータス由来の
+                            // 寄与と同じ扱いとし、負傷時の効率低下(hpRatio)・配置補正の対象にする。
+                            + a.GetEquipmentBonus(EquipmentEffectType.PersonalCpBonus);
             double placementCorrection = PlacementBalance.GetPersonalCpCorrection(a.JobClass, a.Placement);
             return baseCp * placementCorrection * hpRatio;
         }

@@ -40,6 +40,7 @@ public partial class MainDashboard : Control
 	private SubsidySystem _subsidySystem = null!;
 	private DefeatSystem _defeatSystem = null!;
 	private AdvisorSystem _advisorSystem = null!;
+	private EquipmentSystem _equipmentSystem = null!;
 
 	private Label _weekLabel = null!;
 	private Label _goldLabel = null!;
@@ -59,6 +60,8 @@ public partial class MainDashboard : Control
 	private AdvisorPopup _advisorPopup = null!;
 	private Button _advisorButton = null!;
 	private Button _retireButton = null!;
+	private EquipmentPopup _equipmentPopup = null!;
+	private Button _equipmentButton = null!;
 
 	/// <summary>ステータス詳細パネルに表示中の冒険者。週送り後もこの人物の表示を維持する。</summary>
 	private Guid? _detailAdventurerId;
@@ -83,6 +86,8 @@ public partial class MainDashboard : Control
 		_advisorPopup = GetNode<AdvisorPopup>("%AdvisorPopup");
 		_advisorButton = GetNode<Button>("%AdvisorButton");
 		_retireButton = GetNode<Button>("%RetireButton");
+		_equipmentPopup = GetNode<EquipmentPopup>("%EquipmentPopup");
+		_equipmentButton = GetNode<Button>("%EquipmentButton");
 
 		_adventurerList.SelectMode = ItemList.SelectModeEnum.Multi;
 		_adventurerList.MultiSelected += OnAdventurerMultiSelected;
@@ -97,6 +102,8 @@ public partial class MainDashboard : Control
 		_advisorButton.Pressed += OnAdvisorButtonPressed;
 		_advisorPopup.Closed += OnAdvisorPopupClosed;
 		_retireButton.Pressed += OnRetirePressed;
+		_equipmentButton.Pressed += OnEquipmentButtonPressed;
+		_equipmentPopup.Closed += OnEquipmentPopupClosed;
 
 		_state = new GameState
 		{
@@ -123,6 +130,7 @@ public partial class MainDashboard : Control
 		_subsidySystem = new SubsidySystem();
 		_defeatSystem = new DefeatSystem();
 		_advisorSystem = new AdvisorSystem();
+		_equipmentSystem = new EquipmentSystem();
 
 		RefreshAll();
 
@@ -362,6 +370,21 @@ public partial class MainDashboard : Control
 		RefreshAll();
 	}
 
+	/// <summary>「装備」ボタン。表示中の冒険者の装備購入・着脱ポップアップを開く（→ 03 §4.2.2）。</summary>
+	private void OnEquipmentButtonPressed()
+	{
+		var target = CurrentDetailAdventurer();
+		if (target == null) return;
+
+		_equipmentPopup.Open(_state, target, _equipmentSystem);
+	}
+
+	/// <summary>装備ポップアップが閉じた時のコールバック。所持金・装備の変化を反映する。</summary>
+	private void OnEquipmentPopupClosed()
+	{
+		RefreshAll();
+	}
+
 	private void LogResult(int weekNumber, Quest quest, WeekResolutionResult result)
 	{
 		var sb = new StringBuilder();
@@ -562,6 +585,10 @@ public partial class MainDashboard : Control
 		sb.AppendLine($"LDR {a.LDR} / {a.PA_LDR}");
 		sb.AppendLine($"総合PA: {a.TotalPA:F1}");
 		sb.AppendLine();
+		sb.AppendLine("[b]装備[/b]（→ 03 §4.2.2）");
+		sb.AppendLine($"武器: {EquipmentLabel(a.EquippedWeaponId)}　　防具: {EquipmentLabel(a.EquippedArmorId)}");
+		sb.AppendLine($"アクセサリー1: {EquipmentLabel(a.EquippedAccessory1Id)}　　アクセサリー2: {EquipmentLabel(a.EquippedAccessory2Id)}");
+		sb.AppendLine();
 		sb.AppendLine($"週給: {a.WeeklyWage} G");
 
 		_adventurerDetailLabel.Clear();
@@ -569,6 +596,14 @@ public partial class MainDashboard : Control
 
 		// 配置は職業で固定されないため、常に切り替え可能（→ 03 §4.2）。
 		_placementButton.Text = a.Placement == Placement.Front ? "後衛に変更する" : "前衛に変更する";
+	}
+
+	/// <summary>装備スロット表示用のラベル（未装備ならその旨を表示する。→ 03 §4.2.2）。</summary>
+	private static string EquipmentLabel(string itemId)
+	{
+		if (itemId == null) return "なし";
+		var item = ItemCatalog.FindById(itemId);
+		return item?.Name ?? "（不明）";
 	}
 
 	private static string PlacementLabel(Placement placement) => placement switch
@@ -604,6 +639,7 @@ public partial class MainDashboard : Control
 		FacilityType.Church => "教会",
 		FacilityType.MageLab => "魔法研究所",
 		FacilityType.ScoutPost => "斥候所",
+		FacilityType.RecruitmentOffice => "冒険者支援室",
 		_ => type.ToString()
 	};
 

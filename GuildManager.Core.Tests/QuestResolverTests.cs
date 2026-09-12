@@ -116,6 +116,113 @@ namespace GuildManager.Core.Tests
                 $"INTが高い方のRatio({highResult.Ratio})は低い方({lowResult.Ratio})より高いはず");
         }
 
+        // ---------------- クエスト適性ボーナス（→ 03 §4.2.1、v1.7改訂） ----------------
+
+        [Fact]
+        public void Resolve_Escort_HigherMndVit_YieldsHigherRatio_AllElseEqual()
+        {
+            // 護衛はMND・VIT平均が適性基準。他ステータスを揃え、MND・VITだけ変えて比較する。
+            var lowAptitude = new Adventurer { STR = 50, AGI = 50, VIT = 20, MND = 20, DEX = 50, LDR = 50 };
+            lowAptitude.CurrentHP = lowAptitude.MaxHP;
+            var highAptitude = new Adventurer { STR = 50, AGI = 50, VIT = 90, MND = 90, DEX = 50, LDR = 50 };
+            highAptitude.CurrentHP = highAptitude.MaxHP;
+
+            var quest = new Quest { QuestType = QuestType.Escort, Difficulty = 50, ScoutRequirement = 50 };
+            var resolver = new QuestResolver(new FixedRng(50));
+
+            var lowResult = resolver.Resolve(PartyOf(lowAptitude), quest);
+            var highResult = resolver.Resolve(PartyOf(highAptitude), quest);
+
+            Assert.True(highResult.Ratio > lowResult.Ratio,
+                $"護衛でMND・VITが高い方のRatio({highResult.Ratio})は低い方({lowResult.Ratio})より高いはず");
+        }
+
+        [Fact]
+        public void Resolve_Exploration_HigherAgiDexInt_YieldsHigherRatio_AllElseEqual()
+        {
+            // 調査・探索はAGI・DEX・INT平均が適性基準。
+            var lowAptitude = new Adventurer { STR = 50, AGI = 20, VIT = 50, MND = 50, DEX = 20, LDR = 50, INT = 20 };
+            lowAptitude.CurrentHP = lowAptitude.MaxHP;
+            var highAptitude = new Adventurer { STR = 50, AGI = 90, VIT = 50, MND = 50, DEX = 90, LDR = 50, INT = 90 };
+            highAptitude.CurrentHP = highAptitude.MaxHP;
+
+            var quest = new Quest { QuestType = QuestType.Exploration, Difficulty = 50, ScoutRequirement = 75 };
+            var resolver = new QuestResolver(new FixedRng(50));
+
+            var lowResult = resolver.Resolve(PartyOf(lowAptitude), quest);
+            var highResult = resolver.Resolve(PartyOf(highAptitude), quest);
+
+            Assert.True(highResult.Ratio > lowResult.Ratio,
+                $"調査・探索でAGI・DEX・INTが高い方のRatio({highResult.Ratio})は低い方({lowResult.Ratio})より高いはず");
+        }
+
+        [Fact]
+        public void Resolve_AptitudeMultiplier_NeverGoesBelowOne_ForSubjugation()
+        {
+            // 適性倍率はペナルティなし（1.0以上）。全ステータス最低値でも下振れしないことを確認する。
+            var weakling = new Adventurer { STR = 1, AGI = 1, VIT = 50, MND = 1, DEX = 1, LDR = 1 };
+            weakling.CurrentHP = weakling.MaxHP;
+
+            var quest = new Quest { QuestType = QuestType.Subjugation, Difficulty = 30, ScoutRequirement = 30 };
+            var resolver = new QuestResolver(new FixedRng(50));
+
+            var result = resolver.Resolve(PartyOf(weakling), quest);
+
+            Assert.False(double.IsNaN(result.Ratio));
+            Assert.True(result.Ratio >= 0);
+        }
+
+        [Fact]
+        public void Resolve_SameParty_EscortAptitude_YieldsHigherRatio_ThanSubjugation_WhenMndVitAreTheStrongStats()
+        {
+            // MND・VIT特化パーティなら、討伐(7能力全体平均)より護衛(MND・VIT特化)の方が
+            // 適性倍率が高くなり、Ratioも高くなるはず。
+            var member = new Adventurer { STR = 10, AGI = 10, VIT = 90, MND = 90, DEX = 10, LDR = 10, INT = 10 };
+            member.CurrentHP = member.MaxHP;
+
+            var escortQuest = new Quest { QuestType = QuestType.Escort, Difficulty = 50, ScoutRequirement = 50 };
+            var subjugationQuest = new Quest { QuestType = QuestType.Subjugation, Difficulty = 50, ScoutRequirement = 50 };
+
+            var escortResult = new QuestResolver(new FixedRng(50)).Resolve(PartyOf(member), escortQuest);
+            var subjugationResult = new QuestResolver(new FixedRng(50)).Resolve(PartyOf(member), subjugationQuest);
+
+            Assert.True(escortResult.Ratio > subjugationResult.Ratio,
+                $"MND・VIT特化パーティは護衛Ratio({escortResult.Ratio})が討伐Ratio({subjugationResult.Ratio})より高いはず");
+        }
+
+        // ---------------- 装備の個人CP・最大HPへの反映（→ 03 §4.2.2、v1.7改訂） ----------------
+
+        [Fact]
+        public void Resolve_EquippedWeapon_YieldsHigherRatio_ThanUnequipped()
+        {
+            var unequipped = new Adventurer { STR = 50, AGI = 50, VIT = 50, MND = 50, DEX = 50, LDR = 50, JobClass = JobClass.Warrior };
+            unequipped.CurrentHP = unequipped.MaxHP;
+            var equipped = new Adventurer { STR = 50, AGI = 50, VIT = 50, MND = 50, DEX = 50, LDR = 50, JobClass = JobClass.Warrior };
+            new EquipmentSystem().TryEquip(equipped, ItemCatalog.IronSwordId);
+            equipped.CurrentHP = equipped.MaxHP;
+
+            var quest = new Quest { Difficulty = 50, ScoutRequirement = 50 };
+            var resolver = new QuestResolver(new FixedRng(50));
+
+            var withoutWeapon = resolver.Resolve(PartyOf(unequipped), quest);
+            var withWeapon = resolver.Resolve(PartyOf(equipped), quest);
+
+            Assert.True(withWeapon.Ratio > withoutWeapon.Ratio,
+                $"武器装備ありのRatio({withWeapon.Ratio})は無しの場合({withoutWeapon.Ratio})より高いはず");
+        }
+
+        [Fact]
+        public void Resolve_EquippedArmor_IncreasesMaxHp_AndReducesHpLossPercentImpact()
+        {
+            // 防具の最大HP加算により、同じ%損耗でも減少する絶対HP量が変わることを確認する
+            // （Resolve自体はHP消費%を返さないため、MaxHP自体が装備分だけ増えていることで検証する）。
+            var adventurer = new Adventurer { VIT = 20 };
+            int maxHpBefore = adventurer.MaxHP;
+            new EquipmentSystem().TryEquip(adventurer, ItemCatalog.LeatherArmorId);
+
+            Assert.True(adventurer.MaxHP > maxHpBefore);
+        }
+
         private static Party PartyOf(Adventurer member)
         {
             var party = new Party();

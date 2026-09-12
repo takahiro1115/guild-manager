@@ -218,7 +218,9 @@ namespace GuildManager.Core.Tests
         {
             // リーダー(高VIT)は不可逆障害の判定域に収まり生存、weakling(低VIT)は戦死する
             // ようにAlwaysMaxRngで固定する（致死判定ロールが常に最大値になるため）。
-            var leader = new Adventurer { Name = "リーダー", JobClass = JobClass.Warrior, STR = 50, AGI = 50, VIT = 100, MND = 50, DEX = 50, LDR = 1, Satisfaction = 80 };
+            // VIT以外は低めに抑え、クエスト適性ボーナス（→ 03 §4.2.1）でRatioが0.6以上
+            // （戦線崩壊(Rout)ではなく苦戦敗退(Defeat)、HP0に至らない）に押し上がらないようにする。
+            var leader = new Adventurer { Name = "リーダー", JobClass = JobClass.Warrior, STR = 1, AGI = 1, VIT = 100, MND = 1, DEX = 1, LDR = 1, Satisfaction = 80 };
             leader.CurrentHP = leader.MaxHP;
             var weakling = new Adventurer { Name = "weakling", STR = 1, AGI = 1, VIT = 1, MND = 1, DEX = 1, LDR = 1 };
             weakling.CurrentHP = weakling.MaxHP;

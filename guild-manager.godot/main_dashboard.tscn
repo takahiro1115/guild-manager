@@ -4,6 +4,7 @@
 [ext_resource type="PackedScene" path="res://recruitment_popup.tscn" id="2_recruit"]
 [ext_resource type="PackedScene" path="res://facility_popup.tscn" id="3_facility"]
 [ext_resource type="PackedScene" path="res://advisor_popup.tscn" id="4_advisor"]
+[ext_resource type="PackedScene" path="res://equipment_popup.tscn" id="5_equipment"]
 
 [node name="MainDashboard" type="Control" unique_id=210796005]
 layout_mode = 3
@@ -83,6 +84,11 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "前衛⇔後衛を切り替える"
 
+[node name="EquipmentButton" type="Button" parent="Root/BodyPanel/CenterPanel" unique_id=220254197]
+unique_name_in_owner = true
+layout_mode = 2
+text = "装備"
+
 [node name="NegotiationRow" type="HBoxContainer" parent="Root/BodyPanel/CenterPanel" unique_id=220254190]
 layout_mode = 2
 
@@ -139,4 +145,7 @@ unique_name_in_owner = true
 unique_name_in_owner = true
 
 [node name="AdvisorPopup" parent="." instance=ExtResource("4_advisor")]
+unique_name_in_owner = true
+
+[node name="EquipmentPopup" parent="." instance=ExtResource("5_equipment")]
 unique_name_in_owner = true

@@ -173,8 +173,66 @@ namespace GuildManager.Core.Models
 
         // ---- 動的・コンディション属性。仕様書 03 §2.3 ----
 
-        /// <summary>最大HP = 実効VIT×2 + 50（仕様書 03 §2.3）。特性（例：古傷）による実効値低下を反映する。</summary>
-        public int MaxHP => (int)(GetEffectiveStat("VIT") * 2) + 50;
+        /// <summary>
+        /// 最大HP = 実効VIT×2 + 50（仕様書 03 §2.3）＋装備の最大HP加算（→ §4.2.2）。
+        /// 特性（例：古傷）による実効値低下、防具・アクセサリーの固定加算の両方を反映する。
+        /// </summary>
+        public int MaxHP => (int)(GetEffectiveStat("VIT") * 2) + 50 + GetEquipmentBonus(EquipmentEffectType.MaxHpBonus);
+
+        // ---- 装備（Weapon/Armor/Accessory1/Accessory2）。仕様書 03 §4.2.2 参照。 ----
+
+        /// <summary>装備中の武器のId。null＝未装備。</summary>
+        public string? EquippedWeaponId { get; set; }
+
+        /// <summary>装備中の防具のId。null＝未装備。</summary>
+        public string? EquippedArmorId { get; set; }
+
+        /// <summary>装備中のアクセサリー1のId。null＝未装備。</summary>
+        public string? EquippedAccessory1Id { get; set; }
+
+        /// <summary>装備中のアクセサリー2のId。null＝未装備。</summary>
+        public string? EquippedAccessory2Id { get; set; }
+
+        /// <summary>
+        /// 指定したスロットの現在の装備Idを返す（スロット横断の汎用アクセサ。
+        /// EquipmentSystem・UI側の装備状況表示の両方から使う）。
+        /// </summary>
+        public string? GetEquippedId(EquipmentSlot slot) => slot switch
+        {
+            EquipmentSlot.Weapon => EquippedWeaponId,
+            EquipmentSlot.Armor => EquippedArmorId,
+            EquipmentSlot.Accessory1 => EquippedAccessory1Id,
+            EquipmentSlot.Accessory2 => EquippedAccessory2Id,
+            _ => null,
+        };
+
+        /// <summary>指定したスロットへ装備Idを設定する（スロット横断の汎用アクセサ。EquipmentSystem用）。</summary>
+        public void SetEquippedId(EquipmentSlot slot, string? itemId)
+        {
+            switch (slot)
+            {
+                case EquipmentSlot.Weapon: EquippedWeaponId = itemId; break;
+                case EquipmentSlot.Armor: EquippedArmorId = itemId; break;
+                case EquipmentSlot.Accessory1: EquippedAccessory1Id = itemId; break;
+                case EquipmentSlot.Accessory2: EquippedAccessory2Id = itemId; break;
+            }
+        }
+
+        /// <summary>
+        /// 装備中の4枠（武器・防具・アクセサリー1・アクセサリー2）のうち、指定した効果種別を
+        /// 持つものの効果量合計を返す（→ 03 §4.2.2）。個人CP計算・最大HP計算の両方から使う。
+        /// </summary>
+        public int GetEquipmentBonus(EquipmentEffectType effectType)
+        {
+            int total = 0;
+            foreach (var slot in new[] { EquipmentSlot.Weapon, EquipmentSlot.Armor, EquipmentSlot.Accessory1, EquipmentSlot.Accessory2 })
+            {
+                var item = ItemCatalog.FindById(GetEquippedId(slot));
+                if (item != null && item.EffectType == effectType)
+                    total += item.EffectValue;
+            }
+            return total;
+        }
 
         public int CurrentHP { get; set; }
         public int Satisfaction { get; set; } = 70;
