@@ -59,7 +59,6 @@ public partial class MainDashboard : Control
 	private RecruitmentPopup _recruitmentPopup = null!;
 	private Button _raiseWageButton = null!;
 	private Button _payBonusButton = null!;
-	private Button _placementButton = null!;
 	private FacilityPopup _facilityPopup = null!;
 	private Button _facilityButton = null!;
 	private AdvisorPopup _advisorPopup = null!;
@@ -99,7 +98,6 @@ public partial class MainDashboard : Control
 		_recruitmentPopup = GetNode<RecruitmentPopup>("%RecruitmentPopup");
 		_raiseWageButton = GetNode<Button>("%RaiseWageButton");
 		_payBonusButton = GetNode<Button>("%PayBonusButton");
-		_placementButton = GetNode<Button>("%PlacementButton");
 		_facilityPopup = GetNode<FacilityPopup>("%FacilityPopup");
 		_facilityButton = GetNode<Button>("%FacilityButton");
 		_advisorPopup = GetNode<AdvisorPopup>("%AdvisorPopup");
@@ -117,7 +115,6 @@ public partial class MainDashboard : Control
 		_recruitmentPopup.Closed += OnRecruitmentPopupClosed;
 		_raiseWageButton.Pressed += OnRaiseWagePressed;
 		_payBonusButton.Pressed += OnPayBonusPressed;
-		_placementButton.Pressed += OnPlacementTogglePressed;
 		_facilityButton.Pressed += OnFacilityButtonPressed;
 		_facilityPopup.Closed += OnFacilityPopupClosed;
 		_advisorButton.Pressed += OnAdvisorButtonPressed;
@@ -715,23 +712,6 @@ public partial class MainDashboard : Control
 		RefreshAll();
 	}
 
-	/// <summary>
-	/// 「前衛⇔後衛を切り替える」ボタン（→ 03 §4.2）。配置は職業で固定されないため
-	/// 全職業で常に切り替え可能（TrySetPlacementは常に成功する）。
-	/// </summary>
-	private void OnPlacementTogglePressed()
-	{
-		var target = CurrentDetailAdventurer();
-		if (target == null) return;
-
-		var newPlacement = target.Placement == Placement.Front ? Placement.Back : Placement.Front;
-		if (target.TrySetPlacement(newPlacement))
-		{
-			AppendLog($"[color=lime]{target.Name} の配置を{PlacementLabel(newPlacement)}に変更した。[/color]");
-			RefreshAll();
-		}
-	}
-
 	private Adventurer CurrentDetailAdventurer() =>
 		_detailAdventurerId.HasValue
 			? _state.Adventurers.FirstOrDefault(a => a.Id == _detailAdventurerId.Value)
@@ -780,18 +760,37 @@ public partial class MainDashboard : Control
 	}
 
 	/// <summary>
-	/// ステータス詳細パネルを、直近にクリックされた冒険者（居なければ先頭）の最新の値で再描画する。
+	/// ステータス詳細パネルを、直近にクリックされた冒険者の最新の値で再描画する。
 	/// 週送り直後もパネルの表示対象を維持するため RefreshAll から毎回呼び出す。
+	///
+	/// 引退・装備・昇給・ボーナス支給は冒険者個人に関する事項のため、必ず
+	/// 「冒険者を選択してから選ぶ」（→ ユーザー要望）。先頭の冒険者を暗黙に選択済み
+	/// 扱いにするフォールバックは行わない（選択せずに誤って引退等を実行することを防ぐ）。
+	/// 選択中の冒険者が居なくなった場合（引退・戦死・週送り直後など）も、
+	/// 自動的に別の誰かへ選択を移さず、未選択状態に戻す。
 	/// </summary>
 	private void RefreshAdventurerDetail()
 	{
-		var target = _detailAdventurerId.HasValue
-			? _state.Adventurers.FirstOrDefault(a => a.Id == _detailAdventurerId.Value)
-			: null;
-		target ??= _state.Adventurers.FirstOrDefault();
-
+		var target = CurrentDetailAdventurer();
 		if (target != null)
 			ShowAdventurerDetail(target);
+		else
+			ShowNoAdventurerSelected();
+	}
+
+	/// <summary>
+	/// 冒険者が未選択の状態（ゲーム開始直後・週送りで選択対象が居なくなった場合等）の表示。
+	/// 個人操作系ボタン（昇給・ボーナス支給・引退・装備）を無効化する。
+	/// </summary>
+	private void ShowNoAdventurerSelected()
+	{
+		_detailAdventurerId = null;
+		_adventurerDetailLabel.Clear();
+		_adventurerDetailLabel.AppendText("[color=gray]左の一覧から冒険者を選択してください。[/color]");
+		_raiseWageButton.Disabled = true;
+		_payBonusButton.Disabled = true;
+		_retireButton.Disabled = true;
+		_equipmentButton.Disabled = true;
 	}
 
 	/// <summary>冒険者1名分のステータス詳細（仕様書 03 §2）を詳細パネルに表示する。</summary>
@@ -827,8 +826,11 @@ public partial class MainDashboard : Control
 		_adventurerDetailLabel.Clear();
 		_adventurerDetailLabel.AppendText(sb.ToString());
 
-		// 配置は職業で固定されないため、常に切り替え可能（→ 03 §4.2）。
-		_placementButton.Text = a.Placement == Placement.Front ? "後衛に変更する" : "前衛に変更する";
+		// 冒険者を選択したので、個人操作系ボタンを有効化する（→ ShowNoAdventurerSelectedの対）。
+		_raiseWageButton.Disabled = false;
+		_payBonusButton.Disabled = false;
+		_retireButton.Disabled = false;
+		_equipmentButton.Disabled = false;
 	}
 
 	/// <summary>装備スロット表示用のラベル（未装備ならその旨を表示する。→ 03 §4.2.2）。</summary>

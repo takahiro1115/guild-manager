@@ -111,6 +111,11 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "追加する ▶"
 
+[node name="TogglePlacementButton" type="Button" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "選択中の冒険者の配置（前衛⇔後衛）を切り替える"
+
 [node name="CompatibilityLabel" type="RichTextLabel" parent="VBox"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(700, 70)
