@@ -34,10 +34,15 @@ public partial class MainDashboard : Control
 	private FacilitySystem _facilitySystem = null!;
 	private QuestDispatchSystem _questDispatchSystem = null!;
 	private GuildRankSystem _guildRankSystem = null!;
+	private SecuritySystem _securitySystem = null!;
+	private QuestBoardSystem _questBoardSystem = null!;
+	private SubsidySystem _subsidySystem = null!;
+	private DefeatSystem _defeatSystem = null!;
 
 	private Label _weekLabel = null!;
 	private Label _goldLabel = null!;
 	private Label _rankLabel = null!;
+	private Label _threatLabel = null!;
 	private ItemList _questList = null!;
 	private ItemList _adventurerList = null!;
 	private RichTextLabel _adventurerDetailLabel = null!;
@@ -58,6 +63,7 @@ public partial class MainDashboard : Control
 		_weekLabel = GetNode<Label>("%WeekLabel");
 		_goldLabel = GetNode<Label>("%GoldLabel");
 		_rankLabel = GetNode<Label>("%RankLabel");
+		_threatLabel = GetNode<Label>("%ThreatLabel");
 		_questList = GetNode<ItemList>("%QuestList");
 		_adventurerList = GetNode<ItemList>("%AdventurerList");
 		_adventurerDetailLabel = GetNode<RichTextLabel>("%AdventurerDetailLabel");
@@ -100,6 +106,10 @@ public partial class MainDashboard : Control
 		_facilitySystem = new FacilitySystem();
 		_questDispatchSystem = new QuestDispatchSystem(_questResolver, _growthSystem, _economySystem, _satisfactionSystem);
 		_guildRankSystem = new GuildRankSystem();
+		_securitySystem = new SecuritySystem(new SeededRng(4649));
+		_questBoardSystem = new QuestBoardSystem(new SeededRng(1192));
+		_subsidySystem = new SubsidySystem();
+		_defeatSystem = new DefeatSystem();
 
 		RefreshAll();
 
@@ -221,10 +231,29 @@ public partial class MainDashboard : Control
 			{
 				achievedRankAppropriateQuestThisWeek = true;
 			}
+
+			// 治安・脅威度（→ 03 §4.4）：対象は討伐クエストのみ（達成で減少・失敗で上昇）。
+			int threatDelta = _securitySystem.ApplyQuestResolution(_state, resolution.Quest, resolution.Result.QuestAchieved);
+			LogThreatChange(resolution.Quest, threatDelta);
+		}
+
+		// 受注可能クエスト一覧の週次管理（→ 03 §4.0・§4.4）：期限切れ（放置）の除去と補充。
+		// 放置された討伐クエストは脅威度上昇の対象になる。
+		var expiredQuests = _questBoardSystem.ProcessWeeklyBoard(_state);
+		foreach (var expiredQuest in expiredQuests)
+		{
+			int abandonedThreatDelta = _securitySystem.ApplyAbandonedQuest(_state, expiredQuest);
+			if (abandonedThreatDelta != 0)
+				AppendLog($"[color=orange]「{expiredQuest.Name}」が期限切れで放置された。脅威度+{abandonedThreatDelta}%。[/color]");
 		}
 
 		// 出撃の有無にかかわらず、時間は必ず進む。
 		_economySystem.ApplyWeeklyWages(_state);
+
+		// 月次助成金（4週に1回。→ 03 §8.1・§4.4：脅威度75%超で50%カット）。
+		var subsidyAmount = _subsidySystem.ProcessWeeklySubsidy(_state);
+		if (subsidyAmount.HasValue)
+			AppendLog($"[color=lime]月次助成金 {subsidyAmount.Value}G を受け取った{(_state.ThreatLevel > SecurityBalance.SubsidyCutThreatThreshold ? "（脅威度75%超のため50%カット済み）" : "")}。[/color]");
 		_trainingSystem.ProcessWeeklyTraining(_state, dispatchedIds); // → 03 §3.1〜3.4・§3.5改：訓練場の週次費用・HP微減
 		_injuryRecoverySystem.ProcessWeeklyRecovery(_state);
 		_restRecoverySystem.ProcessWeeklyRest(_state, dispatchedIds); // → 03 §3.5改：静養・HP自然回復（訓練場配置中は対象外）
@@ -249,12 +278,26 @@ public partial class MainDashboard : Control
 			AppendLog(message);
 		}
 
+		// 敗北条件判定（→ 03 §8.3）：週次決算の最後に1回だけ行う。
+		// 破産（所持金マイナス4週連続、猶予あり）／治安崩壊（脅威度100%到達、猶予なし即時敗北）。
+		var newDefeatReason = _defeatSystem.ProcessWeeklySettlement(_state);
+		if (newDefeatReason != null)
+		{
+			string reasonLabel = newDefeatReason == DefeatReason.Bankruptcy ? "破産" : "治安崩壊";
+			AppendLog($"[color=red][font_size=24][b]■■■ ゲームオーバー：{reasonLabel} ■■■[/b][/font_size][/color]");
+			AppendLog(newDefeatReason == DefeatReason.Bankruptcy
+				? "[color=red]所持金マイナスが4週連続で解消されませんでした。[/color]"
+				: "[color=red]脅威度が100%に到達し、街の治安が崩壊しました。[/color]");
+			_nextWeekButton.Disabled = true; // ゲームオーバー：これ以上週を進められない
+		}
+
 		_state.WeekNumber++;
 
 		RefreshAll();
 
 		// 新春採用試験（2年目以降の新年第1週のみ）。ポップアップが閉じるまで次週へ進めさせない（→ 03 §9）。
-		if (_recruitmentSystem.IsRecruitmentWeek(_state.WeekNumber))
+		// ゲームオーバー後は採用試験も発生させない。
+		if (_state.DefeatReason == null && _recruitmentSystem.IsRecruitmentWeek(_state.WeekNumber))
 		{
 			_nextWeekButton.Disabled = true;
 			_recruitmentPopup.Open(_state, _recruitmentSystem);
@@ -303,6 +346,19 @@ public partial class MainDashboard : Control
 			AppendLog(
 				$"[color=yellow][font_size=20][b]▲ {e.Adventurer.Name} の {e.Stat} が上昇！ {e.Before} → {e.After}[/b][/font_size][/color]");
 		}
+	}
+
+	/// <summary>
+	/// 討伐クエストの解決に伴う脅威度の増減を週報ログに報告する（→ 03 §4.4）。
+	/// 討伐クエスト以外（脅威度に影響しない）やクランプで実質変化が無かった場合は何も表示しない。
+	/// </summary>
+	private void LogThreatChange(Quest quest, int threatDelta)
+	{
+		if (threatDelta == 0) return;
+
+		string reason = threatDelta < 0 ? "達成" : "失敗";
+		string sign = threatDelta > 0 ? "+" : "";
+		AppendLog($"[color=orange]討伐クエスト「{quest.Name}」{reason}により脅威度{sign}{threatDelta}%。[/color]");
 	}
 
 	/// <summary>
@@ -398,11 +454,13 @@ public partial class MainDashboard : Control
 		_weekLabel.Text = $"週: {_state.WeekNumber}";
 		_goldLabel.Text = $"所持金: {_state.Gold} G";
 		_rankLabel.Text = $"ギルド格付け: {_state.GuildRank}ランク（名声 {_state.Reputation}）";
+		_threatLabel.Text = $"脅威度: {_state.ThreatLevel}%";
 
 		_questList.Clear();
 		foreach (var q in _state.AvailableQuests)
 		{
-			_questList.AddItem($"[{q.Rank}] {q.Name}（難易度{q.Difficulty} / 規模{ScaleLabel(q.Scale)}・{q.DurationWeeks}週 / 報酬{q.RewardGold}G）");
+			_questList.AddItem($"[{q.Rank}] {q.Name}（{QuestTypeLabel(q.QuestType)} / 難易度{q.Difficulty} / " +
+				$"規模{ScaleLabel(q.Scale)}・{q.DurationWeeks}週 / 報酬{q.RewardGold}G / 期限あと{q.DeadlineWeeks}週）");
 		}
 
 		_adventurerList.Clear();
@@ -480,6 +538,14 @@ public partial class MainDashboard : Control
 		QuestScale.Medium => "中",
 		QuestScale.Large => "大",
 		_ => scale.ToString()
+	};
+
+	private static string QuestTypeLabel(QuestType type) => type switch
+	{
+		QuestType.Subjugation => "討伐",
+		QuestType.Exploration => "調査・探索",
+		QuestType.Escort => "護衛",
+		_ => type.ToString()
 	};
 
 	private static string FacilityLabel(FacilityType type) => type switch

@@ -66,6 +66,21 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
+        public void Dispatch_RemovesQuestFromAvailableQuests()
+        {
+            // 受注済みになったクエストは受注可能一覧から外す（→ 03 §4.0・§4.4）。
+            // 外しておかないと、拘束期間中もQuestBoardSystemの期限切れ判定の対象になり続けてしまう。
+            var quest = new Quest { Scale = QuestScale.Small };
+            var party = PartyOf(new Adventurer());
+            var state = new GameState { AvailableQuests = { quest } };
+            var system = BuildSystem(new AlwaysMinRng());
+
+            system.Dispatch(state, party, quest);
+
+            Assert.DoesNotContain(quest, state.AvailableQuests);
+        }
+
+        [Fact]
         public void Dispatch_AddsToActiveDispatches_WithWeeksRemainingFromScale()
         {
             var party = PartyOf(new Adventurer());

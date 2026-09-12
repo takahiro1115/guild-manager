@@ -12,6 +12,12 @@ namespace GuildManager.Core.Models
         public string Name { get; set; } = "";
         public QuestRank Rank { get; set; }
 
+        /// <summary>
+        /// クエスト種別（討伐／調査・探索／護衛）。脅威度（§4.4）への影響は討伐のみが対象
+        /// （→ 03 §4.0）。デフォルトはSubjugation（既存クエストとの後方互換のため）。
+        /// </summary>
+        public QuestType QuestType { get; set; } = QuestType.Subjugation;
+
         /// <summary>1〜100。値が高いほど難しい。→ BAL: クエスト</summary>
         public int Difficulty { get; set; }
 
@@ -31,6 +37,13 @@ namespace GuildManager.Core.Models
         public int DurationWeeks => QuestBalance.GetDurationWeeks(Scale);
 
         public int RewardGold { get; set; }
+
+        /// <summary>
+        /// 受注可能な残り週数。QuestBoardSystem.ProcessWeeklyBoardが受注されないまま
+        /// 経過した週ごとに1減らし、0以下になったら期限切れとして受注可能一覧から除去する
+        /// （→ 03 §4.0・§4.4「放置」）。派遣（受注）されると受注可能一覧から除かれるため、
+        /// 以降はこのカウントダウンの対象外になる。
+        /// </summary>
         public int DeadlineWeeks { get; set; }
     }
 }

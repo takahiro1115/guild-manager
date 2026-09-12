@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using GuildManager.Core.Balance;
 
 namespace GuildManager.Core.Models
 {
@@ -66,6 +67,24 @@ namespace GuildManager.Core.Models
         /// （Adventurer.WeeksSinceLastDeploymentと同じパターン）。
         /// </summary>
         public int WeeksSinceLastRankAppropriateQuest { get; set; } = 0;
+
+        /// <summary>
+        /// 治安の脅威度（0〜100。仕様書 03 §4.4・§8.3）。討伐クエストの放置・失敗で上昇、
+        /// 達成で減少する。75%超で月次助成金50%カット、100%到達で即時敗北。
+        /// </summary>
+        public int ThreatLevel { get; set; } = SecurityBalance.InitialThreatLevel;
+
+        /// <summary>
+        /// 所持金がマイナスの週が連続何週続いているか（仕様書 03 §8.3「破産」）。
+        /// プラスに戻った週に0へリセットされる。DefeatSystem.ProcessWeeklySettlementが更新する。
+        /// </summary>
+        public int ConsecutiveNegativeGoldWeeks { get; set; } = 0;
+
+        /// <summary>
+        /// 敗北理由（仕様書 03 §8.3）。null＝まだ敗北していない。一度確定したら変化しない
+        /// （DefeatSystemが上書きしない）。
+        /// </summary>
+        public DefeatReason? DefeatReason { get; set; }
 
         /// <summary>指定した種類の施設の現在Lvを返す。該当データが無い場合は1を返す（防御的フォールバック）。</summary>
         public int GetFacilityLevel(FacilityType type)

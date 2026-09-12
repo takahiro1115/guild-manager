@@ -53,6 +53,11 @@ namespace GuildManager.Core.Systems
             };
             state.ActiveDispatches.Add(dispatch);
 
+            // 受注済みになったクエストは受注可能一覧から外す（→ 03 §4.0・§4.4）。
+            // 外しておかないと、派遣中（拘束期間中）もQuestBoardSystemの期限切れ判定の対象に
+            // なり続けてしまい、受注済みのクエストが誤って「放置」扱いされてしまう。
+            state.AvailableQuests.Remove(quest);
+
             foreach (var member in party.Members)
                 member.IsDispatched = true;
         }

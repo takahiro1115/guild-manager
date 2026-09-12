@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using GuildManager.Core.Models;
 
 namespace GuildManager.Core.Balance
@@ -20,6 +21,25 @@ namespace GuildManager.Core.Balance
             QuestScale.Medium => 2,
             QuestScale.Large => 4,
             _ => 1,
+        };
+
+        /// <summary>受注可能クエスト一覧が常に維持すべき件数。→ BAL: クエスト/同時掲示数</summary>
+        public const int DesiredAvailableCount = 3;
+
+        /// <summary>
+        /// クエスト補充用のテンプレート。仕様書03 §4.0「事前調査」時点でクエスト生成ロジックが
+        /// 未実装だったため、QuestBoardSystemが受注可能一覧を補充する際にここからランダムに
+        /// 1件選んで複製する（SampleData.CreateStarterQuests相当の簡易な値の組み合わせ。
+        /// 各値は仮値、→ BAL: クエスト）。
+        /// </summary>
+        public static readonly (string Name, QuestType Type, QuestRank Rank, int Difficulty, int ScoutRequirement, int RewardGold, int DeadlineWeeks)[] Templates =
+        {
+            ("ゴブリン討伐", QuestType.Subjugation, QuestRank.E, 10, 10, 90, 3),
+            ("山道の盗賊退治", QuestType.Subjugation, QuestRank.D, 22, 18, 180, 3),
+            ("野盗のアジト掃討", QuestType.Subjugation, QuestRank.D, 25, 15, 200, 3),
+            ("廃坑の魔物調査", QuestType.Exploration, QuestRank.C, 35, 30, 320, 4),
+            ("古代遺跡の調査", QuestType.Exploration, QuestRank.C, 30, 35, 300, 4),
+            ("商隊の護衛", QuestType.Escort, QuestRank.D, 20, 20, 220, 3),
         };
     }
 }

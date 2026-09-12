@@ -68,19 +68,19 @@ namespace GuildManager.Core.Data
             {
                 new Quest
                 {
-                    Name = "ゴブリン討伐", Rank = QuestRank.E,
+                    Name = "ゴブリン討伐", QuestType = QuestType.Subjugation, Rank = QuestRank.E,
                     Difficulty = 10, ScoutRequirement = 10,
                     RewardGold = 90, DeadlineWeeks = 3
                 },
                 new Quest
                 {
-                    Name = "山道の盗賊退治", Rank = QuestRank.D,
+                    Name = "山道の盗賊退治", QuestType = QuestType.Subjugation, Rank = QuestRank.D,
                     Difficulty = 22, ScoutRequirement = 18,
                     RewardGold = 180, DeadlineWeeks = 3
                 },
                 new Quest
                 {
-                    Name = "廃坑の魔物調査", Rank = QuestRank.C,
+                    Name = "廃坑の魔物調査", QuestType = QuestType.Exploration, Rank = QuestRank.C,
                     Difficulty = 35, ScoutRequirement = 30,
                     RewardGold = 320, DeadlineWeeks = 4
                 },
