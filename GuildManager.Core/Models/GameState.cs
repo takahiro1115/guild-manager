@@ -18,10 +18,10 @@ namespace GuildManager.Core.Models
         public List<Adventurer> Adventurers { get; set; } = new();
 
         /// <summary>
-        /// 40歳強制引退した冒険者の一覧（仕様書 03 §3.7つづき）。現役ロースター
-        /// （Adventurers）からは除外しつつ、データとしては破棄しない。
-        /// §7顧問制度が未実装の間は「引退済み・顧問候補」として保持するのみで、
-        /// 教官・スカウト・参謀としての実際の効果は付与しない。§7実装時にここから再任用する想定。
+        /// 引退した冒険者の一覧（40歳強制引退・早期引退の両方。仕様書 03 §3.7・§7）。
+        /// 現役ロースター（Adventurers）からは除外しつつ、データとしては破棄しない。
+        /// 「顧問候補」として、AssignedTrainers・AssignedAdvisor・AssignedScoutMasterの
+        /// いずれかに任意で任命できる。
         /// </summary>
         public List<Adventurer> RetiredAdventurers { get; set; } = new();
 
@@ -41,11 +41,29 @@ namespace GuildManager.Core.Models
         /// </summary>
         public List<ActiveDispatch> ActiveDispatches { get; set; } = new();
 
-        /// <summary>訓練場に配置されている冒険者ID（→ 03 §3.1〜3.4「成長トリガー・経路2」）。</summary>
-        public HashSet<Guid> TrainingAssignments { get; set; } = new();
+        /// <summary>
+        /// 訓練施設に配置されている冒険者と、配置先の施設種別（→ 03 §3.1〜3.4「成長トリガー・
+        /// 経路2」・§6）。v1.3改訂：訓練場・道場の4分割に伴い、単一のHashSet&lt;Guid&gt;から
+        /// 「どの施設に配置されているか」まで持つDictionaryに変更した。
+        /// </summary>
+        public Dictionary<Guid, FacilityType> TrainingAssignments { get; set; } = new();
 
         /// <summary>
-        /// 4大施設の現在状態（仕様書 03 §6）。デフォルトで全種Lv1を1つずつ持つ。
+        /// 各訓練施設（戦士訓練所/教会/魔法研究所/斥候所）に配置されている教官
+        /// （引退済み冒険者。仕様書 03 §7.1）。施設ごとに1名まで。未配置の施設はキー自体が
+        /// 存在しないか値がnull。
+        /// </summary>
+        public Dictionary<FacilityType, Guid?> AssignedTrainers { get; set; } = new();
+
+        /// <summary>作戦資料室に配置されている参謀（引退済み冒険者。仕様書 03 §7.2）。1名まで。null＝未配置。</summary>
+        public Guid? AssignedAdvisor { get; set; }
+
+        /// <summary>任命されているスカウト顧問（引退済み冒険者。仕様書 03 §7.3）。施設に紐づかない。1名まで。null＝未任命。</summary>
+        public Guid? AssignedScoutMaster { get; set; }
+
+        /// <summary>
+        /// 8施設の現在状態（仕様書 03 §6。v1.3改訂：訓練場・道場の4分割により4大施設から
+        /// 8施設に拡張）。デフォルトで全種Lv1を1つずつ持つ。
         /// </summary>
         public List<Facility> Facilities { get; set; } = CreateDefaultFacilities();
 
@@ -98,9 +116,12 @@ namespace GuildManager.Core.Models
         {
             new Facility { Type = FacilityType.Dormitory, CurrentLevel = 1 },
             new Facility { Type = FacilityType.Infirmary, CurrentLevel = 1 },
-            new Facility { Type = FacilityType.TrainingGround, CurrentLevel = 1 },
             new Facility { Type = FacilityType.WarRoom, CurrentLevel = 1 },
             new Facility { Type = FacilityType.Tavern, CurrentLevel = 1 },
+            new Facility { Type = FacilityType.WarriorHall, CurrentLevel = 1 },
+            new Facility { Type = FacilityType.Church, CurrentLevel = 1 },
+            new Facility { Type = FacilityType.MageLab, CurrentLevel = 1 },
+            new Facility { Type = FacilityType.ScoutPost, CurrentLevel = 1 },
         };
     }
 }

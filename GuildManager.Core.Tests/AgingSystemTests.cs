@@ -270,12 +270,67 @@ namespace GuildManager.Core.Tests
         {
             var adventurer = new Adventurer { Age = 40 };
             var state = CreateState(adventurer, weekNumber: 48);
-            state.TrainingAssignments.Add(adventurer.Id);
+            state.TrainingAssignments.Add(adventurer.Id, FacilityType.WarriorHall);
             var system = new AgingSystem(new AlwaysMinRng());
 
             system.ProcessWeeklyAging(state);
 
-            Assert.DoesNotContain(adventurer.Id, state.TrainingAssignments);
+            Assert.DoesNotContain(adventurer.Id, state.TrainingAssignments.Keys);
+        }
+
+        // ---------------- 早期引退（→ 03 §7「引退の経路」） ----------------
+
+        [Fact]
+        public void RetireVoluntarily_MovesAdventurerToRetiredList_EvenBelowFortyYearsOld()
+        {
+            var adventurer = new Adventurer { Age = 25, WeeklyWage = 40 };
+            var state = new GameState { Gold = 1000, Adventurers = { adventurer } };
+            var system = new AgingSystem(new AlwaysMinRng());
+
+            system.RetireVoluntarily(state, adventurer);
+
+            Assert.True(adventurer.IsRetired);
+            Assert.DoesNotContain(adventurer, state.Adventurers);
+            Assert.Contains(adventurer, state.RetiredAdventurers);
+        }
+
+        [Fact]
+        public void RetireVoluntarily_PaysSameSeveranceAsForcedRetirement()
+        {
+            var adventurer = new Adventurer { Age = 25, WeeklyWage = 40 };
+            var state = new GameState { Gold = 1000, Adventurers = { adventurer } };
+            var system = new AgingSystem(new AlwaysMinRng());
+
+            system.RetireVoluntarily(state, adventurer);
+
+            Assert.Equal(1000 - 40 * 12, state.Gold); // 退職金＝週給×12週（40歳強制引退と共通）
+            Assert.True(adventurer.SeverancePaid);
+        }
+
+        [Fact]
+        public void RetireVoluntarily_RecordsCurrentAgeAndWeek_NotNecessarilyForty()
+        {
+            var adventurer = new Adventurer { Age = 25 };
+            var state = new GameState { WeekNumber = 30, Adventurers = { adventurer } };
+            var system = new AgingSystem(new AlwaysMinRng());
+
+            system.RetireVoluntarily(state, adventurer);
+
+            Assert.Equal(25, adventurer.RetiredAtAge); // 40歳ちょうどではない、その時点の年齢を記録
+            Assert.Equal(30, adventurer.RetiredAtWeek);
+        }
+
+        [Fact]
+        public void RetireVoluntarily_DoesNothing_WhenAlreadyRetired()
+        {
+            var adventurer = new Adventurer { Age = 25, WeeklyWage = 40, IsRetired = true };
+            var state = new GameState { Gold = 1000, RetiredAdventurers = { adventurer } };
+            var system = new AgingSystem(new AlwaysMinRng());
+
+            system.RetireVoluntarily(state, adventurer);
+
+            Assert.Equal(1000, state.Gold); // 退職金が二重に支給されない
+            Assert.Single(state.RetiredAdventurers); // 重複追加されない
         }
 
         [Fact]

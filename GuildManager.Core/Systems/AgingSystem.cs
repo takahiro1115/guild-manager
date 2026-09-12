@@ -97,8 +97,22 @@ namespace GuildManager.Core.Systems
         }
 
         /// <summary>
-        /// 40歳強制引退の処理（仕様書 03 §3.7）。退職金を支給し、現役ロースターから
+        /// 早期引退（仕様書 03 §7「引退の経路」）。プレイヤーが任意のタイミングで
+        /// 40歳未満の現役冒険者を引退させ、顧問候補にする。退職金支給等の処理は
+        /// 40歳強制引退（Retire）と共通のものを使う。既に引退済みなら何もしない。
+        /// </summary>
+        public void RetireVoluntarily(GameState state, Adventurer adventurer)
+        {
+            if (adventurer.IsRetired)
+                return;
+
+            Retire(state, adventurer);
+        }
+
+        /// <summary>
+        /// 引退処理の共通部分（仕様書 03 §3.7・§7）。退職金を支給し、現役ロースターから
         /// 引退済み一覧へ移す。訓練場に配置中だった場合はその枠も解放する。
+        /// 40歳強制引退（AdvanceYear経由）と早期引退（RetireVoluntarily）の両方から呼ばれる。
         /// </summary>
         private void Retire(GameState state, Adventurer adventurer)
         {

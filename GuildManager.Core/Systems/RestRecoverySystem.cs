@@ -39,7 +39,7 @@ namespace GuildManager.Core.Systems
                 if (dispatchedAdventurerIds.Contains(adventurer.Id))
                     continue; // 今週出撃した者は静養扱いにしない
 
-                if (state.TrainingAssignments.Contains(adventurer.Id))
+                if (state.TrainingAssignments.ContainsKey(adventurer.Id))
                     continue; // 訓練場配置中はTrainingSystemが別途処理する（§3.5改：排他）
 
                 if (adventurer.Injury == InjurySeverity.Severe)

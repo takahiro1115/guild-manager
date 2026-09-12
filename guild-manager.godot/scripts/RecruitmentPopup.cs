@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using GuildManager.Core.Models;
 using GuildManager.Core.Systems;
 
@@ -47,11 +48,20 @@ public partial class RecruitmentPopup : PopupPanel
 	{
 		_state = state;
 		_recruitmentSystem = recruitmentSystem;
-		_candidates = recruitmentSystem.GenerateCandidates();
+		_candidates = recruitmentSystem.GenerateCandidates(GetScoutMasterBonus());
 		_decided = false;
 
 		RefreshList();
 		PopupCentered();
+	}
+
+	/// <summary>スカウト顧問が任命されていれば、そのボーナスを返す（未任命なら0。→ 03 §7.3）。</summary>
+	private double GetScoutMasterBonus()
+	{
+		if (_state.AssignedScoutMaster == null) return 0;
+
+		var scoutMaster = _state.RetiredAdventurers.FirstOrDefault(a => a.Id == _state.AssignedScoutMaster.Value);
+		return scoutMaster == null ? 0 : AdvisorSystem.GetScoutMasterBonus(scoutMaster);
 	}
 
 	private void RefreshList()

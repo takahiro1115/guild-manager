@@ -23,18 +23,19 @@ namespace GuildManager.Core.Tests
         /// <summary>
         /// 施設投資ポップアップに5施設中2件しか表示されない不具合の調査時に追加した回帰テスト。
         /// 原因はGameState.Facilities自体ではなくFacilityPopup側のレイアウトだったが
-        /// （→ facility_popup.tscn修正）、データ生成側が全5種を持つことを保証する意味で残す。
+        /// （→ facility_popup.tscn修正）、データ生成側が全種を持つことを保証する意味で残す。
+        /// v1.3改訂：訓練場・道場の4分割により5種から8種に拡張。
         /// </summary>
         [Fact]
-        public void NewGameState_HasAllFiveFacilityTypesAtLevel1()
+        public void NewGameState_HasAllEightFacilityTypesAtLevel1()
         {
             var state = new GameState();
 
-            Assert.Equal(5, state.Facilities.Count);
+            Assert.Equal(8, state.Facilities.Count);
             foreach (var type in new[]
                      {
-                         FacilityType.Dormitory, FacilityType.Infirmary, FacilityType.TrainingGround,
-                         FacilityType.WarRoom, FacilityType.Tavern,
+                         FacilityType.Dormitory, FacilityType.Infirmary, FacilityType.WarRoom, FacilityType.Tavern,
+                         FacilityType.WarriorHall, FacilityType.Church, FacilityType.MageLab, FacilityType.ScoutPost,
                      })
             {
                 var facility = GetFacility(state, type);

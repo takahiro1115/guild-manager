@@ -1,3 +1,6 @@
+using System;
+using GuildManager.Core.Models;
+
 namespace GuildManager.Core.Balance
 {
     /// <summary>
@@ -20,8 +23,30 @@ namespace GuildManager.Core.Balance
         /// <summary>着工から完成までの工事期間（週）。→ BAL: 施設/工事期間。現状は仮値。</summary>
         public static int GetConstructionWeeks(Models.FacilityType type, int currentLevel) => currentLevel;
 
-        /// <summary>訓練場・道場Lvに連動する訓練場配置の枠数。→ BAL: 施設/訓練場。現状は仮値（Lv=枠数）。</summary>
-        public static int GetTrainingSlotCapacity(int trainingGroundLevel) => trainingGroundLevel;
+        /// <summary>
+        /// 訓練施設（戦士訓練所/教会/魔法研究所/斥候所）のLvに連動する配置枠数。
+        /// → BAL: 施設/訓練場。現状は仮値（Lv=枠数。4施設それぞれ独立に適用する。v1.3改訂：
+        /// 旧・単一の訓練場・道場のLv1=1名という値を、分割後の各施設にもそのまま踏襲）。
+        /// </summary>
+        public static int GetTrainingSlotCapacity(int facilityLevel) => facilityLevel;
+
+        /// <summary>指定した施設種別が訓練施設（4分割後）かどうか。</summary>
+        public static bool IsTrainingFacility(FacilityType type) =>
+            type is FacilityType.WarriorHall or FacilityType.Church or FacilityType.MageLab or FacilityType.ScoutPost;
+
+        /// <summary>
+        /// 訓練施設ごとの成長ロール対象ステータス（経路2、→ 03 §3.1〜3.4・§6）。
+        /// 戦士訓練所→STR・VIT、教会→MND、魔法研究所→INT、斥候所→AGI・DEX。
+        /// 訓練施設以外を渡すと例外（呼び出し側の設計ミスを早期検知するため）。
+        /// </summary>
+        public static string[] GetTrainingTargetStats(FacilityType type) => type switch
+        {
+            FacilityType.WarriorHall => new[] { "STR", "VIT" },
+            FacilityType.Church => new[] { "MND" },
+            FacilityType.MageLab => new[] { "INT" },
+            FacilityType.ScoutPost => new[] { "AGI", "DEX" },
+            _ => throw new ArgumentException($"施設{type}は訓練施設ではありません（訓練対象ステータスを持ちません）"),
+        };
 
         /// <summary>宿舎Lvに連動する現役枠の上限。→ BAL: 施設/宿舎。現状は仮値（Lv1=8枠、以降+4/Lv）。</summary>
         public static int GetDormitoryCapacity(int dormitoryLevel) => 8 + (dormitoryLevel - 1) * 4;

@@ -95,9 +95,12 @@ public partial class FacilityPopup : PopupPanel
 	{
 		FacilityType.Dormitory => "宿舎",
 		FacilityType.Infirmary => "医務室",
-		FacilityType.TrainingGround => "訓練場・道場",
 		FacilityType.WarRoom => "作戦資料室",
 		FacilityType.Tavern => "ギルド酒場",
+		FacilityType.WarriorHall => "戦士訓練所",
+		FacilityType.Church => "教会",
+		FacilityType.MageLab => "魔法研究所",
+		FacilityType.ScoutPost => "斥候所",
 		_ => type.ToString()
 	};
 }

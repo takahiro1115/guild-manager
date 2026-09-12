@@ -147,19 +147,19 @@ namespace GuildManager.Core.Tests
             Assert.Equal(41, b.STR);
         }
 
-        // ---------------- 経路2：訓練場配置による成長 ----------------
+        // ---------------- 経路2：訓練施設配置による成長（v1.3改訂：施設ごとに対象ステータスを限定） ----------------
 
         [Fact]
         public void ProcessTrainingGrowth_GrowsTrainingAssignedNonDispatchedMember()
         {
             var adventurer = new Adventurer { Age = 18, STR = 40, PA_STR = 80 };
             var state = new GameState { Adventurers = { adventurer } };
-            state.TrainingAssignments.Add(adventurer.Id);
+            state.TrainingAssignments.Add(adventurer.Id, FacilityType.WarriorHall);
             var system = new GrowthSystem(new AlwaysMinRng());
 
             system.ProcessTrainingGrowth(state, NoDispatch);
 
-            // 経路2は全ステータス均等抽選。AllStatNamesの先頭=STRをAlwaysMinRngが選ぶ。
+            // 戦士訓練所の対象ステータスは[STR,VIT]。AlwaysMinRngは先頭=STRを選ぶ。
             Assert.Equal(41, adventurer.STR);
         }
 
@@ -181,7 +181,7 @@ namespace GuildManager.Core.Tests
         {
             var adventurer = new Adventurer { Age = 18, STR = 40, PA_STR = 80 };
             var state = new GameState { Adventurers = { adventurer } };
-            state.TrainingAssignments.Add(adventurer.Id);
+            state.TrainingAssignments.Add(adventurer.Id, FacilityType.WarriorHall);
             var system = new GrowthSystem(new AlwaysMinRng());
 
             system.ProcessTrainingGrowth(state, new HashSet<Guid> { adventurer.Id });
@@ -190,14 +190,43 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
+        public void ProcessTrainingGrowth_RestrictsGrowthTargetToFacilityStats_SingleStatFacility()
+        {
+            // 教会（Church）の対象ステータスはMNDのみ。ロール値に関わらずMND以外は絶対に伸びない。
+            var adventurer = new Adventurer { Age = 18, STR = 40, PA_STR = 80, MND = 40, PA_MND = 80 };
+            var state = new GameState { Adventurers = { adventurer } };
+            state.TrainingAssignments.Add(adventurer.Id, FacilityType.Church);
+            var system = new GrowthSystem(new AlwaysMinRng());
+
+            var events = system.ProcessTrainingGrowth(state, NoDispatch);
+
+            Assert.Single(events);
+            Assert.Equal("MND", events[0].Stat);
+            Assert.Equal(40, adventurer.STR); // 対象外のSTRは変化しない
+        }
+
+        [Fact]
+        public void ProcessTrainingGrowth_RestrictsGrowthTargetToFacilityStats_TwoStatFacility()
+        {
+            // 斥候所（ScoutPost）の対象ステータスは[AGI,DEX]の2つ。FixedRollRng(1)はインデックス1=DEXを指す。
+            var adventurer = new Adventurer { Age = 18, AGI = 40, PA_AGI = 80, DEX = 40, PA_DEX = 80 };
+            var state = new GameState { Adventurers = { adventurer } };
+            state.TrainingAssignments.Add(adventurer.Id, FacilityType.ScoutPost);
+            var system = new GrowthSystem(new FixedRollRng(1));
+
+            var events = system.ProcessTrainingGrowth(state, NoDispatch);
+
+            Assert.Single(events);
+            Assert.Equal("DEX", events[0].Stat);
+        }
+
+        [Fact]
         public void ProcessTrainingGrowth_ClampsAtPaCap()
         {
-            // 経路2（訓練場）は全ステータス均等抽選（0〜6のインデックス。v1.2改訂でINT追加により7種に）。
-            // FixedRollRng(3)はインデックス3=MND(旧MAG)を指すため、MND側にPA上限を設定して検証する。
             var adventurer = new Adventurer { Age = 18, MND = 79, PA_MND = 80 };
             var state = new GameState { Adventurers = { adventurer } };
-            state.TrainingAssignments.Add(adventurer.Id);
-            var system = new GrowthSystem(new FixedRollRng(3));
+            state.TrainingAssignments.Add(adventurer.Id, FacilityType.Church);
+            var system = new GrowthSystem(new AlwaysMinRng());
 
             system.ProcessTrainingGrowth(state, NoDispatch);
 
@@ -205,20 +234,57 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
-        public void ProcessTrainingGrowth_CanSelectInt_NowThatItIsActive()
+        public void ProcessTrainingGrowth_CanGrowInt_ViaMageLab()
         {
-            // v1.2改訂：INTは予約フィールドから活性化され、経路2（訓練場・全ステータス均等抽選）の
-            // 対象に加わった。AllStatNamesの末尾（インデックス6）がINTを指すことを確認する。
+            // v1.3改訂：INTを鍛えられるのは魔法研究所（MageLab）のみ。
             var adventurer = new Adventurer { Age = 18, INT = 79, PA_INT = 80 };
             var state = new GameState { Adventurers = { adventurer } };
-            state.TrainingAssignments.Add(adventurer.Id);
-            var system = new GrowthSystem(new FixedRollRng(6));
+            state.TrainingAssignments.Add(adventurer.Id, FacilityType.MageLab);
+            var system = new GrowthSystem(new AlwaysMinRng());
 
             var events = system.ProcessTrainingGrowth(state, NoDispatch);
 
             Assert.Single(events);
             Assert.Equal("INT", events[0].Stat);
             Assert.Equal(80, adventurer.INT);
+        }
+
+        [Fact]
+        public void ProcessTrainingGrowth_UpdatesPeak_WhenStatGrows()
+        {
+            var adventurer = new Adventurer { Age = 18, STR = 40, PA_STR = 80 };
+            var state = new GameState { Adventurers = { adventurer } };
+            state.TrainingAssignments.Add(adventurer.Id, FacilityType.WarriorHall);
+            var system = new GrowthSystem(new AlwaysMinRng());
+
+            system.ProcessTrainingGrowth(state, NoDispatch);
+
+            Assert.Equal(41, adventurer.PeakSTR); // 成長後の実効値が生涯ピークにも反映される
+        }
+
+        [Fact]
+        public void ProcessTrainingGrowth_AppliesTrainerBonus_IncreasingGrowthChance()
+        {
+            // 教官（生涯ピークSTR/VIT平均が高い）を戦士訓練所に配置すると、成長確率倍率が
+            // 上乗せされる（→ 03 §7.1）。ここでは、教官が居なければ成長ロールが必ず失敗する
+            // ぎりぎりの roll を使い、教官ボーナスが乗ることで成長が成立することを確認する。
+            var trainee = new Adventurer { Age = 25, STR = 40, PA_STR = 80 }; // 全盛期(22〜27)：基礎確率12%
+            var trainer = new Adventurer { STR = 100, VIT = 100 }; // 生涯ピーク平均100
+            var state = new GameState
+            {
+                Adventurers = { trainee },
+                RetiredAdventurers = { trainer },
+            };
+            state.TrainingAssignments.Add(trainee.Id, FacilityType.WarriorHall);
+            state.AssignedTrainers[FacilityType.WarriorHall] = trainer.Id;
+
+            // roll=13：教官なしの基礎確率12%だけでは失敗(13>12)、教官ボーナス(100*0.005=0.5→+50%)が
+            // 乗ると12%+50%=62%となり成立する(13<=62)。
+            var system = new GrowthSystem(new FixedRollRng(13));
+
+            var events = system.ProcessTrainingGrowth(state, NoDispatch);
+
+            Assert.Single(events);
         }
 
         // ---------------- 職業別の成長ステータス重み（GrowthBalance） ----------------

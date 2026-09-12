@@ -38,6 +38,7 @@ public partial class MainDashboard : Control
 	private QuestBoardSystem _questBoardSystem = null!;
 	private SubsidySystem _subsidySystem = null!;
 	private DefeatSystem _defeatSystem = null!;
+	private AdvisorSystem _advisorSystem = null!;
 
 	private Label _weekLabel = null!;
 	private Label _goldLabel = null!;
@@ -54,6 +55,9 @@ public partial class MainDashboard : Control
 	private Button _placementButton = null!;
 	private FacilityPopup _facilityPopup = null!;
 	private Button _facilityButton = null!;
+	private AdvisorPopup _advisorPopup = null!;
+	private Button _advisorButton = null!;
+	private Button _retireButton = null!;
 
 	/// <summary>ステータス詳細パネルに表示中の冒険者。週送り後もこの人物の表示を維持する。</summary>
 	private Guid? _detailAdventurerId;
@@ -75,6 +79,9 @@ public partial class MainDashboard : Control
 		_placementButton = GetNode<Button>("%PlacementButton");
 		_facilityPopup = GetNode<FacilityPopup>("%FacilityPopup");
 		_facilityButton = GetNode<Button>("%FacilityButton");
+		_advisorPopup = GetNode<AdvisorPopup>("%AdvisorPopup");
+		_advisorButton = GetNode<Button>("%AdvisorButton");
+		_retireButton = GetNode<Button>("%RetireButton");
 
 		_adventurerList.SelectMode = ItemList.SelectModeEnum.Multi;
 		_adventurerList.MultiSelected += OnAdventurerMultiSelected;
@@ -86,6 +93,9 @@ public partial class MainDashboard : Control
 		_placementButton.Pressed += OnPlacementTogglePressed;
 		_facilityButton.Pressed += OnFacilityButtonPressed;
 		_facilityPopup.Closed += OnFacilityPopupClosed;
+		_advisorButton.Pressed += OnAdvisorButtonPressed;
+		_advisorPopup.Closed += OnAdvisorPopupClosed;
+		_retireButton.Pressed += OnRetirePressed;
 
 		_state = new GameState
 		{
@@ -110,6 +120,7 @@ public partial class MainDashboard : Control
 		_questBoardSystem = new QuestBoardSystem(new SeededRng(1192));
 		_subsidySystem = new SubsidySystem();
 		_defeatSystem = new DefeatSystem();
+		_advisorSystem = new AdvisorSystem();
 
 		RefreshAll();
 
@@ -313,6 +324,39 @@ public partial class MainDashboard : Control
 	/// <summary>施設投資ポップアップが閉じた時のコールバック。着工・所持金の変化を反映する。</summary>
 	private void OnFacilityPopupClosed()
 	{
+		RefreshAll();
+	}
+
+	/// <summary>「顧問管理」ボタン。顧問役職割り当てポップアップを開く（いつでも自由に開閉できる）。</summary>
+	private void OnAdvisorButtonPressed()
+	{
+		_advisorPopup.Open(_state, _advisorSystem);
+	}
+
+	/// <summary>顧問管理ポップアップが閉じた時のコールバック。役職配置の変化を反映する。</summary>
+	private void OnAdvisorPopupClosed()
+	{
+		RefreshAll();
+	}
+
+	/// <summary>
+	/// 「引退させる（顧問候補にする）」ボタン（→ 03 §7「引退の経路」）。表示中の冒険者を
+	/// 40歳未満でも任意のタイミングで早期引退させ、顧問候補にする。退職金は既存の
+	/// 40歳強制引退と共通の処理（AgingSystem.RetireVoluntarily）で支給する。
+	/// </summary>
+	private void OnRetirePressed()
+	{
+		var target = CurrentDetailAdventurer();
+		if (target == null) return;
+
+		if (target.IsDispatched)
+		{
+			AppendLog($"[color=gray]{target.Name} は派遣中のため引退させられません（帰還を待ってください）。[/color]");
+			return;
+		}
+
+		_agingSystem.RetireVoluntarily(_state, target);
+		AppendLog($"[color=cyan]{target.Name} が引退し、顧問候補になった。[/color]");
 		RefreshAll();
 	}
 
@@ -552,9 +596,12 @@ public partial class MainDashboard : Control
 	{
 		FacilityType.Dormitory => "宿舎",
 		FacilityType.Infirmary => "医務室",
-		FacilityType.TrainingGround => "訓練場・道場",
 		FacilityType.WarRoom => "作戦資料室",
 		FacilityType.Tavern => "ギルド酒場",
+		FacilityType.WarriorHall => "戦士訓練所",
+		FacilityType.Church => "教会",
+		FacilityType.MageLab => "魔法研究所",
+		FacilityType.ScoutPost => "斥候所",
 		_ => type.ToString()
 	};
 

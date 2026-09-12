@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using GuildManager.Core.Models;
 using GuildManager.Core.Rng;
@@ -7,7 +8,7 @@ using Xunit;
 namespace GuildManager.Core.Tests
 {
     /// <summary>
-    /// 採用（新春採用試験）システム（仕様書 03 §2.4）のテスト。
+    /// 採用（新春採用試験）システム（仕様書 03 §2.4・§7.3）のテスト。
     /// 実行方法: このフォルダで `dotnet test`
     /// </summary>
     public class RecruitmentSystemTests
@@ -22,6 +23,14 @@ namespace GuildManager.Core.Tests
         private class AlwaysMaxRng : IRng
         {
             public int NextInt(int min, int max) => max;
+        }
+
+        /// <summary>NextInt(min, max) が固定値を [min, max] にクランプして返すテスト用スタブ。</summary>
+        private class FixedRng : IRng
+        {
+            private readonly int _value;
+            public FixedRng(int value) => _value = value;
+            public int NextInt(int min, int max) => Math.Clamp(_value, min, max);
         }
 
         // ---------------- 新春採用試験の週判定（§2.4「タイミング」） ----------------
@@ -119,6 +128,42 @@ namespace GuildManager.Core.Tests
         {
             var system = new RecruitmentSystem(new AlwaysMinRng());
             Assert.All(system.GenerateCandidates(), o => Assert.True(o.SigningBonus > 0));
+        }
+
+        // ---------------- 有望新人（総合PA75以上）の出現判定（→ 03 §7.3） ----------------
+
+        [Fact]
+        public void GenerateCandidates_UsesNormalPaRange_WhenHighPotentialRollFails()
+        {
+            // roll=30固定。基礎出現率25%（閾値25）を上回るため、通常レンジ(40〜80)で生成される。
+            // FixedRng(30)は年齢ロールもclamp(30,15,18)=18(ageBonus=0)にする。
+            var system = new RecruitmentSystem(new FixedRng(30));
+
+            var candidate = system.GenerateCandidates()[0].Candidate;
+
+            Assert.Equal(40, candidate.PA_STR); // 通常レンジの下限(40)にclampされる
+        }
+
+        [Fact]
+        public void GenerateCandidates_UsesHighPotentialPaRange_WhenScoutMasterBonusPushesRollUnderThreshold()
+        {
+            // 同じroll=30でも、スカウト顧問ボーナスで出現率が30%超になれば「有望新人」判定域に入り、
+            // PA生成レンジが底上げされる(70〜100)。
+            var system = new RecruitmentSystem(new FixedRng(30));
+
+            var candidate = system.GenerateCandidates(scoutMasterBonus: 0.10)[0].Candidate;
+
+            Assert.Equal(70, candidate.PA_STR); // 有望新人レンジの下限(70)にclampされる
+        }
+
+        [Fact]
+        public void GenerateCandidates_DefaultsToNoScoutMasterBonus_WhenArgumentOmitted()
+        {
+            // 既存の呼び出し（引数省略）と同じ結果になることを確認（後方互換）。
+            var withDefault = new RecruitmentSystem(new FixedRng(30)).GenerateCandidates();
+            var withExplicitZero = new RecruitmentSystem(new FixedRng(30)).GenerateCandidates(0);
+
+            Assert.Equal(withExplicitZero[0].Candidate.PA_STR, withDefault[0].Candidate.PA_STR);
         }
 
         // ---------------- 雇用枠（§2.4「雇用枠」） ----------------

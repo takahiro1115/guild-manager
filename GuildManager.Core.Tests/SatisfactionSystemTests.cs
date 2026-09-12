@@ -278,13 +278,13 @@ namespace GuildManager.Core.Tests
         {
             var adventurer = new Adventurer { Satisfaction = 10 };
             var state = new GameState { Adventurers = { adventurer } };
-            state.TrainingAssignments.Add(adventurer.Id);
+            state.TrainingAssignments.Add(adventurer.Id, FacilityType.WarriorHall);
             var system = new SatisfactionSystem();
 
             for (int i = 0; i < 4; i++)
                 system.ProcessWeeklyNegotiation(state);
 
-            Assert.DoesNotContain(adventurer.Id, state.TrainingAssignments);
+            Assert.DoesNotContain(adventurer.Id, state.TrainingAssignments.Keys);
         }
 
         [Fact]

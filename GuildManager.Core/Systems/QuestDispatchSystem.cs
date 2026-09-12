@@ -78,7 +78,8 @@ namespace GuildManager.Core.Systems
                 if (dispatch.WeeksRemaining > 0)
                     continue; // まだ派遣中（移動中）：何もしない
 
-                var result = _questResolver.Resolve(dispatch.Party, dispatch.Quest);
+                double advisorBonus = GetAdvisorBonus(state); // → 03 §7.2：参謀ボーナス（PartyScout・SurvivalThresholdの両方に加算）
+                var result = _questResolver.Resolve(dispatch.Party, dispatch.Quest, advisorBonus);
                 _economySystem.ApplyReward(state, result.RewardGold);
 
                 // 経路1：満了週にのみ1回。戦死した者は成長ロールの結果を報告しない
@@ -114,6 +115,15 @@ namespace GuildManager.Core.Systems
             }
 
             return resolutions;
+        }
+
+        /// <summary>作戦資料室に配置されている参謀がいれば、そのボーナスを返す（未配置なら0。→ 03 §7.2）。</summary>
+        private static double GetAdvisorBonus(GameState state)
+        {
+            if (state.AssignedAdvisor == null) return 0;
+
+            var advisor = state.RetiredAdventurers.FirstOrDefault(a => a.Id == state.AssignedAdvisor.Value);
+            return advisor == null ? 0 : AdvisorSystem.GetAdvisorBonus(advisor);
         }
     }
 }

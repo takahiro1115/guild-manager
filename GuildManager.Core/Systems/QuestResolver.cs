@@ -42,9 +42,16 @@ namespace GuildManager.Core.Systems
         }
 
         /// <summary>
-        /// パーティをクエストに派遣し、フェーズ1・2を解決する。
+        /// パーティをクエストに派遣し、フェーズ1〜3を解決する。
         /// </summary>
-        public WeekResolutionResult Resolve(Party party, Quest quest)
+        /// <param name="party">派遣パーティ。</param>
+        /// <param name="quest">対象クエスト。</param>
+        /// <param name="advisorBonus">
+        /// 作戦参謀のボーナス（生涯ピーク7能力平均に比例。→ 03 §7.2・AdvisorSystem.
+        /// GetAdvisorBonus）。PartyScout・SurvivalThresholdの両方に同じ値を加算する。
+        /// 参謀が未配置なら0を渡す（デフォルト値）。
+        /// </param>
+        public WeekResolutionResult Resolve(Party party, Quest quest, double advisorBonus = 0)
         {
             if (party.Members.Count == 0)
                 throw new InvalidOperationException("空のパーティは遠征に出せません。");
@@ -57,7 +64,7 @@ namespace GuildManager.Core.Systems
             double avgScout = scoutValues.Average();
             double leaderLdr = party.Members[0].GetEffectiveStat("LDR"); // MVP: 先頭メンバーを隊長とみなす
 
-            double partyScout = maxScout + avgScout * 0.3 + leaderLdr * 0.2;
+            double partyScout = maxScout + avgScout * 0.3 + leaderLdr * 0.2 + advisorBonus;
             double deltaS = partyScout - quest.ScoutRequirement;
 
             int scoutRoll = _rng.NextInt(1, 100);
@@ -126,7 +133,7 @@ namespace GuildManager.Core.Systems
                     result.DownedAdventurerIds.Add(member.Id);
 
                     double survivalThreshold = Clamp(
-                        member.GetEffectiveStat("VIT") + clericMnd * 0.4 + leaderLdr * 0.2, 5, 90);
+                        member.GetEffectiveStat("VIT") + clericMnd * 0.4 + leaderLdr * 0.2 + advisorBonus, 5, 90);
                     int deathRoll = _rng.NextInt(1, 100);
 
                     if (deathRoll <= survivalThreshold)

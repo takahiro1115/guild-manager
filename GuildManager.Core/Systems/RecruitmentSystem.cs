@@ -7,15 +7,21 @@ using GuildManager.Core.Rng;
 namespace GuildManager.Core.Systems
 {
     /// <summary>
-    /// 採用（新春採用試験）システム。仕様書 03 §2.4 参照。
+    /// 採用（新春採用試験）システム。仕様書 03 §2.4・§7.3 参照。
     ///
     /// 年1回・新年（各年度の第1週）にのみ応募者が提示される。途中採用なし。
     ///
     /// 他システムに依存する部分のうち、施設Lv連動（雇用枠の宿舎Lv連動）は
-    /// §6施設Lv投資システムの実装により接続済み。残り2項目は該当システムが
-    /// 依然として未実装のため固定値／TODOフックでスタブしたままにしてある：
+    /// §6施設Lv投資システムの実装により接続済み。スカウト顧問ボーナス（→ §7.3）も
+    /// GenerateCandidatesの引数経由で接続済み。残り1項目は該当システムが
+    /// 依然として未実装のため固定値でスタブしたままにしてある：
     ///  - 応募の質の格付け連動（→ §8.1 ギルド格付け、未実装）→ 格付けに依らない固定の生成分布
-    ///  - スカウト顧問+25%（→ §7 顧問制度、未実装）→ 未反映
+    ///
+    /// 事前調査メモ（項目32）：旧docs/03 §7に記述のあった「総合PA75以上の新人応募率+25%」は、
+    /// スカウト顧問の効果として説明されていたが、§7（顧問制度）自体が本改訂まで未実装だった
+    /// ため、コード上は存在しなかった。v1.3改訂では、この+25%を「スカウト未配置時でも適用される
+    /// 基礎値」として新規実装し（HighPotentialBaseChance）、スカウト配置時はここに
+    /// AdvisorSystem.GetScoutMasterBonusの値を上乗せする設計とした。
     ///
     /// 数値（応募者数・PA生成レンジ・契約金係数等）は本来 → BAL: 採用 に集約する値だが、
     /// 04_バランス表.xlsx はまだコードから読み込めない（Phase 4で外部化予定）ため、
@@ -36,6 +42,13 @@ namespace GuildManager.Core.Systems
         // → BAL: 採用（PA自体の生成レンジ）。現状は仮値。
         private const int MinGeneratedPa = 40;
         private const int MaxGeneratedPa = 80;
+
+        // ---- 有望新人（総合PA75以上）の出現判定（→ 03 §7.3。事前調査メモ参照） ----
+        // → BAL: 採用/有望新人。現状は仮値：基礎出現率25%（旧docs記載の「+25%」を基礎値として採用）、
+        // 出現時はPA生成レンジを底上げしTotalPA≥75になりやすくする。
+        public const double HighPotentialBaseChance = 0.25;
+        private const int HighPotentialMinPa = 70;
+        private const int HighPotentialMaxPa = 100;
 
         // 実効値/PA の比率。15歳ほどPAから遠く（伸びしろ最大）、18歳ほどPAに近い（即戦力）
         // （→ 03 §2.4）。→ BAL: 採用。現状は仮値（15歳:30%実現 〜 18歳:70%実現）。
@@ -81,11 +94,17 @@ namespace GuildManager.Core.Systems
         /// 今年の応募者一覧を生成する。応募者数自体は空き枠の有無に関わらず一定
         /// （空き枠の範囲でプレイヤーが選んで採用する。→ 03 §2.4「選抜」）。
         /// </summary>
-        public List<RecruitmentOffer> GenerateCandidates()
+        /// <param name="scoutMasterBonus">
+        /// スカウト顧問のボーナス（生涯ピークLDR・DEX平均に比例。→ 03 §7.3・AdvisorSystem.
+        /// GetScoutMasterBonus）。HighPotentialBaseChance(基礎25%)に上乗せする。
+        /// スカウト未任命なら0を渡す（デフォルト値）。
+        /// </param>
+        public List<RecruitmentOffer> GenerateCandidates(double scoutMasterBonus = 0)
         {
+            double highPotentialChance = HighPotentialBaseChance + scoutMasterBonus;
             var offers = new List<RecruitmentOffer>();
             for (int i = 0; i < CandidateCount; i++)
-                offers.Add(GenerateOne(i));
+                offers.Add(GenerateOne(i, highPotentialChance));
             return offers;
         }
 
@@ -102,7 +121,7 @@ namespace GuildManager.Core.Systems
             return true;
         }
 
-        private RecruitmentOffer GenerateOne(int index)
+        private RecruitmentOffer GenerateOne(int index, double highPotentialChance)
         {
             int age = _rng.NextInt(MinCandidateAge, MaxCandidateAge);
 
@@ -121,9 +140,15 @@ namespace GuildManager.Core.Systems
                 Placement = PlacementRules.GetDefault(jobClass), // → 03 §4.2：配置の初期値は職業から自動決定
             };
 
+            // 有望新人（高PA）の出現判定（→ 03 §7.3）。判定に成功した候補は
+            // PA生成レンジを底上げする（通常40〜80 → 高潜在70〜100）。
+            bool isHighPotential = _rng.NextInt(1, 100) <= highPotentialChance * 100;
+            int minPa = isHighPotential ? HighPotentialMinPa : MinGeneratedPa;
+            int maxPa = isHighPotential ? HighPotentialMaxPa : MaxGeneratedPa;
+
             foreach (var stat in AdventurerStatAccessor.AllStatNames)
             {
-                int pa = Math.Min(100, _rng.NextInt(MinGeneratedPa, MaxGeneratedPa) + ageBonus);
+                int pa = Math.Min(100, _rng.NextInt(minPa, maxPa) + ageBonus);
                 int actual = Math.Max(1, (int)(pa * growthRatio));
                 AdventurerStatAccessor.SetPa(candidate, stat, pa);
                 AdventurerStatAccessor.SetStat(candidate, stat, actual);

@@ -106,7 +106,7 @@ namespace GuildManager.Core.Tests
             // （出撃／訓練場配置／単純待機は互いに排他。→ 03 §3.5改）。
             var adventurer = new Adventurer { VIT = 20, CurrentHP = 50 };
             var state = new GameState { Adventurers = { adventurer } };
-            state.TrainingAssignments.Add(adventurer.Id);
+            state.TrainingAssignments.Add(adventurer.Id, FacilityType.WarriorHall);
             var system = new RestRecoverySystem();
 
             system.ProcessWeeklyRest(state, NoDispatch);
