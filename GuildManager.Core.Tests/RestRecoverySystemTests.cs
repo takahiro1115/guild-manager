@@ -17,8 +17,8 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void ProcessWeeklyRest_HealsNonDispatchedAdventurer()
         {
-            // END=20 → MaxHP=90。回復率15%固定なので 90*0.15=13.5→13。
-            var adventurer = new Adventurer { END = 20, CurrentHP = 50 };
+            // VIT=20 → MaxHP=90。回復率15%固定なので 90*0.15=13.5→13。
+            var adventurer = new Adventurer { VIT = 20, CurrentHP = 50 };
             var state = new GameState { Adventurers = { adventurer } };
             var system = new RestRecoverySystem();
 
@@ -30,7 +30,7 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void ProcessWeeklyRest_DoesNotHealDispatchedAdventurer()
         {
-            var adventurer = new Adventurer { END = 20, CurrentHP = 50 };
+            var adventurer = new Adventurer { VIT = 20, CurrentHP = 50 };
             var state = new GameState { Adventurers = { adventurer } };
             var system = new RestRecoverySystem();
 
@@ -44,7 +44,7 @@ namespace GuildManager.Core.Tests
         {
             var adventurer = new Adventurer
             {
-                END = 20,
+                VIT = 20,
                 CurrentHP = 1,
                 Injury = InjurySeverity.Severe,
                 InjuryWeeksRemaining = 5,
@@ -62,7 +62,7 @@ namespace GuildManager.Core.Tests
         {
             var adventurer = new Adventurer
             {
-                END = 20,
+                VIT = 20,
                 CurrentHP = 50,
                 Injury = InjurySeverity.Light,
                 InjuryWeeksRemaining = 1,
@@ -78,7 +78,7 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void ProcessWeeklyRest_DoesNotExceedMaxHp()
         {
-            var adventurer = new Adventurer { END = 20, CurrentHP = 90 }; // MaxHP=90 ちょうど
+            var adventurer = new Adventurer { VIT = 20, CurrentHP = 90 }; // MaxHP=90 ちょうど
             var state = new GameState { Adventurers = { adventurer } };
             var system = new RestRecoverySystem();
 
@@ -90,7 +90,7 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void ProcessWeeklyRest_ClampsPartialOverheal_AtMaxHp()
         {
-            var adventurer = new Adventurer { END = 20, CurrentHP = 85 }; // MaxHP=90, 回復量13だと98になり得る
+            var adventurer = new Adventurer { VIT = 20, CurrentHP = 85 }; // MaxHP=90, 回復量13だと98になり得る
             var state = new GameState { Adventurers = { adventurer } };
             var system = new RestRecoverySystem();
 
@@ -104,7 +104,7 @@ namespace GuildManager.Core.Tests
         {
             // 訓練場配置中はTrainingSystemが別のHP処理を行うため、静養回復の対象外
             // （出撃／訓練場配置／単純待機は互いに排他。→ 03 §3.5改）。
-            var adventurer = new Adventurer { END = 20, CurrentHP = 50 };
+            var adventurer = new Adventurer { VIT = 20, CurrentHP = 50 };
             var state = new GameState { Adventurers = { adventurer } };
             state.TrainingAssignments.Add(adventurer.Id);
             var system = new RestRecoverySystem();

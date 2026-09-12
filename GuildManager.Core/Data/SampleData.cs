@@ -18,36 +18,40 @@ namespace GuildManager.Core.Data
                 new Adventurer
                 {
                     Name = "ガレス", Age = 24, JobClass = JobClass.Warrior,
-                    STR = 60, AGI = 35, END = 55, MAG = 10, SCT = 20, LDR = 40,
-                    PA_STR = 80, PA_AGI = 50, PA_END = 75, PA_MAG = 15, PA_SCT = 30, PA_LDR = 55,
+                    STR = 60, AGI = 35, VIT = 55, MND = 10, DEX = 20, LDR = 40,
+                    INT = 0, // 予約フィールド。現時点では未使用
+                    PA_STR = 80, PA_AGI = 50, PA_VIT = 75, PA_MND = 15, PA_DEX = 30, PA_LDR = 55,
                     WeeklyWage = 55
                 },
                 new Adventurer
                 {
                     Name = "リナ", Age = 21, JobClass = JobClass.Ranger,
-                    STR = 30, AGI = 60, END = 35, MAG = 15, SCT = 55, LDR = 25,
-                    PA_STR = 45, PA_AGI = 85, PA_END = 50, PA_MAG = 20, PA_SCT = 80, PA_LDR = 35,
+                    STR = 30, AGI = 60, VIT = 35, MND = 15, DEX = 55, LDR = 25,
+                    INT = 0, // 予約フィールド。現時点では未使用
+                    PA_STR = 45, PA_AGI = 85, PA_VIT = 50, PA_MND = 20, PA_DEX = 80, PA_LDR = 35,
                     WeeklyWage = 40
                 },
                 new Adventurer
                 {
                     Name = "エルシャ", Age = 26, JobClass = JobClass.Mage,
-                    STR = 10, AGI = 25, END = 25, MAG = 65, SCT = 20, LDR = 30,
-                    PA_STR = 15, PA_AGI = 35, PA_END = 35, PA_MAG = 90, PA_SCT = 30, PA_LDR = 40,
+                    STR = 10, AGI = 25, VIT = 25, MND = 65, DEX = 20, LDR = 30,
+                    INT = 0, // 予約フィールド。現時点では未使用
+                    PA_STR = 15, PA_AGI = 35, PA_VIT = 35, PA_MND = 90, PA_DEX = 30, PA_LDR = 40,
                     WeeklyWage = 60
                 },
                 new Adventurer
                 {
                     Name = "フィオナ", Age = 23, JobClass = JobClass.Cleric,
-                    STR = 15, AGI = 20, END = 30, MAG = 45, SCT = 15, LDR = 20,
-                    PA_STR = 20, PA_AGI = 30, PA_END = 40, PA_MAG = 70, PA_SCT = 25, PA_LDR = 30,
+                    STR = 15, AGI = 20, VIT = 30, MND = 45, DEX = 15, LDR = 20,
+                    INT = 0, // 予約フィールド。現時点では未使用
+                    PA_STR = 20, PA_AGI = 30, PA_VIT = 40, PA_MND = 70, PA_DEX = 25, PA_LDR = 30,
                     WeeklyWage = 45
                 },
             };
 
             foreach (var a in list)
             {
-                // 開始時はHPを満タンにしておく（MaxHPはENDから計算されるため、
+                // 開始時はHPを満タンにしておく（MaxHPはVITから計算されるため、
                 // ステータス設定後にここで初期化する）。
                 a.CurrentHP = a.MaxHP;
 

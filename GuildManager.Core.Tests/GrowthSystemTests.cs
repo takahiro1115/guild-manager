@@ -99,7 +99,7 @@ namespace GuildManager.Core.Tests
             Assert.True(TotalStats(highDifficultyMember) > 0);
         }
 
-        private static int TotalStats(Adventurer a) => a.STR + a.AGI + a.END + a.MAG + a.SCT + a.LDR;
+        private static int TotalStats(Adventurer a) => a.STR + a.AGI + a.VIT + a.MND + a.DEX + a.LDR;
 
         [Fact]
         public void ProcessDeploymentGrowth_ClampsAtPaCap()
@@ -193,21 +193,21 @@ namespace GuildManager.Core.Tests
         public void ProcessTrainingGrowth_ClampsAtPaCap()
         {
             // 経路2（訓練場）は全ステータス均等抽選（0〜5のインデックス）。
-            // FixedRollRng(3)はインデックス3=MAGを指すため、MAG側にPA上限を設定して検証する。
-            var adventurer = new Adventurer { Age = 18, MAG = 79, PA_MAG = 80 };
+            // FixedRollRng(3)はインデックス3=MND(旧MAG)を指すため、MND側にPA上限を設定して検証する。
+            var adventurer = new Adventurer { Age = 18, MND = 79, PA_MND = 80 };
             var state = new GameState { Adventurers = { adventurer } };
             state.TrainingAssignments.Add(adventurer.Id);
             var system = new GrowthSystem(new FixedRollRng(3));
 
             system.ProcessTrainingGrowth(state, NoDispatch);
 
-            Assert.Equal(80, adventurer.MAG);
+            Assert.Equal(80, adventurer.MND);
         }
 
         // ---------------- 職業別の成長ステータス重み（GrowthBalance） ----------------
 
         [Theory]
-        [InlineData(1, "STR")] // Warrior累積: STR=3,AGI=4,END=7,MAG=7,SCT=8,LDR=9
+        [InlineData(1, "STR")] // Warrior累積: STR=3,AGI=4,VIT=7,MND=7,DEX=8,LDR=9
         [InlineData(4, "AGI")]
         [InlineData(9, "LDR")]
         public void PickJobWeightedStat_Warrior_FollowsWeightTable(int roll, string expectedStat)
@@ -217,7 +217,7 @@ namespace GuildManager.Core.Tests
         }
 
         [Theory]
-        [InlineData(4, "MAG")] // Cleric累積: AGI=1,END=2,MAG=4,SCT=5,LDR=7（STRは重み0）
+        [InlineData(4, "MND")] // Cleric累積: AGI=1,VIT=2,MND=4,DEX=5,LDR=7（STRは重み0）
         [InlineData(7, "LDR")]
         public void PickJobWeightedStat_Cleric_FavorsMagAndLdr(int roll, string expectedStat)
         {

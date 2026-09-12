@@ -46,7 +46,7 @@ namespace GuildManager.Core.Tests
                 Age = 24,
                 Satisfaction = 70,
                 WeeksSinceLastDeployment = 3, // 今回で4週目に到達
-                PA_STR = 100, PA_AGI = 100, PA_END = 100, PA_MAG = 100, PA_SCT = 100, PA_LDR = 100,
+                PA_STR = 100, PA_AGI = 100, PA_VIT = 100, PA_MND = 100, PA_DEX = 100, PA_LDR = 100,
                 WeeklyWage = 1000,
             };
             var state = new GameState { Adventurers = { adventurer } };
@@ -65,7 +65,7 @@ namespace GuildManager.Core.Tests
             var adventurer = new Adventurer
             {
                 Age = 24, Satisfaction = 70, WeeksSinceLastDeployment = 2, // 今回で3週目
-                PA_STR = 100, PA_AGI = 100, PA_END = 100, PA_MAG = 100, PA_SCT = 100, PA_LDR = 100,
+                PA_STR = 100, PA_AGI = 100, PA_VIT = 100, PA_MND = 100, PA_DEX = 100, PA_LDR = 100,
                 WeeklyWage = 1000,
             };
             var state = new GameState { Adventurers = { adventurer } };
@@ -84,7 +84,7 @@ namespace GuildManager.Core.Tests
             var adventurer = new Adventurer
             {
                 Age = age, Satisfaction = 70, WeeksSinceLastDeployment = 10,
-                PA_STR = 100, PA_AGI = 100, PA_END = 100, PA_MAG = 100, PA_SCT = 100, PA_LDR = 100,
+                PA_STR = 100, PA_AGI = 100, PA_VIT = 100, PA_MND = 100, PA_DEX = 100, PA_LDR = 100,
                 WeeklyWage = 1000,
             };
             var state = new GameState { Adventurers = { adventurer } };
@@ -104,7 +104,7 @@ namespace GuildManager.Core.Tests
             var adventurer = new Adventurer
             {
                 Age = 30, Satisfaction = 70, WeeklyWage = 10,
-                PA_STR = 100, PA_AGI = 100, PA_END = 100, PA_MAG = 100, PA_SCT = 100, PA_LDR = 100,
+                PA_STR = 100, PA_AGI = 100, PA_VIT = 100, PA_MND = 100, PA_DEX = 100, PA_LDR = 100,
             };
             var state = new GameState { Adventurers = { adventurer } };
             var system = new SatisfactionSystem();
@@ -121,7 +121,7 @@ namespace GuildManager.Core.Tests
             var adventurer = new Adventurer
             {
                 Age = 30, Satisfaction = 70, WeeklyWage = 1000,
-                PA_STR = 100, PA_AGI = 100, PA_END = 100, PA_MAG = 100, PA_SCT = 100, PA_LDR = 100,
+                PA_STR = 100, PA_AGI = 100, PA_VIT = 100, PA_MND = 100, PA_DEX = 100, PA_LDR = 100,
             };
             var state = new GameState { Adventurers = { adventurer } };
             var system = new SatisfactionSystem();

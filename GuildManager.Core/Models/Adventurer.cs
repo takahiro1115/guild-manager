@@ -36,23 +36,26 @@ namespace GuildManager.Core.Models
         // ---- 能力値（実効値 1〜100）。仕様書 03 §2.2 ----
         public int STR { get; set; }
         public int AGI { get; set; }
-        public int END { get; set; }
-        public int MAG { get; set; }
-        public int SCT { get; set; }
+        public int VIT { get; set; }
+        public int MND { get; set; }
+        public int DEX { get; set; }
         public int LDR { get; set; }
+
+        /// <summary>予約フィールド。現時点ではどのロジックにも未接続（→ 03 §2.2・§11）。総合PAの算出にも含めない。</summary>
+        public int INT { get; set; }
 
         // ---- 潜在能力 PA（各ステータスの成長上限。1〜100）。仕様書 03 §2.2 ----
         // 実効値はデフォルトでは0から始まるため、PAのデフォルトは範囲の最大値にしておき、
         // 明示的に潜在能力を絞らない限り既存の挙動（成長上限なし相当）を壊さないようにする。
         public int PA_STR { get; set; } = 100;
         public int PA_AGI { get; set; } = 100;
-        public int PA_END { get; set; } = 100;
-        public int PA_MAG { get; set; } = 100;
-        public int PA_SCT { get; set; } = 100;
+        public int PA_VIT { get; set; } = 100;
+        public int PA_MND { get; set; } = 100;
+        public int PA_DEX { get; set; } = 100;
         public int PA_LDR { get; set; } = 100;
 
         /// <summary>総合PA＝6つのPAの平均（採用試験・スカウト評価用。仕様書 03 §2.2）。</summary>
-        public double TotalPA => (PA_STR + PA_AGI + PA_END + PA_MAG + PA_SCT + PA_LDR) / 6.0;
+        public double TotalPA => (PA_STR + PA_AGI + PA_VIT + PA_MND + PA_DEX + PA_LDR) / 6.0;
 
         /// <summary>年齢帯（仕様書 03 §3.0 の定義表）。表の範囲外は近い側の帯に丸める。</summary>
         public AgeBand AgeBand =>
@@ -79,8 +82,8 @@ namespace GuildManager.Core.Models
 
         // ---- 動的・コンディション属性。仕様書 03 §2.3 ----
 
-        /// <summary>最大HP = END×2 + 50（仕様書 03 §2.3）。</summary>
-        public int MaxHP => END * 2 + 50;
+        /// <summary>最大HP = VIT×2 + 50（仕様書 03 §2.3）。</summary>
+        public int MaxHP => VIT * 2 + 50;
 
         public int CurrentHP { get; set; }
         public int Satisfaction { get; set; } = 70;

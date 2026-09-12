@@ -45,14 +45,14 @@ namespace GuildManager.Core.Balance
         // ---- 経路1（出撃）のステータス抽選：職業ごとの簡易重み付け。
         // §4.2の列システム（前衛/後衛）は未実装のため、現時点では職業のみに基づく簡易重み
         // （仕様書 03 §2.1 の各職業の特性説明を反映した仮値。→ BAL: 加齢/職業別成長重み）。
-        // 前衛(Warrior)はSTR/AGI/END寄り、斥候(Ranger)はAGI/SCT寄り、魔導士(Mage)はMAG寄り、
-        // 神官(Cleric)はMAG/LDR寄り。
+        // 前衛(Warrior)はSTR/AGI/VIT寄り、斥候(Ranger)はAGI/DEX寄り、魔導士(Mage)はMND寄り、
+        // 神官(Cleric)はMND/LDR寄り。
         private static readonly Dictionary<JobClass, (string Stat, int Weight)[]> JobStatWeights = new()
         {
-            [JobClass.Warrior] = new[] { ("STR", 3), ("AGI", 1), ("END", 3), ("MAG", 0), ("SCT", 1), ("LDR", 1) },
-            [JobClass.Ranger] = new[] { ("STR", 1), ("AGI", 3), ("END", 1), ("MAG", 0), ("SCT", 3), ("LDR", 1) },
-            [JobClass.Mage] = new[] { ("STR", 0), ("AGI", 1), ("END", 1), ("MAG", 3), ("SCT", 1), ("LDR", 1) },
-            [JobClass.Cleric] = new[] { ("STR", 0), ("AGI", 1), ("END", 1), ("MAG", 2), ("SCT", 1), ("LDR", 2) },
+            [JobClass.Warrior] = new[] { ("STR", 3), ("AGI", 1), ("VIT", 3), ("MND", 0), ("DEX", 1), ("LDR", 1) },
+            [JobClass.Ranger] = new[] { ("STR", 1), ("AGI", 3), ("VIT", 1), ("MND", 0), ("DEX", 3), ("LDR", 1) },
+            [JobClass.Mage] = new[] { ("STR", 0), ("AGI", 1), ("VIT", 1), ("MND", 3), ("DEX", 1), ("LDR", 1) },
+            [JobClass.Cleric] = new[] { ("STR", 0), ("AGI", 1), ("VIT", 1), ("MND", 2), ("DEX", 1), ("LDR", 2) },
         };
 
         /// <summary>職業別の重みに従って、成長対象ステータスを1つ抽選する。</summary>

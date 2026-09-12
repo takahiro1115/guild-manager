@@ -51,7 +51,7 @@ namespace GuildManager.Core.Tests
                 Age = 18,
                 STR = 10, PA_STR = 50,
                 AGI = 20, PA_AGI = 20,
-                END = 20, PA_END = 20,
+                VIT = 20, PA_VIT = 20,
             };
             var state = CreateState(adventurer, weekNumber: 5);
             var system = new AgingSystem(new AlwaysMinRng());
@@ -60,7 +60,7 @@ namespace GuildManager.Core.Tests
 
             Assert.Equal(10, adventurer.STR); // AgingSystemはもう成長を扱わない（→ GrowthSystem）
             Assert.Equal(20, adventurer.AGI);
-            Assert.Equal(20, adventurer.END);
+            Assert.Equal(20, adventurer.VIT);
         }
 
         [Fact]
@@ -71,7 +71,7 @@ namespace GuildManager.Core.Tests
                 Age = 24,
                 STR = 40, PA_STR = 80,
                 AGI = 40, PA_AGI = 80,
-                END = 40, PA_END = 80,
+                VIT = 40, PA_VIT = 80,
             };
             // 年度末（衰微が起きうる週）でも全盛期は対象外であることを確認する。
             var state = CreateState(adventurer, weekNumber: 48);
@@ -81,7 +81,7 @@ namespace GuildManager.Core.Tests
 
             Assert.Equal(40, adventurer.STR);
             Assert.Equal(40, adventurer.AGI);
-            Assert.Equal(40, adventurer.END);
+            Assert.Equal(40, adventurer.VIT);
         }
 
         // ---------------- 円熟期の衰微（年1回・年度末） ----------------
@@ -89,7 +89,7 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void ProcessWeeklyAging_MaturePeriod_DeclinesOnlyAtYearEndWeek()
         {
-            var adventurer = new Adventurer { Age = 30, STR = 40, PA_STR = 80, AGI = 40, PA_AGI = 80, END = 40, PA_END = 80 };
+            var adventurer = new Adventurer { Age = 30, STR = 40, PA_STR = 80, AGI = 40, PA_AGI = 80, VIT = 40, PA_VIT = 80 };
             var state = CreateState(adventurer, weekNumber: 47); // 年度末の1週前
             var system = new AgingSystem(new AlwaysMinRng());
 
@@ -97,29 +97,29 @@ namespace GuildManager.Core.Tests
 
             Assert.Equal(40, adventurer.STR);
             Assert.Equal(40, adventurer.AGI);
-            Assert.Equal(40, adventurer.END);
+            Assert.Equal(40, adventurer.VIT);
         }
 
         [Fact]
         public void ProcessWeeklyAging_MaturePeriod_DeclinesOneStatAtYearEnd()
         {
-            var adventurer = new Adventurer { Age = 30, STR = 40, PA_STR = 80, AGI = 40, PA_AGI = 80, END = 40, PA_END = 80 };
+            var adventurer = new Adventurer { Age = 30, STR = 40, PA_STR = 80, AGI = 40, PA_AGI = 80, VIT = 40, PA_VIT = 80 };
             var state = CreateState(adventurer, weekNumber: 48); // 年度末
             var system = new AgingSystem(new AlwaysMinRng());
 
             system.ProcessWeeklyAging(state);
 
-            // AlwaysMinRng: 対象数=1、抽選プール["STR","AGI","END"]の先頭=STR、低下量=下限(1)
+            // AlwaysMinRng: 対象数=1、抽選プール["STR","AGI","VIT"]の先頭=STR、低下量=下限(1)
             Assert.Equal(39, adventurer.STR);
             Assert.Equal(80, adventurer.PA_STR); // PAには影響しない（成長上限は変わらない。新仕様）
             Assert.Equal(40, adventurer.AGI);
-            Assert.Equal(40, adventurer.END);
+            Assert.Equal(40, adventurer.VIT);
         }
 
         [Fact]
         public void ProcessWeeklyAging_Decline_NeverDropsBelowZero()
         {
-            var adventurer = new Adventurer { Age = 30, STR = 0, PA_STR = 80, AGI = 40, PA_AGI = 80, END = 40, PA_END = 80 };
+            var adventurer = new Adventurer { Age = 30, STR = 0, PA_STR = 80, AGI = 40, PA_AGI = 80, VIT = 40, PA_VIT = 80 };
             var state = CreateState(adventurer, weekNumber: 48);
             var system = new AgingSystem(new AlwaysMinRng());
 
@@ -136,7 +136,7 @@ namespace GuildManager.Core.Tests
         [InlineData(48)]
         public void ProcessWeeklyAging_LimitPeriod_DeclinesTwiceAYear(int weekOfYear)
         {
-            var adventurer = new Adventurer { Age = 37, STR = 40, PA_STR = 80, AGI = 40, PA_AGI = 80, END = 40, PA_END = 80 };
+            var adventurer = new Adventurer { Age = 37, STR = 40, PA_STR = 80, AGI = 40, PA_AGI = 80, VIT = 40, PA_VIT = 80 };
             var state = CreateState(adventurer, weekNumber: weekOfYear);
             var system = new AgingSystem(new AlwaysMinRng());
 

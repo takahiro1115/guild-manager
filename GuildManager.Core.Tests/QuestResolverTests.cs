@@ -66,7 +66,7 @@ namespace GuildManager.Core.Tests
         {
             // 極端に弱いパーティ×極端に高難易度のクエストでRatioを確実に0.6未満（戦線崩壊）にし、
             // AlwaysMaxRngでHP消費%を常に上限（Rout帯は70〜100%）にすることでHP0到達を保証する。
-            var weakling = new Adventurer { STR = 1, AGI = 1, END = 1, MAG = 1, SCT = 1, LDR = 1 };
+            var weakling = new Adventurer { STR = 1, AGI = 1, VIT = 1, MND = 1, DEX = 1, LDR = 1 };
             weakling.CurrentHP = weakling.MaxHP;
             var party = new Party();
             party.TryAdd(weakling);
@@ -87,9 +87,9 @@ namespace GuildManager.Core.Tests
         {
             // Warriorは前衛が本来の役割（補正1.2倍）、後衛は役割から外れる（0.8倍）。
             // ステータス・職業を揃え、配置だけを変えて比較する。
-            var frontWarrior = new Adventurer { JobClass = JobClass.Warrior, Placement = Placement.Front, STR = 50, AGI = 50, END = 50, MAG = 50, SCT = 50, LDR = 50 };
+            var frontWarrior = new Adventurer { JobClass = JobClass.Warrior, Placement = Placement.Front, STR = 50, AGI = 50, VIT = 50, MND = 50, DEX = 50, LDR = 50 };
             frontWarrior.CurrentHP = frontWarrior.MaxHP;
-            var backWarrior = new Adventurer { JobClass = JobClass.Warrior, Placement = Placement.Back, STR = 50, AGI = 50, END = 50, MAG = 50, SCT = 50, LDR = 50 };
+            var backWarrior = new Adventurer { JobClass = JobClass.Warrior, Placement = Placement.Back, STR = 50, AGI = 50, VIT = 50, MND = 50, DEX = 50, LDR = 50 };
             backWarrior.CurrentHP = backWarrior.MaxHP;
 
             var quest = new Quest { Difficulty = 50, ScoutRequirement = 75 }; // 索敵ぴったり合わせて「通常交戦」域に
@@ -112,9 +112,9 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void Resolve_Ambush_AppliesHeavierHpLossToBackRowThanFrontRow()
         {
-            var front = new Adventurer { Placement = Placement.Front, STR = 1, AGI = 1, END = 50, MAG = 1, SCT = 1, LDR = 1 };
+            var front = new Adventurer { Placement = Placement.Front, STR = 1, AGI = 1, VIT = 50, MND = 1, DEX = 1, LDR = 1 };
             front.CurrentHP = front.MaxHP;
-            var back = new Adventurer { Placement = Placement.Back, STR = 1, AGI = 1, END = 50, MAG = 1, SCT = 1, LDR = 1 };
+            var back = new Adventurer { Placement = Placement.Back, STR = 1, AGI = 1, VIT = 50, MND = 1, DEX = 1, LDR = 1 };
             back.CurrentHP = back.MaxHP;
             var party = new Party();
             party.TryAdd(front);
@@ -137,9 +137,9 @@ namespace GuildManager.Core.Tests
         public void Resolve_NonAmbushEncounter_AppliesSameHpLossRegardlessOfPlacement()
         {
             // 奇襲成功・通常交戦では前衛/後衛で差をつけない（→ 03 §4.2追記）。
-            var front = new Adventurer { Placement = Placement.Front, STR = 50, AGI = 50, END = 50, MAG = 50, SCT = 50, LDR = 50 };
+            var front = new Adventurer { Placement = Placement.Front, STR = 50, AGI = 50, VIT = 50, MND = 50, DEX = 50, LDR = 50 };
             front.CurrentHP = front.MaxHP;
-            var back = new Adventurer { Placement = Placement.Back, STR = 50, AGI = 50, END = 50, MAG = 50, SCT = 50, LDR = 50 };
+            var back = new Adventurer { Placement = Placement.Back, STR = 50, AGI = 50, VIT = 50, MND = 50, DEX = 50, LDR = 50 };
             back.CurrentHP = back.MaxHP;
             var party = new Party();
             party.TryAdd(front);

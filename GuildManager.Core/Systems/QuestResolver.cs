@@ -22,8 +22,8 @@ namespace GuildManager.Core.Systems
         // ---- 個人CP重み係数。→ BAL: 戦闘/CP重み（現状は仮値の直書き。後で外部化する） ----
         private const double WeightSTR = 0.8;
         private const double WeightAGI = 0.5;
-        private const double WeightEND = 0.6;
-        private const double WeightMAG = 0.8;
+        private const double WeightVIT = 0.6;
+        private const double WeightMND = 0.8;
         private const double WeightLDR = 0.4;
         private const double EnemyCpCoefficient = 3.0; // → BAL: 戦闘/敵CP係数
 
@@ -43,7 +43,7 @@ namespace GuildManager.Core.Systems
             var result = new WeekResolutionResult();
 
             // ================= フェーズ1：索敵・遭遇判定（仕様書 03 §4.1） =================
-            var scoutValues = party.Members.Select(a => a.SCT).ToList();
+            var scoutValues = party.Members.Select(a => a.DEX).ToList();
             int maxScout = scoutValues.Max();
             double avgScout = scoutValues.Average();
             int leaderLdr = party.Members[0].LDR; // MVP: 先頭メンバーを隊長とみなす
@@ -123,8 +123,8 @@ namespace GuildManager.Core.Systems
         private static double PersonalCp(Adventurer a)
         {
             double hpRatio = (double)a.CurrentHP / a.MaxHP;
-            double baseCp = a.STR * WeightSTR + a.AGI * WeightAGI + a.END * WeightEND
-                            + a.MAG * WeightMAG + a.LDR * WeightLDR;
+            double baseCp = a.STR * WeightSTR + a.AGI * WeightAGI + a.VIT * WeightVIT
+                            + a.MND * WeightMND + a.LDR * WeightLDR;
             double placementCorrection = PlacementBalance.GetPersonalCpCorrection(a.JobClass, a.Placement);
             return baseCp * placementCorrection * hpRatio;
         }

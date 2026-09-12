@@ -15,7 +15,7 @@ namespace GuildManager.Core.Models
         /// <summary>1〜100。値が高いほど難しい。→ BAL: クエスト</summary>
         public int Difficulty { get; set; }
 
-        /// <summary>1〜100。SCTと同スケール。→ BAL: クエスト</summary>
+        /// <summary>1〜100。DEXと同スケール。→ BAL: クエスト</summary>
         public int ScoutRequirement { get; set; }
 
         /// <summary>

@@ -14,9 +14,9 @@ namespace GuildManager.Core.Systems
     ///
     /// 「伸びる」側（実効値の成長）は GrowthSystem が別途担当する（→ 03 §3.1〜3.4）。
     /// このクラスは「衰える」「歳を取る」側のみを扱う：
-    /// - 円熟期（28〜34歳）：年1回（年度末＝48週目）、STR/AGI/ENDから1〜2項目が恒久低下する。
+    /// - 円熟期（28〜34歳）：年1回（年度末＝48週目）、STR/AGI/VITから1〜2項目が恒久低下する。
     /// - 限界期（35〜40歳）：年2回、円熟期より大きい低下量で恒久低下する。
-    ///   精神系（MAG/SCT/LDR）はどちらの年齢帯でも対象外（§3.0「円熟期は精神系維持可」）。
+    ///   精神系（MND/DEX/LDR）はどちらの年齢帯でも対象外（§3.0「円熟期は精神系維持可」）。
     /// - 低下はPAには影響しない（PA＝成長上限はそのまま。実効値のみ下限0でクランプ）。
     /// - 年度末（48週目）にAgeを+1する。40歳の年度末に達していた場合は+1せず強制引退させる
     ///   （§3.7）：退職金（週給×12週）を支給し、Adventurers から RetiredAdventurers へ移す。
@@ -30,10 +30,10 @@ namespace GuildManager.Core.Systems
     {
         private const int WeeksPerYear = 48; // 仕様書 03 §1.2
 
-        // ---- 衰微の対象ステータス。仕様書 03 §3.0「フィジカル衰微」＝STR/AGI/ENDのみ。
-        // 精神系（MAG/SCT/LDR）は円熟期・限界期のいずれでも対象外とする
+        // ---- 衰微の対象ステータス。仕様書 03 §3.0「フィジカル衰微」＝STR/AGI/VITのみ。
+        // 精神系（MND/DEX/LDR）は円熟期・限界期のいずれでも対象外とする
         // （§3.0「円熟期は精神系維持可」の記述どおり。限界期に含めるかは仕様上明記が無いため今回は含めない）。 ----
-        private static readonly string[] DeclineTargetStats = { "STR", "AGI", "END" };
+        private static readonly string[] DeclineTargetStats = { "STR", "AGI", "VIT" };
 
         // ---- 円熟期：年1回・年度末（48週目）。低下量は→ BAL: 加齢/衰微量。現状は仮値 ----
         private const int MatureDeclineWeek = WeeksPerYear;
@@ -116,7 +116,7 @@ namespace GuildManager.Core.Systems
 
         private void ApplyDecline(Adventurer adventurer, int amountMin, int amountMax)
         {
-            int statCount = _rng.NextInt(1, 2); // 「STR/AGI/ENDからランダムに1〜2項目」
+            int statCount = _rng.NextInt(1, 2); // 「STR/AGI/VITからランダムに1〜2項目」
 
             foreach (var stat in PickRandomDistinct(DeclineTargetStats, statCount))
             {

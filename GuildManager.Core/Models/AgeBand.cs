@@ -12,7 +12,7 @@ namespace GuildManager.Core.Models
         /// <summary>全盛期（22〜27）：上下動が最も安定。昇給要求が発生しやすい。</summary>
         PrimePeriod,
 
-        /// <summary>円熟期（28〜34）：精神系（LDR/SCT/MAG）は維持可。年1回フィジカル衰微。</summary>
+        /// <summary>円熟期（28〜34）：精神系（LDR/DEX/MND）は維持可。年1回フィジカル衰微。</summary>
         MaturePeriod,
 
         /// <summary>限界期（35〜40）：衰微が年2回・低下量拡大。引退傾向。</summary>

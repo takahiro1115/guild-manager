@@ -12,7 +12,7 @@ namespace GuildManager.Core.Tests
     {
         private static Adventurer CreateSeverelyInjuredAdventurer(int weeksRemaining)
         {
-            var adventurer = new Adventurer { END = 20 }; // MaxHP = 20*2+50 = 90
+            var adventurer = new Adventurer { VIT = 20 }; // MaxHP = 20*2+50 = 90
             adventurer.Injury = InjurySeverity.Severe;
             adventurer.InjuryWeeksRemaining = weeksRemaining;
             adventurer.CurrentHP = 1;
@@ -48,7 +48,7 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void ProcessWeeklyRecovery_DoesNothingToUninjuredAdventurer()
         {
-            var adventurer = new Adventurer { END = 20, CurrentHP = 90 };
+            var adventurer = new Adventurer { VIT = 20, CurrentHP = 90 };
             var state = new GameState { Adventurers = { adventurer } };
             var system = new InjuryRecoverySystem();
 

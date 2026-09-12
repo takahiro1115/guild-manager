@@ -95,7 +95,7 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void ProcessWeeklyTraining_DeductsWeeklyCost_ForAssignedAdventurer()
         {
-            var adventurer = new Adventurer { END = 20, CurrentHP = 90 };
+            var adventurer = new Adventurer { VIT = 20, CurrentHP = 90 };
             var state = new GameState { Gold = 1000, Adventurers = { adventurer } };
             state.TrainingAssignments.Add(adventurer.Id);
             var system = new TrainingSystem();
@@ -108,7 +108,7 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void ProcessWeeklyTraining_DoesNothing_ForUnassignedAdventurer()
         {
-            var adventurer = new Adventurer { END = 20, CurrentHP = 90 };
+            var adventurer = new Adventurer { VIT = 20, CurrentHP = 90 };
             var state = new GameState { Gold = 1000, Adventurers = { adventurer } };
             var system = new TrainingSystem();
 
@@ -122,7 +122,7 @@ namespace GuildManager.Core.Tests
         public void ProcessWeeklyTraining_ChargesCost_EvenIfDispatchedThatWeek()
         {
             // 配置されている限り費用は都度払い（出撃の有無に関わらず発生する）。
-            var adventurer = new Adventurer { END = 20, CurrentHP = 90 };
+            var adventurer = new Adventurer { VIT = 20, CurrentHP = 90 };
             var state = new GameState { Gold = 1000, Adventurers = { adventurer } };
             state.TrainingAssignments.Add(adventurer.Id);
             var system = new TrainingSystem();
@@ -137,7 +137,7 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void ProcessWeeklyTraining_DecreasesHp_ForAssignedNonDispatchedAdventurer()
         {
-            var adventurer = new Adventurer { END = 20, CurrentHP = 90 }; // MaxHP=90
+            var adventurer = new Adventurer { VIT = 20, CurrentHP = 90 }; // MaxHP=90
             var state = new GameState { Adventurers = { adventurer } };
             state.TrainingAssignments.Add(adventurer.Id);
             var system = new TrainingSystem();
@@ -151,7 +151,7 @@ namespace GuildManager.Core.Tests
         public void ProcessWeeklyTraining_DoesNotDecreaseHp_ForDispatchedAdventurer()
         {
             // 出撃した週は訓練固有のHP処理を行わない（戦闘側のHP処理は別に適用される。§3.5改：排他）。
-            var adventurer = new Adventurer { END = 20, CurrentHP = 90 };
+            var adventurer = new Adventurer { VIT = 20, CurrentHP = 90 };
             var state = new GameState { Adventurers = { adventurer } };
             state.TrainingAssignments.Add(adventurer.Id);
             var system = new TrainingSystem();
@@ -164,7 +164,7 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void ProcessWeeklyTraining_ClampsHpAtMinimumOfOne()
         {
-            var adventurer = new Adventurer { END = 20, CurrentHP = 3 }; // WeeklyHpCost(5)を引くと負になる
+            var adventurer = new Adventurer { VIT = 20, CurrentHP = 3 }; // WeeklyHpCost(5)を引くと負になる
             var state = new GameState { Adventurers = { adventurer } };
             state.TrainingAssignments.Add(adventurer.Id);
             var system = new TrainingSystem();
@@ -178,7 +178,7 @@ namespace GuildManager.Core.Tests
         public void ProcessWeeklyTraining_NeverTouchesInjuryStatus()
         {
             // 訓練によるHP減少は負傷（InjurySeverity）を一切発生させない（致死判定と非接続）。
-            var adventurer = new Adventurer { END = 20, CurrentHP = 3 };
+            var adventurer = new Adventurer { VIT = 20, CurrentHP = 3 };
             var state = new GameState { Adventurers = { adventurer } };
             state.TrainingAssignments.Add(adventurer.Id);
             var system = new TrainingSystem();

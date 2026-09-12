@@ -69,7 +69,7 @@ namespace GuildManager.Core.Tests
         public void ProcessWeeklyDispatches_ResolvesSingleWeekQuest_OnFirstProcessing()
         {
             // Scale=Small（デフォルト）は1週。既存の単週クエストと同じ挙動（即週で結果が出る）。
-            var adventurer = new Adventurer { STR = 40, END = 40 };
+            var adventurer = new Adventurer { STR = 40, VIT = 40 };
             adventurer.CurrentHP = adventurer.MaxHP;
             var party = PartyOf(adventurer);
             var quest = new Quest { Scale = QuestScale.Small, Difficulty = 10, ScoutRequirement = 1 };
@@ -104,7 +104,7 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void ProcessWeeklyDispatches_ResolvesMultiWeekQuest_OnFinalWeek()
         {
-            var adventurer = new Adventurer { STR = 40, END = 40 };
+            var adventurer = new Adventurer { STR = 40, VIT = 40 };
             adventurer.CurrentHP = adventurer.MaxHP;
             var party = PartyOf(adventurer);
             var quest = new Quest { Scale = QuestScale.Medium, Difficulty = 10, ScoutRequirement = 1 }; // 2週
@@ -123,7 +123,7 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void ProcessWeeklyDispatches_AppliesRewardAndSatisfactionBonus_OnlyAtResolution()
         {
-            var adventurer = new Adventurer { STR = 100, AGI = 100, END = 100, MAG = 100, LDR = 100, Satisfaction = 50 };
+            var adventurer = new Adventurer { STR = 100, AGI = 100, VIT = 100, MND = 100, LDR = 100, Satisfaction = 50 };
             adventurer.CurrentHP = adventurer.MaxHP;
             var party = PartyOf(adventurer);
             // 圧倒的な戦力差で確実に完全勝利（Bランク以上のクエスト達成）にする。
@@ -144,7 +144,7 @@ namespace GuildManager.Core.Tests
         {
             // 成長ロール経路1（出撃による成長）が、拘束期間中の各週で複数回発生せず、
             // 満了週の解決時にのみ1回だけ呼ばれることを確認する（→ 03 §4.0.1）。
-            var adventurer = new Adventurer { Age = 18, JobClass = JobClass.Warrior, STR = 40, PA_STR = 80, END = 50 };
+            var adventurer = new Adventurer { Age = 18, JobClass = JobClass.Warrior, STR = 40, PA_STR = 80, VIT = 50 };
             adventurer.CurrentHP = adventurer.MaxHP;
             var party = PartyOf(adventurer);
             var quest = new Quest { Scale = QuestScale.Large, Difficulty = 10, ScoutRequirement = 1 }; // 4週

@@ -12,15 +12,15 @@ namespace GuildManager.Core.Systems
     /// </summary>
     internal static class AdventurerStatAccessor
     {
-        public static readonly string[] AllStatNames = { "STR", "AGI", "END", "MAG", "SCT", "LDR" };
+        public static readonly string[] AllStatNames = { "STR", "AGI", "VIT", "MND", "DEX", "LDR" };
 
         public static int GetStat(Adventurer a, string name) => name switch
         {
             "STR" => a.STR,
             "AGI" => a.AGI,
-            "END" => a.END,
-            "MAG" => a.MAG,
-            "SCT" => a.SCT,
+            "VIT" => a.VIT,
+            "MND" => a.MND,
+            "DEX" => a.DEX,
             "LDR" => a.LDR,
             _ => throw new ArgumentOutOfRangeException(nameof(name), name, "未知のステータス名")
         };
@@ -31,9 +31,9 @@ namespace GuildManager.Core.Systems
             {
                 case "STR": a.STR = value; break;
                 case "AGI": a.AGI = value; break;
-                case "END": a.END = value; break;
-                case "MAG": a.MAG = value; break;
-                case "SCT": a.SCT = value; break;
+                case "VIT": a.VIT = value; break;
+                case "MND": a.MND = value; break;
+                case "DEX": a.DEX = value; break;
                 case "LDR": a.LDR = value; break;
                 default: throw new ArgumentOutOfRangeException(nameof(name), name, "未知のステータス名");
             }
@@ -43,9 +43,9 @@ namespace GuildManager.Core.Systems
         {
             "STR" => a.PA_STR,
             "AGI" => a.PA_AGI,
-            "END" => a.PA_END,
-            "MAG" => a.PA_MAG,
-            "SCT" => a.PA_SCT,
+            "VIT" => a.PA_VIT,
+            "MND" => a.PA_MND,
+            "DEX" => a.PA_DEX,
             "LDR" => a.PA_LDR,
             _ => throw new ArgumentOutOfRangeException(nameof(name), name, "未知のステータス名")
         };
@@ -56,9 +56,9 @@ namespace GuildManager.Core.Systems
             {
                 case "STR": a.PA_STR = value; break;
                 case "AGI": a.PA_AGI = value; break;
-                case "END": a.PA_END = value; break;
-                case "MAG": a.PA_MAG = value; break;
-                case "SCT": a.PA_SCT = value; break;
+                case "VIT": a.PA_VIT = value; break;
+                case "MND": a.PA_MND = value; break;
+                case "DEX": a.PA_DEX = value; break;
                 case "LDR": a.PA_LDR = value; break;
                 default: throw new ArgumentOutOfRangeException(nameof(name), name, "未知のステータス名");
             }
