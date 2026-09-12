@@ -12,7 +12,8 @@ namespace GuildManager.Core.Systems
     /// </summary>
     internal static class AdventurerStatAccessor
     {
-        public static readonly string[] AllStatNames = { "STR", "AGI", "VIT", "MND", "DEX", "LDR" };
+        // v1.2改訂：INTを予約フィールドから活性化し、成長ロール対象に追加（→ 03 §2.2・§10）。
+        public static readonly string[] AllStatNames = { "STR", "AGI", "VIT", "MND", "DEX", "LDR", "INT" };
 
         public static int GetStat(Adventurer a, string name) => name switch
         {
@@ -22,6 +23,7 @@ namespace GuildManager.Core.Systems
             "MND" => a.MND,
             "DEX" => a.DEX,
             "LDR" => a.LDR,
+            "INT" => a.INT,
             _ => throw new ArgumentOutOfRangeException(nameof(name), name, "未知のステータス名")
         };
 
@@ -35,6 +37,7 @@ namespace GuildManager.Core.Systems
                 case "MND": a.MND = value; break;
                 case "DEX": a.DEX = value; break;
                 case "LDR": a.LDR = value; break;
+                case "INT": a.INT = value; break;
                 default: throw new ArgumentOutOfRangeException(nameof(name), name, "未知のステータス名");
             }
         }
@@ -47,6 +50,7 @@ namespace GuildManager.Core.Systems
             "MND" => a.PA_MND,
             "DEX" => a.PA_DEX,
             "LDR" => a.PA_LDR,
+            "INT" => a.PA_INT,
             _ => throw new ArgumentOutOfRangeException(nameof(name), name, "未知のステータス名")
         };
 
@@ -60,6 +64,7 @@ namespace GuildManager.Core.Systems
                 case "MND": a.PA_MND = value; break;
                 case "DEX": a.PA_DEX = value; break;
                 case "LDR": a.PA_LDR = value; break;
+                case "INT": a.PA_INT = value; break;
                 default: throw new ArgumentOutOfRangeException(nameof(name), name, "未知のステータス名");
             }
         }

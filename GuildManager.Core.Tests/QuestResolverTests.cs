@@ -57,6 +57,57 @@ namespace GuildManager.Core.Tests
             Assert.Equal(100, max);
         }
 
+        // ---------------- 個人CPへのDEX・INT参加（→ 03 §4.2 v1.2改訂） ----------------
+
+        [Fact]
+        public void Resolve_HigherDex_YieldsHigherRatio_AllElseEqual()
+        {
+            // v1.2改訂：DEXは索敵専任に加え個人CPにも参加する（二重役割）。
+            // DEXは索敵フェーズ（§4.1）にも影響するため、遭遇区分（Normal/Surprise/Ambushed）が
+            // 両者で変わらない範囲の値を選び、CPへの寄与だけを比較できるようにしている。
+            var lowDex = new Adventurer { STR = 50, AGI = 50, VIT = 50, MND = 50, DEX = 45, LDR = 50 };
+            lowDex.CurrentHP = lowDex.MaxHP;
+            var highDex = new Adventurer { STR = 50, AGI = 50, VIT = 50, MND = 50, DEX = 55, LDR = 50 };
+            highDex.CurrentHP = highDex.MaxHP;
+
+            var quest = new Quest { Difficulty = 50, ScoutRequirement = 50 };
+            var resolver = new QuestResolver(new FixedRng(50));
+
+            var lowResult = resolver.Resolve(PartyOf(lowDex), quest);
+            var highResult = resolver.Resolve(PartyOf(highDex), quest);
+
+            Assert.Equal(EncounterResult.Normal, lowResult.Encounter);
+            Assert.Equal(EncounterResult.Normal, highResult.Encounter);
+            Assert.True(highResult.Ratio > lowResult.Ratio,
+                $"DEXが高い方のRatio({highResult.Ratio})は低い方({lowResult.Ratio})より高いはず");
+        }
+
+        [Fact]
+        public void Resolve_HigherInt_YieldsHigherRatio_AllElseEqual()
+        {
+            // v1.2改訂：INTは予約フィールドから活性化し個人CPに参加する。
+            var lowInt = new Adventurer { STR = 50, AGI = 50, VIT = 50, MND = 50, DEX = 50, LDR = 50, INT = 10 };
+            lowInt.CurrentHP = lowInt.MaxHP;
+            var highInt = new Adventurer { STR = 50, AGI = 50, VIT = 50, MND = 50, DEX = 50, LDR = 50, INT = 90 };
+            highInt.CurrentHP = highInt.MaxHP;
+
+            var quest = new Quest { Difficulty = 50, ScoutRequirement = 75 };
+            var resolver = new QuestResolver(new FixedRng(50));
+
+            var lowResult = resolver.Resolve(PartyOf(lowInt), quest);
+            var highResult = resolver.Resolve(PartyOf(highInt), quest);
+
+            Assert.True(highResult.Ratio > lowResult.Ratio,
+                $"INTが高い方のRatio({highResult.Ratio})は低い方({lowResult.Ratio})より高いはず");
+        }
+
+        private static Party PartyOf(Adventurer member)
+        {
+            var party = new Party();
+            party.TryAdd(member);
+            return party;
+        }
+
         /// <summary>
         /// Resolve()がHP0到達を検知したら DownedAdventurerIds に記録することを確認する
         /// （→ 03 §4.3の本来の致死判定を実装する際に使う想定。現状はどのSystemも未参照）。

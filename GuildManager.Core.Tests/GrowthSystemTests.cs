@@ -192,7 +192,7 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void ProcessTrainingGrowth_ClampsAtPaCap()
         {
-            // 経路2（訓練場）は全ステータス均等抽選（0〜5のインデックス）。
+            // 経路2（訓練場）は全ステータス均等抽選（0〜6のインデックス。v1.2改訂でINT追加により7種に）。
             // FixedRollRng(3)はインデックス3=MND(旧MAG)を指すため、MND側にPA上限を設定して検証する。
             var adventurer = new Adventurer { Age = 18, MND = 79, PA_MND = 80 };
             var state = new GameState { Adventurers = { adventurer } };
@@ -202,6 +202,23 @@ namespace GuildManager.Core.Tests
             system.ProcessTrainingGrowth(state, NoDispatch);
 
             Assert.Equal(80, adventurer.MND);
+        }
+
+        [Fact]
+        public void ProcessTrainingGrowth_CanSelectInt_NowThatItIsActive()
+        {
+            // v1.2改訂：INTは予約フィールドから活性化され、経路2（訓練場・全ステータス均等抽選）の
+            // 対象に加わった。AllStatNamesの末尾（インデックス6）がINTを指すことを確認する。
+            var adventurer = new Adventurer { Age = 18, INT = 79, PA_INT = 80 };
+            var state = new GameState { Adventurers = { adventurer } };
+            state.TrainingAssignments.Add(adventurer.Id);
+            var system = new GrowthSystem(new FixedRollRng(6));
+
+            var events = system.ProcessTrainingGrowth(state, NoDispatch);
+
+            Assert.Single(events);
+            Assert.Equal("INT", events[0].Stat);
+            Assert.Equal(80, adventurer.INT);
         }
 
         // ---------------- 職業別の成長ステータス重み（GrowthBalance） ----------------
@@ -222,6 +239,16 @@ namespace GuildManager.Core.Tests
         public void PickJobWeightedStat_Cleric_FavorsMagAndLdr(int roll, string expectedStat)
         {
             var stat = GrowthBalance.PickJobWeightedStat(JobClass.Cleric, new FixedRollRng(roll));
+            Assert.Equal(expectedStat, stat);
+        }
+
+        [Theory]
+        [InlineData(5, "MND")] // Mage累積: AGI=1,VIT=2,MND=5,DEX=6,LDR=7,INT=9（STRは重み0）
+        [InlineData(8, "INT")] // v1.2改訂：魔導士のみINTが成長対象プールに追加された
+        [InlineData(9, "INT")]
+        public void PickJobWeightedStat_Mage_IncludesIntInWeightTable(int roll, string expectedStat)
+        {
+            var stat = GrowthBalance.PickJobWeightedStat(JobClass.Mage, new FixedRollRng(roll));
             Assert.Equal(expectedStat, stat);
         }
     }

@@ -23,7 +23,9 @@ namespace GuildManager.Core.Systems
         private const double WeightSTR = 0.8;
         private const double WeightAGI = 0.5;
         private const double WeightVIT = 0.6;
+        private const double WeightDEX = 0.4; // → BAL: 戦闘/CP重み（暫定。v1.2改訂：DEXは索敵専任に加え個人CPにも参加）
         private const double WeightMND = 0.8;
+        private const double WeightINT = 0.7; // → BAL: 戦闘/CP重み（暫定。v1.2改訂：予約フィールドから活性化）
         private const double WeightLDR = 0.4;
         private const double EnemyCpCoefficient = 3.0; // → BAL: 戦闘/敵CP係数
 
@@ -124,7 +126,8 @@ namespace GuildManager.Core.Systems
         {
             double hpRatio = (double)a.CurrentHP / a.MaxHP;
             double baseCp = a.STR * WeightSTR + a.AGI * WeightAGI + a.VIT * WeightVIT
-                            + a.MND * WeightMND + a.LDR * WeightLDR;
+                            + a.DEX * WeightDEX + a.MND * WeightMND + a.INT * WeightINT
+                            + a.LDR * WeightLDR;
             double placementCorrection = PlacementBalance.GetPersonalCpCorrection(a.JobClass, a.Placement);
             return baseCp * placementCorrection * hpRatio;
         }

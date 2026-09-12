@@ -19,7 +19,7 @@ namespace GuildManager.Core.Data
                 {
                     Name = "ガレス", Age = 24, JobClass = JobClass.Warrior,
                     STR = 60, AGI = 35, VIT = 55, MND = 10, DEX = 20, LDR = 40,
-                    INT = 0, // 予約フィールド。現時点では未使用
+                    INT = 15, PA_INT = 20, // v1.2改訂：INT活性化に伴う暫定値。重戦士は低め
                     PA_STR = 80, PA_AGI = 50, PA_VIT = 75, PA_MND = 15, PA_DEX = 30, PA_LDR = 55,
                     WeeklyWage = 55
                 },
@@ -27,7 +27,7 @@ namespace GuildManager.Core.Data
                 {
                     Name = "リナ", Age = 21, JobClass = JobClass.Ranger,
                     STR = 30, AGI = 60, VIT = 35, MND = 15, DEX = 55, LDR = 25,
-                    INT = 0, // 予約フィールド。現時点では未使用
+                    INT = 20, PA_INT = 30, // v1.2改訂：INT活性化に伴う暫定値。斥候は中間程度
                     PA_STR = 45, PA_AGI = 85, PA_VIT = 50, PA_MND = 20, PA_DEX = 80, PA_LDR = 35,
                     WeeklyWage = 40
                 },
@@ -35,7 +35,7 @@ namespace GuildManager.Core.Data
                 {
                     Name = "エルシャ", Age = 26, JobClass = JobClass.Mage,
                     STR = 10, AGI = 25, VIT = 25, MND = 65, DEX = 20, LDR = 30,
-                    INT = 0, // 予約フィールド。現時点では未使用
+                    INT = 50, PA_INT = 80, // v1.2改訂：INT活性化に伴う暫定値。魔導士は高め
                     PA_STR = 15, PA_AGI = 35, PA_VIT = 35, PA_MND = 90, PA_DEX = 30, PA_LDR = 40,
                     WeeklyWage = 60
                 },
@@ -43,7 +43,7 @@ namespace GuildManager.Core.Data
                 {
                     Name = "フィオナ", Age = 23, JobClass = JobClass.Cleric,
                     STR = 15, AGI = 20, VIT = 30, MND = 45, DEX = 15, LDR = 20,
-                    INT = 0, // 予約フィールド。現時点では未使用
+                    INT = 25, PA_INT = 35, // v1.2改訂：INT活性化に伴う暫定値。神官は中間〜低め
                     PA_STR = 20, PA_AGI = 30, PA_VIT = 40, PA_MND = 70, PA_DEX = 25, PA_LDR = 30,
                     WeeklyWage = 45
                 },

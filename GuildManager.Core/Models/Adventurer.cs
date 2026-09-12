@@ -41,7 +41,10 @@ namespace GuildManager.Core.Models
         public int DEX { get; set; }
         public int LDR { get; set; }
 
-        /// <summary>予約フィールド。現時点ではどのロジックにも未接続（→ 03 §2.2・§11）。総合PAの算出にも含めない。</summary>
+        /// <summary>
+        /// v1.2改訂：予約フィールドから活性化し、個人CP・成長ロール対象・総合PA算出に参加する
+        /// （→ 03 §2.2・§4.2・§10）。
+        /// </summary>
         public int INT { get; set; }
 
         // ---- 潜在能力 PA（各ステータスの成長上限。1〜100）。仕様書 03 §2.2 ----
@@ -53,9 +56,10 @@ namespace GuildManager.Core.Models
         public int PA_MND { get; set; } = 100;
         public int PA_DEX { get; set; } = 100;
         public int PA_LDR { get; set; } = 100;
+        public int PA_INT { get; set; } = 100;
 
-        /// <summary>総合PA＝6つのPAの平均（採用試験・スカウト評価用。仕様書 03 §2.2）。</summary>
-        public double TotalPA => (PA_STR + PA_AGI + PA_VIT + PA_MND + PA_DEX + PA_LDR) / 6.0;
+        /// <summary>総合PA＝7つのPAの平均（v1.2改訂：INT活性化に伴い6値→7値平均。採用試験・スカウト評価用。仕様書 03 §2.2）。</summary>
+        public double TotalPA => (PA_STR + PA_AGI + PA_VIT + PA_MND + PA_DEX + PA_LDR + PA_INT) / 7.0;
 
         /// <summary>年齢帯（仕様書 03 §3.0 の定義表）。表の範囲外は近い側の帯に丸める。</summary>
         public AgeBand AgeBand =>

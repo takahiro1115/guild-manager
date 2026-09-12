@@ -80,7 +80,7 @@ namespace GuildManager.Core.Tests
             var system = new RecruitmentSystem(new AlwaysMaxRng());
             foreach (var offer in system.GenerateCandidates())
             {
-                foreach (var stat in new[] { "STR", "AGI", "VIT", "MND", "DEX", "LDR" })
+                foreach (var stat in new[] { "STR", "AGI", "VIT", "MND", "DEX", "LDR", "INT" })
                 {
                     int actual = stat switch
                     {
@@ -89,7 +89,8 @@ namespace GuildManager.Core.Tests
                         "VIT" => offer.Candidate.VIT,
                         "MND" => offer.Candidate.MND,
                         "DEX" => offer.Candidate.DEX,
-                        _ => offer.Candidate.LDR,
+                        "LDR" => offer.Candidate.LDR,
+                        _ => offer.Candidate.INT,
                     };
                     int pa = stat switch
                     {
@@ -98,7 +99,8 @@ namespace GuildManager.Core.Tests
                         "VIT" => offer.Candidate.PA_VIT,
                         "MND" => offer.Candidate.PA_MND,
                         "DEX" => offer.Candidate.PA_DEX,
-                        _ => offer.Candidate.PA_LDR,
+                        "LDR" => offer.Candidate.PA_LDR,
+                        _ => offer.Candidate.PA_INT,
                     };
                     Assert.True(actual <= pa, $"{stat}: 実効値({actual})がPA({pa})を超えている");
                 }

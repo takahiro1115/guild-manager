@@ -129,6 +129,30 @@ namespace GuildManager.Core.Tests
             Assert.Equal(80, adventurer.PA_STR); // PAは不変
         }
 
+        [Fact]
+        public void ProcessWeeklyAging_Decline_NeverAffectsMentalStatsIncludingInt()
+        {
+            // 衰微対象はSTR/AGI/VITの物理系のみ。DEX/MND/LDR/INTは対象外
+            // （INTもv1.2改訂で成長ステータスとして活性化したが、精神寄りの数値として
+            // 他の精神系ステータスと同じ扱いのまま衰微対象には含めない → 03 §3.1〜3.4）。
+            var adventurer = new Adventurer
+            {
+                Age = 37, // 限界期：STR/AGI/VITとも低下量が最大になる年齢帯
+                STR = 40, PA_STR = 80, AGI = 40, PA_AGI = 80, VIT = 40, PA_VIT = 80,
+                DEX = 40, PA_DEX = 80, MND = 40, PA_MND = 80, LDR = 40, PA_LDR = 80,
+                INT = 40, PA_INT = 80,
+            };
+            var state = CreateState(adventurer, weekNumber: 48);
+            var system = new AgingSystem(new AlwaysMinRng());
+
+            system.ProcessWeeklyAging(state);
+
+            Assert.Equal(40, adventurer.DEX);
+            Assert.Equal(40, adventurer.MND);
+            Assert.Equal(40, adventurer.LDR);
+            Assert.Equal(40, adventurer.INT);
+        }
+
         // ---------------- 限界期の衰微（年2回・低下量拡大） ----------------
 
         [Theory]
