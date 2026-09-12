@@ -66,6 +66,23 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
+        public void TryAssignTrainer_RestrictsCandidateToOneFacility_ReassigningReleasesThePrevious()
+        {
+            // ユーザー指摘：教官が複数施設に同時配置できてしまう不具合の修正確認。
+            // 1人の教官は同時に1施設のみ担当できる（TrainingSystem.TryAssignの付け替えと同じ設計）。
+            var trainer = new Adventurer();
+            var state = new GameState { RetiredAdventurers = { trainer } };
+            var system = new AdvisorSystem();
+            system.TryAssignTrainer(state, FacilityType.WarriorHall, trainer.Id);
+
+            bool result = system.TryAssignTrainer(state, FacilityType.Church, trainer.Id);
+
+            Assert.True(result);
+            Assert.Equal(trainer.Id, state.AssignedTrainers[FacilityType.Church]);
+            Assert.False(state.AssignedTrainers.ContainsKey(FacilityType.WarriorHall)); // 元の施設からは解除される
+        }
+
+        [Fact]
         public void UnassignTrainer_RemovesAssignment()
         {
             var candidate = new Adventurer();

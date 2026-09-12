@@ -117,12 +117,12 @@ layout_mode = 2
 size_flags_vertical = 3
 bbcode_enabled = true
 
-[node name="FacilityButton" type="Button" parent="Root" unique_id=220254194]
+[node name="FacilityButton" type="Button" parent="Root/BodyPanel/RightPanel" unique_id=220254194]
 unique_name_in_owner = true
 layout_mode = 2
 text = "施設投資"
 
-[node name="AdvisorButton" type="Button" parent="Root" unique_id=220254196]
+[node name="AdvisorButton" type="Button" parent="Root/BodyPanel/RightPanel" unique_id=220254196]
 unique_name_in_owner = true
 layout_mode = 2
 text = "顧問管理"

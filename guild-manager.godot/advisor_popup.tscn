@@ -79,7 +79,7 @@ text = "スカウトにする"
 
 [node name="StatusLabel" type="Label" parent="VBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 90)
+custom_minimum_size = Vector2(600, 90)
 layout_mode = 2
 text = ""
 autowrap_mode = 2

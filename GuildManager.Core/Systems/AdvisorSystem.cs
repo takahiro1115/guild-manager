@@ -15,6 +15,8 @@ namespace GuildManager.Core.Systems
     /// 割り当て対象は GameState.RetiredAdventurers（引退済み・顧問候補）に限る。
     /// 各スロット（教官は施設ごとに1名、参謀は1名、スカウトは1名）は独立しており、
     /// 同じ人物を複数の役職に重複して割り当てることを妨げない（仕様に明記が無いため）。
+    /// ただし教官は「1つの施設のみ担当できる」（ユーザー指示）ため、同じ人物を
+    /// 同時に複数の訓練施設の教官にすることはできない。
     /// </summary>
     public class AdvisorSystem
     {
@@ -22,12 +24,24 @@ namespace GuildManager.Core.Systems
 
         /// <summary>
         /// 教官を配置する。候補が引退済みでない、または訓練施設以外を指定した場合は失敗する。
-        /// 施設ごとに1名まで（既に配置済みなら上書きで交代）。
+        /// 教官は1人につき1施設のみ担当できるため、既に他の施設に配置済みならその配置を
+        /// 解除してから新しい施設へ付け替える（TrainingSystem.TryAssignの付け替えと同じ設計）。
+        /// 各施設スロット自体も1名まで（既に別の人物が配置済みなら上書きで交代）。
         /// </summary>
         public bool TryAssignTrainer(GameState state, FacilityType facility, Guid candidateId)
         {
             if (!FacilityBalance.IsTrainingFacility(facility)) return false;
             if (!IsRetiredCandidate(state, candidateId)) return false;
+
+            // 教官は1施設のみ担当できる：この候補が既に別の施設の教官になっていれば、
+            // そちらの配置を解除してから新しい施設へ付け替える。
+            foreach (var existingFacility in state.AssignedTrainers
+                         .Where(kv => kv.Value == candidateId && kv.Key != facility)
+                         .Select(kv => kv.Key)
+                         .ToList())
+            {
+                state.AssignedTrainers.Remove(existingFacility);
+            }
 
             state.AssignedTrainers[facility] = candidateId;
             return true;
