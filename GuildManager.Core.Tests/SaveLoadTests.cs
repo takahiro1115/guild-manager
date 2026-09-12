@@ -242,6 +242,81 @@ namespace GuildManager.Core.Tests
             Assert.Same(rosterMember, partyMember);
         }
 
+        // ---------------- 永続パーティー編成（→ 03 §4.0.2、v1.9改訂：項目53「v1.8作成時の漏れ」対応） ----------------
+
+        [Fact]
+        public void RoundTrip_PreservesSavedParties()
+        {
+            var a = new Adventurer { Name = "甲" };
+            var b = new Adventurer { Name = "乙" };
+            var state = new GameState { Adventurers = { a, b } };
+            var party = new PartyFormationSystem().CreateParty(state, "第一遠征隊");
+            party.MemberIds.Add(a.Id);
+            party.MemberIds.Add(b.Id);
+
+            var restored = GameState.FromSaveData(state.ToSaveData());
+
+            var restoredParty = Assert.Single(restored.SavedParties);
+            Assert.Equal("第一遠征隊", restoredParty.Name);
+            Assert.Equal(party.Id, restoredParty.Id);
+            Assert.Equal(new[] { a.Id, b.Id }, restoredParty.MemberIds);
+        }
+
+        [Fact]
+        public void RoundTrip_PreservesMultipleSavedParties_Independently()
+        {
+            var a = new Adventurer();
+            var b = new Adventurer();
+            var state = new GameState { Adventurers = { a, b } };
+            var system = new PartyFormationSystem();
+            var partyA = system.CreateParty(state, "A隊");
+            var partyB = system.CreateParty(state, "B隊");
+            system.TryAssignMember(state, partyA, a.Id);
+            system.TryAssignMember(state, partyB, b.Id);
+
+            var restored = GameState.FromSaveData(state.ToSaveData());
+
+            Assert.Equal(2, restored.SavedParties.Count);
+            Assert.Contains(restored.SavedParties, p => p.Name == "A隊" && p.MemberIds.Contains(a.Id));
+            Assert.Contains(restored.SavedParties, p => p.Name == "B隊" && p.MemberIds.Contains(b.Id));
+        }
+
+        [Fact]
+        public void RoundTrip_SavedParties_Empty_WhenNoneCreated()
+        {
+            var state = new GameState();
+
+            var restored = GameState.FromSaveData(state.ToSaveData());
+
+            Assert.Empty(restored.SavedParties);
+        }
+
+        [Fact]
+        public void RoundTrip_DispatchedQuest_IsIndependent_OfSavedParties()
+        {
+            // 派遣中のパーティー（DispatchedQuestRecord）は出撃時点のメンバーIdの
+            // スナップショットであり、SavedParty.Idへの参照は持たない。そのため、
+            // SavedPartyを削除・編集しても進行中の派遣には一切影響しないことを確認する。
+            var a = new Adventurer { Name = "遠征中メンバー" };
+            var state = new GameState { Adventurers = { a } };
+            var system = new PartyFormationSystem();
+            var savedParty = system.CreateParty(state, "元の編成");
+            system.TryAssignMember(state, savedParty, a.Id);
+
+            var dispatchParty = new Party();
+            dispatchParty.TryAdd(a);
+            state.ActiveDispatches.Add(new ActiveDispatch { Party = dispatchParty, Quest = new Quest { Name = "遠征" }, WeeksRemaining = 3 });
+
+            // 派遣後にSavedPartyを削除（実運用では有り得るが、影響してはいけない）
+            system.DeleteParty(state, savedParty);
+
+            var restored = GameState.FromSaveData(state.ToSaveData());
+
+            Assert.Empty(restored.SavedParties); // SavedPartyは消えている
+            var dispatch = Assert.Single(restored.ActiveDispatches); // が、派遣中クエストは無事に残る
+            Assert.Equal("遠征中メンバー", dispatch.Party.Members.Single().Name);
+        }
+
         [Fact]
         public void FromSaveData_Throws_ForInvalidGuildRankString()
         {

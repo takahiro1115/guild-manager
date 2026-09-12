@@ -19,8 +19,6 @@ using GuildManager.Core.Systems;
 /// </summary>
 public partial class MainDashboard : Control
 {
-	private const int MaxPartySize = 4;
-
 	private GameState _state = null!;
 	private QuestResolver _questResolver = null!;
 	private EconomySystem _economySystem = null!;
@@ -42,12 +40,15 @@ public partial class MainDashboard : Control
 	private AdvisorSystem _advisorSystem = null!;
 	private EquipmentSystem _equipmentSystem = null!;
 	private SaveLoadService _saveLoadService = null!;
+	private PartyFormationSystem _partyFormationSystem = null!;
 
 	private Label _weekLabel = null!;
 	private Label _goldLabel = null!;
 	private Label _rankLabel = null!;
 	private Label _threatLabel = null!;
 	private ItemList _questList = null!;
+	private ItemList _dispatchPartyList = null!;
+	private Button _temporarySwapButton = null!;
 	private ItemList _adventurerList = null!;
 	private RichTextLabel _adventurerDetailLabel = null!;
 	private RichTextLabel _resultLog = null!;
@@ -64,9 +65,19 @@ public partial class MainDashboard : Control
 	private EquipmentPopup _equipmentPopup = null!;
 	private Button _equipmentButton = null!;
 	private Button _saveButton = null!;
+	private PartyFormationPopup _partyFormationPopup = null!;
+	private Button _partyFormationButton = null!;
+	private TemporarySwapPopup _temporarySwapPopup = null!;
 
 	/// <summary>ステータス詳細パネルに表示中の冒険者。週送り後もこの人物の表示を維持する。</summary>
 	private Guid? _detailAdventurerId;
+
+	/// <summary>
+	/// 派遣直前の一時的な入れ替え結果（→ 03 §4.0.2）。null＝一時編成なし（保存された
+	/// パーティーのMemberIdsをそのまま使う）。次週へ進めるたびに必ずリセットされる
+	/// （「今回の出撃だけ」の一時的な適用のため、SavedParty自体は変更しない）。
+	/// </summary>
+	private List<Guid> _temporaryDispatchMemberIds;
 
 	public override void _Ready()
 	{
@@ -75,6 +86,8 @@ public partial class MainDashboard : Control
 		_rankLabel = GetNode<Label>("%RankLabel");
 		_threatLabel = GetNode<Label>("%ThreatLabel");
 		_questList = GetNode<ItemList>("%QuestList");
+		_dispatchPartyList = GetNode<ItemList>("%DispatchPartyList");
+		_temporarySwapButton = GetNode<Button>("%TemporarySwapButton");
 		_adventurerList = GetNode<ItemList>("%AdventurerList");
 		_adventurerDetailLabel = GetNode<RichTextLabel>("%AdventurerDetailLabel");
 		_resultLog = GetNode<RichTextLabel>("%ResultLog");
@@ -90,9 +103,10 @@ public partial class MainDashboard : Control
 		_retireButton = GetNode<Button>("%RetireButton");
 		_equipmentPopup = GetNode<EquipmentPopup>("%EquipmentPopup");
 		_equipmentButton = GetNode<Button>("%EquipmentButton");
+		_partyFormationPopup = GetNode<PartyFormationPopup>("%PartyFormationPopup");
+		_partyFormationButton = GetNode<Button>("%PartyFormationButton");
+		_temporarySwapPopup = GetNode<TemporarySwapPopup>("%TemporarySwapPopup");
 
-		_adventurerList.SelectMode = ItemList.SelectModeEnum.Multi;
-		_adventurerList.MultiSelected += OnAdventurerMultiSelected;
 		_adventurerList.ItemClicked += OnAdventurerItemClicked;
 		_nextWeekButton.Pressed += OnNextWeekPressed;
 		_recruitmentPopup.Closed += OnRecruitmentPopupClosed;
@@ -106,6 +120,10 @@ public partial class MainDashboard : Control
 		_retireButton.Pressed += OnRetirePressed;
 		_equipmentButton.Pressed += OnEquipmentButtonPressed;
 		_equipmentPopup.Closed += OnEquipmentPopupClosed;
+		_partyFormationButton.Pressed += OnPartyFormationButtonPressed;
+		_partyFormationPopup.Closed += OnPartyFormationPopupClosed;
+		_temporarySwapButton.Pressed += OnTemporarySwapButtonPressed;
+		_temporarySwapPopup.Applied += OnTemporarySwapApplied;
 		_saveButton = GetNode<Button>("%SaveButton");
 		_saveButton.Pressed += OnSaveButtonPressed;
 
@@ -130,6 +148,7 @@ public partial class MainDashboard : Control
 		_defeatSystem = new DefeatSystem();
 		_advisorSystem = new AdvisorSystem();
 		_equipmentSystem = new EquipmentSystem();
+		_partyFormationSystem = new PartyFormationSystem();
 		// GuildManager.CoreはGodotに依存しない方針（→ 05技術メモ）のため、保存先の実パスは
 		// Godot側からOS.GetUserDataDir()（user://に対応する実ディレクトリ）を注入する（→ 03 §12）。
 		_saveLoadService = new SaveLoadService(OS.GetUserDataDir());
@@ -231,36 +250,49 @@ public partial class MainDashboard : Control
 	}
 
 	/// <summary>
-	/// 冒険者一覧の選択制御。
-	/// ・5人目以降が選ばれそうになったら取り消す
-	/// ・重傷・引退済み・派遣中の冒険者は選択させない（IsAvailableで判定）
-	/// </summary>
-	private void OnAdventurerMultiSelected(long index, bool selected)
-	{
-		if (!selected) return;
-
-		var adventurer = _state.Adventurers[(int)index];
-		if (!adventurer.IsAvailable)
-		{
-			_adventurerList.Deselect((int)index);
-			string reason = adventurer.IsDispatched ? "派遣中" : adventurer.IsRetired ? "引退済み" : "重傷";
-			AppendLog($"[color=gray]{adventurer.Name} は{reason}のため出撃できません。[/color]");
-			return;
-		}
-
-		var selectedItems = _adventurerList.GetSelectedItems();
-		if (selectedItems.Length > MaxPartySize)
-		{
-			_adventurerList.Deselect((int)index);
-		}
-	}
-
-	/// <summary>
-	/// 冒険者一覧のクリックでステータス詳細パネルを更新する（編成の選択/解除とは独立）。
+	/// 冒険者一覧のクリックでステータス詳細パネルを更新する（→ 03 §4.0.2改訂で
+	/// 派遣メンバーの選択はDispatchPartyList側へ移ったため、この一覧は閲覧専用になった）。
 	/// </summary>
 	private void OnAdventurerItemClicked(long index, Vector2 atPosition, long mouseButtonIndex)
 	{
 		ShowAdventurerDetail(_state.Adventurers[(int)index]);
+	}
+
+	/// <summary>「パーティー編成」ボタン。永続的なパーティー編成画面を開く（→ 03 §4.0.2）。</summary>
+	private void OnPartyFormationButtonPressed()
+	{
+		_partyFormationPopup.Open(_state, _partyFormationSystem);
+	}
+
+	/// <summary>パーティー編成画面が閉じた時のコールバック。編成の変化（未編成一覧等）を反映する。</summary>
+	private void OnPartyFormationPopupClosed()
+	{
+		RefreshAll();
+	}
+
+	/// <summary>
+	/// 「出撃メンバーを一時編成する」ボタン。選択中のパーティーを基準に、今回の出撃だけの
+	/// 一時的な入れ替えを行う（→ 03 §4.0.2。SavedParty自体は変更しない）。
+	/// </summary>
+	private void OnTemporarySwapButtonPressed()
+	{
+		var selected = _dispatchPartyList.GetSelectedItems();
+		if (selected.Length == 0)
+		{
+			AppendLog("[color=orange]一時編成する前に、出撃パーティーを選択してください。[/color]");
+			return;
+		}
+
+		var savedParty = _state.SavedParties[selected[0]];
+		var baseline = _temporaryDispatchMemberIds ?? savedParty.MemberIds;
+		_temporarySwapPopup.Open(_state, baseline);
+	}
+
+	/// <summary>一時編成が確定した時のコールバック。今週の出撃にのみ適用する（SavedPartyは不変）。</summary>
+	private void OnTemporarySwapApplied(List<Guid> memberIds)
+	{
+		_temporaryDispatchMemberIds = memberIds;
+		AppendLog("[color=cyan]今回の出撃メンバーを一時的に変更した（保存されている編成は変わらない）。[/color]");
 	}
 
 	/// <summary>
@@ -283,8 +315,8 @@ public partial class MainDashboard : Control
 	{
 		int thisWeek = _state.WeekNumber;
 		var selectedQuestIndices = _questList.GetSelectedItems();
-		var selectedAdventurerIndices = _adventurerList.GetSelectedItems();
-		bool wantsToDispatch = selectedAdventurerIndices.Length > 0;
+		var selectedPartyIndices = _dispatchPartyList.GetSelectedItems();
+		bool wantsToDispatch = selectedPartyIndices.Length > 0;
 
 		if (wantsToDispatch)
 		{
@@ -294,25 +326,42 @@ public partial class MainDashboard : Control
 				return;
 			}
 
-			var quest = _state.AvailableQuests[selectedQuestIndices[0]];
-			var party = new Party();
-			foreach (int idx in selectedAdventurerIndices)
+			// 派遣時、編成メンバーのうち出撃可能な者だけで自動的に出撃する（→ 03 §4.0.2）。
+			// 一時編成（_temporaryDispatchMemberIds）が設定されていればそちらを優先し、
+			// 無ければ保存されている編成（SavedParty.MemberIds）をそのまま使う。
+			var savedParty = _state.SavedParties[selectedPartyIndices[0]];
+			var memberIdSource = _temporaryDispatchMemberIds ?? savedParty.MemberIds;
+
+			foreach (var unavailable in PartyFormationSystem.GetUnavailableMembers(_state, memberIdSource))
 			{
-				party.TryAdd(_state.Adventurers[idx]);
+				string reason = unavailable.IsDispatched ? "派遣中" : unavailable.IsRetired ? "引退済み" : "重傷";
+				AppendLog($"[color=gray]{unavailable.Name}は{reason}のため出撃できません。[/color]");
 			}
 
-			_questDispatchSystem.Dispatch(_state, party, quest);
-
-			if (quest.DurationWeeks > 1)
+			var party = PartyFormationSystem.BuildDispatchParty(_state, memberIdSource);
+			if (party.IsEmpty)
 			{
-				AppendLog($"[color=cyan]第{thisWeek}週：{quest.Name}へ出発した" +
-					$"（拘束{quest.DurationWeeks}週間、第{thisWeek + quest.DurationWeeks - 1}週に結果判明）。[/color]");
+				AppendLog($"[color=orange]「{savedParty.Name}」は出撃可能なメンバーがいないため、今週は派遣できません。[/color]");
+			}
+			else
+			{
+				var quest = _state.AvailableQuests[selectedQuestIndices[0]];
+				_questDispatchSystem.Dispatch(_state, party, quest);
+
+				if (quest.DurationWeeks > 1)
+				{
+					AppendLog($"[color=cyan]第{thisWeek}週：「{savedParty.Name}」（{party.Members.Count}名）が{quest.Name}へ出発した" +
+						$"（拘束{quest.DurationWeeks}週間、第{thisWeek + quest.DurationWeeks - 1}週に結果判明）。[/color]");
+				}
 			}
 		}
 		else
 		{
 			AppendLog($"[color=gray]第{thisWeek}週：今週は誰も出撃せず、静養に努めた。[/color]");
 		}
+
+		// 一時編成は「今回の出撃だけ」の適用のため、週送りのたびに必ずリセットする（→ 03 §4.0.2）。
+		_temporaryDispatchMemberIds = null;
 
 		// 派遣中（今週出発した分も含む）の冒険者は、HP自然回復・訓練場成長の対象から外す（→ 03 §4.0.1）。
 		var dispatchedIds = _state.Adventurers.Where(a => a.IsDispatched).Select(a => a.Id).ToHashSet();
@@ -616,6 +665,15 @@ public partial class MainDashboard : Control
 		{
 			_questList.AddItem($"[{q.Rank}] {q.Name}（{QuestTypeLabel(q.QuestType)} / 難易度{q.Difficulty} / " +
 				$"規模{ScaleLabel(q.Scale)}・{q.DurationWeeks}週 / 報酬{q.RewardGold}G / 期限あと{q.DeadlineWeeks}週）");
+		}
+
+		// 出撃パーティー一覧（→ 03 §4.0.2）：保存済み編成のうち、現時点で出撃可能な人数を添えて表示する。
+		_dispatchPartyList.Clear();
+		foreach (var party in _state.SavedParties)
+		{
+			int availableCount = PartyFormationSystem.BuildDispatchParty(_state, party.MemberIds).Members.Count;
+			int totalCount = party.MemberIds.Count(id => _state.Adventurers.Any(a => a.Id == id));
+			_dispatchPartyList.AddItem($"{party.Name}（{availableCount}/{totalCount}名 出撃可能）");
 		}
 
 		_adventurerList.Clear();

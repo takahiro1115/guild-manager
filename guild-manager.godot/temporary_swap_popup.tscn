@@ -1,0 +1,81 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/TemporarySwapPopup.cs" id="1_script"]
+
+[node name="TemporarySwapPopup" type="PopupPanel"]
+title = "出撃メンバーの一時編成"
+initial_position = 1
+size = Vector2i(620, 480)
+script = ExtResource("1_script")
+
+[node name="VBox" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = 8.0
+offset_right = -8.0
+offset_bottom = -8.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="TitleLabel" type="Label" parent="VBox"]
+custom_minimum_size = Vector2(600, 0)
+layout_mode = 2
+text = "今回の出撃だけの一時的な入れ替え。保存されている編成そのものは変更されない。"
+autowrap_mode = 2
+
+[node name="ListRow" type="HBoxContainer" parent="VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="LineupPanel" type="VBoxContainer" parent="VBox/ListRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="LineupLabel" type="Label" parent="VBox/ListRow/LineupPanel"]
+layout_mode = 2
+text = "今回の出撃メンバー（最大4名）"
+
+[node name="LineupList" type="ItemList" parent="VBox/ListRow/LineupPanel"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 220)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="RemoveButton" type="Button" parent="VBox/ListRow/LineupPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "◀ 外す"
+
+[node name="CandidatePanel" type="VBoxContainer" parent="VBox/ListRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="CandidateLabel" type="Label" parent="VBox/ListRow/CandidatePanel"]
+layout_mode = 2
+text = "交代候補（未編成・他パーティーの冒険者）"
+
+[node name="CandidateList" type="ItemList" parent="VBox/ListRow/CandidatePanel"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 220)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="AddButton" type="Button" parent="VBox/ListRow/CandidatePanel"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "追加する ▶"
+
+[node name="StatusLabel" type="Label" parent="VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(600, 0)
+layout_mode = 2
+text = ""
+autowrap_mode = 2
+
+[node name="ApplyButton" type="Button" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "この編成で出撃する"

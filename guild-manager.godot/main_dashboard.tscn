@@ -5,6 +5,8 @@
 [ext_resource type="PackedScene" path="res://facility_popup.tscn" id="3_facility"]
 [ext_resource type="PackedScene" path="res://advisor_popup.tscn" id="4_advisor"]
 [ext_resource type="PackedScene" path="res://equipment_popup.tscn" id="5_equipment"]
+[ext_resource type="PackedScene" path="res://party_formation_popup.tscn" id="6_partyformation"]
+[ext_resource type="PackedScene" path="res://temporary_swap_popup.tscn" id="7_temporaryswap"]
 
 [node name="MainDashboard" type="Control" unique_id=210796005]
 layout_mode = 3
@@ -64,15 +66,29 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
 
+[node name="LabelParty" type="Label" parent="Root/BodyPanel/CenterPanel" unique_id=619444892]
+layout_mode = 2
+text = "出撃パーティーを選択（保存済み編成から1つ）"
+
+[node name="DispatchPartyList" type="ItemList" parent="Root/BodyPanel/CenterPanel" unique_id=619444893]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 80)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="TemporarySwapButton" type="Button" parent="Root/BodyPanel/CenterPanel" unique_id=619444894]
+unique_name_in_owner = true
+layout_mode = 2
+text = "出撃メンバーを一時編成する"
+
 [node name="Label2" type="Label" parent="Root/BodyPanel/CenterPanel" unique_id=619444891]
 layout_mode = 2
-text = "冒険者を選択（最大4人）"
+text = "現役冒険者一覧（クリックで詳細表示）"
 
 [node name="AdventurerList" type="ItemList" parent="Root/BodyPanel/CenterPanel" unique_id=220254183]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
-select_mode = 1
 
 [node name="Label3" type="Label" parent="Root/BodyPanel/CenterPanel" unique_id=220254184]
 layout_mode = 2
@@ -138,6 +154,11 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "顧問管理"
 
+[node name="PartyFormationButton" type="Button" parent="Root/BodyPanel/RightPanel" unique_id=220254198]
+unique_name_in_owner = true
+layout_mode = 2
+text = "パーティー編成"
+
 [node name="NextWeekButton" type="Button" parent="Root" unique_id=22271400]
 unique_name_in_owner = true
 layout_mode = 2
@@ -153,4 +174,10 @@ unique_name_in_owner = true
 unique_name_in_owner = true
 
 [node name="EquipmentPopup" parent="." instance=ExtResource("5_equipment")]
+unique_name_in_owner = true
+
+[node name="PartyFormationPopup" parent="." instance=ExtResource("6_partyformation")]
+unique_name_in_owner = true
+
+[node name="TemporarySwapPopup" parent="." instance=ExtResource("7_temporaryswap")]
 unique_name_in_owner = true

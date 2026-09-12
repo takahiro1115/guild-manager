@@ -19,6 +19,15 @@ namespace GuildManager.Core.Models
         public List<Adventurer> Adventurers { get; set; } = new();
 
         /// <summary>
+        /// 永続的なパーティー編成の一覧（仕様書 03 §4.0.2。v1.9改訂で新設）。
+        /// クエスト派遣のたびに毎回4人を選び直す必要はなく、事前に編成したこの一覧から
+        /// 1つ選ぶだけでよい（→ PartyFormationSystem・QuestDispatchSystem）。
+        /// どのSavedPartyのMemberIdsにも含まれない現役冒険者は「未編成」として扱う
+        /// （→ PartyFormationSystem.GetUnassignedAdventurers）。
+        /// </summary>
+        public List<SavedParty> SavedParties { get; set; } = new();
+
+        /// <summary>
         /// 引退した冒険者の一覧（40歳強制引退・早期引退の両方。仕様書 03 §3.7・§7）。
         /// 現役ロースター（Adventurers）からは除外しつつ、データとしては破棄しない。
         /// 「顧問候補」として、AssignedTrainers・AssignedAdvisor・AssignedScoutMasterの
@@ -151,6 +160,7 @@ namespace GuildManager.Core.Models
                 RetiredAdvisorCandidates = new List<Adventurer>(RetiredAdventurers),
                 FallenAdventurers = new List<Adventurer>(FallenAdventurers),
                 AvailableQuests = new List<Quest>(AvailableQuests),
+                SavedParties = new List<SavedParty>(SavedParties),
             };
 
             foreach (var kv in Compatibility)
@@ -215,6 +225,7 @@ namespace GuildManager.Core.Models
                 RetiredAdventurers = new List<Adventurer>(data.RetiredAdvisorCandidates),
                 FallenAdventurers = new List<Adventurer>(data.FallenAdventurers),
                 AvailableQuests = new List<Quest>(data.AvailableQuests),
+                SavedParties = new List<SavedParty>(data.SavedParties),
                 Facilities = new List<Facility>(),
             };
 

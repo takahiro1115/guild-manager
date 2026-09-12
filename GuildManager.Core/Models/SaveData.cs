@@ -81,6 +81,23 @@ namespace GuildManager.Core.Models
         /// </summary>
         public List<Adventurer> FallenAdventurers { get; set; } = new();
 
+        /// <summary>
+        /// 永続的なパーティー編成一覧（→ 03 §4.0.2、v1.9改訂で新設）。GameState.
+        /// SavedPartiesをそのまま保存する。SavedParty自体がGuid・string・List&lt;Guid&gt;
+        /// のみで構成され直接JSON化できるため、Compatibility等と違って変換用の
+        /// 別Recordは不要。
+        ///
+        /// 事前調査メモ（項目53）：v1.8（セーブ/ロード）作成時点ではパーティー永続化が
+        /// 存在せず、指示書の指摘どおりSaveDataへの反映が漏れていた。今回追加する。
+        /// なお、進行中の複数週クエスト派遣（DispatchedQuestRecord）は、派遣時点で
+        /// 出撃可能だった実際のメンバーIdのスナップショットを保持する設計であり、
+        /// SavedParty.Idへの参照は持たない（一時的な入れ替えにより、派遣メンバーが
+        /// 編成保存内容と一致しない場合があるため）。そのため、SavedPartiesの編集・
+        /// 削除は進行中の派遣に一切影響しない（→ GameState.ToSaveData/FromSaveDataの
+        /// 変換は独立している）。
+        /// </summary>
+        public List<SavedParty> SavedParties { get; set; } = new();
+
         // ---- 相性（→ CompatibilitySystem） ----
         public List<CompatibilityPairRecord> CompatibilityPairs { get; set; } = new();
 

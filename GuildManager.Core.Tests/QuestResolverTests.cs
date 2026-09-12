@@ -230,6 +230,81 @@ namespace GuildManager.Core.Tests
             return party;
         }
 
+        private static Party PartyOf(params Adventurer[] members)
+        {
+            var party = new Party();
+            foreach (var m in members)
+                party.TryAdd(m);
+            return party;
+        }
+
+        // ---------------- 出撃人数1〜3人での解決（→ 03 §4.0.2、v1.9改訂：パーティー編成永続化） ----------------
+        // 保存済みパーティーの4名のうち出撃可能な者だけで自動的に出撃する仕様のため、
+        // QuestResolver自体がメンバー数に依存せず正しく機能することを確認する。
+
+        [Fact]
+        public void Resolve_SucceedsWithOneMember()
+        {
+            var solo = new Adventurer { STR = 50, AGI = 50, VIT = 50, MND = 50, DEX = 50, LDR = 50 };
+            solo.CurrentHP = solo.MaxHP;
+            var quest = new Quest { Difficulty = 30, ScoutRequirement = 30 };
+            var resolver = new QuestResolver(new FixedRng(50));
+
+            var result = resolver.Resolve(PartyOf(solo), quest);
+
+            Assert.False(double.IsNaN(result.Ratio));
+            Assert.True(result.Ratio > 0);
+        }
+
+        [Fact]
+        public void Resolve_SucceedsWithTwoMembers()
+        {
+            var a = new Adventurer { STR = 50, AGI = 50, VIT = 50, MND = 50, DEX = 50, LDR = 50 };
+            a.CurrentHP = a.MaxHP;
+            var b = new Adventurer { STR = 50, AGI = 50, VIT = 50, MND = 50, DEX = 50, LDR = 50 };
+            b.CurrentHP = b.MaxHP;
+            var quest = new Quest { Difficulty = 30, ScoutRequirement = 30 };
+            var resolver = new QuestResolver(new FixedRng(50));
+
+            var result = resolver.Resolve(PartyOf(a, b), quest);
+
+            Assert.False(double.IsNaN(result.Ratio));
+            Assert.Equal(2, result.HpLostByAdventurer.Count); // 両名にHP消費が記録される
+        }
+
+        [Fact]
+        public void Resolve_SucceedsWithThreeMembers()
+        {
+            var members = new[]
+            {
+                new Adventurer { STR = 50, AGI = 50, VIT = 50, MND = 50, DEX = 50, LDR = 50 },
+                new Adventurer { STR = 50, AGI = 50, VIT = 50, MND = 50, DEX = 50, LDR = 50 },
+                new Adventurer { STR = 50, AGI = 50, VIT = 50, MND = 50, DEX = 50, LDR = 50 },
+            };
+            foreach (var m in members) m.CurrentHP = m.MaxHP;
+            var quest = new Quest { Difficulty = 30, ScoutRequirement = 30 };
+            var resolver = new QuestResolver(new FixedRng(50));
+
+            var result = resolver.Resolve(PartyOf(members), quest);
+
+            Assert.False(double.IsNaN(result.Ratio));
+            Assert.Equal(3, result.HpLostByAdventurer.Count);
+        }
+
+        [Fact]
+        public void Resolve_ThreeMemberRatio_IsThreeQuartersOfFourMemberRatio_AllElseEqual()
+        {
+            // 4人揃わなくても、出撃可能な人数分のCPが正しく合算されることを確認する
+            // （PartyCP = Σ個人CP のため、同一ステータスの3人と4人ならRatioは3:4になるはず）。
+            Adventurer Make() { var a = new Adventurer { STR = 50, AGI = 50, VIT = 50, MND = 50, DEX = 50, LDR = 50 }; a.CurrentHP = a.MaxHP; return a; }
+            var quest = new Quest { Difficulty = 30, ScoutRequirement = 30 };
+
+            var threeResult = new QuestResolver(new FixedRng(50)).Resolve(PartyOf(Make(), Make(), Make()), quest);
+            var fourResult = new QuestResolver(new FixedRng(50)).Resolve(PartyOf(Make(), Make(), Make(), Make()), quest);
+
+            Assert.Equal(0.75, threeResult.Ratio / fourResult.Ratio, precision: 6);
+        }
+
         /// <summary>
         /// Resolve()がHP0到達を検知したら DownedAdventurerIds に記録することを確認する
         /// （フェーズ3・致死判定の対象の絞り込みに使う。→ 03 §4.3）。
