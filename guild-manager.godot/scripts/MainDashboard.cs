@@ -413,7 +413,7 @@ public partial class MainDashboard : Control
 				: a.IsDispatched
 					? $"【派遣中・残り{GetDispatchWeeksRemaining(a)}週】"
 					: "";
-			_adventurerList.AddItem($"{a.Name}（{a.JobClass}・{PlacementLabel(a.Placement)}） HP{a.CurrentHP}/{a.MaxHP}　総合PA{a.TotalPA:F1} {status}");
+			_adventurerList.AddItem($"{a.Name}（{a.JobClass}・{PlacementLabel(a.Placement)}） HP{a.CurrentHP}/{a.MaxHP}　総合PA{a.TotalPA:F1}　{a.Age}歳 {status}");
 		}
 
 		RefreshAdventurerDetail();
