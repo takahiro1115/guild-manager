@@ -67,12 +67,18 @@ namespace GuildManager.Core.Models
         /// <summary>作戦資料室に配置されている参謀（引退済み冒険者。仕様書 03 §7.2）。1名まで。null＝未配置。</summary>
         public Guid? AssignedAdvisor { get; set; }
 
-        /// <summary>任命されているスカウト顧問（引退済み冒険者。仕様書 03 §7.3）。施設に紐づかない。1名まで。null＝未任命。</summary>
+        /// <summary>
+        /// 任命されているスカウト顧問（引退済み冒険者。仕様書 03 §7.3）。1名まで。null＝未任命。
+        /// v1.4改訂：冒険者支援室（RecruitmentOffice）に紐づく役職となった。同施設がLv0
+        /// （未建設）の間は、AdvisorSystem.TryAssignScoutMaster側でガードし配置できない。
+        /// </summary>
         public Guid? AssignedScoutMaster { get; set; }
 
         /// <summary>
-        /// 8施設の現在状態（仕様書 03 §6。v1.3改訂：訓練場・道場の4分割により4大施設から
-        /// 8施設に拡張）。デフォルトで全種Lv1を1つずつ持つ。
+        /// 9施設の現在状態（仕様書 03 §6。v1.3改訂：訓練場・道場の4分割により4大施設から
+        /// 8施設に拡張。v1.4改訂：冒険者支援室（RecruitmentOffice）を新設し9施設に拡張）。
+        /// 宿舎・医務室・ギルド酒場のみ初期Lv1、残り6施設（訓練4施設・作戦資料室・
+        /// 冒険者支援室）は初期Lv0（未建設）で開始する（→ §6）。
         /// </summary>
         public List<Facility> Facilities { get; set; } = CreateDefaultFacilities();
 
@@ -121,16 +127,23 @@ namespace GuildManager.Core.Models
             return 1;
         }
 
+        /// <summary>
+        /// 9施設の初期状態（→ 03 §6）。v1.4改訂：宿舎・医務室・ギルド酒場（基幹3施設）は
+        /// 既存どおりLv1スタート、それ以外（訓練4施設・作戦資料室・冒険者支援室）は
+        /// Lv0（未建設）スタートに変更した。Lv0の施設は訓練枠・顧問スロットが0扱いになる
+        /// （→ FacilityBalance.GetTrainingSlotCapacity・AdvisorSystemの各Try*Assign*）。
+        /// </summary>
         private static List<Facility> CreateDefaultFacilities() => new()
         {
             new Facility { Type = FacilityType.Dormitory, CurrentLevel = 1 },
             new Facility { Type = FacilityType.Infirmary, CurrentLevel = 1 },
-            new Facility { Type = FacilityType.WarRoom, CurrentLevel = 1 },
             new Facility { Type = FacilityType.Tavern, CurrentLevel = 1 },
-            new Facility { Type = FacilityType.WarriorHall, CurrentLevel = 1 },
-            new Facility { Type = FacilityType.Church, CurrentLevel = 1 },
-            new Facility { Type = FacilityType.MageLab, CurrentLevel = 1 },
-            new Facility { Type = FacilityType.ScoutPost, CurrentLevel = 1 },
+            new Facility { Type = FacilityType.WarRoom, CurrentLevel = 0 },
+            new Facility { Type = FacilityType.WarriorHall, CurrentLevel = 0 },
+            new Facility { Type = FacilityType.Church, CurrentLevel = 0 },
+            new Facility { Type = FacilityType.MageLab, CurrentLevel = 0 },
+            new Facility { Type = FacilityType.ScoutPost, CurrentLevel = 0 },
+            new Facility { Type = FacilityType.RecruitmentOffice, CurrentLevel = 0 },
         };
     }
 }

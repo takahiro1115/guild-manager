@@ -25,23 +25,25 @@ namespace GuildManager.Core.Tests
         /// 原因はGameState.Facilities自体ではなくFacilityPopup側のレイアウトだったが
         /// （→ facility_popup.tscn修正）、データ生成側が全種を持つことを保証する意味で残す。
         /// v1.3改訂：訓練場・道場の4分割により5種から8種に拡張。
+        /// v1.4改訂：冒険者支援室（RecruitmentOffice）を新設し9種に拡張。あわせて、
+        /// 宿舎・医務室・ギルド酒場（基幹3施設）以外は初期LvがLv0（未建設）に変更された（→ 03 §6）。
         /// </summary>
         [Fact]
-        public void NewGameState_HasAllEightFacilityTypesAtLevel1()
+        public void NewGameState_HasAllNineFacilityTypes_BaseThreeAtLevel1_RestAtLevelZero()
         {
             var state = new GameState();
 
-            Assert.Equal(8, state.Facilities.Count);
+            Assert.Equal(9, state.Facilities.Count);
+
+            foreach (var type in new[] { FacilityType.Dormitory, FacilityType.Infirmary, FacilityType.Tavern })
+                Assert.Equal(1, GetFacility(state, type)?.CurrentLevel);
+
             foreach (var type in new[]
                      {
-                         FacilityType.Dormitory, FacilityType.Infirmary, FacilityType.WarRoom, FacilityType.Tavern,
-                         FacilityType.WarriorHall, FacilityType.Church, FacilityType.MageLab, FacilityType.ScoutPost,
+                         FacilityType.WarRoom, FacilityType.WarriorHall, FacilityType.Church,
+                         FacilityType.MageLab, FacilityType.ScoutPost, FacilityType.RecruitmentOffice,
                      })
-            {
-                var facility = GetFacility(state, type);
-                Assert.NotNull(facility);
-                Assert.Equal(1, facility.CurrentLevel);
-            }
+                Assert.Equal(0, GetFacility(state, type)?.CurrentLevel);
         }
 
         // ---------------- 着工（TryStartConstruction） ----------------
@@ -82,6 +84,51 @@ namespace GuildManager.Core.Tests
             system.TryStartConstruction(state, FacilityType.Dormitory);
 
             Assert.Equal(1, GetFacility(state, FacilityType.Dormitory).CurrentLevel);
+        }
+
+        // ---------------- Lv0（未建設）からの着工（→ 03 §6、v1.4改訂・新設） ----------------
+
+        [Fact]
+        public void TryStartConstruction_Succeeds_FromLevelZero()
+        {
+            // 戦士訓練所はLv0（未建設）スタート。Lv0→Lv1の着工も既存ルールに従う。
+            var state = new GameState { Gold = 10000 };
+            var system = new FacilitySystem();
+
+            bool result = system.TryStartConstruction(state, FacilityType.WarriorHall);
+
+            Assert.True(result);
+            Assert.Equal(1, state.UnderConstruction!.TargetLevel); // Lv0→Lv1
+        }
+
+        [Fact]
+        public void TryStartConstruction_FromLevelZero_ChargesNonZeroCost()
+        {
+            // Lv0→Lv1の着工が無料になってしまうバグの修正確認
+            // （旧実装：GetUpgradeCost = currentLevel*500 だとLv0の場合0Gになっていた）。
+            var state = new GameState { Gold = 10000 };
+            var system = new FacilitySystem();
+
+            system.TryStartConstruction(state, FacilityType.WarriorHall);
+
+            Assert.True(state.Gold < 10000);
+            Assert.Equal(FacilityBalance.GetUpgradeCost(FacilityType.WarriorHall, 0), 10000 - state.Gold);
+            Assert.NotEqual(0, FacilityBalance.GetUpgradeCost(FacilityType.WarriorHall, 0));
+        }
+
+        [Fact]
+        public void ProcessWeeklyConstruction_CompletesLevelZeroToLevelOne()
+        {
+            var state = new GameState { Gold = 10000 };
+            var system = new FacilitySystem();
+            system.TryStartConstruction(state, FacilityType.WarriorHall);
+            state.UnderConstruction!.WeeksRemaining = 1;
+
+            var completed = system.ProcessWeeklyConstruction(state);
+
+            Assert.NotNull(completed);
+            Assert.Equal(1, completed!.CurrentLevel);
+            Assert.Equal(1, GetFacility(state, FacilityType.WarriorHall).CurrentLevel);
         }
 
         [Fact]

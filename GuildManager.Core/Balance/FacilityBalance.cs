@@ -17,11 +17,16 @@ namespace GuildManager.Core.Balance
     {
         public const int MaxLevel = 5;
 
-        /// <summary>Lvアップの改築費（現在Lvから+1する費用）。→ BAL: 施設/改築費。現状は仮値。</summary>
-        public static int GetUpgradeCost(Models.FacilityType type, int currentLevel) => currentLevel * 500;
+        /// <summary>
+        /// Lvアップの改築費（現在Lvから+1する費用）。→ BAL: 施設/改築費。現状は仮値。
+        /// v1.4改訂：Lv0→Lv1（新設）の着工にも既存のLv1→Lv2と同額を課す
+        /// （currentLevel*500のままだとLv0の場合に0＝無料建設になってしまうバグの修正。
+        /// 「資金を払って建設して初めてLv1になる」という仕様に反するため）。
+        /// </summary>
+        public static int GetUpgradeCost(Models.FacilityType type, int currentLevel) => Math.Max(currentLevel, 1) * 500;
 
         /// <summary>着工から完成までの工事期間（週）。→ BAL: 施設/工事期間。現状は仮値。</summary>
-        public static int GetConstructionWeeks(Models.FacilityType type, int currentLevel) => currentLevel;
+        public static int GetConstructionWeeks(Models.FacilityType type, int currentLevel) => Math.Max(currentLevel, 1);
 
         /// <summary>
         /// 訓練施設（戦士訓練所/教会/魔法研究所/斥候所）のLvに連動する配置枠数。

@@ -83,7 +83,7 @@ public partial class AdvisorPopup : PopupPanel
 
 		return $"現在の配置　戦士訓練所:{TrainerName(FacilityType.WarriorHall)}　教会:{TrainerName(FacilityType.Church)}\n" +
 			$"魔法研究所:{TrainerName(FacilityType.MageLab)}　斥候所:{TrainerName(FacilityType.ScoutPost)}\n" +
-			$"参謀本部:{advisorName}　採用本部:{scoutMasterName}";
+			$"作戦資料室:{advisorName}　冒険者支援室:{scoutMasterName}";
 	}
 
 	private string FindName(Guid id) =>
@@ -107,6 +107,12 @@ public partial class AdvisorPopup : PopupPanel
 	{
 		if (!TryGetSelectedCandidateId(out var candidateId)) return;
 
+		if (_state.GetFacilityLevel(facility) < 1)
+		{
+			_statusLabel.Text = $"{FacilityLabel(facility)}が未建設（Lv0）のため配置できません。施設投資で建設してください。";
+			return;
+		}
+
 		_advisorSystem.TryAssignTrainer(_state, facility, candidateId);
 		RefreshList();
 	}
@@ -114,6 +120,12 @@ public partial class AdvisorPopup : PopupPanel
 	private void OnAssignAdvisorPressed()
 	{
 		if (!TryGetSelectedCandidateId(out var candidateId)) return;
+
+		if (_state.GetFacilityLevel(FacilityType.WarRoom) < 1)
+		{
+			_statusLabel.Text = "作戦資料室が未建設（Lv0）のため参謀を配置できません。施設投資で建設してください。";
+			return;
+		}
 
 		_advisorSystem.TryAssignAdvisor(_state, candidateId);
 		RefreshList();
@@ -123,7 +135,22 @@ public partial class AdvisorPopup : PopupPanel
 	{
 		if (!TryGetSelectedCandidateId(out var candidateId)) return;
 
+		if (_state.GetFacilityLevel(FacilityType.RecruitmentOffice) < 1)
+		{
+			_statusLabel.Text = "冒険者支援室が未建設（Lv0）のためスカウトを配置できません。施設投資で建設してください。";
+			return;
+		}
+
 		_advisorSystem.TryAssignScoutMaster(_state, candidateId);
 		RefreshList();
 	}
+
+	private static string FacilityLabel(FacilityType type) => type switch
+	{
+		FacilityType.WarriorHall => "戦士訓練所",
+		FacilityType.Church => "教会",
+		FacilityType.MageLab => "魔法研究所",
+		FacilityType.ScoutPost => "斥候所",
+		_ => type.ToString()
+	};
 }

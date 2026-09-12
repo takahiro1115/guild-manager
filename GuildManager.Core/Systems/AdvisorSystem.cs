@@ -13,18 +13,22 @@ namespace GuildManager.Core.Systems
     /// 算出するだけである（→ AdvisorBalance）。
     ///
     /// 割り当て対象は GameState.RetiredAdventurers（引退済み・顧問候補）に限る。
-    /// ポストは「教官(施設ごとに4枠)・参謀(作戦資料室に1枠)・スカウト(採用本部相当に1枠)」の
-    /// 計6枠あるが、参謀（参謀本部）・スカウト（採用本部）も教官の各施設と同様に
-    /// 「1つの担当（ポスト）」として扱う（ユーザー指示）。1人の顧問候補が同時に
+    /// ポストは「教官(施設ごとに4枠)・参謀(作戦資料室に1枠)・スカウト(冒険者支援室に1枠)」の
+    /// 計6枠あるが、参謀（参謀本部＝作戦資料室）・スカウト（冒険者支援室）も教官の各施設と
+    /// 同様に「1つの担当（ポスト）」として扱う（ユーザー指示）。1人の顧問候補が同時に
     /// 就けるポストは1つのみ：いずれかのポストに新たに任命すると、その候補が
     /// 就いていた他の全ポスト（教官・参謀・スカウトを問わず）から自動的に外れる。
+    ///
+    /// v1.4改訂：各ポストは対応する施設がLv0（未建設）の間は配置できない
+    /// （教官は各訓練施設、参謀は作戦資料室、スカウトは冒険者支援室のLvをそれぞれ参照する）。
     /// </summary>
     public class AdvisorSystem
     {
         // ---------------- 割り当て管理 ----------------
 
         /// <summary>
-        /// 教官を配置する。候補が引退済みでない、または訓練施設以外を指定した場合は失敗する。
+        /// 教官を配置する。候補が引退済みでない、訓練施設以外を指定した場合、または
+        /// 対象施設がLv0（未建設）の場合は失敗する（v1.4改訂：施設Lv0ガード）。
         /// 1人の顧問候補が就けるポストは1つのみのため、この候補が既に教官・参謀・スカウトの
         /// いずれかのポストに就いていれば、そちらを解除してから新しい施設へ付け替える。
         /// 各施設スロット自体も1名まで（既に別の人物が配置済みなら上書きで交代）。
@@ -32,6 +36,7 @@ namespace GuildManager.Core.Systems
         public bool TryAssignTrainer(GameState state, FacilityType facility, Guid candidateId)
         {
             if (!FacilityBalance.IsTrainingFacility(facility)) return false;
+            if (state.GetFacilityLevel(facility) < 1) return false; // Lv0（未建設）は配置不可（→ 03 §6）
             if (!IsRetiredCandidate(state, candidateId)) return false;
 
             UnassignFromAllPosts(state, candidateId);
@@ -45,10 +50,12 @@ namespace GuildManager.Core.Systems
 
         /// <summary>
         /// 参謀を配置する（作戦資料室＝参謀本部に1名まで。既に配置済みなら上書きで交代）。
+        /// 作戦資料室がLv0（未建設）の場合は失敗する（v1.4改訂：施設Lv0ガード）。
         /// 1人の顧問候補が就けるポストは1つのみのため、教官・スカウトの他のポストからは外れる。
         /// </summary>
         public bool TryAssignAdvisor(GameState state, Guid candidateId)
         {
+            if (state.GetFacilityLevel(FacilityType.WarRoom) < 1) return false; // Lv0（未建設）は配置不可（→ 03 §6・§7.2）
             if (!IsRetiredCandidate(state, candidateId)) return false;
 
             UnassignFromAllPosts(state, candidateId);
@@ -59,11 +66,13 @@ namespace GuildManager.Core.Systems
         public void UnassignAdvisor(GameState state) => state.AssignedAdvisor = null;
 
         /// <summary>
-        /// スカウト顧問を任命する（採用本部相当のポストに1名まで。既に任命済みなら上書きで交代）。
+        /// スカウト顧問を任命する（冒険者支援室に1名まで。既に任命済みなら上書きで交代）。
+        /// 冒険者支援室がLv0（未建設）の場合は失敗する（v1.4改訂：施設Lv0ガード。新設）。
         /// 1人の顧問候補が就けるポストは1つのみのため、教官・参謀の他のポストからは外れる。
         /// </summary>
         public bool TryAssignScoutMaster(GameState state, Guid candidateId)
         {
+            if (state.GetFacilityLevel(FacilityType.RecruitmentOffice) < 1) return false; // Lv0（未建設）は配置不可（→ 03 §6・§7.3）
             if (!IsRetiredCandidate(state, candidateId)) return false;
 
             UnassignFromAllPosts(state, candidateId);

@@ -55,9 +55,15 @@ public partial class RecruitmentPopup : PopupPanel
 		PopupCentered();
 	}
 
-	/// <summary>スカウト顧問が任命されていれば、そのボーナスを返す（未任命なら0。→ 03 §7.3）。</summary>
+	/// <summary>
+	/// スカウト顧問が任命されていれば、そのボーナスを返す（未任命なら0。→ 03 §7.3）。
+	/// v1.4改訂：冒険者支援室がLv0（未建設）の間はボーナスを発生させない（防御的チェック。
+	/// 通常はAdvisorSystem.TryAssignScoutMaster側のガードにより、Lv0のままAssignedScoutMasterが
+	/// 設定されることは無い）。
+	/// </summary>
 	private double GetScoutMasterBonus()
 	{
+		if (_state.GetFacilityLevel(FacilityType.RecruitmentOffice) < 1) return 0;
 		if (_state.AssignedScoutMaster == null) return 0;
 
 		var scoutMaster = _state.RetiredAdventurers.FirstOrDefault(a => a.Id == _state.AssignedScoutMaster.Value);

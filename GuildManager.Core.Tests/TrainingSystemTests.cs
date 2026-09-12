@@ -16,12 +16,45 @@ namespace GuildManager.Core.Tests
     {
         private static readonly IReadOnlySet<Guid> NoDispatch = new HashSet<Guid>();
 
-        // ---------------- 枠数制約（§6・施設ごとに独立） ----------------
+        /// <summary>
+        /// v1.4改訂：訓練4施設はLv0（未建設）スタートになったため、Lv1以降の挙動を検証する
+        /// テストでは明示的にLvを引き上げてから使う（→ 03 §6）。
+        /// </summary>
+        private static void SetFacilityLevel(GameState state, FacilityType type, int level)
+        {
+            foreach (var f in state.Facilities)
+                if (f.Type == type) { f.CurrentLevel = level; return; }
+        }
+
+        // ---------------- 施設Lv0（未建設）ガード（→ 03 §6、v1.4改訂・新設） ----------------
+
+        [Fact]
+        public void GetSlotCapacity_IsZero_WhenFacilityIsLevelZero()
+        {
+            var system = new TrainingSystem();
+            Assert.Equal(0, system.GetSlotCapacity(new GameState(), FacilityType.WarriorHall)); // 新規GameStateはLv0スタート
+        }
+
+        [Fact]
+        public void TryAssign_Fails_WhenFacilityIsLevelZero()
+        {
+            var state = new GameState();
+            var system = new TrainingSystem();
+            var adventurer = new Adventurer();
+
+            bool result = system.TryAssign(state, adventurer.Id, FacilityType.WarriorHall);
+
+            Assert.False(result);
+            Assert.DoesNotContain(adventurer.Id, state.TrainingAssignments.Keys);
+        }
+
+        // ---------------- 枠数制約（§6・施設ごとに独立。以下はLv1に建設済みの前提） ----------------
 
         [Fact]
         public void TryAssign_SucceedsWhenSlotIsOpen()
         {
             var state = new GameState();
+            SetFacilityLevel(state, FacilityType.WarriorHall, 1);
             var system = new TrainingSystem();
             var adventurer = new Adventurer();
 
@@ -36,6 +69,7 @@ namespace GuildManager.Core.Tests
         public void TryAssign_Fails_WhenSlotIsFull()
         {
             var state = new GameState();
+            SetFacilityLevel(state, FacilityType.WarriorHall, 1);
             var system = new TrainingSystem();
             var first = new Adventurer();
             var second = new Adventurer();
@@ -51,6 +85,7 @@ namespace GuildManager.Core.Tests
         public void TryAssign_IsIdempotent_WhenAlreadyAssignedToSameFacility()
         {
             var state = new GameState();
+            SetFacilityLevel(state, FacilityType.WarriorHall, 1);
             var system = new TrainingSystem();
             var adventurer = new Adventurer();
             system.TryAssign(state, adventurer.Id, FacilityType.WarriorHall);
@@ -66,6 +101,8 @@ namespace GuildManager.Core.Tests
         {
             // 戦士訓練所の枠(Lv1=1)が埋まっていても、教会の枠には別途配置できる（→ 03 §6）。
             var state = new GameState();
+            SetFacilityLevel(state, FacilityType.WarriorHall, 1);
+            SetFacilityLevel(state, FacilityType.Church, 1);
             var system = new TrainingSystem();
             var warrior = new Adventurer();
             var cleric = new Adventurer();
@@ -82,6 +119,8 @@ namespace GuildManager.Core.Tests
         {
             // 既に別施設に配置済みの場合、付け替えると元の施設の枠が解放される。
             var state = new GameState();
+            SetFacilityLevel(state, FacilityType.WarriorHall, 1);
+            SetFacilityLevel(state, FacilityType.Church, 1);
             var system = new TrainingSystem();
             var adventurer = new Adventurer();
             system.TryAssign(state, adventurer.Id, FacilityType.WarriorHall);
@@ -98,6 +137,7 @@ namespace GuildManager.Core.Tests
         public void Unassign_RemovesFromTrainingAssignments()
         {
             var state = new GameState();
+            SetFacilityLevel(state, FacilityType.WarriorHall, 1);
             var system = new TrainingSystem();
             var adventurer = new Adventurer();
             system.TryAssign(state, adventurer.Id, FacilityType.WarriorHall);
@@ -108,10 +148,13 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
-        public void GetSlotCapacity_MatchesFacilityLevel1ByDefault()
+        public void GetSlotCapacity_MatchesFacilityLevel()
         {
             var system = new TrainingSystem();
-            Assert.Equal(1, system.GetSlotCapacity(new GameState(), FacilityType.WarriorHall));
+            var state = new GameState();
+            SetFacilityLevel(state, FacilityType.WarriorHall, 1);
+
+            Assert.Equal(1, system.GetSlotCapacity(state, FacilityType.WarriorHall));
         }
 
         [Fact]
@@ -119,8 +162,7 @@ namespace GuildManager.Core.Tests
         {
             var system = new TrainingSystem();
             var state = new GameState();
-            foreach (var f in state.Facilities)
-                if (f.Type == FacilityType.WarriorHall) f.CurrentLevel = 3;
+            SetFacilityLevel(state, FacilityType.WarriorHall, 3);
 
             Assert.Equal(3, system.GetSlotCapacity(state, FacilityType.WarriorHall));
         }

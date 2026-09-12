@@ -101,6 +101,7 @@ public partial class FacilityPopup : PopupPanel
 		FacilityType.Church => "教会",
 		FacilityType.MageLab => "魔法研究所",
 		FacilityType.ScoutPost => "斥候所",
+		FacilityType.RecruitmentOffice => "冒険者支援室",
 		_ => type.ToString()
 	};
 }

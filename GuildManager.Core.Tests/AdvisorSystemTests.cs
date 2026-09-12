@@ -11,13 +11,93 @@ namespace GuildManager.Core.Tests
     /// </summary>
     public class AdvisorSystemTests
     {
-        // ---------------- 割り当て管理 ----------------
+        /// <summary>
+        /// v1.4改訂：教官・参謀・スカウトが紐づく施設（訓練4施設・作戦資料室・冒険者支援室）は
+        /// Lv0（未建設）スタートになったため、配置成功を検証するテストでは明示的にLv1へ
+        /// 引き上げてから使う（→ 03 §6）。
+        /// </summary>
+        private static void SetFacilityLevel(GameState state, FacilityType type, int level)
+        {
+            foreach (var f in state.Facilities)
+                if (f.Type == type) { f.CurrentLevel = level; return; }
+        }
+
+        private static GameState BuildBuiltState(params Adventurer[] retired)
+        {
+            var state = new GameState { RetiredAdventurers = { } };
+            foreach (var a in retired) state.RetiredAdventurers.Add(a);
+            // 教官・参謀・スカウトが紐づく全施設をLv1（建設済み）にしておく（既存挙動を踏襲するテスト用）。
+            SetFacilityLevel(state, FacilityType.WarriorHall, 1);
+            SetFacilityLevel(state, FacilityType.Church, 1);
+            SetFacilityLevel(state, FacilityType.MageLab, 1);
+            SetFacilityLevel(state, FacilityType.ScoutPost, 1);
+            SetFacilityLevel(state, FacilityType.WarRoom, 1);
+            SetFacilityLevel(state, FacilityType.RecruitmentOffice, 1);
+            return state;
+        }
+
+        // ---------------- 施設Lv0（未建設）ガード（→ 03 §6、v1.4改訂・新設） ----------------
+
+        [Fact]
+        public void TryAssignTrainer_Fails_WhenFacilityIsLevelZero()
+        {
+            var candidate = new Adventurer();
+            var state = new GameState { RetiredAdventurers = { candidate } }; // 新規GameStateはLv0スタート
+            var system = new AdvisorSystem();
+
+            bool result = system.TryAssignTrainer(state, FacilityType.WarriorHall, candidate.Id);
+
+            Assert.False(result);
+            Assert.False(state.AssignedTrainers.ContainsKey(FacilityType.WarriorHall));
+        }
+
+        [Fact]
+        public void TryAssignAdvisor_Fails_WhenWarRoomIsLevelZero()
+        {
+            var candidate = new Adventurer();
+            var state = new GameState { RetiredAdventurers = { candidate } };
+            var system = new AdvisorSystem();
+
+            bool result = system.TryAssignAdvisor(state, candidate.Id);
+
+            Assert.False(result);
+            Assert.Null(state.AssignedAdvisor);
+        }
+
+        [Fact]
+        public void TryAssignScoutMaster_Fails_WhenRecruitmentOfficeIsLevelZero()
+        {
+            var candidate = new Adventurer();
+            var state = new GameState { RetiredAdventurers = { candidate } };
+            var system = new AdvisorSystem();
+
+            bool result = system.TryAssignScoutMaster(state, candidate.Id);
+
+            Assert.False(result);
+            Assert.Null(state.AssignedScoutMaster);
+        }
+
+        [Fact]
+        public void TryAssignTrainer_Succeeds_OnceFacilityReachesLevelOne()
+        {
+            var candidate = new Adventurer();
+            var state = new GameState { RetiredAdventurers = { candidate } };
+            SetFacilityLevel(state, FacilityType.WarriorHall, 1);
+            var system = new AdvisorSystem();
+
+            bool result = system.TryAssignTrainer(state, FacilityType.WarriorHall, candidate.Id);
+
+            Assert.True(result);
+            Assert.Equal(candidate.Id, state.AssignedTrainers[FacilityType.WarriorHall]);
+        }
+
+        // ---------------- 割り当て管理（以下は該当施設がLv1に建設済みの前提） ----------------
 
         [Fact]
         public void TryAssignTrainer_Succeeds_ForRetiredCandidateAndTrainingFacility()
         {
             var candidate = new Adventurer();
-            var state = new GameState { RetiredAdventurers = { candidate } };
+            var state = BuildBuiltState(candidate);
             var system = new AdvisorSystem();
 
             bool result = system.TryAssignTrainer(state, FacilityType.WarriorHall, candidate.Id);
@@ -30,7 +110,7 @@ namespace GuildManager.Core.Tests
         public void TryAssignTrainer_Fails_WhenCandidateIsNotRetired()
         {
             var stillActive = new Adventurer();
-            var state = new GameState(); // RetiredAdventurersに含まれない
+            var state = BuildBuiltState(); // RetiredAdventurersに含まれない
             var system = new AdvisorSystem();
 
             bool result = system.TryAssignTrainer(state, FacilityType.WarriorHall, stillActive.Id);
@@ -42,7 +122,7 @@ namespace GuildManager.Core.Tests
         public void TryAssignTrainer_Fails_ForNonTrainingFacility()
         {
             var candidate = new Adventurer();
-            var state = new GameState { RetiredAdventurers = { candidate } };
+            var state = BuildBuiltState(candidate);
             var system = new AdvisorSystem();
 
             bool result = system.TryAssignTrainer(state, FacilityType.WarRoom, candidate.Id);
@@ -55,7 +135,7 @@ namespace GuildManager.Core.Tests
         {
             var a = new Adventurer();
             var b = new Adventurer();
-            var state = new GameState { RetiredAdventurers = { a, b } };
+            var state = BuildBuiltState(a, b);
             var system = new AdvisorSystem();
 
             system.TryAssignTrainer(state, FacilityType.WarriorHall, a.Id);
@@ -71,7 +151,7 @@ namespace GuildManager.Core.Tests
             // ユーザー指摘：教官が複数施設に同時配置できてしまう不具合の修正確認。
             // 1人の教官は同時に1施設のみ担当できる（TrainingSystem.TryAssignの付け替えと同じ設計）。
             var trainer = new Adventurer();
-            var state = new GameState { RetiredAdventurers = { trainer } };
+            var state = BuildBuiltState(trainer);
             var system = new AdvisorSystem();
             system.TryAssignTrainer(state, FacilityType.WarriorHall, trainer.Id);
 
@@ -88,7 +168,7 @@ namespace GuildManager.Core.Tests
             // ユーザー指摘：教官が参謀・スカウトを兼務できてしまう不具合の修正確認。
             // 参謀（参謀本部）も教官の各施設と同様に「1つの担当」として扱う。
             var candidate = new Adventurer();
-            var state = new GameState { RetiredAdventurers = { candidate } };
+            var state = BuildBuiltState(candidate);
             var system = new AdvisorSystem();
             system.TryAssignTrainer(state, FacilityType.WarriorHall, candidate.Id);
 
@@ -104,7 +184,7 @@ namespace GuildManager.Core.Tests
         {
             // スカウト（採用本部）も同様に「1つの担当」として扱う。
             var candidate = new Adventurer();
-            var state = new GameState { RetiredAdventurers = { candidate } };
+            var state = BuildBuiltState(candidate);
             var system = new AdvisorSystem();
             system.TryAssignAdvisor(state, candidate.Id);
 
@@ -119,7 +199,7 @@ namespace GuildManager.Core.Tests
         public void TryAssignTrainer_RemovesCandidateFromExistingScoutMasterPost()
         {
             var candidate = new Adventurer();
-            var state = new GameState { RetiredAdventurers = { candidate } };
+            var state = BuildBuiltState(candidate);
             var system = new AdvisorSystem();
             system.TryAssignScoutMaster(state, candidate.Id);
 
@@ -135,7 +215,7 @@ namespace GuildManager.Core.Tests
         {
             // 教官(4施設)・参謀・スカウトの計6ポストのうち、1人が同時に就けるのは1つだけ。
             var candidate = new Adventurer();
-            var state = new GameState { RetiredAdventurers = { candidate } };
+            var state = BuildBuiltState(candidate);
             var system = new AdvisorSystem();
 
             system.TryAssignTrainer(state, FacilityType.WarriorHall, candidate.Id);
@@ -154,7 +234,7 @@ namespace GuildManager.Core.Tests
         public void UnassignTrainer_RemovesAssignment()
         {
             var candidate = new Adventurer();
-            var state = new GameState { RetiredAdventurers = { candidate } };
+            var state = BuildBuiltState(candidate);
             var system = new AdvisorSystem();
             system.TryAssignTrainer(state, FacilityType.WarriorHall, candidate.Id);
 
@@ -167,7 +247,7 @@ namespace GuildManager.Core.Tests
         public void TryAssignAdvisor_Succeeds_ForRetiredCandidate()
         {
             var candidate = new Adventurer();
-            var state = new GameState { RetiredAdventurers = { candidate } };
+            var state = BuildBuiltState(candidate);
             var system = new AdvisorSystem();
 
             bool result = system.TryAssignAdvisor(state, candidate.Id);
@@ -180,7 +260,7 @@ namespace GuildManager.Core.Tests
         public void TryAssignAdvisor_Fails_WhenCandidateIsNotRetired()
         {
             var stillActive = new Adventurer();
-            var state = new GameState();
+            var state = BuildBuiltState();
             var system = new AdvisorSystem();
 
             bool result = system.TryAssignAdvisor(state, stillActive.Id);
@@ -193,7 +273,7 @@ namespace GuildManager.Core.Tests
         public void TryAssignScoutMaster_Succeeds_ForRetiredCandidate()
         {
             var candidate = new Adventurer();
-            var state = new GameState { RetiredAdventurers = { candidate } };
+            var state = BuildBuiltState(candidate);
             var system = new AdvisorSystem();
 
             bool result = system.TryAssignScoutMaster(state, candidate.Id);
