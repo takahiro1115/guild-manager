@@ -5,8 +5,10 @@ namespace GuildManager.Core.Data
 {
     /// <summary>
     /// MVP動作確認用の固定データ。
-    /// 氏名ジェネレータ・性格はまだ無いため、値はすべて仮の直書き
+    /// 初期メンバー4名は採用システム対象外（→ 03 §2.4）のため、氏名ジェネレーター
+    /// （NameGenerator、v1.8改訂で新設）は使わず、既存どおり固定の直書きとする
     /// （→ docs/06_タスクリスト.md Phase 1「固定データで冒険者4〜6名・クエスト2〜3件を用意」）。
+    /// 性格はまだ無いため、値はすべて仮の直書き。
     /// PAは「新人はステータス実効値 &lt; PA」（仕様書03 §2.2）に沿って現在値より少し高めに設定してある。
     /// </summary>
     public static class SampleData
@@ -17,7 +19,7 @@ namespace GuildManager.Core.Data
             {
                 new Adventurer
                 {
-                    Name = "ガレス", Age = 24, JobClass = JobClass.Warrior,
+                    Name = "ガレス", Age = 24, JobClass = JobClass.Warrior, Gender = Gender.Male,
                     STR = 60, AGI = 35, VIT = 55, MND = 10, DEX = 20, LDR = 40,
                     INT = 15, PA_INT = 20, // v1.2改訂：INT活性化に伴う暫定値。重戦士は低め
                     PA_STR = 80, PA_AGI = 50, PA_VIT = 75, PA_MND = 15, PA_DEX = 30, PA_LDR = 55,
@@ -25,7 +27,7 @@ namespace GuildManager.Core.Data
                 },
                 new Adventurer
                 {
-                    Name = "リナ", Age = 21, JobClass = JobClass.Ranger,
+                    Name = "リナ", Age = 21, JobClass = JobClass.Ranger, Gender = Gender.Female,
                     STR = 30, AGI = 60, VIT = 35, MND = 15, DEX = 55, LDR = 25,
                     INT = 20, PA_INT = 30, // v1.2改訂：INT活性化に伴う暫定値。斥候は中間程度
                     PA_STR = 45, PA_AGI = 85, PA_VIT = 50, PA_MND = 20, PA_DEX = 80, PA_LDR = 35,
@@ -33,7 +35,7 @@ namespace GuildManager.Core.Data
                 },
                 new Adventurer
                 {
-                    Name = "エルシャ", Age = 26, JobClass = JobClass.Mage,
+                    Name = "エルシャ", Age = 26, JobClass = JobClass.Mage, Gender = Gender.Female,
                     STR = 10, AGI = 25, VIT = 25, MND = 65, DEX = 20, LDR = 30,
                     INT = 50, PA_INT = 80, // v1.2改訂：INT活性化に伴う暫定値。魔導士は高め
                     PA_STR = 15, PA_AGI = 35, PA_VIT = 35, PA_MND = 90, PA_DEX = 30, PA_LDR = 40,
@@ -41,7 +43,7 @@ namespace GuildManager.Core.Data
                 },
                 new Adventurer
                 {
-                    Name = "フィオナ", Age = 23, JobClass = JobClass.Cleric,
+                    Name = "フィオナ", Age = 23, JobClass = JobClass.Cleric, Gender = Gender.Female,
                     STR = 15, AGI = 20, VIT = 30, MND = 45, DEX = 15, LDR = 20,
                     INT = 25, PA_INT = 35, // v1.2改訂：INT活性化に伴う暫定値。神官は中間〜低め
                     PA_STR = 20, PA_AGI = 30, PA_VIT = 40, PA_MND = 70, PA_DEX = 25, PA_LDR = 30,

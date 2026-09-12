@@ -54,7 +54,7 @@ namespace GuildManager.Core.Tests
         public void GenerateCandidates_ReturnsConfiguredCount()
         {
             var system = new RecruitmentSystem(new AlwaysMinRng());
-            var offers = system.GenerateCandidates();
+            var offers = system.GenerateCandidates(new GameState());
             Assert.Equal(5, offers.Count);
         }
 
@@ -64,8 +64,8 @@ namespace GuildManager.Core.Tests
             var minSystem = new RecruitmentSystem(new AlwaysMinRng());
             var maxSystem = new RecruitmentSystem(new AlwaysMaxRng());
 
-            Assert.All(minSystem.GenerateCandidates(), o => Assert.Equal(15, o.Candidate.Age));
-            Assert.All(maxSystem.GenerateCandidates(), o => Assert.Equal(18, o.Candidate.Age));
+            Assert.All(minSystem.GenerateCandidates(new GameState()), o => Assert.Equal(15, o.Candidate.Age));
+            Assert.All(maxSystem.GenerateCandidates(new GameState()), o => Assert.Equal(18, o.Candidate.Age));
         }
 
         [Fact]
@@ -73,8 +73,8 @@ namespace GuildManager.Core.Tests
         {
             // 15歳(AlwaysMinRng)は実効値がPAから遠い（伸びしろ最大）、
             // 18歳(AlwaysMaxRng)は実効値がPAに近い（即戦力）（→ 03 §2.4）。
-            var young = new RecruitmentSystem(new AlwaysMinRng()).GenerateCandidates()[0].Candidate;
-            var old = new RecruitmentSystem(new AlwaysMaxRng()).GenerateCandidates()[0].Candidate;
+            var young = new RecruitmentSystem(new AlwaysMinRng()).GenerateCandidates(new GameState())[0].Candidate;
+            var old = new RecruitmentSystem(new AlwaysMaxRng()).GenerateCandidates(new GameState())[0].Candidate;
 
             double youngGap = young.PA_STR - young.STR;
             double oldGap = old.PA_STR - old.STR;
@@ -87,7 +87,7 @@ namespace GuildManager.Core.Tests
         public void GenerateCandidates_ActualStatsNeverExceedPa()
         {
             var system = new RecruitmentSystem(new AlwaysMaxRng());
-            foreach (var offer in system.GenerateCandidates())
+            foreach (var offer in system.GenerateCandidates(new GameState()))
             {
                 foreach (var stat in new[] { "STR", "AGI", "VIT", "MND", "DEX", "LDR", "INT" })
                 {
@@ -120,14 +120,14 @@ namespace GuildManager.Core.Tests
         public void GenerateCandidates_StartAtFullHp()
         {
             var system = new RecruitmentSystem(new AlwaysMinRng());
-            Assert.All(system.GenerateCandidates(), o => Assert.Equal(o.Candidate.MaxHP, o.Candidate.CurrentHP));
+            Assert.All(system.GenerateCandidates(new GameState()), o => Assert.Equal(o.Candidate.MaxHP, o.Candidate.CurrentHP));
         }
 
         [Fact]
         public void GenerateCandidates_SigningBonusIsPositive()
         {
             var system = new RecruitmentSystem(new AlwaysMinRng());
-            Assert.All(system.GenerateCandidates(), o => Assert.True(o.SigningBonus > 0));
+            Assert.All(system.GenerateCandidates(new GameState()), o => Assert.True(o.SigningBonus > 0));
         }
 
         // ---------------- 有望新人（総合PA75以上）の出現判定（→ 03 §7.3） ----------------
@@ -139,7 +139,7 @@ namespace GuildManager.Core.Tests
             // FixedRng(30)は年齢ロールもclamp(30,15,18)=18(ageBonus=0)にする。
             var system = new RecruitmentSystem(new FixedRng(30));
 
-            var candidate = system.GenerateCandidates()[0].Candidate;
+            var candidate = system.GenerateCandidates(new GameState())[0].Candidate;
 
             Assert.Equal(40, candidate.PA_STR); // 通常レンジの下限(40)にclampされる
         }
@@ -151,7 +151,7 @@ namespace GuildManager.Core.Tests
             // PA生成レンジが底上げされる(70〜100)。
             var system = new RecruitmentSystem(new FixedRng(30));
 
-            var candidate = system.GenerateCandidates(scoutMasterBonus: 0.10)[0].Candidate;
+            var candidate = system.GenerateCandidates(new GameState(), scoutMasterBonus: 0.10)[0].Candidate;
 
             Assert.Equal(70, candidate.PA_STR); // 有望新人レンジの下限(70)にclampされる
         }
@@ -160,8 +160,8 @@ namespace GuildManager.Core.Tests
         public void GenerateCandidates_DefaultsToNoScoutMasterBonus_WhenArgumentOmitted()
         {
             // 既存の呼び出し（引数省略）と同じ結果になることを確認（後方互換）。
-            var withDefault = new RecruitmentSystem(new FixedRng(30)).GenerateCandidates();
-            var withExplicitZero = new RecruitmentSystem(new FixedRng(30)).GenerateCandidates(0);
+            var withDefault = new RecruitmentSystem(new FixedRng(30)).GenerateCandidates(new GameState());
+            var withExplicitZero = new RecruitmentSystem(new FixedRng(30)).GenerateCandidates(new GameState(), 0);
 
             Assert.Equal(withExplicitZero[0].Candidate.PA_STR, withDefault[0].Candidate.PA_STR);
         }
@@ -174,7 +174,7 @@ namespace GuildManager.Core.Tests
             // AlwaysMinRngはNextInt(1,100)=1を返す。付与率は仮値5%なので1<=5は必ず成功する。
             var system = new RecruitmentSystem(new AlwaysMinRng());
 
-            var candidate = system.GenerateCandidates()[0].Candidate;
+            var candidate = system.GenerateCandidates(new GameState())[0].Candidate;
 
             Assert.True(candidate.HasTrait(TraitCatalog.BraveId));
             Assert.True(candidate.HasTrait(TraitCatalog.AttentiveId));
@@ -187,12 +187,58 @@ namespace GuildManager.Core.Tests
             // AlwaysMaxRngはNextInt(1,100)=100を返す。付与率5%を上回るため必ず失敗する。
             var system = new RecruitmentSystem(new AlwaysMaxRng());
 
-            var candidate = system.GenerateCandidates()[0].Candidate;
+            var candidate = system.GenerateCandidates(new GameState())[0].Candidate;
 
             Assert.False(candidate.HasTrait(TraitCatalog.BraveId));
             Assert.False(candidate.HasTrait(TraitCatalog.AttentiveId));
             Assert.False(candidate.HasTrait(TraitCatalog.BeautifulId));
             Assert.Empty(candidate.TraitIds);
+        }
+
+        // ---------------- 氏名ジェネレーター連携（→ 03 §2.4、v1.8改訂） ----------------
+
+        [Fact]
+        public void GenerateCandidates_SetsGenderOnCandidate()
+        {
+            // AlwaysMinRngはRollGenderAndCultureで常に(Male, Western)を返す。
+            var system = new RecruitmentSystem(new AlwaysMinRng());
+
+            var candidate = system.GenerateCandidates(new GameState())[0].Candidate;
+
+            Assert.Equal(Gender.Male, candidate.Gender);
+        }
+
+        [Fact]
+        public void GenerateCandidates_AvoidsDuplicateName_WithExistingActiveRoster()
+        {
+            // AlwaysMinRngは常に同じ（西洋男性名プール先頭の）名前を引こうとする。
+            // 現役ロースターに既にその名前を持つ人物がいる場合、生成される候補の名前は
+            // 重複回避ロジックによりリトライ後のフォールバック名（末尾に"2世"）になるはず
+            // （→ NameGenerator.GenerateUniqueFirstName）。これにより、氏名ジェネレーターが
+            // 実際に state.Adventurers（現役ロースター）を参照していることを確認する。
+            var existingName = "エドガー"; // WesternMaleNames[0]（AlwaysMinRngが必ず引く名前）
+            var state = new GameState { Adventurers = { new Adventurer { Name = existingName } } };
+            var system = new RecruitmentSystem(new AlwaysMinRng());
+
+            var candidate = system.GenerateCandidates(state)[0].Candidate;
+
+            Assert.Equal($"{existingName}2世", candidate.Name);
+        }
+
+        [Fact]
+        public void GenerateCandidates_AvoidsDuplicateNames_AmongCandidatesInSameBatch()
+        {
+            // 同じ採用試験内（1回のGenerateCandidates呼び出し）で生成される5名同士も、
+            // 名前が重複しないこと（現役ロースターが空でも、バッチ内の既生成分を
+            // existingNamesに逐次追加していることの確認）。ロールにばらつきが出るよう
+            // 実際の乱数実装（SeededRng）を使う（AlwaysMinRng等の固定値スタブでは
+            // 常に同じ名前しか引けず、この検証にならないため）。
+            var system = new RecruitmentSystem(new SeededRng(12345));
+
+            var offers = system.GenerateCandidates(new GameState());
+            var names = offers.Select(o => o.Candidate.Name).ToList();
+
+            Assert.Equal(names.Count, names.Distinct().Count());
         }
 
         // ---------------- 雇用枠（§2.4「雇用枠」） ----------------
@@ -239,7 +285,7 @@ namespace GuildManager.Core.Tests
         public void TryHire_Succeeds_DeductsGoldAndAddsToRoster()
         {
             var system = new RecruitmentSystem(new AlwaysMinRng());
-            var offer = system.GenerateCandidates()[0];
+            var offer = system.GenerateCandidates(new GameState())[0];
             var state = new GameState { Gold = offer.SigningBonus + 1000 }; // 余裕を持った所持金
 
             bool result = system.TryHire(state, offer);
@@ -253,7 +299,7 @@ namespace GuildManager.Core.Tests
         public void TryHire_Fails_WhenGoldInsufficient()
         {
             var system = new RecruitmentSystem(new AlwaysMinRng());
-            var offer = system.GenerateCandidates()[0];
+            var offer = system.GenerateCandidates(new GameState())[0];
             var state = new GameState { Gold = offer.SigningBonus - 1 };
 
             bool result = system.TryHire(state, offer);
@@ -267,7 +313,7 @@ namespace GuildManager.Core.Tests
         public void TryHire_Fails_WhenNoOpenSlots()
         {
             var system = new RecruitmentSystem(new AlwaysMinRng());
-            var offer = system.GenerateCandidates()[0];
+            var offer = system.GenerateCandidates(new GameState())[0];
             var state = new GameState { Gold = 999_999 };
             for (int i = 0; i < 8; i++)
                 state.Adventurers.Add(new Adventurer());

@@ -15,6 +15,13 @@ namespace GuildManager.Core.Models
         public JobClass JobClass { get; set; }
 
         /// <summary>
+        /// 性別。仕様書 03 §2.4参照（v1.8改訂で新設）。現時点ではステータス・成長・戦闘の
+        /// いずれにも影響を与えない。氏名生成（NameGenerator）と、将来の立ち絵システム
+        /// 連携（次フェーズ、post-MVP）のための土台として先行して追加したフィールドである。
+        /// </summary>
+        public Gender Gender { get; set; }
+
+        /// <summary>
         /// 配置（前衛/後衛）。仕様書 03 §4.2 参照。冒険者個人に紐づく永続状態で、
         /// クエストをまたいで保持される。生成時に PlacementRules.GetDefault(JobClass) で
         /// 職業に応じた初期値を設定する想定（→ SampleData・RecruitmentSystem）。

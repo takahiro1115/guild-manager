@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using GuildManager.Core.Balance;
 using GuildManager.Core.Models;
 using GuildManager.Core.Rng;
@@ -100,17 +101,30 @@ namespace GuildManager.Core.Systems
         /// 今年の応募者一覧を生成する。応募者数自体は空き枠の有無に関わらず一定
         /// （空き枠の範囲でプレイヤーが選んで採用する。→ 03 §2.4「選抜」）。
         /// </summary>
+        /// <param name="state">
+        /// 現在のゲーム状態。氏名ジェネレーター（→ 03 §2.4・NameGenerator）が
+        /// 現役ロースターと重複しない名前を生成するために参照する。
+        /// </param>
         /// <param name="scoutMasterBonus">
         /// スカウト顧問のボーナス（生涯ピークLDR・DEX平均に比例。→ 03 §7.3・AdvisorSystem.
         /// GetScoutMasterBonus）。HighPotentialBaseChance(基礎25%)に上乗せする。
         /// スカウト未任命なら0を渡す（デフォルト値）。
         /// </param>
-        public List<RecruitmentOffer> GenerateCandidates(double scoutMasterBonus = 0)
+        public List<RecruitmentOffer> GenerateCandidates(GameState state, double scoutMasterBonus = 0)
         {
             double highPotentialChance = HighPotentialBaseChance + scoutMasterBonus;
+
+            // 氏名の重複回避対象：現役ロースターに加え、同じ採用試験内で既に生成した
+            // 候補の名前も含める（同じ回の応募者同士で名前が被らないようにするため）。
+            var existingNames = new HashSet<string>(state.Adventurers.Select(a => a.Name));
+
             var offers = new List<RecruitmentOffer>();
             for (int i = 0; i < CandidateCount; i++)
-                offers.Add(GenerateOne(i, highPotentialChance));
+            {
+                var offer = GenerateOne(i, highPotentialChance, existingNames);
+                existingNames.Add(offer.Candidate.Name);
+                offers.Add(offer);
+            }
             return offers;
         }
 
@@ -127,7 +141,7 @@ namespace GuildManager.Core.Systems
             return true;
         }
 
-        private RecruitmentOffer GenerateOne(int index, double highPotentialChance)
+        private RecruitmentOffer GenerateOne(int index, double highPotentialChance, HashSet<string> existingNames)
         {
             int age = _rng.NextInt(MinCandidateAge, MaxCandidateAge);
 
@@ -137,10 +151,17 @@ namespace GuildManager.Core.Systems
             double growthRatio = YoungestGrowthRatio + (OldestGrowthRatio - YoungestGrowthRatio) * ageT;
 
             var jobClass = (JobClass)_rng.NextInt(0, 3);
+
+            // 氏名ジェネレーター（→ 03 §2.4・NameGenerator、v1.8改訂）：性別・文化圏（洋名80%/
+            // 和名20%）をランダムに決定し、対応する名前プールから現役ロースターと重複しない
+            // ファーストネームを選ぶ。
+            var (gender, culture) = NameGenerator.RollGenderAndCulture(_rng);
+            var name = NameGenerator.GenerateUniqueFirstName(gender, culture, existingNames, _rng);
+
             var candidate = new Adventurer
             {
-                // 氏名ジェネレータは別タスク（→ docs/06_タスクリスト.md Phase 4）。ここでは仮の識別名。
-                Name = $"新人応募者{(char)('A' + index)}",
+                Name = name,
+                Gender = gender,
                 Age = age,
                 JobClass = jobClass,
                 Placement = PlacementRules.GetDefault(jobClass), // → 03 §4.2：配置の初期値は職業から自動決定

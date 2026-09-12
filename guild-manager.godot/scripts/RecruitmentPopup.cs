@@ -48,7 +48,7 @@ public partial class RecruitmentPopup : PopupPanel
 	{
 		_state = state;
 		_recruitmentSystem = recruitmentSystem;
-		_candidates = recruitmentSystem.GenerateCandidates(GetScoutMasterBonus());
+		_candidates = recruitmentSystem.GenerateCandidates(state, GetScoutMasterBonus());
 		_decided = false;
 
 		RefreshList();
