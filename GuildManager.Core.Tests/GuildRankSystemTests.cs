@@ -185,6 +185,73 @@ namespace GuildManager.Core.Tests
             Assert.Equal(0, state.Reputation);
         }
 
+        // ---------------- Aランク到達フラグ（→ 03 §8.2、v1.10改訂） ----------------
+
+        [Fact]
+        public void ProcessWeeklySettlement_SetsFinalQuestUnlocked_WhenNewlyReachingRankA()
+        {
+            var state = new GameState { GuildRank = GuildRank.B, Reputation = GuildRankBalance.GetThreshold(GuildRank.A).PromoteAt };
+            var system = new GuildRankSystem();
+
+            system.ProcessWeeklySettlement(state, achievedRankAppropriateQuestThisWeek: true);
+
+            Assert.Equal(GuildRank.A, state.GuildRank);
+            Assert.True(state.FinalQuestUnlocked);
+        }
+
+        [Fact]
+        public void ProcessWeeklySettlement_DoesNotSetFinalQuestUnlocked_WhenBelowRankA()
+        {
+            var state = new GameState { GuildRank = GuildRank.C, Reputation = GuildRankBalance.GetThreshold(GuildRank.B).PromoteAt };
+            var system = new GuildRankSystem();
+
+            system.ProcessWeeklySettlement(state, achievedRankAppropriateQuestThisWeek: true);
+
+            Assert.Equal(GuildRank.B, state.GuildRank);
+            Assert.False(state.FinalQuestUnlocked);
+        }
+
+        [Fact]
+        public void ProcessWeeklySettlement_KeepsFinalQuestUnlocked_AfterDemotingBelowRankA()
+        {
+            // 一度Aランクに到達しフラグが立った後、降格してAランクを割り込んでも
+            // フラグは取り消さない（→ 03 §8.2「一度依頼が来た、という既成事実は残る」）。
+            var state = new GameState { GuildRank = GuildRank.A, FinalQuestUnlocked = true, Reputation = 0 };
+            var system = new GuildRankSystem();
+
+            system.ProcessWeeklySettlement(state, achievedRankAppropriateQuestThisWeek: false);
+
+            Assert.True(state.GuildRank < GuildRank.A); // 名声0まで降格したはず
+            Assert.True(state.FinalQuestUnlocked); // フラグは取り消されない
+        }
+
+        [Fact]
+        public void ProcessWeeklySettlement_ReachingRankAAgain_DoesNotReprocess_WhenAlreadyUnlocked()
+        {
+            // 再度A未満からA以上に昇格しても、既にフラグが立っていれば何もしない
+            // （＝例外や不整合が起きず、trueのまま安定していることを確認する）。
+            var state = new GameState { GuildRank = GuildRank.B, FinalQuestUnlocked = true, Reputation = GuildRankBalance.GetThreshold(GuildRank.A).PromoteAt };
+            var system = new GuildRankSystem();
+
+            system.ProcessWeeklySettlement(state, achievedRankAppropriateQuestThisWeek: true);
+
+            Assert.Equal(GuildRank.A, state.GuildRank);
+            Assert.True(state.FinalQuestUnlocked);
+        }
+
+        [Fact]
+        public void ProcessWeeklySettlement_SetsFinalQuestUnlocked_WhenReachingRankSDirectly()
+        {
+            // A到達を経由せずS到達（一気に複数ランク昇格）した場合でも、A以上である以上フラグは立つ。
+            var state = new GameState { GuildRank = GuildRank.G, Reputation = GuildRankBalance.GetThreshold(GuildRank.S).PromoteAt };
+            var system = new GuildRankSystem();
+
+            system.ProcessWeeklySettlement(state, achievedRankAppropriateQuestThisWeek: true);
+
+            Assert.Equal(GuildRank.S, state.GuildRank);
+            Assert.True(state.FinalQuestUnlocked);
+        }
+
         // ---------------- ランク⇔クエストランク変換 ----------------
 
         [Theory]

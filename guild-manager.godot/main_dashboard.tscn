@@ -164,6 +164,11 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "次週へ進める (Next Week)"
 
+[node name="AutoSkipButton" type="Button" parent="Root" unique_id=22271401]
+unique_name_in_owner = true
+layout_mode = 2
+text = "自動スキップ (Auto Skip)"
+
 [node name="RecruitmentPopup" parent="." instance=ExtResource("2_recruit")]
 unique_name_in_owner = true
 

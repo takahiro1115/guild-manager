@@ -56,6 +56,14 @@ namespace GuildManager.Core.Models
         /// </summary>
         public int WeeksSinceLastRankAppropriateQuest { get; set; }
 
+        /// <summary>
+        /// 「最終討伐クエストの依頼が持ち込まれるようになった」フラグ（→ 03 §8.2、
+        /// v1.10改訂で新設）。事前調査メモ（項目54）：v1.8（セーブ/ロード）作成時点では
+        /// 本フィールド自体がGameStateに存在しなかったため、当時のSaveDataには
+        /// 含まれていなかった（保存漏れではなく、単に存在しなかった）。今回追加する。
+        /// </summary>
+        public bool FinalQuestUnlocked { get; set; }
+
         // ---- 冒険者関連 ----
 
         public List<Adventurer> ActiveAdventurers { get; set; } = new();

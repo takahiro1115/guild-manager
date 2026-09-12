@@ -70,21 +70,23 @@ namespace GuildManager.Core.Data
             {
                 new Quest
                 {
+                    // → BAL: クエスト/期限。v1.10改訂でDeadlineWeeksの暫定レンジを5〜8週に
+                    // 引き上げた（→ QuestBalance.MinDeadlineWeeks/MaxDeadlineWeeks）。
                     Name = "ゴブリン討伐", QuestType = QuestType.Subjugation, Rank = QuestRank.E,
                     Difficulty = 10, ScoutRequirement = 10,
-                    RewardGold = 90, DeadlineWeeks = 3
+                    RewardGold = 90, DeadlineWeeks = 5
                 },
                 new Quest
                 {
                     Name = "山道の盗賊退治", QuestType = QuestType.Subjugation, Rank = QuestRank.D,
                     Difficulty = 22, ScoutRequirement = 18,
-                    RewardGold = 180, DeadlineWeeks = 3
+                    RewardGold = 180, DeadlineWeeks = 6
                 },
                 new Quest
                 {
                     Name = "廃坑の魔物調査", QuestType = QuestType.Exploration, Rank = QuestRank.C,
                     Difficulty = 35, ScoutRequirement = 30,
-                    RewardGold = 320, DeadlineWeeks = 4
+                    RewardGold = 320, DeadlineWeeks = 7
                 },
             };
         }

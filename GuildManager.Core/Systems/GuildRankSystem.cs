@@ -85,6 +85,12 @@ namespace GuildManager.Core.Systems
                 }
             }
 
+            // Aランク到達フラグ（→ 03 §8.2、v1.10改訂）：初めてAランク以上に到達した時点で
+            // 一度だけtrueにする。降格して割り込んでも取り消さない（既にtrueならこの行は
+            // 何もしない）。
+            if (!state.FinalQuestUnlocked && state.GuildRank >= GuildRank.A)
+                state.FinalQuestUnlocked = true;
+
             return state.GuildRank == previous ? null : new GuildRankChangeEvent(previous, state.GuildRank);
         }
     }

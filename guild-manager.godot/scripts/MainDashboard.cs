@@ -41,6 +41,8 @@ public partial class MainDashboard : Control
 	private EquipmentSystem _equipmentSystem = null!;
 	private SaveLoadService _saveLoadService = null!;
 	private PartyFormationSystem _partyFormationSystem = null!;
+	private WeekProcessingSystem _weekProcessingSystem = null!;
+	private AutoSkipService _autoSkipService = null!;
 
 	private Label _weekLabel = null!;
 	private Label _goldLabel = null!;
@@ -53,6 +55,7 @@ public partial class MainDashboard : Control
 	private RichTextLabel _adventurerDetailLabel = null!;
 	private RichTextLabel _resultLog = null!;
 	private Button _nextWeekButton = null!;
+	private Button _autoSkipButton = null!;
 	private RecruitmentPopup _recruitmentPopup = null!;
 	private Button _raiseWageButton = null!;
 	private Button _payBonusButton = null!;
@@ -92,6 +95,7 @@ public partial class MainDashboard : Control
 		_adventurerDetailLabel = GetNode<RichTextLabel>("%AdventurerDetailLabel");
 		_resultLog = GetNode<RichTextLabel>("%ResultLog");
 		_nextWeekButton = GetNode<Button>("%NextWeekButton");
+		_autoSkipButton = GetNode<Button>("%AutoSkipButton");
 		_recruitmentPopup = GetNode<RecruitmentPopup>("%RecruitmentPopup");
 		_raiseWageButton = GetNode<Button>("%RaiseWageButton");
 		_payBonusButton = GetNode<Button>("%PayBonusButton");
@@ -109,6 +113,7 @@ public partial class MainDashboard : Control
 
 		_adventurerList.ItemClicked += OnAdventurerItemClicked;
 		_nextWeekButton.Pressed += OnNextWeekPressed;
+		_autoSkipButton.Pressed += OnAutoSkipButtonPressed;
 		_recruitmentPopup.Closed += OnRecruitmentPopupClosed;
 		_raiseWageButton.Pressed += OnRaiseWagePressed;
 		_payBonusButton.Pressed += OnPayBonusPressed;
@@ -149,6 +154,14 @@ public partial class MainDashboard : Control
 		_advisorSystem = new AdvisorSystem();
 		_equipmentSystem = new EquipmentSystem();
 		_partyFormationSystem = new PartyFormationSystem();
+		// 週次決算のオーケストレーション（→ 03 §1.3・自動スキップ）。既存の各Systemインスタンスを
+		// そのまま共有し、二重管理（別インスタンスによる状態不整合）を避ける。
+		_weekProcessingSystem = new WeekProcessingSystem(
+			_questDispatchSystem, _guildRankSystem, _securitySystem, _questBoardSystem,
+			_economySystem, _subsidySystem, _trainingSystem, _injuryRecoverySystem,
+			_restRecoverySystem, _growthSystem, _satisfactionSystem, _agingSystem,
+			_facilitySystem, _defeatSystem, _recruitmentSystem);
+		_autoSkipService = new AutoSkipService(_weekProcessingSystem);
 		// GuildManager.CoreはGodotに依存しない方針（→ 05技術メモ）のため、保存先の実パスは
 		// Godot側からOS.GetUserDataDir()（user://に対応する実ディレクトリ）を注入する（→ 03 §12）。
 		_saveLoadService = new SaveLoadService(OS.GetUserDataDir());
@@ -301,8 +314,26 @@ public partial class MainDashboard : Control
 	/// </summary>
 	private void OnRecruitmentPopupClosed()
 	{
-		_nextWeekButton.Disabled = false;
+		EnableWeekAdvancement();
 		RefreshAll();
+	}
+
+	/// <summary>
+	/// 「次週へ」「自動スキップ」の両方を無効化する（→ 03 §1.3）。ゲームオーバー時・
+	/// 新春採用試験ポップアップ表示中・自動スキップ実行中など、週を進める操作全体を
+	/// ブロックしたい場面でまとめて呼ぶ。
+	/// </summary>
+	private void DisableWeekAdvancement()
+	{
+		_nextWeekButton.Disabled = true;
+		_autoSkipButton.Disabled = true;
+	}
+
+	/// <summary>「次週へ」「自動スキップ」の両方を再び有効化する（→ DisableWeekAdvancementの対）。</summary>
+	private void EnableWeekAdvancement()
+	{
+		_nextWeekButton.Disabled = false;
+		_autoSkipButton.Disabled = false;
 	}
 
 	/// <summary>
@@ -363,100 +394,158 @@ public partial class MainDashboard : Control
 		// 一時編成は「今回の出撃だけ」の適用のため、週送りのたびに必ずリセットする（→ 03 §4.0.2）。
 		_temporaryDispatchMemberIds = null;
 
-		// 派遣中（今週出発した分も含む）の冒険者は、HP自然回復・訓練場成長の対象から外す（→ 03 §4.0.1）。
-		var dispatchedIds = _state.Adventurers.Where(a => a.IsDispatched).Select(a => a.Id).ToHashSet();
-
-		// 満了した派遣（1週クエストは今週のうちに満了する）を解決し、結果を週報へ。
-		var resolutions = _questDispatchSystem.ProcessWeeklyDispatches(_state);
-		bool achievedRankAppropriateQuestThisWeek = false;
-		foreach (var resolution in resolutions)
-		{
-			LogResult(thisWeek, resolution.Quest, resolution.Result);
-			LogGrowthEvents(resolution.GrowthEvents);
-			LogFallenAdventurers(thisWeek, resolution.Party, resolution.Result.FallenAdventurerIds); // → 03 §4.3.1
-
-			// ギルド格付け（→ 03 §8.1）：名声は解決の都度加減算する。
-			// 「現ランク相当のクエストを達成したか」は今週の全解決結果から判定し、
-			// 週次決算（ProcessWeeklySettlement）へまとめて渡す。
-			_guildRankSystem.ApplyQuestResult(_state, resolution.Result.QuestAchieved);
-			if (resolution.Result.QuestAchieved &&
-				resolution.Quest.Rank >= GuildRankBalance.ToQuestRankFloor(_state.GuildRank))
-			{
-				achievedRankAppropriateQuestThisWeek = true;
-			}
-
-			// 治安・脅威度（→ 03 §4.4）：対象は討伐クエストのみ（達成で減少・失敗で上昇）。
-			int threatDelta = _securitySystem.ApplyQuestResolution(_state, resolution.Quest, resolution.Result.QuestAchieved);
-			LogThreatChange(resolution.Quest, threatDelta);
-		}
-
-		// 受注可能クエスト一覧の週次管理（→ 03 §4.0・§4.4）：期限切れ（放置）の除去と補充。
-		// 放置された討伐クエストは脅威度上昇の対象になる。
-		var expiredQuests = _questBoardSystem.ProcessWeeklyBoard(_state);
-		foreach (var expiredQuest in expiredQuests)
-		{
-			int abandonedThreatDelta = _securitySystem.ApplyAbandonedQuest(_state, expiredQuest);
-			if (abandonedThreatDelta != 0)
-				AppendLog($"[color=orange]「{expiredQuest.Name}」が期限切れで放置された。脅威度+{abandonedThreatDelta}%。[/color]");
-		}
-
-		// 出撃の有無にかかわらず、時間は必ず進む。
-		_economySystem.ApplyWeeklyWages(_state);
-
-		// 月次助成金（4週に1回。→ 03 §8.1・§4.4：脅威度75%超で50%カット）。
-		var subsidyAmount = _subsidySystem.ProcessWeeklySubsidy(_state);
-		if (subsidyAmount.HasValue)
-			AppendLog($"[color=lime]月次助成金 {subsidyAmount.Value}G を受け取った{(_state.ThreatLevel > SecurityBalance.SubsidyCutThreatThreshold ? "（脅威度75%超のため50%カット済み）" : "")}。[/color]");
-		_trainingSystem.ProcessWeeklyTraining(_state, dispatchedIds); // → 03 §3.1〜3.4・§3.5改：訓練場の週次費用・HP微減
-		_injuryRecoverySystem.ProcessWeeklyRecovery(_state);
-		_restRecoverySystem.ProcessWeeklyRest(_state, dispatchedIds); // → 03 §3.5改：静養・HP自然回復（訓練場配置中は対象外）
-		var trainingGrowth = _growthSystem.ProcessTrainingGrowth(_state, dispatchedIds); // → 03 §3.1〜3.4：成長トリガー経路2（訓練場配置）
-		LogGrowthEvents(trainingGrowth);
-		_satisfactionSystem.ProcessWeeklySatisfaction(_state, dispatchedIds); // → 03 §5.1：満足度変動
-		var terminated = _satisfactionSystem.ProcessWeeklyNegotiation(_state); // → 03 §5.2：契約交渉・退団
-		LogNegotiationStatus(terminated);
-		_agingSystem.ProcessWeeklyAging(_state); // → 03 §3：加齢・衰微モデル
-
-		var completedFacility = _facilitySystem.ProcessWeeklyConstruction(_state); // → 03 §6.1：施設Lv投資
-		if (completedFacility != null)
-			AppendLog($"[color=lime][b]🏗 {FacilityLabel(completedFacility.Type)}がLv{completedFacility.CurrentLevel}に完成した！[/b][/color]");
-
-		// ギルド格付け（→ 03 §8.1・§8.1.1）：名声自然減衰の判定と昇格・降格判定は週次決算で1回だけ行う。
-		var rankChange = _guildRankSystem.ProcessWeeklySettlement(_state, achievedRankAppropriateQuestThisWeek);
-		if (rankChange != null)
-		{
-			string message = rankChange.IsPromotion
-				? $"[color=gold][b]🏅 ギルド格付けが{rankChange.Current}ランクに昇格しました！[/b][/color]"
-				: $"[color=orange][b]⚠ ギルド格付けが{rankChange.Current}ランクに降格しました。[/b][/color]";
-			AppendLog(message);
-		}
-
-		// 敗北条件判定（→ 03 §8.3）：週次決算の最後に1回だけ行う。
-		// 破産（所持金マイナス4週連続、猶予あり）／治安崩壊（脅威度100%到達、猶予なし即時敗北）。
-		var newDefeatReason = _defeatSystem.ProcessWeeklySettlement(_state);
-		if (newDefeatReason != null)
-		{
-			string reasonLabel = newDefeatReason == DefeatReason.Bankruptcy ? "破産" : "治安崩壊";
-			AppendLog($"[color=red][font_size=24][b]■■■ ゲームオーバー：{reasonLabel} ■■■[/b][/font_size][/color]");
-			AppendLog(newDefeatReason == DefeatReason.Bankruptcy
-				? "[color=red]所持金マイナスが4週連続で解消されませんでした。[/color]"
-				: "[color=red]脅威度が100%に到達し、街の治安が崩壊しました。[/color]");
-			_nextWeekButton.Disabled = true; // ゲームオーバー：これ以上週を進められない
-		}
-
-		_state.WeekNumber++;
+		// 派遣の選択（出撃操作）以外の週次決算処理は、WeekProcessingSystemに集約されている
+		// （→ 03 §1.3。手動の「次週へ」・自動スキップの両方がこの同じ実装を経由することで、
+		// 挙動が食い違わないようにしている）。
+		var settlement = _weekProcessingSystem.ProcessWeek(_state);
+		LogWeeklySettlement(settlement);
 
 		// 自動保存：毎週の決算処理完了後、次週の番号に進めた直後に行う（→ 03 §12）。
 		_saveLoadService.Save(_state);
 
 		RefreshAll();
 
-		// 新春採用試験（2年目以降の新年第1週のみ）。ポップアップが閉じるまで次週へ進めさせない（→ 03 §9）。
-		// ゲームオーバー後は採用試験も発生させない。
-		if (_state.DefeatReason == null && _recruitmentSystem.IsRecruitmentWeek(_state.WeekNumber))
+		if (settlement.Flags.DefeatOccurred)
 		{
-			_nextWeekButton.Disabled = true;
+			DisableWeekAdvancement(); // ゲームオーバー：これ以上週を進められない
+		}
+		else if (settlement.Flags.RecruitmentTrialOccurred)
+		{
+			// 新春採用試験（2年目以降の新年第1週のみ）。ポップアップが閉じるまで次週へ進めさせない（→ 03 §9）。
+			DisableWeekAdvancement();
 			_recruitmentPopup.Open(_state, _recruitmentSystem);
+		}
+	}
+
+	/// <summary>
+	/// 週次決算処理（WeekProcessingSystem.ProcessWeek）の結果を週報ログに反映する。
+	/// 手動の「次週へ」・自動スキップ（結果サマリー表示前の詳細ログとして）の両方から呼ばれる
+	/// 共通ログ処理（→ 03 §1.3）。
+	/// </summary>
+	private void LogWeeklySettlement(WeeklySettlementResult settlement)
+	{
+		int weekNumber = settlement.Flags.Week;
+
+		for (int i = 0; i < settlement.DispatchResolutions.Count; i++)
+		{
+			var resolution = settlement.DispatchResolutions[i];
+			LogResult(weekNumber, resolution.Quest, resolution.Result);
+			LogGrowthEvents(resolution.GrowthEvents);
+			LogFallenAdventurers(weekNumber, resolution.Party, resolution.Result.FallenAdventurerIds); // → 03 §4.3.1
+
+			var (threatQuest, threatDelta) = settlement.ResolvedQuestThreatDeltas[i];
+			LogThreatChange(threatQuest, threatDelta);
+		}
+
+		// 受注可能クエスト一覧の週次管理（→ 03 §4.0・§4.4）：期限切れ（放置）の除去と補充。
+		// 放置された討伐クエストは脅威度上昇の対象になる。
+		foreach (var (expiredQuest, abandonedThreatDelta) in settlement.AbandonedQuestThreatDeltas)
+		{
+			if (abandonedThreatDelta != 0)
+				AppendLog($"[color=orange]「{expiredQuest.Name}」が期限切れで放置された。脅威度+{abandonedThreatDelta}%。[/color]");
+		}
+
+		// 討伐クエストの期限切れ「1週前」警告（→ 03 §1.3自動スキップ停止条件8）。
+		foreach (var expiring in settlement.QuestsExpiringNextWeek)
+			AppendLog($"[color=orange][b]⏰ 討伐クエスト「{expiring.Name}」が来週、期限切れになる。[/b][/color]");
+
+		if (settlement.SubsidyAmount.HasValue)
+			AppendLog($"[color=lime]月次助成金 {settlement.SubsidyAmount.Value}G を受け取った{(_state.ThreatLevel > SecurityBalance.SubsidyCutThreatThreshold ? "（脅威度75%超のため50%カット済み）" : "")}。[/color]");
+
+		LogGrowthEvents(settlement.TrainingGrowthEvents); // → 03 §3.1〜3.4：成長トリガー経路2（訓練場配置）
+		LogNegotiationStatus(settlement.NegotiationTerminated); // → 03 §5.2：契約交渉・退団
+
+		if (settlement.CompletedFacility != null)
+			AppendLog($"[color=lime][b]🏗 {FacilityLabel(settlement.CompletedFacility.Type)}がLv{settlement.CompletedFacility.CurrentLevel}に完成した！[/b][/color]");
+
+		if (settlement.RankChange != null)
+		{
+			string message = settlement.RankChange.IsPromotion
+				? $"[color=gold][b]🏅 ギルド格付けが{settlement.RankChange.Current}ランクに昇格しました！[/b][/color]"
+				: $"[color=orange][b]⚠ ギルド格付けが{settlement.RankChange.Current}ランクに降格しました。[/b][/color]";
+			AppendLog(message);
+		}
+
+		// Aランク新規到達フラグ（→ 03 §8.2、v1.10改訂）：最終討伐クエスト自体の中身は未実装。
+		if (settlement.Flags.FinalQuestNewlyUnlocked)
+		{
+			AppendLog("[color=gold][font_size=20][b]★ ギルドがAランクに到達し、最終討伐クエストの依頼が" +
+				"持ち込まれるようになった…！（詳細は追って判明する）[/b][/font_size][/color]");
+		}
+
+		// 敗北条件判定（→ 03 §8.3）：破産（所持金マイナス4週連続、猶予あり）／
+		// 治安崩壊（脅威度100%到達、猶予なし即時敗北）。期限による敗北は無い。
+		if (settlement.NewDefeatReason != null)
+		{
+			string reasonLabel = settlement.NewDefeatReason == DefeatReason.Bankruptcy ? "破産" : "治安崩壊";
+			AppendLog($"[color=red][font_size=24][b]■■■ ゲームオーバー：{reasonLabel} ■■■[/b][/font_size][/color]");
+			AppendLog(settlement.NewDefeatReason == DefeatReason.Bankruptcy
+				? "[color=red]所持金マイナスが4週連続で解消されませんでした。[/color]"
+				: "[color=red]脅威度が100%に到達し、街の治安が崩壊しました。[/color]");
+		}
+	}
+
+	/// <summary>
+	/// 「自動スキップ」ボタン（→ 03 §1.3）。停止条件（採用試験・満足度警告・施設完成・
+	/// 複数週クエスト帰還・戦死古傷・脅威度閾値・Aランク到達・討伐期限切れ1週前のいずれか、
+	/// またはゲームオーバー）が成立する週まで、もしくは上限週数に達するまで週次決算を
+	/// 連続実行する。受注可能クエストへの操作は一切行わない（AutoSkipServiceが呼び出す
+	/// WeekProcessingSystem.ProcessWeek自体に派遣操作が含まれない設計のため、これは
+	/// 自然に満たされる）。
+	///
+	/// 実装メモ：処理自体はGodotのメインスレッド上で同期的に完了する（このプロジェクトに
+	/// 非同期処理の仕組みは無い）ため、「処理完了までUIを無効化する」という指示の意図は、
+	/// 呼び出しが返った後の後始末（DisableWeekAdvancement等）ではなく、処理中に他の
+	/// 入力イベントが割り込む余地がそもそも無いという形で自然に満たされている。
+	/// </summary>
+	private void OnAutoSkipButtonPressed()
+	{
+		DisableWeekAdvancement();
+
+		int startWeek = _state.WeekNumber;
+		var results = _autoSkipService.AutoSkip(_state);
+
+		AppendLog($"[color=cyan][b]≫≫ 自動スキップ：第{startWeek}週から{results.Count}週分を処理した。[/b][/color]");
+
+		int facilityCount = results.Count(r => r.FacilityConstructionCompleted);
+		int multiWeekReturnCount = results.Count(r => r.MultiWeekQuestReturned);
+		int deathCount = results.Count(r => r.DeathOrPermanentInjuryOccurred);
+		int satisfactionCount = results.Count(r => r.SatisfactionWarningOccurred);
+		int threatCount = results.Count(r => r.ThreatThresholdNewlyCrossed);
+		int expiringCount = results.Count(r => r.SubjugationQuestExpiringNextWeek);
+		int finalQuestCount = results.Count(r => r.FinalQuestNewlyUnlocked);
+		int recruitmentCount = results.Count(r => r.RecruitmentTrialOccurred);
+		int defeatCount = results.Count(r => r.DefeatOccurred);
+
+		if (facilityCount > 0) AppendLog($"[color=lime]・施設建設が完了した週：{facilityCount}回[/color]");
+		if (multiWeekReturnCount > 0) AppendLog($"[color=cyan]・複数週クエストが帰還した週：{multiWeekReturnCount}回[/color]");
+		if (deathCount > 0) AppendLog($"[color=red][b]・戦死または不可逆の障害が発生した週：{deathCount}回[/b][/color]");
+		if (satisfactionCount > 0) AppendLog($"[color=orange]・契約交渉（満足度警告）が新たに発生した週：{satisfactionCount}回[/color]");
+		if (threatCount > 0) AppendLog($"[color=orange][b]・脅威度が75%または100%を新たに跨いだ週：{threatCount}回[/b][/color]");
+		if (expiringCount > 0) AppendLog($"[color=orange][b]・討伐クエストが翌週期限切れになる週：{expiringCount}回[/b][/color]");
+		if (finalQuestCount > 0) AppendLog("[color=gold][b]★ ギルドがAランクに到達し、最終討伐クエストの依頼が持ち込まれるようになった…！[/b][/color]");
+		if (recruitmentCount > 0) AppendLog($"[color=yellow][b]・新春採用試験の週：{recruitmentCount}回[/b][/color]");
+		if (defeatCount > 0) AppendLog("[color=red][font_size=24][b]■■■ ゲームオーバーが発生した ■■■[/b][/font_size][/color]");
+
+		if (results.Count >= AutoSkipService.DefaultMaxWeeks && (results.Count == 0 || !results[^1].ShouldStopAutoSkip))
+			AppendLog($"[color=gray]上限{AutoSkipService.DefaultMaxWeeks}週に到達したため停止した。[/color]");
+
+		_saveLoadService.Save(_state);
+		RefreshAll();
+
+		var last = results.Count > 0 ? results[^1] : null;
+		if (last != null && last.DefeatOccurred)
+		{
+			DisableWeekAdvancement(); // ゲームオーバー：これ以上週を進められない
+		}
+		else if (last != null && last.RecruitmentTrialOccurred)
+		{
+			// 新春採用試験：ポップアップが閉じるまで次週へ進めさせない（→ 03 §9）。
+			_recruitmentPopup.Open(_state, _recruitmentSystem);
+		}
+		else
+		{
+			EnableWeekAdvancement();
 		}
 	}
 

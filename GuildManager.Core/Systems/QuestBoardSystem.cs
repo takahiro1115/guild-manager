@@ -46,15 +46,30 @@ namespace GuildManager.Core.Systems
             }
 
             while (state.AvailableQuests.Count < QuestBalance.DesiredAvailableCount)
-                state.AvailableQuests.Add(GenerateQuest());
+                state.AvailableQuests.Add(GenerateQuest(state));
 
             return expired;
         }
 
-        private Quest GenerateQuest()
+        /// <summary>
+        /// 討伐クエストのうち、来週の決算で期限切れになるもの（→ 03 §1.3・自動スキップ
+        /// 停止条件8）。ProcessWeeklyBoardでDeadlineWeeksを減算した後に呼ぶ想定
+        /// （残り週数1＝今週は生き残ったが、来週の決算で0になり除去される）。
+        /// </summary>
+        public static IEnumerable<Quest> GetQuestsExpiringNextWeek(GameState state) =>
+            state.AvailableQuests.Where(q => q.QuestType == QuestType.Subjugation && q.DeadlineWeeks == 1);
+
+        private Quest GenerateQuest(GameState state)
         {
-            var templates = QuestBalance.Templates;
-            var template = templates[_rng.NextInt(0, templates.Length - 1)];
+            // 長期遠征クエストの解禁条件（→ 03 §4.0、v1.10改訂）：現役ロースターが
+            // QuestBalance.LongExpeditionRosterThreshold人未満の間は、Scaleが中・大の
+            // テンプレートを候補から除外する。小規模（Scale=小）は人数に関わらず常に対象。
+            bool longExpeditionUnlocked = state.Adventurers.Count >= QuestBalance.LongExpeditionRosterThreshold;
+            var eligibleTemplates = QuestBalance.Templates
+                .Where(t => t.Scale == QuestScale.Small || longExpeditionUnlocked)
+                .ToArray();
+
+            var template = eligibleTemplates[_rng.NextInt(0, eligibleTemplates.Length - 1)];
 
             return new Quest
             {
@@ -65,6 +80,7 @@ namespace GuildManager.Core.Systems
                 ScoutRequirement = template.ScoutRequirement,
                 RewardGold = template.RewardGold,
                 DeadlineWeeks = template.DeadlineWeeks,
+                Scale = template.Scale,
             };
         }
     }

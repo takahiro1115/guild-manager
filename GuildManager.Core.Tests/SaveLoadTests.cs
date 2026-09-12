@@ -47,6 +47,28 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
+        public void RoundTrip_PreservesFinalQuestUnlocked_WhenTrue()
+        {
+            // v1.10改訂で新設されたフィールド（→ 03 §8.2）。v1.8作成時点ではGameStateに
+            // 存在しなかったため、SaveDataへの反映漏れが無いか確認する項目。
+            var state = new GameState { FinalQuestUnlocked = true };
+
+            var restored = GameState.FromSaveData(state.ToSaveData());
+
+            Assert.True(restored.FinalQuestUnlocked);
+        }
+
+        [Fact]
+        public void RoundTrip_FinalQuestUnlocked_DefaultsToFalse_ForNewGame()
+        {
+            var state = new GameState();
+
+            var restored = GameState.FromSaveData(state.ToSaveData());
+
+            Assert.False(restored.FinalQuestUnlocked);
+        }
+
+        [Fact]
         public void RoundTrip_PreservesDefeatReason_WhenAlreadyDefeated()
         {
             // 指示書のSaveDataサンプルにDefeatReasonが含まれていなかったため追加した項目。

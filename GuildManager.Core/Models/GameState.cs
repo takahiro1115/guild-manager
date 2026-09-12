@@ -105,6 +105,14 @@ namespace GuildManager.Core.Models
         public GuildRank GuildRank { get; set; } = GuildRank.G;
 
         /// <summary>
+        /// 「最終討伐クエストの依頼が持ち込まれるようになった」フラグ（仕様書 03 §8.2。
+        /// v1.10改訂で新設）。ギルド格付けが初めてAランク以上に到達した時点でtrueになり、
+        /// 以後は降格しても取り消されない（→ GuildRankSystem.UpdateRank）。最終討伐クエスト
+        /// 自体（出現条件・難易度・専用ロジック）は未設計のまま（ストーリー検討後に別途設計）。
+        /// </summary>
+        public bool FinalQuestUnlocked { get; set; } = false;
+
+        /// <summary>
         /// 現ランク相当（同ランク帯以上）のクエストを最後に達成してから経過した週数（→ 03 §8.1.1）。
         /// 該当クエストを達成した週に0へリセットされ、それ以外の週は+1される
         /// （Adventurer.WeeksSinceLastDeploymentと同じパターン）。
@@ -156,6 +164,7 @@ namespace GuildManager.Core.Models
                 ConsecutiveNegativeGoldWeeks = ConsecutiveNegativeGoldWeeks,
                 DefeatReason = DefeatReason?.ToString(),
                 WeeksSinceLastRankAppropriateQuest = WeeksSinceLastRankAppropriateQuest,
+                FinalQuestUnlocked = FinalQuestUnlocked,
                 ActiveAdventurers = new List<Adventurer>(Adventurers),
                 RetiredAdvisorCandidates = new List<Adventurer>(RetiredAdventurers),
                 FallenAdventurers = new List<Adventurer>(FallenAdventurers),
@@ -221,6 +230,7 @@ namespace GuildManager.Core.Models
                 ConsecutiveNegativeGoldWeeks = data.ConsecutiveNegativeGoldWeeks,
                 DefeatReason = data.DefeatReason == null ? null : ParseEnum<DefeatReason>(data.DefeatReason, nameof(DefeatReason)),
                 WeeksSinceLastRankAppropriateQuest = data.WeeksSinceLastRankAppropriateQuest,
+                FinalQuestUnlocked = data.FinalQuestUnlocked,
                 Adventurers = new List<Adventurer>(data.ActiveAdventurers),
                 RetiredAdventurers = new List<Adventurer>(data.RetiredAdvisorCandidates),
                 FallenAdventurers = new List<Adventurer>(data.FallenAdventurers),
