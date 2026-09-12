@@ -21,12 +21,14 @@ grow_horizontal = 2
 grow_vertical = 2
 
 [node name="TitleLabel" type="Label" parent="VBox"]
+custom_minimum_size = Vector2(540, 0)
 layout_mode = 2
 text = "施設投資：着工は同時1件まで。着工時に費用を前払いし、工期経過で完成する。"
 autowrap_mode = 2
 
 [node name="FacilityList" type="ItemList" parent="VBox"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 240)
 layout_mode = 2
 size_flags_vertical = 3
 
