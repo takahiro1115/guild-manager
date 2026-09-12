@@ -436,8 +436,8 @@ public partial class MainDashboard : Control
 		sb.AppendLine();
 		sb.AppendLine("[b]能力値（実効値 / 潜在能力PA）[/b]");
 		sb.AppendLine($"STR {a.STR} / {a.PA_STR}　　VIT {a.VIT} / {a.PA_VIT}　　AGI {a.AGI} / {a.PA_AGI}");
-		sb.AppendLine($"DEX {a.DEX} / {a.PA_DEX}　　MND {a.MND} / {a.PA_MND}　　LDR {a.LDR} / {a.PA_LDR}");
-		sb.AppendLine($"INT {a.INT} / {a.PA_INT}");
+		sb.AppendLine($"DEX {a.DEX} / {a.PA_DEX}　　MND {a.MND} / {a.PA_MND}　　INT {a.INT} / {a.PA_INT}");
+		sb.AppendLine($"LDR {a.LDR} / {a.PA_LDR}");
 		sb.AppendLine($"総合PA: {a.TotalPA:F1}");
 		sb.AppendLine();
 		sb.AppendLine($"週給: {a.WeeklyWage} G");
