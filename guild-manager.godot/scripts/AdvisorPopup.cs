@@ -83,7 +83,7 @@ public partial class AdvisorPopup : PopupPanel
 
 		return $"現在の配置　戦士訓練所:{TrainerName(FacilityType.WarriorHall)}　教会:{TrainerName(FacilityType.Church)}\n" +
 			$"魔法研究所:{TrainerName(FacilityType.MageLab)}　斥候所:{TrainerName(FacilityType.ScoutPost)}\n" +
-			$"参謀:{advisorName}　スカウト:{scoutMasterName}";
+			$"参謀本部:{advisorName}　採用本部:{scoutMasterName}";
 	}
 
 	private string FindName(Guid id) =>

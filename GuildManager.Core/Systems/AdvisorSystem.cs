@@ -13,10 +13,11 @@ namespace GuildManager.Core.Systems
     /// 算出するだけである（→ AdvisorBalance）。
     ///
     /// 割り当て対象は GameState.RetiredAdventurers（引退済み・顧問候補）に限る。
-    /// 各スロット（教官は施設ごとに1名、参謀は1名、スカウトは1名）は独立しており、
-    /// 同じ人物を複数の役職に重複して割り当てることを妨げない（仕様に明記が無いため）。
-    /// ただし教官は「1つの施設のみ担当できる」（ユーザー指示）ため、同じ人物を
-    /// 同時に複数の訓練施設の教官にすることはできない。
+    /// ポストは「教官(施設ごとに4枠)・参謀(作戦資料室に1枠)・スカウト(採用本部相当に1枠)」の
+    /// 計6枠あるが、参謀（参謀本部）・スカウト（採用本部）も教官の各施設と同様に
+    /// 「1つの担当（ポスト）」として扱う（ユーザー指示）。1人の顧問候補が同時に
+    /// 就けるポストは1つのみ：いずれかのポストに新たに任命すると、その候補が
+    /// 就いていた他の全ポスト（教官・参謀・スカウトを問わず）から自動的に外れる。
     /// </summary>
     public class AdvisorSystem
     {
@@ -24,8 +25,8 @@ namespace GuildManager.Core.Systems
 
         /// <summary>
         /// 教官を配置する。候補が引退済みでない、または訓練施設以外を指定した場合は失敗する。
-        /// 教官は1人につき1施設のみ担当できるため、既に他の施設に配置済みならその配置を
-        /// 解除してから新しい施設へ付け替える（TrainingSystem.TryAssignの付け替えと同じ設計）。
+        /// 1人の顧問候補が就けるポストは1つのみのため、この候補が既に教官・参謀・スカウトの
+        /// いずれかのポストに就いていれば、そちらを解除してから新しい施設へ付け替える。
         /// 各施設スロット自体も1名まで（既に別の人物が配置済みなら上書きで交代）。
         /// </summary>
         public bool TryAssignTrainer(GameState state, FacilityType facility, Guid candidateId)
@@ -33,16 +34,7 @@ namespace GuildManager.Core.Systems
             if (!FacilityBalance.IsTrainingFacility(facility)) return false;
             if (!IsRetiredCandidate(state, candidateId)) return false;
 
-            // 教官は1施設のみ担当できる：この候補が既に別の施設の教官になっていれば、
-            // そちらの配置を解除してから新しい施設へ付け替える。
-            foreach (var existingFacility in state.AssignedTrainers
-                         .Where(kv => kv.Value == candidateId && kv.Key != facility)
-                         .Select(kv => kv.Key)
-                         .ToList())
-            {
-                state.AssignedTrainers.Remove(existingFacility);
-            }
-
+            UnassignFromAllPosts(state, candidateId);
             state.AssignedTrainers[facility] = candidateId;
             return true;
         }
@@ -51,22 +43,30 @@ namespace GuildManager.Core.Systems
         public void UnassignTrainer(GameState state, FacilityType facility) =>
             state.AssignedTrainers.Remove(facility);
 
-        /// <summary>参謀を配置する（作戦資料室に1名まで。既に配置済みなら上書きで交代）。</summary>
+        /// <summary>
+        /// 参謀を配置する（作戦資料室＝参謀本部に1名まで。既に配置済みなら上書きで交代）。
+        /// 1人の顧問候補が就けるポストは1つのみのため、教官・スカウトの他のポストからは外れる。
+        /// </summary>
         public bool TryAssignAdvisor(GameState state, Guid candidateId)
         {
             if (!IsRetiredCandidate(state, candidateId)) return false;
 
+            UnassignFromAllPosts(state, candidateId);
             state.AssignedAdvisor = candidateId;
             return true;
         }
 
         public void UnassignAdvisor(GameState state) => state.AssignedAdvisor = null;
 
-        /// <summary>スカウト顧問を任命する（施設に紐づかない役職スロット。1名まで。既に任命済みなら上書きで交代）。</summary>
+        /// <summary>
+        /// スカウト顧問を任命する（採用本部相当のポストに1名まで。既に任命済みなら上書きで交代）。
+        /// 1人の顧問候補が就けるポストは1つのみのため、教官・参謀の他のポストからは外れる。
+        /// </summary>
         public bool TryAssignScoutMaster(GameState state, Guid candidateId)
         {
             if (!IsRetiredCandidate(state, candidateId)) return false;
 
+            UnassignFromAllPosts(state, candidateId);
             state.AssignedScoutMaster = candidateId;
             return true;
         }
@@ -75,6 +75,24 @@ namespace GuildManager.Core.Systems
 
         private static bool IsRetiredCandidate(GameState state, Guid candidateId) =>
             state.RetiredAdventurers.Any(a => a.Id == candidateId);
+
+        /// <summary>
+        /// 指定した候補者を、教官（全施設）・参謀・スカウトの全ポストから外す（重複兼任防止）。
+        /// いずれかのポストへ新たに任命する直前に必ず呼ぶ。
+        /// </summary>
+        private static void UnassignFromAllPosts(GameState state, Guid candidateId)
+        {
+            foreach (var facility in state.AssignedTrainers
+                         .Where(kv => kv.Value == candidateId)
+                         .Select(kv => kv.Key)
+                         .ToList())
+            {
+                state.AssignedTrainers.Remove(facility);
+            }
+
+            if (state.AssignedAdvisor == candidateId) state.AssignedAdvisor = null;
+            if (state.AssignedScoutMaster == candidateId) state.AssignedScoutMaster = null;
+        }
 
         // ---------------- ボーナス算出（連続比例。一致判定なし） ----------------
 

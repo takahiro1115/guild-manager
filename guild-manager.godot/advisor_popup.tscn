@@ -23,7 +23,7 @@ grow_vertical = 2
 [node name="TitleLabel" type="Label" parent="VBox"]
 custom_minimum_size = Vector2(600, 0)
 layout_mode = 2
-text = "顧問候補（引退済み）を選択し、下のボタンで役職に任命する。"
+text = "顧問候補（引退済み）を選択し、下のボタンで役職に任命する。1人が同時に担当できるのは1つの施設・役職のみ（教官4施設・参謀本部・採用本部の計6枠から1つ）。"
 autowrap_mode = 2
 
 [node name="CandidateList" type="ItemList" parent="VBox"]
@@ -69,13 +69,13 @@ layout_mode = 2
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-text = "参謀にする（作戦資料室）"
+text = "参謀本部の担当にする"
 
 [node name="AssignScoutMasterButton" type="Button" parent="VBox/AssignRow3"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-text = "スカウトにする"
+text = "採用本部の担当にする"
 
 [node name="StatusLabel" type="Label" parent="VBox"]
 unique_name_in_owner = true

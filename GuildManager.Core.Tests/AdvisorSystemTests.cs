@@ -83,6 +83,74 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
+        public void TryAssignAdvisor_RemovesCandidateFromExistingTrainerPost()
+        {
+            // ユーザー指摘：教官が参謀・スカウトを兼務できてしまう不具合の修正確認。
+            // 参謀（参謀本部）も教官の各施設と同様に「1つの担当」として扱う。
+            var candidate = new Adventurer();
+            var state = new GameState { RetiredAdventurers = { candidate } };
+            var system = new AdvisorSystem();
+            system.TryAssignTrainer(state, FacilityType.WarriorHall, candidate.Id);
+
+            bool result = system.TryAssignAdvisor(state, candidate.Id);
+
+            Assert.True(result);
+            Assert.Equal(candidate.Id, state.AssignedAdvisor);
+            Assert.False(state.AssignedTrainers.ContainsKey(FacilityType.WarriorHall)); // 教官からは外れる
+        }
+
+        [Fact]
+        public void TryAssignScoutMaster_RemovesCandidateFromExistingAdvisorPost()
+        {
+            // スカウト（採用本部）も同様に「1つの担当」として扱う。
+            var candidate = new Adventurer();
+            var state = new GameState { RetiredAdventurers = { candidate } };
+            var system = new AdvisorSystem();
+            system.TryAssignAdvisor(state, candidate.Id);
+
+            bool result = system.TryAssignScoutMaster(state, candidate.Id);
+
+            Assert.True(result);
+            Assert.Equal(candidate.Id, state.AssignedScoutMaster);
+            Assert.Null(state.AssignedAdvisor); // 参謀からは外れる
+        }
+
+        [Fact]
+        public void TryAssignTrainer_RemovesCandidateFromExistingScoutMasterPost()
+        {
+            var candidate = new Adventurer();
+            var state = new GameState { RetiredAdventurers = { candidate } };
+            var system = new AdvisorSystem();
+            system.TryAssignScoutMaster(state, candidate.Id);
+
+            bool result = system.TryAssignTrainer(state, FacilityType.Church, candidate.Id);
+
+            Assert.True(result);
+            Assert.Equal(candidate.Id, state.AssignedTrainers[FacilityType.Church]);
+            Assert.Null(state.AssignedScoutMaster); // スカウトからは外れる
+        }
+
+        [Fact]
+        public void OnePersonCanHoldOnlyOnePost_AcrossAllTrainerAdvisorAndScoutMasterSlots()
+        {
+            // 教官(4施設)・参謀・スカウトの計6ポストのうち、1人が同時に就けるのは1つだけ。
+            var candidate = new Adventurer();
+            var state = new GameState { RetiredAdventurers = { candidate } };
+            var system = new AdvisorSystem();
+
+            system.TryAssignTrainer(state, FacilityType.WarriorHall, candidate.Id);
+            system.TryAssignTrainer(state, FacilityType.Church, candidate.Id);
+            system.TryAssignTrainer(state, FacilityType.MageLab, candidate.Id);
+            system.TryAssignTrainer(state, FacilityType.ScoutPost, candidate.Id);
+            system.TryAssignAdvisor(state, candidate.Id);
+            system.TryAssignScoutMaster(state, candidate.Id); // 最後に任命したポストだけが残るはず
+
+            Assert.Empty(state.AssignedTrainers);
+            Assert.Null(state.AssignedAdvisor);
+            Assert.Equal(candidate.Id, state.AssignedScoutMaster);
+        }
+
+        [Fact]
         public void UnassignTrainer_RemovesAssignment()
         {
             var candidate = new Adventurer();
