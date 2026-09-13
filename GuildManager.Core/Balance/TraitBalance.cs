@@ -29,5 +29,12 @@ namespace GuildManager.Core.Balance
 
         /// <summary>容姿秀麗が関与する相性ペアの上昇量に掛かる倍率（下降量には影響しない）。</summary>
         public static readonly double BeautifulCompatibilityGainMultiplier = BalanceData.GetDouble(FileName, "BeautifulCompatibilityGainMultiplier");
+
+        /// <summary>
+        /// 田舎育ちが探索クエストの個人スコアに加算する量（→ 03 §4.2.3、項目64）。
+        /// 知識人（Scholar）には単独効果を持たせていない（ペア特性シナジー専用の特性。
+        /// → PairSynergyBalance・TraitCatalog.Scholar）。
+        /// </summary>
+        public static readonly double CountryBredExplorationBonus = BalanceData.GetDouble(FileName, "CountryBredExplorationBonus");
     }
 }

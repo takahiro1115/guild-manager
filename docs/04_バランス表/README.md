@@ -30,7 +30,8 @@
 | `compatibility_advisor.csv` | 03 §5.3・§7 | CompatibilityBalance, AdvisorBalance |
 | `security.csv` | 03 §4.4・§8.3 | SecurityBalance |
 | `training.csv` | 03 §3.1〜3.4・§3.5改 | TrainingBalance |
-| `trait.csv` | 03 §4.3・§5.3.2 | TraitBalance（→ TraitCatalog） |
+| `trait.csv` | 03 §4.3・§5.3.2・§4.2.3 | TraitBalance（→ TraitCatalog）、ペアシナジーの隊長LDR緩和係数 |
+| `pair_synergy.csv` | 03 §4.2.3 | PairSynergyBalance（→ Systems.PairSynergyCalculator） |
 | `equipment.csv` | 03 §4.2.2 | EquipmentBalance（→ ItemCatalog） |
 
 `trait.csv`・`equipment.csv` は項目58（バランス値のCSV外部化）の時点では対応CSVが
@@ -47,6 +48,18 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 - **討伐の要求係数は `combat.csv` の `EnemyCpCoefficient`（敵CP係数）をそのまま使う。**
   討伐にとっての要求値は従来どおり「敵CP」であり、同じ値を `quest_scoring.csv` にも
   置くと二重管理になるため、探索・護衛の要求係数のみを新ファイル側に置いている。
+
+`pair_synergy.csv` は項目64（ペア特性シナジー、→ 03 §4.2.3）で新設した表形式ファイル。
+列は `trait_a,trait_b,quest_type,value,note`：
+
+- `trait_a`・`trait_b` … 組み合わせる特性のID（→ TraitCatalog の各Id）。
+- `quest_type` … 対象クエスト種別（`Subjugation`／`Exploration`／`Escort`）。
+  全種別に適用する場合は `All` と書く。
+- `value` … 成立1ペアあたりの加算量（符号あり。マイナスは仲違い）。
+
+隊長LDRによる負のシナジー緩和係数（`PairSynergyLdrMitigationCoefficient`）は、
+特性まわりの数値をまとめている `trait.csv` 側に置いている
+（表形式の `pair_synergy.csv` にはスカラー値を置けないため）。
 
 ## 凡例
 

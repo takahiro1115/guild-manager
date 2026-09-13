@@ -451,6 +451,154 @@ namespace GuildManager.Core.Tests
             Assert.Equal(front.Ratio, back.Ratio, precision: 10);
         }
 
+        // ---------------- 個人特性ボーナス・ペア特性シナジー（→ 03 §4.2.3、項目64） ----------------
+        // ペアの成立条件・LDR緩和のルール自体は PairSynergyCalculatorTests で確認しているため、
+        // ここでは「Resolveまで通したときに点数（Ratio）へ正しく反映されるか」を見る。
+
+        /// <summary>
+        /// 特性以外を揃えた1人パーティを作る。索敵値が変わると遭遇区分が動いてRatio比較が
+        /// 濁るため、スコアに効かない特性（豪胆等）と効く特性（田舎育ち）の差分だけを見る用途。
+        /// </summary>
+        private static Adventurer ScoringMember(params string[] traitIds)
+        {
+            var a = new Adventurer
+            {
+                JobClass = JobClass.Ranger, // 前衛・後衛どちらも配置補正1.0
+                STR = 50, AGI = 50, VIT = 50, MND = 50, DEX = 50, LDR = 50, INT = 50,
+            };
+            foreach (var traitId in traitIds)
+                a.TryAddTrait(traitId);
+            a.CurrentHP = a.MaxHP;
+            return a;
+        }
+
+        private static WeekResolutionResult ResolveParty(Quest quest, params Adventurer[] members) =>
+            new QuestResolver(new FixedRng(50)).Resolve(PartyOf(members), quest);
+
+        [Fact]
+        public void Resolve_CountryBred_AddsBonusToExplorationScore()
+        {
+            // 探索の対象ステータス合計 = 50×4（AGI/DEX/LDR/INT）= 200、要求値 = 50×2.0 = 100。
+            // 田舎育ちの+10がそのまま個人スコアに乗る → Ratio 2.0 → 2.1（差分0.1）。
+            // 索敵値 = 50 + 50×0.3 = 65（探索は隊長LDR補正なし）に合わせ、両者とも通常交戦に固定。
+            var quest = new Quest { QuestType = QuestType.Exploration, Difficulty = 50, ScoutRequirement = 65 };
+
+            var plain = ResolveParty(quest, ScoringMember());
+            var countryBred = ResolveParty(quest, ScoringMember(TraitCatalog.CountryBredId));
+
+            Assert.Equal(EncounterResult.Normal, plain.Encounter);
+            Assert.Equal(EncounterResult.Normal, countryBred.Encounter);
+            Assert.Equal(2.0, plain.Ratio, precision: 10);
+            Assert.Equal(2.1, countryBred.Ratio, precision: 10);
+        }
+
+        [Fact]
+        public void Resolve_CountryBred_DoesNotAffectSubjugationOrEscort()
+        {
+            // 田舎育ちは探索限定（TargetStat="Exploration"）。他種別のスコアには乗らない。
+            var subjugation = new Quest { QuestType = QuestType.Subjugation, Difficulty = 50, ScoutRequirement = 75 };
+            var escort = new Quest { QuestType = QuestType.Escort, Difficulty = 50, ScoutRequirement = 65 };
+
+            Assert.Equal(
+                ResolveParty(subjugation, ScoringMember()).Ratio,
+                ResolveParty(subjugation, ScoringMember(TraitCatalog.CountryBredId)).Ratio,
+                precision: 10);
+            Assert.Equal(
+                ResolveParty(escort, ScoringMember()).Ratio,
+                ResolveParty(escort, ScoringMember(TraitCatalog.CountryBredId)).Ratio,
+                precision: 10);
+        }
+
+        [Fact]
+        public void Resolve_BraveAttentivePair_AddsSynergyToPartyScore()
+        {
+            // 2名分の討伐スコア = 210×2 = 420、要求値 = 50×3.0 = 150 → Ratio 2.8。
+            // 豪胆×注意深いの+15が加算されて 435/150 = 2.9（差分 = 15/150 = 0.1）。
+            // 「注意深い」は索敵値を上げるが、この条件では両者とも通常交戦のままで比較できる。
+            var quest = new Quest { QuestType = QuestType.Subjugation, Difficulty = 50, ScoutRequirement = 75 };
+
+            var plain = ResolveParty(quest, ScoringMember(), ScoringMember());
+            var synergy = ResolveParty(quest, ScoringMember(TraitCatalog.BraveId), ScoringMember(TraitCatalog.AttentiveId));
+
+            Assert.Equal(EncounterResult.Normal, plain.Encounter);
+            Assert.Equal(EncounterResult.Normal, synergy.Encounter);
+            Assert.Equal(2.8, plain.Ratio, precision: 10);
+            Assert.Equal(2.9, synergy.Ratio, precision: 10);
+        }
+
+        [Fact]
+        public void Resolve_MultipleBraveAttentivePairs_AreSummed()
+        {
+            // 豪胆2名・注意深い1名 → 2ペア成立で+30。3名分のスコア630 → (630+30)/150 = 4.4。
+            var quest = new Quest { QuestType = QuestType.Subjugation, Difficulty = 50, ScoutRequirement = 75 };
+
+            var plain = ResolveParty(quest, ScoringMember(), ScoringMember(), ScoringMember());
+            var synergy = ResolveParty(quest,
+                ScoringMember(TraitCatalog.BraveId),
+                ScoringMember(TraitCatalog.BraveId),
+                ScoringMember(TraitCatalog.AttentiveId));
+
+            Assert.Equal(4.2, plain.Ratio, precision: 10);
+            Assert.Equal(4.4, synergy.Ratio, precision: 10);
+        }
+
+        [Fact]
+        public void Resolve_ScholarBravePair_LowersEscortScore_ButNotSubjugation()
+        {
+            // 知識人×豪胆は護衛のみ-15。隊長（先頭）のLDRで緩和されるため、
+            // 緩和が効かないLDR0の隊長を先頭に置いて素の-15を確認する。
+            Adventurer Scholar(int ldr)
+            {
+                var a = ScoringMember(TraitCatalog.ScholarId);
+                a.LDR = ldr;
+                a.CurrentHP = a.MaxHP;
+                return a;
+            }
+
+            // 護衛の対象ステータス = VIT/MND/LDR。隊長LDR=0なので 2名合計 = (50+50+0) + (50+50+50) = 250。
+            // 要求値 = 50×2.0 = 100 → 素点Ratio 2.5、シナジー込み (250-15)/100 = 2.35。
+            var escort = new Quest { QuestType = QuestType.Escort, Difficulty = 50, ScoutRequirement = 65 };
+            var plainLeader = ScoringMember();
+            plainLeader.LDR = 0;
+
+            var plain = ResolveParty(escort, plainLeader, ScoringMember());
+            var withScholarPair = ResolveParty(escort, Scholar(0), ScoringMember(TraitCatalog.BraveId));
+
+            Assert.Equal(2.5, plain.Ratio, precision: 10);
+            Assert.Equal(2.35, withScholarPair.Ratio, precision: 10);
+
+            // 討伐では同じ組み合わせでもシナジーは発生しない（護衛限定の定義のため）。
+            var subjugation = new Quest { QuestType = QuestType.Subjugation, Difficulty = 50, ScoutRequirement = 75 };
+            var subjugationPlain = ResolveParty(subjugation, ScoringMember(), ScoringMember());
+            var subjugationWithPair = ResolveParty(subjugation, ScoringMember(TraitCatalog.ScholarId), ScoringMember(TraitCatalog.BraveId));
+
+            Assert.Equal(subjugationPlain.Ratio, subjugationWithPair.Ratio, precision: 10);
+        }
+
+        [Fact]
+        public void Resolve_NegativeSynergy_IsMitigatedByLeaderLdr()
+        {
+            // 隊長LDR100なら負のシナジー(-15)は全額緩和され、シナジー無しと同じRatioになる。
+            // 護衛はLDRもスコア対象のため、比較対象（特性なし）も同じLDR構成で揃える。
+            Adventurer With(int ldr, params string[] traits)
+            {
+                var a = ScoringMember(traits);
+                a.LDR = ldr;
+                a.CurrentHP = a.MaxHP;
+                return a;
+            }
+
+            var escort = new Quest { QuestType = QuestType.Escort, Difficulty = 50, ScoutRequirement = 65 };
+
+            var plain = ResolveParty(escort, With(100), With(50));
+            var mitigated = ResolveParty(escort, With(100, TraitCatalog.ScholarId), With(50, TraitCatalog.BraveId));
+            var unmitigated = ResolveParty(escort, With(0, TraitCatalog.ScholarId), With(50, TraitCatalog.BraveId));
+            var plainLowLdrLeader = ResolveParty(escort, With(0), With(50));
+
+            Assert.Equal(plain.Ratio, mitigated.Ratio, precision: 10);                    // 隊長LDR100 → 緩和で±0
+            Assert.True(unmitigated.Ratio < plainLowLdrLeader.Ratio);                     // 隊長LDR0 → 緩和されず減点が残る
+        }
+
         // ---------------- 装備の個人CP・最大HPへの反映（→ 03 §4.2.2、v1.7改訂） ----------------
 
         [Fact]

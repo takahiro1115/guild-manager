@@ -18,6 +18,8 @@ namespace GuildManager.Core.Models
         public const string BraveId = "Brave";
         public const string AttentiveId = "Attentive";
         public const string BeautifulId = "Beautiful";
+        public const string CountryBredId = "CountryBred";
+        public const string ScholarId = "Scholar";
 
         /// <summary>
         /// 古傷（不可逆障害）。STR/VIT/AGI/DEXを恒久的に低下させる（減少率→ BAL: 戦闘/古傷減少率）。
@@ -97,6 +99,40 @@ namespace GuildManager.Core.Models
             }
         };
 
+        /// <summary>
+        /// 田舎育ち（先天的）。新人採用時に低確率で付与される。探索（Exploration）クエストの
+        /// 個人スコアに固定加算する（→ 03 §4.2.3・BAL: 特性。項目64で新設）。
+        /// </summary>
+        public static readonly TraitDefinition CountryBred = new TraitDefinition
+        {
+            Id = CountryBredId,
+            DisplayName = "田舎育ち",
+            BlocksDeployment = false,
+            Effects = new List<TraitEffect>
+            {
+                new TraitEffect
+                {
+                    EffectType = TraitEffectType.QuestTypeScoreBonus,
+                    TargetStat = nameof(QuestType.Exploration), // この効果種別のTargetStatはクエスト種別名
+                    Value = TraitBalance.CountryBredExplorationBonus,
+                }
+            }
+        };
+
+        /// <summary>
+        /// 知識人（先天的）。新人採用時に低確率で付与される。項目64時点では**単独の効果を持たない**
+        /// （ペア特性シナジー専用の特性：「豪胆」との組み合わせで護衛クエストに負のシナジーを持つ。
+        /// → 03 §4.2.3・pair_synergy.csv）。指示書（項目64）が「単独効果は無いか最小限でよい／
+        /// trait.csvの該当行は省略可」としているため、独自の効果量を仮置きせず空のままにしてある。
+        /// </summary>
+        public static readonly TraitDefinition Scholar = new TraitDefinition
+        {
+            Id = ScholarId,
+            DisplayName = "知識人",
+            BlocksDeployment = false,
+            Effects = new List<TraitEffect>(),
+        };
+
         // 将来ここに「頑強」「師匠肌」等を追加していく（post-MVP）。
 
         public static TraitDefinition? FindById(string id) => id switch
@@ -106,6 +142,8 @@ namespace GuildManager.Core.Models
             BraveId => Brave,
             AttentiveId => Attentive,
             BeautifulId => Beautiful,
+            CountryBredId => CountryBred,
+            ScholarId => Scholar,
             _ => null,
         };
     }

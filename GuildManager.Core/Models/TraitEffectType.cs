@@ -32,5 +32,14 @@ namespace GuildManager.Core.Models
         /// TargetStatは不要（""のまま）。下降量には影響しない。
         /// </summary>
         CompatibilityGainMultiplier,
+
+        /// <summary>
+        /// クエスト種別限定の個人スコアボーナス（「田舎育ち」で使用。→ 03 §4.2.3、項目64）。
+        /// TargetStatには対象クエスト種別の名前（QuestTypeの列挙子名。"Exploration"等）を
+        /// 文字列で入れ、Valueをその種別の統一点数計算式（→ QuestResolver.MemberScore）への
+        /// 加算量として扱う。TargetStatにステータス名ではなくクエスト種別名が入る唯一の
+        /// 効果種別だが、Adventurer.SumTraitEffectのフィルタ（TargetStat一致）はそのまま使える。
+        /// </summary>
+        QuestTypeScoreBonus,
     }
 }

@@ -156,13 +156,19 @@ namespace GuildManager.Core.Systems
             candidate.CurrentHP = candidate.MaxHP;
             candidate.WeeklyWage = Math.Max(1, (int)(candidate.TotalPA * EconomyBalance.WeeklyWageCoefficient));
 
-            // 先天特性の付与判定（→ 03 §5.3.2）。3つとも独立判定（1人が複数持つこともありうる）。
+            // 先天特性の付与判定（→ 03 §5.3.2）。いずれも独立判定（1人が複数持つこともありうる）。
+            // 項目64で田舎育ち・知識人を追加。付与確率は既存3種と同じ定数を再利用している
+            // （特性ごとに出現率を変える必要が出た時点で、recruitment.csv側にキーを分ければよい）。
             if (_rng.NextInt(1, 100) <= RecruitmentBalance.InnateTraitChancePercent)
                 candidate.TryAddTrait(TraitCatalog.BraveId);
             if (_rng.NextInt(1, 100) <= RecruitmentBalance.InnateTraitChancePercent)
                 candidate.TryAddTrait(TraitCatalog.AttentiveId);
             if (_rng.NextInt(1, 100) <= RecruitmentBalance.InnateTraitChancePercent)
                 candidate.TryAddTrait(TraitCatalog.BeautifulId);
+            if (_rng.NextInt(1, 100) <= RecruitmentBalance.InnateTraitChancePercent)
+                candidate.TryAddTrait(TraitCatalog.CountryBredId);
+            if (_rng.NextInt(1, 100) <= RecruitmentBalance.InnateTraitChancePercent)
+                candidate.TryAddTrait(TraitCatalog.ScholarId);
 
             int signingBonus = (int)(candidate.TotalPA * candidate.Age * EconomyBalance.SigningBonusCoefficient);
 

@@ -107,10 +107,13 @@ namespace GuildManager.Core.Systems
             // 要求値 = クエストDifficulty × 種別ごとの要求係数
             // 疲労（Fatigue）は廃止済み（→ 03 §3.5改）。HPの影響は MemberScore の ×(現在HP/最大HP) で保持。
             //
-            // 拡張ポイント（→ 後続の指示書②）：ペア特性シナジーはパーティ単位の加算項として
-            // ここ（Σの後）に、個人特性ボーナスはメンバー単位の加算項として MemberScore 内に
-            // それぞれ差し込める形にしてある。
-            double score = party.Members.Sum(m => MemberScore(m, quest.QuestType)) * combatMultiplier;
+            // 個人特性ボーナス（例：田舎育ち×探索）はメンバー単位の加算項として MemberScore 内で、
+            // ペア特性シナジー（例：豪胆×注意深い）はパーティ単位の加算項としてここで加算する
+            // （→ 03 §4.2.3、項目64）。ペアシナジーは遭遇による戦闘力倍率の対象外とし、
+            // パーティ全体スコアへの定額加算として扱う（マイナスのシナジーが奇襲成功で
+            // かえって重くなる、といった不自然さを避けるため）。
+            double score = party.Members.Sum(m => MemberScore(m, quest.QuestType)) * combatMultiplier
+                           + PairSynergyCalculator.Calculate(party.Members, quest.QuestType);
 
             double requirement = quest.Difficulty * QuestScoringBalance.GetRequirementCoefficient(quest.QuestType);
             if (result.Encounter == EncounterResult.Ambushed)
@@ -226,7 +229,8 @@ namespace GuildManager.Core.Systems
         /// 討伐ではこれが従来の「個人CP」と完全に同じ式になる（対象ステータスの重みは
         /// quest_type_weights.csvのSubjugation行が旧CombatBalance.WeightXXXの値をそのまま持つ）。
         ///
-        /// 拡張ポイント（→ 後続の指示書②）：個人特性ボーナスはここに加算項として差し込む。
+        /// 個人特性ボーナス（→ 03 §4.2.3、項目64）もここで加算する。装備ボーナスと同じ扱いとし、
+        /// 負傷時の効率低下(hpRatio)・配置補正の対象にする。
         /// </summary>
         private static double MemberScore(Adventurer a, QuestType questType)
         {
@@ -236,9 +240,17 @@ namespace GuildManager.Core.Systems
             foreach (var (stat, weight) in QuestScoringBalance.GetStatWeights(questType))
                 statSum += a.GetEffectiveStat(stat) * weight;
 
-            double baseScore = statSum + GetEquipmentBonus(a, questType);
+            double baseScore = statSum + GetEquipmentBonus(a, questType) + GetTraitScoreBonus(a, questType);
             return baseScore * GetPlacementCorrection(a, questType) * hpRatio;
         }
+
+        /// <summary>
+        /// クエスト種別限定の個人特性ボーナス（→ 03 §4.2.3、項目64）。「田舎育ち」の探索ボーナス等。
+        /// TraitEffectType.QuestTypeScoreBonus は TargetStat にクエスト種別名を持つため、
+        /// 既存の SumTraitEffect のフィルタをそのまま使える。該当特性が無ければ0。
+        /// </summary>
+        private static double GetTraitScoreBonus(Adventurer a, QuestType questType) =>
+            a.SumTraitEffect(TraitEffectType.QuestTypeScoreBonus, questType.ToString());
 
         /// <summary>
         /// 装備ボーナス。討伐では装備（武器・アクセサリー）のCP固定加算（→ 03 §4.2.2）を

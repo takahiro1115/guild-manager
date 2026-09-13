@@ -10,9 +10,10 @@ namespace GuildManager.Core.Tests
     ///
     /// 「全CSVファイルが正常に読み込めること」は、GetTableが素直な行分割パーサーであり、
     /// key,value,unit,note形式・テーブル形式のどちらも「ヘッダー行＋列数の揃ったデータ行」
-    /// という構造は共通なので、全18ファイル（項目58で14ファイル・そのフォローアップで
+    /// という構造は共通なので、全19ファイル（項目58で14ファイル・そのフォローアップで
     /// trait.csv・equipment.csvの2ファイル・項目63でquest_type_weights.csv・
-    /// quest_scoring.csvの2ファイルを追加）に対してGetTableで汎用的に検証できる
+    /// quest_scoring.csvの2ファイル・項目64でpair_synergy.csvを追加）に対して
+    /// GetTableで汎用的に検証できる
     /// （実際の意味付け・型変換は各Balanceクラス側のテスト・既存の回帰テストで
     /// 別途カバーされている）。
     ///
@@ -32,6 +33,7 @@ namespace GuildManager.Core.Tests
         [InlineData("equipment.csv")]
         [InlineData("facility.csv")]
         [InlineData("growth_job_weights.csv")]
+        [InlineData("pair_synergy.csv")]
         [InlineData("guild_rank.csv")]
         [InlineData("guild_rank_params.csv")]
         [InlineData("quest.csv")]
