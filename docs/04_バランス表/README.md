@@ -32,6 +32,7 @@
 | `training.csv` | 03 §3.1〜3.4・§3.5改 | TrainingBalance |
 | `trait.csv` | 03 §4.3・§5.3.2・§4.2.3 | TraitBalance（→ TraitCatalog）、ペアシナジーの隊長LDR緩和係数 |
 | `pair_synergy.csv` | 03 §4.2.3 | PairSynergyBalance（→ Systems.PairSynergyCalculator） |
+| `quest_events.csv` | 03 §4.2.3 | QuestEventBalance（探索・護衛のランダムイベント3種） |
 | `equipment.csv` | 03 §4.2.2 | EquipmentBalance（→ ItemCatalog） |
 
 `trait.csv`・`equipment.csv` は項目58（バランス値のCSV外部化）の時点では対応CSVが
@@ -60,6 +61,11 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 隊長LDRによる負のシナジー緩和係数（`PairSynergyLdrMitigationCoefficient`）は、
 特性まわりの数値をまとめている `trait.csv` 側に置いている
 （表形式の `pair_synergy.csv` にはスカラー値を置けないため）。
+
+`quest_events.csv` は項目65（探索・護衛のランダムイベント3種、→ 03 §4.2.3）で新設した。
+キーは `{イベント名}_{項目}` の形（`StrongEnemy_` / `TreasureVault_` / `PushingOn_`）で、
+各イベントの発生確率・判定の要求係数・特性補正・イベント専用のRatio閾値・追加報酬・
+追加HP消費レンジを持つ。討伐（Subjugation）はいずれのイベントの対象にもしていない。
 
 ## 凡例
 

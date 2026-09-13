@@ -146,7 +146,52 @@ namespace GuildManager.Core.Systems
             var cleric = party.Members.FirstOrDefault(m => m.JobClass == JobClass.Cleric);
             double clericMnd = cleric?.GetEffectiveStat("MND") ?? 0;
 
-            // ---- HP消費の適用とフェーズ3：負傷・致死判定（仕様書 03 §4.3） ----
+            // ============ ランダムイベントの判定（→ 03 §4.2.3、項目65） ============
+            // 探索・護衛のみ。発生ロールは3イベント独立で、同じクエストで複数発生しうる。
+            // 判定だけをここで済ませ、HP消費への反映は下のHP適用フェーズでまとめて行う
+            // （イベント①が発生した回は、通常の軽量HP消費を適用しない＝二重消費の防止）。
+            if (!usesCombatResolution)
+                ResolveRandomEvents(result, party, quest);
+
+            // ---- HP消費の適用とフェーズ3：負傷・致死判定（仕様書 03 §4.3・§4.2.3） ----
+            var strongEnemy = result.Events.StrongEnemy;
+            if (strongEnemy != null && strongEnemy.UsedCombatDamage)
+            {
+                // 強敵と実際に撃ち合った回：その場の物理的な結果として、討伐フローの
+                // HP消費レンジ・致死判定をそのまま流用する（通常の軽量HP消費は行わない）。
+                var (combatMinPct, combatMaxPct) = strongEnemy.Outcome == StrongEnemyOutcome.PushedThrough
+                    ? (CombatBalance.HpLossPctNarrowWinMin, CombatBalance.HpLossPctNarrowWinMax)   // 押し切り＝辛勝相当
+                    : (CombatBalance.HpLossPctDefeatMin, CombatBalance.HpLossPctDefeatMax);        // 苦戦＝苦戦敗退相当
+                ApplyHpLossAndDeathJudgment(result, party, combatMinPct, combatMaxPct,
+                    useCombatDamageRules: true, clericMnd, leaderLdr, advisorBonus);
+            }
+            else
+            {
+                ApplyHpLossAndDeathJudgment(result, party, hpLossMinPct, hpLossMaxPct,
+                    useCombatDamageRules: usesCombatResolution, clericMnd, leaderLdr, advisorBonus);
+            }
+
+            // イベントに伴う追加HP消費（罠・深追いの代償）。致死判定には接続しない。
+            ApplyEventExtraHpLoss(result, party);
+
+            return result;
+        }
+
+        /// <summary>
+        /// HP消費の適用とフェーズ3（負傷・致死判定）。仕様書 03 §4.3・§4.2.3。
+        ///
+        /// useCombatDamageRules=true のとき、HP下限0（＝HP0でダウン→致死判定）となり、
+        /// 討伐フローと同じ生存／古傷／戦死の3分岐を行う。falseのときはHP下限1で、
+        /// 致死判定を一切行わない（探索・護衛の軽量HP消費）。
+        ///
+        /// 項目65：「強敵との遭遇」イベントで討伐フローの損害を流用する必要が生じたため、
+        /// Resolve本体にあった処理をこのメソッドへ切り出して再利用できるようにした
+        /// （討伐の処理内容自体は移動前と同一）。
+        /// </summary>
+        private void ApplyHpLossAndDeathJudgment(
+            WeekResolutionResult result, Party party, int hpLossMinPct, int hpLossMaxPct,
+            bool useCombatDamageRules, double clericMnd, double leaderLdr, double advisorBonus)
+        {
             foreach (var member in party.Members)
             {
                 int lossPct = _rng.NextInt(hpLossMinPct, hpLossMaxPct);
@@ -162,18 +207,18 @@ namespace GuildManager.Core.Systems
                 }
 
                 int hpLoss = member.MaxHP * lossPct / 100;
-                // HPの下限：討伐は0（＝ダウン→致死判定へ）、探索・護衛は1（致死判定に一切
-                // 接続しない低リスク経路のため、HP0によるダウン自体を発生させない。
-                // 訓練場配置のHP微減が TrainingBalance.MinHp=1 で下げ止まるのと同じ考え方。
-                // → 03 §4.2.3「致死判定・古傷・戦死は発生しない」）。この下限自体は構造的な
-                // クランプのためCSV化していない（→ 03 §10.1）。
-                int minHp = usesCombatResolution ? 0 : NonCombatMinHp;
+                // HPの下限：討伐（および強敵との遭遇で撃ち合った回）は0（＝ダウン→致死判定へ）、
+                // 通常の探索・護衛は1（致死判定に一切接続しない低リスク経路のため、HP0による
+                // ダウン自体を発生させない。訓練場配置のHP微減が TrainingBalance.MinHp=1 で
+                // 下げ止まるのと同じ考え方。→ 03 §4.2.3）。この下限自体は構造的なクランプの
+                // ためCSV化していない（→ 03 §10.1）。
+                int minHp = useCombatDamageRules ? 0 : NonCombatMinHp;
                 member.CurrentHP = Math.Max(minHp, member.CurrentHP - hpLoss);
                 result.HpLostByAdventurer[member.Id] = hpLoss;
 
-                // フェーズ3（致死判定）は討伐のみ。探索・護衛では上のminHp=1により
-                // そもそもHP0に到達しないが、意図を明示するため条件にも書いておく。
-                if (usesCombatResolution && member.CurrentHP == 0)
+                // フェーズ3（致死判定）は討伐フローの損害を適用した時のみ。通常の探索・護衛では
+                // 上のminHp=1によりそもそもHP0に到達しないが、意図を明示するため条件にも書いておく。
+                if (useCombatDamageRules && member.CurrentHP == 0)
                 {
                     result.DownedAdventurerIds.Add(member.Id);
 
@@ -205,8 +250,207 @@ namespace GuildManager.Core.Systems
                     }
                 }
             }
+        }
 
-            return result;
+        // ================= ランダムイベント（→ 03 §4.2.3、項目65） =================
+
+        /// <summary>
+        /// 探索・護衛のランダムイベント3種の発生ロールと判定を行い、結果を result.Events に記録する。
+        /// HP消費への反映（イベント①の討伐フロー流用・②③の追加消費）は呼び出し側で行う。
+        /// 発生ロールは「①強敵との遭遇 → ②宝物庫の発見 → ③深追い」の順に独立して行う。
+        /// </summary>
+        private void ResolveRandomEvents(WeekResolutionResult result, Party party, Quest quest)
+        {
+            if (Occurs(QuestEventBalance.StrongEnemyOccurrenceChancePercent))
+                result.Events.StrongEnemy = ResolveStrongEnemyEvent(result, party, quest);
+
+            // 宝物庫の発見は探索のみ（護衛には隊商の道中しかなく、探索対象の遺跡等が無いため）。
+            if (quest.QuestType == QuestType.Exploration && Occurs(QuestEventBalance.TreasureVaultOccurrenceChancePercent))
+                result.Events.TreasureVault = ResolveTreasureVaultEvent(result, party, quest);
+
+            if (Occurs(QuestEventBalance.PushingOnOccurrenceChancePercent))
+                result.Events.PushingOn = ResolvePushingOnEvent(result, party, quest);
+        }
+
+        /// <summary>イベントの発生判定。1〜100のロールが確率以下なら発生。</summary>
+        private bool Occurs(int chancePercent) => _rng.NextInt(1, 100) <= chancePercent;
+
+        /// <summary>
+        /// ①強敵との遭遇。押し切り／退避／苦戦の3値判定（→ 03 §4.2.3）。
+        /// 押し切り・苦戦では討伐フローのHP消費・致死判定を流用する（適用は呼び出し側）。
+        /// 探索・護衛としての成否（大成功／成功／失敗）はこのイベントでは変更しない。
+        /// </summary>
+        private static StrongEnemyEventResult ResolveStrongEnemyEvent(WeekResolutionResult result, Party party, Quest quest)
+        {
+            double leaderLdr = party.Members[0].GetEffectiveStat("LDR");
+
+            double pushThrough = party.Members.Sum(m => m.GetEffectiveStat("STR") + m.GetEffectiveStat("VIT"))
+                                 + leaderLdr * QuestEventBalance.StrongEnemyLeaderLdrCoefficient
+                                 + (PartyHasTrait(party, TraitCatalog.BraveId) ? QuestEventBalance.StrongEnemyBraveBonus : 0);
+
+            double evade = party.Members.Sum(m => m.GetEffectiveStat("AGI") + m.GetEffectiveStat("INT"))
+                           + (PartyHasTrait(party, TraitCatalog.AttentiveId) ? QuestEventBalance.StrongEnemyAttentiveBonus : 0)
+                           - (PartyHasTrait(party, TraitCatalog.TraumaId) ? QuestEventBalance.StrongEnemyTraumaPenalty : 0)
+                           - (PartyHasTrait(party, TraitCatalog.OldWoundId) ? QuestEventBalance.StrongEnemyOldWoundPenalty : 0);
+
+            double requirement = quest.Difficulty * QuestEventBalance.StrongEnemyRequirementCoefficient;
+
+            StrongEnemyOutcome outcome;
+            if (pushThrough >= requirement) outcome = StrongEnemyOutcome.PushedThrough;
+            else if (evade >= requirement) outcome = StrongEnemyOutcome.Evaded;
+            else outcome = StrongEnemyOutcome.Struggled;
+
+            int bonusGold = outcome == StrongEnemyOutcome.PushedThrough ? QuestEventBalance.StrongEnemyPushThroughRewardGold : 0;
+            // イベント由来の追加報酬は、クエスト自体の成否に関わらず加算する
+            // （倒した強敵からの戦利品・宝物庫の中身は、任務の達成/未達成とは別の獲得物のため）。
+            result.RewardGold += bonusGold;
+
+            return new StrongEnemyEventResult
+            {
+                Outcome = outcome,
+                PushThroughScore = pushThrough,
+                EvadeScore = evade,
+                Requirement = requirement,
+                BonusRewardGold = bonusGold,
+                UsedCombatDamage = outcome != StrongEnemyOutcome.Evaded,
+            };
+        }
+
+        /// <summary>②宝物庫の発見（探索のみ）。DEX+INT中心の判定で追加報酬の大小・罠を決める。</summary>
+        private static TreasureVaultEventResult ResolveTreasureVaultEvent(WeekResolutionResult result, Party party, Quest quest)
+        {
+            double score = party.Members.Sum(m => m.GetEffectiveStat("DEX") + m.GetEffectiveStat("INT"))
+                           + (PartyHasTrait(party, TraitCatalog.AttentiveId) ? QuestEventBalance.TreasureVaultAttentiveBonus : 0);
+            double requirement = quest.Difficulty * QuestEventBalance.TreasureVaultRequirementCoefficient;
+            double ratio = score / requirement;
+
+            var outcome = ClassifyEventOutcome(ratio,
+                QuestEventBalance.TreasureVaultRatioThresholdGreatSuccess,
+                QuestEventBalance.TreasureVaultRatioThresholdSuccess);
+
+            int bonusGold = outcome switch
+            {
+                QuestEventOutcome.GreatSuccess => QuestEventBalance.TreasureVaultGreatSuccessRewardGold,
+                QuestEventOutcome.Success => QuestEventBalance.TreasureVaultSuccessRewardGold,
+                _ => 0,
+            };
+            result.RewardGold += bonusGold;
+
+            return new TreasureVaultEventResult
+            {
+                Outcome = outcome,
+                Score = score,
+                Requirement = requirement,
+                Ratio = ratio,
+                BonusRewardGold = bonusGold,
+                // 罠の抽選（失敗時のみ）は、HP消費の適用と同じタイミングで行う
+                // （→ ApplyEventExtraHpLoss。判定と乱数消費の順序を1箇所にまとめるため）。
+            };
+        }
+
+        /// <summary>
+        /// ③深追い（探索・護衛）。VIT+MND中心の判定で、追加報酬とHP消費のトレードオフを決める。
+        /// クエストの拘束期間は変更しない（→ 03 §4.0.1「拘束期間の途中で呼び戻せない」方針と
+        /// 矛盾させないため、報酬とHP消費だけで表現する）。
+        /// </summary>
+        private static PushingOnEventResult ResolvePushingOnEvent(WeekResolutionResult result, Party party, Quest quest)
+        {
+            double score = party.Members.Sum(m => m.GetEffectiveStat("VIT") + m.GetEffectiveStat("MND"));
+            double requirement = quest.Difficulty * QuestEventBalance.PushingOnRequirementCoefficient;
+            double ratio = score / requirement;
+
+            var outcome = ClassifyEventOutcome(ratio,
+                QuestEventBalance.PushingOnRatioThresholdGreatSuccess,
+                QuestEventBalance.PushingOnRatioThresholdSuccess);
+
+            int bonusGold = outcome switch
+            {
+                QuestEventOutcome.GreatSuccess => QuestEventBalance.PushingOnGreatSuccessRewardGold,
+                QuestEventOutcome.Success => QuestEventBalance.PushingOnSuccessRewardGold,
+                _ => 0,
+            };
+            result.RewardGold += bonusGold;
+
+            return new PushingOnEventResult
+            {
+                Outcome = outcome,
+                Score = score,
+                Requirement = requirement,
+                Ratio = ratio,
+                BonusRewardGold = bonusGold,
+                // 追加HP消費（大成功＝粘った代償／失敗＝それなりの消費）は ApplyEventExtraHpLoss で適用する。
+            };
+        }
+
+        /// <summary>パーティ内に指定した特性の保有者が1人でもいるか（人数分の重ね掛けはしない）。</summary>
+        private static bool PartyHasTrait(Party party, string traitId) => party.Members.Any(m => m.HasTrait(traitId));
+
+        /// <summary>イベント専用の3段階判定（大成功／成功／失敗）。閾値はイベントごとに異なる。</summary>
+        private static QuestEventOutcome ClassifyEventOutcome(double ratio, double greatSuccessThreshold, double successThreshold)
+        {
+            if (ratio >= greatSuccessThreshold) return QuestEventOutcome.GreatSuccess;
+            if (ratio >= successThreshold) return QuestEventOutcome.Success;
+            return QuestEventOutcome.Failure;
+        }
+
+        /// <summary>
+        /// イベントに伴う追加HP消費（②宝物庫の罠・③深追いの代償）を適用する。
+        /// 致死判定には一切接続せず、HPは下限1で止まる。戦死者（イベント①経由で発生しうる）は対象外。
+        /// </summary>
+        private void ApplyEventExtraHpLoss(WeekResolutionResult result, Party party)
+        {
+            var treasureVault = result.Events.TreasureVault;
+            if (treasureVault is { Outcome: QuestEventOutcome.Failure })
+            {
+                treasureVault.TrapTriggered = Occurs(QuestEventBalance.TreasureVaultTrapChancePercent);
+                if (treasureVault.TrapTriggered)
+                    ApplyAdditionalHpLoss(result, party,
+                        QuestEventBalance.TreasureVaultTrapHpLossPctMin, QuestEventBalance.TreasureVaultTrapHpLossPctMax);
+            }
+
+            var pushingOn = result.Events.PushingOn;
+            if (pushingOn == null)
+                return;
+
+            switch (pushingOn.Outcome)
+            {
+                case QuestEventOutcome.GreatSuccess: // 粘った代償としてわずかに消費
+                    pushingOn.AppliedExtraHpLoss = true;
+                    ApplyAdditionalHpLoss(result, party,
+                        QuestEventBalance.PushingOnGreatSuccessHpLossPctMin, QuestEventBalance.PushingOnGreatSuccessHpLossPctMax);
+                    break;
+                case QuestEventOutcome.Failure: // 粘ったが得るものが無かった
+                    pushingOn.AppliedExtraHpLoss = true;
+                    ApplyAdditionalHpLoss(result, party,
+                        QuestEventBalance.PushingOnFailureHpLossPctMin, QuestEventBalance.PushingOnFailureHpLossPctMax);
+                    break;
+                // 成功：追加HP消費なし
+            }
+        }
+
+        /// <summary>
+        /// イベント由来の追加HP消費。通常のHP消費（ApplyHpLossAndDeathJudgment）とは別に、
+        /// その上から重ねて適用する。HP下限は1で、致死判定は行わない。
+        /// HpLostByAdventurerには「実際に減った分」を加算する（下限クランプで実際には
+        /// 減っていない分まで計上しないため）。
+        /// </summary>
+        private void ApplyAdditionalHpLoss(WeekResolutionResult result, Party party, int minPct, int maxPct)
+        {
+            foreach (var member in party.Members)
+            {
+                if (result.FallenAdventurerIds.Contains(member.Id))
+                    continue; // 戦死者にはこれ以上の消費を適用しない（HP0のまま据え置く）
+
+                int lossPct = _rng.NextInt(minPct, maxPct);
+                int hpLoss = member.MaxHP * lossPct / 100;
+                int newHp = Math.Max(NonCombatMinHp, member.CurrentHP - hpLoss);
+
+                int actualLoss = member.CurrentHP - newHp;
+                member.CurrentHP = newHp;
+
+                result.HpLostByAdventurer.TryGetValue(member.Id, out int already);
+                result.HpLostByAdventurer[member.Id] = already + actualLoss;
+            }
         }
 
         /// <summary>

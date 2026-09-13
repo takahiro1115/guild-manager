@@ -26,6 +26,13 @@ namespace GuildManager.Core.Systems
         public NonCombatOutcome? NonCombatOutcome { get; set; }
 
         public double Ratio { get; set; }
+
+        /// <summary>
+        /// 今回の解決で発生したランダムイベント（→ 03 §4.2.3、項目65）の結果。
+        /// 探索・護衛のみが対象で、討伐では必ず全て未発生（各プロパティがnull）になる。
+        /// イベント由来の追加報酬は RewardGold にも合算済み（内訳は Events 側で参照できる）。
+        /// </summary>
+        public QuestEventResults Events { get; } = new();
         public bool QuestAchieved { get; set; }
         public int RewardGold { get; set; }
 
