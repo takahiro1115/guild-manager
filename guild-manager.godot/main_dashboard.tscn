@@ -61,6 +61,7 @@ current_tab = 0
 
 [node name="QuestDispatchTab" type="VBoxContainer" parent="Root/BodyPanel/CenterPanel" unique_id=176574640]
 layout_mode = 2
+metadata/_tab_index = 0
 
 [node name="Label1" type="Label" parent="Root/BodyPanel/CenterPanel/QuestDispatchTab" unique_id=653772536]
 layout_mode = 2
@@ -87,7 +88,9 @@ layout_mode = 2
 text = "出撃メンバーを一時編成する"
 
 [node name="AdventurerTab" type="VBoxContainer" parent="Root/BodyPanel/CenterPanel" unique_id=176574641]
+visible = false
 layout_mode = 2
+metadata/_tab_index = 1
 
 [node name="Label2" type="Label" parent="Root/BodyPanel/CenterPanel/AdventurerTab" unique_id=619444891]
 layout_mode = 2
@@ -173,20 +176,20 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "自動スキップ (Auto Skip)"
 
-[node name="RecruitmentPopup" parent="." instance=ExtResource("2_recruit")]
+[node name="RecruitmentPopup" parent="." unique_id=1627770275 instance=ExtResource("2_recruit")]
 unique_name_in_owner = true
 
-[node name="FacilityPopup" parent="." instance=ExtResource("3_facility")]
+[node name="FacilityPopup" parent="." unique_id=446715543 instance=ExtResource("3_facility")]
 unique_name_in_owner = true
 
-[node name="AdvisorPopup" parent="." instance=ExtResource("4_advisor")]
+[node name="AdvisorPopup" parent="." unique_id=63371081 instance=ExtResource("4_advisor")]
 unique_name_in_owner = true
 
-[node name="EquipmentPopup" parent="." instance=ExtResource("5_equipment")]
+[node name="EquipmentPopup" parent="." unique_id=1423716623 instance=ExtResource("5_equipment")]
 unique_name_in_owner = true
 
-[node name="PartyFormationPopup" parent="." instance=ExtResource("6_partyformation")]
+[node name="PartyFormationPopup" parent="." unique_id=249957927 instance=ExtResource("6_partyformation")]
 unique_name_in_owner = true
 
-[node name="TemporarySwapPopup" parent="." instance=ExtResource("7_temporaryswap")]
+[node name="TemporarySwapPopup" parent="." unique_id=249698890 instance=ExtResource("7_temporaryswap")]
 unique_name_in_owner = true
