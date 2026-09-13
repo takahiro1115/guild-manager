@@ -17,7 +17,9 @@
 | `economy.csv` | 03 §8.1・§5.2 | SubsidyBalance, SatisfactionBalance(賃金), RecruitmentSystem(契約金) |
 | `quest.csv` | 03 §4.0 | QuestBalance |
 | `quest_templates.csv` | 03 §4.0 | QuestBalance.Templates |
-| `combat.csv` | 03 §4.1〜4.3 | QuestResolver, PlacementBalance, QuestAptitudeBalance |
+| `combat.csv` | 03 §4.1〜4.3 | QuestResolver（討伐フロー）, PlacementBalance, CombatBalance |
+| `quest_type_weights.csv` | 03 §4.2.3 | QuestScoringBalance.GetStatWeights（種別×ステータスの重み） |
+| `quest_scoring.csv` | 03 §4.2.3 | QuestScoringBalance（探索・護衛の要求係数・3区分閾値・軽量HP消費） |
 | `aging.csv` | 03 §3.0〜3.7 | GrowthBalance, AgingSystem |
 | `growth_job_weights.csv` | 03 §3.1〜3.4 | GrowthBalance.JobStatWeights |
 | `satisfaction.csv` | 03 §5.1・§5.2 | SatisfactionBalance |
@@ -34,6 +36,17 @@
 `trait.csv`・`equipment.csv` は項目58（バランス値のCSV外部化）の時点では対応CSVが
 存在せず対象外だったため、フォローアップとして追加した（値はTraitCatalog.cs・
 ItemCatalog.csに直書きされていた旧値をそのまま書き起こしたもの。挙動は変わらない）。
+
+`quest_type_weights.csv`・`quest_scoring.csv` は項目63（クエスト種別ごとの統一点数
+計算式、→ 03 §4.2.3）で新設した。あわせて以下を `combat.csv` から整理している：
+
+- 旧 `WeightSTR`〜`WeightLDR`（個人CP重み）→ `quest_type_weights.csv` の
+  `Subjugation` 行へ移行（値は同一）。
+- 旧 `AptitudeMinMultiplier`・`AptitudeMaxMultiplier`・`AptitudeReferenceStatValue`
+  → クエスト適性ボーナスの廃止に伴い削除。
+- **討伐の要求係数は `combat.csv` の `EnemyCpCoefficient`（敵CP係数）をそのまま使う。**
+  討伐にとっての要求値は従来どおり「敵CP」であり、同じ値を `quest_scoring.csv` にも
+  置くと二重管理になるため、探索・護衛の要求係数のみを新ファイル側に置いている。
 
 ## 凡例
 

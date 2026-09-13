@@ -10,7 +10,21 @@ namespace GuildManager.Core.Systems
     public class WeekResolutionResult
     {
         public EncounterResult Encounter { get; set; }
-        public CombatOutcome Outcome { get; set; }
+
+        /// <summary>
+        /// 討伐（Subjugation）の勝敗区分（4区分。→ 03 §4.2）。討伐以外（探索・護衛）では
+        /// nullになり、代わりに <see cref="NonCombatOutcome"/> が設定される（→ 03 §4.2.3、項目63）。
+        /// 両者は排他：どちらか一方だけが必ず値を持つ。
+        /// </summary>
+        public CombatOutcome? Outcome { get; set; }
+
+        /// <summary>
+        /// 探索・護衛の判定区分（3区分。→ 03 §4.2.3、項目63で新設）。討伐ではnull。
+        /// 討伐の <see cref="Outcome"/> とは別概念として扱う（致死判定・古傷・戦死が
+        /// 発生しない／HP消費が軽量、という性質の違いを型で区別するため）。
+        /// </summary>
+        public NonCombatOutcome? NonCombatOutcome { get; set; }
+
         public double Ratio { get; set; }
         public bool QuestAchieved { get; set; }
         public int RewardGold { get; set; }

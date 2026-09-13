@@ -619,7 +619,7 @@ public partial class MainDashboard : Control
 	{
 		var sb = new StringBuilder();
 		sb.AppendLine($"[b]第{weekNumber}週：{quest.Name}[/b]");
-		sb.AppendLine($"遭遇: {result.Encounter} / 結果: {result.Outcome} (Ratio={result.Ratio:F2})");
+		sb.AppendLine($"遭遇: {result.Encounter} / 結果: {ResolutionOutcomeLabel(result)} (Ratio={result.Ratio:F2})");
 		sb.AppendLine(result.QuestAchieved
 			? $"達成！報酬 {result.RewardGold} G"
 			: "任務失敗。報酬なし。");
@@ -632,6 +632,19 @@ public partial class MainDashboard : Control
 		}
 
 		AppendLog(sb.ToString());
+	}
+
+	/// <summary>
+	/// 週報に出す解決結果の区分名（→ 03 §4.2.3、項目63）。討伐は4区分（CombatOutcome）、
+	/// 探索・護衛は3区分（NonCombatOutcome）と、種別で別の概念を使うため表示側で振り分ける。
+	/// 週報表示自体の作り込み（日本語ラベル化等）は後続の指示書で行う想定のため、
+	/// ここでは区分名をそのまま出す最小限の対応に留めている。
+	/// </summary>
+	private static string ResolutionOutcomeLabel(WeekResolutionResult result)
+	{
+		if (result.NonCombatOutcome.HasValue)
+			return result.NonCombatOutcome.Value.ToString();
+		return result.Outcome.HasValue ? result.Outcome.Value.ToString() : "-";
 	}
 
 	/// <summary>

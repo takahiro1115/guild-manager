@@ -116,12 +116,16 @@ namespace GuildManager.Core.Tests
                 $"INTが高い方のRatio({highResult.Ratio})は低い方({lowResult.Ratio})より高いはず");
         }
 
-        // ---------------- クエスト適性ボーナス（→ 03 §4.2.1、v1.7改訂） ----------------
+        // ---------------- クエスト種別ごとの統一点数計算式（→ 03 §4.2.3、項目63） ----------------
+        // v1.7の「CPへの1.0〜1.3倍の適性ボーナス」方式は項目63で廃止され、種別ごとに
+        // 対象ステータス・重みが異なる統一点数計算式へ統合された。以下の2件は方式変更後も
+        // 期待値を変えずにそのまま通る（種別ごとの重視ステータスが効くことの確認という
+        // テストの主旨自体は変わらないため、名前・コメントのみ新方式に合わせて更新した）。
 
         [Fact]
         public void Resolve_Escort_HigherMndVit_YieldsHigherRatio_AllElseEqual()
         {
-            // 護衛はMND・VIT平均が適性基準。他ステータスを揃え、MND・VITだけ変えて比較する。
+            // 護衛の対象ステータスはMND/VIT/LDR。他ステータスを揃え、MND・VITだけ変えて比較する。
             var lowAptitude = new Adventurer { STR = 50, AGI = 50, VIT = 20, MND = 20, DEX = 50, LDR = 50 };
             lowAptitude.CurrentHP = lowAptitude.MaxHP;
             var highAptitude = new Adventurer { STR = 50, AGI = 50, VIT = 90, MND = 90, DEX = 50, LDR = 50 };
@@ -140,7 +144,7 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void Resolve_Exploration_HigherAgiDexInt_YieldsHigherRatio_AllElseEqual()
         {
-            // 調査・探索はAGI・DEX・INT平均が適性基準。
+            // 調査・探索の対象ステータスはAGI/DEX/INT/LDR。
             var lowAptitude = new Adventurer { STR = 50, AGI = 20, VIT = 50, MND = 50, DEX = 20, LDR = 50, INT = 20 };
             lowAptitude.CurrentHP = lowAptitude.MaxHP;
             var highAptitude = new Adventurer { STR = 50, AGI = 90, VIT = 50, MND = 50, DEX = 90, LDR = 50, INT = 90 };
@@ -157,9 +161,12 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
-        public void Resolve_AptitudeMultiplier_NeverGoesBelowOne_ForSubjugation()
+        public void Resolve_Subjugation_RatioStaysFiniteAndNonNegative_EvenWithMinimumStats()
         {
-            // 適性倍率はペナルティなし（1.0以上）。全ステータス最低値でも下振れしないことを確認する。
+            // 全ステータス最低値でもRatioが破綻（NaN・負値）しないことを確認する。
+            // 項目63改訂前は「適性倍率がペナルティ側（1.0未満）に振れないこと」の確認も
+            // 兼ねていたテスト。適性倍率の廃止後もこの assertion 自体は有効なため、
+            // 期待値は変えず名前・コメントのみ新方式に合わせた。
             var weakling = new Adventurer { STR = 1, AGI = 1, VIT = 50, MND = 1, DEX = 1, LDR = 1 };
             weakling.CurrentHP = weakling.MaxHP;
 
@@ -173,10 +180,10 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
-        public void Resolve_SameParty_EscortAptitude_YieldsHigherRatio_ThanSubjugation_WhenMndVitAreTheStrongStats()
+        public void Resolve_SameParty_Escort_YieldsHigherRatio_ThanSubjugation_WhenMndVitAreTheStrongStats()
         {
-            // MND・VIT特化パーティなら、討伐(7能力全体平均)より護衛(MND・VIT特化)の方が
-            // 適性倍率が高くなり、Ratioも高くなるはず。
+            // MND・VIT特化パーティなら、討伐(7能力に重み付け)より護衛(MND/VIT/LDRのみ評価)の
+            // 方が点数の伸びが大きく、Ratioも高くなるはず。
             var member = new Adventurer { STR = 10, AGI = 10, VIT = 90, MND = 90, DEX = 10, LDR = 10, INT = 10 };
             member.CurrentHP = member.MaxHP;
 
@@ -188,6 +195,260 @@ namespace GuildManager.Core.Tests
 
             Assert.True(escortResult.Ratio > subjugationResult.Ratio,
                 $"MND・VIT特化パーティは護衛Ratio({escortResult.Ratio})が討伐Ratio({subjugationResult.Ratio})より高いはず");
+        }
+
+        // ---------------- 探索・護衛の3区分判定（→ 03 §4.2.3、項目63） ----------------
+
+        /// <summary>
+        /// 索敵ロール・HP消費%ロールともに50を返すRNGで解決する。
+        /// 探索・護衛のテストでは遭遇区分（奇襲/通常/不意打ち）によらず結論が変わらない
+        /// 極端な点数差を使うため、遭遇区分そのものは固定しない。
+        /// </summary>
+        private static WeekResolutionResult ResolveWith(Adventurer member, Quest quest)
+        {
+            member.CurrentHP = member.MaxHP;
+            return new QuestResolver(new FixedRng(50)).Resolve(PartyOf(member), quest);
+        }
+
+        [Fact]
+        public void Resolve_Exploration_HighScoreParty_YieldsGreatSuccess()
+        {
+            // 探索の対象ステータス（AGI/DEX/INT/LDR、各重み1.0）が高い編成は大成功になる。
+            var specialist = new Adventurer { STR = 5, AGI = 90, VIT = 5, MND = 5, DEX = 90, LDR = 90, INT = 90 };
+            var quest = new Quest { QuestType = QuestType.Exploration, Difficulty = 50, ScoutRequirement = 50 };
+
+            var result = ResolveWith(specialist, quest);
+
+            Assert.Equal(NonCombatOutcome.GreatSuccess, result.NonCombatOutcome);
+            Assert.True(result.QuestAchieved);
+            Assert.Null(result.Outcome); // 討伐用の4区分は使わない（排他）
+        }
+
+        [Fact]
+        public void Resolve_Exploration_LowScoreParty_YieldsFailure()
+        {
+            var unsuited = new Adventurer { STR = 90, AGI = 5, VIT = 90, MND = 90, DEX = 5, LDR = 5, INT = 5 };
+            var quest = new Quest { QuestType = QuestType.Exploration, Difficulty = 50, ScoutRequirement = 50 };
+
+            var result = ResolveWith(unsuited, quest);
+
+            Assert.Equal(NonCombatOutcome.Failure, result.NonCombatOutcome);
+            Assert.False(result.QuestAchieved);
+            Assert.Equal(0, result.RewardGold);
+        }
+
+        [Fact]
+        public void Resolve_Escort_HighScoreParty_YieldsGreatSuccess()
+        {
+            // 護衛の対象ステータス（MND/VIT/LDR、各重み1.0）が高い編成は大成功になる。
+            var specialist = new Adventurer { STR = 5, AGI = 5, VIT = 90, MND = 90, DEX = 5, LDR = 90, INT = 5 };
+            var quest = new Quest { QuestType = QuestType.Escort, Difficulty = 50, ScoutRequirement = 50, RewardGold = 400 };
+
+            var result = ResolveWith(specialist, quest);
+
+            Assert.Equal(NonCombatOutcome.GreatSuccess, result.NonCombatOutcome);
+            Assert.True(result.QuestAchieved);
+            Assert.Equal(400, result.RewardGold); // 大成功・成功は「達成」として既存の報酬枠組みに乗る
+        }
+
+        [Fact]
+        public void Resolve_Escort_LowScoreParty_YieldsFailure()
+        {
+            var unsuited = new Adventurer { STR = 90, AGI = 90, VIT = 5, MND = 5, DEX = 90, LDR = 5, INT = 90 };
+            var quest = new Quest { QuestType = QuestType.Escort, Difficulty = 50, ScoutRequirement = 50 };
+
+            var result = ResolveWith(unsuited, quest);
+
+            Assert.Equal(NonCombatOutcome.Failure, result.NonCombatOutcome);
+            Assert.False(result.QuestAchieved);
+        }
+
+        [Fact]
+        public void Resolve_Exploration_MidScoreParty_YieldsSuccess_AndCountsAsAchieved()
+        {
+            // 中間帯（成功）：要求値=Difficulty50×係数2.0=100に対し点数120 → Ratio1.2。
+            // 遭遇区分が結論に影響しないよう、索敵値ぴったりのScoutRequirementで通常交戦に固定する
+            // （探索は隊長LDR補正なしのため 索敵値 = 30 + 30×0.3 = 39）。
+            var balanced = new Adventurer { STR = 30, AGI = 30, VIT = 30, MND = 30, DEX = 30, LDR = 30, INT = 30 };
+            var quest = new Quest { QuestType = QuestType.Exploration, Difficulty = 50, ScoutRequirement = 39 };
+
+            var result = ResolveWith(balanced, quest);
+
+            Assert.Equal(EncounterResult.Normal, result.Encounter);
+            Assert.Equal(1.2, result.Ratio, precision: 10);
+            Assert.Equal(NonCombatOutcome.Success, result.NonCombatOutcome);
+            Assert.True(result.QuestAchieved);
+        }
+
+        [Theory]
+        [InlineData(2.0, NonCombatOutcome.GreatSuccess)]  // 大成功の十分上
+        [InlineData(1.5, NonCombatOutcome.GreatSuccess)]  // 大成功の下限ちょうど
+        [InlineData(1.49, NonCombatOutcome.Success)]      // 大成功のすぐ下 → 成功
+        [InlineData(1.0, NonCombatOutcome.Success)]       // 成功の下限ちょうど
+        [InlineData(0.99, NonCombatOutcome.Failure)]      // 成功のすぐ下 → 失敗
+        [InlineData(0.0, NonCombatOutcome.Failure)]
+        public void ClassifyNonCombatOutcome_ReturnsExpectedBucket(double ratio, NonCombatOutcome expected)
+        {
+            var (outcome, _, _) = QuestResolver.ClassifyNonCombatOutcome(ratio);
+            Assert.Equal(expected, outcome);
+        }
+
+        [Fact]
+        public void ClassifyNonCombatOutcome_UsesLightweightHpLossRanges()
+        {
+            // 討伐の4区分（5〜15/20〜45/40〜70/70〜100%）より軽いレンジであることを確認する。
+            var (_, greatMin, greatMax) = QuestResolver.ClassifyNonCombatOutcome(2.0);
+            var (_, successMin, successMax) = QuestResolver.ClassifyNonCombatOutcome(1.2);
+            var (_, failureMin, failureMax) = QuestResolver.ClassifyNonCombatOutcome(0.5);
+
+            Assert.Equal((0, 5), (greatMin, greatMax));
+            Assert.Equal((5, 15), (successMin, successMax));
+            Assert.Equal((15, 30), (failureMin, failureMax));
+        }
+
+        // ---------------- 探索・護衛では致死判定が発生しない（→ 03 §4.2.3） ----------------
+
+        [Theory]
+        [InlineData(QuestType.Exploration)]
+        [InlineData(QuestType.Escort)]
+        public void Resolve_NonCombatQuest_NeverKillsOrInjuresPermanently_EvenAtWorstRolls(QuestType questType)
+        {
+            // 討伐なら確実に戦死する条件（最弱ステータス × 最高難易度 × AlwaysMaxRng）でも、
+            // 探索・護衛では戦死・古傷・ダウンのいずれも発生せず、HPは下限1で止まる。
+            var weakling = new Adventurer { STR = 1, AGI = 1, VIT = 1, MND = 1, DEX = 1, LDR = 1 };
+            weakling.CurrentHP = 1; // 消費量が残HPを上回る状況を作り、下限クランプを確実に踏ませる
+            var quest = new Quest { QuestType = questType, Difficulty = 100, ScoutRequirement = 1 };
+
+            var result = new QuestResolver(new AlwaysMaxRng()).Resolve(PartyOf(weakling), quest);
+
+            Assert.Equal(NonCombatOutcome.Failure, result.NonCombatOutcome);
+            Assert.Empty(result.FallenAdventurerIds);
+            Assert.Empty(result.DownedAdventurerIds);
+            Assert.Empty(weakling.TraitIds); // 古傷は付与されない
+            Assert.NotEqual(InjurySeverity.Severe, weakling.Injury);
+            Assert.Equal(1, weakling.CurrentHP); // HPは1で下げ止まる（HP0＝ダウンに到達しない）
+        }
+
+        [Fact]
+        public void Resolve_SameWorstCase_StillKills_ForSubjugation()
+        {
+            // 上のテストとの対比：まったく同じ条件でも討伐なら従来どおり戦死する
+            // （＝「致死判定が発生しない」のは探索・護衛に限った差分であることの確認）。
+            var weakling = new Adventurer { STR = 1, AGI = 1, VIT = 1, MND = 1, DEX = 1, LDR = 1 };
+            weakling.CurrentHP = 1;
+            var quest = new Quest { QuestType = QuestType.Subjugation, Difficulty = 100, ScoutRequirement = 1 };
+
+            var result = new QuestResolver(new AlwaysMaxRng()).Resolve(PartyOf(weakling), quest);
+
+            Assert.Contains(weakling.Id, result.FallenAdventurerIds);
+            Assert.Null(result.NonCombatOutcome); // 討伐は3区分を使わない（排他）
+        }
+
+        // ---------------- 索敵フェーズの隊長LDR補正は討伐のみ（→ 03 §4.2.3） ----------------
+
+        [Fact]
+        public void Resolve_Subjugation_LeaderLdr_ShiftsEncounterBand()
+        {
+            // 討伐では索敵値に隊長LDR×0.2が乗る（索敵値 = 50 + 50×0.3 + LDR×0.2）。
+            // ScoutRequirement=45 なら、LDR=90は奇襲成功(50<=15+38)、LDR=0は通常交戦に分かれる。
+            var quest = new Quest { QuestType = QuestType.Subjugation, Difficulty = 50, ScoutRequirement = 45 };
+
+            var highLdr = ResolveWith(new Adventurer { STR = 50, AGI = 50, VIT = 50, MND = 50, DEX = 50, LDR = 90 }, quest);
+            var lowLdr = ResolveWith(new Adventurer { STR = 50, AGI = 50, VIT = 50, MND = 50, DEX = 50, LDR = 0 }, quest);
+
+            Assert.Equal(EncounterResult.Surprise, highLdr.Encounter);
+            Assert.Equal(EncounterResult.Normal, lowLdr.Encounter);
+        }
+
+        [Theory]
+        [InlineData(QuestType.Exploration)]
+        [InlineData(QuestType.Escort)]
+        public void Resolve_NonCombatQuest_LeaderLdr_DoesNotShiftEncounterBand(QuestType questType)
+        {
+            // 探索・護衛ではLDRを点数計算式側で直接評価するため、索敵側の隊長LDR補正は
+            // 適用しない（二重評価の回避）。上の討伐テストと同じ数値条件でも、LDRの差で
+            // 遭遇区分が変わらないことを確認する。
+            var quest = new Quest { QuestType = questType, Difficulty = 50, ScoutRequirement = 45 };
+
+            var highLdr = ResolveWith(new Adventurer { STR = 50, AGI = 50, VIT = 50, MND = 50, DEX = 50, LDR = 90 }, quest);
+            var lowLdr = ResolveWith(new Adventurer { STR = 50, AGI = 50, VIT = 50, MND = 50, DEX = 50, LDR = 0 }, quest);
+
+            Assert.Equal(EncounterResult.Normal, highLdr.Encounter);
+            Assert.Equal(EncounterResult.Normal, lowLdr.Encounter);
+        }
+
+        // ---------------- 討伐の点数計算式の回帰テスト（→ 03 §4.2.3、項目63） ----------------
+
+        [Fact]
+        public void Resolve_Subjugation_RatioMatchesLegacyPersonalCpFormula()
+        {
+            // 統一点数計算式へ移行しても、討伐の計算内容が従来の個人CP式と一致することを
+            // 数値で固定する回帰テスト。
+            //   重み付き合計 = 50×(0.8+0.5+0.6+0.8+0.4+0.4+0.7) = 210
+            //   配置補正 = 斥候×前衛 = 1.0 ／ HP比率 = 1.0 ／ 装備なし
+            //   要求値 = Difficulty50 × 敵CP係数3.0 = 150 → Ratio = 210 / 150 = 1.4
+            // 索敵値 = 50 + 50×0.3 + 50×0.2 = 75 にScoutRequirementを合わせ、通常交戦
+            // （戦闘力倍率なし・不意打ちによる要求値増なし）に固定している。
+            var member = new Adventurer
+            {
+                JobClass = JobClass.Ranger, // 前衛・後衛いずれも配置補正1.0のため、配置の影響を排除できる
+                Placement = Placement.Front,
+                STR = 50, AGI = 50, VIT = 50, MND = 50, DEX = 50, LDR = 50, INT = 50,
+            };
+            var quest = new Quest { QuestType = QuestType.Subjugation, Difficulty = 50, ScoutRequirement = 75 };
+
+            var result = ResolveWith(member, quest);
+
+            Assert.Equal(EncounterResult.Normal, result.Encounter);
+            Assert.Equal(1.4, result.Ratio, precision: 10);
+            Assert.Equal(CombatOutcome.NarrowWin, result.Outcome);
+            Assert.True(result.QuestAchieved);
+        }
+
+        [Fact]
+        public void Resolve_Subjugation_StillAppliesEquipmentBonus_ButNonCombatDoesNot()
+        {
+            // 装備ボーナスは討伐のみ（探索・護衛は「予約枠」として常に0。→ 03 §4.2.3）。
+            // 同じ武器を装備した状態で、討伐ではRatioが上がり、探索では変わらないことを確認する。
+            Adventurer Make(bool equip)
+            {
+                var a = new Adventurer { JobClass = JobClass.Warrior, STR = 50, AGI = 50, VIT = 50, MND = 50, DEX = 50, LDR = 50, INT = 50 };
+                if (equip) new EquipmentSystem().TryEquip(a, ItemCatalog.IronSwordId);
+                a.CurrentHP = a.MaxHP;
+                return a;
+            }
+
+            var subjugation = new Quest { QuestType = QuestType.Subjugation, Difficulty = 50, ScoutRequirement = 75 };
+            var exploration = new Quest { QuestType = QuestType.Exploration, Difficulty = 50, ScoutRequirement = 65 };
+
+            var subjugationPlain = new QuestResolver(new FixedRng(50)).Resolve(PartyOf(Make(false)), subjugation);
+            var subjugationArmed = new QuestResolver(new FixedRng(50)).Resolve(PartyOf(Make(true)), subjugation);
+            var explorationPlain = new QuestResolver(new FixedRng(50)).Resolve(PartyOf(Make(false)), exploration);
+            var explorationArmed = new QuestResolver(new FixedRng(50)).Resolve(PartyOf(Make(true)), exploration);
+
+            Assert.True(subjugationArmed.Ratio > subjugationPlain.Ratio, "討伐では装備ボーナスがRatioに乗るはず");
+            Assert.Equal(explorationPlain.Ratio, explorationArmed.Ratio, precision: 10);
+        }
+
+        [Fact]
+        public void Resolve_NonCombatQuest_IgnoresPlacementCorrection()
+        {
+            // 配置補正は討伐のみ（→ 03 §4.2.3）。戦士を前衛/後衛に置き分けても、
+            // 護衛では点数（Ratio）が変わらないことを確認する
+            // （討伐で差が出ることは Resolve_FrontPlacement_... 側で確認済み）。
+            Adventurer Make(Placement placement)
+            {
+                var a = new Adventurer { JobClass = JobClass.Warrior, Placement = placement, STR = 50, AGI = 50, VIT = 50, MND = 50, DEX = 50, LDR = 50, INT = 50 };
+                a.CurrentHP = a.MaxHP;
+                return a;
+            }
+
+            var quest = new Quest { QuestType = QuestType.Escort, Difficulty = 50, ScoutRequirement = 65 };
+
+            var front = new QuestResolver(new FixedRng(50)).Resolve(PartyOf(Make(Placement.Front)), quest);
+            var back = new QuestResolver(new FixedRng(50)).Resolve(PartyOf(Make(Placement.Back)), quest);
+
+            Assert.Equal(front.Ratio, back.Ratio, precision: 10);
         }
 
         // ---------------- 装備の個人CP・最大HPへの反映（→ 03 §4.2.2、v1.7改訂） ----------------

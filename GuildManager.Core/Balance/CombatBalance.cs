@@ -7,24 +7,23 @@ namespace GuildManager.Core.Balance
     ///
     /// 事前調査メモ（項目58）：これらの数値はQuestResolver.cs・Adventurer.cs（MaxHP算出）に
     /// 直書きされていた（05技術メモ§3の方針違反）。今回新設したこのクラスへ集約した。
-    /// 配置補正（PlacementBalance）・クエスト適性倍率（QuestAptitudeBalance）は既存の
-    /// Balanceクラスの公開シグネチャを変えないため、combat.csv内の該当キーもそれぞれの
-    /// 既存クラス側で読む（このクラスには持たない）。
+    /// 配置補正（PlacementBalance）は既存のBalanceクラスの公開シグネチャを変えないため、
+    /// combat.csv内の該当キーもそちら側で読む（このクラスには持たない）。
+    ///
+    /// 項目63改訂：個人CP重み（旧WeightSTR〜WeightLDR）は、クエスト種別ごとの統一点数
+    /// 計算式（→ 03 §4.2.3）の一部として QuestScoringBalance（quest_type_weights.csv）へ
+    /// 移した。討伐の重みはそのテーブルのSubjugation行が持つ（値は移行前と同一）。
+    /// あわせて旧クエスト適性倍率（QuestAptitudeBalance）のキーも廃止した。
     /// </summary>
     public static class CombatBalance
     {
         private const string FileName = "combat.csv";
 
-        // ---- 個人CP重み係数。→ BAL: 戦闘/CP重み ----
-        public static readonly double WeightSTR = BalanceData.GetDouble(FileName, "WeightSTR");
-        public static readonly double WeightAGI = BalanceData.GetDouble(FileName, "WeightAGI");
-        public static readonly double WeightVIT = BalanceData.GetDouble(FileName, "WeightVIT");
-        public static readonly double WeightDEX = BalanceData.GetDouble(FileName, "WeightDEX");
-        public static readonly double WeightMND = BalanceData.GetDouble(FileName, "WeightMND");
-        public static readonly double WeightINT = BalanceData.GetDouble(FileName, "WeightINT");
-        public static readonly double WeightLDR = BalanceData.GetDouble(FileName, "WeightLDR");
-
-        /// <summary>敵CP＝クエスト難易度×この係数。→ BAL: 戦闘/敵CP係数</summary>
+        /// <summary>
+        /// 討伐の要求値（敵CP）＝クエスト難易度×この係数。→ BAL: 戦闘/敵CP係数。
+        /// 項目63の統一点数計算式では「討伐の要求係数」も兼ねる
+        /// （→ QuestScoringBalance.GetRequirementCoefficient）。
+        /// </summary>
         public static readonly double EnemyCpCoefficient = BalanceData.GetDouble(FileName, "EnemyCpCoefficient");
 
         // ---- 最大HP算出（→ Adventurer.MaxHP）。最大HP＝VIT×係数＋基礎値＋装備ボーナス ----

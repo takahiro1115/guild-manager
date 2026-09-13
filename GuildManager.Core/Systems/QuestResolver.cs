@@ -7,11 +7,20 @@ using GuildManager.Core.Rng;
 namespace GuildManager.Core.Systems
 {
     /// <summary>
-    /// 週送り時の遠征解決エンジン。仕様書 03 §4（フェーズ1〜3）を実装する。
+    /// 週送り時の遠征解決エンジン。仕様書 03 §4（フェーズ1〜3）・§4.2.3 を実装する。
+    ///
+    /// 項目63改訂：討伐・探索・護衛を「対象ステータス・重みが違う同一の点数計算式」に統一した
+    /// （→ 03 §4.2.3・QuestScoringBalance）。フェーズ1（索敵・遭遇判定）とフェーズ2の
+    /// 点数／要求値／Ratio算出はすべての種別で共通、Ratio分岐後は種別で完全に分かれる：
+    ///  - 討伐（Subjugation）：既存どおり4区分（完全勝利/辛勝/苦戦敗退/戦線崩壊）＋致死判定
+    ///    （生存／古傷／戦死）。装備ボーナス・配置補正・索敵の隊長LDR補正も討伐のみ適用する。
+    ///  - 探索（Exploration）・護衛（Escort）：3区分（大成功/成功/失敗）＋軽量HP消費。
+    ///    致死判定・古傷・戦死は発生しない。LDRは点数式側で直接評価するため、索敵の
+    ///    隊長LDR補正は二重評価を避けて適用しない。
     ///
     ///  - フェーズ1：索敵・遭遇判定
-    ///  - フェーズ2：戦闘比率とHP消費
-    ///  - フェーズ3：負傷・致死判定（生存／不可逆障害＝古傷／戦死の3分岐。→ 03 §4.3）。
+    ///  - フェーズ2：点数（討伐ではCP）・要求値・Ratio算出とHP消費
+    ///  - フェーズ3：負傷・致死判定（生存／不可逆障害＝古傷／戦死の3分岐。→ 03 §4.3。討伐のみ）。
     ///    古傷は汎用の特性(Trait)エンジン上の「古傷」特性として付与する
     ///    （Adventurer.TryAddTrait経由）。重複禁止のため、既に古傷を持つ冒険者が
     ///    再び不可逆障害の判定域に入った場合は新たな付与をせず「生存（重傷）」に丸める。
@@ -21,6 +30,13 @@ namespace GuildManager.Core.Systems
     /// </summary>
     public class QuestResolver
     {
+        /// <summary>
+        /// 探索・護衛でのHP下限（→ 03 §4.2.3）。致死判定に接続しない低リスク経路のため、
+        /// HP0（ダウン）自体を発生させない。訓練場配置の TrainingBalance.MinHp と同じ考え方の
+        /// 構造的なクランプのため、CSV化せずコード側に置く（→ 03 §10.1）。
+        /// </summary>
+        private const int NonCombatMinHp = 1;
+
         private readonly IRng _rng;
 
         public QuestResolver(IRng rng)
@@ -45,6 +61,9 @@ namespace GuildManager.Core.Systems
 
             var result = new WeekResolutionResult();
 
+            // 討伐系（4区分・致死判定あり）か、探索・護衛系（3区分・軽量HP消費）か（→ 03 §4.2.3）。
+            bool usesCombatResolution = QuestScoringBalance.UsesCombatResolution(quest.QuestType);
+
             // ================= フェーズ1：索敵・遭遇判定（仕様書 03 §4.1） =================
             // 「注意深い」特性（ScoutingModifier）は各メンバー自身のDEX寄与率を補正する
             // （例：+0.10で+10%）。v1.4改訂。
@@ -53,7 +72,12 @@ namespace GuildManager.Core.Systems
             double avgScout = scoutValues.Average();
             double leaderLdr = party.Members[0].GetEffectiveStat("LDR"); // MVP: 先頭メンバーを隊長とみなす
 
-            double partyScout = maxScout + avgScout * CombatBalance.ScoutAvgCoefficient + leaderLdr * CombatBalance.ScoutLeaderLdrCoefficient + advisorBonus;
+            // 隊長LDR補正は討伐のみ（→ 03 §4.2.3）。探索・護衛はLDRを点数計算式側で直接
+            // 評価する（重み1.0）ため、索敵側でも加算すると二重評価になる。
+            // 索敵フェーズ自体（不意打ち判定・戦闘力補正）はすべての種別で従来どおり実行する。
+            double leaderScoutBonus = usesCombatResolution ? leaderLdr * CombatBalance.ScoutLeaderLdrCoefficient : 0;
+
+            double partyScout = maxScout + avgScout * CombatBalance.ScoutAvgCoefficient + leaderScoutBonus + advisorBonus;
             double deltaS = partyScout - quest.ScoutRequirement;
 
             int scoutRoll = _rng.NextInt(1, 100);
@@ -78,22 +102,40 @@ namespace GuildManager.Core.Systems
                 result.Encounter = EncounterResult.Ambushed; // 敵戦力+30%は下のEnemyCPに反映
             }
 
-            // ================= フェーズ2：戦闘比率計算（仕様書 03 §4.2） =================
-            // 疲労（Fatigue）は廃止済み（→ 03 §3.5改）。HPの影響は PersonalCp の ×(現在HP/最大HP) で保持。
-            // クエスト適性ボーナス（→ 03 §4.2.1、v1.7改訂）：基礎PartyCP算出後、クエスト種別に
-            // 応じた適性倍率（1.0以上、ボーナスのみ）を追加で乗算する。
-            double partyCp = party.Members.Sum(PersonalCp) * combatMultiplier * GetAptitudeMultiplier(party, quest.QuestType);
+            // ============ フェーズ2：統一点数計算式（仕様書 03 §4.2・§4.2.3） ============
+            // 点数   = Σ(各メンバーの対象ステータス合計 × HP比率) + 装備ボーナス（討伐のみ） × 配置補正（討伐のみ）
+            // 要求値 = クエストDifficulty × 種別ごとの要求係数
+            // 疲労（Fatigue）は廃止済み（→ 03 §3.5改）。HPの影響は MemberScore の ×(現在HP/最大HP) で保持。
+            //
+            // 拡張ポイント（→ 後続の指示書②）：ペア特性シナジーはパーティ単位の加算項として
+            // ここ（Σの後）に、個人特性ボーナスはメンバー単位の加算項として MemberScore 内に
+            // それぞれ差し込める形にしてある。
+            double score = party.Members.Sum(m => MemberScore(m, quest.QuestType)) * combatMultiplier;
 
-            double enemyCp = quest.Difficulty * CombatBalance.EnemyCpCoefficient;
+            double requirement = quest.Difficulty * QuestScoringBalance.GetRequirementCoefficient(quest.QuestType);
             if (result.Encounter == EncounterResult.Ambushed)
-                enemyCp *= CombatBalance.AmbushEnemyMultiplier;
+                requirement *= CombatBalance.AmbushEnemyMultiplier;
 
-            double ratio = partyCp / enemyCp;
+            double ratio = score / requirement;
             result.Ratio = ratio;
 
-            var (outcome, hpLossMinPct, hpLossMaxPct) = ClassifyOutcome(ratio);
-            result.Outcome = outcome;
-            result.QuestAchieved = outcome == CombatOutcome.Victory || outcome == CombatOutcome.NarrowWin;
+            // Ratio分岐後の扱いは種別で完全に分ける（→ 03 §4.2.3）。
+            int hpLossMinPct;
+            int hpLossMaxPct;
+            if (usesCombatResolution)
+            {
+                var (outcome, minPct, maxPct) = ClassifyOutcome(ratio);
+                result.Outcome = outcome;
+                result.QuestAchieved = outcome == CombatOutcome.Victory || outcome == CombatOutcome.NarrowWin;
+                (hpLossMinPct, hpLossMaxPct) = (minPct, maxPct);
+            }
+            else
+            {
+                var (outcome, minPct, maxPct) = ClassifyNonCombatOutcome(ratio);
+                result.NonCombatOutcome = outcome;
+                result.QuestAchieved = outcome != Systems.NonCombatOutcome.Failure; // 大成功・成功＝達成
+                (hpLossMinPct, hpLossMaxPct) = (minPct, maxPct);
+            }
             result.RewardGold = result.QuestAchieved ? quest.RewardGold : 0;
 
             // 致死判定（フェーズ3）の「神官MND」補正用：パーティに神官がいればその実効MNDを使う。
@@ -117,10 +159,18 @@ namespace GuildManager.Core.Systems
                 }
 
                 int hpLoss = member.MaxHP * lossPct / 100;
-                member.CurrentHP = Math.Max(0, member.CurrentHP - hpLoss);
+                // HPの下限：討伐は0（＝ダウン→致死判定へ）、探索・護衛は1（致死判定に一切
+                // 接続しない低リスク経路のため、HP0によるダウン自体を発生させない。
+                // 訓練場配置のHP微減が TrainingBalance.MinHp=1 で下げ止まるのと同じ考え方。
+                // → 03 §4.2.3「致死判定・古傷・戦死は発生しない」）。この下限自体は構造的な
+                // クランプのためCSV化していない（→ 03 §10.1）。
+                int minHp = usesCombatResolution ? 0 : NonCombatMinHp;
+                member.CurrentHP = Math.Max(minHp, member.CurrentHP - hpLoss);
                 result.HpLostByAdventurer[member.Id] = hpLoss;
 
-                if (member.CurrentHP == 0)
+                // フェーズ3（致死判定）は討伐のみ。探索・護衛では上のminHp=1により
+                // そもそもHP0に到達しないが、意図を明示するため条件にも書いておく。
+                if (usesCombatResolution && member.CurrentHP == 0)
                 {
                     result.DownedAdventurerIds.Add(member.Id);
 
@@ -163,21 +213,6 @@ namespace GuildManager.Core.Systems
         private static double GetScoutingDex(Adventurer a) =>
             a.GetEffectiveStat("DEX") * (1 + a.SumTraitEffect(TraitEffectType.ScoutingModifier, "DEX"));
 
-        /// <summary>
-        /// クエスト適性ボーナス（→ 03 §4.2.1）：クエスト種別が定める対象ステータス群の
-        /// パーティ平均実効値から、1.0〜1.3倍（ペナルティなし）の適性倍率を算出する。
-        /// 討伐は7能力全体が対象＝既存の基礎CPとほぼ同じ考え方になるため、実質ほぼ標準
-        /// （倍率が1.0に近い）クエストという位置づけになる（仕様どおり）。
-        /// </summary>
-        private static double GetAptitudeMultiplier(Party party, QuestType questType)
-        {
-            var stats = QuestAptitudeBalance.GetAptitudeStats(questType);
-            double average = party.Members
-                .SelectMany(_ => stats, (member, stat) => member.GetEffectiveStat(stat))
-                .Average();
-            return QuestAptitudeBalance.GetMultiplier(average);
-        }
-
         /// <summary>致死判定で「生存」と判定された場合の共通処理：重傷でHP1に留まる（→ 03 §4.3・§3.6）。</summary>
         private void ApplySurvival(Adventurer member)
         {
@@ -186,22 +221,48 @@ namespace GuildManager.Core.Systems
             member.CurrentHP = 1;
         }
 
-        private static double PersonalCp(Adventurer a)
+        /// <summary>
+        /// 統一点数計算式における、メンバー1名分の点数（→ 03 §4.2.3）。
+        /// 討伐ではこれが従来の「個人CP」と完全に同じ式になる（対象ステータスの重みは
+        /// quest_type_weights.csvのSubjugation行が旧CombatBalance.WeightXXXの値をそのまま持つ）。
+        ///
+        /// 拡張ポイント（→ 後続の指示書②）：個人特性ボーナスはここに加算項として差し込む。
+        /// </summary>
+        private static double MemberScore(Adventurer a, QuestType questType)
         {
             double hpRatio = (double)a.CurrentHP / a.MaxHP;
-            double baseCp = a.GetEffectiveStat("STR") * CombatBalance.WeightSTR + a.GetEffectiveStat("AGI") * CombatBalance.WeightAGI
-                            + a.GetEffectiveStat("VIT") * CombatBalance.WeightVIT + a.GetEffectiveStat("DEX") * CombatBalance.WeightDEX
-                            + a.GetEffectiveStat("MND") * CombatBalance.WeightMND + a.GetEffectiveStat("INT") * CombatBalance.WeightINT
-                            + a.GetEffectiveStat("LDR") * CombatBalance.WeightLDR
-                            // 装備（武器・アクセサリー）のCP固定加算（→ 03 §4.2.2）。ステータス由来の
-                            // 寄与と同じ扱いとし、負傷時の効率低下(hpRatio)・配置補正の対象にする。
-                            + a.GetEquipmentBonus(EquipmentEffectType.PersonalCpBonus);
-            double placementCorrection = PlacementBalance.GetPersonalCpCorrection(a.JobClass, a.Placement);
-            return baseCp * placementCorrection * hpRatio;
+
+            double statSum = 0;
+            foreach (var (stat, weight) in QuestScoringBalance.GetStatWeights(questType))
+                statSum += a.GetEffectiveStat(stat) * weight;
+
+            double baseScore = statSum + GetEquipmentBonus(a, questType);
+            return baseScore * GetPlacementCorrection(a, questType) * hpRatio;
         }
 
         /// <summary>
-        /// Ratioから勝敗区分とHP消費%レンジを求める。仕様書03 §4.2の表に対応。
+        /// 装備ボーナス。討伐では装備（武器・アクセサリー）のCP固定加算（→ 03 §4.2.2）を
+        /// ステータス由来の寄与と同じ扱いで加算し、負傷時の効率低下(hpRatio)・配置補正の対象にする。
+        ///
+        /// 探索・護衛は「予約枠」として常に0を返す（→ 03 §4.2.3）。探索・護衛で効く装備効果
+        /// （調査道具・護衛用装備等）は今回実装しないが、将来追加する際はこのメソッドが
+        /// 拡張点になる。
+        /// </summary>
+        private static double GetEquipmentBonus(Adventurer a, QuestType questType) =>
+            QuestScoringBalance.UsesCombatResolution(questType)
+                ? a.GetEquipmentBonus(EquipmentEffectType.PersonalCpBonus)
+                : 0;
+
+        /// <summary>
+        /// 配置補正（前衛/後衛）。討伐のみ適用し、探索・護衛には適用しない（→ 03 §4.2.3）。
+        /// </summary>
+        private static double GetPlacementCorrection(Adventurer a, QuestType questType) =>
+            QuestScoringBalance.UsesCombatResolution(questType)
+                ? PlacementBalance.GetPersonalCpCorrection(a.JobClass, a.Placement)
+                : 1.0;
+
+        /// <summary>
+        /// Ratioから勝敗区分とHP消費%レンジを求める（討伐のみ）。仕様書03 §4.2の表に対応。
         /// public static にしてあるのはユニットテストから直接呼べるようにするため。
         /// </summary>
         public static (CombatOutcome Outcome, int MinPct, int MaxPct) ClassifyOutcome(double ratio)
@@ -213,6 +274,20 @@ namespace GuildManager.Core.Systems
             if (ratio >= CombatBalance.RatioThresholdDefeat)
                 return (CombatOutcome.Defeat, CombatBalance.HpLossPctDefeatMin, CombatBalance.HpLossPctDefeatMax);
             return (CombatOutcome.Rout, CombatBalance.HpLossPctRoutMin, CombatBalance.HpLossPctRoutMax);
+        }
+
+        /// <summary>
+        /// Ratioから探索・護衛の判定区分と軽量HP消費%レンジを求める（→ 03 §4.2.3）。
+        /// 討伐の4区分（ClassifyOutcome）とは別概念：致死判定には一切接続しない。
+        /// public static にしてあるのはユニットテストから直接呼べるようにするため。
+        /// </summary>
+        public static (NonCombatOutcome Outcome, int MinPct, int MaxPct) ClassifyNonCombatOutcome(double ratio)
+        {
+            if (ratio >= QuestScoringBalance.RatioThresholdGreatSuccess)
+                return (NonCombatOutcome.GreatSuccess, QuestScoringBalance.HpLossPctGreatSuccessMin, QuestScoringBalance.HpLossPctGreatSuccessMax);
+            if (ratio >= QuestScoringBalance.RatioThresholdSuccess)
+                return (NonCombatOutcome.Success, QuestScoringBalance.HpLossPctSuccessMin, QuestScoringBalance.HpLossPctSuccessMax);
+            return (NonCombatOutcome.Failure, QuestScoringBalance.HpLossPctFailureMin, QuestScoringBalance.HpLossPctFailureMax);
         }
 
         private static double Clamp(double value, double min, double max) =>
