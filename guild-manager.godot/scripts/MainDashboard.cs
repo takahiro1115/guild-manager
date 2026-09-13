@@ -617,12 +617,22 @@ public partial class MainDashboard : Control
 
 	private void LogResult(int weekNumber, Quest quest, WeekResolutionResult result)
 	{
+		// イベント由来の追加報酬は RewardGold に合算済みのため、クエスト本体の報酬と
+		// 分けて表示できるよう差し引いておく（→ 03 §4.2.3、項目65・66）。
+		int eventBonusGold = result.Events.TotalBonusRewardGold;
+		int questRewardGold = result.RewardGold - eventBonusGold;
+
 		var sb = new StringBuilder();
 		sb.AppendLine($"[b]第{weekNumber}週：{quest.Name}[/b]");
-		sb.AppendLine($"遭遇: {result.Encounter} / 結果: {ResolutionOutcomeLabel(result)} (Ratio={result.Ratio:F2})");
+		sb.AppendLine($"遭遇: {EncounterLabel(result.Encounter)} / 結果: {ResolutionOutcomeLabel(result)} (Ratio={result.Ratio:F2})");
 		sb.AppendLine(result.QuestAchieved
-			? $"達成！報酬 {result.RewardGold} G"
+			? $"達成！報酬 {questRewardGold} G"
 			: "任務失敗。報酬なし。");
+
+		AppendQuestEventLines(sb, result);
+
+		if (eventBonusGold > 0)
+			sb.AppendLine($"[color=gold]戦利品ボーナス +{eventBonusGold} G[/color]");
 
 		foreach (var kv in result.HpLostByAdventurer)
 		{
@@ -635,16 +645,92 @@ public partial class MainDashboard : Control
 	}
 
 	/// <summary>
-	/// 週報に出す解決結果の区分名（→ 03 §4.2.3、項目63）。討伐は4区分（CombatOutcome）、
+	/// 今回の解決で発生したランダムイベント（→ 03 §4.2.3、項目65）を週報へ文章で追記する。
+	/// 発生しなかったイベントは何も出さない。
+	///
+	/// 情報公開の原則（→ 03 §4.2.3、項目66）：判定スコア・要求値・閾値といった内部数値は
+	/// 一切出さず、「何が起きたか」という結果だけを報告する。
+	/// </summary>
+	private static void AppendQuestEventLines(StringBuilder sb, WeekResolutionResult result)
+	{
+		if (!result.Events.AnyOccurred)
+			return;
+
+		var strongEnemy = result.Events.StrongEnemy;
+		if (strongEnemy != null)
+		{
+			sb.AppendLine(strongEnemy.Outcome switch
+			{
+				StrongEnemyOutcome.PushedThrough => "[color=cyan]⚔ 強敵に遭遇したが、押し切って撃退した。[/color]",
+				StrongEnemyOutcome.Evaded => "[color=cyan]⚔ 強敵の気配を察知し、賢明にも退いた。[/color]",
+				_ => "[color=orange]⚔ 強敵に苦戦を強いられた。[/color]",
+			});
+		}
+
+		var treasureVault = result.Events.TreasureVault;
+		if (treasureVault != null)
+		{
+			sb.AppendLine(treasureVault.Outcome switch
+			{
+				QuestEventOutcome.GreatSuccess => "[color=lime]◆ 道中で貴重な宝物庫を発見し、大きな戦利品を持ち帰った。[/color]",
+				QuestEventOutcome.Success => "[color=lime]◆ 道中で宝物庫を見つけ、いくらかの戦利品を持ち帰った。[/color]",
+				_ => treasureVault.TrapTriggered
+					? "[color=orange]◆ 宝物庫らしきものを見つけたが、罠にかかり手傷を負った。[/color]"
+					: "[color=gray]◆ 宝物庫らしきものを見つけたが、収穫はなかった。[/color]",
+			});
+		}
+
+		var pushingOn = result.Events.PushingOn;
+		if (pushingOn != null)
+		{
+			sb.AppendLine(pushingOn.Outcome switch
+			{
+				QuestEventOutcome.GreatSuccess => "[color=lime]◇ 予定を超えて粘り、大きな成果を持ち帰ったが、無理がたたった。[/color]",
+				QuestEventOutcome.Success => "[color=lime]◇ 少し粘って、いくらか余分な成果を持ち帰った。[/color]",
+				_ => "[color=orange]◇ 粘ってみたが得るものはなく、無駄に消耗しただけだった。[/color]",
+			});
+		}
+	}
+
+	/// <summary>索敵・遭遇判定（→ 03 §4.1）の結果の日本語ラベル。</summary>
+	private static string EncounterLabel(EncounterResult encounter) => encounter switch
+	{
+		EncounterResult.Surprise => "奇襲成功",
+		EncounterResult.Normal => "通常交戦",
+		EncounterResult.Ambushed => "不意打ちを受けた",
+		_ => encounter.ToString(),
+	};
+
+	/// <summary>
+	/// 週報に出す解決結果の区分名（→ 03 §4.2.3、項目63・66）。討伐は4区分（CombatOutcome）、
 	/// 探索・護衛は3区分（NonCombatOutcome）と、種別で別の概念を使うため表示側で振り分ける。
-	/// 週報表示自体の作り込み（日本語ラベル化等）は後続の指示書で行う想定のため、
-	/// ここでは区分名をそのまま出す最小限の対応に留めている。
 	/// </summary>
 	private static string ResolutionOutcomeLabel(WeekResolutionResult result)
 	{
 		if (result.NonCombatOutcome.HasValue)
-			return result.NonCombatOutcome.Value.ToString();
-		return result.Outcome.HasValue ? result.Outcome.Value.ToString() : "-";
+		{
+			return result.NonCombatOutcome.Value switch
+			{
+				NonCombatOutcome.GreatSuccess => "大成功",
+				NonCombatOutcome.Success => "成功",
+				NonCombatOutcome.Failure => "失敗",
+				_ => result.NonCombatOutcome.Value.ToString(),
+			};
+		}
+
+		if (result.Outcome.HasValue)
+		{
+			return result.Outcome.Value switch
+			{
+				CombatOutcome.Victory => "完全勝利",
+				CombatOutcome.NarrowWin => "辛勝",
+				CombatOutcome.Defeat => "苦戦敗退",
+				CombatOutcome.Rout => "戦線崩壊",
+				_ => result.Outcome.Value.ToString(),
+			};
+		}
+
+		return "-";
 	}
 
 	/// <summary>
