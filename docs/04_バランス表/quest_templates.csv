@@ -1,0 +1,11 @@
+name,type,rank,difficulty,scout_requirement,reward_gold,deadline_weeks,scale
+ゴブリン討伐,Subjugation,E,10,10,90,5,Small
+山道の盗賊退治,Subjugation,D,22,18,180,6,Small
+野盗のアジト掃討,Subjugation,D,25,15,200,6,Small
+廃坑の魔物調査,Exploration,C,35,30,320,7,Small
+古代遺跡の調査,Exploration,C,30,35,300,7,Small
+商隊の護衛,Escort,D,20,20,220,6,Small
+辺境監視隊への物資輸送,Escort,C,40,32,450,8,Medium
+山脈越えの隊商護衛,Escort,B,55,40,650,8,Medium
+失われた谷の大規模調査,Exploration,B,60,50,800,8,Large
+辺境砦の長期籠城討伐支援,Subjugation,B,65,45,850,8,Large

@@ -1,0 +1,16 @@
+key,value,unit,note
+InitialGold,3000,G,開始時の所持金（GameState.Gold の初期値）
+SubsidyWeeksPerMonth,4,週,助成金の支給間隔（月次＝4週。構造値のため通常は変更しない）
+SubsidyBaseAmount_G,200,G/月,格付けGの月次助成金
+SubsidyBaseAmount_F,300,G/月,格付けFの月次助成金
+SubsidyBaseAmount_E,450,G/月,格付けEの月次助成金
+SubsidyBaseAmount_D,650,G/月,格付けDの月次助成金
+SubsidyBaseAmount_C,900,G/月,格付けCの月次助成金
+SubsidyBaseAmount_B,1300,G/月,格付けBの月次助成金
+SubsidyBaseAmount_A,1800,G/月,格付けAの月次助成金
+SubsidyBaseAmount_S,2500,G/月,格付けSの月次助成金
+SubsidyThreatCutMultiplier,0.5,倍,脅威度が閾値超過時の助成金倍率（50%カット）
+WeeklyWageCoefficient,0.6,倍,週給＝総合PA×この係数（採用時の初期週給算出）
+AppropriateWageCoefficient,0.6,倍,適正週給＝総合PA×この係数（満足度の賃金妥当性判定に使用）
+SigningBonusCoefficient,3.0,倍,契約金＝総合PA×この係数
+SeveranceWeeks,12,×週給,引退時の退職金（週給×この週数）

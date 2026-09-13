@@ -1,0 +1,16 @@
+key,value,unit,note
+CandidateCount,5,名,新春採用試験の応募者数
+MinCandidateAge,15,歳,応募者の年齢下限
+MaxCandidateAge,18,歳,応募者の年齢上限
+YoungestAgePaBonus,10,pt,最年少(15歳)のPA補正（18歳で+0へ線形補間）
+MinGeneratedPa,40,pt,通常応募者のPA生成レンジ下限
+MaxGeneratedPa,80,pt,通常応募者のPA生成レンジ上限
+HighPotentialBaseChance,0.25,確率,有望新人の基礎出現率（スカウト顧問のボーナスが加算される）
+HighPotentialMinPa,70,pt,有望新人のPA生成レンジ下限
+HighPotentialMaxPa,100,pt,有望新人のPA生成レンジ上限
+YoungestGrowthRatio,0.3,倍,15歳の初期実効値/PA比率（伸びしろ最大）
+OldestGrowthRatio,0.7,倍,18歳の初期実効値/PA比率（即戦力寄り）
+InnateTraitChancePercent,5,%,先天特性（豪胆・注意深い・容姿秀麗）各々の付与確率
+WesternCultureChancePercent,80,%,氏名生成における洋名の出現率（残りは和名）
+MaleGenderChancePercent,50,%,性別の男性出現率
+UniqueNameRetryLimit,50,回,氏名重複回避のリトライ上限
