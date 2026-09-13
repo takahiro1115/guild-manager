@@ -13,8 +13,12 @@ namespace GuildManager.Core.Models
     {
         public int WeekNumber { get; set; } = 1;
 
-        /// <summary>初期資金。→ BAL: 経済/初期資金</summary>
-        public int Gold { get; set; } = 3000;
+        /// <summary>
+        /// 初期資金。→ BAL: 経済/初期資金（economy.csv、EconomyBalance.InitialGold。
+        /// → 03 §10.1、項目58）。SaveDataからのロード時（FromSaveData）はオブジェクト
+        /// 初期化子の評価順序により、この初期値がdata.Moneyで確実に上書きされる。
+        /// </summary>
+        public int Gold { get; set; } = EconomyBalance.InitialGold;
 
         public List<Adventurer> Adventurers { get; set; } = new();
 

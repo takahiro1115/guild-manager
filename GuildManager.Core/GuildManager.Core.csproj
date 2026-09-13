@@ -6,4 +6,17 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <!--
+    バランス値CSV（正本は docs/04_バランス表/、→ 03 §10.1）を実行ファイルの隣に配置する。
+    CopyToOutputDirectoryを使うContent項目はSDKプロジェクトの標準機能により、この
+    プロジェクトを参照する側（GuildManager.Core.Tests・GuildManager.Godotの両方）の
+    出力ディレクトリにも自動的に伝播してコピーされる（ここに1回書くだけでよい）。
+  -->
+  <ItemGroup>
+    <Content Include="..\docs\04_バランス表\*.csv">
+      <Link>04_バランス表\%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>

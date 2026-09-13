@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using GuildManager.Core.Balance;
 
 namespace GuildManager.Core.Models
 {
@@ -181,10 +182,15 @@ namespace GuildManager.Core.Models
         // ---- 動的・コンディション属性。仕様書 03 §2.3 ----
 
         /// <summary>
-        /// 最大HP = 実効VIT×2 + 50（仕様書 03 §2.3）＋装備の最大HP加算（→ §4.2.2）。
-        /// 特性（例：古傷）による実効値低下、防具・アクセサリーの固定加算の両方を反映する。
+        /// 最大HP = 実効VIT×係数 + 基礎値（仕様書 03 §2.3。→ BAL: 戦闘/combat.csv）
+        /// ＋装備の最大HP加算（→ §4.2.2）。特性（例：古傷）による実効値低下、防具・
+        /// アクセサリーの固定加算の両方を反映する。
+        ///
+        /// 事前調査メモ（項目58）：この計算式はModelであるAdventurer.csに直書きされていた
+        /// （05技術メモ§3の方針違反。他のSystemクラスへの直書きと同様の問題）。
+        /// CombatBalance（combat.csv）へ集約した。
         /// </summary>
-        public int MaxHP => (int)(GetEffectiveStat("VIT") * 2) + 50 + GetEquipmentBonus(EquipmentEffectType.MaxHpBonus);
+        public int MaxHP => (int)(GetEffectiveStat("VIT") * CombatBalance.MaxHpVitCoefficient) + CombatBalance.MaxHpBase + GetEquipmentBonus(EquipmentEffectType.MaxHpBonus);
 
         // ---- 装備（Weapon/Armor/Accessory1/Accessory2）。仕様書 03 §4.2.2 参照。 ----
 

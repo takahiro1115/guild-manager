@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using GuildManager.Core.Models;
 
@@ -5,27 +6,40 @@ namespace GuildManager.Core.Balance
 {
     /// <summary>
     /// ギルド格付け関連の定数・閾値テーブル（→ 03 §8.1・§8.1.1）。
-    /// 現状は仮値（→ BAL: 格付け）。将来的に04バランス表からの外部化対象。
+    /// 値は docs/04_バランス表/guild_rank.csv（ランク別閾値テーブル）・
+    /// guild_rank_params.csv（key,value形式）から読み込む（→ 03 §10.1、項目58）。
     /// </summary>
     public static class GuildRankBalance
     {
+        private const string ThresholdsFileName = "guild_rank.csv";
+        private const string ParamsFileName = "guild_rank_params.csv";
+
         /// <summary>ランクごとの昇格ライン・降格ライン（ヒステリシス）。</summary>
         public readonly record struct RankThreshold(GuildRank Rank, int PromoteAt, int DemoteAt);
 
         // 昇格ラインより降格ラインを低く設定することで、閾値付近で名声が小さく上下しても
         // ランク表示自体は頻繁に切り替わらないようにする（→ 03 §8.1）。
         // G はゲーム開始時点の最下位ランクのため PromoteAt は参照されない（0のまま）。
-        private static readonly RankThreshold[] Thresholds =
+        private static readonly RankThreshold[] Thresholds = BuildThresholds();
+
+        private static RankThreshold[] BuildThresholds()
         {
-            new(GuildRank.G, PromoteAt: 0,    DemoteAt: 0),
-            new(GuildRank.F, PromoteAt: 100,  DemoteAt: 60),
-            new(GuildRank.E, PromoteAt: 250,  DemoteAt: 180),
-            new(GuildRank.D, PromoteAt: 450,  DemoteAt: 350),
-            new(GuildRank.C, PromoteAt: 700,  DemoteAt: 580),
-            new(GuildRank.B, PromoteAt: 1000, DemoteAt: 850),
-            new(GuildRank.A, PromoteAt: 1400, DemoteAt: 1200),
-            new(GuildRank.S, PromoteAt: 1900, DemoteAt: 1650),
-        };
+            var (header, rows) = BalanceData.GetTable(ThresholdsFileName);
+            var result = new RankThreshold[rows.Count];
+            for (int i = 0; i < rows.Count; i++)
+            {
+                var row = rows[i];
+                if (!Enum.TryParse<GuildRank>(row[0], out var rank))
+                    throw new BalanceDataException($"{ThresholdsFileName} のrank列「{row[0]}」をGuildRankとして解釈できません。");
+                if (!int.TryParse(row[1], out int promoteAt))
+                    throw new BalanceDataException($"{ThresholdsFileName} の{row[0]}行のpromote_at「{row[1]}」を整数として解釈できません。");
+                if (!int.TryParse(row[2], out int demoteAt))
+                    throw new BalanceDataException($"{ThresholdsFileName} の{row[0]}行のdemote_at「{row[2]}」を整数として解釈できません。");
+
+                result[i] = new RankThreshold(rank, promoteAt, demoteAt);
+            }
+            return result;
+        }
 
         public static RankThreshold GetThreshold(GuildRank rank) => Thresholds.First(t => t.Rank == rank);
 
@@ -55,18 +69,18 @@ namespace GuildManager.Core.Balance
         };
 
         /// <summary>クエスト達成時の名声加算量。→ BAL: 格付け/名声増減</summary>
-        public const int ReputationGainOnAchievement = 20;
+        public static readonly int ReputationGainOnAchievement = BalanceData.GetInt(ParamsFileName, "ReputationGainOnAchievement");
 
         /// <summary>クエスト失敗時の名声減算量。→ BAL: 格付け/名声増減</summary>
-        public const int ReputationLossOnFailure = 15;
+        public static readonly int ReputationLossOnFailure = BalanceData.GetInt(ParamsFileName, "ReputationLossOnFailure");
 
         /// <summary>
         /// 現ランク相当のクエストを達成できない状態がこの週数続くと、毎週わずかに名声が減少する
-        /// （→ 03 §8.1.1）。§5.1「4週連続遠征なしで満足度-5」と同じ対象週数を踏襲した仮値。
+        /// （→ 03 §8.1.1）。§5.1「4週連続遠征なしで満足度-5」と同じ対象週数を踏襲した値。
         /// </summary>
-        public const int WeeksWithoutAppropriateQuestThreshold = 4;
+        public static readonly int WeeksWithoutAppropriateQuestThreshold = BalanceData.GetInt(ParamsFileName, "WeeksWithoutAppropriateQuestThreshold");
 
         /// <summary>名声自然減衰の週あたり減少量。→ BAL: 格付け/名声減衰</summary>
-        public const int ReputationDecayPerWeek = 5;
+        public static readonly int ReputationDecayPerWeek = BalanceData.GetInt(ParamsFileName, "ReputationDecayPerWeek");
     }
 }

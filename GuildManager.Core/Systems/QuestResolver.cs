@@ -23,19 +23,6 @@ namespace GuildManager.Core.Systems
     {
         private readonly IRng _rng;
 
-        // ---- 個人CP重み係数。→ BAL: 戦闘/CP重み（現状は仮値の直書き。後で外部化する） ----
-        private const double WeightSTR = 0.8;
-        private const double WeightAGI = 0.5;
-        private const double WeightVIT = 0.6;
-        private const double WeightDEX = 0.4; // → BAL: 戦闘/CP重み（暫定。v1.2改訂：DEXは索敵専任に加え個人CPにも参加）
-        private const double WeightMND = 0.8;
-        private const double WeightINT = 0.7; // → BAL: 戦闘/CP重み（暫定。v1.2改訂：予約フィールドから活性化）
-        private const double WeightLDR = 0.4;
-        private const double EnemyCpCoefficient = 3.0; // → BAL: 戦闘/敵CP係数
-
-        // ---- フェーズ3：負傷・致死判定（→ 03 §4.3） ----
-        private const int PermanentBand = 20; // → BAL: 戦闘/不可逆帯幅
-
         public QuestResolver(IRng rng)
         {
             _rng = rng;
@@ -66,20 +53,21 @@ namespace GuildManager.Core.Systems
             double avgScout = scoutValues.Average();
             double leaderLdr = party.Members[0].GetEffectiveStat("LDR"); // MVP: 先頭メンバーを隊長とみなす
 
-            double partyScout = maxScout + avgScout * 0.3 + leaderLdr * 0.2 + advisorBonus;
+            double partyScout = maxScout + avgScout * CombatBalance.ScoutAvgCoefficient + leaderLdr * CombatBalance.ScoutLeaderLdrCoefficient + advisorBonus;
             double deltaS = partyScout - quest.ScoutRequirement;
 
             int scoutRoll = _rng.NextInt(1, 100);
 
-            // v1.1で追加：帯が消えたり逆転したりしないよう1〜99にクランプ（仕様書03 §4.1）
-            double lowerBound = Clamp(15 + deltaS, 1, 99);
-            double upperBound = Clamp(80 + deltaS, 1, 99);
+            // v1.1で追加：帯が消えたり逆転したりしないよう1〜99にクランプ（仕様書03 §4.1。
+            // このクランプ幅自体は帯の消失・逆転を防ぐための構造的な安全装置のためCSV化していない）。
+            double lowerBound = Clamp(CombatBalance.SurpriseLowerBoundBase + deltaS, 1, 99);
+            double upperBound = Clamp(CombatBalance.AmbushUpperBoundBase + deltaS, 1, 99);
 
             double combatMultiplier = 1.0;
             if (scoutRoll <= lowerBound)
             {
                 result.Encounter = EncounterResult.Surprise;
-                combatMultiplier = 1.3; // パーティ戦闘力+30%
+                combatMultiplier = CombatBalance.SurpriseCombatMultiplier; // パーティ戦闘力+30%
             }
             else if (scoutRoll <= upperBound)
             {
@@ -96,9 +84,9 @@ namespace GuildManager.Core.Systems
             // 応じた適性倍率（1.0以上、ボーナスのみ）を追加で乗算する。
             double partyCp = party.Members.Sum(PersonalCp) * combatMultiplier * GetAptitudeMultiplier(party, quest.QuestType);
 
-            double enemyCp = quest.Difficulty * EnemyCpCoefficient;
+            double enemyCp = quest.Difficulty * CombatBalance.EnemyCpCoefficient;
             if (result.Encounter == EncounterResult.Ambushed)
-                enemyCp *= 1.3;
+                enemyCp *= CombatBalance.AmbushEnemyMultiplier;
 
             double ratio = partyCp / enemyCp;
             result.Ratio = ratio;
@@ -139,8 +127,10 @@ namespace GuildManager.Core.Systems
                     // 「豪胆」特性（SurvivalThresholdModifier）は生存判定対象者自身の
                     // SurvivalThresholdに固定加算される（v1.4改訂）。
                     double survivalThreshold = Clamp(
-                        member.GetEffectiveStat("VIT") + clericMnd * 0.4 + leaderLdr * 0.2 + advisorBonus
-                        + member.SumTraitEffect(TraitEffectType.SurvivalThresholdModifier), 5, 90);
+                        member.GetEffectiveStat("VIT") + clericMnd * CombatBalance.SurvivalClericMndCoefficient
+                        + leaderLdr * CombatBalance.SurvivalLeaderLdrCoefficient + advisorBonus
+                        + member.SumTraitEffect(TraitEffectType.SurvivalThresholdModifier),
+                        CombatBalance.SurvivalThresholdMin, CombatBalance.SurvivalThresholdMax);
                     int deathRoll = _rng.NextInt(1, 100);
 
                     if (deathRoll <= survivalThreshold)
@@ -148,7 +138,7 @@ namespace GuildManager.Core.Systems
                         // 生存：重傷でHP1に留まる
                         ApplySurvival(member);
                     }
-                    else if (deathRoll <= survivalThreshold + PermanentBand)
+                    else if (deathRoll <= survivalThreshold + CombatBalance.PermanentBand)
                     {
                         // 不可逆障害の判定域：古傷を付与（重複していれば「生存（重傷）」に丸める）
                         member.TryAddTrait(TraitCatalog.OldWoundId);
@@ -192,17 +182,17 @@ namespace GuildManager.Core.Systems
         private void ApplySurvival(Adventurer member)
         {
             member.Injury = InjurySeverity.Severe;
-            member.InjuryWeeksRemaining = _rng.NextInt(3, 8); // → 03 §2.3「重傷: 全治3〜8週」
+            member.InjuryWeeksRemaining = _rng.NextInt(CombatBalance.SevereInjuryWeeksMin, CombatBalance.SevereInjuryWeeksMax); // → 03 §2.3「重傷: 全治3〜8週」
             member.CurrentHP = 1;
         }
 
         private static double PersonalCp(Adventurer a)
         {
             double hpRatio = (double)a.CurrentHP / a.MaxHP;
-            double baseCp = a.GetEffectiveStat("STR") * WeightSTR + a.GetEffectiveStat("AGI") * WeightAGI
-                            + a.GetEffectiveStat("VIT") * WeightVIT + a.GetEffectiveStat("DEX") * WeightDEX
-                            + a.GetEffectiveStat("MND") * WeightMND + a.GetEffectiveStat("INT") * WeightINT
-                            + a.GetEffectiveStat("LDR") * WeightLDR
+            double baseCp = a.GetEffectiveStat("STR") * CombatBalance.WeightSTR + a.GetEffectiveStat("AGI") * CombatBalance.WeightAGI
+                            + a.GetEffectiveStat("VIT") * CombatBalance.WeightVIT + a.GetEffectiveStat("DEX") * CombatBalance.WeightDEX
+                            + a.GetEffectiveStat("MND") * CombatBalance.WeightMND + a.GetEffectiveStat("INT") * CombatBalance.WeightINT
+                            + a.GetEffectiveStat("LDR") * CombatBalance.WeightLDR
                             // 装備（武器・アクセサリー）のCP固定加算（→ 03 §4.2.2）。ステータス由来の
                             // 寄与と同じ扱いとし、負傷時の効率低下(hpRatio)・配置補正の対象にする。
                             + a.GetEquipmentBonus(EquipmentEffectType.PersonalCpBonus);
@@ -216,10 +206,13 @@ namespace GuildManager.Core.Systems
         /// </summary>
         public static (CombatOutcome Outcome, int MinPct, int MaxPct) ClassifyOutcome(double ratio)
         {
-            if (ratio >= 1.8) return (CombatOutcome.Victory, 5, 15);
-            if (ratio >= 1.0) return (CombatOutcome.NarrowWin, 20, 45);
-            if (ratio >= 0.6) return (CombatOutcome.Defeat, 40, 70);
-            return (CombatOutcome.Rout, 70, 100);
+            if (ratio >= CombatBalance.RatioThresholdVictory)
+                return (CombatOutcome.Victory, CombatBalance.HpLossPctVictoryMin, CombatBalance.HpLossPctVictoryMax);
+            if (ratio >= CombatBalance.RatioThresholdNarrowWin)
+                return (CombatOutcome.NarrowWin, CombatBalance.HpLossPctNarrowWinMin, CombatBalance.HpLossPctNarrowWinMax);
+            if (ratio >= CombatBalance.RatioThresholdDefeat)
+                return (CombatOutcome.Defeat, CombatBalance.HpLossPctDefeatMin, CombatBalance.HpLossPctDefeatMax);
+            return (CombatOutcome.Rout, CombatBalance.HpLossPctRoutMin, CombatBalance.HpLossPctRoutMax);
         }
 
         private static double Clamp(double value, double min, double max) =>

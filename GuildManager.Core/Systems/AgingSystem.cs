@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using GuildManager.Core.Balance;
 using GuildManager.Core.Models;
 using GuildManager.Core.Rng;
 
@@ -22,33 +23,36 @@ namespace GuildManager.Core.Systems
     ///   （§3.7）：退職金（週給×12週）を支給し、Adventurers から RetiredAdventurers へ移す。
     ///   顧問としての実際の効果（教官伝授・スカウト補正・参謀補正）は§7が未実装のため付与しない。
     ///
-    /// 衰微の実行週・低下量は本来 → BAL: 加齢 に集約する数値だが、
-    /// 04_バランス表.xlsx はまだコードから読み込めない（Phase 4で外部化予定）ため、
-    /// QuestResolver と同様に現状は仮値を定数として直書きする。
+    /// 衰微の実行週・低下量は → BAL: 加齢（aging.csv）に集約している（→ 03 §10.1、項目58）。
     /// </summary>
     public class AgingSystem
     {
-        private const int WeeksPerYear = 48; // 仕様書 03 §1.2
+        private const int WeeksPerYear = 48; // 仕様書 03 §1.2（構造値）
 
         // ---- 衰微の対象ステータス。仕様書 03 §3.0「フィジカル衰微」＝STR/AGI/VITのみ。
         // 精神系（MND/DEX/LDR）は円熟期・限界期のいずれでも対象外とする
-        // （§3.0「円熟期は精神系維持可」の記述どおり。限界期に含めるかは仕様上明記が無いため今回は含めない）。 ----
+        // （§3.0「円熟期は精神系維持可」の記述どおり。限界期に含めるかは仕様上明記が無いため今回は含めない）。
+        // 対象ステータスの定義そのものは構造値のためCSV化していない。 ----
         private static readonly string[] DeclineTargetStats = { "STR", "AGI", "VIT" };
 
-        // ---- 円熟期：年1回・年度末（48週目）。低下量は→ BAL: 加齢/衰微量。現状は仮値 ----
-        private const int MatureDeclineWeek = WeeksPerYear;
-        private const int MatureDeclineAmountMin = 1;
-        private const int MatureDeclineAmountMax = 3;
+        // ---- 円熟期：年1回・年度末（48週目）。低下量は→ BAL: 加齢/衰微量（aging.csv） ----
+        private static readonly int MatureDeclineWeek = BalanceData.GetInt("aging.csv", "MatureDeclineWeek");
+        private static readonly int MatureDeclineAmountMin = BalanceData.GetInt("aging.csv", "MatureDeclineAmountMin");
+        private static readonly int MatureDeclineAmountMax = BalanceData.GetInt("aging.csv", "MatureDeclineAmountMax");
 
-        // ---- 限界期：年2回、低下量は円熟期より大きい（仮値） ----
-        private static readonly int[] LimitDeclineWeeks = { WeeksPerYear / 2, WeeksPerYear };
-        private const int LimitDeclineAmountMin = 3;
-        private const int LimitDeclineAmountMax = 6;
+        // ---- 限界期：年2回、低下量は円熟期より大きい（aging.csv） ----
+        private static readonly int[] LimitDeclineWeeks =
+        {
+            BalanceData.GetInt("aging.csv", "LimitDeclineWeek1"),
+            BalanceData.GetInt("aging.csv", "LimitDeclineWeek2"),
+        };
+        private static readonly int LimitDeclineAmountMin = BalanceData.GetInt("aging.csv", "LimitDeclineAmountMin");
+        private static readonly int LimitDeclineAmountMax = BalanceData.GetInt("aging.csv", "LimitDeclineAmountMax");
 
-        private const int MinStatValue = 0; // 仕様書：実効値は0未満にならない
+        private const int MinStatValue = 0; // 仕様書：実効値は0未満にならない（構造値のクランプ）
 
-        private const int RetirementAge = 40; // 仕様書 03 §3.7
-        private const int SeveranceWeeks = 12; // 退職金＝週給×12週（仕様書 03 §7）
+        private static readonly int RetirementAge = BalanceData.GetInt("aging.csv", "RetirementAge"); // 仕様書 03 §3.7
+        private static readonly int SeveranceWeeks = EconomyBalance.SeveranceWeeks; // 退職金＝週給×週数（仕様書 03 §7）
 
         private readonly IRng _rng;
 

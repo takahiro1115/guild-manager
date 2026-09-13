@@ -3,21 +3,21 @@ using GuildManager.Core.Models;
 namespace GuildManager.Core.Balance
 {
     /// <summary>
-    /// クエスト適性ボーナス（→ 03 §4.2.1）関連の暫定バランス値。
-    /// 05技術メモ§3の方針（数値を各Systemクラスへ直書きしない）に沿い、ここへ集約した。
-    /// 04_バランス表.xlsx はまだコードから読み込めない（Phase 4で外部化予定）ため、
-    /// 現状はすべて仮値の定数。
+    /// クエスト適性ボーナス（→ 03 §4.2.1）関連のバランス値。
+    /// 値は docs/04_バランス表/combat.csv から読み込む（→ 03 §10.1、項目58）。
     /// </summary>
     public static class QuestAptitudeBalance
     {
-        public const double MinMultiplier = 1.0; // ペナルティなし（ボーナスのみ）
-        public const double MaxMultiplier = 1.3; // → BAL: 戦闘/適性倍率。現状は仮値
+        private const string FileName = "combat.csv";
+
+        public static readonly double MinMultiplier = BalanceData.GetDouble(FileName, "AptitudeMinMultiplier"); // ペナルティなし（ボーナスのみ）
+        public static readonly double MaxMultiplier = BalanceData.GetDouble(FileName, "AptitudeMaxMultiplier"); // → BAL: 戦闘/適性倍率
 
         /// <summary>
         /// 平均実効値がこの値に達すると倍率が最大(MaxMultiplier)になる（線形スケール）。
-        /// 実効値の理論上限100に合わせた仮値。
+        /// 実効値の理論上限100に合わせた値。
         /// </summary>
-        public const double ReferenceStatValue = 100.0;
+        public static readonly double ReferenceStatValue = BalanceData.GetDouble(FileName, "AptitudeReferenceStatValue");
 
         /// <summary>
         /// クエスト種別ごとの適性判定対象ステータス（→ 03 §4.2.1）。
@@ -33,7 +33,7 @@ namespace GuildManager.Core.Balance
         };
 
         /// <summary>
-        /// 平均実効値から適性倍率を算出する（1.0〜1.3倍の範囲で線形スケール、→ BAL）。
+        /// 平均実効値から適性倍率を算出する（線形スケール、→ BAL）。
         /// </summary>
         public static double GetMultiplier(double averageEffectiveStat)
         {

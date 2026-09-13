@@ -24,46 +24,18 @@ namespace GuildManager.Core.Systems
     /// 基礎値」として新規実装し（HighPotentialBaseChance）、スカウト配置時はここに
     /// AdvisorSystem.GetScoutMasterBonusの値を上乗せする設計とした。
     ///
-    /// 数値（応募者数・PA生成レンジ・契約金係数等）は本来 → BAL: 採用 に集約する値だが、
-    /// 04_バランス表.xlsx はまだコードから読み込めない（Phase 4で外部化予定）ため、
-    /// 他のSystemと同様に現状は仮値を定数として直書きする。
+    /// 数値（応募者数・PA生成レンジ・契約金係数等）は → BAL: 採用（recruitment.csv、
+    /// RecruitmentBalance）・→ BAL: 経済（economy.csv、EconomyBalance）に集約している
+    /// （→ 03 §10.1、項目58）。
     /// </summary>
     public class RecruitmentSystem
     {
-        private const int WeeksPerYear = 48; // 仕様書 03 §1.2
-
-        private const int CandidateCount = 5; // → BAL: 採用/応募者数。現状は仮値
-
-        private const int MinCandidateAge = 15;
-        private const int MaxCandidateAge = 18;
-
-        // → BAL: 採用/年齢別PA補正。現状は仮値（15歳で+10、18歳で+0へ線形補間）。
-        private const int YoungestAgePaBonus = 10;
-
-        // → BAL: 採用（PA自体の生成レンジ）。現状は仮値。
-        private const int MinGeneratedPa = 40;
-        private const int MaxGeneratedPa = 80;
+        private const int WeeksPerYear = 48; // 仕様書 03 §1.2（構造値）
 
         // ---- 有望新人（総合PA75以上）の出現判定（→ 03 §7.3。事前調査メモ参照） ----
-        // → BAL: 採用/有望新人。現状は仮値：基礎出現率25%（旧docs記載の「+25%」を基礎値として採用）、
+        // → BAL: 採用/有望新人。基礎出現率（旧docs記載の「+25%」を基礎値として採用）、
         // 出現時はPA生成レンジを底上げしTotalPA≥75になりやすくする。
-        public const double HighPotentialBaseChance = 0.25;
-        private const int HighPotentialMinPa = 70;
-        private const int HighPotentialMaxPa = 100;
-
-        // 実効値/PA の比率。15歳ほどPAから遠く（伸びしろ最大）、18歳ほどPAに近い（即戦力）
-        // （→ 03 §2.4）。→ BAL: 採用。現状は仮値（15歳:30%実現 〜 18歳:70%実現）。
-        private const double YoungestGrowthRatio = 0.3;
-        private const double OldestGrowthRatio = 0.7;
-
-        // ---- 先天特性（豪胆・注意深い・容姿秀麗）の付与判定（→ 03 §5.3.2） ----
-        // v1.4改訂。3つとも独立判定のため、1人が複数の先天特性を併せ持つことも起こりうる。
-        // トラウマ（後天的）はここでは扱わない（→ CompatibilitySystem.ApplyDeathAftermath）。
-        // → BAL: 採用/先天特性付与率。現状は仮値（各5%）。
-        private const int InnateTraitChancePercent = 5;
-
-        private const double SigningBonusCoefficient = 3.0; // → BAL: 採用/契約金。現状は仮値
-        private const double WeeklyWageCoefficient = 0.6;   // → BAL: 経済/週給基準。現状は仮値
+        public static double HighPotentialBaseChance => RecruitmentBalance.HighPotentialBaseChance;
 
         private readonly IRng _rng;
 
@@ -119,7 +91,7 @@ namespace GuildManager.Core.Systems
             var existingNames = new HashSet<string>(state.Adventurers.Select(a => a.Name));
 
             var offers = new List<RecruitmentOffer>();
-            for (int i = 0; i < CandidateCount; i++)
+            for (int i = 0; i < RecruitmentBalance.CandidateCount; i++)
             {
                 var offer = GenerateOne(i, highPotentialChance, existingNames);
                 existingNames.Add(offer.Candidate.Name);
@@ -143,12 +115,12 @@ namespace GuildManager.Core.Systems
 
         private RecruitmentOffer GenerateOne(int index, double highPotentialChance, HashSet<string> existingNames)
         {
-            int age = _rng.NextInt(MinCandidateAge, MaxCandidateAge);
+            int age = _rng.NextInt(RecruitmentBalance.MinCandidateAge, RecruitmentBalance.MaxCandidateAge);
 
             // ageT: 0(15歳) 〜 1(18歳)
-            double ageT = (double)(age - MinCandidateAge) / (MaxCandidateAge - MinCandidateAge);
-            int ageBonus = (int)Math.Round(YoungestAgePaBonus * (1 - ageT));
-            double growthRatio = YoungestGrowthRatio + (OldestGrowthRatio - YoungestGrowthRatio) * ageT;
+            double ageT = (double)(age - RecruitmentBalance.MinCandidateAge) / (RecruitmentBalance.MaxCandidateAge - RecruitmentBalance.MinCandidateAge);
+            int ageBonus = (int)Math.Round(RecruitmentBalance.YoungestAgePaBonus * (1 - ageT));
+            double growthRatio = RecruitmentBalance.YoungestGrowthRatio + (RecruitmentBalance.OldestGrowthRatio - RecruitmentBalance.YoungestGrowthRatio) * ageT;
 
             var jobClass = (JobClass)_rng.NextInt(0, 3);
 
@@ -170,8 +142,8 @@ namespace GuildManager.Core.Systems
             // 有望新人（高PA）の出現判定（→ 03 §7.3）。判定に成功した候補は
             // PA生成レンジを底上げする（通常40〜80 → 高潜在70〜100）。
             bool isHighPotential = _rng.NextInt(1, 100) <= highPotentialChance * 100;
-            int minPa = isHighPotential ? HighPotentialMinPa : MinGeneratedPa;
-            int maxPa = isHighPotential ? HighPotentialMaxPa : MaxGeneratedPa;
+            int minPa = isHighPotential ? RecruitmentBalance.HighPotentialMinPa : RecruitmentBalance.MinGeneratedPa;
+            int maxPa = isHighPotential ? RecruitmentBalance.HighPotentialMaxPa : RecruitmentBalance.MaxGeneratedPa;
 
             foreach (var stat in AdventurerStatAccessor.AllStatNames)
             {
@@ -182,17 +154,17 @@ namespace GuildManager.Core.Systems
             }
 
             candidate.CurrentHP = candidate.MaxHP;
-            candidate.WeeklyWage = Math.Max(1, (int)(candidate.TotalPA * WeeklyWageCoefficient));
+            candidate.WeeklyWage = Math.Max(1, (int)(candidate.TotalPA * EconomyBalance.WeeklyWageCoefficient));
 
             // 先天特性の付与判定（→ 03 §5.3.2）。3つとも独立判定（1人が複数持つこともありうる）。
-            if (_rng.NextInt(1, 100) <= InnateTraitChancePercent)
+            if (_rng.NextInt(1, 100) <= RecruitmentBalance.InnateTraitChancePercent)
                 candidate.TryAddTrait(TraitCatalog.BraveId);
-            if (_rng.NextInt(1, 100) <= InnateTraitChancePercent)
+            if (_rng.NextInt(1, 100) <= RecruitmentBalance.InnateTraitChancePercent)
                 candidate.TryAddTrait(TraitCatalog.AttentiveId);
-            if (_rng.NextInt(1, 100) <= InnateTraitChancePercent)
+            if (_rng.NextInt(1, 100) <= RecruitmentBalance.InnateTraitChancePercent)
                 candidate.TryAddTrait(TraitCatalog.BeautifulId);
 
-            int signingBonus = (int)(candidate.TotalPA * candidate.Age * SigningBonusCoefficient);
+            int signingBonus = (int)(candidate.TotalPA * candidate.Age * EconomyBalance.SigningBonusCoefficient);
 
             return new RecruitmentOffer(candidate, signingBonus);
         }
