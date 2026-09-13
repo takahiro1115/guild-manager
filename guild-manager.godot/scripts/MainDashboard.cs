@@ -109,6 +109,13 @@ public partial class MainDashboard : Control
 		_partyFormationButton = GetNode<Button>("%PartyFormationButton");
 		_temporarySwapPopup = GetNode<TemporarySwapPopup>("%TemporarySwapPopup");
 
+		// 中央ペインのタブ化（→ 03 §9、項目57）。タブ本体（QuestDispatchTab/AdventurerTab）は
+		// 既存の命名規約（ノード名は英語、日本語表示はtext/title側）に合わせて英語名のままにし、
+		// タブ見出しはここでコードから設定する（初期表示は「クエスト・派遣」＝タブ0）。
+		var centerPanel = GetNode<TabContainer>("%CenterPanel");
+		centerPanel.SetTabTitle(0, "クエスト・派遣");
+		centerPanel.SetTabTitle(1, "冒険者");
+
 		_adventurerList.ItemClicked += OnAdventurerItemClicked;
 		_nextWeekButton.Pressed += OnNextWeekPressed;
 		_autoSkipButton.Pressed += OnAutoSkipButtonPressed;
