@@ -23,6 +23,17 @@ namespace GuildManager.Core.Models
         public Gender Gender { get; set; }
 
         /// <summary>
+        /// ポートレート画像のID（→ 03 §2.1、項目62で新設）。null（未設定）が正常系
+        /// （採用で生成される冒険者は基本的に持たない）。装備の VisualPartId と同じ
+        /// 「IDだけCoreに持たせ、実際の画像解決はGodot側」というパターンに揃えてある：
+        /// Godot側は `res://assets/portraits/{PortraitId}.png` を解決し、null または
+        /// ファイルが存在しない場合はシルエット画像（unknown_silhouette.png）を表示する。
+        /// 将来のモンタージュ方式（職業×性別×装備での合成）へ差し替える際も、
+        /// 「PortraitIdが無い場合の分岐」を合成ロジックに置き換えるだけで済む設計。
+        /// </summary>
+        public string? PortraitId { get; set; }
+
+        /// <summary>
         /// 配置（前衛/後衛）。仕様書 03 §4.2 参照。冒険者個人に紐づく永続状態で、
         /// クエストをまたいで保持される。生成時に PlacementRules.GetDefault(JobClass) で
         /// 職業に応じた初期値を設定する想定（→ SampleData・RecruitmentSystem）。

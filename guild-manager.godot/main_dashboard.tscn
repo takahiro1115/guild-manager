@@ -105,10 +105,22 @@ size_flags_vertical = 3
 layout_mode = 2
 text = "ステータス詳細（クリックで表示）"
 
-[node name="AdventurerDetailLabel" type="RichTextLabel" parent="Root/BodyPanel/CenterPanel/AdventurerTab" unique_id=220254185]
+[node name="DetailRow" type="HBoxContainer" parent="Root/BodyPanel/CenterPanel/AdventurerTab" unique_id=220254199]
+layout_mode = 2
+
+[node name="PortraitTextureRect" type="TextureRect" parent="Root/BodyPanel/CenterPanel/AdventurerTab/DetailRow" unique_id=220254200]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(140, 210)
+layout_mode = 2
+size_flags_vertical = 0
+expand_mode = 1
+stretch_mode = 5
+
+[node name="AdventurerDetailLabel" type="RichTextLabel" parent="Root/BodyPanel/CenterPanel/AdventurerTab/DetailRow" unique_id=220254185]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 170)
 layout_mode = 2
+size_flags_horizontal = 3
 bbcode_enabled = true
 
 [node name="EquipmentButton" type="Button" parent="Root/BodyPanel/CenterPanel/AdventurerTab" unique_id=220254197]

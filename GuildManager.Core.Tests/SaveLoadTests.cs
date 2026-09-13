@@ -107,6 +107,34 @@ namespace GuildManager.Core.Tests
             Assert.Equal(10, restored.FallenAdventurers[0].FellAtWeek);
         }
 
+        /// <summary>
+        /// ポートレート画像ID（→ 03 §2.1、項目62で新設）のセーブ/ロード往復を確認する。
+        /// SaveData.ActiveAdventurersはAdventurer型をそのまま保持する設計のため、
+        /// マッピングコードの追記は不要のはずだが、新規永続データのため専用テストで
+        /// 明示的に確認する（採用組が持つ「未設定（null）」のケースも合わせて検証）。
+        /// </summary>
+        [Fact]
+        public void RoundTrip_PreservesPortraitId_WhenSet()
+        {
+            var withPortrait = new Adventurer { Name = "ガレス", PortraitId = "gareth" };
+            var state = new GameState { Adventurers = { withPortrait } };
+
+            var restored = GameState.FromSaveData(state.ToSaveData());
+
+            Assert.Equal("gareth", restored.Adventurers[0].PortraitId);
+        }
+
+        [Fact]
+        public void RoundTrip_PortraitId_StaysNull_WhenUnset()
+        {
+            var recruited = new Adventurer { Name = "新人" }; // PortraitId未設定＝採用組の通常ケース
+            var state = new GameState { Adventurers = { recruited } };
+
+            var restored = GameState.FromSaveData(state.ToSaveData());
+
+            Assert.Null(restored.Adventurers[0].PortraitId);
+        }
+
         [Fact]
         public void RoundTrip_PreservesCompatibilityPairs_WithNormalizedKey()
         {

@@ -53,6 +53,7 @@ public partial class MainDashboard : Control
 	private Button _temporarySwapButton = null!;
 	private ItemList _adventurerList = null!;
 	private RichTextLabel _adventurerDetailLabel = null!;
+	private TextureRect _portraitTextureRect = null!;
 	private RichTextLabel _resultLog = null!;
 	private Button _nextWeekButton = null!;
 	private Button _autoSkipButton = null!;
@@ -92,6 +93,7 @@ public partial class MainDashboard : Control
 		_temporarySwapButton = GetNode<Button>("%TemporarySwapButton");
 		_adventurerList = GetNode<ItemList>("%AdventurerList");
 		_adventurerDetailLabel = GetNode<RichTextLabel>("%AdventurerDetailLabel");
+		_portraitTextureRect = GetNode<TextureRect>("%PortraitTextureRect");
 		_resultLog = GetNode<RichTextLabel>("%ResultLog");
 		_nextWeekButton = GetNode<Button>("%NextWeekButton");
 		_autoSkipButton = GetNode<Button>("%AutoSkipButton");
@@ -794,6 +796,7 @@ public partial class MainDashboard : Control
 		_detailAdventurerId = null;
 		_adventurerDetailLabel.Clear();
 		_adventurerDetailLabel.AppendText("[color=gray]左の一覧から冒険者を選択してください。[/color]");
+		_portraitTextureRect.Texture = null; // 未選択時はポートレートも表示しない
 		_raiseWageButton.Disabled = true;
 		_payBonusButton.Disabled = true;
 		_retireButton.Disabled = true;
@@ -832,12 +835,41 @@ public partial class MainDashboard : Control
 
 		_adventurerDetailLabel.Clear();
 		_adventurerDetailLabel.AppendText(sb.ToString());
+		_portraitTextureRect.Texture = LoadPortraitTexture(a.PortraitId);
 
 		// 冒険者を選択したので、個人操作系ボタンを有効化する（→ ShowNoAdventurerSelectedの対）。
 		_raiseWageButton.Disabled = false;
 		_payBonusButton.Disabled = false;
 		_retireButton.Disabled = false;
 		_equipmentButton.Disabled = false;
+	}
+
+	/// <summary>
+	/// ポートレート画像を解決する（→ 03 §2.1、項目62）。PortraitIdが設定されていれば
+	/// `res://assets/portraits/{PortraitId}.png` を読み込み、未設定またはファイルが
+	/// 存在しない場合はシルエット画像（unknown_silhouette.png）を返す。採用組の
+	/// ほとんどはPortraitId未設定になるため、シルエット表示は異常系ではなく正常系。
+	///
+	/// 将来のモンタージュ方式（職業×性別×装備での合成）への布石：装備の
+	/// VisualPartIdと同じ「IDだけCoreに持たせ、実際の画像解決はGodot側」という
+	/// パターンに揃えてあるため、「PortraitIdが無い場合はシルエット」という
+	/// この分岐を「PortraitIdが無い場合は職業×性別×装備から合成する」に
+	/// 差し替えるだけで済む。
+	/// </summary>
+	private static Texture2D LoadPortraitTexture(string portraitId)
+	{
+		if (!string.IsNullOrEmpty(portraitId))
+		{
+			string path = $"res://assets/portraits/{portraitId}.png";
+			if (ResourceLoader.Exists(path))
+			{
+				var texture = GD.Load<Texture2D>(path);
+				if (texture != null)
+					return texture;
+			}
+		}
+
+		return GD.Load<Texture2D>("res://assets/portraits/unknown_silhouette.png");
 	}
 
 	/// <summary>装備スロット表示用のラベル（未装備ならその旨を表示する。→ 03 §4.2.2）。</summary>
