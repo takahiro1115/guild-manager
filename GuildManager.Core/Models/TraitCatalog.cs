@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using GuildManager.Core.Balance;
 
 namespace GuildManager.Core.Models
 {
@@ -7,6 +8,8 @@ namespace GuildManager.Core.Models
     /// v1.4改訂：古傷（後天的）に加え、トラウマ（後天的）・豪胆／注意深い／容姿秀麗
     /// （いずれも先天的）を追加した（→ 03 §5.3.2）。「頑強」「師匠肌」等は引き続き
     /// post-MVP（→ §11）。
+    /// 各TraitEffect.Valueは docs/04_バランス表/trait.csv 由来（→ TraitBalance、
+    /// 項目58フォローアップ）。
     /// </summary>
     public static class TraitCatalog
     {
@@ -17,7 +20,7 @@ namespace GuildManager.Core.Models
         public const string BeautifulId = "Beautiful";
 
         /// <summary>
-        /// 古傷（不可逆障害）。STR/VIT/AGI/DEXを15%（暫定値）ずつ恒久的に低下させる。
+        /// 古傷（不可逆障害）。STR/VIT/AGI/DEXを恒久的に低下させる（減少率→ BAL: 戦闘/古傷減少率）。
         /// MND/INT/LDRは対象外。出撃制限は課さない（→ 03 §4.3）。
         /// </summary>
         public static readonly TraitDefinition OldWound = new TraitDefinition
@@ -27,17 +30,16 @@ namespace GuildManager.Core.Models
             BlocksDeployment = false,
             Effects = new List<TraitEffect>
             {
-                // 減少率は暫定値。→ BAL: 戦闘/古傷減少率
-                new TraitEffect { EffectType = TraitEffectType.StatPercentReduction, TargetStat = "STR", Value = -0.15 },
-                new TraitEffect { EffectType = TraitEffectType.StatPercentReduction, TargetStat = "VIT", Value = -0.15 },
-                new TraitEffect { EffectType = TraitEffectType.StatPercentReduction, TargetStat = "AGI", Value = -0.15 },
-                new TraitEffect { EffectType = TraitEffectType.StatPercentReduction, TargetStat = "DEX", Value = -0.15 },
+                new TraitEffect { EffectType = TraitEffectType.StatPercentReduction, TargetStat = "STR", Value = TraitBalance.OldWoundStatReduction },
+                new TraitEffect { EffectType = TraitEffectType.StatPercentReduction, TargetStat = "VIT", Value = TraitBalance.OldWoundStatReduction },
+                new TraitEffect { EffectType = TraitEffectType.StatPercentReduction, TargetStat = "AGI", Value = TraitBalance.OldWoundStatReduction },
+                new TraitEffect { EffectType = TraitEffectType.StatPercentReduction, TargetStat = "DEX", Value = TraitBalance.OldWoundStatReduction },
             }
         };
 
         /// <summary>
         /// トラウマ（後天的）。戦死の現場に居合わせた生存者に確率で付与される（→ 03 §5.1・§5.3.1）。
-        /// MNDを15%（暫定値）恒久的に低下させる。
+        /// MNDを恒久的に低下させる（減少率→ BAL: 特性/トラウマ減少率）。
         /// </summary>
         public static readonly TraitDefinition Trauma = new TraitDefinition
         {
@@ -46,13 +48,13 @@ namespace GuildManager.Core.Models
             BlocksDeployment = false,
             Effects = new List<TraitEffect>
             {
-                new TraitEffect { EffectType = TraitEffectType.StatPercentReduction, TargetStat = "MND", Value = -0.15 } // → BAL: 特性/トラウマ減少率
+                new TraitEffect { EffectType = TraitEffectType.StatPercentReduction, TargetStat = "MND", Value = TraitBalance.TraumaMndReduction }
             }
         };
 
         /// <summary>
         /// 豪胆（先天的）。新人採用時に低確率で付与される。致死判定のSurvivalThreshold
-        /// （→ 03 §4.3）に固定ボーナスを与える。
+        /// （→ 03 §4.3）に固定ボーナスを与える（→ BAL: 特性/豪胆ボーナス）。
         /// </summary>
         public static readonly TraitDefinition Brave = new TraitDefinition
         {
@@ -61,13 +63,13 @@ namespace GuildManager.Core.Models
             BlocksDeployment = false,
             Effects = new List<TraitEffect>
             {
-                new TraitEffect { EffectType = TraitEffectType.SurvivalThresholdModifier, TargetStat = "", Value = 5 } // → BAL: 特性/豪胆ボーナス
+                new TraitEffect { EffectType = TraitEffectType.SurvivalThresholdModifier, TargetStat = "", Value = TraitBalance.BraveSurvivalThresholdBonus }
             }
         };
 
         /// <summary>
         /// 注意深い（先天的）。新人採用時に低確率で付与される。索敵フェーズ（→ 03 §4.1）の
-        /// DEX寄与を+10%（暫定値）する。
+        /// DEX寄与を補正する（→ BAL: 特性/注意深い補正）。
         /// </summary>
         public static readonly TraitDefinition Attentive = new TraitDefinition
         {
@@ -76,13 +78,13 @@ namespace GuildManager.Core.Models
             BlocksDeployment = false,
             Effects = new List<TraitEffect>
             {
-                new TraitEffect { EffectType = TraitEffectType.ScoutingModifier, TargetStat = "DEX", Value = 0.10 } // → BAL: 特性/注意深い補正
+                new TraitEffect { EffectType = TraitEffectType.ScoutingModifier, TargetStat = "DEX", Value = TraitBalance.AttentiveScoutingBonus }
             }
         };
 
         /// <summary>
         /// 容姿秀麗（先天的）。新人採用時に低確率で付与される。このキャラクターが関与する
-        /// 相性ペアの上昇量に倍率がかかる（下降量には影響しない。→ 03 §5.3.1）。
+        /// 相性ペアの上昇量に倍率がかかる（下降量には影響しない。→ 03 §5.3.1・BAL: 特性/容姿秀麗倍率）。
         /// </summary>
         public static readonly TraitDefinition Beautiful = new TraitDefinition
         {
@@ -91,7 +93,7 @@ namespace GuildManager.Core.Models
             BlocksDeployment = false,
             Effects = new List<TraitEffect>
             {
-                new TraitEffect { EffectType = TraitEffectType.CompatibilityGainMultiplier, TargetStat = "", Value = 1.5 } // → BAL: 特性/容姿秀麗倍率
+                new TraitEffect { EffectType = TraitEffectType.CompatibilityGainMultiplier, TargetStat = "", Value = TraitBalance.BeautifulCompatibilityGainMultiplier }
             }
         };
 

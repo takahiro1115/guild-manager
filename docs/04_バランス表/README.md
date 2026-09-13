@@ -28,6 +28,12 @@
 | `compatibility_advisor.csv` | 03 §5.3・§7 | CompatibilityBalance, AdvisorBalance |
 | `security.csv` | 03 §4.4・§8.3 | SecurityBalance |
 | `training.csv` | 03 §3.1〜3.4・§3.5改 | TrainingBalance |
+| `trait.csv` | 03 §4.3・§5.3.2 | TraitBalance（→ TraitCatalog） |
+| `equipment.csv` | 03 §4.2.2 | EquipmentBalance（→ ItemCatalog） |
+
+`trait.csv`・`equipment.csv` は項目58（バランス値のCSV外部化）の時点では対応CSVが
+存在せず対象外だったため、フォローアップとして追加した（値はTraitCatalog.cs・
+ItemCatalog.csに直書きされていた旧値をそのまま書き起こしたもの。挙動は変わらない）。
 
 ## 凡例
 

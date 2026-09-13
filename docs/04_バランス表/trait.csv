@@ -1,0 +1,6 @@
+key,value,unit,note
+OldWoundStatReduction,-0.15,倍,古傷がSTR/VIT/AGI/DEXそれぞれに与える恒久的な減少率（→ 03 §4.3・§5.3.2）
+TraumaMndReduction,-0.15,倍,トラウマがMNDに与える恒久的な減少率（→ 03 §5.3.2）
+BraveSurvivalThresholdBonus,5,pt,豪胆が致死判定のSurvivalThreshold（→ 03 §4.3）に与える固定加算
+AttentiveScoutingBonus,0.10,倍,注意深いが索敵フェーズのDEX寄与に与える補正（→ 03 §4.1・§5.3.2）
+BeautifulCompatibilityGainMultiplier,1.5,倍,容姿秀麗が関与する相性ペアの上昇量に掛かる倍率（下降量には影響しない。→ 03 §5.3.1）
