@@ -90,7 +90,7 @@ size_flags_vertical = 3
 [node name="RemoveMemberButton" type="Button" parent="VBox/PartyRow/MemberListPanel"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "◀ 外す（未編成に戻す）"
+text = "外す（未編成に戻す） ▶"
 
 [node name="UnassignedListPanel" type="VBoxContainer" parent="VBox/PartyRow"]
 layout_mode = 2
@@ -109,7 +109,7 @@ size_flags_vertical = 3
 [node name="AddMemberButton" type="Button" parent="VBox/PartyRow/UnassignedListPanel"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "追加する ▶"
+text = "◀ 追加する"
 
 [node name="TogglePlacementButton" type="Button" parent="VBox"]
 unique_name_in_owner = true
