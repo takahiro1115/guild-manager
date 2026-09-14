@@ -56,5 +56,16 @@ namespace GuildManager.Core.Systems
 
         /// <summary>今週新たに確定した敗北理由（無ければnull）。</summary>
         public DefeatReason? NewDefeatReason { get; set; }
+
+        /// <summary>
+        /// 今週提示されたランク昇格試験クエスト（→ GuildProgressionSystem.TryOfferPromotionExam、
+        /// コアシステム刷新仕様 Phase 2）。提示が無ければnull。
+        /// </summary>
+        public Quest? OfferedPromotionExam { get; set; }
+
+        /// <summary>
+        /// 今週の昇格試験突破によって発生した変化（→ Phase 4）。突破していなければnull。
+        /// </summary>
+        public PromotionExamResult? PromotionExamResult { get; set; }
     }
 }

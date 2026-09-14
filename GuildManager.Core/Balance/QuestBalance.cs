@@ -62,12 +62,12 @@ namespace GuildManager.Core.Balance
         /// 今回Scale列を追加し、あわせて中・大規模のテンプレートも新設した
         /// （でなければ「6名未満で中・大が出現しない」制御自体、対象が存在せず無意味になるため）。
         /// </summary>
-        public static readonly (string Name, QuestType Type, QuestRank Rank, int Difficulty, int ScoutRequirement, int RewardGold, int DeadlineWeeks, QuestScale Scale)[] Templates = BuildTemplates();
+        public static readonly (string Name, QuestType Type, QuestRank Rank, int Difficulty, int ScoutRequirement, int RewardGold, int DeadlineWeeks, QuestScale Scale, int RecommendedMembers)[] Templates = BuildTemplates();
 
-        private static (string, QuestType, QuestRank, int, int, int, int, QuestScale)[] BuildTemplates()
+        private static (string, QuestType, QuestRank, int, int, int, int, QuestScale, int)[] BuildTemplates()
         {
             var (_, rows) = BalanceData.GetTable(TemplatesFileName);
-            var result = new (string, QuestType, QuestRank, int, int, int, int, QuestScale)[rows.Count];
+            var result = new (string, QuestType, QuestRank, int, int, int, int, QuestScale, int)[rows.Count];
 
             for (int i = 0; i < rows.Count; i++)
             {
@@ -88,8 +88,12 @@ namespace GuildManager.Core.Balance
                     throw new BalanceDataException($"{TemplatesFileName} の{i + 2}行目のdeadline_weeks「{row[6]}」を整数として解釈できません。");
                 if (!Enum.TryParse<QuestScale>(row[7], out var scale))
                     throw new BalanceDataException($"{TemplatesFileName} の{i + 2}行目のscale「{row[7]}」をQuestScaleとして解釈できません。");
+                // recommended_members（→ Quest.RecommendedMembers、コアシステム刷新仕様）。
+                // 採取は1〜2名、討伐・大規模任務は4名、といった編成の目安をテンプレート側に持たせる。
+                if (!int.TryParse(row[8], NumberStyles.Integer, CultureInfo.InvariantCulture, out int recommendedMembers))
+                    throw new BalanceDataException($"{TemplatesFileName} の{i + 2}行目のrecommended_members「{row[8]}」を整数として解釈できません。");
 
-                result[i] = (name, type, rank, difficulty, scoutRequirement, rewardGold, deadlineWeeks, scale);
+                result[i] = (name, type, rank, difficulty, scoutRequirement, rewardGold, deadlineWeeks, scale, recommendedMembers);
             }
 
             return result;

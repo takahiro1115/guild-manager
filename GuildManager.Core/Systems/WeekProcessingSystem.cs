@@ -35,6 +35,7 @@ namespace GuildManager.Core.Systems
         private readonly FacilitySystem _facilitySystem;
         private readonly DefeatSystem _defeatSystem;
         private readonly RecruitmentSystem _recruitmentSystem;
+        private readonly GuildProgressionSystem _guildProgressionSystem;
 
         public WeekProcessingSystem(
             QuestDispatchSystem questDispatchSystem,
@@ -51,7 +52,11 @@ namespace GuildManager.Core.Systems
             AgingSystem agingSystem,
             FacilitySystem facilitySystem,
             DefeatSystem defeatSystem,
-            RecruitmentSystem recruitmentSystem)
+            RecruitmentSystem recruitmentSystem,
+            // 省略可能：進行管理（→ コアシステム刷新仕様「4. 進行管理」）は、既に注入されている
+            // RecruitmentSystem（昇格時の新人補充に使う）からそのまま組み立てられるため、
+            // 既存の呼び出し側を変更せずに接続できるよう既定値を持たせている。
+            GuildProgressionSystem? guildProgressionSystem = null)
         {
             _questDispatchSystem = questDispatchSystem;
             _guildRankSystem = guildRankSystem;
@@ -68,6 +73,7 @@ namespace GuildManager.Core.Systems
             _facilitySystem = facilitySystem;
             _defeatSystem = defeatSystem;
             _recruitmentSystem = recruitmentSystem;
+            _guildProgressionSystem = guildProgressionSystem ?? new GuildProgressionSystem(recruitmentSystem);
         }
 
         /// <summary>
@@ -116,6 +122,11 @@ namespace GuildManager.Core.Systems
                     anyFallenOrNewOldWound = true;
                 if (resolution.Party.Members.Any(m => !hadOldWoundBefore.Contains(m.Id) && m.HasTrait(TraitCatalog.OldWoundId)))
                     anyFallenOrNewOldWound = true;
+
+                // ランク昇格試験の突破判定（→ コアシステム刷新仕様 Phase 4）。
+                // 突破すればランクE昇格・同時出撃枠2への拡張・報奨金・新人補充が行われる。
+                result.PromotionExamResult ??= _guildProgressionSystem.ApplyPromotionIfExamCleared(
+                    state, resolution.Quest, resolution.Result.QuestAchieved);
 
                 // 複数週クエストの帰還（→ 03 §1.3自動スキップ停止条件4）。1週クエストの
                 // その場解決（＝出発と同じ週に決着）はここでいう「帰還」には含めない。
@@ -182,6 +193,16 @@ namespace GuildManager.Core.Systems
             // 新春採用試験（2年目以降の新年第1週のみ）。ゲームオーバー後は発生させない。
             result.Flags.RecruitmentTrialOccurred =
                 state.DefeatReason == null && _recruitmentSystem.IsRecruitmentWeek(state.WeekNumber);
+
+            // ランク昇格試験の提示（→ コアシステム刷新仕様 Phase 2）。累計出撃回数と資金が
+            // 基準に達した週に一度だけ、受注可能一覧へボスクエストを追加する。
+            // 敗北後は新たな目標を提示しない（新春採用試験と同じ扱い）。
+            if (state.DefeatReason == null)
+                result.OfferedPromotionExam = _guildProgressionSystem.TryOfferPromotionExam(state);
+
+            // 進行の節目（試験の提示・突破）はどちらもプレイヤーの判断を要するため自動スキップを止める。
+            result.Flags.GuildProgressionEventOccurred =
+                result.OfferedPromotionExam != null || result.PromotionExamResult != null;
 
             return result;
         }

@@ -13,5 +13,12 @@ namespace GuildManager.Core.Models
 
         /// <summary>満了までの残り週数。0に到達した週に解決する。</summary>
         public int WeeksRemaining { get; set; }
+
+        /// <summary>
+        /// この派遣で緊急回復（→ EmergencySupportSystem.TryEmergencyHeal）を既に使ったか。
+        /// 1出撃につき1回のみという制限のためのフラグ（→ コアシステム刷新仕様
+        /// 「(3) ギルドマスター後方支援機能」）。
+        /// </summary>
+        public bool EmergencyHealUsed { get; set; } = false;
     }
 }

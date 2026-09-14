@@ -102,6 +102,33 @@ namespace GuildManager.Core.Models
         /// </summary>
         public FacilityConstruction? UnderConstruction { get; set; }
 
+        /// <summary>
+        /// 同時に派遣できる部隊の数（→ コアシステム刷新仕様「4. 進行管理」）。初期値1。
+        /// Rank E昇格試験の突破で2へ拡張される（→ GuildProgressionSystem.ApplyPromotion）。
+        /// 1枠の中で何名を出撃させるか（1〜4名のフリーアサイン）は制限しない
+        /// ＝「枠」は部隊の数であって人数ではない。
+        /// 実際の制限は QuestDispatchSystem.CanDispatch／TryDispatch で行う。
+        /// </summary>
+        public int UnlockedSquadSlots { get; set; } = ProgressionBalance.InitialSquadSlots;
+
+        /// <summary>
+        /// 累計出撃回数（→ コアシステム刷新仕様 Phase 2の提示条件）。
+        /// QuestDispatchSystem.Dispatchのたびに1増える（クエストの成否は問わない）。
+        /// </summary>
+        public int TotalDispatchCount { get; set; } = 0;
+
+        /// <summary>
+        /// ランク昇格試験クエストを既に受注可能一覧へ提示したか（→ Phase 2）。
+        /// 一度提示したら重複して追加しないためのフラグ。期限切れで消えた場合の
+        /// 再提示は行わない（→ GuildProgressionSystem）。
+        /// </summary>
+        public bool PromotionExamOffered { get; set; } = false;
+
+        /// <summary>
+        /// ランク昇格試験を突破済みか（→ Phase 4）。突破後は再提示しない。
+        /// </summary>
+        public bool PromotionExamPassed { get; set; } = false;
+
         /// <summary>ギルドの名声（仕様書 03 §8.1）。0未満にはならない。</summary>
         public int Reputation { get; set; } = 0;
 
@@ -169,6 +196,10 @@ namespace GuildManager.Core.Models
                 DefeatReason = DefeatReason?.ToString(),
                 WeeksSinceLastRankAppropriateQuest = WeeksSinceLastRankAppropriateQuest,
                 FinalQuestUnlocked = FinalQuestUnlocked,
+                UnlockedSquadSlots = UnlockedSquadSlots,
+                TotalDispatchCount = TotalDispatchCount,
+                PromotionExamOffered = PromotionExamOffered,
+                PromotionExamPassed = PromotionExamPassed,
                 ActiveAdventurers = new List<Adventurer>(Adventurers),
                 RetiredAdvisorCandidates = new List<Adventurer>(RetiredAdventurers),
                 FallenAdventurers = new List<Adventurer>(FallenAdventurers),
@@ -213,6 +244,7 @@ namespace GuildManager.Core.Models
                     // 消費されずPartyに残り続けるため、複数週クエストの派遣中は必ず保存する
                     // （→ DispatchedQuestRecord.ConsumableItemIdsのコメント参照）。
                     ConsumableItemIds = new List<string>(dispatch.Party.ConsumableItemIds),
+                    EmergencyHealUsed = dispatch.EmergencyHealUsed,
                 });
             }
 
@@ -239,6 +271,13 @@ namespace GuildManager.Core.Models
                 DefeatReason = data.DefeatReason == null ? null : ParseEnum<DefeatReason>(data.DefeatReason, nameof(DefeatReason)),
                 WeeksSinceLastRankAppropriateQuest = data.WeeksSinceLastRankAppropriateQuest,
                 FinalQuestUnlocked = data.FinalQuestUnlocked,
+                // 進行管理（→ コアシステム刷新仕様「4. 進行管理」）。同時出撃枠は
+                // 0（＝一切派遣できない不整合な状態）で復元されないよう、未設定の
+                // 古いセーブでは初期値へフォールバックする。
+                UnlockedSquadSlots = data.UnlockedSquadSlots > 0 ? data.UnlockedSquadSlots : ProgressionBalance.InitialSquadSlots,
+                TotalDispatchCount = data.TotalDispatchCount,
+                PromotionExamOffered = data.PromotionExamOffered,
+                PromotionExamPassed = data.PromotionExamPassed,
                 Adventurers = new List<Adventurer>(data.ActiveAdventurers),
                 RetiredAdventurers = new List<Adventurer>(data.RetiredAdvisorCandidates),
                 FallenAdventurers = new List<Adventurer>(data.FallenAdventurers),
@@ -301,7 +340,13 @@ namespace GuildManager.Core.Models
                 }
                 party.ConsumableItemIds = new List<string>(record.ConsumableItemIds);
 
-                state.ActiveDispatches.Add(new ActiveDispatch { Party = party, Quest = record.Quest, WeeksRemaining = record.WeeksRemaining });
+                state.ActiveDispatches.Add(new ActiveDispatch
+                {
+                    Party = party,
+                    Quest = record.Quest,
+                    WeeksRemaining = record.WeeksRemaining,
+                    EmergencyHealUsed = record.EmergencyHealUsed,
+                });
             }
 
             return state;

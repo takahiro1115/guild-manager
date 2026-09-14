@@ -119,7 +119,7 @@ namespace GuildManager.Core.Systems
             // （→ 03 §4.2.3、項目64）。ペアシナジーは遭遇による戦闘力倍率の対象外とし、
             // パーティ全体スコアへの定額加算として扱う（マイナスのシナジーが奇襲成功で
             // かえって重くなる、といった不自然さを避けるため）。
-            double score = party.Members.Sum(m => MemberScore(m, quest.QuestType)) * combatMultiplier
+            double score = QuestScoreCalculator.SumMemberScores(party.Members, quest.QuestType) * combatMultiplier
                            + PairSynergyCalculator.Calculate(party.Members, quest.QuestType);
 
             // 環境ギミック：霊体（Undead）・隘路（NarrowPath）はフェーズ2の点数にペナルティ係数を
@@ -127,7 +127,7 @@ namespace GuildManager.Core.Systems
             // （個別メンバーの寄与ではなく「その場の状況」への補正のため）。
             score *= GimmickEvaluator.GetPhaseMultiplier(quest.EnvironmentTags, GimmickPhase.Score, party.Members, party.ConsumableItemIds);
 
-            double requirement = quest.Difficulty * QuestScoringBalance.GetRequirementCoefficient(quest.QuestType);
+            double requirement = QuestScoreCalculator.Requirement(quest);
             if (result.Encounter == EncounterResult.Ambushed)
                 requirement *= CombatBalance.AmbushEnemyMultiplier;
 
@@ -151,7 +151,13 @@ namespace GuildManager.Core.Systems
                 result.QuestAchieved = outcome != Systems.NonCombatOutcome.Failure; // 大成功・成功＝達成
                 (hpLossMinPct, hpLossMaxPct) = (minPct, maxPct);
             }
-            result.RewardGold = result.QuestAchieved ? quest.RewardGold : 0;
+            // 採取任務の報酬は派遣人数に正比例する（→ コアシステム刷新仕様「採取量の変動」）。
+            // 「4人で行けば4倍採れるが、その週は他の任務に人を回せない」という
+            // 編成上のトレードオフを作るための仕組み（→ QuestScoringBalance.
+            // ScalesRewardWithMemberCount）。討伐・探索等は人数を増やしても報酬は増えない。
+            result.RewardGold = result.QuestAchieved
+                ? GetScaledReward(quest, party.Members.Count)
+                : 0;
 
             // 携帯糧食（→ パーティ携行アイテム刷新仕様）：達成時のみパーティ全員の満足度に加算する。
             if (result.QuestAchieved && party.ConsumableItemIds.Contains(ConsumableCatalog.TravelRationsId))
@@ -245,6 +251,12 @@ namespace GuildManager.Core.Systems
                 int minHp = useCombatDamageRules ? 0 : NonCombatMinHp;
                 member.CurrentHP = Math.Max(minHp, member.CurrentHP - hpLoss);
                 result.HpLostByAdventurer[member.Id] = hpLoss;
+
+                // 低危険度任務（採取・巡回・探索・護衛）の消耗判定（→ コアシステム刷新仕様
+                // 「負傷判定（即詰み防止）」）。致死判定は一切行わず、HPを大きく削られた者だけが
+                // 数週間の軽傷を負う（休養すれば必ず復帰する＝人員を永久に失って詰むことがない）。
+                if (!useCombatDamageRules)
+                    ApplyLightInjuryIfExhausted(result, member);
 
                 // フェーズ3（致死判定）は討伐フローの損害を適用した時のみ。通常の探索・護衛では
                 // 上のminHp=1によりそもそもHP0に到達しないが、意図を明示するため条件にも書いておく。
@@ -491,6 +503,38 @@ namespace GuildManager.Core.Systems
         private static double GetScoutingDex(Adventurer a) =>
             a.GetEffectiveStat("DEX") * (1 + a.SumTraitEffect(TraitEffectType.ScoutingModifier, "DEX"));
 
+        /// <summary>
+        /// クエスト報酬額。採取任務のみ派遣人数に正比例させる（→ QuestScoringBalance.
+        /// ScalesRewardWithMemberCount、コアシステム刷新仕様「採取量の変動」）。
+        /// 素材システム自体は未実装（→ docs/04_バランス表/README「市場・素材価格」）のため、
+        /// 現時点では採取量をGoldで表現している。素材を導入する際は、この
+        /// 「基本量×派遣人数」という比例則をそのまま素材個数へ移植する。
+        /// </summary>
+        private static int GetScaledReward(Quest quest, int memberCount) =>
+            QuestScoringBalance.ScalesRewardWithMemberCount(quest.QuestType)
+                ? quest.RewardGold * memberCount
+                : quest.RewardGold;
+
+        /// <summary>
+        /// 低危険度任務での軽傷付与（→ コアシステム刷新仕様「負傷判定（即詰み防止）」）。
+        /// 残HP比率が閾値以下まで削られたメンバーに、数週間の軽傷を負わせる。
+        /// 既に負傷中の者は対象外（重傷を軽傷で上書きして全治期間を短縮してしまわないため）。
+        /// 回復は既存の InjuryRecoverySystem が担当する（Light/Severeを区別せず週数を消化する）。
+        /// </summary>
+        private void ApplyLightInjuryIfExhausted(WeekResolutionResult result, Adventurer member)
+        {
+            if (member.Injury != InjurySeverity.None)
+                return;
+
+            double hpRatio = (double)member.CurrentHP / member.MaxHP;
+            if (hpRatio > QuestScoringBalance.LightInjuryHpRatioThreshold)
+                return;
+
+            member.Injury = InjurySeverity.Light;
+            member.InjuryWeeksRemaining = _rng.NextInt(QuestScoringBalance.LightInjuryWeeksMin, QuestScoringBalance.LightInjuryWeeksMax);
+            result.LightlyInjuredAdventurerIds.Add(member.Id);
+        }
+
         /// <summary>致死判定で「生存」と判定された場合の共通処理：重傷でHP1に留まる（→ 03 §4.3・§3.6）。</summary>
         private void ApplySurvival(Adventurer member)
         {
@@ -499,54 +543,10 @@ namespace GuildManager.Core.Systems
             member.CurrentHP = 1;
         }
 
-        /// <summary>
-        /// 統一点数計算式における、メンバー1名分の点数（→ 03 §4.2.3）。
-        /// 討伐ではこれが従来の「個人CP」と完全に同じ式になる（対象ステータスの重みは
-        /// quest_type_weights.csvのSubjugation行が旧CombatBalance.WeightXXXの値をそのまま持つ）。
-        ///
-        /// 個人特性ボーナス（→ 03 §4.2.3、項目64）もここで加算する。装備ボーナスと同じ扱いとし、
-        /// 負傷時の効率低下(hpRatio)・配置補正の対象にする。
-        /// </summary>
-        private static double MemberScore(Adventurer a, QuestType questType)
-        {
-            double hpRatio = (double)a.CurrentHP / a.MaxHP;
-
-            double statSum = 0;
-            foreach (var (stat, weight) in QuestScoringBalance.GetStatWeights(questType))
-                statSum += a.GetEffectiveStat(stat) * weight;
-
-            double baseScore = statSum + GetEquipmentBonus(a, questType) + GetTraitScoreBonus(a, questType);
-            return baseScore * GetPlacementCorrection(a, questType) * hpRatio;
-        }
-
-        /// <summary>
-        /// クエスト種別限定の個人特性ボーナス（→ 03 §4.2.3、項目64）。「田舎育ち」の探索ボーナス等。
-        /// TraitEffectType.QuestTypeScoreBonus は TargetStat にクエスト種別名を持つため、
-        /// 既存の SumTraitEffect のフィルタをそのまま使える。該当特性が無ければ0。
-        /// </summary>
-        private static double GetTraitScoreBonus(Adventurer a, QuestType questType) =>
-            a.SumTraitEffect(TraitEffectType.QuestTypeScoreBonus, questType.ToString());
-
-        /// <summary>
-        /// 装備ボーナス。討伐では装備（武器・アクセサリー）のCP固定加算（→ 03 §4.2.2）を
-        /// ステータス由来の寄与と同じ扱いで加算し、負傷時の効率低下(hpRatio)・配置補正の対象にする。
-        ///
-        /// 探索・護衛は「予約枠」として常に0を返す（→ 03 §4.2.3）。探索・護衛で効く装備効果
-        /// （調査道具・護衛用装備等）は今回実装しないが、将来追加する際はこのメソッドが
-        /// 拡張点になる。
-        /// </summary>
-        private static double GetEquipmentBonus(Adventurer a, QuestType questType) =>
-            QuestScoringBalance.UsesCombatResolution(questType)
-                ? a.GetEquipmentBonus(EquipmentEffectType.PersonalCpBonus)
-                : 0;
-
-        /// <summary>
-        /// 配置補正（前衛/後衛）。討伐のみ適用し、探索・護衛には適用しない（→ 03 §4.2.3）。
-        /// </summary>
-        private static double GetPlacementCorrection(Adventurer a, QuestType questType) =>
-            QuestScoringBalance.UsesCombatResolution(questType)
-                ? PlacementBalance.GetPersonalCpCorrection(a.JobClass, a.Placement)
-                : 1.0;
+        // 点数・要求値の算出（MemberScore／装備ボーナス／個人特性ボーナス／配置補正／要求値）は
+        // QuestScoreCalculator へ切り出した（→ コアシステム刷新仕様「成功率予測エンジン」）。
+        // 出撃前の成功率予測（SuccessRateCalculator）と実際の解決（このクラス）が同じ式を
+        // 共有し、「表示された成功率と実際の結果が食い違う」事故を構造的に防ぐため。
 
         /// <summary>
         /// Ratioから勝敗区分とHP消費%レンジを求める（討伐のみ）。仕様書03 §4.2の表に対応。

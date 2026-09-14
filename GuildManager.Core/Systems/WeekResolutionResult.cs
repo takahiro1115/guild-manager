@@ -52,5 +52,13 @@ namespace GuildManager.Core.Systems
         /// GameState.FallenAdventurers への移動と、仲間ロストの満足度ペナルティ（§5.1）を行う。
         /// </summary>
         public HashSet<Guid> FallenAdventurerIds { get; set; } = new();
+
+        /// <summary>
+        /// 今回の遠征で軽傷を負った冒険者ID（→ コアシステム刷新仕様「負傷判定（即詰み防止）」）。
+        /// 討伐フローを通らない低危険度任務（採取・巡回・探索・護衛）で、HPが大きく削られた
+        /// メンバーに付与される。キャラロスト（戦死）は発生せず、数週間の休養で復帰する
+        /// ＝序盤に人員を永久に失って詰むことがない。
+        /// </summary>
+        public HashSet<Guid> LightlyInjuredAdventurerIds { get; set; } = new();
     }
 }

@@ -64,6 +64,25 @@ namespace GuildManager.Core.Models
         /// </summary>
         public bool FinalQuestUnlocked { get; set; }
 
+        // ---- 進行管理（→ コアシステム刷新仕様「4. 進行管理」） ----
+
+        /// <summary>
+        /// 同時出撃枠（→ GameState.UnlockedSquadSlots）。これを保存しないと、
+        /// 昇格試験を突破して2枠に拡張した状態がロードのたびに1枠へ戻ってしまう。
+        /// 本フィールドを持たない旧セーブ（値0）は、FromSaveData側で初期値へ
+        /// フォールバックする。
+        /// </summary>
+        public int UnlockedSquadSlots { get; set; }
+
+        /// <summary>累計出撃回数（→ GameState.TotalDispatchCount）。昇格試験の提示条件に使う。</summary>
+        public int TotalDispatchCount { get; set; }
+
+        /// <summary>昇格試験クエストを提示済みか（→ GameState.PromotionExamOffered）。</summary>
+        public bool PromotionExamOffered { get; set; }
+
+        /// <summary>昇格試験を突破済みか（→ GameState.PromotionExamPassed）。</summary>
+        public bool PromotionExamPassed { get; set; }
+
         // ---- 冒険者関連 ----
 
         public List<Adventurer> ActiveAdventurers { get; set; } = new();
@@ -168,5 +187,12 @@ namespace GuildManager.Core.Models
         /// この一覧を保存しない限りロード時に失われる（事前調査で発覚した保存漏れ）。
         /// </summary>
         public List<string> ConsumableItemIds { get; set; } = new();
+
+        /// <summary>
+        /// この派遣で緊急回復（→ EmergencySupportSystem）を使用済みか
+        /// （→ ActiveDispatch.EmergencyHealUsed）。保存しないと、複数週クエストの
+        /// 派遣中にセーブ・ロードを挟むだけで「1出撃1回まで」の制限を回避できてしまう。
+        /// </summary>
+        public bool EmergencyHealUsed { get; set; }
     }
 }

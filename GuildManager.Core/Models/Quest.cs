@@ -48,6 +48,23 @@ namespace GuildManager.Core.Models
         public int DeadlineWeeks { get; set; }
 
         /// <summary>
+        /// 推奨人数（1〜4。→ コアシステム刷新仕様）。成功率予測（→ SuccessRateCalculator）の
+        /// 人数補正と、UIでの編成ガイド表示に使う。既定はパーティ最大人数（＝従来どおり
+        /// 4名前提のクエスト）。採取任務では1が設定されることを想定している
+        /// （少人数でも成立するが、人数を増やすほど採取量が増える）。
+        /// </summary>
+        public int RecommendedMembers { get; set; } = Party.MaxSlots;
+
+        /// <summary>
+        /// ランク昇格試験（ボス任務）かどうか（→ コアシステム刷新仕様 Phase 3）。
+        /// trueのクエストは、成功率予測で人数不足に大きなペナルティがかかり
+        /// （→ SuccessRateBalance.BossUndermannedPenaltyPerMember）、達成時には
+        /// GuildProgressionSystemがランク昇格・同時出撃枠の拡張を行う。
+        /// UI側はこのフラグを見てログのステップ再生モードに切り替える想定。
+        /// </summary>
+        public bool IsBoss { get; set; } = false;
+
+        /// <summary>
         /// このクエストに設定された環境ギミック（0件以上。「環境ギミック」刷新仕様参照）。
         /// 各タグごとにパーティの対策達成度（3段階）が判定され、未対策・一部対策の場合は
         /// フェーズ1（索敵）・フェーズ2（点数）・損耗（HP消費）のいずれかにペナルティが乗算される

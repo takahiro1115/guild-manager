@@ -81,6 +81,7 @@ namespace GuildManager.Core.Systems
                 RewardGold = template.RewardGold,
                 DeadlineWeeks = template.DeadlineWeeks,
                 Scale = template.Scale,
+                RecommendedMembers = template.RecommendedMembers,
             };
         }
     }

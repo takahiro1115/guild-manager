@@ -11,5 +11,18 @@ namespace GuildManager.Core.Models
         Subjugation,
         Exploration,
         Escort,
+
+        /// <summary>
+        /// 採取（→ ギルド運営コアシステム刷新仕様）。AGI・DEX中心の低危険度任務。
+        /// 討伐フロー（致死判定）を通らないため序盤の「即詰み」が発生しない。
+        /// 報酬（採取量）は派遣人数に正比例する（→ QuestScoringBalance.ScalesRewardWithMemberCount）。
+        /// </summary>
+        Gathering,
+
+        /// <summary>
+        /// 巡回（→ ギルド運営コアシステム刷新仕様）。全ステータスを均等に評価する
+        /// （requiredStatType: balanced 相当）低危険度任務。採取と同じく致死判定は通らない。
+        /// </summary>
+        Patrol,
     }
 }

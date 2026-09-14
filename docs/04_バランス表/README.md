@@ -36,6 +36,9 @@
 | `equipment.csv` | 03 §4.2.2 | EquipmentBalance（→ ItemCatalog） |
 | `gimmick.csv` | 環境ギミック刷新仕様 | GimmickBalance（→ Systems.GimmickEvaluator） |
 | `consumables.csv` | パーティ携行アイテム刷新仕様 | ConsumableBalance（→ ConsumableCatalog） |
+| `success_rate.csv` | コアシステム刷新仕様(1) | SuccessRateBalance（→ Systems.SuccessRateCalculator） |
+| `progression.csv` | コアシステム刷新仕様(4) | ProgressionBalance（→ Systems.GuildProgressionSystem） |
+| `emergency.csv` | コアシステム刷新仕様(3) | EmergencyBalance（→ Systems.EmergencySupportSystem） |
 
 `trait.csv`・`equipment.csv` は項目58（バランス値のCSV外部化）の時点では対応CSVが
 存在せず対象外だったため、フォローアップとして追加した（値はTraitCatalog.cs・
@@ -84,6 +87,21 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 `consumables.csv`はパーティ携行アイテム刷新仕様で新設した。ギミック相殺5種は価格のみ
 （効果は+1点で固定・仕様側で規定）、効果アイテム3種（煙幕弾・高品質傷薬・携帯糧食）は
 価格に加えて効果量を持つ。
+
+`success_rate.csv`・`progression.csv`・`emergency.csv` はコアシステム刷新仕様
+（序盤のグラインド排除）で新設した：
+
+- `success_rate.csv` … 出撃前の成功率予測（→ SuccessRateCalculator）。
+  **算出した確率そのものはUIに出さない**（情報公開の原則。→ コミットd7c7f39）。
+  `ConfidenceThreshold_*` は定性表現（→ Models.SuccessConfidence）へ丸めるための閾値。
+- `progression.csv` … 同時出撃枠の段階開放とランクE昇格試験（→ GuildProgressionSystem）。
+  「累計出撃3回・資金100G」という提示条件は、プレイ開始40〜60分で第2部隊枠へ
+  到達させることを狙った値。
+- `emergency.csv` … 緊急撤退・緊急回復（→ EmergencySupportSystem）。
+  緊急回復のコストは、素材・市場システムが未実装のため暫定的にGoldで表現している。
+
+`quest_templates.csv` にはコアシステム刷新仕様で `recommended_members` 列（推奨人数）を
+追加し、あわせて低危険度の採取（Gathering）・巡回（Patrol）テンプレートを新設した。
 
 ## 凡例
 

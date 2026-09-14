@@ -37,11 +37,18 @@ namespace GuildManager.Core.Systems
         /// </summary>
         public bool DefeatOccurred { get; set; }
 
+        /// <summary>
+        /// ギルド進行（→ コアシステム刷新仕様「4. 進行管理」）の節目が今週発生したか。
+        /// ランク昇格試験の提示（Phase 2）と、その突破による第2部隊枠の開放（Phase 4）が対象。
+        /// どちらもプレイヤーの意思決定を要求する重要イベントのため、自動スキップを止める。
+        /// </summary>
+        public bool GuildProgressionEventOccurred { get; set; }
+
         public bool ShouldStopAutoSkip =>
             RecruitmentTrialOccurred || SatisfactionWarningOccurred ||
             FacilityConstructionCompleted || MultiWeekQuestReturned ||
             DeathOrPermanentInjuryOccurred || ThreatThresholdNewlyCrossed ||
             FinalQuestNewlyUnlocked || SubjugationQuestExpiringNextWeek ||
-            DefeatOccurred;
+            DefeatOccurred || GuildProgressionEventOccurred;
     }
 }

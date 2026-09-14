@@ -43,8 +43,32 @@ namespace GuildManager.Core.Systems
         }
 
         /// <summary>
+        /// 同時出撃枠（→ GameState.UnlockedSquadSlots、コアシステム刷新仕様「4. 進行管理」）に
+        /// 空きがあるか。枠は「部隊の数」であって人数ではない：1枠の中で1〜4名を自由に
+        /// 割り振れる（フリーアサイン）。
+        /// </summary>
+        public static bool CanDispatch(GameState state) =>
+            state.ActiveDispatches.Count < state.UnlockedSquadSlots;
+
+        /// <summary>
+        /// 同時出撃枠を確認した上でパーティを派遣する。枠が埋まっていれば何もせずfalseを返す
+        /// （Party.TryAdd等と同じTry*系のパターン）。UI側はこちらを使うこと。
+        /// </summary>
+        public bool TryDispatch(GameState state, Party party, Quest quest)
+        {
+            if (!CanDispatch(state))
+                return false;
+
+            Dispatch(state, party, quest);
+            return true;
+        }
+
+        /// <summary>
         /// パーティを派遣する。全メンバーを IsDispatched=true にし、ActiveDispatches へ追加する。
         /// この時点では解決しない（満了週まで待つ。1週クエストは同じ週の決算で解決される）。
+        ///
+        /// 注意：このメソッド自体は同時出撃枠を検査しない（既存の呼び出し・テストとの互換のため）。
+        /// 枠の制限を効かせたい通常の導線からは TryDispatch を使うこと。
         /// </summary>
         public void Dispatch(GameState state, Party party, Quest quest)
         {
@@ -60,6 +84,10 @@ namespace GuildManager.Core.Systems
             // 外しておかないと、派遣中（拘束期間中）もQuestBoardSystemの期限切れ判定の対象に
             // なり続けてしまい、受注済みのクエストが誤って「放置」扱いされてしまう。
             state.AvailableQuests.Remove(quest);
+
+            // 累計出撃回数（→ GameState.TotalDispatchCount）。昇格試験の提示条件
+            // （→ GuildProgressionSystem）に使うため、クエストの成否に関わらず出撃した時点で数える。
+            state.TotalDispatchCount++;
 
             foreach (var member in party.Members)
                 member.IsDispatched = true;
