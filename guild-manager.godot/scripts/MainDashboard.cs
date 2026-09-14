@@ -861,7 +861,7 @@ public partial class MainDashboard : Control
 				: a.IsDispatched
 					? $"【派遣中・残り{GetDispatchWeeksRemaining(a)}週】"
 					: "";
-			_adventurerList.AddItem($"{a.Name}（{a.JobClass}・{PlacementLabel(a.Placement)}） HP{a.CurrentHP}/{a.MaxHP}　総合PA{a.TotalPA:F1}　{a.Age}歳 {status}");
+			_adventurerList.AddItem($"{a.Name}（{a.JobClass}） HP{a.CurrentHP}/{a.MaxHP}　総合PA{a.TotalPA:F1}　{a.Age}歳 {status}");
 		}
 
 		RefreshAdventurerDetail();
@@ -909,7 +909,6 @@ public partial class MainDashboard : Control
 
 		var sb = new StringBuilder();
 		sb.AppendLine($"[b]{a.Name}[/b]（{a.JobClass}） {a.Age}歳・{AgeBandLabel(a.AgeBand)}");
-		sb.AppendLine($"配置: {PlacementLabel(a.Placement)}");
 		sb.AppendLine($"HP {a.CurrentHP}/{a.MaxHP}　満足度 {a.Satisfaction}/100");
 		sb.AppendLine(InjuryLabel(a));
 		if (a.TraitIds.Count > 0)
@@ -978,13 +977,6 @@ public partial class MainDashboard : Control
 		var item = ItemCatalog.FindById(itemId);
 		return item?.Name ?? "（不明）";
 	}
-
-	private static string PlacementLabel(Placement placement) => placement switch
-	{
-		Placement.Front => "前衛",
-		Placement.Back => "後衛",
-		_ => placement.ToString()
-	};
 
 	private static string ScaleLabel(QuestScale scale) => scale switch
 	{

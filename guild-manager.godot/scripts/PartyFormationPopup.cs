@@ -23,7 +23,6 @@ public partial class PartyFormationPopup : PopupPanel
 	private Button _removeMemberButton = null!;
 	private ItemList _unassignedList = null!;
 	private Button _addMemberButton = null!;
-	private Button _togglePlacementButton = null!;
 	private RichTextLabel _compatibilityLabel = null!;
 	private Label _statusLabel = null!;
 
@@ -47,7 +46,6 @@ public partial class PartyFormationPopup : PopupPanel
 		_removeMemberButton = GetNode<Button>("%RemoveMemberButton");
 		_unassignedList = GetNode<ItemList>("%UnassignedList");
 		_addMemberButton = GetNode<Button>("%AddMemberButton");
-		_togglePlacementButton = GetNode<Button>("%TogglePlacementButton");
 		_compatibilityLabel = GetNode<RichTextLabel>("%CompatibilityLabel");
 		_statusLabel = GetNode<Label>("%StatusLabel");
 
@@ -57,7 +55,6 @@ public partial class PartyFormationPopup : PopupPanel
 		_deleteButton.Pressed += OnDeletePressed;
 		_removeMemberButton.Pressed += OnRemoveMemberPressed;
 		_addMemberButton.Pressed += OnAddMemberPressed;
-		_togglePlacementButton.Pressed += OnTogglePlacementPressed;
 		PopupHide += () => Closed.Invoke();
 	}
 
@@ -104,7 +101,7 @@ public partial class PartyFormationPopup : PopupPanel
 			{
 				var member = _state.Adventurers.FirstOrDefault(a => a.Id == id);
 				_memberList.AddItem(member != null
-					? $"{member.Name}（{member.JobClass}・{PlacementLabel(member.Placement)}） HP{member.CurrentHP}/{member.MaxHP}"
+					? $"{member.Name}（{member.JobClass}） HP{member.CurrentHP}/{member.MaxHP}"
 					: "（不明・現役ロースターに存在しません）");
 			}
 		}
@@ -252,53 +249,4 @@ public partial class PartyFormationPopup : PopupPanel
 		RefreshAll();
 	}
 
-	/// <summary>
-	/// 「配置（前衛⇔後衛）を切り替える」ボタン（→ 03 §4.0.2・§4.2）。配置は
-	/// パーティーではなく冒険者個人に紐づく永続状態のため、選択中パーティーの
-	/// メンバー（MemberList）・未編成の冒険者（UnassignedList）のどちらを選択して
-	/// いても切り替えられる。配置は職業で固定されないため常に切り替え可能
-	/// （Adventurer.TrySetPlacementは常に成功する）。
-	///
-	/// 設計メモ：以前はメインダッシュボードの個別詳細パネル側にあった配置切り替え
-	/// ボタンを、こちらのパーティー編成画面に一本化した（→ ユーザー要望：
-	/// 「前衛後衛の指定はパーティー編成時に実施するように変更」）。
-	/// </summary>
-	private void OnTogglePlacementPressed()
-	{
-		Adventurer target = null;
-
-		var memberSelected = _memberList.GetSelectedItems();
-		if (_selectedParty != null && memberSelected.Length > 0)
-		{
-			var memberId = _selectedParty.MemberIds[memberSelected[0]];
-			target = _state.Adventurers.FirstOrDefault(a => a.Id == memberId);
-		}
-		else
-		{
-			var unassignedSelected = _unassignedList.GetSelectedItems();
-			if (unassignedSelected.Length > 0)
-			{
-				var unassigned = PartyFormationSystem.GetUnassignedAdventurers(_state).ToList();
-				target = unassigned[unassignedSelected[0]];
-			}
-		}
-
-		if (target == null)
-		{
-			_statusLabel.Text = "配置を切り替える冒険者を、メンバー一覧か未編成一覧から選択してください。";
-			return;
-		}
-
-		var newPlacement = target.Placement == Placement.Front ? Placement.Back : Placement.Front;
-		target.TrySetPlacement(newPlacement);
-		_statusLabel.Text = $"{target.Name} の配置を{PlacementLabel(newPlacement)}に変更した。";
-		RefreshMemberAndUnassignedLists();
-	}
-
-	private static string PlacementLabel(Placement placement) => placement switch
-	{
-		Placement.Front => "前衛",
-		Placement.Back => "後衛",
-		_ => placement.ToString()
-	};
 }
