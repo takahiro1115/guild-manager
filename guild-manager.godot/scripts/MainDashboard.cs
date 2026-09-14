@@ -624,7 +624,7 @@ public partial class MainDashboard : Control
 
 		var sb = new StringBuilder();
 		sb.AppendLine($"[b]第{weekNumber}週：{quest.Name}[/b]");
-		sb.AppendLine($"遭遇: {EncounterLabel(result.Encounter)} / 結果: {ResolutionOutcomeLabel(result)} (Ratio={result.Ratio:F2})");
+		sb.AppendLine($"遭遇: {EncounterLabel(result.Encounter)} / 結果: {ResolutionOutcomeLabel(result)}");
 		sb.AppendLine(result.QuestAchieved
 			? $"達成！報酬 {questRewardGold} G"
 			: "任務失敗。報酬なし。");
@@ -840,7 +840,7 @@ public partial class MainDashboard : Control
 		_questList.Clear();
 		foreach (var q in _state.AvailableQuests)
 		{
-			_questList.AddItem($"[{q.Rank}] {q.Name}（{QuestTypeLabel(q.QuestType)} / 難易度{q.Difficulty} / " +
+			_questList.AddItem($"{q.Name}（{QuestTypeLabel(q.QuestType)} / " +
 				$"規模{ScaleLabel(q.Scale)}・{q.DurationWeeks}週 / 報酬{q.RewardGold}G / 期限あと{q.DeadlineWeeks}週）");
 		}
 

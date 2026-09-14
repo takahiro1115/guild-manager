@@ -139,7 +139,7 @@ public partial class PartyFormationPopup : PopupPanel
 		{
 			string nameA = _state.Adventurers.FirstOrDefault(a => a.Id == pair.IdA)?.Name ?? "（不明）";
 			string nameB = _state.Adventurers.FirstOrDefault(a => a.Id == pair.IdB)?.Name ?? "（不明）";
-			_compatibilityLabel.AppendText($"[color=red]⚠ {nameA} と {nameB} は険悪です（相性{pair.Value}）。[/color]\n");
+			_compatibilityLabel.AppendText($"[color=red]⚠ {nameA} と {nameB} は険悪です。[/color]\n");
 		}
 	}
 
