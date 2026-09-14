@@ -209,6 +209,10 @@ namespace GuildManager.Core.Models
                     Quest = dispatch.Quest,
                     PartyMemberIds = dispatch.Party.Members.Select(m => m.Id).ToList(),
                     WeeksRemaining = dispatch.WeeksRemaining,
+                    // 派遣中パーティが携行する消耗品はQuestResolver.Resolve時（満了週）まで
+                    // 消費されずPartyに残り続けるため、複数週クエストの派遣中は必ず保存する
+                    // （→ DispatchedQuestRecord.ConsumableItemIdsのコメント参照）。
+                    ConsumableItemIds = new List<string>(dispatch.Party.ConsumableItemIds),
                 });
             }
 
@@ -295,6 +299,7 @@ namespace GuildManager.Core.Models
                         throw new FormatException($"セーブデータが破損しています：派遣中パーティのメンバーId {memberId} が見つかりません。");
                     party.TryAdd(member);
                 }
+                party.ConsumableItemIds = new List<string>(record.ConsumableItemIds);
 
                 state.ActiveDispatches.Add(new ActiveDispatch { Party = party, Quest = record.Quest, WeeksRemaining = record.WeeksRemaining });
             }

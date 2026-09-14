@@ -160,5 +160,13 @@ namespace GuildManager.Core.Models
         public Quest Quest { get; set; } = new();
         public List<Guid> PartyMemberIds { get; set; } = new();
         public int WeeksRemaining { get; set; }
+
+        /// <summary>
+        /// 派遣中パーティが携行している消耗品Id一覧（→ Party.ConsumableItemIds）。
+        /// 使い切りアイテムはクエスト解決時（QuestResolver.Resolve）まで消費されず
+        /// Party上に残り続けるため、複数週クエストの派遣中に週次オートセーブを挟むと
+        /// この一覧を保存しない限りロード時に失われる（事前調査で発覚した保存漏れ）。
+        /// </summary>
+        public List<string> ConsumableItemIds { get; set; } = new();
     }
 }

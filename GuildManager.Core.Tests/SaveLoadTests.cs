@@ -274,6 +274,48 @@ namespace GuildManager.Core.Tests
             Assert.Equal("メンバー", dispatch.Party.Members[0].Name);
         }
 
+        /// <summary>
+        /// 派遣中パーティが携行する消耗品（→ Party.ConsumableItemIds）の往復を確認する。
+        /// 使い切りアイテムはクエスト解決時（QuestResolver.Resolve、満了週）まで
+        /// Party上に残り続けるため、複数週クエストの派遣中に週次オートセーブを挟むと
+        /// 保存しない限りロード時に失われる（事前調査で発覚した保存漏れの回帰テスト）。
+        /// </summary>
+        [Fact]
+        public void RoundTrip_PreservesActiveDispatchConsumableItems()
+        {
+            var member = new Adventurer { Name = "メンバー" };
+            var quest = new Quest { Name = "長期遠征", Difficulty = 60, Scale = QuestScale.Large };
+            var state = new GameState { Adventurers = { member } };
+            var party = new Party();
+            party.TryAdd(member);
+            party.TryAddConsumable(ConsumableCatalog.AntidoteId);
+            party.TryAddConsumable(ConsumableCatalog.SmokeBombId);
+            state.ActiveDispatches.Add(new ActiveDispatch { Party = party, Quest = quest, WeeksRemaining = 3 });
+
+            var restored = GameState.FromSaveData(state.ToSaveData());
+
+            var dispatch = Assert.Single(restored.ActiveDispatches);
+            Assert.Equal(2, dispatch.Party.ConsumableItemIds.Count);
+            Assert.Contains(ConsumableCatalog.AntidoteId, dispatch.Party.ConsumableItemIds);
+            Assert.Contains(ConsumableCatalog.SmokeBombId, dispatch.Party.ConsumableItemIds);
+        }
+
+        [Fact]
+        public void RoundTrip_ActiveDispatchConsumableItems_EmptyWhenPartyCarriesNone()
+        {
+            // 空のポーチ（→ ConsumableItemIdsが空リスト）も、null等にならず往復することを確認する。
+            var member = new Adventurer { Name = "メンバー" };
+            var quest = new Quest { Name = "長期遠征", Difficulty = 60, Scale = QuestScale.Large };
+            var state = new GameState { Adventurers = { member } };
+            var party = new Party();
+            party.TryAdd(member);
+            state.ActiveDispatches.Add(new ActiveDispatch { Party = party, Quest = quest, WeeksRemaining = 3 });
+
+            var restored = GameState.FromSaveData(state.ToSaveData());
+
+            Assert.Empty(Assert.Single(restored.ActiveDispatches).Party.ConsumableItemIds);
+        }
+
         [Fact]
         public void RoundTrip_DispatchedPartyMember_IsSameInstance_AsInActiveAdventurers()
         {
