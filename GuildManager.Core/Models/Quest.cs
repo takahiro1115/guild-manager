@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using GuildManager.Core.Balance;
 
 namespace GuildManager.Core.Models
@@ -45,5 +46,14 @@ namespace GuildManager.Core.Models
         /// 以降はこのカウントダウンの対象外になる。
         /// </summary>
         public int DeadlineWeeks { get; set; }
+
+        /// <summary>
+        /// このクエストに設定された環境ギミック（0件以上。「環境ギミック」刷新仕様参照）。
+        /// 各タグごとにパーティの対策達成度（3段階）が判定され、未対策・一部対策の場合は
+        /// フェーズ1（索敵）・フェーズ2（点数）・損耗（HP消費）のいずれかにペナルティが乗算される
+        /// （→ Systems.GimmickEvaluator、Balance.GimmickBalance）。デフォルトは空（ギミックなし＝
+        /// 既存クエストと同じ挙動）。
+        /// </summary>
+        public List<EnvironmentTag> EnvironmentTags { get; set; } = new();
     }
 }

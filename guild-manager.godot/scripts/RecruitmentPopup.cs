@@ -43,12 +43,20 @@ public partial class RecruitmentPopup : PopupPanel
 		PopupHide += OnPopupHide;
 	}
 
-	/// <summary>採用試験を開始する。候補者を生成し、モーダルとして表示する。</summary>
-	public void Open(GameState state, RecruitmentSystem recruitmentSystem)
+	/// <summary>
+	/// 採用試験を開始する。候補者を生成し、モーダルとして表示する。
+	/// </summary>
+	/// <param name="candidateCount">
+	/// 提示する候補者数。省略時（null）は通常の新春採用試験と同じ人数
+	/// （RecruitmentSystem.GenerateCandidatesの既定＝RecruitmentBalance.CandidateCount）。
+	/// 第1週チュートリアル採用試験ではRecruitmentBalance.TutorialCandidateCountを渡す
+	/// （→ MainDashboard.StartNewGame）。
+	/// </param>
+	public void Open(GameState state, RecruitmentSystem recruitmentSystem, int? candidateCount = null)
 	{
 		_state = state;
 		_recruitmentSystem = recruitmentSystem;
-		_candidates = recruitmentSystem.GenerateCandidates(state, GetScoutMasterBonus());
+		_candidates = recruitmentSystem.GenerateCandidates(state, GetScoutMasterBonus(), candidateCount);
 		_decided = false;
 
 		RefreshList();

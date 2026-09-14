@@ -5,11 +5,17 @@ namespace GuildManager.Core.Data
 {
     /// <summary>
     /// MVP動作確認用の固定データ。
-    /// 初期メンバー4名は採用システム対象外（→ 03 §2.4）のため、氏名ジェネレーター
+    /// 初期メンバーは採用システム対象外（→ 03 §2.4）のため、氏名ジェネレーター
     /// （NameGenerator、v1.8改訂で新設）は使わず、既存どおり固定の直書きとする
     /// （→ docs/06_タスクリスト.md Phase 1「固定データで冒険者4〜6名・クエスト2〜3件を用意」）。
     /// 性格はまだ無いため、値はすべて仮の直書き。
     /// PAは「新人はステータス実効値 &lt; PA」（仕様書03 §2.2）に沿って現在値より少し高めに設定してある。
+    ///
+    /// 初期編成改訂（→ 初期編成改訂仕様）：固定初期メンバーを旧4名から3名（前衛の重戦士・斥候、
+    /// 後衛の神官）に絞り、開始直後の第1週チュートリアル採用試験（→ RecruitmentSystem.
+    /// IsTutorialRecruitmentWeek）でプレイヤー自身が3名を選抜契約することで計6名体制になる。
+    /// 魔導士（旧エルシャ）はあえて初期メンバーから外し、「魔導士は自分で選んで採用する」
+    /// 最初の意思決定をチュートリアルに組み込んでいる。
     /// </summary>
     public static class SampleData
     {
@@ -34,15 +40,6 @@ namespace GuildManager.Core.Data
                     INT = 20, PA_INT = 30, // v1.2改訂：INT活性化に伴う暫定値。斥候は中間程度
                     PA_STR = 45, PA_AGI = 85, PA_VIT = 50, PA_MND = 20, PA_DEX = 80, PA_LDR = 35,
                     WeeklyWage = 40
-                },
-                new Adventurer
-                {
-                    Name = "エルシャ", Age = 26, JobClass = JobClass.Mage, Gender = Gender.Female,
-                    PortraitId = "elsha", // → 項目62。guild-manager.godot/assets/portraits/elsha.png
-                    STR = 10, AGI = 25, VIT = 25, MND = 65, DEX = 20, LDR = 30,
-                    INT = 50, PA_INT = 80, // v1.2改訂：INT活性化に伴う暫定値。魔導士は高め
-                    PA_STR = 15, PA_AGI = 35, PA_VIT = 35, PA_MND = 90, PA_DEX = 30, PA_LDR = 40,
-                    WeeklyWage = 60
                 },
                 new Adventurer
                 {

@@ -49,5 +49,12 @@ namespace GuildManager.Core.Balance
         /// → BAL: 採用/先天特性付与率
         /// </summary>
         public static readonly int InnateTraitChancePercent = BalanceData.GetInt(FileName, "InnateTraitChancePercent");
+
+        /// <summary>
+        /// 第1週（ゲーム開始週）の新春採用試験改訂：初期固定メンバー（→ SampleData、3名）に
+        /// 加え、開始直後にこの人数を即時採用試験として提示する（計6名体制へ。
+        /// → 初期編成改訂仕様）。→ BAL: 採用/第1週採用人数。
+        /// </summary>
+        public static readonly int TutorialCandidateCount = BalanceData.GetInt(FileName, "TutorialCandidateCount");
     }
 }

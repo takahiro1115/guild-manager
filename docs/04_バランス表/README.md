@@ -34,6 +34,8 @@
 | `pair_synergy.csv` | 03 §4.2.3 | PairSynergyBalance（→ Systems.PairSynergyCalculator） |
 | `quest_events.csv` | 03 §4.2.3 | QuestEventBalance（探索・護衛のランダムイベント3種） |
 | `equipment.csv` | 03 §4.2.2 | EquipmentBalance（→ ItemCatalog） |
+| `gimmick.csv` | 環境ギミック刷新仕様 | GimmickBalance（→ Systems.GimmickEvaluator） |
+| `consumables.csv` | パーティ携行アイテム刷新仕様 | ConsumableBalance（→ ConsumableCatalog） |
 
 `trait.csv`・`equipment.csv` は項目58（バランス値のCSV外部化）の時点では対応CSVが
 存在せず対象外だったため、フォローアップとして追加した（値はTraitCatalog.cs・
@@ -66,6 +68,22 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 キーは `{イベント名}_{項目}` の形（`StrongEnemy_` / `TreasureVault_` / `PushingOn_`）で、
 各イベントの発生確率・判定の要求係数・特性補正・イベント専用のRatio閾値・追加報酬・
 追加HP消費レンジを持つ。討伐（Subjugation）はいずれのイベントの対象にもしていない。
+
+`gimmick.csv`は環境ギミック刷新仕様で新設した表形式ファイル。列は
+`tag,stat,threshold_partial,threshold_full,phase,none_multiplier,partial_multiplier,full_multiplier,counter_item,note`：
+
+- `tag` … 環境ギミックの種類（→ Models.EnvironmentTag の各値）。
+- `stat` … 対策点数の算出に使う実効値（パーティ全員の合算）。
+- `threshold_partial`/`threshold_full` … 合算値がこの値以上で+1点/+2点。
+- `phase` … ペナルティ係数の適用先（`Scouting`＝フェーズ1索敵値／`Score`＝フェーズ2点数／
+  `Attrition`＝損耗・HP消費%）。
+- `none_multiplier`/`partial_multiplier`/`full_multiplier` … 対策達成度（未充足/一部/完全）ごとの
+  係数。完全充足は1.0（ペナルティ無効）で統一している。
+- `counter_item` … この点数を+1する携行アイテムのId（→ ConsumableCatalog）。
+
+`consumables.csv`はパーティ携行アイテム刷新仕様で新設した。ギミック相殺5種は価格のみ
+（効果は+1点で固定・仕様側で規定）、効果アイテム3種（煙幕弾・高品質傷薬・携帯糧食）は
+価格に加えて効果量を持つ。
 
 ## 凡例
 

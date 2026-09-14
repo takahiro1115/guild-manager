@@ -144,6 +144,7 @@ namespace GuildManager.Core.Systems
             result.SubsidyAmount = _subsidySystem.ProcessWeeklySubsidy(state);
 
             _trainingSystem.ProcessWeeklyTraining(state, dispatchedIds); // → 03 §3.1〜3.4・§3.5改：訓練場の週次費用・HP微減
+            result.TraitTransmissionEvents.AddRange(_trainingSystem.ProcessWeeklyTraitTransmission(state)); // → 特性伝授刷新仕様：教官からの週次伝授ロール
             _injuryRecoverySystem.ProcessWeeklyRecovery(state);
             _restRecoverySystem.ProcessWeeklyRest(state, dispatchedIds); // → 03 §3.5改：静養・HP自然回復（訓練場配置中は対象外）
             result.TrainingGrowthEvents.AddRange(_growthSystem.ProcessTrainingGrowth(state, dispatchedIds)); // → 03 §3.1〜3.4：成長トリガー経路2

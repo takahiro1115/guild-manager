@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using GuildManager.Core.Balance;
 using GuildManager.Core.Models;
 using GuildManager.Core.Rng;
 using GuildManager.Core.Systems;
@@ -46,6 +47,24 @@ namespace GuildManager.Core.Tests
         {
             var system = new RecruitmentSystem(new AlwaysMinRng());
             Assert.Equal(expected, system.IsRecruitmentWeek(weekNumber));
+        }
+
+        // ---------------- 第1週チュートリアル採用試験（→ 初期編成改訂仕様） ----------------
+
+        [Fact]
+        public void Recruitment_WeekOne_ShouldTriggerRecruitment()
+        {
+            var system = new RecruitmentSystem(new AlwaysMinRng());
+
+            // 第1週のみチュートリアル採用試験が発生する（通常の新春採用試験＝IsRecruitmentWeekとは
+            // 別枠のイベント。IsRecruitmentWeekは1年目を丸ごと対象外にしている）。
+            Assert.True(system.IsTutorialRecruitmentWeek(1));
+            Assert.False(system.IsTutorialRecruitmentWeek(2));
+            Assert.False(system.IsRecruitmentWeek(1));
+
+            var offers = system.GenerateCandidates(new GameState(), candidateCount: RecruitmentBalance.TutorialCandidateCount);
+
+            Assert.Equal(3, offers.Count);
         }
 
         // ---------------- 応募者生成（§2.4「契約年齢」「PA天井は年齢非依存」） ----------------

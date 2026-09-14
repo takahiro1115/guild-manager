@@ -14,3 +14,4 @@ InnateTraitChancePercent,5,%,先天特性（豪胆・注意深い・容姿秀麗
 WesternCultureChancePercent,80,%,氏名生成における洋名の出現率（残りは和名）
 MaleGenderChancePercent,50,%,性別の男性出現率
 UniqueNameRetryLimit,50,回,氏名重複回避のリトライ上限
+TutorialCandidateCount,3,名,第1週(ゲーム開始週)のチュートリアル採用試験で提示する応募者数（→ 初期編成改訂仕様）

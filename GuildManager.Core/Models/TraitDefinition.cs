@@ -18,5 +18,12 @@ namespace GuildManager.Core.Models
 
         /// <summary>出撃を制限するか。古傷はfalse（出撃制限は課さない設計）。</summary>
         public bool BlocksDeployment { get; set; } = false;
+
+        /// <summary>
+        /// 教官からの週次伝授（→ 特性伝授刷新仕様・TrainingSystem.ProcessWeeklyTraitTransmission）
+        /// の対象になりうるか。古傷・トラウマ等の後天的な障害特性はfalse（伝授で広まってしまうのは
+        /// 不自然なため）。既定はfalse＝明示的にtrueにした特性のみ伝授対象になる。
+        /// </summary>
+        public bool IsTransmittable { get; set; } = false;
     }
 }

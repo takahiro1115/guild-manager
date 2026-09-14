@@ -1,3 +1,4 @@
+using System.Linq;
 using GuildManager.Core.Models;
 using Xunit;
 
@@ -55,6 +56,22 @@ namespace GuildManager.Core.Tests
 
             Assert.False(result);
             Assert.Single(a.TraitIds); // 重複して追加されていない
+        }
+
+        // ---------------- 特性スロット上限（→ 特性伝授・スロット上限刷新仕様） ----------------
+
+        [Fact]
+        public void Adventurer_CannotExceed_MaxFiveTraits()
+        {
+            var a = new Adventurer();
+            var traitIds = new[] { "Trait1", "Trait2", "Trait3", "Trait4", "Trait5", "Trait6" };
+
+            var results = traitIds.Select(id => a.TryAddTrait(id)).ToList();
+
+            // 先頭5件はスロット上限(5)以内なので成功、6件目は満杯のため失敗する。
+            Assert.Equal(new[] { true, true, true, true, true, false }, results);
+            Assert.Equal(5, a.TraitIds.Count);
+            Assert.DoesNotContain("Trait6", a.TraitIds);
         }
 
         [Fact]

@@ -100,15 +100,28 @@ namespace GuildManager.Core.Models
 
         // ---- 特性（Trait）。仕様書 03 §5.3・§4.3 参照。 ----
 
+        /// <summary>
+        /// 特性スロットの上限（→ 特性伝授・スロット上限刷新仕様）。満杯の状態では、
+        /// 致死判定の古傷付与・採用時の先天特性抽選・教官からの伝授（→ TrainingSystem.
+        /// ProcessWeeklyTraitTransmission）のいずれも新規の特性を追加できない
+        /// （TryAddTraitがfalseを返す。既存の呼び出し側は元々戻り値を無視できる設計のため、
+        /// 満杯時に静かに失敗しても既存の処理は壊れない）。
+        /// </summary>
+        public const int MaxTraitCount = 5;
+
         /// <summary>この冒険者が保持している特性のIdリスト。重複するIdは持てない。</summary>
         public List<string> TraitIds { get; set; } = new();
 
         public bool HasTrait(string traitId) => TraitIds.Contains(traitId);
 
-        /// <summary>特性を付与する。既に持っていれば何もせずfalseを返す（重複禁止）。</summary>
+        /// <summary>
+        /// 特性を付与する。既に持っている、またはスロットが満杯（→ MaxTraitCount）の場合は
+        /// 何もせずfalseを返す。
+        /// </summary>
         public bool TryAddTrait(string traitId)
         {
             if (TraitIds.Contains(traitId)) return false;
+            if (TraitIds.Count >= MaxTraitCount) return false;
             TraitIds.Add(traitId);
             return true;
         }

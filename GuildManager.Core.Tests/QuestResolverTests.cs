@@ -955,5 +955,26 @@ namespace GuildManager.Core.Tests
             Assert.NotEqual(EncounterResult.Ambushed, result.Encounter);
             Assert.Equal(result.HpLostByAdventurer[front.Id], result.HpLostByAdventurer[back.Id]);
         }
+
+        // ---------------- パーティ携行アイテム：出撃解決時の一括消費（→ パーティ携行アイテム刷新仕様） ----------------
+
+        [Fact]
+        public void Party_ConsumableItems_ShouldBeConsumed_AfterQuest()
+        {
+            var member = new Adventurer { STR = 50, AGI = 50, VIT = 50, MND = 50, DEX = 50, LDR = 50 };
+            member.CurrentHP = member.MaxHP;
+            var party = PartyOf(member);
+            party.TryAddConsumable(ConsumableCatalog.AntidoteId);
+            party.TryAddConsumable(ConsumableCatalog.SmokeBombId);
+            Assert.Equal(2, party.ConsumableItemIds.Count); // 出撃前：ポーチに2件入っている
+
+            var quest = new Quest { Difficulty = 30, ScoutRequirement = 30 };
+            var resolver = new QuestResolver(new FixedRng(50));
+
+            resolver.Resolve(party, quest);
+
+            // 出撃解決時に使い切り（一括消費）される：解決後はポーチが空になる。
+            Assert.Empty(party.ConsumableItemIds);
+        }
     }
 }

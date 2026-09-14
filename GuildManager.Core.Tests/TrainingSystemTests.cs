@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using GuildManager.Core.Balance;
 using GuildManager.Core.Models;
+using GuildManager.Core.Rng;
 using GuildManager.Core.Systems;
 using Xunit;
 
@@ -15,6 +16,12 @@ namespace GuildManager.Core.Tests
     public class TrainingSystemTests
     {
         private static readonly IReadOnlySet<Guid> NoDispatch = new HashSet<Guid>();
+
+        /// <summary>NextInt(min, max) が常に min を返すテスト用スタブ（伝授ロールを確実に成功させる）。</summary>
+        private class AlwaysMinRng : IRng
+        {
+            public int NextInt(int min, int max) => min;
+        }
 
         /// <summary>
         /// v1.4改訂：訓練4施設はLv0（未建設）スタートになったため、Lv1以降の挙動を検証する
@@ -263,6 +270,38 @@ namespace GuildManager.Core.Tests
             system.ProcessWeeklyTraining(state, NoDispatch);
 
             Assert.Equal(InjurySeverity.None, adventurer.Injury);
+        }
+
+        // ---------------- 特性伝授（→ 特性伝授・スロット上限刷新仕様） ----------------
+
+        [Fact]
+        public void Training_TraitTransmission_Success()
+        {
+            var state = new GameState();
+            SetFacilityLevel(state, FacilityType.WarriorHall, 1);
+
+            // 教官：伝授可能な特性（豪胆）を持つ引退済み冒険者。
+            var trainer = new Adventurer { IsRetired = true, Age = 45 };
+            trainer.TryAddTrait(TraitCatalog.BraveId);
+            state.RetiredAdventurers.Add(trainer);
+            state.AssignedTrainers[FacilityType.WarriorHall] = trainer.Id;
+
+            // 生徒：伝授ロール対象の年齢帯（15〜27歳）で、訓練施設に配置され、当該特性を未所持。
+            var student = new Adventurer { Age = 20 };
+            state.Adventurers.Add(student);
+            state.TrainingAssignments[student.Id] = FacilityType.WarriorHall;
+
+            // AlwaysMinRngはNextInt(1,100)=1を返す。基礎確率2.0%（+ピークボーナス）を
+            // 1<=chanceで必ず下回るため、伝授ロールは必ず成功する。
+            var system = new TrainingSystem(new AlwaysMinRng());
+
+            var events = system.ProcessWeeklyTraitTransmission(state);
+
+            Assert.Single(events);
+            Assert.Equal(TraitCatalog.BraveId, events[0].TraitId);
+            Assert.Same(student, events[0].Student);
+            Assert.Same(trainer, events[0].Trainer);
+            Assert.True(student.HasTrait(TraitCatalog.BraveId));
         }
     }
 }

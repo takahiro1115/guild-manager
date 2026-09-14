@@ -36,5 +36,19 @@ namespace GuildManager.Core.Balance
         /// → PairSynergyBalance・TraitCatalog.Scholar）。
         /// </summary>
         public static readonly double CountryBredExplorationBonus = BalanceData.GetDouble(FileName, "CountryBredExplorationBonus");
+
+        // ---- 特性伝授（→ 特性伝授・スロット上限刷新仕様、TrainingSystem.ProcessWeeklyTraitTransmission） ----
+
+        /// <summary>教官からの週次伝授ロールの基礎確率（%）。</summary>
+        public static readonly double TraitTransmissionBaseRatePercent = BalanceData.GetDouble(FileName, "TraitTransmissionBaseRatePercent");
+
+        /// <summary>
+        /// 教官の対象ステータス（配置先施設が扱うもの。→ FacilityBalance.GetTrainingTargetStats）
+        /// 生涯ピーク平均（0〜100）に比例して加算される最大ボーナス（%）。ピーク平均100で満額。
+        /// </summary>
+        public static readonly double TraitTransmissionPeakStatBonusMaxPercent = BalanceData.GetDouble(FileName, "TraitTransmissionPeakStatBonusMaxPercent");
+
+        /// <summary>教官が「師匠肌」（→ TraitCatalog.Mentor）を持つ場合に加算される固定ボーナス（%）。</summary>
+        public static readonly double TraitTransmissionMentorBonusPercent = BalanceData.GetDouble(FileName, "TraitTransmissionMentorBonusPercent");
     }
 }

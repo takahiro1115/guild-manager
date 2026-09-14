@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using GuildManager.Core.Balance;
 using GuildManager.Core.Models;
@@ -78,6 +79,12 @@ namespace GuildManager.Core.Systems
             double leaderScoutBonus = usesCombatResolution ? leaderLdr * CombatBalance.ScoutLeaderLdrCoefficient : 0;
 
             double partyScout = maxScout + avgScout * CombatBalance.ScoutAvgCoefficient + leaderScoutBonus + advisorBonus;
+
+            // 環境ギミック（→ 環境ギミック刷新仕様）：暗黒（Darkness）はフェーズ1の索敵値に
+            // ペナルティ係数を乗算する。対策達成度（→ GimmickEvaluator）に応じて
+            // 未充足=そのまま、一部充足=半減、完全充足=無効（×1.0）。
+            partyScout *= GimmickEvaluator.GetPhaseMultiplier(quest.EnvironmentTags, GimmickPhase.Scouting, party.Members, party.ConsumableItemIds);
+
             double deltaS = partyScout - quest.ScoutRequirement;
 
             int scoutRoll = _rng.NextInt(1, 100);
@@ -115,6 +122,11 @@ namespace GuildManager.Core.Systems
             double score = party.Members.Sum(m => MemberScore(m, quest.QuestType)) * combatMultiplier
                            + PairSynergyCalculator.Calculate(party.Members, quest.QuestType);
 
+            // 環境ギミック：霊体（Undead）・隘路（NarrowPath）はフェーズ2の点数にペナルティ係数を
+            // 乗算する（→ GimmickPhase.Score）。ペアシナジー加算後の合計点数に対して適用する
+            // （個別メンバーの寄与ではなく「その場の状況」への補正のため）。
+            score *= GimmickEvaluator.GetPhaseMultiplier(quest.EnvironmentTags, GimmickPhase.Score, party.Members, party.ConsumableItemIds);
+
             double requirement = quest.Difficulty * QuestScoringBalance.GetRequirementCoefficient(quest.QuestType);
             if (result.Encounter == EncounterResult.Ambushed)
                 requirement *= CombatBalance.AmbushEnemyMultiplier;
@@ -141,6 +153,19 @@ namespace GuildManager.Core.Systems
             }
             result.RewardGold = result.QuestAchieved ? quest.RewardGold : 0;
 
+            // 携帯糧食（→ パーティ携行アイテム刷新仕様）：達成時のみパーティ全員の満足度に加算する。
+            if (result.QuestAchieved && party.ConsumableItemIds.Contains(ConsumableCatalog.TravelRationsId))
+            {
+                foreach (var member in party.Members)
+                    member.Satisfaction = (int)Math.Clamp(member.Satisfaction + ConsumableBalance.TravelRationsSatisfactionBonus, 0, 100);
+            }
+
+            // 環境ギミック：瘴気（Miasma）・巨躯（Colossal）は損耗（HP消費%）にペナルティ係数を
+            // 乗算する（→ GimmickPhase.Attrition）。煙幕弾・高品質傷薬（→ パーティ携行アイテム
+            // 刷新仕様）と合わせて、HP消費を適用する箇所（ApplyHpLossAndDeathJudgment・
+            // ApplyAdditionalHpLoss）へまとめて渡す。
+            double attritionMultiplier = GimmickEvaluator.GetPhaseMultiplier(quest.EnvironmentTags, GimmickPhase.Attrition, party.Members, party.ConsumableItemIds);
+
             // 致死判定（フェーズ3）の「神官MND」補正用：パーティに神官がいればその実効MNDを使う。
             // 複数いる場合は先頭の神官を採用する。神官が居ない場合は補正0（→ 03 §4.3）。
             var cleric = party.Members.FirstOrDefault(m => m.JobClass == JobClass.Cleric);
@@ -163,16 +188,19 @@ namespace GuildManager.Core.Systems
                     ? (CombatBalance.HpLossPctNarrowWinMin, CombatBalance.HpLossPctNarrowWinMax)   // 押し切り＝辛勝相当
                     : (CombatBalance.HpLossPctDefeatMin, CombatBalance.HpLossPctDefeatMax);        // 苦戦＝苦戦敗退相当
                 ApplyHpLossAndDeathJudgment(result, party, combatMinPct, combatMaxPct,
-                    useCombatDamageRules: true, clericMnd, leaderLdr, advisorBonus);
+                    useCombatDamageRules: true, clericMnd, leaderLdr, advisorBonus, attritionMultiplier);
             }
             else
             {
                 ApplyHpLossAndDeathJudgment(result, party, hpLossMinPct, hpLossMaxPct,
-                    useCombatDamageRules: usesCombatResolution, clericMnd, leaderLdr, advisorBonus);
+                    useCombatDamageRules: usesCombatResolution, clericMnd, leaderLdr, advisorBonus, attritionMultiplier);
             }
 
             // イベントに伴う追加HP消費（罠・深追いの代償）。致死判定には接続しない。
-            ApplyEventExtraHpLoss(result, party);
+            ApplyEventExtraHpLoss(result, party, attritionMultiplier);
+
+            // 携行アイテム（消耗品）は出撃解決時に一括消費される（→ パーティ携行アイテム刷新仕様）。
+            party.ConsumableItemIds.Clear();
 
             return result;
         }
@@ -190,11 +218,13 @@ namespace GuildManager.Core.Systems
         /// </summary>
         private void ApplyHpLossAndDeathJudgment(
             WeekResolutionResult result, Party party, int hpLossMinPct, int hpLossMaxPct,
-            bool useCombatDamageRules, double clericMnd, double leaderLdr, double advisorBonus)
+            bool useCombatDamageRules, double clericMnd, double leaderLdr, double advisorBonus,
+            double attritionMultiplier)
         {
             foreach (var member in party.Members)
             {
                 int lossPct = _rng.NextInt(hpLossMinPct, hpLossMaxPct);
+                lossPct = AdjustLossPct(lossPct, attritionMultiplier, party.ConsumableItemIds);
 
                 // 不意打ち時のみ、配置に応じて被弾ウェイトを掛ける（§4.1↔§4.2の接続）。
                 // 奇襲成功・通常交戦では前衛/後衛による差はつけない。
@@ -397,7 +427,7 @@ namespace GuildManager.Core.Systems
         /// イベントに伴う追加HP消費（②宝物庫の罠・③深追いの代償）を適用する。
         /// 致死判定には一切接続せず、HPは下限1で止まる。戦死者（イベント①経由で発生しうる）は対象外。
         /// </summary>
-        private void ApplyEventExtraHpLoss(WeekResolutionResult result, Party party)
+        private void ApplyEventExtraHpLoss(WeekResolutionResult result, Party party, double attritionMultiplier)
         {
             var treasureVault = result.Events.TreasureVault;
             if (treasureVault is { Outcome: QuestEventOutcome.Failure })
@@ -405,7 +435,7 @@ namespace GuildManager.Core.Systems
                 treasureVault.TrapTriggered = Occurs(QuestEventBalance.TreasureVaultTrapChancePercent);
                 if (treasureVault.TrapTriggered)
                     ApplyAdditionalHpLoss(result, party,
-                        QuestEventBalance.TreasureVaultTrapHpLossPctMin, QuestEventBalance.TreasureVaultTrapHpLossPctMax);
+                        QuestEventBalance.TreasureVaultTrapHpLossPctMin, QuestEventBalance.TreasureVaultTrapHpLossPctMax, attritionMultiplier);
             }
 
             var pushingOn = result.Events.PushingOn;
@@ -417,12 +447,12 @@ namespace GuildManager.Core.Systems
                 case QuestEventOutcome.GreatSuccess: // 粘った代償としてわずかに消費
                     pushingOn.AppliedExtraHpLoss = true;
                     ApplyAdditionalHpLoss(result, party,
-                        QuestEventBalance.PushingOnGreatSuccessHpLossPctMin, QuestEventBalance.PushingOnGreatSuccessHpLossPctMax);
+                        QuestEventBalance.PushingOnGreatSuccessHpLossPctMin, QuestEventBalance.PushingOnGreatSuccessHpLossPctMax, attritionMultiplier);
                     break;
                 case QuestEventOutcome.Failure: // 粘ったが得るものが無かった
                     pushingOn.AppliedExtraHpLoss = true;
                     ApplyAdditionalHpLoss(result, party,
-                        QuestEventBalance.PushingOnFailureHpLossPctMin, QuestEventBalance.PushingOnFailureHpLossPctMax);
+                        QuestEventBalance.PushingOnFailureHpLossPctMin, QuestEventBalance.PushingOnFailureHpLossPctMax, attritionMultiplier);
                     break;
                 // 成功：追加HP消費なし
             }
@@ -434,7 +464,7 @@ namespace GuildManager.Core.Systems
         /// HpLostByAdventurerには「実際に減った分」を加算する（下限クランプで実際には
         /// 減っていない分まで計上しないため）。
         /// </summary>
-        private void ApplyAdditionalHpLoss(WeekResolutionResult result, Party party, int minPct, int maxPct)
+        private void ApplyAdditionalHpLoss(WeekResolutionResult result, Party party, int minPct, int maxPct, double attritionMultiplier)
         {
             foreach (var member in party.Members)
             {
@@ -442,6 +472,7 @@ namespace GuildManager.Core.Systems
                     continue; // 戦死者にはこれ以上の消費を適用しない（HP0のまま据え置く）
 
                 int lossPct = _rng.NextInt(minPct, maxPct);
+                lossPct = AdjustLossPct(lossPct, attritionMultiplier, party.ConsumableItemIds);
                 int hpLoss = member.MaxHP * lossPct / 100;
                 int newHp = Math.Max(NonCombatMinHp, member.CurrentHP - hpLoss);
 
@@ -548,5 +579,24 @@ namespace GuildManager.Core.Systems
 
         private static double Clamp(double value, double min, double max) =>
             Math.Max(min, Math.Min(max, value));
+
+        /// <summary>
+        /// HP消費%へ環境ギミック（損耗系。→ GimmickPhase.Attrition）と携行アイテムの効果を
+        /// 適用する（→ 環境ギミック・パーティ携行アイテム刷新仕様）。
+        /// 適用順：①ギミックのペナルティ係数を乗算 → ②煙幕弾（ダウン率半減）を乗算 →
+        /// ③高品質傷薬（固定量軽減）を減算。0〜100にクランプする。
+        /// </summary>
+        private static int AdjustLossPct(int lossPct, double attritionMultiplier, IReadOnlyList<string> consumableItemIds)
+        {
+            double adjusted = lossPct * attritionMultiplier;
+
+            if (consumableItemIds.Contains(ConsumableCatalog.SmokeBombId))
+                adjusted *= ConsumableBalance.SmokeBombDownRateMultiplier;
+
+            if (consumableItemIds.Contains(ConsumableCatalog.QualityHealingSalveId))
+                adjusted -= ConsumableBalance.QualityHealingSalveDamageReductionPct;
+
+            return (int)Clamp(Math.Round(adjusted), 0, 100);
+        }
     }
 }

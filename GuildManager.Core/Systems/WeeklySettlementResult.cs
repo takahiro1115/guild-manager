@@ -27,6 +27,12 @@ namespace GuildManager.Core.Systems
         /// <summary>訓練場配置による成長イベント一覧（→ GrowthSystem.ProcessTrainingGrowth）。</summary>
         public List<GrowthEvent> TrainingGrowthEvents { get; } = new();
 
+        /// <summary>
+        /// 教官からの特性伝授が成立した一覧（→ TrainingSystem.ProcessWeeklyTraitTransmission、
+        /// 特性伝授・スロット上限刷新仕様）。
+        /// </summary>
+        public List<TraitTransmissionEvent> TraitTransmissionEvents { get; } = new();
+
         /// <summary>契約交渉の猶予切れで契約解除された冒険者一覧（→ SatisfactionSystem.ProcessWeeklyNegotiation）。</summary>
         public List<Adventurer> NegotiationTerminated { get; } = new();
 

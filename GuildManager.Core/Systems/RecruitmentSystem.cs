@@ -55,6 +55,17 @@ namespace GuildManager.Core.Systems
             return ((weekNumber - 1) % WeeksPerYear) + 1 == 1;
         }
 
+        /// <summary>
+        /// 第1週（ゲーム開始週）限定のチュートリアル採用試験かどうか（→ 初期編成改訂仕様）。
+        /// IsRecruitmentWeekが1年目を丸ごと対象外にしているのとは別枠の、開始週だけの
+        /// 一度きりのイベント：初期固定メンバー3名（→ SampleData）に加え、開始直後に
+        /// RecruitmentBalance.TutorialCandidateCount（3名）を即時採用試験として提示し、
+        /// 選抜採用することで計6名体制になる。呼び出し側（新規ゲーム開始フロー）が
+        /// この判定を見て GenerateCandidates(state, candidateCount: RecruitmentBalance.
+        /// TutorialCandidateCount) を呼ぶ想定。
+        /// </summary>
+        public bool IsTutorialRecruitmentWeek(int weekNumber) => weekNumber == 1;
+
         /// <summary>現役枠の上限（→ 03 §2.4「雇用枠」）。宿舎（Dormitory）の現在Lvに連動する。</summary>
         public int GetActiveSlotCap(GameState state) =>
             FacilityBalance.GetDormitoryCapacity(state.GetFacilityLevel(FacilityType.Dormitory));
@@ -82,16 +93,22 @@ namespace GuildManager.Core.Systems
         /// GetScoutMasterBonus）。HighPotentialBaseChance(基礎25%)に上乗せする。
         /// スカウト未任命なら0を渡す（デフォルト値）。
         /// </param>
-        public List<RecruitmentOffer> GenerateCandidates(GameState state, double scoutMasterBonus = 0)
+        /// <param name="candidateCount">
+        /// 提示する応募者数。省略時は通常の新春採用試験と同じ RecruitmentBalance.CandidateCount。
+        /// 第1週のチュートリアル採用試験（→ IsTutorialRecruitmentWeek）では、呼び出し側が
+        /// RecruitmentBalance.TutorialCandidateCount を渡す想定。
+        /// </param>
+        public List<RecruitmentOffer> GenerateCandidates(GameState state, double scoutMasterBonus = 0, int? candidateCount = null)
         {
             double highPotentialChance = HighPotentialBaseChance + scoutMasterBonus;
+            int count = candidateCount ?? RecruitmentBalance.CandidateCount;
 
             // 氏名の重複回避対象：現役ロースターに加え、同じ採用試験内で既に生成した
             // 候補の名前も含める（同じ回の応募者同士で名前が被らないようにするため）。
             var existingNames = new HashSet<string>(state.Adventurers.Select(a => a.Name));
 
             var offers = new List<RecruitmentOffer>();
-            for (int i = 0; i < RecruitmentBalance.CandidateCount; i++)
+            for (int i = 0; i < count; i++)
             {
                 var offer = GenerateOne(i, highPotentialChance, existingNames);
                 existingNames.Add(offer.Candidate.Name);

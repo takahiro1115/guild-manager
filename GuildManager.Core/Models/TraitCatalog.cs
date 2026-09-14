@@ -20,6 +20,7 @@ namespace GuildManager.Core.Models
         public const string BeautifulId = "Beautiful";
         public const string CountryBredId = "CountryBred";
         public const string ScholarId = "Scholar";
+        public const string MentorId = "Mentor";
 
         /// <summary>
         /// 古傷（不可逆障害）。STR/VIT/AGI/DEXを恒久的に低下させる（減少率→ BAL: 戦闘/古傷減少率）。
@@ -63,6 +64,7 @@ namespace GuildManager.Core.Models
             Id = BraveId,
             DisplayName = "豪胆",
             BlocksDeployment = false,
+            IsTransmittable = true, // → 特性伝授刷新仕様：教官が持っていれば週次で伝授しうる
             Effects = new List<TraitEffect>
             {
                 new TraitEffect { EffectType = TraitEffectType.SurvivalThresholdModifier, TargetStat = "", Value = TraitBalance.BraveSurvivalThresholdBonus }
@@ -78,6 +80,7 @@ namespace GuildManager.Core.Models
             Id = AttentiveId,
             DisplayName = "注意深い",
             BlocksDeployment = false,
+            IsTransmittable = true, // → 特性伝授刷新仕様
             Effects = new List<TraitEffect>
             {
                 new TraitEffect { EffectType = TraitEffectType.ScoutingModifier, TargetStat = "DEX", Value = TraitBalance.AttentiveScoutingBonus }
@@ -93,6 +96,7 @@ namespace GuildManager.Core.Models
             Id = BeautifulId,
             DisplayName = "容姿秀麗",
             BlocksDeployment = false,
+            IsTransmittable = false, // 先天的な容姿の特性のため、後天的な伝授の対象にはしない
             Effects = new List<TraitEffect>
             {
                 new TraitEffect { EffectType = TraitEffectType.CompatibilityGainMultiplier, TargetStat = "", Value = TraitBalance.BeautifulCompatibilityGainMultiplier }
@@ -108,6 +112,7 @@ namespace GuildManager.Core.Models
             Id = CountryBredId,
             DisplayName = "田舎育ち",
             BlocksDeployment = false,
+            IsTransmittable = true, // → 特性伝授刷新仕様
             Effects = new List<TraitEffect>
             {
                 new TraitEffect
@@ -133,7 +138,23 @@ namespace GuildManager.Core.Models
             Effects = new List<TraitEffect>(),
         };
 
-        // 将来ここに「頑強」「師匠肌」等を追加していく（post-MVP）。
+        /// <summary>
+        /// 師匠肌（先天的。→ 特性伝授刷新仕様で新設）。単独の戦闘効果は持たない
+        /// （知識人と同じ、他システム専用のマーカー特性）。この特性を持つ引退済み冒険者が
+        /// 訓練施設の教官として配置されていると、週次の特性伝授ロールに追加ボーナスが乗る
+        /// （→ TrainingBalance.TraitTransmissionMentorBonusPercent・TrainingSystem.
+        /// ProcessWeeklyTraitTransmission）。自身も伝授対象（教え上手は教え上手から学べる）。
+        /// </summary>
+        public static readonly TraitDefinition Mentor = new TraitDefinition
+        {
+            Id = MentorId,
+            DisplayName = "師匠肌",
+            BlocksDeployment = false,
+            IsTransmittable = true,
+            Effects = new List<TraitEffect>(),
+        };
+
+        // 将来ここに「頑強」等を追加していく（post-MVP）。
 
         public static TraitDefinition? FindById(string id) => id switch
         {
@@ -144,6 +165,7 @@ namespace GuildManager.Core.Models
             BeautifulId => Beautiful,
             CountryBredId => CountryBred,
             ScholarId => Scholar,
+            MentorId => Mentor,
             _ => null,
         };
     }

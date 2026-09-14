@@ -146,7 +146,7 @@ public partial class MainDashboard : Control
 		_agingSystem = new AgingSystem(new SeededRng(99));
 		_growthSystem = new GrowthSystem(new SeededRng(7));
 		_restRecoverySystem = new RestRecoverySystem();
-		_trainingSystem = new TrainingSystem();
+		_trainingSystem = new TrainingSystem(new SeededRng(831)); // 特性伝授ロール用（→ 特性伝授刷新仕様）
 		_recruitmentSystem = new RecruitmentSystem(new SeededRng(2024));
 		_satisfactionSystem = new SatisfactionSystem();
 		_compatibilitySystem = new CompatibilitySystem(new SeededRng(2525));
@@ -191,6 +191,15 @@ public partial class MainDashboard : Control
 
 		if (_questList.ItemCount > 0)
 			_questList.Select(0);
+
+		if (_recruitmentSystem.IsTutorialRecruitmentWeek(_state.WeekNumber))
+		{
+			// 第1週チュートリアル採用試験（→ 初期編成改訂仕様）。初期固定メンバー3名に加え、
+			// ここで3名を即時提示し選抜契約することで計6名体制になる。通常の新春採用試験
+			// （418行目付近）と同様、意思決定（採用する/見送る）が済むまで次週へ進めさせない。
+			DisableWeekAdvancement();
+			_recruitmentPopup.Open(_state, _recruitmentSystem, RecruitmentBalance.TutorialCandidateCount);
+		}
 	}
 
 	/// <summary>
