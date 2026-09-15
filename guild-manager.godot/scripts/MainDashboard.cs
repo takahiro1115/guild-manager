@@ -472,55 +472,65 @@ public partial class MainDashboard : Control
 		{
 			if (selectedQuestIndices.Length == 0)
 			{
+				// ここだけは週送りを中断して選び直してもらう（「派遣するつもりだった週」を
+				// 無言で消費してしまわないため）。ただし週報ログの1行だけでは
+				// 「ボタンが反応しない」ようにしか見えないので、操作した本人の視線の先
+				// （編成欄の直下）にも警告を出す。
 				AppendLog("[color=orange]クエストを選択してください。[/color]");
+				ShowDispatchBlockedNotice("クエストが選ばれていないため、まだ出撃できない（週も進んでいない）。");
 				return;
 			}
 
 			// 同時出撃枠の確認（→ コアシステム刷新仕様「4. 進行管理」）。枠は「部隊の数」であって
-			// 人数ではない：1枠の中で1〜4名を自由に割り振れるが、枠が埋まっている間は
-			// 新たな部隊を送り出せない。
+			// 人数ではない：1枠の中で1〜4名を自由に割り振れる。
+			//
+			// 枠が埋まっている場合でも**週送り自体は必ず進める**（派遣だけを見送る）。
+			// ここで処理を打ち切ると、派遣中の部隊は週が進まない限り帰還しないため、
+			// 「枠が空くのを待つこともできない」完全な詰みになる
+			// （→ 本メソッドdocコメント・03 §3.6「時間は必ず進む」）。
 			if (!QuestDispatchSystem.CanDispatch(_state))
 			{
-				AppendLog($"[color=orange]同時出撃枠（{_state.UnlockedSquadSlots}枠）がすべて埋まっています。" +
-					"派遣中の部隊の帰還を待つか、後方支援で緊急撤退させてください。[/color]");
-				return;
-			}
-
-			// 派遣時、編成メンバーのうち出撃可能な者だけで自動的に出撃する（→ 03 §4.0.2）。
-			// 一時編成（_temporaryDispatchMemberIds）が設定されていればそちらを優先し、
-			// 無ければ保存されている編成（SavedParty.MemberIds）をそのまま使う。
-			var savedParty = _state.SavedParties[selectedPartyIndices[0]];
-			var memberIdSource = _temporaryDispatchMemberIds ?? savedParty.MemberIds;
-
-			foreach (var unavailable in PartyFormationSystem.GetUnavailableMembers(_state, memberIdSource))
-			{
-				string reason = unavailable.IsDispatched ? "派遣中" : unavailable.IsRetired ? "引退済み" : "重傷";
-				AppendLog($"[color=gray]{unavailable.Name}は{reason}のため出撃できません。[/color]");
-			}
-
-			var party = PartyFormationSystem.BuildDispatchParty(_state, memberIdSource);
-			if (party.IsEmpty)
-			{
-				AppendLog($"[color=orange]「{savedParty.Name}」は出撃可能なメンバーがいないため、今週は派遣できません。[/color]");
+				AppendLog($"[color=orange]同時出撃枠（{_state.UnlockedSquadSlots}枠）がすべて埋まっているため、" +
+					"今週は新たな派遣を見送った（時間は進む）。派遣中の部隊の帰還を待つか、後方支援で緊急撤退させること。[/color]");
 			}
 			else
 			{
-				var quest = _state.AvailableQuests[selectedQuestIndices[0]];
-				// 枠のチェックは上で済ませているが、実際の派遣もTryDispatch経由で行う
-				// （枠の判定と実行を同じ経路に通し、将来の抜け道を作らないため）。
-				_questDispatchSystem.TryDispatch(_state, party, quest);
+				// 派遣時、編成メンバーのうち出撃可能な者だけで自動的に出撃する（→ 03 §4.0.2）。
+				// 一時編成（_temporaryDispatchMemberIds）が設定されていればそちらを優先し、
+				// 無ければ保存されている編成（SavedParty.MemberIds）をそのまま使う。
+				var savedParty = _state.SavedParties[selectedPartyIndices[0]];
+				var memberIdSource = _temporaryDispatchMemberIds ?? savedParty.MemberIds;
 
-				// 昇格試験（ボス）は決戦の場であることをログでも強調する（→ Phase 3）。
-				if (quest.IsBoss)
+				foreach (var unavailable in PartyFormationSystem.GetUnavailableMembers(_state, memberIdSource))
 				{
-					AppendLog($"[color=gold][b]⚔ 第{thisWeek}週：「{savedParty.Name}」（{party.Members.Count}名）が" +
-						$"昇格試験「{quest.Name}」へ向かった。総力戦になる。[/b][/color]");
+					string reason = unavailable.IsDispatched ? "派遣中" : unavailable.IsRetired ? "引退済み" : "重傷";
+					AppendLog($"[color=gray]{unavailable.Name}は{reason}のため出撃できません。[/color]");
 				}
 
-				if (quest.DurationWeeks > 1)
+				var party = PartyFormationSystem.BuildDispatchParty(_state, memberIdSource);
+				if (party.IsEmpty)
 				{
-					AppendLog($"[color=cyan]第{thisWeek}週：「{savedParty.Name}」（{party.Members.Count}名）が{quest.Name}へ出発した" +
-						$"（拘束{quest.DurationWeeks}週間、第{thisWeek + quest.DurationWeeks - 1}週に結果判明）。[/color]");
+					AppendLog($"[color=orange]「{savedParty.Name}」は出撃可能なメンバーがいないため、今週は派遣できません。[/color]");
+				}
+				else
+				{
+					var quest = _state.AvailableQuests[selectedQuestIndices[0]];
+					// 枠のチェックは上で済ませているが、実際の派遣もTryDispatch経由で行う
+					// （枠の判定と実行を同じ経路に通し、将来の抜け道を作らないため）。
+					_questDispatchSystem.TryDispatch(_state, party, quest);
+
+					// 昇格試験（ボス）は決戦の場であることをログでも強調する（→ Phase 3）。
+					if (quest.IsBoss)
+					{
+						AppendLog($"[color=gold][b]⚔ 第{thisWeek}週：「{savedParty.Name}」（{party.Members.Count}名）が" +
+							$"昇格試験「{quest.Name}」へ向かった。総力戦になる。[/b][/color]");
+					}
+
+					if (quest.DurationWeeks > 1)
+					{
+						AppendLog($"[color=cyan]第{thisWeek}週：「{savedParty.Name}」（{party.Members.Count}名）が{quest.Name}へ出発した" +
+							$"（拘束{quest.DurationWeeks}週間、第{thisWeek + quest.DurationWeeks - 1}週に結果判明）。[/color]");
+					}
 				}
 			}
 		}
@@ -1177,6 +1187,21 @@ public partial class MainDashboard : Control
 		_confidenceLabel.AppendText(
 			$"勝算：[color={ConfidenceColor(confidence)}][b]{ConfidenceLabel(confidence)}[/b][/color]" +
 			$"　（{party.Members.Count}名で出撃・推奨{quest.RecommendedMembers}名）");
+	}
+
+	/// <summary>
+	/// 週送りが「出撃できないので中断した」ことを、操作した本人の視線の先に表示する。
+	///
+	/// 週報ログ（右ペイン）だけに出していた時期は、プレイヤーからは
+	/// 「次週へボタンを押しても何も起こらない＝ボタンが壊れている」ようにしか見えず、
+	/// 実際にそう報告された（実機テストで再現を確認）。押した直後に、押した場所の近くで
+	/// 理由を返すことを優先する。次に編成・クエスト選択が変われば
+	/// RefreshConfidence が通常の勝算表示へ戻す。
+	/// </summary>
+	private void ShowDispatchBlockedNotice(string reason)
+	{
+		_confidenceLabel.Clear();
+		_confidenceLabel.AppendText($"[color=orange][b]⚠ {reason}[/b][/color]");
 	}
 
 	/// <summary>勝算の定性表現（→ SuccessConfidence）の表示文言。Core側は列挙子のみを持つ（→ 05技術メモ）。</summary>
