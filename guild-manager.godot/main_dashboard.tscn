@@ -44,6 +44,10 @@ layout_mode = 2
 unique_name_in_owner = true
 layout_mode = 2
 
+[node name="SquadSlotLabel" type="Label" parent="Root/HeaderPanel" unique_id=700100001]
+unique_name_in_owner = true
+layout_mode = 2
+
 [node name="SaveButton" type="Button" parent="Root/HeaderPanel" unique_id=765417514]
 unique_name_in_owner = true
 layout_mode = 2
@@ -82,10 +86,39 @@ custom_minimum_size = Vector2(0, 80)
 layout_mode = 2
 size_flags_vertical = 3
 
+[node name="ConfidenceLabel" type="RichTextLabel" parent="Root/BodyPanel/CenterPanel/QuestDispatchTab" unique_id=700100002]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 28)
+layout_mode = 2
+bbcode_enabled = true
+fit_content = true
+
 [node name="TemporarySwapButton" type="Button" parent="Root/BodyPanel/CenterPanel/QuestDispatchTab" unique_id=619444894]
 unique_name_in_owner = true
 layout_mode = 2
 text = "出撃メンバーを一時編成する"
+
+[node name="LabelActiveDispatch" type="Label" parent="Root/BodyPanel/CenterPanel/QuestDispatchTab" unique_id=700100003]
+layout_mode = 2
+text = "派遣中の部隊（後方支援の対象を選択）"
+
+[node name="ActiveDispatchList" type="ItemList" parent="Root/BodyPanel/CenterPanel/QuestDispatchTab" unique_id=700100004]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 60)
+layout_mode = 2
+
+[node name="EmergencyRow" type="HBoxContainer" parent="Root/BodyPanel/CenterPanel/QuestDispatchTab" unique_id=700100005]
+layout_mode = 2
+
+[node name="EmergencyRetreatButton" type="Button" parent="Root/BodyPanel/CenterPanel/QuestDispatchTab/EmergencyRow" unique_id=700100006]
+unique_name_in_owner = true
+layout_mode = 2
+text = "緊急撤退"
+
+[node name="EmergencyHealButton" type="Button" parent="Root/BodyPanel/CenterPanel/QuestDispatchTab/EmergencyRow" unique_id=700100007]
+unique_name_in_owner = true
+layout_mode = 2
+text = "緊急回復"
 
 [node name="AdventurerTab" type="VBoxContainer" parent="Root/BodyPanel/CenterPanel" unique_id=176574641]
 visible = false

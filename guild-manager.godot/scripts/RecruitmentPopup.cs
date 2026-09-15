@@ -64,6 +64,23 @@ public partial class RecruitmentPopup : PopupPanel
 	}
 
 	/// <summary>
+	/// 既に生成済みの応募一覧をそのまま提示する（→ コアシステム刷新仕様 Phase 4：
+	/// ランク昇格試験の突破時に GuildProgressionSystem が生成した新人を表示する）。
+	/// ここで再生成してしまうと、週報ログに出した人数・顔ぶれと実際の提示内容が
+	/// 食い違うため、生成済みのインスタンスを受け取る形にしている。
+	/// </summary>
+	public void Open(GameState state, RecruitmentSystem recruitmentSystem, IReadOnlyList<RecruitmentOffer> offers)
+	{
+		_state = state;
+		_recruitmentSystem = recruitmentSystem;
+		_candidates = new List<RecruitmentOffer>(offers);
+		_decided = false;
+
+		RefreshList();
+		PopupCentered();
+	}
+
+	/// <summary>
 	/// スカウト顧問が任命されていれば、そのボーナスを返す（未任命なら0。→ 03 §7.3）。
 	/// v1.4改訂：冒険者支援室がLv0（未建設）の間はボーナスを発生させない（防御的チェック。
 	/// 通常はAdvisorSystem.TryAssignScoutMaster側のガードにより、Lv0のままAssignedScoutMasterが

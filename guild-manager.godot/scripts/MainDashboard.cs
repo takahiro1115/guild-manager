@@ -48,9 +48,27 @@ public partial class MainDashboard : Control
 	private Label _goldLabel = null!;
 	private Label _rankLabel = null!;
 	private Label _threatLabel = null!;
+
+	/// <summary>同時出撃枠の使用状況（→ コアシステム刷新仕様「4. 進行管理」）。</summary>
+	private Label _squadSlotLabel = null!;
+
 	private ItemList _questList = null!;
 	private ItemList _dispatchPartyList = null!;
+
+	/// <summary>
+	/// 選択中のクエスト×パーティーの「勝算」（→ SuccessConfidence）。
+	/// 情報公開の原則（→ コミットd7c7f39）により、成功率の数値そのものは表示しない。
+	/// </summary>
+	private RichTextLabel _confidenceLabel = null!;
+
 	private Button _temporarySwapButton = null!;
+
+	// ---- 後方支援（緊急撤退・緊急回復。→ コアシステム刷新仕様「(3) ギルドマスター後方支援機能」） ----
+	private ItemList _activeDispatchList = null!;
+	private Button _emergencyRetreatButton = null!;
+	private Button _emergencyHealButton = null!;
+	private EmergencySupportSystem _emergencySupportSystem = null!;
+	private GuildProgressionSystem _guildProgressionSystem = null!;
 	private ItemList _adventurerList = null!;
 	private RichTextLabel _adventurerDetailLabel = null!;
 	private TextureRect _portraitTextureRect = null!;
@@ -75,6 +93,24 @@ public partial class MainDashboard : Control
 	/// <summary>ステータス詳細パネルに表示中の冒険者。週送り後もこの人物の表示を維持する。</summary>
 	private Guid? _detailAdventurerId;
 
+	// ---- 決戦（ボス）ログのステップ再生（→ コアシステム刷新仕様 Phase 3） ----
+	// 通常任務は結果を一括表示してテンポを優先するが、昇格試験（Quest.IsBoss）だけは
+	// 1行ずつ間を置いて流し、「手に汗握る」時間を作る。自動スキップ経路は
+	// LogWeeklySettlementを通らない（サマリーのみ表示する）ため、ここと競合しない。
+
+	/// <summary>ステップ再生の1行あたりの表示間隔（秒）。</summary>
+	private const double BossLogStepSeconds = 0.7;
+
+	private readonly Queue<string> _bossLogQueue = new();
+	private bool _bossPlaybackActive;
+
+	/// <summary>
+	/// ステップ再生の完了後に実行する処理（採用ポップアップ等の割り込み）。
+	/// 再生中にポップアップが被さって演出が台無しになるのを避けるため、決算直後ではなく
+	/// 再生完了まで遅延させる。
+	/// </summary>
+	private Action _afterBossPlayback;
+
 	/// <summary>
 	/// 派遣直前の一時的な入れ替え結果（→ 03 §4.0.2）。null＝一時編成なし（保存された
 	/// パーティーのMemberIdsをそのまま使う）。次週へ進めるたびに必ずリセットされる
@@ -88,9 +124,22 @@ public partial class MainDashboard : Control
 		_goldLabel = GetNode<Label>("%GoldLabel");
 		_rankLabel = GetNode<Label>("%RankLabel");
 		_threatLabel = GetNode<Label>("%ThreatLabel");
+		_squadSlotLabel = GetNode<Label>("%SquadSlotLabel");
 		_questList = GetNode<ItemList>("%QuestList");
 		_dispatchPartyList = GetNode<ItemList>("%DispatchPartyList");
+		_confidenceLabel = GetNode<RichTextLabel>("%ConfidenceLabel");
 		_temporarySwapButton = GetNode<Button>("%TemporarySwapButton");
+		_activeDispatchList = GetNode<ItemList>("%ActiveDispatchList");
+		_emergencyRetreatButton = GetNode<Button>("%EmergencyRetreatButton");
+		_emergencyHealButton = GetNode<Button>("%EmergencyHealButton");
+
+		// クエスト・パーティーの選択が変わるたびに「勝算」を再計算して表示する
+		// （→ コアシステム刷新仕様「成功率予測エンジン」。編成を変えた手応えを即座に返す）。
+		_questList.ItemSelected += _ => RefreshConfidence();
+		_dispatchPartyList.ItemSelected += _ => RefreshConfidence();
+		_activeDispatchList.ItemSelected += _ => RefreshEmergencyButtons();
+		_emergencyRetreatButton.Pressed += OnEmergencyRetreatPressed;
+		_emergencyHealButton.Pressed += OnEmergencyHealPressed;
 		_adventurerList = GetNode<ItemList>("%AdventurerList");
 		_adventurerDetailLabel = GetNode<RichTextLabel>("%AdventurerDetailLabel");
 		_portraitTextureRect = GetNode<TextureRect>("%PortraitTextureRect");
@@ -160,13 +209,17 @@ public partial class MainDashboard : Control
 		_advisorSystem = new AdvisorSystem();
 		_equipmentSystem = new EquipmentSystem();
 		_partyFormationSystem = new PartyFormationSystem();
+		// 後方支援・進行管理（→ コアシステム刷新仕様）。進行管理は昇格時の新人補充に
+		// 採用システムを使うため、同じインスタンスを共有する（二重管理を避ける）。
+		_emergencySupportSystem = new EmergencySupportSystem();
+		_guildProgressionSystem = new GuildProgressionSystem(_recruitmentSystem);
 		// 週次決算のオーケストレーション（→ 03 §1.3・自動スキップ）。既存の各Systemインスタンスを
 		// そのまま共有し、二重管理（別インスタンスによる状態不整合）を避ける。
 		_weekProcessingSystem = new WeekProcessingSystem(
 			_questDispatchSystem, _guildRankSystem, _securitySystem, _questBoardSystem,
 			_economySystem, _subsidySystem, _trainingSystem, _injuryRecoverySystem,
 			_restRecoverySystem, _growthSystem, _satisfactionSystem, _agingSystem,
-			_facilitySystem, _defeatSystem, _recruitmentSystem);
+			_facilitySystem, _defeatSystem, _recruitmentSystem, _guildProgressionSystem);
 		_autoSkipService = new AutoSkipService(_weekProcessingSystem);
 		// GuildManager.CoreはGodotに依存しない方針（→ 05技術メモ）のため、保存先の実パスは
 		// Godot側からOS.GetUserDataDir()（user://に対応する実ディレクトリ）を注入する（→ 03 §12）。
@@ -351,6 +404,57 @@ public partial class MainDashboard : Control
 		_autoSkipButton.Disabled = false;
 	}
 
+	// ---- 後方支援（→ コアシステム刷新仕様「(3) ギルドマスター後方支援機能」） ----
+
+	/// <summary>
+	/// 「緊急撤退」ボタン。選択中の派遣を即時打ち切り、部隊を無傷のまま帰還させる。
+	/// 判定自体が行われないため報酬は得られないが、負傷・戦死も発生しない。
+	/// </summary>
+	private void OnEmergencyRetreatPressed()
+	{
+		var dispatch = CurrentSelectedDispatch();
+		if (dispatch == null)
+		{
+			AppendLog("[color=orange]撤退させる部隊を「派遣中の部隊」から選択してください。[/color]");
+			return;
+		}
+
+		string questName = dispatch.Quest.Name;
+		if (!_emergencySupportSystem.TryEmergencyRetreat(_state, dispatch))
+		{
+			AppendLog("[color=orange]その部隊は既に帰還しています。[/color]");
+			return;
+		}
+
+		AppendLog($"[color=cyan]「{questName}」から部隊を緊急撤退させた。報酬は得られないが、全員無事に帰還した。[/color]");
+		RefreshAll();
+	}
+
+	/// <summary>
+	/// 「緊急回復」ボタン。備蓄（資金）を消費して部隊全員のHPを回復し、任務を続行させる。
+	/// 1出撃につき1回まで（→ ActiveDispatch.EmergencyHealUsed）。
+	/// </summary>
+	private void OnEmergencyHealPressed()
+	{
+		var dispatch = CurrentSelectedDispatch();
+		if (dispatch == null)
+		{
+			AppendLog("[color=orange]回復させる部隊を「派遣中の部隊」から選択してください。[/color]");
+			return;
+		}
+
+		if (!_emergencySupportSystem.TryEmergencyHeal(_state, dispatch))
+		{
+			AppendLog(dispatch.EmergencyHealUsed
+				? "[color=orange]この出撃では既に緊急回復を使用しています（1出撃につき1回まで）。[/color]"
+				: $"[color=orange]緊急回復の物資（{EmergencyBalance.EmergencyHealCostGold}G）が足りません。[/color]");
+			return;
+		}
+
+		AppendLog($"[color=lime]「{dispatch.Quest.Name}」の部隊へ物資を緊急輸送した。全員のHPが回復した。[/color]");
+		RefreshAll();
+	}
+
 	/// <summary>
 	/// 「次週へ」の本体。
 	/// パーティを選んでいれば派遣（複数週クエストは満了週まで結果が出ない。→ 03 §4.0.1）し、
@@ -369,6 +473,16 @@ public partial class MainDashboard : Control
 			if (selectedQuestIndices.Length == 0)
 			{
 				AppendLog("[color=orange]クエストを選択してください。[/color]");
+				return;
+			}
+
+			// 同時出撃枠の確認（→ コアシステム刷新仕様「4. 進行管理」）。枠は「部隊の数」であって
+			// 人数ではない：1枠の中で1〜4名を自由に割り振れるが、枠が埋まっている間は
+			// 新たな部隊を送り出せない。
+			if (!QuestDispatchSystem.CanDispatch(_state))
+			{
+				AppendLog($"[color=orange]同時出撃枠（{_state.UnlockedSquadSlots}枠）がすべて埋まっています。" +
+					"派遣中の部隊の帰還を待つか、後方支援で緊急撤退させてください。[/color]");
 				return;
 			}
 
@@ -392,7 +506,16 @@ public partial class MainDashboard : Control
 			else
 			{
 				var quest = _state.AvailableQuests[selectedQuestIndices[0]];
-				_questDispatchSystem.Dispatch(_state, party, quest);
+				// 枠のチェックは上で済ませているが、実際の派遣もTryDispatch経由で行う
+				// （枠の判定と実行を同じ経路に通し、将来の抜け道を作らないため）。
+				_questDispatchSystem.TryDispatch(_state, party, quest);
+
+				// 昇格試験（ボス）は決戦の場であることをログでも強調する（→ Phase 3）。
+				if (quest.IsBoss)
+				{
+					AppendLog($"[color=gold][b]⚔ 第{thisWeek}週：「{savedParty.Name}」（{party.Members.Count}名）が" +
+						$"昇格試験「{quest.Name}」へ向かった。総力戦になる。[/b][/color]");
+				}
 
 				if (quest.DurationWeeks > 1)
 				{
@@ -420,6 +543,24 @@ public partial class MainDashboard : Control
 
 		RefreshAll();
 
+		// 決戦（昇格試験）のログが溜まっていれば、先にステップ再生を流し、
+		// ポップアップ等の割り込みはその完了後に回す（→ Phase 3）。
+		if (_bossLogQueue.Count > 0 && !_bossPlaybackActive)
+		{
+			_afterBossPlayback = () => HandlePostSettlementInterruptions(settlement);
+			StartBossPlayback();
+			return;
+		}
+
+		HandlePostSettlementInterruptions(settlement);
+	}
+
+	/// <summary>
+	/// 週次決算の直後に割り込ませる処理（ゲームオーバー確定・新春採用試験・昇格報酬の新人提示）。
+	/// 決戦ログのステップ再生がある週は、再生完了後にここが呼ばれる（→ StartBossPlayback）。
+	/// </summary>
+	private void HandlePostSettlementInterruptions(WeeklySettlementResult settlement)
+	{
 		if (settlement.Flags.DefeatOccurred)
 		{
 			DisableWeekAdvancement(); // ゲームオーバー：これ以上週を進められない
@@ -429,6 +570,21 @@ public partial class MainDashboard : Control
 			// 新春採用試験（2年目以降の新年第1週のみ）。ポップアップが閉じるまで次週へ進めさせない（→ 03 §9）。
 			DisableWeekAdvancement();
 			_recruitmentPopup.Open(_state, _recruitmentSystem);
+		}
+		else if (settlement.PromotionExamResult != null)
+		{
+			// 昇格試験の突破報酬（→ コアシステム刷新仕様 Phase 4）：第2部隊を編成できるよう、
+			// 集まってきた新人をその場で提示する。週報ログで告知した顔ぶれと一致させるため、
+			// 再生成せず GuildProgressionSystem が生成した応募一覧をそのまま渡す。
+			DisableWeekAdvancement();
+			_recruitmentPopup.Open(_state, _recruitmentSystem, settlement.PromotionExamResult.NewHireOffers);
+		}
+		else if (_state.DefeatReason == null)
+		{
+			// 割り込みが何も無かった場合の復帰。決戦ログのステップ再生中は週送りを
+			// 止めているため、ここで戻さないとボタンが無効のまま操作不能になる
+			// （敗北確定後だけは、意図的に無効のまま据え置く）。
+			EnableWeekAdvancement();
 		}
 	}
 
@@ -479,6 +635,26 @@ public partial class MainDashboard : Control
 				? $"[color=gold][b]🏅 ギルド格付けが{settlement.RankChange.Current}ランクに昇格しました！[/b][/color]"
 				: $"[color=orange][b]⚠ ギルド格付けが{settlement.RankChange.Current}ランクに降格しました。[/b][/color]";
 			AppendLog(message);
+		}
+
+		// ランク昇格試験の提示（→ コアシステム刷新仕様 Phase 2）。
+		if (settlement.OfferedPromotionExam != null)
+		{
+			var exam = settlement.OfferedPromotionExam;
+			AppendLog($"[color=gold][font_size=18][b]📜 ギルド本部から昇格試験の通達が届いた：「{exam.Name}」[/b][/font_size][/color]");
+			AppendLog($"[color=gold]事前情報：相手は手強い。推奨{exam.RecommendedMembers}名での総力戦に臨むこと。" +
+				$"（受注期限あと{exam.DeadlineWeeks}週）[/color]");
+		}
+
+		// 昇格試験の突破（→ Phase 4）：ランク昇格・第2部隊枠の開放・報奨金・新人の補充。
+		if (settlement.PromotionExamResult != null)
+		{
+			var promotion = settlement.PromotionExamResult;
+			AppendLog($"[color=gold][font_size=22][b]🏆 昇格試験を突破した！ ギルド格付けが{promotion.NewRank}ランクへ昇格！[/b][/font_size][/color]");
+			AppendLog($"[color=lime][b]▶ 同時出撃枠が{promotion.UnlockedSquadSlots}枠に拡張された。" +
+				$"２つの部隊を同時に動かせるようになった。[/b][/color]");
+			AppendLog($"[color=lime]▶ 昇格報奨金 {promotion.RewardGold}G を受け取った。[/color]");
+			AppendLog($"[color=yellow]▶ 噂を聞きつけた新人が{promotion.NewHireOffers.Count}名、酒場に集まっている。[/color]");
 		}
 
 		// Aランク新規到達フラグ（→ 03 §8.2、v1.10改訂）：最終討伐クエスト自体の中身は未実装。
@@ -650,7 +826,48 @@ public partial class MainDashboard : Control
 				sb.AppendLine($" - {adv.Name}: HP -{kv.Value}（残りHP {adv.CurrentHP}/{adv.MaxHP}）");
 		}
 
-		AppendLog(sb.ToString());
+		// 昇格試験（決戦）だけは一括表示せず、1行ずつのステップ再生に回す（→ Phase 3）。
+		if (quest.IsBoss)
+			EnqueueBossPlayback(sb.ToString());
+		else
+			AppendLog(sb.ToString());
+	}
+
+	/// <summary>決戦ログをステップ再生のキューへ積む（空行は除く）。</summary>
+	private void EnqueueBossPlayback(string bbcodeBlock)
+	{
+		foreach (var line in bbcodeBlock.Split('\n'))
+		{
+			if (!string.IsNullOrWhiteSpace(line))
+				_bossLogQueue.Enqueue(line.TrimEnd('\r'));
+		}
+	}
+
+	/// <summary>
+	/// 決戦ログを1行ずつ間を置いて流す。再生中は週送りを止め、完了後に
+	/// 保留していた割り込み処理（→ _afterBossPlayback）を実行する。
+	/// Godotのシグナル待ちを使うため async void だが、内部で例外を投げうる処理は行わない。
+	/// </summary>
+	private async void StartBossPlayback()
+	{
+		_bossPlaybackActive = true;
+		DisableWeekAdvancement();
+
+		while (_bossLogQueue.Count > 0)
+		{
+			AppendLog(_bossLogQueue.Dequeue());
+			await ToSignal(GetTree().CreateTimer(BossLogStepSeconds), SceneTreeTimer.SignalName.Timeout);
+		}
+
+		_bossPlaybackActive = false;
+
+		var followUp = _afterBossPlayback;
+		_afterBossPlayback = null;
+
+		if (followUp != null)
+			followUp();
+		else if (_state.DefeatReason == null)
+			EnableWeekAdvancement();
 	}
 
 	/// <summary>
@@ -845,6 +1062,8 @@ public partial class MainDashboard : Control
 		_goldLabel.Text = $"所持金: {_state.Gold} G";
 		_rankLabel.Text = $"ギルド格付け: {_state.GuildRank}ランク（名声 {_state.Reputation}）";
 		_threatLabel.Text = $"脅威度: {_state.ThreatLevel}%";
+		// 同時出撃枠の使用状況（→ コアシステム刷新仕様「4. 進行管理」）。
+		_squadSlotLabel.Text = $"出撃枠: {_state.ActiveDispatches.Count}/{_state.UnlockedSquadSlots}";
 
 		_questList.Clear();
 		foreach (var q in _state.AvailableQuests)
@@ -873,8 +1092,113 @@ public partial class MainDashboard : Control
 			_adventurerList.AddItem($"{a.Name}（{a.JobClass}） HP{a.CurrentHP}/{a.MaxHP}　総合PA{a.TotalPA:F1}　{a.Age}歳 {status}");
 		}
 
+		RefreshActiveDispatchList();
+		RefreshConfidence();
 		RefreshAdventurerDetail();
 	}
+
+	/// <summary>
+	/// 派遣中の部隊一覧（後方支援の対象選択用。→ コアシステム刷新仕様
+	/// 「(3) ギルドマスター後方支援機能」）。選択状態は週送りのたびにリセットされる。
+	/// </summary>
+	private void RefreshActiveDispatchList()
+	{
+		_activeDispatchList.Clear();
+		foreach (var dispatch in _state.ActiveDispatches)
+		{
+			string members = string.Join("・", dispatch.Party.Members.Select(m => m.Name));
+			string healState = dispatch.EmergencyHealUsed ? "／緊急回復 使用済" : "";
+			_activeDispatchList.AddItem(
+				$"{dispatch.Quest.Name}：{members}（残り{dispatch.WeeksRemaining}週{healState}）");
+		}
+
+		RefreshEmergencyButtons();
+	}
+
+	/// <summary>
+	/// 後方支援ボタンの有効・無効を、選択中の派遣内容に応じて切り替える。
+	/// 緊急回復は1出撃1回まで・資金が必要（→ EmergencySupportSystem.TryEmergencyHeal）。
+	/// </summary>
+	private void RefreshEmergencyButtons()
+	{
+		var dispatch = CurrentSelectedDispatch();
+
+		_emergencyRetreatButton.Disabled = dispatch == null;
+		_emergencyHealButton.Disabled =
+			dispatch == null || dispatch.EmergencyHealUsed || _state.Gold < EmergencyBalance.EmergencyHealCostGold;
+		_emergencyHealButton.Text = $"緊急回復（{EmergencyBalance.EmergencyHealCostGold}G）";
+	}
+
+	/// <summary>
+	/// 派遣中部隊一覧で選択中の派遣（未選択ならnull）。
+	/// 本プロジェクトのGodot側は#nullable未設定のため、CurrentDetailAdventurerと同様に
+	/// Null許容注釈（?）を付けずnullを返す既存の流儀へ揃えている。
+	/// </summary>
+	private ActiveDispatch CurrentSelectedDispatch()
+	{
+		var selected = _activeDispatchList.GetSelectedItems();
+		if (selected.Length == 0) return null;
+
+		int index = selected[0];
+		return index >= 0 && index < _state.ActiveDispatches.Count ? _state.ActiveDispatches[index] : null;
+	}
+
+	/// <summary>
+	/// 選択中のクエスト×パーティーの「勝算」を表示する（→ SuccessRateCalculator）。
+	///
+	/// 情報公開の原則（→ コミットd7c7f39「Ratio・クエスト難易度/ランク・相性数値を非表示に」）に従い、
+	/// 内部で算出した成功率（0.0〜1.0）の数値そのものは決して表示せず、
+	/// 5段階の定性表現（→ SuccessConfidence）だけを出す。
+	/// </summary>
+	private void RefreshConfidence()
+	{
+		_confidenceLabel.Clear();
+
+		var questIndices = _questList.GetSelectedItems();
+		var partyIndices = _dispatchPartyList.GetSelectedItems();
+		if (questIndices.Length == 0 || partyIndices.Length == 0)
+		{
+			_confidenceLabel.AppendText("[color=gray]クエストと出撃パーティーを選ぶと、斥候からの見立てが聞ける。[/color]");
+			return;
+		}
+
+		var quest = _state.AvailableQuests[questIndices[0]];
+		var savedParty = _state.SavedParties[partyIndices[0]];
+		var memberIdSource = _temporaryDispatchMemberIds ?? savedParty.MemberIds;
+		var party = PartyFormationSystem.BuildDispatchParty(_state, memberIdSource);
+
+		if (party.IsEmpty)
+		{
+			_confidenceLabel.AppendText("[color=orange]出撃できるメンバーがいない。[/color]");
+			return;
+		}
+
+		var confidence = SuccessRateCalculator.GetConfidence(party, quest);
+		_confidenceLabel.AppendText(
+			$"勝算：[color={ConfidenceColor(confidence)}][b]{ConfidenceLabel(confidence)}[/b][/color]" +
+			$"　（{party.Members.Count}名で出撃・推奨{quest.RecommendedMembers}名）");
+	}
+
+	/// <summary>勝算の定性表現（→ SuccessConfidence）の表示文言。Core側は列挙子のみを持つ（→ 05技術メモ）。</summary>
+	private static string ConfidenceLabel(SuccessConfidence confidence) => confidence switch
+	{
+		SuccessConfidence.Overwhelming => "楽勝そうだ",
+		SuccessConfidence.Favorable => "勝算はある",
+		SuccessConfidence.Even => "五分五分か",
+		SuccessConfidence.Risky => "かなり厳しい",
+		SuccessConfidence.Reckless => "無謀だ",
+		_ => confidence.ToString()
+	};
+
+	private static string ConfidenceColor(SuccessConfidence confidence) => confidence switch
+	{
+		SuccessConfidence.Overwhelming => "lime",
+		SuccessConfidence.Favorable => "cyan",
+		SuccessConfidence.Even => "yellow",
+		SuccessConfidence.Risky => "orange",
+		SuccessConfidence.Reckless => "red",
+		_ => "white"
+	};
 
 	/// <summary>
 	/// ステータス詳細パネルを、直近にクリックされた冒険者の最新の値で再描画する。
@@ -1000,6 +1324,8 @@ public partial class MainDashboard : Control
 		QuestType.Subjugation => "討伐",
 		QuestType.Exploration => "調査・探索",
 		QuestType.Escort => "護衛",
+		QuestType.Gathering => "採取",
+		QuestType.Patrol => "巡回",
 		_ => type.ToString()
 	};
 
