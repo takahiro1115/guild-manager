@@ -219,23 +219,37 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void GenerateCandidates_SetsGenderOnCandidate()
         {
-            // AlwaysMinRngはRollGenderAndCultureで常に(Male, Western)を返す。
+            // 世界観設定（女性限定ギルド）：MaleGenderChancePercent=0のため、
+            // AlwaysMinRngはRollGenderAndCultureで常に(Female, Western)を返す。
             var system = new RecruitmentSystem(new AlwaysMinRng());
 
             var candidate = system.GenerateCandidates(new GameState())[0].Candidate;
 
-            Assert.Equal(Gender.Male, candidate.Gender);
+            Assert.Equal(Gender.Female, candidate.Gender);
+        }
+
+        [Fact]
+        public void GenerateCandidates_AllCandidatesAreFemale()
+        {
+            // 女性限定ギルド仕様：応募者全員がGender.Femaleであること（性別分布によらず、
+            // どの乱数を引いても男性が出現しない）。
+            var system = new RecruitmentSystem(new SeededRng(999));
+
+            var offers = system.GenerateCandidates(new GameState());
+
+            Assert.All(offers, o => Assert.Equal(Gender.Female, o.Candidate.Gender));
         }
 
         [Fact]
         public void GenerateCandidates_AvoidsDuplicateName_WithExistingActiveRoster()
         {
-            // AlwaysMinRngは常に同じ（西洋男性名プール先頭の）名前を引こうとする。
+            // AlwaysMinRngは常に同じ（西洋女性名プール先頭の。→ 女性限定ギルド仕様で
+            // MaleGenderChancePercent=0になったため、参照するプールが変わった）名前を引こうとする。
             // 現役ロースターに既にその名前を持つ人物がいる場合、生成される候補の名前は
             // 重複回避ロジックによりリトライ後のフォールバック名（末尾に"2世"）になるはず
             // （→ NameGenerator.GenerateUniqueFirstName）。これにより、氏名ジェネレーターが
             // 実際に state.Adventurers（現役ロースター）を参照していることを確認する。
-            var existingName = "エドガー"; // WesternMaleNames[0]（AlwaysMinRngが必ず引く名前）
+            var existingName = "セリア"; // WesternFemaleNames[0]（AlwaysMinRngが必ず引く名前）
             var state = new GameState { Adventurers = { new Adventurer { Name = existingName } } };
             var system = new RecruitmentSystem(new AlwaysMinRng());
 

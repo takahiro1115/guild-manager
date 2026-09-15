@@ -12,6 +12,6 @@ YoungestGrowthRatio,0.3,倍,15歳の初期実効値/PA比率（伸びしろ最�
 OldestGrowthRatio,0.7,倍,18歳の初期実効値/PA比率（即戦力寄り）
 InnateTraitChancePercent,5,%,先天特性（豪胆・注意深い・容姿秀麗）各々の付与確率
 WesternCultureChancePercent,80,%,氏名生成における洋名の出現率（残りは和名）
-MaleGenderChancePercent,50,%,性別の男性出現率
+MaleGenderChancePercent,0,%,"性別の男性出現率（世界観設定：女性限定ギルドのため0%に固定。→ NameGenerator.RollGenderAndCulture自体は変更せず、常にGender.Femaleが選ばれる）"
 UniqueNameRetryLimit,50,回,氏名重複回避のリトライ上限
 TutorialCandidateCount,3,名,第1週(ゲーム開始週)のチュートリアル採用試験で提示する応募者数（→ 初期編成改訂仕様）

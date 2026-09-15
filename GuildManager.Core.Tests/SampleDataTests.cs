@@ -1,4 +1,5 @@
 using GuildManager.Core.Data;
+using GuildManager.Core.Models;
 using Xunit;
 
 namespace GuildManager.Core.Tests
@@ -19,6 +20,15 @@ namespace GuildManager.Core.Tests
             var adventurers = SampleData.CreateStarterAdventurers();
 
             Assert.Equal(3, adventurers.Count);
+        }
+
+        [Fact]
+        public void SampleData_AllStarterAdventurers_AreFemale()
+        {
+            // 世界観設定（女性限定ギルド仕様）：初期ロースターは全員Gender.Female。
+            var adventurers = SampleData.CreateStarterAdventurers();
+
+            Assert.All(adventurers, a => Assert.Equal(Gender.Female, a.Gender));
         }
     }
 }

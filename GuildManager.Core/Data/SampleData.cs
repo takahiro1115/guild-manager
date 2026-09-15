@@ -16,6 +16,12 @@ namespace GuildManager.Core.Data
     /// IsTutorialRecruitmentWeek）でプレイヤー自身が3名を選抜契約することで計6名体制になる。
     /// 魔導士（旧エルシャ）はあえて初期メンバーから外し、「魔導士は自分で選んで採用する」
     /// 最初の意思決定をチュートリアルに組み込んでいる。
+    ///
+    /// 世界観設定改訂（→ 女性限定ギルド仕様）：本ギルドは女性限定のため、初期メンバー・
+    /// 新規採用候補（→ RecruitmentSystem・recruitment.csv MaleGenderChancePercent=0）とも
+    /// 全員 Gender.Female で統一する。旧「ガレス」（Gender.Male）は「クラウディア」に
+    /// 改名・性別変更した（ステータス・職業・週給は据え置き、能力データとしては同一人物の
+    /// 引き継ぎ）。
     /// </summary>
     public static class SampleData
     {
@@ -25,8 +31,11 @@ namespace GuildManager.Core.Data
             {
                 new Adventurer
                 {
-                    Name = "ガレス", Age = 24, JobClass = JobClass.Warrior, Gender = Gender.Male,
-                    PortraitId = "gareth", // → 項目62。guild-manager.godot/assets/portraits/gareth.png
+                    Name = "クラウディア", Age = 24, JobClass = JobClass.Warrior, Gender = Gender.Female,
+                    // → 項目62。対応するポートレート画像（claudia.png）は未用意のため、
+                    // Godot側のフォールバック仕様（PortraitId不明時はunknown_silhouette.png）により
+                    // シルエット表示になる（→ Adventurer.PortraitIdのクラスdocコメント）。
+                    PortraitId = "claudia",
                     STR = 60, AGI = 35, VIT = 55, MND = 10, DEX = 20, LDR = 40,
                     INT = 15, PA_INT = 20, // v1.2改訂：INT活性化に伴う暫定値。重戦士は低め
                     PA_STR = 80, PA_AGI = 50, PA_VIT = 75, PA_MND = 15, PA_DEX = 30, PA_LDR = 55,

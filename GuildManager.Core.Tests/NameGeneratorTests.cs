@@ -142,19 +142,21 @@ namespace GuildManager.Core.Tests
         // ---------------- 性別・文化圏のランダム決定（RollGenderAndCulture） ----------------
 
         [Fact]
-        public void RollGenderAndCulture_AlwaysMin_ReturnsMaleAndWestern()
+        public void RollGenderAndCulture_AlwaysMin_ReturnsFemaleAndWestern()
         {
-            // NextInt(1,100)=1 <= 50(男性率) かつ <= 80(洋名率) のため、常に(Male, Western)。
+            // 世界観設定（女性限定ギルド）→ MaleGenderChancePercent=0のため、
+            // NextInt(1,100)=1 は男性率(0%)を必ず上回り常にFemaleになる。洋名率80%は
+            // 従来通り境界含みで成功するため、文化圏はWestern。
             var (gender, culture) = NameGenerator.RollGenderAndCulture(new AlwaysMinRng());
 
-            Assert.Equal(Gender.Male, gender);
+            Assert.Equal(Gender.Female, gender);
             Assert.Equal(NameCulture.Western, culture);
         }
 
         [Fact]
         public void RollGenderAndCulture_AlwaysMax_ReturnsFemaleAndEastern()
         {
-            // NextInt(1,100)=100 は男性率50%・洋名率80%のいずれも上回るため、常に(Female, Eastern)。
+            // NextInt(1,100)=100 は男性率(0%)・洋名率80%のいずれも上回るため、常に(Female, Eastern)。
             var (gender, culture) = NameGenerator.RollGenderAndCulture(new AlwaysMaxRng());
 
             Assert.Equal(Gender.Female, gender);
@@ -162,14 +164,31 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
-        public void RollGenderAndCulture_UsesConfiguredThresholds()
+        public void RollGenderAndCulture_MaleChanceIsZero_AlwaysReturnsFemale_AcrossFullRollRange()
         {
-            // 男性率50%ちょうど・洋名率80%ちょうどの境界値が「成功（男性／洋名）」側であること。
-            var rng = new SequenceRng(NameGeneratorBalance.MaleGenderChancePercent, NameGeneratorBalance.WesternCultureChancePercent);
+            // 世界観設定（女性限定ギルド）：MaleGenderChancePercent=0のため、
+            // NextInt(1,100)が取りうる全ての値（1〜100）でGender.Maleは一切出現しない
+            // （閾値0に対して「ロール<=0」を満たす値が存在しないため、確率分布ではなく
+            // 構造的に100%女性になることを保証する）。
+            Assert.Equal(0, NameGeneratorBalance.MaleGenderChancePercent);
+
+            for (int roll = 1; roll <= 100; roll++)
+            {
+                var (gender, _) = NameGenerator.RollGenderAndCulture(new SequenceRng(roll, 1));
+                Assert.Equal(Gender.Female, gender);
+            }
+        }
+
+        [Fact]
+        public void RollGenderAndCulture_UsesConfiguredCultureThreshold()
+        {
+            // 洋名率80%ちょうどの境界値が「成功（洋名）」側であることは変わらない
+            // （性別は0%閾値のため、境界値であっても常にFemale）。
+            var rng = new SequenceRng(1, NameGeneratorBalance.WesternCultureChancePercent);
 
             var (gender, culture) = NameGenerator.RollGenderAndCulture(rng);
 
-            Assert.Equal(Gender.Male, gender);
+            Assert.Equal(Gender.Female, gender);
             Assert.Equal(NameCulture.Western, culture);
         }
     }
