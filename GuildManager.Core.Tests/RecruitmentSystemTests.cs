@@ -78,6 +78,31 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
+        public void GenerateCandidates_JobRoll_CoversAllSevenJobClasses()
+        {
+            // 7職業化：旧実装は NextInt(0, 3) と4職固定で、新3職が採用で一切出現しなかった。
+            // 抽選範囲の両端（最小＝先頭の職業、最大＝末尾の職業）に届くことを確認する。
+            var allJobs = Enum.GetValues<JobClass>();
+
+            var first = new RecruitmentSystem(new AlwaysMinRng()).GenerateCandidates(new GameState())[0].Candidate;
+            var last = new RecruitmentSystem(new AlwaysMaxRng()).GenerateCandidates(new GameState())[0].Candidate;
+
+            Assert.Equal(allJobs.First(), first.JobClass);
+            Assert.Equal(allJobs.Last(), last.JobClass);
+            Assert.Equal(JobClass.Scholar, last.JobClass); // 末尾に追加した新職業まで抽選範囲に含まれる
+        }
+
+        [Fact]
+        public void GenerateCandidates_NewJobClass_GetsPlacementFromJobRule()
+        {
+            // 採用された新職業にも、職業から一意に決まる配置が設定される（学者＝後衛）。
+            var scholar = new RecruitmentSystem(new AlwaysMaxRng()).GenerateCandidates(new GameState())[0].Candidate;
+
+            Assert.Equal(JobClass.Scholar, scholar.JobClass);
+            Assert.Equal(Placement.Back, scholar.Placement);
+        }
+
+        [Fact]
         public void GenerateCandidates_AllCandidatesJoinAtEntryAge()
         {
             // 8年稼働モデル（→ 03 §3.7）：加入年齢は18歳に統一され、全員が26歳の満期まで

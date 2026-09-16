@@ -28,7 +28,7 @@ namespace GuildManager.Core.Models
         {
             Id = GreatSwordId, Name = "大剣", Slot = EquipmentSlot.Weapon,
             EffectType = EquipmentEffectType.PersonalCpBonus, EffectValue = EquipmentBalance.GreatSwordEffectValue, Price = EquipmentBalance.GreatSwordPrice,
-            AllowedJobs = new List<JobClass> { JobClass.Warrior }, // 重量武器：戦士専用
+            AllowedJobs = new List<JobClass> { JobClass.Warrior, JobClass.Knight }, // 重量武器：重戦士・騎士
             VisualPartId = "weapon_greatsword",
         };
 
@@ -36,7 +36,7 @@ namespace GuildManager.Core.Models
         {
             Id = MageStaffId, Name = "魔導士の杖", Slot = EquipmentSlot.Weapon,
             EffectType = EquipmentEffectType.PersonalCpBonus, EffectValue = EquipmentBalance.MageStaffEffectValue, Price = EquipmentBalance.MageStaffPrice,
-            AllowedJobs = new List<JobClass> { JobClass.Mage },
+            AllowedJobs = new List<JobClass> { JobClass.Mage, JobClass.Scholar }, // 魔法職：魔導士・学者
             VisualPartId = "weapon_staff",
         };
 
@@ -56,7 +56,7 @@ namespace GuildManager.Core.Models
         {
             Id = HeavyArmorId, Name = "重装鎧", Slot = EquipmentSlot.Armor,
             EffectType = EquipmentEffectType.MaxHpBonus, EffectValue = EquipmentBalance.HeavyArmorEffectValue, Price = EquipmentBalance.HeavyArmorPrice,
-            AllowedJobs = new List<JobClass> { JobClass.Warrior, JobClass.Cleric }, // 魔導士・斥候は不可
+            AllowedJobs = new List<JobClass> { JobClass.Warrior, JobClass.Knight, JobClass.Cleric }, // 重装可：重戦士・騎士・神官
             VisualPartId = "armor_heavy",
         };
 
@@ -64,7 +64,7 @@ namespace GuildManager.Core.Models
         {
             Id = RobeId, Name = "ローブ", Slot = EquipmentSlot.Armor,
             EffectType = EquipmentEffectType.MaxHpBonus, EffectValue = EquipmentBalance.RobeEffectValue, Price = EquipmentBalance.RobePrice,
-            AllowedJobs = new List<JobClass> { JobClass.Mage, JobClass.Cleric },
+            AllowedJobs = new List<JobClass> { JobClass.Mage, JobClass.Cleric, JobClass.Scholar }, // 後衛職：魔導士・神官・学者
             VisualPartId = "armor_robe",
         };
 

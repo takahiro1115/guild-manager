@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using GuildManager.Core.Balance;
 using GuildManager.Core.Models;
 using GuildManager.Core.Rng;
@@ -300,8 +301,13 @@ namespace GuildManager.Core.Tests
         }
 
         [Theory]
-        [InlineData(4, "MND")] // Cleric累積: AGI=1,VIT=2,MND=4,DEX=5,LDR=7（STRは重み0）
-        [InlineData(7, "LDR")]
+        // 7職業化で神官の重みを合計9へ改訂（旧 0,1,1,2,1,2,0 → 新 0,1,2,3,1,2,0）。
+        // Cleric累積: AGI=1,VIT=3,MND=6,DEX=7,LDR=9（STR・INTは重み0）
+        [InlineData(2, "VIT")]
+        [InlineData(4, "MND")]
+        [InlineData(6, "MND")]
+        [InlineData(7, "DEX")]
+        [InlineData(9, "LDR")]
         public void PickJobWeightedStat_Cleric_FavorsMagAndLdr(int roll, string expectedStat)
         {
             var stat = GrowthBalance.PickJobWeightedStat(JobClass.Cleric, new FixedRollRng(roll));
@@ -310,11 +316,73 @@ namespace GuildManager.Core.Tests
 
         [Theory]
         [InlineData(5, "MND")] // Mage累積: AGI=1,VIT=2,MND=5,DEX=6,LDR=7,INT=9（STRは重み0）
-        [InlineData(8, "INT")] // v1.2改訂：魔導士のみINTが成長対象プールに追加された
+        [InlineData(8, "INT")] // INTを成長対象に持つのは魔導士と学者（7職業化で学者を追加）
         [InlineData(9, "INT")]
         public void PickJobWeightedStat_Mage_IncludesIntInWeightTable(int roll, string expectedStat)
         {
             var stat = GrowthBalance.PickJobWeightedStat(JobClass.Mage, new FixedRollRng(roll));
+            Assert.Equal(expectedStat, stat);
+        }
+
+        // ---------------- 7職業化：成長重みテーブル（→ growth_job_weights.csv） ----------------
+
+        [Fact]
+        public void JobStatWeights_AreLoadedForAllSevenJobClasses()
+        {
+            // 列挙型の全職業について行が存在すること（行が欠けていると例外になる）。
+            var allJobs = Enum.GetValues<JobClass>();
+
+            Assert.Equal(7, allJobs.Length);
+            foreach (var job in allJobs)
+                Assert.NotEmpty(GrowthBalance.GetJobStatWeights(job));
+        }
+
+        [Theory]
+        [InlineData(JobClass.Warrior)]
+        [InlineData(JobClass.Knight)]
+        [InlineData(JobClass.Ranger)]
+        [InlineData(JobClass.Thief)]
+        [InlineData(JobClass.Mage)]
+        [InlineData(JobClass.Cleric)]
+        [InlineData(JobClass.Scholar)]
+        public void JobStatWeights_SumToNine_ForEveryJobClass(JobClass job)
+        {
+            // 全職業の重み合計を9で統一している（職業間で成長機会の総量に差をつけないため）。
+            int total = GrowthBalance.GetJobStatWeights(job).Sum(w => w.Weight);
+
+            Assert.Equal(9, total);
+        }
+
+        [Theory]
+        // 新3職の特徴的なステータスが最大重みであること（各職の役割付けの検証）。
+        [InlineData(JobClass.Knight, "VIT", 4)]
+        [InlineData(JobClass.Thief, "AGI", 4)]
+        [InlineData(JobClass.Scholar, "INT", 4)]
+        public void JobStatWeights_NewJobClasses_HaveExpectedSpecialty(JobClass job, string specialtyStat, int expectedWeight)
+        {
+            var weights = GrowthBalance.GetJobStatWeights(job);
+
+            Assert.Equal(expectedWeight, weights.Single(w => w.Stat == specialtyStat).Weight);
+            Assert.Equal(expectedWeight, weights.Max(w => w.Weight));
+        }
+
+        [Theory]
+        // Knight累積: STR=2,VIT=6,MND=7,LDR=9（AGI・DEX・INTは重み0）
+        // ※CSVの列順は STR,AGI,VIT,MND,DEX,LDR,INT。重み0の列は抽選対象にならない。
+        [InlineData(JobClass.Knight, 1, "STR")]
+        [InlineData(JobClass.Knight, 3, "VIT")]
+        [InlineData(JobClass.Knight, 9, "LDR")]
+        // Thief累積: STR=1,AGI=5,VIT=6,DEX=9
+        [InlineData(JobClass.Thief, 2, "AGI")]
+        [InlineData(JobClass.Thief, 5, "AGI")]
+        [InlineData(JobClass.Thief, 9, "DEX")]
+        // Scholar累積: AGI=1,MND=3,DEX=4,LDR=5,INT=9
+        [InlineData(JobClass.Scholar, 2, "MND")]
+        [InlineData(JobClass.Scholar, 6, "INT")]
+        [InlineData(JobClass.Scholar, 9, "INT")]
+        public void PickJobWeightedStat_NewJobClasses_FollowWeightTable(JobClass job, int roll, string expectedStat)
+        {
+            var stat = GrowthBalance.PickJobWeightedStat(job, new FixedRollRng(roll));
             Assert.Equal(expectedStat, stat);
         }
     }

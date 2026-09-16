@@ -50,9 +50,10 @@ namespace GuildManager.Core.Balance
         public static readonly int MaxGrowthAmount = BalanceData.GetInt(AgingFileName, "MaxGrowthAmount");
 
         // ---- 経路1（出撃）のステータス抽選：職業ごとの重み付け（→ BAL: 加齢/職業別成長重み） ----
-        // §4.2の列システム（前衛/後衛）は未実装のため、現時点では職業のみに基づく重み
-        // （仕様書 03 §2.1 の各職業の特性説明を反映）。前衛(Warrior)はSTR/AGI/VIT寄り、
-        // 斥候(Ranger)はAGI/DEX寄り、魔導士(Mage)はMND/INT寄り、神官(Cleric)はMND/LDR寄り。
+        // 職業のみに基づく重み（仕様書 03 §2.1 の各職業の特性説明を反映）。
+        // 7職業化（改訂）で全職業の重み合計を9に統一した：
+        //  重戦士(Warrior)=STR/VIT、騎士(Knight)=VIT特化、斥候(Ranger)=AGI/DEX、
+        //  盗賊(Thief)=AGI特化、魔導士(Mage)=MND/INT、神官(Cleric)=MND/VIT/LDR、学者(Scholar)=INT特化。
         // v1.2改訂：INTを予約フィールドから活性化。魔導士のみ成長対象プールにINTを持つ
         // （他職はCSV上のINT重みが0＝経路1では成長しない。→ 03 §3.1〜3.4）。
         private static readonly Dictionary<JobClass, (string Stat, int Weight)[]> JobStatWeights = BuildJobStatWeights();
@@ -81,10 +82,23 @@ namespace GuildManager.Core.Balance
             return result;
         }
 
+        /// <summary>
+        /// 指定職業の成長重み（ステータス名と重みの組）。7職業化に伴い、全職業の重み合計を
+        /// 9で統一している（→ growth_job_weights.csv）。CSVに行が無い職業を指定した場合は
+        /// 設定漏れとして BalanceDataException を投げる（辞書の KeyNotFoundException で
+        /// 原因が分かりにくくなるのを避けるため）。
+        /// </summary>
+        public static (string Stat, int Weight)[] GetJobStatWeights(JobClass jobClass)
+        {
+            if (!JobStatWeights.TryGetValue(jobClass, out var weights))
+                throw new BalanceDataException($"{JobWeightsFileName} に職業「{jobClass}」の行がありません。");
+            return weights;
+        }
+
         /// <summary>職業別の重みに従って、成長対象ステータスを1つ抽選する。</summary>
         public static string PickJobWeightedStat(JobClass jobClass, IRng rng)
         {
-            var weights = JobStatWeights[jobClass];
+            var weights = GetJobStatWeights(jobClass);
 
             int total = 0;
             foreach (var (_, weight) in weights)

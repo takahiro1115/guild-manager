@@ -36,3 +36,9 @@ PlacementCorrection_Mage_Front,0.8,倍,魔導士×前衛の個人CP補正
 PlacementCorrection_Mage_Back,1.2,倍,魔導士×後衛の個人CP補正
 PlacementCorrection_Cleric_Front,0.8,倍,神官×前衛の個人CP補正
 PlacementCorrection_Cleric_Back,1.2,倍,神官×後衛の個人CP補正
+PlacementCorrection_Knight_Front,1.2,倍,騎士×前衛の個人CP補正（7職業化で追加。重戦士と同じ前衛ボーナス）
+PlacementCorrection_Knight_Back,0.8,倍,騎士×後衛の個人CP補正
+PlacementCorrection_Thief_Front,1.0,倍,盗賊×前衛の個人CP補正（斥候と同じく補正なし）
+PlacementCorrection_Thief_Back,1.0,倍,盗賊×後衛の個人CP補正
+PlacementCorrection_Scholar_Front,0.8,倍,学者×前衛の個人CP補正
+PlacementCorrection_Scholar_Back,1.2,倍,学者×後衛の個人CP補正（7職業化で追加。魔導士と同じ後衛ボーナス）

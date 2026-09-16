@@ -74,7 +74,7 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void TryPurchaseAndEquip_Fails_WhenJobClassNotAllowed()
         {
-            // 大剣(GreatSword)は戦士専用。魔導士は装備できない。
+            // 大剣(GreatSword)は重戦士・騎士専用。魔導士は装備できない。
             var mage = new Adventurer { JobClass = JobClass.Mage };
             var state = new GameState { Gold = 10000 };
             var system = new EquipmentSystem();
@@ -103,7 +103,8 @@ namespace GuildManager.Core.Tests
         public void TryPurchaseAndEquip_Succeeds_ForItemWithNoJobRestriction()
         {
             // 職業制限の無いアイテム（AllowedJobsが空）は全職業で装備可能。
-            foreach (var job in new[] { JobClass.Warrior, JobClass.Ranger, JobClass.Mage, JobClass.Cleric })
+            // 7職業化に伴い、列挙型の全職業を対象にする（新しい職業を追加しても自動で検証対象になる）。
+            foreach (var job in System.Enum.GetValues<JobClass>())
             {
                 var adventurer = new Adventurer { JobClass = job };
                 var state = new GameState { Gold = 10000 };
@@ -113,6 +114,94 @@ namespace GuildManager.Core.Tests
 
                 Assert.True(result, $"{job}は革鎧を装備できるはず");
             }
+        }
+
+        // ---------------- 7職業化：新3職の装備制限（→ ItemCatalog.AllowedJobs） ----------------
+
+        [Theory]
+        // 大剣：重戦士・騎士のみ
+        [InlineData(ItemCatalog.GreatSwordId, JobClass.Warrior, true)]
+        [InlineData(ItemCatalog.GreatSwordId, JobClass.Knight, true)]
+        [InlineData(ItemCatalog.GreatSwordId, JobClass.Ranger, false)]
+        [InlineData(ItemCatalog.GreatSwordId, JobClass.Thief, false)]
+        [InlineData(ItemCatalog.GreatSwordId, JobClass.Mage, false)]
+        [InlineData(ItemCatalog.GreatSwordId, JobClass.Cleric, false)]
+        [InlineData(ItemCatalog.GreatSwordId, JobClass.Scholar, false)]
+        // 魔導士の杖：魔導士・学者のみ
+        [InlineData(ItemCatalog.MageStaffId, JobClass.Mage, true)]
+        [InlineData(ItemCatalog.MageStaffId, JobClass.Scholar, true)]
+        [InlineData(ItemCatalog.MageStaffId, JobClass.Warrior, false)]
+        [InlineData(ItemCatalog.MageStaffId, JobClass.Knight, false)]
+        [InlineData(ItemCatalog.MageStaffId, JobClass.Ranger, false)]
+        [InlineData(ItemCatalog.MageStaffId, JobClass.Thief, false)]
+        [InlineData(ItemCatalog.MageStaffId, JobClass.Cleric, false)]
+        // 重装鎧：重戦士・騎士・神官のみ
+        [InlineData(ItemCatalog.HeavyArmorId, JobClass.Warrior, true)]
+        [InlineData(ItemCatalog.HeavyArmorId, JobClass.Knight, true)]
+        [InlineData(ItemCatalog.HeavyArmorId, JobClass.Cleric, true)]
+        [InlineData(ItemCatalog.HeavyArmorId, JobClass.Ranger, false)]
+        [InlineData(ItemCatalog.HeavyArmorId, JobClass.Thief, false)]
+        [InlineData(ItemCatalog.HeavyArmorId, JobClass.Mage, false)]
+        [InlineData(ItemCatalog.HeavyArmorId, JobClass.Scholar, false)]
+        // ローブ：魔導士・神官・学者のみ
+        [InlineData(ItemCatalog.RobeId, JobClass.Mage, true)]
+        [InlineData(ItemCatalog.RobeId, JobClass.Cleric, true)]
+        [InlineData(ItemCatalog.RobeId, JobClass.Scholar, true)]
+        [InlineData(ItemCatalog.RobeId, JobClass.Warrior, false)]
+        [InlineData(ItemCatalog.RobeId, JobClass.Knight, false)]
+        [InlineData(ItemCatalog.RobeId, JobClass.Ranger, false)]
+        [InlineData(ItemCatalog.RobeId, JobClass.Thief, false)]
+        public void IsAllowedFor_FollowsSevenJobEquipmentRules(string itemId, JobClass job, bool expected)
+        {
+            var item = ItemCatalog.FindById(itemId)!;
+
+            Assert.Equal(expected, item.IsAllowedFor(job));
+        }
+
+        [Theory]
+        [InlineData(ItemCatalog.IronSwordId)]
+        [InlineData(ItemCatalog.LeatherArmorId)]
+        [InlineData(ItemCatalog.PowerRingId)]
+        [InlineData(ItemCatalog.LifeAmuletId)]
+        [InlineData(ItemCatalog.QuickBroochId)]
+        [InlineData(ItemCatalog.GuardCharmId)]
+        public void IsAllowedFor_UnrestrictedItems_AreEquippableByAllSevenJobs(string itemId)
+        {
+            // 鉄の剣・革鎧・アクセサリー各種は職業制限なし（新3職も装備可）。
+            var item = ItemCatalog.FindById(itemId)!;
+
+            foreach (var job in System.Enum.GetValues<JobClass>())
+                Assert.True(item.IsAllowedFor(job), $"{job}は{item.Name}を装備できるはず");
+        }
+
+        [Theory]
+        [InlineData(JobClass.Knight, ItemCatalog.GreatSwordId)]
+        [InlineData(JobClass.Knight, ItemCatalog.HeavyArmorId)]
+        [InlineData(JobClass.Scholar, ItemCatalog.MageStaffId)]
+        [InlineData(JobClass.Scholar, ItemCatalog.RobeId)]
+        public void TryPurchaseAndEquip_NewJobClasses_CanEquipTheirDesignatedGear(JobClass job, string itemId)
+        {
+            // 判定（IsAllowedFor）だけでなく、実際の購入・装備フローでも新3職が装備できること。
+            var adventurer = new Adventurer { JobClass = job };
+            var state = new GameState { Gold = 10000 };
+
+            bool result = new EquipmentSystem().TryPurchaseAndEquip(state, adventurer, itemId);
+
+            Assert.True(result, $"{job}は{itemId}を装備できるはず");
+        }
+
+        [Fact]
+        public void TryPurchaseAndEquip_Thief_CannotEquipHeavyArmor()
+        {
+            // 盗賊は前衛だが重装鎧は装備不可（俊敏さを活かす軽装職）。
+            var thief = new Adventurer { JobClass = JobClass.Thief };
+            var state = new GameState { Gold = 10000 };
+
+            bool result = new EquipmentSystem().TryPurchaseAndEquip(state, thief, ItemCatalog.HeavyArmorId);
+
+            Assert.False(result);
+            Assert.Null(thief.EquippedArmorId);
+            Assert.Equal(10000, state.Gold);
         }
 
         // ---------------- 4枠の独立性 ----------------

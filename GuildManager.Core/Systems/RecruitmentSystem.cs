@@ -32,6 +32,9 @@ namespace GuildManager.Core.Systems
     {
         private const int WeeksPerYear = 48; // 仕様書 03 §1.2（構造値）
 
+        /// <summary>採用で抽選する職業の数（＝JobClass列挙型の全要素数）。</summary>
+        private static readonly int AllJobClassCount = Enum.GetValues<JobClass>().Length;
+
         // ---- 有望新人（総合PA75以上）の出現判定（→ 03 §7.3。事前調査メモ参照） ----
         // → BAL: 採用/有望新人。基礎出現率（旧docs記載の「+25%」を基礎値として採用）、
         // 出現時はPA生成レンジを底上げしTotalPA≥75になりやすくする。
@@ -145,7 +148,11 @@ namespace GuildManager.Core.Systems
             int ageBonus = (int)Math.Round(RecruitmentBalance.YoungestAgePaBonus * (1 - ageT));
             double growthRatio = RecruitmentBalance.YoungestGrowthRatio + (RecruitmentBalance.OldestGrowthRatio - RecruitmentBalance.YoungestGrowthRatio) * ageT;
 
-            var jobClass = (JobClass)_rng.NextInt(0, 3);
+            // 職業は定義済みの全職業から等確率で抽選する（7職業化で Knight/Thief/Scholar を追加）。
+            // 旧実装は NextInt(0, 3) と4職固定の数値で書かれており、職業を増やしても採用で
+            // 一切出現しない状態になっていた。列挙型の要素数から範囲を導出し、
+            // 今後職業を増減しても抽選範囲の更新漏れが起きないようにしている。
+            var jobClass = (JobClass)_rng.NextInt(0, AllJobClassCount - 1);
 
             // 氏名ジェネレーター（→ 03 §2.4・NameGenerator）：文化圏（洋名80%/和名20%）を
             // ランダムに決定し、対応する名前プールから現役ロースターと重複しない
