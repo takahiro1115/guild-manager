@@ -275,15 +275,16 @@ public partial class MainDashboard : Control
 
 	private void OnContinueChosen(ConfirmationDialog dialog)
 	{
-		dialog.QueueFree();
-
 		var loaded = _saveLoadService.Load();
 		if (loaded == null)
 		{
-			ShowLoadFailedPrompt();
+			// ロード失敗時は追加のダイアログ（AcceptDialog）を開く。QueueFree()直後に開くと
+			// 下のCloseDialogThenRunのコメントの不具合を踏むため、こちらを経由する。
+			CloseDialogThenRun(dialog, ShowLoadFailedPrompt);
 			return;
 		}
 
+		dialog.QueueFree();
 		_state = loaded;
 		RefreshAll();
 		if (_questList.ItemCount > 0)
@@ -291,11 +292,7 @@ public partial class MainDashboard : Control
 		AppendLog($"[color=cyan]セーブデータから再開しました（第{_state.WeekNumber}週）。[/color]");
 	}
 
-	private void OnNewGameChosen(ConfirmationDialog dialog)
-	{
-		dialog.QueueFree();
-		StartNewGame();
-	}
+	private void OnNewGameChosen(ConfirmationDialog dialog) => CloseDialogThenRun(dialog, StartNewGame);
 
 	/// <summary>
 	/// ロード失敗時（破損ファイル・バージョン不一致等）のフォールバック（→ 03 §12）。
@@ -308,10 +305,30 @@ public partial class MainDashboard : Control
 		{
 			DialogText = "セーブデータの読み込みに失敗しました。新規ゲームを開始します。",
 		};
-		dialog.Confirmed += () => { dialog.QueueFree(); StartNewGame(); };
-		dialog.Canceled += () => { dialog.QueueFree(); StartNewGame(); };
+		dialog.Confirmed += () => CloseDialogThenRun(dialog, StartNewGame);
+		dialog.Canceled += () => CloseDialogThenRun(dialog, StartNewGame);
 		AddChild(dialog);
 		dialog.PopupCentered();
+	}
+
+	/// <summary>
+	/// モーダルダイアログ（ConfirmationDialog／AcceptDialog）を閉じ、実際にシーンツリーから
+	/// 外れるのを待ってから後続処理を呼ぶ。
+	///
+	/// 不具合の経緯：QueueFree()は削除をフレーム末尾まで遅延させる。そのため
+	/// 「dialog.QueueFree(); StartNewGame();」のように閉じた直後の同フレームで
+	/// 別のモーダル（RecruitmentPopup等、Windowの排他的子）を開こうとすると、
+	/// 前のダイアログがまだ排他的子ウィンドウとして残っているため
+	/// 「既に排他的な子ウィンドウがある」というGodotのエラーで新しいポップアップが
+	/// 実際には開かないまま失敗していた。第1週チュートリアル採用試験の場面では
+	/// DisableWeekAdvancement()が先に呼ばれているため、開かなかったポップアップの
+	/// Closedイベントが永遠に来ず、「次週へ」が二度と押せなくなる不具合になっていた。
+	/// </summary>
+	private async void CloseDialogThenRun(Window dialog, Action followUp)
+	{
+		dialog.QueueFree();
+		await ToSignal(dialog, Node.SignalName.TreeExited);
+		followUp();
 	}
 
 	/// <summary>「セーブ」ボタン（手動保存）。押すと即座にセーブし、完了を週報ログに通知する（→ 03 §12）。</summary>
