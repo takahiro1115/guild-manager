@@ -176,6 +176,25 @@ namespace GuildManager.Core.Models
         /// </summary>
         public DefeatReason? DefeatReason { get; set; }
 
+        // ==================== 大迷宮（ダンジョン攻略システム） ====================
+
+        /// <summary>
+        /// 大迷宮の階層ボス一覧（→ FloorBoss・Data.SampleData.CreateFloorBosses）。
+        /// 解析率（IntelRate）・撃破状態（IsDefeated）はここに保持され、セーブ対象になる。
+        /// 攻略対象は「未撃破のうち最も浅い階層」（→ GetCurrentFloorBoss）。
+        /// </summary>
+        public List<FloorBoss> FloorBosses { get; set; } = new();
+
+        /// <summary>
+        /// 大迷宮へ出撃中（次の週次決算で解決待ち）の部隊一覧（→ Systems.DungeonExpeditionSystem）。
+        /// 同時出撃枠は通常クエストの派遣（ActiveDispatches）と共有する。
+        /// </summary>
+        public List<ActiveDungeonMission> ActiveDungeonMissions { get; set; } = new();
+
+        /// <summary>現在の攻略対象（未撃破のうち最も浅い階層のボス）。全階層踏破済み・未設定ならnull。</summary>
+        public FloorBoss? GetCurrentFloorBoss() =>
+            FloorBosses.Where(b => !b.IsDefeated).OrderBy(b => b.Floor).FirstOrDefault();
+
         /// <summary>指定した種類の施設の現在Lvを返す。該当データが無い場合は1を返す（防御的フォールバック）。</summary>
         public int GetFacilityLevel(FacilityType type)
         {
@@ -213,6 +232,7 @@ namespace GuildManager.Core.Models
                 FallenAdventurers = new List<Adventurer>(FallenAdventurers),
                 AvailableQuests = new List<Quest>(AvailableQuests),
                 SavedParties = new List<SavedParty>(SavedParties),
+                FloorBosses = new List<FloorBoss>(FloorBosses),
             };
 
             foreach (var kv in Compatibility)
@@ -256,6 +276,17 @@ namespace GuildManager.Core.Models
                 });
             }
 
+            foreach (var mission in ActiveDungeonMissions)
+            {
+                data.DungeonMissions.Add(new DungeonMissionRecord
+                {
+                    BossId = mission.Boss.Id,
+                    MissionType = mission.MissionType.ToString(),
+                    PartyMemberIds = mission.Party.Members.Select(m => m.Id).ToList(),
+                    ConsumableItemIds = new List<string>(mission.Party.ConsumableItemIds),
+                });
+            }
+
             return data;
         }
 
@@ -291,6 +322,7 @@ namespace GuildManager.Core.Models
                 FallenAdventurers = new List<Adventurer>(data.FallenAdventurers),
                 AvailableQuests = new List<Quest>(data.AvailableQuests),
                 SavedParties = new List<SavedParty>(data.SavedParties),
+                FloorBosses = new List<FloorBoss>(data.FloorBosses),
                 Facilities = new List<Facility>(),
             };
 
@@ -354,6 +386,30 @@ namespace GuildManager.Core.Models
                     Quest = record.Quest,
                     WeeksRemaining = record.WeeksRemaining,
                     EmergencyHealUsed = record.EmergencyHealUsed,
+                });
+            }
+
+            // 大迷宮への出撃（→ ActiveDungeonMission）。派遣中クエストと同じくメンバーは
+            // 同一インスタンスを引き、ボスもFloorBosses内の同一インスタンスを指すよう解決する。
+            foreach (var record in data.DungeonMissions)
+            {
+                var boss = state.FloorBosses.FirstOrDefault(b => b.Id == record.BossId)
+                    ?? throw new FormatException($"セーブデータが破損しています：出撃先の階層ボスId {record.BossId} が見つかりません。");
+
+                var party = new Party();
+                foreach (var memberId in record.PartyMemberIds)
+                {
+                    if (!adventurersById.TryGetValue(memberId, out var member))
+                        throw new FormatException($"セーブデータが破損しています：大迷宮出撃中のメンバーId {memberId} が見つかりません。");
+                    party.TryAdd(member);
+                }
+                party.ConsumableItemIds = new List<string>(record.ConsumableItemIds);
+
+                state.ActiveDungeonMissions.Add(new ActiveDungeonMission
+                {
+                    Party = party,
+                    Boss = boss,
+                    MissionType = ParseEnum<DungeonMissionType>(record.MissionType, nameof(DungeonMissionType)),
                 });
             }
 

@@ -45,10 +45,11 @@ namespace GuildManager.Core.Systems
         /// <summary>
         /// 同時出撃枠（→ GameState.UnlockedSquadSlots、コアシステム刷新仕様「4. 進行管理」）に
         /// 空きがあるか。枠は「部隊の数」であって人数ではない：1枠の中で1〜4名を自由に
-        /// 割り振れる（フリーアサイン）。
+        /// 割り振れる（フリーアサイン）。大迷宮への出撃（→ GameState.ActiveDungeonMissions）も
+        /// 同じ枠を消費する。
         /// </summary>
         public static bool CanDispatch(GameState state) =>
-            state.ActiveDispatches.Count < state.UnlockedSquadSlots;
+            state.ActiveDispatches.Count + state.ActiveDungeonMissions.Count < state.UnlockedSquadSlots;
 
         /// <summary>
         /// 同時出撃枠を確認した上でパーティを派遣する。枠が埋まっていれば何もせずfalseを返す

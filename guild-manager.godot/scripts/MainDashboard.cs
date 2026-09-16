@@ -90,6 +90,10 @@ public partial class MainDashboard : Control
 	private Button _partyFormationButton = null!;
 	private TemporarySwapPopup _temporarySwapPopup = null!;
 
+	// ---- 大迷宮（ダンジョン攻略システム：調査任務・階層ボス討伐） ----
+	private DungeonPanel _dungeonPanel = null!;
+	private DungeonExpeditionSystem _dungeonExpeditionSystem = null!;
+
 	/// <summary>ステータス詳細パネルに表示中の冒険者。週送り後もこの人物の表示を維持する。</summary>
 	private Guid? _detailAdventurerId;
 
@@ -166,6 +170,11 @@ public partial class MainDashboard : Control
 		var centerPanel = GetNode<TabContainer>("%CenterPanel");
 		centerPanel.SetTabTitle(0, "クエスト・派遣");
 		centerPanel.SetTabTitle(1, "冒険者");
+		centerPanel.SetTabTitle(2, "大迷宮（Dungeon）");
+
+		_dungeonPanel = GetNode<DungeonPanel>("%DungeonTab");
+		_dungeonPanel.LogRequested += AppendLog;
+		_dungeonPanel.StateChanged += RefreshAll;
 
 		_adventurerList.ItemClicked += OnAdventurerItemClicked;
 		_nextWeekButton.Pressed += OnNextWeekPressed;
@@ -213,13 +222,20 @@ public partial class MainDashboard : Control
 		// 採用システムを使うため、同じインスタンスを共有する（二重管理を避ける）。
 		_emergencySupportSystem = new EmergencySupportSystem();
 		_guildProgressionSystem = new GuildProgressionSystem(_recruitmentSystem);
+		// 大迷宮（→ ダンジョン攻略システム）。調査・討伐は別シードにし、互いの抽選回数が結果に
+		// 影響しないようにする。強制除籍の余波（満足度・相性）は既存インスタンスを共有する。
+		_dungeonExpeditionSystem = new DungeonExpeditionSystem(
+			new ScoutingResolver(new SeededRng(1453)), new DungeonResolver(new SeededRng(1588)),
+			_satisfactionSystem, _compatibilitySystem);
+		_dungeonPanel.Initialize(_dungeonExpeditionSystem);
 		// 週次決算のオーケストレーション（→ 03 §1.3・自動スキップ）。既存の各Systemインスタンスを
 		// そのまま共有し、二重管理（別インスタンスによる状態不整合）を避ける。
 		_weekProcessingSystem = new WeekProcessingSystem(
 			_questDispatchSystem, _guildRankSystem, _securitySystem, _questBoardSystem,
 			_economySystem, _subsidySystem, _trainingSystem, _injuryRecoverySystem,
 			_restRecoverySystem, _growthSystem, _satisfactionSystem, _agingSystem,
-			_facilitySystem, _defeatSystem, _recruitmentSystem, _guildProgressionSystem);
+			_facilitySystem, _defeatSystem, _recruitmentSystem, _guildProgressionSystem,
+			_dungeonExpeditionSystem);
 		_autoSkipService = new AutoSkipService(_weekProcessingSystem);
 		// GuildManager.CoreはGodotに依存しない方針（→ 05技術メモ）のため、保存先の実パスは
 		// Godot側からOS.GetUserDataDir()（user://に対応する実ディレクトリ）を注入する（→ 03 §12）。
@@ -238,6 +254,7 @@ public partial class MainDashboard : Control
 		{
 			Adventurers = SampleData.CreateStarterAdventurers(),
 			AvailableQuests = SampleData.CreateStarterQuests(),
+			FloorBosses = SampleData.CreateFloorBosses(),
 		};
 
 		RefreshAll();
@@ -285,6 +302,9 @@ public partial class MainDashboard : Control
 		}
 
 		_state = loaded;
+		// 大迷宮の実装前に作られたセーブには階層ボスが無い。攻略対象が空のままにならないよう補う。
+		if (_state.FloorBosses.Count == 0)
+			_state.FloorBosses = SampleData.CreateFloorBosses();
 		RefreshAll();
 		if (_questList.ItemCount > 0)
 			_questList.Select(0);
@@ -534,7 +554,7 @@ public partial class MainDashboard : Control
 				}
 			}
 		}
-		else
+		else if (_state.ActiveDungeonMissions.Count == 0)
 		{
 			AppendLog($"[color=gray]第{thisWeek}週：今週は誰も出撃せず、静養に努めた。[/color]");
 		}
@@ -617,6 +637,10 @@ public partial class MainDashboard : Control
 			var (threatQuest, threatDelta) = settlement.ResolvedQuestThreatDeltas[i];
 			LogThreatChange(threatQuest, threatDelta);
 		}
+
+		// 大迷宮への出撃（調査任務・ボス討伐）の結果（→ DungeonExpeditionSystem）。
+		foreach (var dungeonResolution in settlement.DungeonMissionResolutions)
+			LogDungeonMission(weekNumber, dungeonResolution);
 
 		// 受注可能クエスト一覧の週次管理（→ 03 §4.0・§4.4）：期限切れ（放置）の除去と補充。
 		// 放置された討伐クエストは脅威度上昇の対象になる。
@@ -701,6 +725,15 @@ public partial class MainDashboard : Control
 	/// </summary>
 	private void OnAutoSkipButtonPressed()
 	{
+		// 自動スキップは詳細な週報を出さない（→ 本メソッドのdocコメント）。大迷宮への出撃予定が残っていると、
+		// 討伐の決着（強制除籍を含む）がサマリーに埋もれてしまうため、先に「次週へ」で決着させてもらう。
+		if (_state.ActiveDungeonMissions.Count > 0)
+		{
+			AppendLog("[color=orange]大迷宮へ出撃予定の部隊がいるため、自動スキップできない。" +
+				"「次週へ」で決着させるか、大迷宮タブで出撃を取り消すこと。[/color]");
+			return;
+		}
+
 		DisableWeekAdvancement();
 
 		int startWeek = _state.WeekNumber;
@@ -1008,15 +1041,98 @@ public partial class MainDashboard : Control
 	/// </summary>
 	private void LogFallenAdventurers(int weekNumber, Party party, HashSet<Guid> fallenIds)
 	{
+		foreach (var line in FallenAdventurerLines(weekNumber, party, fallenIds))
+			AppendLog(line);
+	}
+
+	/// <summary>致命傷→秘薬治療→強制除籍の報告文（→ LogFallenAdventurers）。大迷宮の決戦ログでも同じ文面を使う。</summary>
+	private static IEnumerable<string> FallenAdventurerLines(int weekNumber, Party party, IEnumerable<Guid> fallenIds)
+	{
 		foreach (var id in fallenIds)
 		{
 			var fallen = party.Members.FirstOrDefault(m => m.Id == id);
 			if (fallen == null)
 				continue;
 
-			AppendLog($"[color=red][b]✖ {fallen.Name} が致命傷を負った（第{weekNumber}週）。[/b][/color]");
-			AppendLog($"[color=orange]アルベールの秘薬で一命は取り留めたが、「危ないじゃないか！」と激怒したマスターにより" +
-				$"{fallen.Name}のギルド登録は強制抹消された。二度と戻らない。[/color]");
+			yield return $"[color=red][b]✖ {fallen.Name} が致命傷を負った（第{weekNumber}週）。[/b][/color]";
+			yield return $"[color=orange]アルベールの秘薬で一命は取り留めたが、「危ないじゃないか！」と激怒したマスターにより" +
+				$"{fallen.Name}のギルド登録は強制抹消された。二度と戻らない。[/color]";
+		}
+	}
+
+	/// <summary>
+	/// 大迷宮への出撃1件の結果を週報に記録する（→ DungeonMissionResolution）。
+	///  - 調査任務：生還の報告と、解析率の上昇（段階が上がれば新情報として強調）を一括表示する。
+	///  - ボス討伐：昇格試験と同じく決戦として扱い、1行ずつのステップ再生に回す（→ Phase 3）。
+	/// </summary>
+	private void LogDungeonMission(int weekNumber, DungeonMissionResolution resolution)
+	{
+		var boss = resolution.Boss;
+		var sb = new StringBuilder();
+
+		if (resolution.ScoutingResult != null)
+		{
+			var scouting = resolution.ScoutingResult;
+			sb.AppendLine($"[b]第{weekNumber}週：大迷宮 第{boss.Floor}層「{boss.Name}」調査任務[/b]");
+			sb.AppendLine(scouting.StealthSucceeded
+				? "[color=cyan]気づかれることなく潜り込み、じっくりと観察を続けた。[/color]"
+				: "[color=orange]途中で見つかって手傷を負い、落ち着いて観察できなかった。[/color]");
+			sb.AppendLine(scouting.AnalysisOutcome switch
+			{
+				QuestEventOutcome.GreatSuccess => "[color=lime]◆ 生態を細部まで読み解き、貴重な情報を持ち帰った。[/color]",
+				QuestEventOutcome.Success => "[color=lime]◆ 要点を掴み、有益な情報を持ち帰った。[/color]",
+				_ => "[color=gray]◆ 断片的な情報しか持ち帰れなかった。[/color]",
+			});
+			sb.AppendLine($"解析率 {resolution.IntelRateBefore * 100:F0}% → {scouting.IntelRateAfter * 100:F0}%" +
+				$"（+{scouting.IntelGained * 100:F0}%）");
+			if (scouting.TierAdvanced)
+				sb.AppendLine($"[color=gold][b]★ 新たな情報を持ち帰った：解析段階が「{DungeonPanel.TierLabel(scouting.TierAfter)}」に到達！[/b][/color]");
+			sb.AppendLine("[color=cyan]調査隊は全員生還した。[/color]");
+			AppendHpLossLines(sb, scouting.HpLostByAdventurer);
+
+			AppendLog(sb.ToString());
+			return;
+		}
+
+		var assault = resolution.DungeonResult;
+		if (assault == null)
+			return;
+
+		sb.AppendLine($"[color=gold][b]⚔ 第{weekNumber}週：大迷宮 第{boss.Floor}層「{boss.Name}」討伐戦[/b][/color]");
+		foreach (var type in assault.CounteredGimmicks)
+			sb.AppendLine($"[color=lime]✔ {DungeonPanel.GimmickLabel(type)}への備えが機能した。[/color]");
+		foreach (var type in assault.UncounteredGimmicks)
+			sb.AppendLine($"[color=red]✖ {DungeonPanel.GimmickLabel(type)}に対抗できず、部隊が大きな損害を受けた。[/color]");
+		if (assault.FullIntelBonusApplied)
+			sb.AppendLine("[color=gold]◆ 完全解析の成果：弱点を正確に突いた。[/color]");
+
+		sb.AppendLine(assault.Outcome == DungeonOutcome.Victory
+			? $"[color=gold][font_size=20][b]🏆 「{boss.Name}」を撃破した！ 第{boss.Floor}層を踏破！[/b][/font_size][/color]"
+			: "[color=orange][b]火力が及ばず、撤退を余儀なくされた。ボスは傷を癒やし、次は仕切り直しになる。[/b][/color]");
+
+		AppendHpLossLines(sb, assault.HpLostByAdventurer);
+		foreach (var line in FallenAdventurerLines(weekNumber, resolution.Party, assault.ForceRetiredAdventurerIds))
+			sb.AppendLine(line);
+
+		if (assault.Outcome == DungeonOutcome.Victory)
+		{
+			var next = _state.GetCurrentFloorBoss();
+			sb.AppendLine(next != null
+				? $"[color=cyan]さらに深層、第{next.Floor}層への道が開けた。[/color]"
+				: "[color=gold][b]★ 大迷宮の全階層を踏破した！[/b][/color]");
+		}
+
+		EnqueueBossPlayback(sb.ToString());
+	}
+
+	/// <summary>HP消費の内訳（現役ロースターに残っている者のみ。強制除籍者は別途報告する）。</summary>
+	private void AppendHpLossLines(StringBuilder sb, Dictionary<Guid, int> hpLostByAdventurer)
+	{
+		foreach (var kv in hpLostByAdventurer)
+		{
+			var adv = _state.Adventurers.FirstOrDefault(a => a.Id == kv.Key);
+			if (adv != null)
+				sb.AppendLine($" - {adv.Name}: HP -{kv.Value}（残りHP {adv.CurrentHP}/{adv.MaxHP}）");
 		}
 	}
 
@@ -1083,7 +1199,8 @@ public partial class MainDashboard : Control
 		_rankLabel.Text = $"ギルド格付け: {_state.GuildRank}ランク（名声 {_state.Reputation}）";
 		_threatLabel.Text = $"脅威度: {_state.ThreatLevel}%";
 		// 同時出撃枠の使用状況（→ コアシステム刷新仕様「4. 進行管理」）。
-		_squadSlotLabel.Text = $"出撃枠: {_state.ActiveDispatches.Count}/{_state.UnlockedSquadSlots}";
+		// 大迷宮への出撃予定も同じ枠を消費する（→ QuestDispatchSystem.CanDispatch）。
+		_squadSlotLabel.Text = $"出撃枠: {_state.ActiveDispatches.Count + _state.ActiveDungeonMissions.Count}/{_state.UnlockedSquadSlots}";
 
 		_questList.Clear();
 		foreach (var q in _state.AvailableQuests)
@@ -1115,6 +1232,7 @@ public partial class MainDashboard : Control
 		RefreshActiveDispatchList();
 		RefreshConfidence();
 		RefreshAdventurerDetail();
+		_dungeonPanel.Refresh(_state);
 	}
 
 	/// <summary>
