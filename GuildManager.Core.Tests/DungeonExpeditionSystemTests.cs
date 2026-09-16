@@ -52,12 +52,14 @@ namespace GuildManager.Core.Tests
             Gimmicks = { new BossGimmick { Type = BossGimmickType.InstantKill, RequiredItemId = ConsumableCatalog.CharmId, DangerLevel = 5 } },
         };
 
+        /// <summary>単体テスト用の使い捨てフィールド（→ DungeonField）に、指定した1体だけを収める。</summary>
         private static (GameState State, Adventurer A, Adventurer B, FloorBoss Boss) MakeState(FloorBoss? boss = null)
         {
             var a = MakeAdventurer(JobClass.Ranger, 40);
             var b = MakeAdventurer(JobClass.Scholar, 40);
             boss ??= new FloorBoss { Name = "階層の主", Floor = 1, MaxHp = 500, CurrentHp = 500 };
-            var state = new GameState { Adventurers = { a, b }, FloorBosses = { boss } };
+            var field = new DungeonField { Id = "test", Name = "テスト用フィールド", Order = 1, IsUnlocked = true, Bosses = { boss } };
+            var state = new GameState { Adventurers = { a, b }, DungeonFields = { field } };
             return (state, a, b, boss);
         }
 
@@ -165,6 +167,30 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
+        public void ProcessWeeklyMissions_Victory_AppliesFieldProgression_EndToEnd()
+        {
+            // DungeonFieldTests は ApplyFieldProgression を直接呼ぶ単体テストだが、
+            // 実際のゲームプレイ経路（出撃→週次決算での自動解決）からも正しく呼ばれることを確認する。
+            var boss = new FloorBoss { Name = "弱いボス", Floor = 10, MaxHp = 1, CurrentHp = 1, RewardGold = 300, RewardReputation = 7 };
+            var field1 = new DungeonField { Id = "f1", Name = "第1フィールド", Order = 1, IsUnlocked = true, Bosses = { boss } };
+            var field2 = new DungeonField { Id = "f2", Name = "第2フィールド", Order = 2, IsUnlocked = false };
+            var state = new GameState { Gold = 0, Reputation = 0, DungeonFields = { field1, field2 } };
+            var strongParty = PartyOf(MakeAdventurer(JobClass.Warrior, 200), MakeAdventurer(JobClass.Cleric, 200));
+
+            var system = BuildSystem();
+            Assert.True(system.TryDispatch(state, strongParty, boss, DungeonMissionType.BossAssault));
+
+            var resolution = Assert.Single(system.ProcessWeeklyMissions(state));
+
+            Assert.Equal(DungeonOutcome.Victory, resolution.DungeonResult!.Outcome);
+            Assert.True(boss.IsDefeated);
+            Assert.Equal(11, field1.ReachedFloor);
+            Assert.True(field2.IsUnlocked); // Floor==10撃破で次フィールドが自動的に開く
+            Assert.Equal(300, state.Gold);
+            Assert.Equal(7, state.Reputation);
+        }
+
+        [Fact]
         public void ProcessWeeklyMissions_SecondPartyAgainstAlreadyDefeatedBoss_ReturnsWithoutResolution()
         {
             var (state, a, b, boss) = MakeState();
@@ -212,35 +238,39 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void GetCurrentFloorBoss_ReturnsShallowestUndefeated()
         {
-            var state = new GameState { FloorBosses = SampleData.CreateFloorBosses() };
-            Assert.Equal(1, state.GetCurrentFloorBoss()!.Floor);
+            // 後方互換性テスト：GetCurrentFloorBoss()は GetActiveField()?.GetNextActiveBoss() の
+            // 薄いラッパーになったが、呼び出し側から見た挙動（最も浅い未撃破階層を返す）は変わらない。
+            var state = new GameState { DungeonFields = SampleData.CreateDefaultFields() };
+            Assert.Equal(5, state.GetCurrentFloorBoss()!.Floor); // 森の最初のボスは5階
 
-            state.FloorBosses.Single(b => b.Floor == 1).IsDefeated = true;
-            Assert.Equal(2, state.GetCurrentFloorBoss()!.Floor);
+            var forest = state.DungeonFields.Single(f => f.Order == 1);
+            forest.Bosses.Single(b => b.Floor == 5).IsDefeated = true;
+            Assert.Equal(10, state.GetCurrentFloorBoss()!.Floor);
 
-            foreach (var boss in state.FloorBosses) boss.IsDefeated = true;
+            foreach (var boss in forest.Bosses) boss.IsDefeated = true;
+            // 森は制覇済みだが、洞窟（第2フィールド）はまだ開放されていないため攻略対象がない。
             Assert.Null(state.GetCurrentFloorBoss());
         }
 
         [Fact]
-        public void SampleFloorBosses_EveryGimmickHasRoleOrStatCounter()
+        public void DefaultFields_EveryGimmickHasRoleOrStatCounter()
         {
             // 携行アイテムをUIから持ち込む手段がまだ無いため、アイテムだけが対策口のギミックは攻略不能になる。
-            var bosses = SampleData.CreateFloorBosses();
+            var bosses = SampleData.CreateDefaultFields().SelectMany(f => f.Bosses).ToList();
 
-            Assert.Equal(bosses.Count, bosses.Select(b => b.Floor).Distinct().Count());
+            Assert.Equal(100, bosses.Count); // 5フィールド × 20体
             Assert.All(bosses.SelectMany(b => b.Gimmicks), g =>
                 Assert.True(g.RequiredCounterRole.HasValue || !string.IsNullOrEmpty(g.RequiredCounterStat)));
             Assert.All(bosses, b => Assert.Equal(b.MaxHp, b.CurrentHp));
         }
 
         [Fact]
-        public void RoundTrip_PreservesFloorBossesAndDungeonMissions_ThroughJson()
+        public void RoundTrip_PreservesDungeonFieldsAndMissions_ThroughJson()
         {
             var (state, a, b, boss) = MakeState(MakeDeadlyBoss());
             boss.IntelRate = 0.75;
             var cleared = new FloorBoss { Name = "踏破済み", Floor = 0, MaxHp = 100, IsDefeated = true };
-            state.FloorBosses.Add(cleared);
+            state.DungeonFields[0].Bosses.Add(cleared);
             var party = PartyOf(a, b);
             party.TryAddConsumable(ConsumableCatalog.CharmId);
             BuildSystem().TryDispatch(state, party, boss, DungeonMissionType.BossAssault);
@@ -248,15 +278,16 @@ namespace GuildManager.Core.Tests
             var json = JsonSerializer.Serialize(state.ToSaveData());
             var restored = GameState.FromSaveData(JsonSerializer.Deserialize<SaveData>(json)!);
 
-            Assert.Equal(2, restored.FloorBosses.Count);
-            var restoredBoss = restored.FloorBosses.Single(x => x.Id == boss.Id);
+            var restoredBosses = restored.DungeonFields.SelectMany(f => f.Bosses).ToList();
+            Assert.Equal(2, restoredBosses.Count);
+            var restoredBoss = restoredBosses.Single(x => x.Id == boss.Id);
             Assert.Equal(0.75, restoredBoss.IntelRate);
             Assert.Equal(BossGimmickType.InstantKill, restoredBoss.Gimmicks.Single().Type);
-            Assert.True(restored.FloorBosses.Single(x => x.Id == cleared.Id).IsDefeated);
+            Assert.True(restoredBosses.Single(x => x.Id == cleared.Id).IsDefeated);
 
             var mission = Assert.Single(restored.ActiveDungeonMissions);
             Assert.Equal(DungeonMissionType.BossAssault, mission.MissionType);
-            Assert.Same(restoredBoss, mission.Boss); // 解決時にFloorBosses側の状態が更新されるよう同一インスタンス
+            Assert.Same(restoredBoss, mission.Boss); // 解決時にDungeonField.Bosses側の状態が更新されるよう同一インスタンス
             Assert.All(mission.Party.Members, m => Assert.Contains(m, restored.Adventurers));
             Assert.Equal(new[] { ConsumableCatalog.CharmId }, mission.Party.ConsumableItemIds);
         }
@@ -267,7 +298,7 @@ namespace GuildManager.Core.Tests
             var (state, a, b, boss) = MakeState();
             BuildSystem().TryDispatch(state, PartyOf(a, b), boss, DungeonMissionType.Scouting);
             var data = state.ToSaveData();
-            data.FloorBosses.Clear();
+            data.DungeonFields.Clear();
 
             Assert.Throws<FormatException>(() => GameState.FromSaveData(data));
         }

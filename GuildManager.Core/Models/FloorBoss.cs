@@ -32,5 +32,13 @@ namespace GuildManager.Core.Models
 
         /// <summary>撃破済みか。</summary>
         public bool IsDefeated { get; set; } = false;
+
+        /// <summary>
+        /// 撃破報酬（→ 大迷宮5フィールド拡張仕様）。階層・所属フィールドに応じて
+        /// SampleData.CreateDefaultFieldsが設定する（→ Systems.DungeonExpeditionSystem.
+        /// ApplyFieldProgressionが撃破時にGameState.Gold/Reputationへ加算する）。
+        /// </summary>
+        public int RewardGold { get; set; } = 0;
+        public int RewardReputation { get; set; } = 0;
     }
 }

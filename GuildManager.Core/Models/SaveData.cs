@@ -152,10 +152,12 @@ namespace GuildManager.Core.Models
         // ---- 大迷宮（ダンジョン攻略システム） ----
 
         /// <summary>
-        /// 階層ボス一覧（→ GameState.FloorBosses）。解析率・撃破状態を含めてそのまま保存する
-        /// （FloorBoss・BossGimmickはプリミティブ・列挙・一覧のみで構成され直接JSON化できる）。
+        /// 大迷宮の全フィールド一覧（→ GameState.DungeonFields、大迷宮5フィールド拡張仕様）。
+        /// 各フィールドの開放状態・最高到達階層・ボス一覧（解析率・撃破状態を含む）をそのまま保存する
+        /// （DungeonField・FloorBoss・BossGimmickはプリミティブ・列挙・一覧のみで構成され
+        /// 直接JSON化できる）。
         /// </summary>
-        public List<FloorBoss> FloorBosses { get; set; } = new();
+        public List<DungeonField> DungeonFields { get; set; } = new();
 
         /// <summary>
         /// 大迷宮へ出撃中の部隊（→ GameState.ActiveDungeonMissions）。出撃操作から週次決算までの
