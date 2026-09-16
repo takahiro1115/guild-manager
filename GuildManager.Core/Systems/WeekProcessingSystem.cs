@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using GuildManager.Core.Balance;
 using GuildManager.Core.Models;
+using GuildManager.Core.Rng;
 
 namespace GuildManager.Core.Systems
 {
@@ -36,6 +37,7 @@ namespace GuildManager.Core.Systems
         private readonly DefeatSystem _defeatSystem;
         private readonly RecruitmentSystem _recruitmentSystem;
         private readonly GuildProgressionSystem _guildProgressionSystem;
+        private readonly DungeonExpeditionSystem _dungeonExpeditionSystem;
 
         public WeekProcessingSystem(
             QuestDispatchSystem questDispatchSystem,
@@ -56,7 +58,10 @@ namespace GuildManager.Core.Systems
             // 省略可能：進行管理（→ コアシステム刷新仕様「4. 進行管理」）は、既に注入されている
             // RecruitmentSystem（昇格時の新人補充に使う）からそのまま組み立てられるため、
             // 既存の呼び出し側を変更せずに接続できるよう既定値を持たせている。
-            GuildProgressionSystem? guildProgressionSystem = null)
+            GuildProgressionSystem? guildProgressionSystem = null,
+            // 省略可能：大迷宮への出撃の週次解決（→ DungeonExpeditionSystem）。進行管理と同じく、
+            // 既存の呼び出し側を変更せずに済むよう既定値を持たせている（出撃が無ければ何も起きない）。
+            DungeonExpeditionSystem? dungeonExpeditionSystem = null)
         {
             _questDispatchSystem = questDispatchSystem;
             _guildRankSystem = guildRankSystem;
@@ -74,7 +79,17 @@ namespace GuildManager.Core.Systems
             _defeatSystem = defeatSystem;
             _recruitmentSystem = recruitmentSystem;
             _guildProgressionSystem = guildProgressionSystem ?? new GuildProgressionSystem(recruitmentSystem);
+            _dungeonExpeditionSystem = dungeonExpeditionSystem ?? new DungeonExpeditionSystem(
+                new ScoutingResolver(new SeededRng(DefaultScoutingSeed)),
+                new DungeonResolver(new SeededRng(DefaultDungeonSeed)),
+                satisfactionSystem,
+                new CompatibilitySystem(new SeededRng(DefaultCompatibilitySeed)));
         }
+
+        // 大迷宮システムを省略した場合の既定シード（固定シードで再現性を保つ。→ MainDashboardの方針と同じ）。
+        private const int DefaultScoutingSeed = 1453;
+        private const int DefaultDungeonSeed = 1588;
+        private const int DefaultCompatibilitySeed = 2526;
 
         /// <summary>
         /// 1週分の決算処理を実行し、週番号を1つ進める。パーティーの派遣操作（受注クエストを
@@ -132,6 +147,14 @@ namespace GuildManager.Core.Systems
                 // その場解決（＝出発と同じ週に決着）はここでいう「帰還」には含めない。
                 if (resolution.Quest.DurationWeeks > 1)
                     result.Flags.MultiWeekQuestReturned = true;
+            }
+            // 大迷宮への出撃（調査任務・ボス討伐）の解決（→ DungeonExpeditionSystem）。
+            // 出撃は常に1週拘束のため、出撃操作をした週の決算で必ず決着する。
+            result.DungeonMissionResolutions.AddRange(_dungeonExpeditionSystem.ProcessWeeklyMissions(state));
+            foreach (var resolution in result.DungeonMissionResolutions)
+            {
+                if (resolution.DungeonResult != null && resolution.DungeonResult.ForceRetiredAdventurerIds.Count > 0)
+                    anyFallenOrNewOldWound = true;
             }
             result.Flags.DeathOrPermanentInjuryOccurred = anyFallenOrNewOldWound;
 

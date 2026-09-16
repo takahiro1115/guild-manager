@@ -100,5 +100,87 @@ namespace GuildManager.Core.Data
                 },
             };
         }
+
+        /// <summary>
+        /// 大迷宮の階層ボス（→ FloorBoss・ダンジョン攻略システム）。新規ゲーム開始時に
+        /// GameState.FloorBosses へ設定する。
+        ///
+        /// 設計方針：どのギミックにも「職業」または「ステータス合算」の対策口を必ず持たせる。
+        /// 携行アイテム（→ ConsumableCatalog）はUIからの持ち込み手段がまだ無いため、
+        /// アイテムだけが対策口のギミックを置くと攻略不能になってしまう。
+        /// 第1層は初期メンバーの神官（フィオナ）で対策が成立する＝「調べて、対策が揃っていれば勝てる」
+        /// という導線を最初に体験させる難度にしてある。
+        /// </summary>
+        public static List<FloorBoss> CreateFloorBosses()
+        {
+            return new List<FloorBoss>
+            {
+                MakeBoss("腐毒の大蜘蛛", floor: 1, maxHp: 600,
+                    new BossGimmick
+                    {
+                        Type = BossGimmickType.Poison, DangerLevel = 2,
+                        RequiredCounterRole = JobClass.Cleric,
+                        RequiredCounterStat = "MND", RequiredCounterStatThreshold = 90,
+                        RequiredItemId = ConsumableCatalog.AntidoteId,
+                    }),
+                MakeBoss("鋼殻の翼竜", floor: 2, maxHp: 1200,
+                    new BossGimmick
+                    {
+                        Type = BossGimmickType.HeavyArmor, DangerLevel = 2,
+                        RequiredCounterRole = JobClass.Mage,
+                        RequiredCounterStat = "STR", RequiredCounterStatThreshold = 140,
+                    },
+                    new BossGimmick
+                    {
+                        Type = BossGimmickType.Flying, DangerLevel = 2,
+                        RequiredCounterRole = JobClass.Ranger,
+                        RequiredCounterStat = "DEX", RequiredCounterStatThreshold = 130,
+                    }),
+                MakeBoss("冥府の門番", floor: 3, maxHp: 2000,
+                    new BossGimmick
+                    {
+                        Type = BossGimmickType.Poison, DangerLevel = 2,
+                        RequiredCounterRole = JobClass.Cleric,
+                        RequiredCounterStat = "MND", RequiredCounterStatThreshold = 120,
+                        RequiredItemId = ConsumableCatalog.AntidoteId,
+                    },
+                    new BossGimmick
+                    {
+                        Type = BossGimmickType.InstantKill, DangerLevel = 5,
+                        RequiredCounterRole = JobClass.Knight,
+                        RequiredCounterStat = "LDR", RequiredCounterStatThreshold = 160,
+                        RequiredItemId = ConsumableCatalog.CharmId,
+                    }),
+                MakeBoss("天穹の古竜", floor: 4, maxHp: 3200,
+                    new BossGimmick
+                    {
+                        Type = BossGimmickType.Flying, DangerLevel = 3,
+                        RequiredCounterRole = JobClass.Ranger,
+                        RequiredCounterStat = "DEX", RequiredCounterStatThreshold = 180,
+                    },
+                    new BossGimmick
+                    {
+                        Type = BossGimmickType.HeavyArmor, DangerLevel = 3,
+                        RequiredCounterRole = JobClass.Mage,
+                        RequiredCounterStat = "STR", RequiredCounterStatThreshold = 200,
+                    },
+                    new BossGimmick
+                    {
+                        Type = BossGimmickType.InstantKill, DangerLevel = 5,
+                        RequiredCounterRole = JobClass.Scholar,
+                        RequiredCounterStat = "INT", RequiredCounterStatThreshold = 180,
+                        RequiredItemId = ConsumableCatalog.CharmId,
+                    }),
+            };
+        }
+
+        private static FloorBoss MakeBoss(string name, int floor, int maxHp, params BossGimmick[] gimmicks) => new FloorBoss
+        {
+            Name = name,
+            Floor = floor,
+            MaxHp = maxHp,
+            CurrentHp = maxHp,
+            Gimmicks = new List<BossGimmick>(gimmicks),
+        };
     }
 }

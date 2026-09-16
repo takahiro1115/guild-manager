@@ -24,6 +24,11 @@ namespace GuildManager.Core.Systems
         /// <summary>満了した複数週クエストの解決結果一覧（→ QuestDispatchSystem.ProcessWeeklyDispatches）。</summary>
         public List<DispatchResolution> DispatchResolutions { get; } = new();
 
+        /// <summary>
+        /// 大迷宮への出撃（調査任務・ボス討伐）の解決結果一覧（→ DungeonExpeditionSystem.ProcessWeeklyMissions）。
+        /// </summary>
+        public List<DungeonMissionResolution> DungeonMissionResolutions { get; } = new();
+
         /// <summary>訓練場配置による成長イベント一覧（→ GrowthSystem.ProcessTrainingGrowth）。</summary>
         public List<GrowthEvent> TrainingGrowthEvents { get; } = new();
 

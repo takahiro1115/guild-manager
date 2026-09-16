@@ -1,0 +1,137 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/UI/DungeonPanel.cs" id="1_script"]
+
+[node name="DungeonPanel" type="ScrollContainer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+horizontal_scroll_mode = 0
+script = ExtResource("1_script")
+
+[node name="VBox" type="VBoxContainer" parent="."]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="ProgressLabel" type="RichTextLabel" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+bbcode_enabled = true
+fit_content = true
+
+[node name="BossPanel" type="PanelContainer" parent="VBox"]
+layout_mode = 2
+
+[node name="BossVBox" type="VBoxContainer" parent="VBox/BossPanel"]
+layout_mode = 2
+
+[node name="BossHeaderLabel" type="RichTextLabel" parent="VBox/BossPanel/BossVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+bbcode_enabled = true
+fit_content = true
+
+[node name="IntelRow" type="HBoxContainer" parent="VBox/BossPanel/BossVBox"]
+layout_mode = 2
+
+[node name="IntelTitleLabel" type="Label" parent="VBox/BossPanel/BossVBox/IntelRow"]
+layout_mode = 2
+text = "解析率"
+
+[node name="IntelProgressBar" type="ProgressBar" parent="VBox/BossPanel/BossVBox/IntelRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+show_percentage = false
+
+[node name="IntelPercentLabel" type="Label" parent="VBox/BossPanel/BossVBox/IntelRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(48, 0)
+layout_mode = 2
+horizontal_alignment = 2
+
+[node name="IntelTierLabel" type="RichTextLabel" parent="VBox/BossPanel/BossVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+bbcode_enabled = true
+fit_content = true
+
+[node name="CompleteBadgeLabel" type="RichTextLabel" parent="VBox/BossPanel/BossVBox"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+bbcode_enabled = true
+fit_content = true
+
+[node name="GimmickCards" type="VBoxContainer" parent="VBox/BossPanel/BossVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="Separator1" type="HSeparator" parent="VBox"]
+layout_mode = 2
+
+[node name="PartyLabel" type="Label" parent="VBox"]
+layout_mode = 2
+text = "出撃部隊を選択（保存済み編成のうち、待機中のメンバーだけが出撃する）"
+autowrap_mode = 2
+
+[node name="PartyOptionButton" type="OptionButton" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="PartyMembersLabel" type="RichTextLabel" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+bbcode_enabled = true
+fit_content = true
+
+[node name="ScoutingForecastLabel" type="RichTextLabel" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+bbcode_enabled = true
+fit_content = true
+
+[node name="ScoutingButton" type="Button" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "調査任務に出撃"
+
+[node name="CountermeasureLabel" type="RichTextLabel" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+bbcode_enabled = true
+fit_content = true
+
+[node name="AssaultButton" type="Button" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "ボス討伐に出撃"
+
+[node name="DispatchStatusLabel" type="RichTextLabel" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+bbcode_enabled = true
+fit_content = true
+
+[node name="Separator2" type="HSeparator" parent="VBox"]
+layout_mode = 2
+
+[node name="PendingLabel" type="Label" parent="VBox"]
+layout_mode = 2
+text = "出撃予定の部隊（次週の決算で決着する）"
+
+[node name="PendingMissionList" type="ItemList" parent="VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 60)
+layout_mode = 2
+auto_height = true
+
+[node name="CancelMissionButton" type="Button" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "選択した出撃を取り消す"

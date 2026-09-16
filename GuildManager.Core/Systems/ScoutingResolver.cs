@@ -46,19 +46,11 @@ namespace GuildManager.Core.Systems
             var tierBefore = GetTier(boss.IntelRate);
 
             // ---- 判定1：隠密・生還（AGI+DEX ＋ 部隊長LDRによる事故防止） ----
-            double stealthScore =
-                party.Members.Sum(m => m.GetEffectiveStat("AGI") + m.GetEffectiveStat("DEX"))
-                * ScoutingBalance.StealthStatCoefficient
-                + party.Members[0].GetEffectiveStat("LDR") * ScoutingBalance.LeaderPanicPreventionCoefficient;
-
-            double stealthRequirement = boss.Floor * ScoutingBalance.StealthRequirementPerFloor;
-            result.StealthSucceeded = stealthScore >= stealthRequirement;
+            result.StealthSucceeded = CalculateStealthScore(party) >= StealthRequirement(boss);
 
             // ---- 判定2：解析・情報収集（INT） ----
-            double analysisScore =
-                party.Members.Sum(m => m.GetEffectiveStat("INT")) * ScoutingBalance.AnalysisStatCoefficient;
-            double analysisRequirement = boss.Floor * ScoutingBalance.AnalysisRequirementPerFloor;
-            double analysisRatio = analysisRequirement <= 0 ? double.MaxValue : analysisScore / analysisRequirement;
+            double analysisRequirement = AnalysisRequirement(boss);
+            double analysisRatio = analysisRequirement <= 0 ? double.MaxValue : CalculateAnalysisScore(party) / analysisRequirement;
 
             var outcome = ClassifyAnalysis(analysisRatio);
 
@@ -89,6 +81,29 @@ namespace GuildManager.Core.Systems
 
             return result;
         }
+
+        /// <summary>
+        /// 隠密スコア＝Σ(AGI+DEX)×係数 ＋ 部隊長LDR×係数。空の部隊は0。
+        /// public static にしてあるのは出撃前のプレビュー（UI）とテストから同じ式を使うため。
+        /// </summary>
+        public static double CalculateStealthScore(Party party)
+        {
+            if (party.IsEmpty) return 0;
+
+            return party.Members.Sum(m => m.GetEffectiveStat("AGI") + m.GetEffectiveStat("DEX"))
+                * ScoutingBalance.StealthStatCoefficient
+                + party.Members[0].GetEffectiveStat("LDR") * ScoutingBalance.LeaderPanicPreventionCoefficient;
+        }
+
+        /// <summary>解析スコア＝Σ(INT)×係数。空の部隊は0。</summary>
+        public static double CalculateAnalysisScore(Party party) =>
+            party.Members.Sum(m => m.GetEffectiveStat("INT")) * ScoutingBalance.AnalysisStatCoefficient;
+
+        /// <summary>隠密の要求値＝階層×係数（深い階層ほど見つかりやすい）。</summary>
+        public static double StealthRequirement(FloorBoss boss) => boss.Floor * ScoutingBalance.StealthRequirementPerFloor;
+
+        /// <summary>解析の要求値＝階層×係数。</summary>
+        public static double AnalysisRequirement(FloorBoss boss) => boss.Floor * ScoutingBalance.AnalysisRequirementPerFloor;
 
         /// <summary>解析Ratioから3区分を求める。public static にしてあるのはテストから直接呼べるようにするため。</summary>
         public static QuestEventOutcome ClassifyAnalysis(double ratio)

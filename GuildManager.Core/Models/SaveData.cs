@@ -149,8 +149,31 @@ namespace GuildManager.Core.Models
         public List<Quest> AvailableQuests { get; set; } = new();
         public List<DispatchedQuestRecord> DispatchedQuests { get; set; } = new();
 
+        // ---- 大迷宮（ダンジョン攻略システム） ----
+
+        /// <summary>
+        /// 階層ボス一覧（→ GameState.FloorBosses）。解析率・撃破状態を含めてそのまま保存する
+        /// （FloorBoss・BossGimmickはプリミティブ・列挙・一覧のみで構成され直接JSON化できる）。
+        /// </summary>
+        public List<FloorBoss> FloorBosses { get; set; } = new();
+
+        /// <summary>
+        /// 大迷宮へ出撃中の部隊（→ GameState.ActiveDungeonMissions）。出撃操作から週次決算までの
+        /// 間に手動セーブを挟んでも、出撃予定と待機中メンバーの状態が食い違わないよう保存する。
+        /// </summary>
+        public List<DungeonMissionRecord> DungeonMissions { get; set; } = new();
+
         // 装備カタログは静的コード定義のため保存不要（Adventurer側は装備IDの
         // 文字列のみ保持しているため、カタログさえコード内にあれば復元できる）
+    }
+
+    /// <summary>大迷宮への出撃1件分（→ GameState.ActiveDungeonMissions）。ボスはIdで参照する。</summary>
+    public class DungeonMissionRecord
+    {
+        public Guid BossId { get; set; }
+        public string MissionType { get; set; } = ""; // enum→文字列で保存
+        public List<Guid> PartyMemberIds { get; set; } = new();
+        public List<string> ConsumableItemIds { get; set; } = new();
     }
 
     public class CompatibilityPairRecord
