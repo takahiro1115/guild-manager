@@ -254,7 +254,7 @@ public partial class MainDashboard : Control
 		{
 			Adventurers = SampleData.CreateStarterAdventurers(),
 			AvailableQuests = SampleData.CreateStarterQuests(),
-			FloorBosses = SampleData.CreateFloorBosses(),
+			DungeonFields = SampleData.CreateDefaultFields(),
 		};
 
 		RefreshAll();
@@ -302,9 +302,10 @@ public partial class MainDashboard : Control
 		}
 
 		_state = loaded;
-		// 大迷宮の実装前に作られたセーブには階層ボスが無い。攻略対象が空のままにならないよう補う。
-		if (_state.FloorBosses.Count == 0)
-			_state.FloorBosses = SampleData.CreateFloorBosses();
+		// 大迷宮（5フィールド拡張）の実装前に作られたセーブにはフィールドが無い。
+		// 攻略対象が空のままにならないよう補う。
+		if (_state.DungeonFields.Count == 0)
+			_state.DungeonFields = SampleData.CreateDefaultFields();
 		RefreshAll();
 		if (_questList.ItemCount > 0)
 			_questList.Select(0);

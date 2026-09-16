@@ -179,11 +179,12 @@ namespace GuildManager.Core.Models
         // ==================== 大迷宮（ダンジョン攻略システム） ====================
 
         /// <summary>
-        /// 大迷宮の階層ボス一覧（→ FloorBoss・Data.SampleData.CreateFloorBosses）。
-        /// 解析率（IntelRate）・撃破状態（IsDefeated）はここに保持され、セーブ対象になる。
-        /// 攻略対象は「未撃破のうち最も浅い階層」（→ GetCurrentFloorBoss）。
+        /// 大迷宮の全フィールド一覧（→ DungeonField・Data.SampleData.CreateDefaultFields、
+        /// 大迷宮5フィールド拡張仕様）。各フィールドの解析率・撃破状態・開放状態・最高到達階層は
+        /// すべてここに保持され、セーブ対象になる。旧・単一ダンジョンモデルの`FloorBosses`
+        /// （フラットな一覧）はこちらへ統合済み（v2.0時点で撤去）。
         /// </summary>
-        public List<FloorBoss> FloorBosses { get; set; } = new();
+        public List<DungeonField> DungeonFields { get; set; } = new();
 
         /// <summary>
         /// 大迷宮へ出撃中（次の週次決算で解決待ち）の部隊一覧（→ Systems.DungeonExpeditionSystem）。
@@ -191,9 +192,20 @@ namespace GuildManager.Core.Models
         /// </summary>
         public List<ActiveDungeonMission> ActiveDungeonMissions { get; set; } = new();
 
-        /// <summary>現在の攻略対象（未撃破のうち最も浅い階層のボス）。全階層踏破済み・未設定ならnull。</summary>
-        public FloorBoss? GetCurrentFloorBoss() =>
-            FloorBosses.Where(b => !b.IsDefeated).OrderBy(b => b.Floor).FirstOrDefault();
+        /// <summary>
+        /// 現在の攻略対象フィールド（開放済みかつ未制覇のうち、最も若いOrderのフィールド）。
+        /// 全フィールド制覇済み・DungeonFields未設定ならnull。
+        /// </summary>
+        public DungeonField? GetActiveField() =>
+            DungeonFields.Where(f => f.IsUnlocked && f.GetNextActiveBoss() != null)
+                .OrderBy(f => f.Order).FirstOrDefault();
+
+        /// <summary>
+        /// 現在の攻略対象ボス（→ GetActiveField().GetNextActiveBoss()）。全フィールド制覇済み・
+        /// 未設定ならnull。旧・単一ダンジョンモデル時代からのAPIをそのまま維持しており、
+        /// 呼び出し側（DungeonPanel.cs等）は複数フィールドの存在を意識せずに使い続けられる。
+        /// </summary>
+        public FloorBoss? GetCurrentFloorBoss() => GetActiveField()?.GetNextActiveBoss();
 
         /// <summary>指定した種類の施設の現在Lvを返す。該当データが無い場合は1を返す（防御的フォールバック）。</summary>
         public int GetFacilityLevel(FacilityType type)
@@ -232,7 +244,7 @@ namespace GuildManager.Core.Models
                 FallenAdventurers = new List<Adventurer>(FallenAdventurers),
                 AvailableQuests = new List<Quest>(AvailableQuests),
                 SavedParties = new List<SavedParty>(SavedParties),
-                FloorBosses = new List<FloorBoss>(FloorBosses),
+                DungeonFields = new List<DungeonField>(DungeonFields),
             };
 
             foreach (var kv in Compatibility)
@@ -322,7 +334,7 @@ namespace GuildManager.Core.Models
                 FallenAdventurers = new List<Adventurer>(data.FallenAdventurers),
                 AvailableQuests = new List<Quest>(data.AvailableQuests),
                 SavedParties = new List<SavedParty>(data.SavedParties),
-                FloorBosses = new List<FloorBoss>(data.FloorBosses),
+                DungeonFields = new List<DungeonField>(data.DungeonFields),
                 Facilities = new List<Facility>(),
             };
 
@@ -390,10 +402,10 @@ namespace GuildManager.Core.Models
             }
 
             // 大迷宮への出撃（→ ActiveDungeonMission）。派遣中クエストと同じくメンバーは
-            // 同一インスタンスを引き、ボスもFloorBosses内の同一インスタンスを指すよう解決する。
+            // 同一インスタンスを引き、ボスも各DungeonField.Bosses内の同一インスタンスを指すよう解決する。
             foreach (var record in data.DungeonMissions)
             {
-                var boss = state.FloorBosses.FirstOrDefault(b => b.Id == record.BossId)
+                var boss = state.DungeonFields.SelectMany(f => f.Bosses).FirstOrDefault(b => b.Id == record.BossId)
                     ?? throw new FormatException($"セーブデータが破損しています：出撃先の階層ボスId {record.BossId} が見つかりません。");
 
                 var party = new Party();

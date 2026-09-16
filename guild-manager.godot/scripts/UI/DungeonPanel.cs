@@ -108,16 +108,19 @@ public partial class DungeonPanel : ScrollContainer
 
 	private void RefreshProgress(FloorBoss boss)
 	{
-		int total = _state.FloorBosses.Count;
-		int cleared = _state.FloorBosses.Count(b => b.IsDefeated);
+		var allBosses = _state.DungeonFields.SelectMany(f => f.Bosses).ToList();
+		int total = allBosses.Count;
+		int cleared = allBosses.Count(b => b.IsDefeated);
+		var activeField = _state.GetActiveField();
 
 		_progressLabel.Clear();
 		if (total == 0)
 			_progressLabel.AppendText("[color=gray]大迷宮の情報がまだ届いていない。[/color]");
-		else if (boss == null)
+		else if (boss == null || activeField == null)
 			_progressLabel.AppendText($"[color=gold][b]🏆 大迷宮の全{total}層を踏破した！[/b][/color]");
 		else
-			_progressLabel.AppendText($"[b]大迷宮 踏破状況[/b]：第{boss.Floor}層に挑戦中（踏破 {cleared}/{total}層）");
+			_progressLabel.AppendText($"[b]大迷宮 踏破状況[/b]：{activeField.Name}（第{boss.Floor}層に挑戦中／" +
+				$"到達{activeField.ReachedFloor}/{DungeonField.MaxFloor}層）　全体 {cleared}/{total}層踏破");
 	}
 
 	/// <summary>

@@ -47,7 +47,7 @@ namespace GuildManager.Core.Systems
                 return false;
             if (party.IsEmpty || party.Members.Any(m => !m.IsAvailable))
                 return false;
-            if (!state.FloorBosses.Contains(boss) || boss.IsDefeated)
+            if (!state.DungeonFields.Any(f => f.Bosses.Contains(boss)) || boss.IsDefeated)
                 return false;
 
             state.ActiveDungeonMissions.Add(new ActiveDungeonMission
@@ -113,6 +113,12 @@ namespace GuildManager.Core.Systems
                 {
                     var assault = _dungeonResolver.Resolve(mission.Party, mission.Boss);
                     ApplyForcedRetirements(state, mission.Party, assault.ForceRetiredAdventurerIds);
+
+                    // 撃破成功時のみ、フィールドの進行（最高到達階層・次フィールド開放・報酬）を適用する
+                    // （→ 大迷宮5フィールド拡張仕様）。撤退（Retreat）時は何も進行しない。
+                    if (assault.Outcome == DungeonOutcome.Victory)
+                        ApplyFieldProgression(state, mission.Boss);
+
                     resolutions.Add(new DungeonMissionResolution(mission.Party, mission.Boss, intelBefore, assault));
                 }
 
@@ -143,6 +149,60 @@ namespace GuildManager.Core.Systems
                 state.Adventurers.Remove(retired);
                 state.FallenAdventurers.Add(retired);
             }
+        }
+
+        /// <summary>
+        /// ボス撃破に伴うフィールド進行（→ 大迷宮5フィールド拡張仕様）。ProcessWeeklyMissionsが
+        /// 撃破（Victory）時にのみ呼ぶ。public static にしてあるのは、フィールド単体では完結しない
+        /// （他フィールドの状態を横断して見る必要がある）ロジックをテストから直接検証できるようにするため
+        /// （→ DungeonResolver.IsCounteredと同じ考え方）。
+        ///
+        /// 順序：①撃破報酬の付与 → ②最高到達階層の更新 → ③次フィールドの開放判定
+        /// （10Fボス撃破→Order+1を開放。ただし開放先はOrder 2〜4に限る＝深淵はこの経路では開かない）
+        /// → ④深淵（Order 5）の開放判定（Order 1〜4すべてで20Fボスが撃破済みになった時点） →
+        /// ⑤最終フィールド（Orderが最大＝深淵）の100Fボス撃破でFinalQuestUnlockedを立てる。
+        /// </summary>
+        public static void ApplyFieldProgression(GameState state, FloorBoss defeatedBoss)
+        {
+            var field = state.DungeonFields.FirstOrDefault(f => f.Bosses.Contains(defeatedBoss));
+            if (field == null)
+                return; // フィールドに属さないボス（旧セーブ・テスト等）は対象外。防御的に何もしない。
+
+            // ①撃破報酬（→ FloorBoss.RewardGold/RewardReputation）。
+            state.Gold += defeatedBoss.RewardGold;
+            state.Reputation += defeatedBoss.RewardReputation;
+
+            // ②最高到達階層の更新（現在値と「撃破階層+1」の大きい方、上限MaxFloor）。
+            field.ReachedFloor = Math.Min(DungeonField.MaxFloor, Math.Max(field.ReachedFloor, defeatedBoss.Floor + 1));
+
+            // ③通常開放：10Fボス撃破で次順（Order+1）のフィールドを開放する。
+            // 開放先はOrder 2〜4のみ（Order 4の10F撃破でOrder 5=深淵が開いてしまわないようガードする。
+            // 深淵は④の特別条件でのみ開放される）。
+            if (defeatedBoss.Floor == 10 && field.Order + 1 <= 4)
+            {
+                var next = state.DungeonFields.FirstOrDefault(f => f.Order == field.Order + 1);
+                if (next != null)
+                    next.IsUnlocked = true;
+            }
+
+            // ④深淵開放：Order 1〜4の全フィールドで20Fボスが撃破済みになった時点で、
+            // 第5フィールド（深淵）を開放する。
+            bool allShallowFieldsClearedFloor20 = state.DungeonFields
+                .Where(f => f.Order is >= 1 and <= 4)
+                .All(f => f.Bosses.Any(b => b.Floor == 20 && b.IsDefeated));
+            if (allShallowFieldsClearedFloor20)
+            {
+                var abyss = state.DungeonFields.FirstOrDefault(f => f.Order == 5);
+                if (abyss != null)
+                    abyss.IsUnlocked = true;
+            }
+
+            // ⑤最深部（最終フィールドの100Fボス）撃破：最終討伐クエストの解禁フラグを立てる
+            // （→ 03 §8.2。Aランク到達時と同じフラグを共有する＝どちらも「終盤コンテンツが
+            // 解禁された」ことを示す合図として扱う）。
+            var finalField = state.DungeonFields.OrderByDescending(f => f.Order).FirstOrDefault();
+            if (finalField != null && field == finalField && defeatedBoss.Floor == DungeonField.MaxFloor)
+                state.FinalQuestUnlocked = true;
         }
 
         private static void ReleaseMembers(Party party)

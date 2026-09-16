@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using GuildManager.Core.Models;
 
 namespace GuildManager.Core.Data
@@ -102,85 +104,121 @@ namespace GuildManager.Core.Data
         }
 
         /// <summary>
-        /// 大迷宮の階層ボス（→ FloorBoss・ダンジョン攻略システム）。新規ゲーム開始時に
-        /// GameState.FloorBosses へ設定する。
+        /// フィールド1つ分の定義（→ CreateDefaultFields）。Idは英語スラッグ、Themeはボス名の
+        /// 生成に使う怪物名（ギミック種別ごと4種）。
+        /// </summary>
+        private readonly record struct FieldDefinition(string Id, string Name, int Order, string[] MonsterByGimmick);
+
+        /// <summary>
+        /// 大迷宮の全5フィールド（→ DungeonField・大迷宮5フィールド拡張仕様）。新規ゲーム開始時に
+        /// GameState.DungeonFields へ設定する。各フィールドは5〜100階（5階刻み・計20体）の
+        /// 階層ボスを持つ。初期状態で開放済みなのは第1フィールド（森）のみ
+        /// （→ DungeonField.IsUnlocked、DungeonExpeditionSystem.ApplyFieldProgressionが順次開放する）。
         ///
         /// 設計方針：どのギミックにも「職業」または「ステータス合算」の対策口を必ず持たせる。
         /// 携行アイテム（→ ConsumableCatalog）はUIからの持ち込み手段がまだ無いため、
         /// アイテムだけが対策口のギミックを置くと攻略不能になってしまう。
-        /// 第1層は初期メンバーの神官（フィオナ）で対策が成立する＝「調べて、対策が揃っていれば勝てる」
-        /// という導線を最初に体験させる難度にしてある。
+        /// 第1フィールドの5階層目は初期メンバーの神官（フィオナ）で対策が成立する＝
+        /// 「調べて、対策が揃っていれば勝てる」という導線を最初に体験させる難度にしてある。
         /// </summary>
-        public static List<FloorBoss> CreateFloorBosses()
+        public static List<DungeonField> CreateDefaultFields()
         {
-            return new List<FloorBoss>
+            var definitions = new List<FieldDefinition>
             {
-                MakeBoss("腐毒の大蜘蛛", floor: 1, maxHp: 600,
-                    new BossGimmick
-                    {
-                        Type = BossGimmickType.Poison, DangerLevel = 2,
-                        RequiredCounterRole = JobClass.Cleric,
-                        RequiredCounterStat = "MND", RequiredCounterStatThreshold = 90,
-                        RequiredItemId = ConsumableCatalog.AntidoteId,
-                    }),
-                MakeBoss("鋼殻の翼竜", floor: 2, maxHp: 1200,
-                    new BossGimmick
-                    {
-                        Type = BossGimmickType.HeavyArmor, DangerLevel = 2,
-                        RequiredCounterRole = JobClass.Mage,
-                        RequiredCounterStat = "STR", RequiredCounterStatThreshold = 140,
-                    },
-                    new BossGimmick
-                    {
-                        Type = BossGimmickType.Flying, DangerLevel = 2,
-                        RequiredCounterRole = JobClass.Ranger,
-                        RequiredCounterStat = "DEX", RequiredCounterStatThreshold = 130,
-                    }),
-                MakeBoss("冥府の門番", floor: 3, maxHp: 2000,
-                    new BossGimmick
-                    {
-                        Type = BossGimmickType.Poison, DangerLevel = 2,
-                        RequiredCounterRole = JobClass.Cleric,
-                        RequiredCounterStat = "MND", RequiredCounterStatThreshold = 120,
-                        RequiredItemId = ConsumableCatalog.AntidoteId,
-                    },
-                    new BossGimmick
-                    {
-                        Type = BossGimmickType.InstantKill, DangerLevel = 5,
-                        RequiredCounterRole = JobClass.Knight,
-                        RequiredCounterStat = "LDR", RequiredCounterStatThreshold = 160,
-                        RequiredItemId = ConsumableCatalog.CharmId,
-                    }),
-                MakeBoss("天穹の古竜", floor: 4, maxHp: 3200,
-                    new BossGimmick
-                    {
-                        Type = BossGimmickType.Flying, DangerLevel = 3,
-                        RequiredCounterRole = JobClass.Ranger,
-                        RequiredCounterStat = "DEX", RequiredCounterStatThreshold = 180,
-                    },
-                    new BossGimmick
-                    {
-                        Type = BossGimmickType.HeavyArmor, DangerLevel = 3,
-                        RequiredCounterRole = JobClass.Mage,
-                        RequiredCounterStat = "STR", RequiredCounterStatThreshold = 200,
-                    },
-                    new BossGimmick
-                    {
-                        Type = BossGimmickType.InstantKill, DangerLevel = 5,
-                        RequiredCounterRole = JobClass.Scholar,
-                        RequiredCounterStat = "INT", RequiredCounterStatThreshold = 180,
-                        RequiredItemId = ConsumableCatalog.CharmId,
-                    }),
+                new("forest", "翠緑の原生林", 1, new[] { "毒蜘蛛", "甲殻の大猪", "森の怪鳥", "深淵樹霊" }),
+                new("cave", "嘆きの鍾乳洞", 2, new[] { "瘴気の蝙蝠", "岩肌の巨蟹", "鍾乳洞の翼竜", "洞窟の古竜" }),
+                new("ruins", "忘却の古代廃墟", 3, new[] { "腐敗した番人", "古代の鋼鉄兵", "廃墟の石像鬼", "忘却の守護者" }),
+                new("canyon", "焦熱の峡谷", 4, new[] { "灼熱の毒蠍", "溶岩鎧の巨人", "峡谷の火竜", "焦熱の魔王" }),
+                new("abyss", "深淵の特異点", 5, new[] { "深淵の腐蝕体", "漆黒の重装兵", "深淵の堕天使", "特異点の支配者" }),
             };
+
+            return definitions.Select(def => new DungeonField
+            {
+                Id = def.Id,
+                Name = def.Name,
+                Order = def.Order,
+                IsUnlocked = def.Order == 1, // 初期開放は第1フィールド（森）のみ
+                Bosses = CreateFieldBosses(def),
+            }).ToList();
         }
 
-        private static FloorBoss MakeBoss(string name, int floor, int maxHp, params BossGimmick[] gimmicks) => new FloorBoss
+        /// <summary>1フィールド分の20体（5, 10, ..., 100階）を生成する。</summary>
+        private static List<FloorBoss> CreateFieldBosses(FieldDefinition def)
         {
-            Name = name,
-            Floor = floor,
-            MaxHp = maxHp,
-            CurrentHp = maxHp,
-            Gimmicks = new List<BossGimmick>(gimmicks),
+            var bosses = new List<FloorBoss>();
+
+            for (int floor = DungeonField.BossInterval; floor <= DungeonField.MaxFloor; floor += DungeonField.BossInterval)
+            {
+                int index = floor / DungeonField.BossInterval - 1; // 0〜19
+                var gimmickType = (BossGimmickType)(index % 4); // Poison→HeavyArmor→Flying→InstantKillの順に循環
+                string tier = GimmickTierPrefix(index / 4); // 4体ごとに強さの形容を変える（若き→…→災厄の）
+                int fieldEscalation = def.Order - 1; // フィールドが深いほど全体的に格上げ
+
+                // HP・危険度・報酬は階層×フィールド順で滑らかに増える暫定式（→ 04_バランス表化はpost-MVP）。
+                int maxHp = 300 * floor + 3000 * fieldEscalation;
+                int dangerLevel = Math.Clamp(1 + index / 4 + fieldEscalation, 1, 5);
+                double counterThreshold = 40 + floor * 1.5 + fieldEscalation * 30;
+                int rewardGold = 100 * floor + 500 * fieldEscalation;
+                int rewardReputation = Math.Max(1, floor / 5) + 2 * fieldEscalation;
+
+                bosses.Add(new FloorBoss
+                {
+                    Name = tier + def.MonsterByGimmick[index % 4],
+                    Floor = floor,
+                    MaxHp = maxHp,
+                    CurrentHp = maxHp,
+                    RewardGold = rewardGold,
+                    RewardReputation = rewardReputation,
+                    Gimmicks = { CreateGimmick(gimmickType, dangerLevel, counterThreshold) },
+                });
+            }
+
+            return bosses;
+        }
+
+        /// <summary>
+        /// ギミック種別ごとの対策口（職業＋ステータス、→ DungeonResolver.IsCountered のOR判定）。
+        /// 即死級（InstantKill）だけは護符（アイテム）も対策口として追加する（既存の単一ダンジョン
+        /// モデル時代の仕様を踏襲）。
+        /// </summary>
+        private static BossGimmick CreateGimmick(BossGimmickType type, int dangerLevel, double counterThreshold) => type switch
+        {
+            BossGimmickType.Poison => new BossGimmick
+            {
+                Type = type, DangerLevel = dangerLevel,
+                RequiredCounterRole = JobClass.Cleric,
+                RequiredCounterStat = "MND", RequiredCounterStatThreshold = counterThreshold,
+                RequiredItemId = ConsumableCatalog.AntidoteId,
+            },
+            BossGimmickType.HeavyArmor => new BossGimmick
+            {
+                Type = type, DangerLevel = dangerLevel,
+                RequiredCounterRole = JobClass.Mage,
+                RequiredCounterStat = "STR", RequiredCounterStatThreshold = counterThreshold,
+            },
+            BossGimmickType.Flying => new BossGimmick
+            {
+                Type = type, DangerLevel = dangerLevel,
+                RequiredCounterRole = JobClass.Ranger,
+                RequiredCounterStat = "DEX", RequiredCounterStatThreshold = counterThreshold,
+            },
+            _ => new BossGimmick // InstantKill
+            {
+                Type = type, DangerLevel = dangerLevel,
+                RequiredCounterRole = JobClass.Knight,
+                RequiredCounterStat = "LDR", RequiredCounterStatThreshold = counterThreshold,
+                RequiredItemId = ConsumableCatalog.CharmId,
+            },
+        };
+
+        /// <summary>同じ怪物名が5回（20体÷4種）続けて出ないよう、強さの形容で変化を付ける（tier 0〜4）。</summary>
+        private static string GimmickTierPrefix(int tier) => tier switch
+        {
+            0 => "若き",
+            1 => "手練れの",
+            2 => "歴戦の",
+            3 => "伝説の",
+            _ => "災厄の",
         };
     }
 }
