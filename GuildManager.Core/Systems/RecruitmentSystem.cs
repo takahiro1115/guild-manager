@@ -134,23 +134,31 @@ namespace GuildManager.Core.Systems
         {
             int age = _rng.NextInt(RecruitmentBalance.MinCandidateAge, RecruitmentBalance.MaxCandidateAge);
 
-            // ageT: 0(15歳) 〜 1(18歳)
-            double ageT = (double)(age - RecruitmentBalance.MinCandidateAge) / (RecruitmentBalance.MaxCandidateAge - RecruitmentBalance.MinCandidateAge);
+            // ageT: 0（年齢レンジの下限＝伸びしろ最大）〜 1（上限＝即戦力寄り）。
+            // 8年稼働モデル（→ 03 §3.7）では加入年齢を18歳に統一したためレンジ幅が0になる。
+            // その場合は0除算を避け、ageT=0（伸びしろ最大）として扱う
+            // ＝「全員が同じ18歳で入ってきて、同じだけの伸びしろを持つ」という新モデルの前提。
+            int ageSpan = RecruitmentBalance.MaxCandidateAge - RecruitmentBalance.MinCandidateAge;
+            double ageT = ageSpan == 0
+                ? 0.0
+                : (double)(age - RecruitmentBalance.MinCandidateAge) / ageSpan;
             int ageBonus = (int)Math.Round(RecruitmentBalance.YoungestAgePaBonus * (1 - ageT));
             double growthRatio = RecruitmentBalance.YoungestGrowthRatio + (RecruitmentBalance.OldestGrowthRatio - RecruitmentBalance.YoungestGrowthRatio) * ageT;
 
             var jobClass = (JobClass)_rng.NextInt(0, 3);
 
-            // 氏名ジェネレーター（→ 03 §2.4・NameGenerator、v1.8改訂）：性別・文化圏（洋名80%/
-            // 和名20%）をランダムに決定し、対応する名前プールから現役ロースターと重複しない
+            // 氏名ジェネレーター（→ 03 §2.4・NameGenerator）：文化圏（洋名80%/和名20%）を
+            // ランダムに決定し、対応する名前プールから現役ロースターと重複しない
             // ファーストネームを選ぶ。
-            var (gender, culture) = NameGenerator.RollGenderAndCulture(_rng);
-            var name = NameGenerator.GenerateUniqueFirstName(gender, culture, existingNames, _rng);
+            // 性別の抽選は行わない：本作の冒険者は全員女性であり、Gender列挙型にも
+            // Female以外の値が存在しない（→ Models.Gender・女性限定ギルドの構造化）。
+            var culture = NameGenerator.RollCulture(_rng);
+            var name = NameGenerator.GenerateUniqueFirstName(culture, existingNames, _rng);
 
             var candidate = new Adventurer
             {
                 Name = name,
-                Gender = gender,
+                Gender = Gender.Female,
                 Age = age,
                 JobClass = jobClass,
                 Placement = PlacementRules.GetDefault(jobClass), // → 03 §4.2：配置の初期値は職業から自動決定

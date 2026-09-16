@@ -24,5 +24,15 @@ namespace GuildManager.Core.Balance
 
         /// <summary>引退時の退職金＝週給×この週数（→ AgingSystem.Retire、仕様書 03 §7）。</summary>
         public static readonly int SeveranceWeeks = BalanceData.GetInt(FileName, "SeveranceWeeks");
+
+        /// <summary>
+        /// 退職金の功績加算係数（→ Adventurer.TotalContributionScore × この係数）。
+        /// 「危険な仕事をさせた分だけ、十分な退職金を持たせて安全に自立させる」という
+        /// ギルドマスターの方針の実装（→ 01_コンセプト.md・03 §3.7）。
+        /// </summary>
+        public static readonly double SeveranceContributionCoefficient = BalanceData.GetDouble(FileName, "SeveranceContributionCoefficient");
+
+        /// <summary>退職金を払いきれなかった場合の名声低下量（→ AgingSystem.Retire）。</summary>
+        public static readonly int SeveranceShortfallReputationPenalty = BalanceData.GetInt(FileName, "SeveranceShortfallReputationPenalty");
     }
 }

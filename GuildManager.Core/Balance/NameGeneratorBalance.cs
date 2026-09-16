@@ -14,8 +14,9 @@ namespace GuildManager.Core.Balance
         /// </summary>
         public static readonly int WesternCultureChancePercent = BalanceData.GetInt(FileName, "WesternCultureChancePercent");
 
-        /// <summary>性別の出現比率：男性(Male)の出現率（%）。男女50/50。</summary>
-        public static readonly int MaleGenderChancePercent = BalanceData.GetInt(FileName, "MaleGenderChancePercent");
+        // 性別の出現比率（旧 MaleGenderChancePercent）は撤去した。冒険者は全員女性であり、
+        // 設定値で男性を復活させられる余地そのものを構造から取り除いたため
+        // （→ Models.Gender・Systems.NameGenerator のクラスdocコメント）。
 
         /// <summary>重複回避のリトライ上限回数（→ NameGenerator.GenerateUniqueFirstName）。</summary>
         public static readonly int UniqueNameRetryLimit = BalanceData.GetInt(FileName, "UniqueNameRetryLimit");

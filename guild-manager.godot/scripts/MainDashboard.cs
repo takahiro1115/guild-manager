@@ -720,7 +720,7 @@ public partial class MainDashboard : Control
 
 		if (facilityCount > 0) AppendLog($"[color=lime]・施設建設が完了した週：{facilityCount}回[/color]");
 		if (multiWeekReturnCount > 0) AppendLog($"[color=cyan]・複数週クエストが帰還した週：{multiWeekReturnCount}回[/color]");
-		if (deathCount > 0) AppendLog($"[color=red][b]・戦死または不可逆の障害が発生した週：{deathCount}回[/b][/color]");
+		if (deathCount > 0) AppendLog($"[color=red][b]・強制除籍または不可逆の障害が発生した週：{deathCount}回[/b][/color]");
 		if (satisfactionCount > 0) AppendLog($"[color=orange]・契約交渉（満足度警告）が新たに発生した週：{satisfactionCount}回[/color]");
 		if (threatCount > 0) AppendLog($"[color=orange][b]・脅威度が75%または100%を新たに跨いだ週：{threatCount}回[/b][/color]");
 		if (expiringCount > 0) AppendLog($"[color=orange][b]・討伐クエストが翌週期限切れになる週：{expiringCount}回[/b][/color]");
@@ -996,17 +996,27 @@ public partial class MainDashboard : Control
 	}
 
 	/// <summary>
-	/// 戦死した冒険者を週報ログに報告する（→ 03 §4.3・§4.3.1）。
+	/// 致命傷を負い、ギルドを去った冒険者を週報ログに報告する（→ 03 §4.3・§4.3.1）。
 	/// 見逃さないよう赤・太字で目立たせる。氏名はPartyから引く
-	/// （戦死者はGameState.Adventurersから既に除外済みのため）。
+	/// （対象はGameState.Adventurersから既に除外済みのため）。
+	///
+	/// 世界観上の扱い（→ 01_コンセプト.md・ダンジョン攻略システムと統一）：
+	/// 冒険者は「戦死」しない。アルベールの秘薬によって必ず一命は取り留めるが、
+	/// 危険な目に遭わせたことに激怒したマスターが即座にギルド登録を抹消するため、
+	/// 二度と戻らない。**システム上は恒久的なロスト**であり、扱いは従来と同じ
+	/// （GameState.FallenAdventurers へ移される。識別子はセーブデータ互換のため据え置き）。
 	/// </summary>
 	private void LogFallenAdventurers(int weekNumber, Party party, HashSet<Guid> fallenIds)
 	{
 		foreach (var id in fallenIds)
 		{
 			var fallen = party.Members.FirstOrDefault(m => m.Id == id);
-			if (fallen != null)
-				AppendLog($"[color=red][b]† {fallen.Name} が戦死しました（第{weekNumber}週）。[/b][/color]");
+			if (fallen == null)
+				continue;
+
+			AppendLog($"[color=red][b]✖ {fallen.Name} が致命傷を負った（第{weekNumber}週）。[/b][/color]");
+			AppendLog($"[color=orange]アルベールの秘薬で一命は取り留めたが、「危ないじゃないか！」と激怒したマスターにより" +
+				$"{fallen.Name}のギルド登録は強制抹消された。二度と戻らない。[/color]");
 		}
 	}
 

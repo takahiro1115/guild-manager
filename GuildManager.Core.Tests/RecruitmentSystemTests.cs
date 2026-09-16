@@ -78,28 +78,26 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
-        public void GenerateCandidates_AgeIsWithinContractRange()
+        public void GenerateCandidates_AllCandidatesJoinAtEntryAge()
         {
+            // 8年稼働モデル（→ 03 §3.7）：加入年齢は18歳に統一され、全員が26歳の満期まで
+            // 8年間（48週×8）稼働する。乱数に関わらず年齢は固定になる。
             var minSystem = new RecruitmentSystem(new AlwaysMinRng());
             var maxSystem = new RecruitmentSystem(new AlwaysMaxRng());
 
-            Assert.All(minSystem.GenerateCandidates(new GameState()), o => Assert.Equal(15, o.Candidate.Age));
+            Assert.All(minSystem.GenerateCandidates(new GameState()), o => Assert.Equal(18, o.Candidate.Age));
             Assert.All(maxSystem.GenerateCandidates(new GameState()), o => Assert.Equal(18, o.Candidate.Age));
         }
 
         [Fact]
-        public void GenerateCandidates_YoungestCandidate_HasActualStatsFartherBelowPa()
+        public void GenerateCandidates_HasGrowthHeadroom_ActualStatsBelowPa()
         {
-            // 15歳(AlwaysMinRng)は実効値がPAから遠い（伸びしろ最大）、
-            // 18歳(AlwaysMaxRng)は実効値がPAに近い（即戦力）（→ 03 §2.4）。
-            var young = new RecruitmentSystem(new AlwaysMinRng()).GenerateCandidates(new GameState())[0].Candidate;
-            var old = new RecruitmentSystem(new AlwaysMaxRng()).GenerateCandidates(new GameState())[0].Candidate;
+            // 加入年齢が統一されたことで「15歳＝伸びしろ／18歳＝即戦力」の選択は無くなったが、
+            // 新人が伸びしろを持って入ってくること自体は維持される（実効値 < PA）。
+            var candidate = new RecruitmentSystem(new AlwaysMinRng()).GenerateCandidates(new GameState())[0].Candidate;
 
-            double youngGap = young.PA_STR - young.STR;
-            double oldGap = old.PA_STR - old.STR;
-
-            Assert.True(youngGap > oldGap,
-                $"15歳の実効値とPAの差({youngGap})は18歳の差({oldGap})より大きいはず");
+            Assert.True(candidate.PA_STR > candidate.STR,
+                $"新人はPA({candidate.PA_STR})より実効値({candidate.STR})が低いはず（伸びしろがある）");
         }
 
         [Fact]

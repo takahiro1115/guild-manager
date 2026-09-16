@@ -183,7 +183,26 @@ namespace GuildManager.Core.Models
             Age <= 34 ? AgeBand.MaturePeriod :
             AgeBand.LimitPeriod;
 
-        /// <summary>40歳年度末で強制引退したか（仕様書 03 §3.7）。→ AgingSystem が設定する。
+        // ---- 稼働期間と功績（→ 8年稼働・満期引退モデル。03 §3.7改訂） ----
+
+        /// <summary>
+        /// ギルドに在籍して稼働した週数（→ AgingSystem.ProcessWeeklyAging が毎週+1する）。
+        /// 満期は AgingBalance.MaxActiveWeeks（8年＝384週）。退職金の功績加算と、
+        /// UIでの「あと何週で満期か」の表示に使う。
+        ///
+        /// 引退判定そのものは年齢（26歳の年度末）で行う。加入年齢がばらつく初期メンバーでも
+        /// 「26歳で引退する」という世界観上の約束を優先するため、稼働週数は退職金の算定根拠に留める。
+        /// </summary>
+        public int ActiveWeeks { get; set; } = 0;
+
+        /// <summary>
+        /// 累積功績（→ QuestDispatchSystem がクエスト達成時に加算する）。
+        /// 退職金の上乗せ分の算定根拠（→ EconomyBalance.SeveranceContributionCoefficient）。
+        /// 「危険な仕事をさせた分だけ手厚く送り出す」という方針を数値で表現したもの。
+        /// </summary>
+        public int TotalContributionScore { get; set; } = 0;
+
+        /// <summary>26歳年度末で満期引退したか（仕様書 03 §3.7）。→ AgingSystem が設定する。
         /// 引退した冒険者は GameState.Adventurers から GameState.RetiredAdventurers へ移される。
         /// このフラグ自体は移動後も参照できるよう残す（防御的なガード・監査用）。</summary>
         public bool IsRetired { get; set; } = false;

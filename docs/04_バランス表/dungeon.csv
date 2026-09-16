@@ -1,0 +1,9 @@
+key,value,unit,note
+PartyPowerRequirementPerFloor,45,pt,ボスのHPを削り切るのに必要な部隊火力の基準＝階層×この値
+FullIntelDamageBonus,0.20,倍,完全解析（解析率1.0）到達時の与ダメージ補正（+20%）
+UncounteredDamageMultiplierPerDangerLevel,0.75,倍,未対策ギミック1件につき被ダメージへ加算される倍率（危険度1あたり）
+BaseHpLossPctMin,12,%,対策済みで討伐した場合のHP消費率の下限
+BaseHpLossPctMax,28,%,対策済みで討伐した場合のHP消費率の上限
+RetreatHpLossPctMin,20,%,火力不足で撤退した場合のHP消費率の下限
+RetreatHpLossPctMax,40,%,火力不足で撤退した場合のHP消費率の上限
+InstantKillUncounteredHpLossPct,100,%,即死級ギミックが未対策の場合に適用されるHP消費率（対策の有無が生死を分ける）

@@ -13,4 +13,6 @@ SubsidyThreatCutMultiplier,0.5,倍,脅威度が閾値超過時の助成金倍率
 WeeklyWageCoefficient,0.6,倍,週給＝総合PA×この係数（採用時の初期週給算出）
 AppropriateWageCoefficient,0.6,倍,適正週給＝総合PA×この係数（満足度の賃金妥当性判定に使用）
 SigningBonusCoefficient,3.0,倍,契約金＝総合PA×この係数
-SeveranceWeeks,12,×週給,引退時の退職金（週給×この週数）
+SeveranceWeeks,12,×週給,引退時の退職金の基礎部分（週給×この週数）
+SeveranceContributionCoefficient,2.0,G/pt,"退職金の功績加算＝累積功績（TotalContributionScore）×この係数。「十分な退職金を持たせて安全に自立させる」という方針の実装（→ 01_コンセプト.md）"
+SeveranceShortfallReputationPenalty,15,pt,退職金を払いきれなかった場合の名声低下量（約束を守れないギルドとしての評判低下）

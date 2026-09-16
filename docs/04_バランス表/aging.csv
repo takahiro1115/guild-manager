@@ -8,11 +8,6 @@ DifficultyCoefficientPer100,1.0,倍,難易度100あたりの加算量（難易�
 TrainingFacilityMultiplier,1.0,倍,訓練場経路の成長倍率（施設Lv連動は未接続・現状固定）
 MinGrowthAmount,1,pt,成長時の実効値上昇幅の下限
 MaxGrowthAmount,3,pt,成長時の実効値上昇幅の上限
-MatureDeclineWeek,48,週,円熟期の衰微実行週（年1回・年度末）
-MatureDeclineAmountMin,1,pt,円熟期の衰微量の下限
-MatureDeclineAmountMax,3,pt,円熟期の衰微量の上限
-LimitDeclineWeek1,24,週,限界期の衰微実行週その1（年2回）
-LimitDeclineWeek2,48,週,限界期の衰微実行週その2
-LimitDeclineAmountMin,3,pt,限界期の衰微量の下限
-LimitDeclineAmountMax,6,pt,限界期の衰微量の上限
-RetirementAge,40,歳,この年齢の年度末（48週）で強制引退
+RetirementAge,26,歳,"この年齢の年度末（48週）で満期引退（→ 8年稼働モデル。アルベールの信念「全盛期のうちに引退させ、退職金を持たせて自立させる」）"
+MaxActiveWeeks,384,週,満期稼働週数（8年×48週）。退職金の算出と「あと何週で満期か」の表示に使う
+

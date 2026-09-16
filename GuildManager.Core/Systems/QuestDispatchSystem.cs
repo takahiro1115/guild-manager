@@ -122,6 +122,13 @@ namespace GuildManager.Core.Systems
 
                 _satisfactionSystem.ApplyQuestAchievementBonus(dispatch.Party, dispatch.Quest, result.QuestAchieved);
 
+                // 累積功績（→ Adventurer.TotalContributionScore、8年稼働・満期引退モデル）。
+                // 退職金の上乗せ分の算定根拠になる：危険な任務を多く引き受けた冒険者ほど
+                // 手厚く送り出される（→ AgingSystem.CalculateSeverancePay）。
+                // 達成できなかった任務でも、危険に身を晒したこと自体は功績として記録する
+                // （失敗を理由に退職金を削らない＝ギルドマスターの方針）。
+                ApplyContributionScore(dispatch.Party, dispatch.Quest, result.QuestAchieved);
+
                 // 相性（→ 03 §5.3.1）：同パーティで出撃した全ペアの相性を達成/失敗に応じて増減。
                 _compatibilitySystem.ApplyQuestOutcome(state, dispatch.Party, result.QuestAchieved);
 
@@ -153,6 +160,30 @@ namespace GuildManager.Core.Systems
 
             return resolutions;
         }
+
+        /// <summary>
+        /// 出撃した全メンバーへ累積功績を加算する（→ Adventurer.TotalContributionScore）。
+        /// 功績量はクエストの難易度に比例させ、達成した場合はさらに上乗せする
+        /// （難しい任務を完遂した者ほど、引退時の退職金が厚くなる）。
+        /// 戦死者への加算は行わない（退職金を受け取る主体が居ないため）。
+        /// </summary>
+        private static void ApplyContributionScore(Party party, Quest quest, bool questAchieved)
+        {
+            int score = Math.Max(1, quest.Difficulty / ContributionDifficultyDivisor);
+            if (questAchieved)
+                score *= ContributionAchievementMultiplier;
+
+            foreach (var member in party.Members)
+                member.TotalContributionScore += score;
+        }
+
+        /// <summary>
+        /// 功績量の算出パラメータ。難易度スケール（1〜100）を功績ポイントへ落とし込むための
+        /// 構造的な除数・倍率であり、調整対象の「バランス値」ではないためCSV化していない
+        /// （実際の退職金額は EconomyBalance.SeveranceContributionCoefficient 側で調整する）。
+        /// </summary>
+        private const int ContributionDifficultyDivisor = 10;
+        private const int ContributionAchievementMultiplier = 2;
 
         /// <summary>作戦資料室に配置されている参謀がいれば、そのボーナスを返す（未配置なら0。→ 03 §7.2）。</summary>
         private static double GetAdvisorBonus(GameState state)
