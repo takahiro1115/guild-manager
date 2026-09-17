@@ -38,6 +38,9 @@ public partial class DungeonPanel : ScrollContainer
 	private RichTextLabel _scoutingForecastLabel = null!;
 	private Button _scoutingButton = null!;
 	private RichTextLabel _countermeasureLabel = null!;
+	private OptionButton _pouchSlot1OptionButton = null!;
+	private OptionButton _pouchSlot2OptionButton = null!;
+	private RichTextLabel _pouchCostLabel = null!;
 	private Button _assaultButton = null!;
 	private Button _gatheringButton = null!;
 	private RichTextLabel _dispatchStatusLabel = null!;
@@ -85,6 +88,9 @@ public partial class DungeonPanel : ScrollContainer
 		_scoutingForecastLabel = GetNode<RichTextLabel>("%ScoutingForecastLabel");
 		_scoutingButton = GetNode<Button>("%ScoutingButton");
 		_countermeasureLabel = GetNode<RichTextLabel>("%CountermeasureLabel");
+		_pouchSlot1OptionButton = GetNode<OptionButton>("%PouchSlot1OptionButton");
+		_pouchSlot2OptionButton = GetNode<OptionButton>("%PouchSlot2OptionButton");
+		_pouchCostLabel = GetNode<RichTextLabel>("%PouchCostLabel");
 		_assaultButton = GetNode<Button>("%AssaultButton");
 		_gatheringButton = GetNode<Button>("%GatheringButton");
 		_dispatchStatusLabel = GetNode<RichTextLabel>("%DispatchStatusLabel");
@@ -101,6 +107,61 @@ public partial class DungeonPanel : ScrollContainer
 		_gatheringButton.Pressed += OnGatheringDispatchPressed;
 		_pendingMissionList.ItemSelected += _ => _cancelMissionButton.Disabled = false;
 		_cancelMissionButton.Pressed += OnCancelMissionPressed;
+
+		PopulatePouchSlot(_pouchSlot1OptionButton);
+		PopulatePouchSlot(_pouchSlot2OptionButton);
+		_pouchSlot1OptionButton.ItemSelected += _ => RefreshDispatchSection(_selectedField?.GetNextActiveBoss());
+		_pouchSlot2OptionButton.ItemSelected += _ => RefreshDispatchSection(_selectedField?.GetNextActiveBoss());
+	}
+
+	/// <summary>
+	/// ボス討伐専用の携行ポーチ（2026年9月新設、→ パーティ携行アイテムポーチ仕様）。
+	/// 大迷宮ボスのギミック対策口（→ BossGimmick.RequiredItemId）を持つ4種のみを選択肢にする
+	/// （煙幕弾・高品質傷薬・携帯糧食など、通常クエスト向けの効果アイテムはここでは扱わない）。
+	/// </summary>
+	private static readonly string[] PouchItemIds =
+	{
+		ConsumableCatalog.AntidoteId, ConsumableCatalog.AcidFlaskId,
+		ConsumableCatalog.NetId, ConsumableCatalog.CharmId,
+	};
+
+	private void PopulatePouchSlot(OptionButton slot)
+	{
+		slot.Clear();
+		slot.AddItem("なし (0G)");
+		foreach (var itemId in PouchItemIds)
+		{
+			var item = ConsumableCatalog.FindById(itemId)!;
+			slot.AddItem($"{item.Name} ({item.Price}G) [{GimmickLabel(GimmickCounteredBy(itemId))}対策]");
+		}
+	}
+
+	/// <summary>指定アイテムが対策口になっているギミック種別（→ Data.SampleData.CreateGimmick）。表示ラベル用。</summary>
+	private static BossGimmickType GimmickCounteredBy(string itemId) => itemId switch
+	{
+		ConsumableCatalog.AntidoteId => BossGimmickType.Poison,
+		ConsumableCatalog.AcidFlaskId => BossGimmickType.HeavyArmor,
+		ConsumableCatalog.NetId => BossGimmickType.Flying,
+		_ => BossGimmickType.InstantKill, // Charm
+	};
+
+	/// <summary>現在選択中のポーチ2枠のアイテムId一覧（「なし」は含めない）。</summary>
+	private List<string> GetSelectedPouchItemIds()
+	{
+		var ids = new List<string>();
+		foreach (var slot in new[] { _pouchSlot1OptionButton, _pouchSlot2OptionButton })
+		{
+			int index = slot.Selected;
+			if (index >= 1 && index - 1 < PouchItemIds.Length)
+				ids.Add(PouchItemIds[index - 1]);
+		}
+		return ids;
+	}
+
+	private void ResetPouchSelection()
+	{
+		_pouchSlot1OptionButton.Select(0);
+		_pouchSlot2OptionButton.Select(0);
 	}
 
 	/// <summary>出撃の派遣・取り消しに使うシステムを受け取る（MainDashboard._Readyから1回だけ呼ぶ）。</summary>
@@ -425,10 +486,29 @@ public partial class DungeonPanel : ScrollContainer
 		var party = saved == null ? new Party() : PartyFormationSystem.BuildDispatchParty(_state, saved.MemberIds);
 		bool traveling = _selectedField != null && boss != null && _selectedField.ReachedFloor < boss.Floor;
 
+		// ポーチで選択中のアイテムを、この描画専用の（未出撃の）partyへプレビューとして反映する。
+		// 対策充足プレビュー（→ RefreshCountermeasures）はこのpartyのConsumableItemIdsをそのまま見るため、
+		// 選択を変えるたびに✔／✖がリアルタイムに更新される（→ パーティ携行アイテムポーチ仕様）。
+		// 同じアイテムを両スロットで選んだ場合はParty.TryAddConsumableの重複禁止により1個扱いになる
+		// （→ Models.Party）。代金プレビューもそれに合わせ、実際に積まれた分（party.ConsumableItemIds）
+		// から計算する。
+		foreach (var itemId in GetSelectedPouchItemIds())
+			party.TryAddConsumable(itemId);
+		int pouchCost = DungeonExpeditionSystem.CalculateConsumableCost(party.ConsumableItemIds);
+		bool insufficientForItems = pouchCost > 0 && _state.Gold < pouchCost;
+
+		_pouchCostLabel.Clear();
+		if (pouchCost > 0)
+		{
+			_pouchCostLabel.AppendText(insufficientForItems
+				? $"[color=red]ポーチ代金：{pouchCost}G（所持金不足：{_state.Gold}G）[/color]"
+				: $"ポーチ代金：{pouchCost}G");
+		}
+
 		_scoutingButton.Text = traveling ? "道中調査に出撃（深度開拓）" : "ボス調査に出撃（ギミック解析）";
 		// フィールドが完全制覇済み（boss==null）の場合は「討伐完了」表示にして、もう挑む相手が
 		// いないことを一目で分かるようにする（2026年9月新設）。
-		_assaultButton.Text = boss == null ? "討伐完了" : "ボス討伐に出撃";
+		_assaultButton.Text = boss == null ? "討伐完了" : pouchCost > 0 ? $"ボス討伐に出撃（ポーチ代 {pouchCost}G）" : "ボス討伐に出撃";
 
 		string blockedReason = GetDispatchBlockedReason(boss, saved, party);
 		// 完全解析済みのボスへ調査に出しても解析率は上がらず、1週と部隊のHPを無駄にするだけなので止める
@@ -436,7 +516,10 @@ public partial class DungeonPanel : ScrollContainer
 		bool fullyAnalyzed = !traveling && boss != null && ScoutingResolver.GetTier(boss.IntelRate) == IntelTier.Complete;
 		_scoutingButton.Disabled = blockedReason != null || fullyAnalyzed;
 		// 討伐ボタンは、道中進行中（＝まだボスに到達していない）は常に非活性。
-		_assaultButton.Disabled = blockedReason != null || traveling;
+		// ポーチ代金分の所持金が足りない場合も無効化する（2026年9月新設）。
+		_assaultButton.Disabled = blockedReason != null || traveling || insufficientForItems;
+		if (insufficientForItems)
+			_assaultButton.TooltipText = $"携行ポーチの代金（{pouchCost}G）が足りない（所持金 {_state.Gold}G）。";
 
 		// 探索（採取）はボスの有無・到達状況に関係なく、フィールドが選ばれてさえいれば出撃できる
 		// （完全踏破後のフィールドでも素材採取だけは続けられる）。
@@ -473,6 +556,10 @@ public partial class DungeonPanel : ScrollContainer
 		{
 			RefreshScoutingForecast(boss, party);
 			RefreshCountermeasures(boss, party);
+			// RefreshCountermeasuresが対策充足状況でAssaultButton.TooltipTextを上書きするため、
+			// ポーチ代金不足（→ より根本的な出撃阻害要因）の場合はここで再度上書きする。
+			if (insufficientForItems)
+				_assaultButton.TooltipText = $"携行ポーチの代金（{pouchCost}G）が足りない（所持金 {_state.Gold}G）。";
 		}
 	}
 
@@ -646,10 +733,22 @@ public partial class DungeonPanel : ScrollContainer
 			return;
 
 		var party = PartyFormationSystem.BuildDispatchParty(_state, saved.MemberIds);
+		int pouchCost = 0;
+		if (missionType == DungeonMissionType.BossAssault)
+		{
+			// 携行ポーチ（2026年9月新設）：ボス討伐のみ、選択中のアイテムを実際に出撃する部隊へ
+			// 積み込む。代金の引き落とし・不足時の失敗はTryDispatch側で行う（→ DungeonExpeditionSystem）。
+			foreach (var itemId in GetSelectedPouchItemIds())
+				party.TryAddConsumable(itemId);
+			pouchCost = DungeonExpeditionSystem.CalculateConsumableCost(party.ConsumableItemIds);
+		}
+
 		string blockedReason = GetDispatchBlockedReason(boss, saved, party);
 		if (blockedReason == null && missionType == DungeonMissionType.Scouting &&
 			ScoutingResolver.GetTier(boss.IntelRate) == IntelTier.Complete)
 			blockedReason = "完全解析済みのため、これ以上の調査は不要。";
+		if (blockedReason == null && missionType == DungeonMissionType.BossAssault && _state.Gold < pouchCost)
+			blockedReason = $"携行ポーチの代金（{pouchCost}G）が足りない（所持金 {_state.Gold}G）。";
 		if (blockedReason != null || !_expeditionSystem.TryDispatch(_state, party, boss, missionType))
 		{
 			_dispatchStatusLabel.Clear();
@@ -665,8 +764,10 @@ public partial class DungeonPanel : ScrollContainer
 		}
 		else
 		{
+			string pouchNote = pouchCost > 0 ? $"　携行ポーチ代 {pouchCost}Gを支払った。" : "";
 			LogRequested.Invoke($"[color=gold][b]⚔ 第{_state.WeekNumber}週：「{saved.Name}」（{members}）が大迷宮 第{boss.Floor}層" +
-				$"「{boss.Name}」の討伐へ向かう（次週の決算で決着）。[/b][/color]");
+				$"「{boss.Name}」の討伐へ向かう（次週の決算で決着）。[/b]{pouchNote}[/color]");
+			ResetPouchSelection(); // 積み込んだポーチは出撃済み。次の出撃に備えて選択を戻す。
 		}
 
 		_selectedPartyId = null; // 出撃した部隊は待機中でなくなるため、選択を解除する

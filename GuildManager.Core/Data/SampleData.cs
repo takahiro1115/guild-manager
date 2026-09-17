@@ -208,9 +208,9 @@ namespace GuildManager.Core.Data
         }
 
         /// <summary>
-        /// ギミック種別ごとの対策口（職業＋ステータス、→ DungeonResolver.IsCountered のOR判定）。
-        /// 即死級（InstantKill）だけは護符（アイテム）も対策口として追加する（既存の単一ダンジョン
-        /// モデル時代の仕様を踏襲）。
+        /// ギミック種別ごとの対策口（職業＋ステータス＋携行アイテム、→ DungeonResolver.IsCountered
+        /// のOR判定）。4種すべてにアイテム対策口を持たせる（2026年9月、パーティ携行アイテム
+        /// ポーチ仕様で全種対応：猛毒＝解毒薬、重装甲＝溶解液、飛行＝捕縛網、即死級＝護符）。
         /// </summary>
         private static BossGimmick CreateGimmick(BossGimmickType type, int dangerLevel, double counterThreshold) => type switch
         {
@@ -226,12 +226,14 @@ namespace GuildManager.Core.Data
                 Type = type, DangerLevel = dangerLevel,
                 RequiredCounterRole = JobClass.Mage,
                 RequiredCounterStat = "STR", RequiredCounterStatThreshold = counterThreshold,
+                RequiredItemId = ConsumableCatalog.AcidFlaskId,
             },
             BossGimmickType.Flying => new BossGimmick
             {
                 Type = type, DangerLevel = dangerLevel,
                 RequiredCounterRole = JobClass.Ranger,
                 RequiredCounterStat = "DEX", RequiredCounterStatThreshold = counterThreshold,
+                RequiredItemId = ConsumableCatalog.NetId,
             },
             _ => new BossGimmick // InstantKill
             {

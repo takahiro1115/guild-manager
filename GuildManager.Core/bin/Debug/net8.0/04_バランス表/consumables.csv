@@ -4,6 +4,8 @@ HolyWater_Price,15,G,聖水（霊体の対策点数+1）の価格
 Torch_Price,10,G,松明（暗黒の対策点数+1）の価格
 ClimbingGear_Price,15,G,登攀具（隘路の対策点数+1）の価格
 Charm_Price,20,G,護符（巨躯の対策点数+1）の価格
+AcidFlask_Price,25,G,溶解液（大迷宮ボスの重装甲(HeavyArmor)ギミック対策アイテム）の価格
+Net_Price,20,G,捕縛網（大迷宮ボスの飛行(Flying)ギミック対策アイテム）の価格
 SmokeBomb_Price,25,G,煙幕弾の価格
 SmokeBomb_DownRateMultiplier,0.5,倍,煙幕弾がHP消費%に掛ける倍率（ダウン率半減）
 QualityHealingSalve_Price,30,G,高品質傷薬の価格

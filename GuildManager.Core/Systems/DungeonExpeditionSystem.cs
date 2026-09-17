@@ -53,13 +53,19 @@ namespace GuildManager.Core.Systems
         /// <summary>
         /// 大迷宮へ出撃させる。以下のいずれかに該当すれば何もせずfalseを返す（Try*系の共通パターン）：
         /// 同時出撃枠が埋まっている／部隊が空／ボスがGameState上に存在しない・撃破済み／
-        /// ボスの所属フィールドが未開放／出撃不可（重傷・派遣中等）のメンバーが含まれている。
+        /// ボスの所属フィールドが未開放／出撃不可（重傷・派遣中等）のメンバーが含まれている／
+        /// ボス討伐（BossAssault）で携行アイテム（→ Party.ConsumableItemIds）の代金が足りない。
         ///
         /// フィールド未開放のチェック（→ 大迷宮フィールド選択UI仕様）はCore層で行う：
         /// UI（DungeonPanel）は未開放フィールドを選択できないようにしているが、それはUI側の
         /// 制約に過ぎない。出撃の可否そのものはCore層で自己完結して判定すべきという方針
         /// （→ QuestDispatchSystem.CanDispatch等、既存のTry*系メソッドと同じ考え方）により、
         /// ここでも独立して検査する。
+        ///
+        /// 携行アイテムの代金（2026年9月新設、→ パーティ携行アイテムポーチ）：ボス討伐のみ、
+        /// 出撃時点でpartyが携行している消耗品（→ Party.ConsumableItemIds）の合計代金を
+        /// GameState.Goldから即座に引き落とす。調査・採取（Gathering、別メソッド）は対象外
+        /// （携行品はDungeonResolverのギミック対策判定でのみ意味を持つため）。
         /// </summary>
         public bool TryDispatch(GameState state, Party party, FloorBoss boss, DungeonMissionType missionType)
         {
@@ -71,6 +77,14 @@ namespace GuildManager.Core.Systems
             var field = state.DungeonFields.FirstOrDefault(f => f.Bosses.Contains(boss));
             if (field == null || !field.IsUnlocked || boss.IsDefeated)
                 return false;
+
+            int itemCost = missionType == DungeonMissionType.BossAssault
+                ? CalculateConsumableCost(party.ConsumableItemIds)
+                : 0;
+            if (state.Gold < itemCost)
+                return false;
+
+            state.Gold -= itemCost;
 
             state.ActiveDungeonMissions.Add(new ActiveDungeonMission
             {
@@ -85,6 +99,10 @@ namespace GuildManager.Core.Systems
 
             return true;
         }
+
+        /// <summary>携行アイテム一覧の合計代金（→ Models.ConsumableCatalog）。UIの費用表示からも使う。</summary>
+        public static int CalculateConsumableCost(IEnumerable<string> itemIds) =>
+            itemIds.Sum(id => ConsumableCatalog.FindById(id)?.Price ?? 0);
 
         /// <summary>
         /// 大迷宮へ探索（採取）に出撃させる。特定のボスではなくフィールドそのものを対象にする点が
@@ -116,12 +134,17 @@ namespace GuildManager.Core.Systems
 
         /// <summary>
         /// 出撃予定を取り消す（週次決算の前であれば、判定は行われていないため何も失わない）。
-        /// 対象が存在しなければfalse。
+        /// 対象が存在しなければfalse。ボス討伐（BossAssault）なら、出撃時に引き落とした携行
+        /// アイテムの代金（→ TryDispatch）を全額返金する（判定が行われていないため何も失わない、
+        /// という既存方針をゴールドにも適用する）。
         /// </summary>
         public bool TryCancel(GameState state, ActiveDungeonMission mission)
         {
             if (!state.ActiveDungeonMissions.Remove(mission))
                 return false;
+
+            if (mission.MissionType == DungeonMissionType.BossAssault)
+                state.Gold += CalculateConsumableCost(mission.Party.ConsumableItemIds);
 
             foreach (var member in mission.Party.Members)
                 member.IsDispatched = false;

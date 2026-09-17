@@ -474,6 +474,89 @@ namespace GuildManager.Core.Tests
             Assert.False(a.IsDispatched);
         }
 
+        // ---------------- パーティ携行アイテムポーチ（2026年9月新設） ----------------
+
+        [Fact]
+        public void AssaultDispatch_DeductsGold_ForCarriedItems()
+        {
+            var (state, a, b, boss) = MakeState();
+            state.Gold = 1000;
+            var party = PartyOf(a, b);
+            party.TryAddConsumable(ConsumableCatalog.AntidoteId);
+            party.TryAddConsumable(ConsumableCatalog.CharmId);
+            int expectedCost = ConsumableCatalog.Antidote.Price + ConsumableCatalog.Charm.Price;
+
+            Assert.True(BuildSystem().TryDispatch(state, party, boss, DungeonMissionType.BossAssault));
+
+            Assert.Equal(1000 - expectedCost, state.Gold);
+        }
+
+        [Fact]
+        public void AssaultCancel_RefundsGold_ForCarriedItems()
+        {
+            var (state, a, b, boss) = MakeState();
+            state.Gold = 1000;
+            var party = PartyOf(a, b);
+            party.TryAddConsumable(ConsumableCatalog.AntidoteId);
+            party.TryAddConsumable(ConsumableCatalog.CharmId);
+            int expectedCost = ConsumableCatalog.Antidote.Price + ConsumableCatalog.Charm.Price;
+            var system = BuildSystem();
+            Assert.True(system.TryDispatch(state, party, boss, DungeonMissionType.BossAssault));
+            Assert.Equal(1000 - expectedCost, state.Gold);
+
+            var mission = Assert.Single(state.ActiveDungeonMissions);
+            Assert.True(system.TryCancel(state, mission));
+
+            Assert.Equal(1000, state.Gold);
+        }
+
+        [Fact]
+        public void AssaultDispatch_Fails_WhenInsufficientGoldForItems()
+        {
+            var (state, a, b, boss) = MakeState();
+            state.Gold = ConsumableCatalog.Charm.Price - 1;
+            var party = PartyOf(a, b);
+            party.TryAddConsumable(ConsumableCatalog.CharmId);
+
+            Assert.False(BuildSystem().TryDispatch(state, party, boss, DungeonMissionType.BossAssault));
+
+            Assert.Empty(state.ActiveDungeonMissions);
+            Assert.Equal(ConsumableCatalog.Charm.Price - 1, state.Gold); // 失敗時は減算されない
+            Assert.False(a.IsDispatched);
+        }
+
+        [Fact]
+        public void GimmickMitigation_Satisfied_ByCarriedItem()
+        {
+            // 対策職・対策ステータスのどちらも足りない部隊でも、対応する携行アイテムがあれば
+            // ギミック対策が成立し、未対策ペナルティ（大ダメージ・即死）を回避できる
+            // （→ DungeonResolver.IsCountered、OR条件の3つ目の対策口）。
+            var boss = new FloorBoss
+            {
+                Name = "重装甲の番人", Floor = 1, MaxHp = 1, CurrentHp = 1,
+                Gimmicks = { new BossGimmick
+                {
+                    Type = BossGimmickType.HeavyArmor, DangerLevel = 5,
+                    RequiredCounterRole = JobClass.Mage, RequiredCounterStat = "STR", RequiredCounterStatThreshold = 9999,
+                    RequiredItemId = ConsumableCatalog.AcidFlaskId,
+                }},
+            };
+            var field = new DungeonField { Id = "f1", Name = "テスト用フィールド", Order = 1, IsUnlocked = true, Bosses = { boss } };
+            // Warrior1名：Mageでもなく、STR合算は要求値(9999)に遠く届かない（職業・ステータス双方の対策口が不成立）。
+            var weakling = MakeAdventurer(JobClass.Warrior, 10);
+            var state = new GameState { Adventurers = { weakling }, DungeonFields = { field }, Gold = 1000 };
+            var party = PartyOf(weakling);
+            party.TryAddConsumable(ConsumableCatalog.AcidFlaskId);
+            var system = BuildSystem();
+
+            Assert.True(system.TryDispatch(state, party, boss, DungeonMissionType.BossAssault));
+            var resolution = Assert.Single(system.ProcessWeeklyMissions(state));
+
+            Assert.Contains(BossGimmickType.HeavyArmor, resolution.DungeonResult!.CounteredGimmicks);
+            Assert.Empty(resolution.DungeonResult.UncounteredGimmicks);
+            Assert.Equal(1.0, resolution.DungeonResult.DamageMultiplier); // 全対策済みなので倍率は据え置き
+        }
+
         [Fact]
         public void WeekProcessingSystem_ResolvesDungeonMissions_AndStopsAutoSkipOnForcedRetirement()
         {

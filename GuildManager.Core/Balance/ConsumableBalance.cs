@@ -16,6 +16,10 @@ namespace GuildManager.Core.Balance
         public static readonly int ClimbingGearPrice = BalanceData.GetInt(FileName, "ClimbingGear_Price");
         public static readonly int CharmPrice = BalanceData.GetInt(FileName, "Charm_Price");
 
+        // ---- 大迷宮ボスギミック対策アイテム2種（2026年9月新設、→ 03 §4.5.4「パーティ携行アイテムポーチ」） ----
+        public static readonly int AcidFlaskPrice = BalanceData.GetInt(FileName, "AcidFlask_Price");
+        public static readonly int NetPrice = BalanceData.GetInt(FileName, "Net_Price");
+
         // ---- 煙幕弾：ダウン率（HP消費%）半減 ----
         public static readonly int SmokeBombPrice = BalanceData.GetInt(FileName, "SmokeBomb_Price");
         public static readonly double SmokeBombDownRateMultiplier = BalanceData.GetDouble(FileName, "SmokeBomb_DownRateMultiplier");

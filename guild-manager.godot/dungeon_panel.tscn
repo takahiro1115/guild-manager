@@ -121,6 +121,30 @@ layout_mode = 2
 bbcode_enabled = true
 fit_content = true
 
+[node name="PouchLabel" type="Label" parent="VBox"]
+layout_mode = 2
+text = "部隊携行ポーチ（ボス討伐時のみ使用、最大2枠）"
+autowrap_mode = 2
+
+[node name="PouchRow" type="HBoxContainer" parent="VBox"]
+layout_mode = 2
+
+[node name="PouchSlot1OptionButton" type="OptionButton" parent="VBox/PouchRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="PouchSlot2OptionButton" type="OptionButton" parent="VBox/PouchRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="PouchCostLabel" type="RichTextLabel" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+bbcode_enabled = true
+fit_content = true
+
 [node name="AssaultButton" type="Button" parent="VBox"]
 unique_name_in_owner = true
 layout_mode = 2

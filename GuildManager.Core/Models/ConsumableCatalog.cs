@@ -19,6 +19,10 @@ namespace GuildManager.Core.Models
         public const string ClimbingGearId = "ClimbingGear";
         public const string CharmId = "Charm";
 
+        // ---- 大迷宮ボスギミック対策アイテム2種（2026年9月新設） ----
+        public const string AcidFlaskId = "AcidFlask";
+        public const string NetId = "Net";
+
         // ---- 効果アイテム3種 ----
         public const string SmokeBombId = "SmokeBomb";
         public const string QualityHealingSalveId = "QualityHealingSalve";
@@ -54,6 +58,24 @@ namespace GuildManager.Core.Models
             CounterTag = EnvironmentTag.Colossal, Price = ConsumableBalance.CharmPrice,
         };
 
+        /// <summary>
+        /// 溶解液（2026年9月新設）：大迷宮ボスの重装甲(HeavyArmor)ギミック専用の対策アイテム
+        /// （→ Data.SampleData.CreateGimmick、BossGimmick.RequiredItemId）。通常クエストの
+        /// 環境ギミック（EnvironmentTag）には対応しないため、CounterTagは設定しない。
+        /// </summary>
+        public static readonly ConsumableItem AcidFlask = new ConsumableItem
+        {
+            Id = AcidFlaskId, Name = "溶解液", EffectType = ConsumableEffectType.GimmickCounter,
+            Price = ConsumableBalance.AcidFlaskPrice,
+        };
+
+        /// <summary>捕縛網（2026年9月新設）：大迷宮ボスの飛行(Flying)ギミック専用の対策アイテム。AcidFlaskと同じ理由でCounterTagは無し。</summary>
+        public static readonly ConsumableItem Net = new ConsumableItem
+        {
+            Id = NetId, Name = "捕縛網", EffectType = ConsumableEffectType.GimmickCounter,
+            Price = ConsumableBalance.NetPrice,
+        };
+
         public static readonly ConsumableItem SmokeBomb = new ConsumableItem
         {
             Id = SmokeBombId, Name = "煙幕弾", EffectType = ConsumableEffectType.DownRateHalving,
@@ -74,7 +96,7 @@ namespace GuildManager.Core.Models
 
         private static readonly ConsumableItem[] All =
         {
-            Antidote, HolyWater, Torch, ClimbingGear, Charm,
+            Antidote, HolyWater, Torch, ClimbingGear, Charm, AcidFlask, Net,
             SmokeBomb, QualityHealingSalve, TravelRations,
         };
 
