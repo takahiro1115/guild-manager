@@ -20,12 +20,14 @@ namespace GuildManager.Core.Systems
     /// </summary>
     public class DungeonExpeditionSystem
     {
-        // traversalResolverを省略した場合の既定シード（固定シードで再現性を保つ。→ MainDashboardの方針と同じ）。
+        // 各resolverを省略した場合の既定シード（固定シードで再現性を保つ。→ MainDashboardの方針と同じ）。
         private const int DefaultTraversalSeed = 1719;
+        private const int DefaultGatheringSeed = 1848;
 
         private readonly ScoutingResolver _scoutingResolver;
         private readonly DungeonResolver _dungeonResolver;
         private readonly DungeonTraversalResolver _traversalResolver;
+        private readonly GatheringResolver _gatheringResolver;
         private readonly SatisfactionSystem _satisfactionSystem;
         private readonly CompatibilitySystem _compatibilitySystem;
 
@@ -34,13 +36,15 @@ namespace GuildManager.Core.Systems
             DungeonResolver dungeonResolver,
             SatisfactionSystem satisfactionSystem,
             CompatibilitySystem compatibilitySystem,
-            // 省略可能：道中進軍の解決（→ DungeonTraversalResolver、大迷宮5フィールド拡張仕様）。
-            // 既存の呼び出し側を変更せずに接続できるよう、調査用の乱数から派生した既定値を持たせている。
-            DungeonTraversalResolver? traversalResolver = null)
+            // 省略可能：道中進軍・探索（採取）の解決（→ DungeonTraversalResolver・GatheringResolver）。
+            // 既存の呼び出し側を変更せずに接続できるよう、既定値を持たせている。
+            DungeonTraversalResolver? traversalResolver = null,
+            GatheringResolver? gatheringResolver = null)
         {
             _scoutingResolver = scoutingResolver;
             _dungeonResolver = dungeonResolver;
             _traversalResolver = traversalResolver ?? new DungeonTraversalResolver(new SeededRng(DefaultTraversalSeed));
+            _gatheringResolver = gatheringResolver ?? new GatheringResolver(new SeededRng(DefaultGatheringSeed));
             _satisfactionSystem = satisfactionSystem;
             _compatibilitySystem = compatibilitySystem;
         }
@@ -70,8 +74,37 @@ namespace GuildManager.Core.Systems
             state.ActiveDungeonMissions.Add(new ActiveDungeonMission
             {
                 Party = party,
+                Field = field,
                 Boss = boss,
                 MissionType = missionType,
+            });
+
+            foreach (var member in party.Members)
+                member.IsDispatched = true;
+
+            return true;
+        }
+
+        /// <summary>
+        /// 大迷宮へ探索（採取）に出撃させる。特定のボスではなくフィールドそのものを対象にする点が
+        /// TryDispatchとの違い（→ GatheringResolver）。それ以外の失敗条件（枠・部隊・開放状態）は
+        /// TryDispatchと同じ。
+        /// </summary>
+        public bool TryDispatchGathering(GameState state, Party party, DungeonField field)
+        {
+            if (!QuestDispatchSystem.CanDispatch(state))
+                return false;
+            if (party.IsEmpty || party.Members.Any(m => !m.IsAvailable))
+                return false;
+            if (!state.DungeonFields.Contains(field) || !field.IsUnlocked)
+                return false;
+
+            state.ActiveDungeonMissions.Add(new ActiveDungeonMission
+            {
+                Party = party,
+                Field = field,
+                Boss = null,
+                MissionType = DungeonMissionType.Gathering,
             });
 
             foreach (var member in party.Members)
@@ -107,9 +140,34 @@ namespace GuildManager.Core.Systems
             {
                 state.ActiveDungeonMissions.Remove(mission);
 
+                if (mission.MissionType == DungeonMissionType.Gathering)
+                {
+                    // 探索（採取）：特定のボスを対象にしないため、複数部隊が同じフィールドへ
+                    // 出ていても「先に解決した部隊が空振りになる」レース条件はそもそも存在しない
+                    // （毎回必ず成果が出る）。
+                    state.TotalDispatchCount++;
+
+                    var gathering = _gatheringResolver.Resolve(mission.Party, mission.Field);
+                    state.AddMaterial(gathering.MaterialId, gathering.MaterialCount);
+                    state.Gold += gathering.GoldEarned;
+
+                    resolutions.Add(new DungeonMissionResolution(mission.Party, mission.Field, gathering));
+                    ReleaseMembers(mission.Party);
+                    continue;
+                }
+
+                // 調査・討伐はボスを対象にする。TryDispatch/TryDispatchGathering側の構築規約により
+                // ここでは必ず非nullのはずだが、防御的にnullなら（構築不整合として）何もせず帰還させる。
+                var boss = mission.Boss;
+                if (boss == null)
+                {
+                    ReleaseMembers(mission.Party);
+                    continue;
+                }
+
                 // 同じボスへ複数部隊を向けた場合、先に解決した部隊が撃破していれば後続は空振りになる。
                 // 判定を行わず、そのまま帰還させる（損害も成果も無し）。
-                if (mission.Boss.IsDefeated)
+                if (boss.IsDefeated)
                 {
                     ReleaseMembers(mission.Party);
                     continue;
@@ -119,40 +177,34 @@ namespace GuildManager.Core.Systems
                 // 出撃操作の時点ではなく実際に解決した時点で数える。
                 state.TotalDispatchCount++;
 
-                double intelBefore = mission.Boss.IntelRate;
+                double intelBefore = boss.IntelRate;
 
                 if (mission.MissionType == DungeonMissionType.Scouting)
                 {
-                    // 調査任務の分岐（→ 03 §4.5.2）：mission.Boss は出撃時点で
-                    // GetCurrentFloorBoss()（＝そのフィールドの次の未撃破ボス）を指しているため、
-                    // ここで改めて GetNextActiveBoss() を引き直す必要はない。
-                    var field = state.DungeonFields.FirstOrDefault(f => f.Bosses.Contains(mission.Boss));
-
-                    if (field != null && field.ReachedFloor < mission.Boss.Floor)
+                    if (mission.Field.ReachedFloor < boss.Floor)
                     {
                         // 分岐A：道中進軍。まだボス階層に到達していない＝素通りで一気に進める。
-                        var traversal = _traversalResolver.Resolve(mission.Party, field, mission.Boss);
-                        resolutions.Add(new DungeonMissionResolution(mission.Party, mission.Boss, intelBefore, traversal));
+                        var traversal = _traversalResolver.Resolve(mission.Party, mission.Field, boss);
+                        resolutions.Add(new DungeonMissionResolution(mission.Party, boss, mission.Field, intelBefore, traversal));
                     }
                     else
                     {
-                        // 分岐B：ボス解析。既にボス階層に到達している（＝field==nullという
-                        // 防御的フォールバック時も含める）ため、従来どおりIntelRateを上げる。
-                        var scouting = _scoutingResolver.Resolve(mission.Party, mission.Boss);
-                        resolutions.Add(new DungeonMissionResolution(mission.Party, mission.Boss, intelBefore, scouting));
+                        // 分岐B：ボス解析。既にボス階層に到達しているため、従来どおりIntelRateを上げる。
+                        var scouting = _scoutingResolver.Resolve(mission.Party, boss);
+                        resolutions.Add(new DungeonMissionResolution(mission.Party, boss, mission.Field, intelBefore, scouting));
                     }
                 }
                 else
                 {
-                    var assault = _dungeonResolver.Resolve(mission.Party, mission.Boss);
+                    var assault = _dungeonResolver.Resolve(mission.Party, boss);
                     ApplyForcedRetirements(state, mission.Party, assault.ForceRetiredAdventurerIds);
 
                     // 撃破成功時のみ、フィールドの進行（最高到達階層・次フィールド開放・報酬）を適用する
                     // （→ 大迷宮5フィールド拡張仕様）。撤退（Retreat）時は何も進行しない。
                     if (assault.Outcome == DungeonOutcome.Victory)
-                        ApplyFieldProgression(state, mission.Boss);
+                        ApplyFieldProgression(state, boss);
 
-                    resolutions.Add(new DungeonMissionResolution(mission.Party, mission.Boss, intelBefore, assault));
+                    resolutions.Add(new DungeonMissionResolution(mission.Party, boss, mission.Field, intelBefore, assault));
                 }
 
                 ReleaseMembers(mission.Party);

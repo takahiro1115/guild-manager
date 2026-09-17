@@ -26,6 +26,7 @@ public partial class DungeonPanel : ScrollContainer
 {
 	private OptionButton _fieldOptionButton = null!;
 	private RichTextLabel _progressLabel = null!;
+	private RichTextLabel _materialsLabel = null!;
 	private RichTextLabel _bossHeaderLabel = null!;
 	private ProgressBar _intelProgressBar = null!;
 	private Label _intelPercentLabel = null!;
@@ -38,6 +39,7 @@ public partial class DungeonPanel : ScrollContainer
 	private Button _scoutingButton = null!;
 	private RichTextLabel _countermeasureLabel = null!;
 	private Button _assaultButton = null!;
+	private Button _gatheringButton = null!;
 	private RichTextLabel _dispatchStatusLabel = null!;
 	private ItemList _pendingMissionList = null!;
 	private Button _cancelMissionButton = null!;
@@ -71,6 +73,7 @@ public partial class DungeonPanel : ScrollContainer
 	{
 		_fieldOptionButton = GetNode<OptionButton>("%FieldOptionButton");
 		_progressLabel = GetNode<RichTextLabel>("%ProgressLabel");
+		_materialsLabel = GetNode<RichTextLabel>("%MaterialsLabel");
 		_bossHeaderLabel = GetNode<RichTextLabel>("%BossHeaderLabel");
 		_intelProgressBar = GetNode<ProgressBar>("%IntelProgressBar");
 		_intelPercentLabel = GetNode<Label>("%IntelPercentLabel");
@@ -83,6 +86,7 @@ public partial class DungeonPanel : ScrollContainer
 		_scoutingButton = GetNode<Button>("%ScoutingButton");
 		_countermeasureLabel = GetNode<RichTextLabel>("%CountermeasureLabel");
 		_assaultButton = GetNode<Button>("%AssaultButton");
+		_gatheringButton = GetNode<Button>("%GatheringButton");
 		_dispatchStatusLabel = GetNode<RichTextLabel>("%DispatchStatusLabel");
 		_pendingMissionList = GetNode<ItemList>("%PendingMissionList");
 		_cancelMissionButton = GetNode<Button>("%CancelMissionButton");
@@ -94,6 +98,7 @@ public partial class DungeonPanel : ScrollContainer
 		_partyOptionButton.ItemSelected += OnPartySelected;
 		_scoutingButton.Pressed += () => OnDispatchPressed(DungeonMissionType.Scouting);
 		_assaultButton.Pressed += () => OnDispatchPressed(DungeonMissionType.BossAssault);
+		_gatheringButton.Pressed += OnGatheringDispatchPressed;
 		_pendingMissionList.ItemSelected += _ => _cancelMissionButton.Disabled = false;
 		_cancelMissionButton.Pressed += OnCancelMissionPressed;
 	}
@@ -112,6 +117,7 @@ public partial class DungeonPanel : ScrollContainer
 		RefreshFieldOptions();
 		var boss = _selectedField?.GetNextActiveBoss();
 		RefreshProgress(boss);
+		RefreshMaterialsInfo();
 		RefreshBossInfo(boss);
 		RefreshPartyOptions();
 		RefreshDispatchSection(boss);
@@ -176,8 +182,35 @@ public partial class DungeonPanel : ScrollContainer
 
 		var boss = _selectedField.GetNextActiveBoss();
 		RefreshProgress(boss);
+		RefreshMaterialsInfo();
 		RefreshBossInfo(boss);
 		RefreshDispatchSection(boss);
+	}
+
+	/// <summary>
+	/// 選択中フィールドで獲得可能な素材と、ギルドの現在の在庫数を表示する
+	/// （→ Models.MaterialCatalog、第3の任務「探索（採取）」仕様）。
+	/// </summary>
+	private void RefreshMaterialsInfo()
+	{
+		_materialsLabel.Clear();
+		if (_selectedField == null)
+			return;
+
+		var drops = MaterialCatalog.GetFieldDrops(_selectedField.Id);
+		if (drops.Count == 0)
+		{
+			_materialsLabel.AppendText("[color=gray]このフィールドで採れる素材の情報はまだ無い。[/color]");
+			return;
+		}
+
+		string parts = string.Join("、", drops.Select(d =>
+		{
+			int stock = _state.Materials.TryGetValue(d.MaterialId, out int count) ? count : 0;
+			return $"{MaterialCatalog.GetName(d.MaterialId)}（在庫{stock}）";
+		}));
+
+		_materialsLabel.AppendText($"[b]獲得可能な素材[/b]：{parts}");
 	}
 
 	// ==================== 表示：踏破状況・ボス情報 ====================
@@ -386,6 +419,7 @@ public partial class DungeonPanel : ScrollContainer
 		_dispatchStatusLabel.Clear();
 		_scoutingButton.TooltipText = "";
 		_assaultButton.TooltipText = "";
+		_gatheringButton.TooltipText = "";
 
 		var saved = SelectedSavedParty();
 		var party = saved == null ? new Party() : PartyFormationSystem.BuildDispatchParty(_state, saved.MemberIds);
@@ -401,6 +435,11 @@ public partial class DungeonPanel : ScrollContainer
 		// 討伐ボタンは、道中進行中（＝まだボスに到達していない）は常に非活性。
 		_assaultButton.Disabled = blockedReason != null || traveling;
 
+		// 探索（採取）はボスの有無・到達状況に関係なく、フィールドが選ばれてさえいれば出撃できる
+		// （完全踏破後のフィールドでも素材採取だけは続けられる）。
+		string gatheringBlockedReason = GetGatheringBlockedReason(saved, party);
+		_gatheringButton.Disabled = gatheringBlockedReason != null;
+
 		if (blockedReason != null)
 			_dispatchStatusLabel.AppendText($"[color=gray]{blockedReason}[/color]");
 		else if (fullyAnalyzed)
@@ -408,7 +447,7 @@ public partial class DungeonPanel : ScrollContainer
 		else if (traveling)
 			_assaultButton.TooltipText = "この階層のボスにはまだ到達していない。道中調査で先へ進もう。";
 
-		if (saved == null || party.IsEmpty || boss == null || _selectedField == null)
+		if (saved == null || party.IsEmpty)
 			return;
 
 		_partyMembersLabel.AppendText("出撃メンバー：" +
@@ -416,6 +455,12 @@ public partial class DungeonPanel : ScrollContainer
 		var waiting = PartyFormationSystem.GetUnavailableMembers(_state, saved.MemberIds);
 		if (waiting.Count > 0)
 			_partyMembersLabel.AppendText($"\n[color=gray]出撃できない：{string.Join("、", waiting.Select(m => m.Name))}[/color]");
+
+		if (_selectedField != null)
+			RefreshGatheringForecast(_selectedField, party);
+
+		if (boss == null || _selectedField == null)
+			return;
 
 		if (traveling)
 		{
@@ -428,12 +473,27 @@ public partial class DungeonPanel : ScrollContainer
 		}
 	}
 
-	/// <summary>出撃できない理由（出撃できるならnull）。</summary>
+	/// <summary>出撃できない理由（出撃できるならnull）。ボス（調査・討伐）を対象にする出撃向け。</summary>
 	private string GetDispatchBlockedReason(FloorBoss boss, SavedParty saved, Party party)
 	{
 		if (boss == null) return "挑むべき階層ボスがいない。";
 		if (_state.DefeatReason != null) return "ギルドは既に解散した。";
 		if (saved == null) return "出撃部隊を選ぶと、斥候の見立てと対策の充足状況が表示される。";
+		if (party.IsEmpty) return "この部隊には出撃できるメンバーがいない。";
+		if (!QuestDispatchSystem.CanDispatch(_state))
+			return $"同時出撃枠（{_state.UnlockedSquadSlots}枠）がすべて埋まっている。";
+		return null;
+	}
+
+	/// <summary>
+	/// 出撃できない理由（出撃できるならnull）。探索（採取）向け：ボス（GetDispatchBlockedReason）
+	/// と違い、対象ボスの有無は問わない（フィールドそのものが対象のため）。
+	/// </summary>
+	private string GetGatheringBlockedReason(SavedParty saved, Party party)
+	{
+		if (_selectedField == null) return "挑戦するダンジョンがない。";
+		if (_state.DefeatReason != null) return "ギルドは既に解散した。";
+		if (saved == null) return "出撃部隊を選ぶと、採取の見立てが表示される。";
 		if (party.IsEmpty) return "この部隊には出撃できるメンバーがいない。";
 		if (!QuestDispatchSystem.CanDispatch(_state))
 			return $"同時出撃枠（{_state.UnlockedSquadSlots}枠）がすべて埋まっている。";
@@ -501,6 +561,19 @@ public partial class DungeonPanel : ScrollContainer
 		_scoutingButton.TooltipText =
 			$"走破力の総合値（AGI+DEX合計＋部隊長LDR補正）：{score:F0}\n" +
 			"道中調査は低リスク：HPは減っても強制除籍にはならない。";
+	}
+
+	/// <summary>
+	/// 探索（採取）の見立て。部隊の採取スコア（AGI+DEX＋部隊長LDR、HP比率で減衰）を
+	/// ツールチップに表示する（→ GatheringResolver）。要求値相当のものは存在しないため
+	/// 定性表現の見立てラベルは無く、数値そのものだけを見せる。
+	/// </summary>
+	private void RefreshGatheringForecast(DungeonField field, Party party)
+	{
+		double score = GatheringResolver.CalculateGatheringScore(party);
+		_gatheringButton.TooltipText =
+			$"採取の総合値（AGI+DEX合計＋部隊長LDR補正、部隊のHP比率で減衰）：{score:F0}\n" +
+			"探索は低リスク：HPは減っても強制除籍にはならない。";
 	}
 
 	/// <summary>
@@ -597,6 +670,30 @@ public partial class DungeonPanel : ScrollContainer
 		StateChanged.Invoke();
 	}
 
+	/// <summary>「探索出撃（素材採取）」ボタン。選択中フィールドへ、ボスを介さず直接派遣する。</summary>
+	private void OnGatheringDispatchPressed()
+	{
+		var saved = SelectedSavedParty();
+		if (_selectedField == null || saved == null || _expeditionSystem == null)
+			return;
+
+		var party = PartyFormationSystem.BuildDispatchParty(_state, saved.MemberIds);
+		string blockedReason = GetGatheringBlockedReason(saved, party);
+		if (blockedReason != null || !_expeditionSystem.TryDispatchGathering(_state, party, _selectedField))
+		{
+			_dispatchStatusLabel.Clear();
+			_dispatchStatusLabel.AppendText($"[color=orange][b]⚠ 出撃できなかった：{blockedReason ?? "出撃条件を満たしていない。"}[/b][/color]");
+			return;
+		}
+
+		string members = string.Join("・", party.Members.Select(m => m.Name));
+		LogRequested.Invoke($"[color=cyan]第{_state.WeekNumber}週：「{saved.Name}」（{members}）が{_selectedField.Name}へ" +
+			"探索（採取）任務へ出発する（次週の決算で帰還）。[/color]");
+
+		_selectedPartyId = null; // 出撃した部隊は待機中でなくなるため、選択を解除する
+		StateChanged.Invoke();
+	}
+
 	// ==================== 出撃予定 ====================
 
 	private void RefreshPendingMissions()
@@ -604,9 +701,8 @@ public partial class DungeonPanel : ScrollContainer
 		_pendingMissionList.Clear();
 		foreach (var mission in _state.ActiveDungeonMissions)
 		{
-			string kind = mission.MissionType == DungeonMissionType.Scouting ? "調査" : "討伐";
 			string members = string.Join("・", mission.Party.Members.Select(m => m.Name));
-			_pendingMissionList.AddItem($"【{kind}】第{mission.Boss.Floor}層「{mission.Boss.Name}」：{members}");
+			_pendingMissionList.AddItem($"{MissionLabel(mission)}：{members}");
 		}
 
 		if (_state.ActiveDungeonMissions.Count == 0)
@@ -614,6 +710,14 @@ public partial class DungeonPanel : ScrollContainer
 
 		_cancelMissionButton.Disabled = true;
 	}
+
+	/// <summary>出撃予定一覧の1行分のラベル。採取（Gathering）はボスを持たないためフィールド名で表す。</summary>
+	private static string MissionLabel(ActiveDungeonMission mission) => mission.MissionType switch
+	{
+		DungeonMissionType.Scouting => $"【調査】第{mission.Boss!.Floor}層「{mission.Boss.Name}」",
+		DungeonMissionType.BossAssault => $"【討伐】第{mission.Boss!.Floor}層「{mission.Boss.Name}」",
+		_ => $"【探索】{mission.Field.Name}",
+	};
 
 	private void OnCancelMissionPressed()
 	{
@@ -629,7 +733,9 @@ public partial class DungeonPanel : ScrollContainer
 		if (!_expeditionSystem.TryCancel(_state, mission))
 			return;
 
-		LogRequested.Invoke($"[color=gray]大迷宮 第{mission.Boss.Floor}層への出撃を取り消した。部隊は待機に戻った。[/color]");
+		LogRequested.Invoke(mission.MissionType == DungeonMissionType.Gathering
+			? $"[color=gray]{mission.Field.Name}への探索出撃を取り消した。部隊は待機に戻った。[/color]"
+			: $"[color=gray]大迷宮 第{mission.Boss!.Floor}層への出撃を取り消した。部隊は待機に戻った。[/color]");
 		StateChanged.Invoke();
 	}
 
