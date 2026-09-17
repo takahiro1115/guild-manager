@@ -1,0 +1,8 @@
+key,value,unit,note
+DesiredAvailableCount,3,件,受注可能クエスト一覧が常に維持する件数
+MinDeadlineWeeks,5,週,クエスト期限の下限（item55で3〜4週から延長）
+MaxDeadlineWeeks,8,週,クエスト期限の上限
+LongExpeditionRosterThreshold,6,名,探索規模「中・大」が出現するのに必要な現役ロースター人数
+DurationWeeks_Small,1,週,探索規模「小」の拘束週数
+DurationWeeks_Medium,2,週,探索規模「中」の拘束週数
+DurationWeeks_Large,4,週,探索規模「大」の拘束週数

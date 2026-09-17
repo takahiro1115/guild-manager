@@ -464,6 +464,52 @@ namespace GuildManager.Core.Tests
             Assert.Null(state.DefeatReason);
         }
 
+        // ---------------- 昇格試験クエストの自動生成（2026年9月、大迷宮一本化により無効化） ----------------
+
+        [Fact]
+        public void WeeklyProcessing_DoesNotGenerate_PromotionExamQuests()
+        {
+            // 昇格試験の提示条件（累計出撃回数・資金）を満たした状態を何週維持しても、
+            // 大迷宮一本化改訂により週次決算からは二度と昇格試験クエストが
+            // AvailableQuestsへ追加されない（→ WeekProcessingSystemはもう
+            // GuildProgressionSystem.TryOfferPromotionExamを呼ばない）。
+            var state = new GameState
+            {
+                TotalDispatchCount = ProgressionBalance.PromotionExamMinDispatchCount,
+                Gold = ProgressionBalance.PromotionExamMinGold,
+            };
+            var system = BuildSystem();
+
+            for (int i = 0; i < 10; i++)
+            {
+                var result = system.ProcessWeek(state);
+                Assert.Null(result.OfferedPromotionExam);
+            }
+
+            Assert.DoesNotContain(state.AvailableQuests, q => q.IsBoss);
+            Assert.False(state.PromotionExamOffered);
+        }
+
+        [Fact]
+        public void WeeklyReport_DoesNotContain_PromotionNotice()
+        {
+            // 週報の「📜 ギルド本部から昇格試験の通達が届いた」通知（MainDashboard側）は、
+            // settlement.OfferedPromotionExamがnullでない場合にのみ出力される。Core側で
+            // このフラグ（と突破時のPromotionExamResult）が常にnullのままであることを
+            // 確認すれば、通知が二度と出ないことが保証される。
+            var state = new GameState
+            {
+                TotalDispatchCount = ProgressionBalance.PromotionExamMinDispatchCount,
+                Gold = ProgressionBalance.PromotionExamMinGold,
+            };
+            var system = BuildSystem();
+
+            var result = system.ProcessWeek(state);
+
+            Assert.Null(result.OfferedPromotionExam);
+            Assert.Null(result.PromotionExamResult);
+        }
+
         // ---------------- ShouldStopAutoSkip 複合判定 ----------------
 
         [Fact]

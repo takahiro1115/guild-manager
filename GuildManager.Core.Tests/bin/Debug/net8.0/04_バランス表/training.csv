@@ -1,0 +1,5 @@
+key,value,unit,note
+WeeklyCost,20,G,訓練施設への配置1名あたりの週次費用（都度払い）
+WeeklyHpCost,5,HP,訓練した週のHP消費量
+MinHp,1,HP,訓練によるHP減少の下限（訓練では死なない）
+RestRecoveryRatio,0.15,倍,待機週のHP自然回復量＝最大HP×この比率（医務室倍率を乗算）

@@ -138,10 +138,13 @@ namespace GuildManager.Core.Systems
                 if (resolution.Party.Members.Any(m => !hadOldWoundBefore.Contains(m.Id) && m.HasTrait(TraitCatalog.OldWoundId)))
                     anyFallenOrNewOldWound = true;
 
-                // ランク昇格試験の突破判定（→ コアシステム刷新仕様 Phase 4）。
-                // 突破すればランクE昇格・同時出撃枠2への拡張・報奨金・新人補充が行われる。
-                result.PromotionExamResult ??= _guildProgressionSystem.ApplyPromotionIfExamCleared(
-                    state, resolution.Quest, resolution.Result.QuestAchieved);
+                // ランク昇格試験による判定は2026年9月、大迷宮への一本化改訂で無効化した。
+                // ランク昇格・出撃枠拡張は DungeonExpeditionSystem.ApplyFieldProgression
+                // （森10F/20Fボス撃破）のみを唯一のトリガーとする（→ 03 §0.4・§4.5.1）。
+                // GuildProgressionSystem.ApplyPromotionIfExamCleared自体は削除していない
+                // （既存セーブの PromotionExamPassed 等のフィールドはそのまま読める。
+                // 実運用では昇格試験クエスト自体がもう生成されないため、この呼び出しを
+                // 復活させても quest.IsBoss が真になることはなく、常にnullを返す）。
 
                 // 複数週クエストの帰還（→ 03 §1.3自動スキップ停止条件4）。1週クエストの
                 // その場解決（＝出発と同じ週に決着）はここでいう「帰還」には含めない。
@@ -218,11 +221,10 @@ namespace GuildManager.Core.Systems
             result.Flags.RecruitmentTrialOccurred =
                 state.DefeatReason == null && _recruitmentSystem.IsRecruitmentWeek(state.WeekNumber);
 
-            // ランク昇格試験の提示（→ コアシステム刷新仕様 Phase 2）。累計出撃回数と資金が
-            // 基準に達した週に一度だけ、受注可能一覧へボスクエストを追加する。
-            // 敗北後は新たな目標を提示しない（新春採用試験と同じ扱い）。
-            if (state.DefeatReason == null)
-                result.OfferedPromotionExam = _guildProgressionSystem.TryOfferPromotionExam(state);
+            // ランク昇格試験の提示（旧コアシステム刷新仕様 Phase 2）は2026年9月、
+            // 大迷宮への一本化改訂で無効化した。旧昇格試験クエスト（「ゴブリンリーダー討伐」等）
+            // はもう AvailableQuests へ追加されない＝週報の「📜 ギルド本部から昇格試験の通達が
+            // 届いた」通知も出なくなる（→ 03 §0.4）。
 
             // 進行の節目（試験の提示・突破）はどちらもプレイヤーの判断を要するため自動スキップを止める。
             result.Flags.GuildProgressionEventOccurred =

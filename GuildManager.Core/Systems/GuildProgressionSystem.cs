@@ -22,6 +22,14 @@ namespace GuildManager.Core.Systems
     /// 昇格試験は「名声が溜まるのを待たずに、プレイヤーの実力で早期にEへ上がる」ための
     /// ショートカットとして機能する。名声側のロジックには手を入れず、試験突破時に
     /// ランクを直接引き上げる（既にE以上なら据え置き＝降格させない）。
+    ///
+    /// **2026年9月、大迷宮一本化改訂により、実運用では無効化した。**
+    /// `WeekProcessingSystem` からはこのクラスの `TryOfferPromotionExam`・
+    /// `ApplyPromotionIfExamCleared` をもう呼ばない。ランク昇格・出撃枠拡張は
+    /// `DungeonExpeditionSystem.ApplyFieldProgression`（森10F/20Fボス撃破）のみを
+    /// 唯一のトリガーとする。このクラス自体は削除していない：既存セーブの
+    /// `PromotionExamOffered`/`PromotionExamPassed` フィールドをそのまま読めるようにするため、
+    /// またクラス単体のロジック（下記メソッド群）は引き続きテストで検証されている。
     /// </summary>
     public class GuildProgressionSystem
     {

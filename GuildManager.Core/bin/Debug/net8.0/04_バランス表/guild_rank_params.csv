@@ -1,0 +1,5 @@
+key,value,unit,note
+ReputationGainOnAchievement,20,pt,クエスト達成時の名声加算量
+ReputationLossOnFailure,15,pt,クエスト失敗時の名声減算量
+WeeksWithoutAppropriateQuestThreshold,4,週,現ランク相当のクエスト未達成がこの週数続くと名声が自然減衰
+ReputationDecayPerWeek,5,pt,名声自然減衰の週あたり減少量
