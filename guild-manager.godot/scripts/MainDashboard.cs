@@ -975,8 +975,17 @@ public partial class MainDashboard : Control
 			sb.AppendLine("[color=gold]◆ 完全解析の成果：弱点を正確に突いた。[/color]");
 
 		sb.AppendLine(assault.Outcome == DungeonOutcome.Victory
-			? $"[color=gold][font_size=20][b]🏆 「{boss.Name}」を撃破した！ 第{boss.Floor}層を踏破！[/b][/font_size][/color]"
+			? $"[color=gold][font_size=20][b]🏆 【階層ボス撃破】部隊は見事に「{boss.Name}」を討伐した！ 第{boss.Floor}層を踏破！[/b][/font_size][/color]"
 			: "[color=orange][b]火力が及ばず、撤退を余儀なくされた。ボスは傷を癒やし、次は仕切り直しになる。[/b][/color]");
+
+		if (assault.Outcome == DungeonOutcome.Victory)
+		{
+			// 撃破報酬の内訳（→ FloorBoss.RewardGold/RewardReputation/RewardMaterialId、2026年9月新設）。
+			string rewardLine = $"💰 報奨獲得：{boss.RewardGold} G ／ 👑 名声 +{boss.RewardReputation}";
+			if (!string.IsNullOrEmpty(boss.RewardMaterialId))
+				rewardLine += $" ／ 📦 {MaterialBalance.GetName(boss.RewardMaterialId)} ×{boss.RewardMaterialCount}";
+			sb.AppendLine($"[color=lime]{rewardLine}[/color]");
+		}
 
 		AppendHpLossLines(sb, assault.HpLostByAdventurer);
 		foreach (var line in FallenAdventurerLines(weekNumber, resolution.Party, assault.ForceRetiredAdventurerIds))
@@ -991,11 +1000,18 @@ public partial class MainDashboard : Control
 				? $"[color=cyan]さらに深層、第{next.Floor}層への道が開けた。[/color]"
 				: "[color=gold][b]★ 大迷宮の全階層を踏破した！[/b][/color]");
 
+			// 新フィールド開放（→ DungeonExpeditionSystem.ApplyFieldProgression、2026年9月新設）。
+			if (resolution.FieldNewlyUnlocked != null)
+			{
+				sb.AppendLine($"[color=gold][font_size=18][b]🗺 【探索域拡大】新たなフィールド" +
+					$"「{resolution.FieldNewlyUnlocked.Name}」への進軍が可能になった！[/b][/font_size][/color]");
+			}
+
 			// 森の節目ボス撃破による出撃枠拡張（「古代エルフの多頭通信術式」復元、→ DungeonExpeditionSystem）。
 			if (resolution.SquadSlotsExpandedTo.HasValue)
 			{
-				sb.AppendLine($"[color=gold][font_size=18][b]★ 古代エルフの多頭通信術式が復元！ " +
-					$"同時に指揮可能な部隊数が【{resolution.SquadSlotsExpandedTo.Value}部隊】に拡大しました。[/b][/font_size][/color]");
+				sb.AppendLine($"[color=gold][font_size=18][b]📡 【古代通信術式復元】同時出撃枠が" +
+					$"【{resolution.SquadSlotsExpandedTo.Value}枠】に拡張された！[/b][/font_size][/color]");
 			}
 		}
 

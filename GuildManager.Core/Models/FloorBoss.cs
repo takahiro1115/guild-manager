@@ -40,5 +40,15 @@ namespace GuildManager.Core.Models
         /// </summary>
         public int RewardGold { get; set; } = 0;
         public int RewardReputation { get; set; } = 0;
+
+        /// <summary>
+        /// 確定ドロップ素材Id（2026年9月新設、→ Balance.MaterialBalance）。未設定（null）なら
+        /// 素材ドロップは無い。現時点はmaterials.csvがforestフィールド分しか定義していないため、
+        /// SampleData.CreateFieldBossesもforest（Order=1）のボスにのみ設定する（→ 03 §4.5.4）。
+        /// </summary>
+        public string? RewardMaterialId { get; set; } = null;
+
+        /// <summary>RewardMaterialIdが設定されている場合の獲得個数。RewardMaterialIdがnullなら無視される。</summary>
+        public int RewardMaterialCount { get; set; } = 0;
     }
 }

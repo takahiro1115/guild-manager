@@ -204,16 +204,22 @@ namespace GuildManager.Core.Systems
                     // 節目ボスでの出撃枠拡張）を適用する（→ 大迷宮5フィールド拡張仕様）。
                     // 撤退（Retreat）時は何も進行しない。
                     int? squadSlotsExpandedTo = null;
+                    DungeonField? fieldNewlyUnlocked = null;
                     if (assault.Outcome == DungeonOutcome.Victory)
                     {
                         int slotsBefore = state.UnlockedSquadSlots;
+                        var unlockedFieldIdsBefore = state.DungeonFields.Where(f => f.IsUnlocked).Select(f => f.Id).ToHashSet();
+
                         ApplyFieldProgression(state, boss);
+
                         if (state.UnlockedSquadSlots > slotsBefore)
                             squadSlotsExpandedTo = state.UnlockedSquadSlots;
+                        fieldNewlyUnlocked = state.DungeonFields
+                            .FirstOrDefault(f => f.IsUnlocked && !unlockedFieldIdsBefore.Contains(f.Id));
                     }
 
                     resolutions.Add(new DungeonMissionResolution(
-                        mission.Party, boss, mission.Field, intelBefore, assault, squadSlotsExpandedTo));
+                        mission.Party, boss, mission.Field, intelBefore, assault, squadSlotsExpandedTo, fieldNewlyUnlocked));
                 }
 
                 ReleaseMembers(mission.Party);
@@ -263,9 +269,11 @@ namespace GuildManager.Core.Systems
             if (field == null)
                 return; // フィールドに属さないボス（旧セーブ・テスト等）は対象外。防御的に何もしない。
 
-            // ①撃破報酬（→ FloorBoss.RewardGold/RewardReputation）。
+            // ①撃破報酬（→ FloorBoss.RewardGold/RewardReputation/RewardMaterialId・RewardMaterialCount）。
             state.Gold += defeatedBoss.RewardGold;
             state.Reputation += defeatedBoss.RewardReputation;
+            if (!string.IsNullOrEmpty(defeatedBoss.RewardMaterialId))
+                state.AddMaterial(defeatedBoss.RewardMaterialId, defeatedBoss.RewardMaterialCount);
 
             // ②最高到達階層の更新（現在値と「撃破階層+1」の大きい方、上限MaxFloor）。
             field.ReachedFloor = Math.Min(DungeonField.MaxFloor, Math.Max(field.ReachedFloor, defeatedBoss.Floor + 1));

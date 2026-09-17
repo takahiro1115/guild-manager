@@ -177,6 +177,19 @@ namespace GuildManager.Core.Data
                 int dangerLevel = Math.Clamp(1 + index / 2 + fieldEscalation, 1, 5);
                 double counterThreshold = 40 + floor * 1.5 + fieldEscalation * 30;
 
+                // 確定ドロップ素材：materials.csvが現時点forestフィールド分しか定義していないため
+                // （→ 03 §4.5.5、候補A）、forest（Order=1）のボスにのみ設定する。他フィールドは
+                // 素材ドロップ無し（null）のまま。3種を巡回させ、個数は段が進むほど緩やかに増やす。
+                string? rewardMaterialId = def.Order == 1
+                    ? (index % 3) switch
+                    {
+                        0 => MaterialIds.ForestHerb,
+                        1 => MaterialIds.ForestWood,
+                        _ => MaterialIds.ForestSpore,
+                    }
+                    : null;
+                int rewardMaterialCount = rewardMaterialId != null ? Math.Clamp(3 + index / 4, 3, 5) : 0;
+
                 bosses.Add(new FloorBoss
                 {
                     Name = tier + def.MonsterByGimmick[index % 4],
@@ -185,6 +198,8 @@ namespace GuildManager.Core.Data
                     CurrentHp = maxHp,
                     RewardGold = rewardGold,
                     RewardReputation = rewardReputation,
+                    RewardMaterialId = rewardMaterialId,
+                    RewardMaterialCount = rewardMaterialCount,
                     Gimmicks = { CreateGimmick(gimmickType, dangerLevel, counterThreshold) },
                 });
             }

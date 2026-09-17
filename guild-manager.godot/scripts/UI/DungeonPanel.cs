@@ -426,6 +426,9 @@ public partial class DungeonPanel : ScrollContainer
 		bool traveling = _selectedField != null && boss != null && _selectedField.ReachedFloor < boss.Floor;
 
 		_scoutingButton.Text = traveling ? "道中調査に出撃（深度開拓）" : "ボス調査に出撃（ギミック解析）";
+		// フィールドが完全制覇済み（boss==null）の場合は「討伐完了」表示にして、もう挑む相手が
+		// いないことを一目で分かるようにする（2026年9月新設）。
+		_assaultButton.Text = boss == null ? "討伐完了" : "ボス討伐に出撃";
 
 		string blockedReason = GetDispatchBlockedReason(boss, saved, party);
 		// 完全解析済みのボスへ調査に出しても解析率は上がらず、1週と部隊のHPを無駄にするだけなので止める

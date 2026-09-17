@@ -37,6 +37,13 @@ namespace GuildManager.Core.Systems
         /// </summary>
         public int? SquadSlotsExpandedTo { get; } = null;
 
+        /// <summary>
+        /// この撃破で新たに開放されたフィールド（2026年9月新設、→ DungeonExpeditionSystem.
+        /// ApplyFieldProgression）。開放が起きなかった撃破・撤退・調査・採取ではnull。
+        /// ボス討伐（DungeonResult）でのみ設定されうる。
+        /// </summary>
+        public DungeonField? FieldNewlyUnlocked { get; } = null;
+
         public DungeonMissionResolution(Party party, FloorBoss boss, DungeonField field, double intelRateBefore, ScoutingResult scoutingResult)
         {
             Party = party;
@@ -49,7 +56,7 @@ namespace GuildManager.Core.Systems
 
         public DungeonMissionResolution(
             Party party, FloorBoss boss, DungeonField field, double intelRateBefore, DungeonResult dungeonResult,
-            int? squadSlotsExpandedTo = null)
+            int? squadSlotsExpandedTo = null, DungeonField? fieldNewlyUnlocked = null)
         {
             Party = party;
             Boss = boss;
@@ -58,6 +65,7 @@ namespace GuildManager.Core.Systems
             IntelRateBefore = intelRateBefore;
             DungeonResult = dungeonResult;
             SquadSlotsExpandedTo = squadSlotsExpandedTo;
+            FieldNewlyUnlocked = fieldNewlyUnlocked;
         }
 
         public DungeonMissionResolution(Party party, FloorBoss boss, DungeonField field, double intelRateBefore, TraversalResult traversalResult)

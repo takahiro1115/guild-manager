@@ -403,6 +403,77 @@ namespace GuildManager.Core.Tests
             Assert.False(b.IsDispatched);
         }
 
+        // ---------------- 撃破報酬（ゴールド・名声・素材ドロップ、2026年9月新設） ----------------
+
+        [Fact]
+        public void BossDefeat_GrantsGoldReputationAndMaterials()
+        {
+            var boss = new FloorBoss
+            {
+                Name = "報酬確認用ボス", Floor = 5, MaxHp = 1, CurrentHp = 1,
+                RewardGold = 800, RewardReputation = 15,
+                RewardMaterialId = MaterialIds.ForestSpore, RewardMaterialCount = 4,
+            };
+            var field = new DungeonField { Id = "f1", Name = "テスト用フィールド", Order = 1, IsUnlocked = true, Bosses = { boss } };
+            var state = new GameState { Gold = 0, Reputation = 0, DungeonFields = { field } };
+            var strongParty = PartyOf(MakeAdventurer(JobClass.Warrior, 200), MakeAdventurer(JobClass.Cleric, 200));
+            var system = BuildSystem();
+
+            Assert.True(system.TryDispatch(state, strongParty, boss, DungeonMissionType.BossAssault));
+            var resolution = Assert.Single(system.ProcessWeeklyMissions(state));
+
+            Assert.Equal(DungeonOutcome.Victory, resolution.DungeonResult!.Outcome);
+            Assert.Equal(800, state.Gold);
+            Assert.Equal(15, state.Reputation);
+            Assert.Equal(4, state.Materials[MaterialIds.ForestSpore]);
+        }
+
+        [Fact]
+        public void BossDefeat_GeneratesRewardAndProgressionLogs()
+        {
+            // 週報ログ（MainDashboard.LogDungeonMission）はこのメソッドの戻り値
+            // （DungeonMissionResolution）だけを読んで組み立てられる。ログ文字列自体はGodot層の
+            // 責務のため、ここではログが必要とするデータ（報酬・新フィールド開放・出撃枠拡張）が
+            // すべて揃っていることを確認する。
+            var boss = new FloorBoss
+            {
+                Name = "弱いボス", Floor = 10, MaxHp = 1, CurrentHp = 1,
+                RewardGold = 300, RewardReputation = 7,
+                RewardMaterialId = MaterialIds.ForestHerb, RewardMaterialCount = 3,
+            };
+            var field1 = new DungeonField { Id = "f1", Name = "第1フィールド", Order = 1, IsUnlocked = true, Bosses = { boss } };
+            var field2 = new DungeonField { Id = "f2", Name = "第2フィールド", Order = 2, IsUnlocked = false };
+            var state = new GameState { Gold = 0, Reputation = 0, DungeonFields = { field1, field2 } };
+            var strongParty = PartyOf(MakeAdventurer(JobClass.Warrior, 200), MakeAdventurer(JobClass.Cleric, 200));
+            var system = BuildSystem();
+
+            Assert.True(system.TryDispatch(state, strongParty, boss, DungeonMissionType.BossAssault));
+            var resolution = Assert.Single(system.ProcessWeeklyMissions(state));
+
+            // 💰報奨・👑名声・📦素材（→ 週報の「報奨獲得」行）。
+            Assert.Equal(300, resolution.Boss!.RewardGold);
+            Assert.Equal(7, resolution.Boss.RewardReputation);
+            Assert.Equal(MaterialIds.ForestHerb, resolution.Boss.RewardMaterialId);
+            Assert.Equal(3, resolution.Boss.RewardMaterialCount);
+            // 🗺新フィールド開放（→ 週報の「探索域拡大」行）。
+            Assert.NotNull(resolution.FieldNewlyUnlocked);
+            Assert.Equal("第2フィールド", resolution.FieldNewlyUnlocked!.Name);
+            // 📡出撃枠拡張（→ 週報の「古代通信術式復元」行）。
+            Assert.Equal(2, resolution.SquadSlotsExpandedTo);
+        }
+
+        [Fact]
+        public void DefeatedBoss_CannotBeTargetedForAssault()
+        {
+            var (state, a, b, boss) = MakeState();
+            boss.IsDefeated = true;
+            var system = BuildSystem();
+
+            Assert.False(system.TryDispatch(state, PartyOf(a, b), boss, DungeonMissionType.BossAssault));
+            Assert.Empty(state.ActiveDungeonMissions);
+            Assert.False(a.IsDispatched);
+        }
+
         [Fact]
         public void WeekProcessingSystem_ResolvesDungeonMissions_AndStopsAutoSkipOnForcedRetirement()
         {
