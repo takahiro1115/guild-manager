@@ -108,6 +108,44 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
+        public void DungeonExpedition_SpecificFieldDispatch()
+        {
+            // 複数フィールド（森・洞窟）が存在する環境で、洞窟を指定した調査・討伐派遣が
+            // 森ではなく洞窟の進行として解決されること（→ 大迷宮フィールド選択UI仕様）。
+            var forestBoss = new FloorBoss { Name = "森のボス", Floor = 1, MaxHp = 999_999, CurrentHp = 999_999 };
+            var forest = new DungeonField { Id = "forest", Name = "森", Order = 1, IsUnlocked = true, ReachedFloor = 1, Bosses = { forestBoss } };
+
+            var caveBoss = new FloorBoss { Name = "洞窟のボス", Floor = 1, MaxHp = 1, CurrentHp = 1 };
+            var cave = new DungeonField { Id = "cave", Name = "洞窟", Order = 2, IsUnlocked = true, ReachedFloor = 1, Bosses = { caveBoss } };
+
+            var state = new GameState { DungeonFields = { forest, cave }, UnlockedSquadSlots = 2 };
+            var system = BuildSystem();
+
+            // ①調査派遣：洞窟を指定 → 洞窟のIntelRateだけが上がり、森は無傷。
+            var scoutParty = PartyOf(MakeAdventurer(JobClass.Ranger, 40), MakeAdventurer(JobClass.Scholar, 40));
+            Assert.True(system.TryDispatch(state, scoutParty, caveBoss, DungeonMissionType.Scouting));
+            var scoutResolution = Assert.Single(system.ProcessWeeklyMissions(state));
+
+            Assert.Same(caveBoss, scoutResolution.Boss);
+            Assert.NotNull(scoutResolution.ScoutingResult);
+            Assert.True(caveBoss.IntelRate > 0.0);
+            Assert.Equal(0.0, forestBoss.IntelRate);
+            Assert.Equal(1, forest.ReachedFloor); // 森は一切進行していない
+
+            // ②討伐派遣：洞窟を指定 → 洞窟のボスだけが撃破され、ReachedFloorも洞窟だけが進む。森は無傷。
+            var assaultParty = PartyOf(MakeAdventurer(JobClass.Warrior, 300), MakeAdventurer(JobClass.Knight, 300));
+            Assert.True(system.TryDispatch(state, assaultParty, caveBoss, DungeonMissionType.BossAssault));
+            var assaultResolution = Assert.Single(system.ProcessWeeklyMissions(state));
+
+            Assert.Same(caveBoss, assaultResolution.Boss);
+            Assert.Equal(DungeonOutcome.Victory, assaultResolution.DungeonResult!.Outcome);
+            Assert.True(caveBoss.IsDefeated);
+            Assert.Equal(2, cave.ReachedFloor); // defeatedBoss.Floor(1) + 1
+            Assert.False(forestBoss.IsDefeated);
+            Assert.Equal(1, forest.ReachedFloor); // 森は依然として無傷
+        }
+
+        [Fact]
         public void TryCancel_ReleasesMembers_AndFreesTheSlot()
         {
             var (state, a, b, boss) = MakeState();

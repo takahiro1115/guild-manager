@@ -24,6 +24,7 @@ using GuildManager.Core.Systems;
 /// </summary>
 public partial class DungeonPanel : ScrollContainer
 {
+	private OptionButton _fieldOptionButton = null!;
 	private RichTextLabel _progressLabel = null!;
 	private RichTextLabel _bossHeaderLabel = null!;
 	private ProgressBar _intelProgressBar = null!;
@@ -50,6 +51,16 @@ public partial class DungeonPanel : ScrollContainer
 	/// </summary>
 	private Guid? _selectedPartyId;
 
+	/// <summary>
+	/// 選択中のダンジョン（フィールド）のId（→ 大迷宮フィールド選択UI仕様）。
+	/// _selectedPartyIdと同じ理由でIdで覚えておく。nullは「未選択（初回表示前）」を表し、
+	/// その場合はRefreshFieldOptionsがアクティブフィールド（GetActiveField）を既定選択にする。
+	/// </summary>
+	private string _selectedFieldId;
+
+	/// <summary>選択中のフィールドの実体（_selectedFieldIdから毎回引き直す代わりにキャッシュしておく）。</summary>
+	private DungeonField _selectedField;
+
 	/// <summary>週報ログ（右ペイン）への追記を依頼する（BBCode文字列）。</summary>
 	public event Action<string> LogRequested = delegate { };
 
@@ -58,6 +69,7 @@ public partial class DungeonPanel : ScrollContainer
 
 	public override void _Ready()
 	{
+		_fieldOptionButton = GetNode<OptionButton>("%FieldOptionButton");
 		_progressLabel = GetNode<RichTextLabel>("%ProgressLabel");
 		_bossHeaderLabel = GetNode<RichTextLabel>("%BossHeaderLabel");
 		_intelProgressBar = GetNode<ProgressBar>("%IntelProgressBar");
@@ -78,6 +90,7 @@ public partial class DungeonPanel : ScrollContainer
 		_intelProgressBar.MinValue = 0;
 		_intelProgressBar.MaxValue = 100;
 
+		_fieldOptionButton.ItemSelected += OnFieldSelected;
 		_partyOptionButton.ItemSelected += OnPartySelected;
 		_scoutingButton.Pressed += () => OnDispatchPressed(DungeonMissionType.Scouting);
 		_assaultButton.Pressed += () => OnDispatchPressed(DungeonMissionType.BossAssault);
@@ -96,12 +109,75 @@ public partial class DungeonPanel : ScrollContainer
 	{
 		_state = state;
 
-		var boss = _state.GetCurrentFloorBoss();
+		RefreshFieldOptions();
+		var boss = _selectedField?.GetNextActiveBoss();
 		RefreshProgress(boss);
 		RefreshBossInfo(boss);
 		RefreshPartyOptions();
 		RefreshDispatchSection(boss);
 		RefreshPendingMissions();
+	}
+
+	// ==================== ダンジョン（フィールド）選択 ====================
+
+	/// <summary>
+	/// ダンジョン選択ドロップダウン。state.DungeonFieldsをOrder順に並べ、未開放のフィールドは
+	/// 「？？？（未開放）」と表示して選択不可にする。既定選択はアクティブフィールド
+	/// （開放済みかつ未制覇の最も若いOrder、→ GameState.GetActiveField）。
+	/// 一度プレイヤーが選び直したフィールドは、そのIdが有効な限り週送りをまたいで維持する
+	/// （_selectedPartyIdと同じ流儀）。
+	/// </summary>
+	private void RefreshFieldOptions()
+	{
+		var fields = _state.DungeonFields.OrderBy(f => f.Order).ToList();
+		_fieldOptionButton.Clear();
+
+		if (fields.Count == 0)
+		{
+			_selectedField = null;
+			_selectedFieldId = null;
+			return;
+		}
+
+		// 全フィールド制覇済み（GetActiveFieldがnull）の場合は、最も深いフィールドを既定にする
+		// （踏破済みの様子を確認できるようにするため）。
+		string defaultFieldId = _state.GetActiveField()?.Id
+			?? fields.LastOrDefault(f => f.IsUnlocked)?.Id
+			?? fields[0].Id;
+
+		int selectIndex = 0;
+		for (int i = 0; i < fields.Count; i++)
+		{
+			var field = fields[i];
+			_fieldOptionButton.AddItem(field.IsUnlocked
+				? $"{field.Name}（到達: {field.ReachedFloor}/{DungeonField.MaxFloor}F）"
+				: "？？？（未開放）");
+			_fieldOptionButton.SetItemDisabled(i, !field.IsUnlocked);
+
+			bool isKeptSelection = _selectedFieldId != null && field.Id == _selectedFieldId && field.IsUnlocked;
+			bool isDefaultSelection = _selectedFieldId == null && field.Id == defaultFieldId;
+			if (isKeptSelection || isDefaultSelection)
+				selectIndex = i;
+		}
+
+		_fieldOptionButton.Select(selectIndex);
+		_selectedField = fields[selectIndex];
+		_selectedFieldId = _selectedField.Id;
+	}
+
+	private void OnFieldSelected(long index)
+	{
+		var fields = _state.DungeonFields.OrderBy(f => f.Order).ToList();
+		if (index < 0 || index >= fields.Count || !fields[(int)index].IsUnlocked)
+			return; // 未開放の項目はSetItemDisabledで選択自体をブロックしているが、念のため防御しておく
+
+		_selectedField = fields[(int)index];
+		_selectedFieldId = _selectedField.Id;
+
+		var boss = _selectedField.GetNextActiveBoss();
+		RefreshProgress(boss);
+		RefreshBossInfo(boss);
+		RefreshDispatchSection(boss);
 	}
 
 	// ==================== 表示：踏破状況・ボス情報 ====================
@@ -111,16 +187,18 @@ public partial class DungeonPanel : ScrollContainer
 		var allBosses = _state.DungeonFields.SelectMany(f => f.Bosses).ToList();
 		int total = allBosses.Count;
 		int cleared = allBosses.Count(b => b.IsDefeated);
-		var activeField = _state.GetActiveField();
 
 		_progressLabel.Clear();
 		if (total == 0)
 			_progressLabel.AppendText("[color=gray]大迷宮の情報がまだ届いていない。[/color]");
-		else if (boss == null || activeField == null)
-			_progressLabel.AppendText($"[color=gold][b]🏆 大迷宮の全{total}層を踏破した！[/b][/color]");
+		else if (_selectedField == null)
+			_progressLabel.AppendText("[color=gray]表示できるダンジョンがない。[/color]");
+		else if (boss == null)
+			_progressLabel.AppendText($"[color=gold][b]🏆 {_selectedField.Name}は完全踏破された！" +
+				$"（{_selectedField.ReachedFloor}/{DungeonField.MaxFloor}F）[/b][/color]　全体 {cleared}/{total}層踏破");
 		else
-			_progressLabel.AppendText($"[b]大迷宮 踏破状況[/b]：{activeField.Name}（第{boss.Floor}層に挑戦中／" +
-				$"到達{activeField.ReachedFloor}/{DungeonField.MaxFloor}層）　全体 {cleared}/{total}層踏破");
+			_progressLabel.AppendText($"[b]{_selectedField.Name}[/b]：第{boss.Floor}層に挑戦中／" +
+				$"到達{_selectedField.ReachedFloor}/{DungeonField.MaxFloor}層　全体 {cleared}/{total}層踏破");
 	}
 
 	/// <summary>
@@ -140,7 +218,9 @@ public partial class DungeonPanel : ScrollContainer
 
 		if (boss == null)
 		{
-			_bossHeaderLabel.AppendText("[color=gray]挑むべき階層ボスはいない。[/color]");
+			_bossHeaderLabel.AppendText(_selectedField != null
+				? $"[color=gold][b]🏆 このダンジョンは完全踏破されました（{_selectedField.ReachedFloor}/{DungeonField.MaxFloor}F）。[/b][/color]"
+				: "[color=gray]挑むべき階層ボスはいない。[/color]");
 			_intelProgressBar.Value = 0;
 			_intelPercentLabel.Text = "-";
 			_completeBadgeLabel.Visible = false;
@@ -282,13 +362,22 @@ public partial class DungeonPanel : ScrollContainer
 			? _state.SavedParties[(int)index - 1].Id
 			: null;
 
-		RefreshDispatchSection(_state.GetCurrentFloorBoss());
+		RefreshDispatchSection(_selectedField?.GetNextActiveBoss());
 	}
 
 	private SavedParty SelectedSavedParty() =>
 		_selectedPartyId.HasValue ? _state.SavedParties.FirstOrDefault(p => p.Id == _selectedPartyId.Value) : null;
 
-	/// <summary>選択中の部隊のメンバー・調査の見立て・討伐の対策充足状況と、出撃ボタンの可否を更新する。</summary>
+	/// <summary>
+	/// 選択中の部隊のメンバー・調査の見立て・討伐の対策充足状況と、出撃ボタンの可否を更新する。
+	///
+	/// 調査ボタンの表示・挙動は、選択中フィールドの到達階層とボスの階層の関係で分岐する
+	/// （→ 大迷宮フィールド選択UI仕様）：
+	///  - 道中進行中（ReachedFloor &lt; boss.Floor）：「道中調査に出撃（深度開拓）」。
+	///    走破力の見立てを表示し、討伐ボタンは非活性（まだボスに到達していないため）。
+	///  - ボスフロア到達（ReachedFloor == boss.Floor）：「ボス調査に出撃（ギミック解析）」。
+	///    従来どおり隠密・解析の見立てと対策充足状況を表示する。
+	/// </summary>
 	private void RefreshDispatchSection(FloorBoss boss)
 	{
 		_partyMembersLabel.Clear();
@@ -300,18 +389,26 @@ public partial class DungeonPanel : ScrollContainer
 
 		var saved = SelectedSavedParty();
 		var party = saved == null ? new Party() : PartyFormationSystem.BuildDispatchParty(_state, saved.MemberIds);
+		bool traveling = _selectedField != null && boss != null && _selectedField.ReachedFloor < boss.Floor;
+
+		_scoutingButton.Text = traveling ? "道中調査に出撃（深度開拓）" : "ボス調査に出撃（ギミック解析）";
 
 		string blockedReason = GetDispatchBlockedReason(boss, saved, party);
-		// 完全解析済みのボスへ調査に出しても解析率は上がらず、1週と部隊のHPを無駄にするだけなので止める。
-		bool fullyAnalyzed = boss != null && ScoutingResolver.GetTier(boss.IntelRate) == IntelTier.Complete;
+		// 完全解析済みのボスへ調査に出しても解析率は上がらず、1週と部隊のHPを無駄にするだけなので止める
+		// （道中進行中は解析率自体に触れないため、この抑止は対象外）。
+		bool fullyAnalyzed = !traveling && boss != null && ScoutingResolver.GetTier(boss.IntelRate) == IntelTier.Complete;
 		_scoutingButton.Disabled = blockedReason != null || fullyAnalyzed;
-		_assaultButton.Disabled = blockedReason != null;
+		// 討伐ボタンは、道中進行中（＝まだボスに到達していない）は常に非活性。
+		_assaultButton.Disabled = blockedReason != null || traveling;
+
 		if (blockedReason != null)
 			_dispatchStatusLabel.AppendText($"[color=gray]{blockedReason}[/color]");
 		else if (fullyAnalyzed)
 			_dispatchStatusLabel.AppendText("[color=gray]完全解析済みのため、これ以上の調査は不要。[/color]");
+		else if (traveling)
+			_assaultButton.TooltipText = "この階層のボスにはまだ到達していない。道中調査で先へ進もう。";
 
-		if (saved == null || party.IsEmpty || boss == null)
+		if (saved == null || party.IsEmpty || boss == null || _selectedField == null)
 			return;
 
 		_partyMembersLabel.AppendText("出撃メンバー：" +
@@ -320,8 +417,15 @@ public partial class DungeonPanel : ScrollContainer
 		if (waiting.Count > 0)
 			_partyMembersLabel.AppendText($"\n[color=gray]出撃できない：{string.Join("、", waiting.Select(m => m.Name))}[/color]");
 
-		RefreshScoutingForecast(boss, party);
-		RefreshCountermeasures(boss, party);
+		if (traveling)
+		{
+			RefreshTraversalForecast(_selectedField, party);
+		}
+		else
+		{
+			RefreshScoutingForecast(boss, party);
+			RefreshCountermeasures(boss, party);
+		}
 	}
 
 	/// <summary>出撃できない理由（出撃できるならnull）。</summary>
@@ -369,6 +473,34 @@ public partial class DungeonPanel : ScrollContainer
 			$"隠密の総合値（AGI+DEX合計＋部隊長LDR補正）：{stealth:F0}\n" +
 			$"解析の総合値（INT合計）：{analysis:F0}\n" +
 			"調査は低リスク：HPは減っても強制除籍にはならない。";
+	}
+
+	/// <summary>
+	/// 道中調査の見立て。部隊の走破力（AGI+DEX）の総合値を示し、進み具合の見込みは
+	/// 定性表現にとどめる（要求値は出さない、→ DungeonTraversalResolver）。
+	/// </summary>
+	private void RefreshTraversalForecast(DungeonField field, Party party)
+	{
+		double score = DungeonTraversalResolver.CalculateTraversalScore(party);
+		double requirement = DungeonTraversalResolver.CurrentFloorRequirement(field);
+		double ratio = requirement <= 0 ? double.MaxValue : score / requirement;
+		var rank = DungeonTraversalResolver.ClassifyRatio(ratio);
+
+		string rankView = rank switch
+		{
+			TraversalRank.Lightning => "[color=lime]電撃的に奥まで進めそうだ[/color]",
+			TraversalRank.Swift => "[color=cyan]迅速に奥へ進めそうだ[/color]",
+			TraversalRank.Normal => "[color=cyan]着実に奥へ進めそうだ[/color]",
+			_ => "[color=orange]手こずりながらも、少しは奥へ進めるだろう[/color]",
+		};
+
+		_scoutingForecastLabel.AppendText(
+			$"[b]道中調査の見立て[/b]　走破力（AGI+DEX）：{score:F0}　→ {rankView}\n" +
+			"[color=gray]未撃破のボス階層に到達すると、そこで足止めになる。[/color]");
+
+		_scoutingButton.TooltipText =
+			$"走破力の総合値（AGI+DEX合計＋部隊長LDR補正）：{score:F0}\n" +
+			"道中調査は低リスク：HPは減っても強制除籍にはならない。";
 	}
 
 	/// <summary>
@@ -429,7 +561,10 @@ public partial class DungeonPanel : ScrollContainer
 
 	private void OnDispatchPressed(DungeonMissionType missionType)
 	{
-		var boss = _state.GetCurrentFloorBoss();
+		// 現在パネルで選択中のフィールドを対象に派遣する（→ 大迷宮フィールド選択UI仕様）。
+		// アクティブフィールド（GetCurrentFloorBoss）固定ではなく、開放済みならどのフィールドへも
+		// プレイヤーが選んで出撃を指示できる。
+		var boss = _selectedField?.GetNextActiveBoss();
 		var saved = SelectedSavedParty();
 		if (boss == null || saved == null || _expeditionSystem == null)
 			return;
