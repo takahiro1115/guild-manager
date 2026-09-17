@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Text.Json;
+using GuildManager.Core.Balance;
 using GuildManager.Core.Data;
 using GuildManager.Core.Models;
 using GuildManager.Core.Rng;
@@ -358,6 +359,9 @@ namespace GuildManager.Core.Tests
         {
             // DungeonFieldTests は ApplyFieldProgression を直接呼ぶ単体テストだが、
             // 実際のゲームプレイ経路（出撃→週次決算での自動解決）からも正しく呼ばれることを確認する。
+            // field1のOrder==1・Floor==10のため、報酬付与に加えて出撃枠拡張（→ 「古代エルフの
+            // 多頭通信術式」復元）も同時に発生する（→ Defeating_Forest_10F_Boss_Unlocks_Slot2_And_NextField
+            // と同じ経路。ここではTryDispatch→ProcessWeeklyMissionsの実際の配線を確認する）。
             var boss = new FloorBoss { Name = "弱いボス", Floor = 10, MaxHp = 1, CurrentHp = 1, RewardGold = 300, RewardReputation = 7 };
             var field1 = new DungeonField { Id = "f1", Name = "第1フィールド", Order = 1, IsUnlocked = true, Bosses = { boss } };
             var field2 = new DungeonField { Id = "f2", Name = "第2フィールド", Order = 2, IsUnlocked = false };
@@ -374,7 +378,12 @@ namespace GuildManager.Core.Tests
             Assert.Equal(11, field1.ReachedFloor);
             Assert.True(field2.IsUnlocked); // Floor==10撃破で次フィールドが自動的に開く
             Assert.Equal(300, state.Gold);
-            Assert.Equal(7, state.Reputation);
+            // 名声：報酬7が先に加算された後、出撃枠拡張の名声同期（→ Rank Eの昇格ラインまで
+            // 引き上げ）で上書きされる（Math.Maxのため、報酬7より確実に大きい）。
+            Assert.Equal(GuildRankBalance.GetThreshold(GuildRank.E).PromoteAt, state.Reputation);
+            Assert.Equal(2, state.UnlockedSquadSlots);
+            Assert.True(state.GuildRank >= GuildRank.E);
+            Assert.Equal(2, resolution.SquadSlotsExpandedTo);
         }
 
         [Fact]
@@ -428,11 +437,11 @@ namespace GuildManager.Core.Tests
             // 後方互換性テスト：GetCurrentFloorBoss()は GetActiveField()?.GetNextActiveBoss() の
             // 薄いラッパーになったが、呼び出し側から見た挙動（最も浅い未撃破階層を返す）は変わらない。
             var state = new GameState { DungeonFields = SampleData.CreateDefaultFields() };
-            Assert.Equal(5, state.GetCurrentFloorBoss()!.Floor); // 森の最初のボスは5階
+            Assert.Equal(10, state.GetCurrentFloorBoss()!.Floor); // 森の最初のボスは10階（→ BossIntervalFloors）
 
             var forest = state.DungeonFields.Single(f => f.Order == 1);
-            forest.Bosses.Single(b => b.Floor == 5).IsDefeated = true;
-            Assert.Equal(10, state.GetCurrentFloorBoss()!.Floor);
+            forest.Bosses.Single(b => b.Floor == 10).IsDefeated = true;
+            Assert.Equal(20, state.GetCurrentFloorBoss()!.Floor);
 
             foreach (var boss in forest.Bosses) boss.IsDefeated = true;
             // 森は制覇済みだが、洞窟（第2フィールド）はまだ開放されていないため攻略対象がない。
@@ -445,7 +454,7 @@ namespace GuildManager.Core.Tests
             // 携行アイテムをUIから持ち込む手段がまだ無いため、アイテムだけが対策口のギミックは攻略不能になる。
             var bosses = SampleData.CreateDefaultFields().SelectMany(f => f.Bosses).ToList();
 
-            Assert.Equal(100, bosses.Count); // 5フィールド × 20体
+            Assert.Equal(50, bosses.Count); // 5フィールド × 10体（→ BAL: dungeon.csv BossIntervalFloors）
             Assert.All(bosses.SelectMany(b => b.Gimmicks), g =>
                 Assert.True(g.RequiredCounterRole.HasValue || !string.IsNullOrEmpty(g.RequiredCounterStat)));
             Assert.All(bosses, b => Assert.Equal(b.MaxHp, b.CurrentHp));

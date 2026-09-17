@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using GuildManager.Core.Balance;
 using GuildManager.Core.Models;
 
 namespace GuildManager.Core.Data
@@ -111,9 +112,10 @@ namespace GuildManager.Core.Data
 
         /// <summary>
         /// 大迷宮の全5フィールド（→ DungeonField・大迷宮5フィールド拡張仕様）。新規ゲーム開始時に
-        /// GameState.DungeonFields へ設定する。各フィールドは5〜100階（5階刻み・計20体）の
-        /// 階層ボスを持つ。初期状態で開放済みなのは第1フィールド（森）のみ
-        /// （→ DungeonField.IsUnlocked、DungeonExpeditionSystem.ApplyFieldProgressionが順次開放する）。
+        /// GameState.DungeonFields へ設定する。各フィールドは10〜100階（→ BAL: dungeon.csv
+        /// BossIntervalFloors刻み・計10体）の階層ボスを持つ。初期状態で開放済みなのは
+        /// 第1フィールド（森）のみ（→ DungeonField.IsUnlocked、
+        /// DungeonExpeditionSystem.ApplyFieldProgressionが順次開放する）。
         ///
         /// 設計方針：どのギミックにも「職業」または「ステータス合算」の対策口を必ず持たせる。
         /// 携行アイテム（→ ConsumableCatalog）はUIからの持ち込み手段がまだ無いため、
@@ -142,24 +144,38 @@ namespace GuildManager.Core.Data
             }).ToList();
         }
 
-        /// <summary>1フィールド分の20体（5, 10, ..., 100階）を生成する。</summary>
+        /// <summary>
+        /// 1フィールド分の10体（10, 20, ..., 100階、→ BAL: dungeon.csv BossIntervalFloors）を生成する。
+        ///
+        /// HP・報酬ゴールド・名声は「段」（このフィールド内での何体目か＋フィールド順による格上げ）を
+        /// 指数としてCSV係数で滑らかにスケールさせる（→ BAL: dungeon.csv
+        /// BossBaseHp/BossHpFloorMultiplier/BossBaseRewardGold/BossBaseReputation/BossRewardGoldMultiplier）。
+        /// 森（Order=1）の10Fボス（段1）が基準値そのものになる。
+        /// </summary>
         private static List<FloorBoss> CreateFieldBosses(FieldDefinition def)
         {
             var bosses = new List<FloorBoss>();
 
             for (int floor = DungeonField.BossInterval; floor <= DungeonField.MaxFloor; floor += DungeonField.BossInterval)
             {
-                int index = floor / DungeonField.BossInterval - 1; // 0〜19
-                var gimmickType = (BossGimmickType)(index % 4); // Poison→HeavyArmor→Flying→InstantKillの順に循環
-                string tier = GimmickTierPrefix(index / 4); // 4体ごとに強さの形容を変える（若き→…→災厄の）
+                int index = floor / DungeonField.BossInterval - 1; // 0〜9
                 int fieldEscalation = def.Order - 1; // フィールドが深いほど全体的に格上げ
 
-                // HP・危険度・報酬は階層×フィールド順で滑らかに増える暫定式（→ 04_バランス表化はpost-MVP）。
-                int maxHp = 300 * floor + 3000 * fieldEscalation;
-                int dangerLevel = Math.Clamp(1 + index / 4 + fieldEscalation, 1, 5);
+                // ボス数が20体→10体になったため、強さの形容（5段階）・危険度の刻みも
+                // 半分の間隔（2体ごと）に合わせて縮める（→ GimmickTierPrefix。旧モデルは4体ごと）。
+                var gimmickType = (BossGimmickType)(index % 4); // Poison→HeavyArmor→Flying→InstantKillの順に循環
+                string tier = GimmickTierPrefix(index / 2); // 2体ごとに強さの形容を変える（若き→…→災厄の）
+
+                // HP・報酬ゴールド・名声：段（index＋fieldEscalation）を指数にCSV係数で乗算する。
+                int stageExponent = index + fieldEscalation;
+                double hpMultiplier = Math.Pow(DungeonBalance.BossHpFloorMultiplier, stageExponent);
+                double rewardMultiplier = Math.Pow(DungeonBalance.BossRewardGoldMultiplier, stageExponent);
+                int maxHp = (int)Math.Round(DungeonBalance.BossBaseHp * hpMultiplier);
+                int rewardGold = (int)Math.Round(DungeonBalance.BossBaseRewardGold * rewardMultiplier);
+                int rewardReputation = Math.Max(1, (int)Math.Round(DungeonBalance.BossBaseReputation * rewardMultiplier));
+
+                int dangerLevel = Math.Clamp(1 + index / 2 + fieldEscalation, 1, 5);
                 double counterThreshold = 40 + floor * 1.5 + fieldEscalation * 30;
-                int rewardGold = 100 * floor + 500 * fieldEscalation;
-                int rewardReputation = Math.Max(1, floor / 5) + 2 * fieldEscalation;
 
                 bosses.Add(new FloorBoss
                 {

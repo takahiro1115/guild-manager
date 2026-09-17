@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using GuildManager.Core.Balance;
 using GuildManager.Core.Models;
 using GuildManager.Core.Rng;
 
@@ -199,12 +200,20 @@ namespace GuildManager.Core.Systems
                     var assault = _dungeonResolver.Resolve(mission.Party, boss);
                     ApplyForcedRetirements(state, mission.Party, assault.ForceRetiredAdventurerIds);
 
-                    // 撃破成功時のみ、フィールドの進行（最高到達階層・次フィールド開放・報酬）を適用する
-                    // （→ 大迷宮5フィールド拡張仕様）。撤退（Retreat）時は何も進行しない。
+                    // 撃破成功時のみ、フィールドの進行（最高到達階層・次フィールド開放・報酬・
+                    // 節目ボスでの出撃枠拡張）を適用する（→ 大迷宮5フィールド拡張仕様）。
+                    // 撤退（Retreat）時は何も進行しない。
+                    int? squadSlotsExpandedTo = null;
                     if (assault.Outcome == DungeonOutcome.Victory)
+                    {
+                        int slotsBefore = state.UnlockedSquadSlots;
                         ApplyFieldProgression(state, boss);
+                        if (state.UnlockedSquadSlots > slotsBefore)
+                            squadSlotsExpandedTo = state.UnlockedSquadSlots;
+                    }
 
-                    resolutions.Add(new DungeonMissionResolution(mission.Party, boss, mission.Field, intelBefore, assault));
+                    resolutions.Add(new DungeonMissionResolution(
+                        mission.Party, boss, mission.Field, intelBefore, assault, squadSlotsExpandedTo));
                 }
 
                 ReleaseMembers(mission.Party);
@@ -245,7 +254,8 @@ namespace GuildManager.Core.Systems
         /// 順序：①撃破報酬の付与 → ②最高到達階層の更新 → ③次フィールドの開放判定
         /// （10Fボス撃破→Order+1を開放。ただし開放先はOrder 2〜4に限る＝深淵はこの経路では開かない）
         /// → ④深淵（Order 5）の開放判定（Order 1〜4すべてで20Fボスが撃破済みになった時点） →
-        /// ⑤最終フィールド（Orderが最大＝深淵）の100Fボス撃破でFinalQuestUnlockedを立てる。
+        /// ⑤最終フィールド（Orderが最大＝深淵）の100Fボス撃破でFinalQuestUnlockedを立てる →
+        /// ⑥森（Order=1）の節目ボス撃破による出撃枠拡張（「古代エルフ通信技術の復元」）。
         /// </summary>
         public static void ApplyFieldProgression(GameState state, FloorBoss defeatedBoss)
         {
@@ -288,6 +298,33 @@ namespace GuildManager.Core.Systems
             var finalField = state.DungeonFields.OrderByDescending(f => f.Order).FirstOrDefault();
             if (finalField != null && field == finalField && defeatedBoss.Floor == DungeonField.MaxFloor)
                 state.FinalQuestUnlocked = true;
+
+            // ⑥出撃枠拡張（「古代エルフの多頭通信術式」復元、→ 大迷宮ボス間隔・敗北条件改訂）。
+            // 森（Order=1）の節目ボス撃破のみが対象：10F撃破で2枠・Rank E相当、
+            // 20F撃破で3枠・Rank D相当まで引き上げる（既に到達値以上ならダウングレードしない）。
+            if (field.Order == 1)
+            {
+                if (defeatedBoss.Floor == 10)
+                    SyncSquadSlotsAndRank(state, targetSlots: 2, targetRank: GuildRank.E);
+                else if (defeatedBoss.Floor == 20)
+                    SyncSquadSlotsAndRank(state, targetSlots: 3, targetRank: GuildRank.D);
+            }
+        }
+
+        /// <summary>
+        /// 出撃枠とギルド格付け・名声を目標値まで引き上げる（下げない）。
+        /// GuildProgressionSystem.ApplyPromotionIfExamClearedと同じパターン：ランクは
+        /// 「名声から導出される」値であり、週次決算の降格判定が毎週走るため、ランクだけを
+        /// 書き換えると次の決算で名声不足と判定され引き戻されてしまう。名声自体を目標ランクの
+        /// 昇格ラインまで引き上げることで、単一の真実（名声→ランク）を保ったまま昇格を成立させる。
+        /// </summary>
+        private static void SyncSquadSlotsAndRank(GameState state, int targetSlots, GuildRank targetRank)
+        {
+            state.UnlockedSquadSlots = Math.Max(state.UnlockedSquadSlots, targetSlots);
+
+            if (state.GuildRank < targetRank)
+                state.GuildRank = targetRank;
+            state.Reputation = Math.Max(state.Reputation, GuildRankBalance.GetThreshold(targetRank).PromoteAt);
         }
 
         private static void ReleaseMembers(Party party)

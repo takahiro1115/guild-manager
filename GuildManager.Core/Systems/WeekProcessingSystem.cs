@@ -200,14 +200,15 @@ namespace GuildManager.Core.Systems
             result.RankChange = _guildRankSystem.ProcessWeeklySettlement(state, achievedRankAppropriateQuestThisWeek);
             result.Flags.FinalQuestNewlyUnlocked = !wasFinalQuestUnlocked && state.FinalQuestUnlocked;
 
-            // 脅威度が75%・100%の閾値を今週新たに跨いだか（→ 03 §1.3自動スキップ停止条件6）。
+            // 脅威度が75%の閾値を今週新たに跨いだか（→ 03 §1.3自動スキップ停止条件6）。
             // 既に閾値を超えたまま変化がない週では発火させない。
+            // 治安崩壊（旧100%閾値）は敗北条件から撤廃済みのため、ここでの判定対象からも外した
+            // （→ DefeatSystem・経営破綻への一本化改訂）。
             result.Flags.ThreatThresholdNewlyCrossed =
-                (threatBefore < SecurityBalance.SubsidyCutThreatThreshold && state.ThreatLevel >= SecurityBalance.SubsidyCutThreatThreshold) ||
-                (threatBefore < SecurityBalance.SecurityCollapseThreshold && state.ThreatLevel >= SecurityBalance.SecurityCollapseThreshold);
+                threatBefore < SecurityBalance.SubsidyCutThreatThreshold && state.ThreatLevel >= SecurityBalance.SubsidyCutThreatThreshold;
 
             // 敗北条件判定（→ 03 §8.3）：週次決算の最後に1回だけ行う。
-            // 破産（所持金マイナス4週連続、猶予あり）／治安崩壊（脅威度100%到達、猶予なし即時敗北）。
+            // 破産（所持金マイナス4週連続、猶予あり）のみが唯一の敗北条件（→ DefeatSystem）。
             result.NewDefeatReason = _defeatSystem.ProcessWeeklySettlement(state);
             result.Flags.DefeatOccurred = result.NewDefeatReason != null;
 

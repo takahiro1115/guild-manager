@@ -6,13 +6,15 @@ namespace GuildManager.Core.Systems
     /// <summary>
     /// 敗北条件の判定。仕様書 03 §8.3 参照。
     ///
-    /// - 破産：所持金マイナスが4週連続で解消されない（4週間の猶予あり）。
-    /// - 治安崩壊：脅威度が100%に到達した週の決算時点で、猶予なく即時敗北
-    ///   （破産のような連続週数のカウントは行わない）。
+    /// - 破産：所持金マイナスが4週連続で解消されない（4週間の猶予あり）。これが唯一の敗北条件。
     ///
-    /// 事前調査メモ：敗北条件そのものの実装はこれまで存在しなかった
-    /// （docs/03 §8.3に記述はあったが未接続。docs/06タスクリストでも
-    /// 「治安（脅威度）と敗北条件」は本改訂まで未着手だった）。
+    /// 治安崩壊（脅威度100%到達による即時敗北）は撤廃済み（→ 経営破綻への一本化改訂）。
+    /// 指示書は本改訂の対象ファイルを WeekProcessingSystem.cs・GameState.cs としていたが、
+    /// 実際の敗北判定ロジックはこの DefeatSystem.cs 1箇所に集約されているため、
+    /// （両ファイルに敗北判定の分岐は存在しない）ここを直接修正した。
+    /// `DefeatReason.SecurityCollapse` 自体は列挙子として削除していない：この理由で既に
+    /// 敗北していた旧セーブをロードした際、ParseEnumが未知の値で例外を投げないようにするため
+    /// （→ 03 §12のセーブ互換性方針）。新規にこの理由で敗北が確定することはもう無い。
     /// </summary>
     public class DefeatSystem
     {
@@ -35,12 +37,6 @@ namespace GuildManager.Core.Systems
             {
                 state.DefeatReason = DefeatReason.Bankruptcy;
                 return DefeatReason.Bankruptcy;
-            }
-
-            if (state.ThreatLevel >= SecurityBalance.SecurityCollapseThreshold)
-            {
-                state.DefeatReason = DefeatReason.SecurityCollapse;
-                return DefeatReason.SecurityCollapse;
             }
 
             return null;

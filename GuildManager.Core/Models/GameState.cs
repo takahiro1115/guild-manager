@@ -159,8 +159,12 @@ namespace GuildManager.Core.Models
         public int WeeksSinceLastRankAppropriateQuest { get; set; } = 0;
 
         /// <summary>
-        /// 治安の脅威度（0〜100。仕様書 03 §4.4・§8.3）。討伐クエストの放置・失敗で上昇、
-        /// 達成で減少する。75%超で月次助成金50%カット、100%到達で即時敗北。
+        /// 治安の脅威度（0〜100。仕様書 03 §4.4）。討伐クエストの達成で減少する。
+        /// 75%超で月次助成金50%カット（→ SubsidySystem）。
+        /// 「100%到達で即時敗北（治安崩壊）」は撤廃済み（→ Systems.DefeatSystem、
+        /// 経営破綻＝資金ショートのみへの一本化改訂）。「未出撃週の放置による上昇」も
+        /// 同改訂で無効化されている（→ Systems.SecuritySystem.ApplyAbandonedQuest）。
+        /// フィールド自体は月次助成金カット判定に使い続けるため残してある。
         /// </summary>
         public int ThreatLevel { get; set; } = SecurityBalance.InitialThreatLevel;
 

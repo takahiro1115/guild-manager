@@ -68,9 +68,12 @@ namespace GuildManager.Core.Tests
         }
 
         // ---------------- ApplyAbandonedQuest：放置（期限切れ） ----------------
+        // 治安崩壊（脅威度100%到達）を敗北条件から撤廃した改訂に伴い、「未出撃週の治安悪化」
+        // ロジック（放置による脅威度上昇）自体を無効化した。討伐・調査を問わず常に0を返し、
+        // ThreatLevelには一切触れない（→ SecuritySystem.ApplyAbandonedQuest）。
 
         [Fact]
-        public void ApplyAbandonedQuest_IncreasesThreat_ForSubjugation()
+        public void ApplyAbandonedQuest_NoLongerIncreasesThreat_ForSubjugation()
         {
             var state = new GameState { ThreatLevel = 10 };
             var quest = new Quest { QuestType = QuestType.Subjugation };
@@ -78,8 +81,8 @@ namespace GuildManager.Core.Tests
 
             int delta = system.ApplyAbandonedQuest(state, quest);
 
-            Assert.Equal(SecurityBalance.ThreatIncreaseMax, delta);
-            Assert.Equal(10 + SecurityBalance.ThreatIncreaseMax, state.ThreatLevel);
+            Assert.Equal(0, delta);
+            Assert.Equal(10, state.ThreatLevel);
         }
 
         [Fact]

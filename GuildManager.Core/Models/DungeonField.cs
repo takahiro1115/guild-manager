@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using GuildManager.Core.Balance;
 
 namespace GuildManager.Core.Models
 {
@@ -8,7 +9,7 @@ namespace GuildManager.Core.Models
     ///
     /// 単一のダンジョンだった旧モデル（→ FloorBoss・SampleData.CreateFloorBosses、
     /// v2.0時点で撤去済み）を、5フィールド×各100階層のモデルへ拡張したもの。
-    /// 各フィールドは5階ごとに階層ボスを配置する（→ Bosses、計20体）。
+    /// 各フィールドは BossInterval 階ごとに階層ボスを配置する（→ Bosses）。
     ///
     /// 開放条件・最高到達階層の更新は本クラス自身ではなく
     /// Systems.DungeonExpeditionSystem.ApplyFieldProgression が担う
@@ -19,8 +20,11 @@ namespace GuildManager.Core.Models
         /// <summary>全フィールド共通の最大階層。</summary>
         public const int MaxFloor = 100;
 
-        /// <summary>階層ボスを配置する間隔（5階ごと）。</summary>
-        public const int BossInterval = 5;
+        /// <summary>
+        /// 階層ボスを配置する間隔（→ BAL: dungeon.csv BossIntervalFloors、10階ごと）。
+        /// CSV外部化に伴い const ではなく static readonly（→ DungeonBalance.BossIntervalFloors）。
+        /// </summary>
+        public static readonly int BossInterval = DungeonBalance.BossIntervalFloors;
 
         public string Id { get; set; } = "";
         public string Name { get; set; } = "";

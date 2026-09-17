@@ -31,6 +31,12 @@ namespace GuildManager.Core.Systems
         public TraversalResult? TraversalResult { get; }
         public GatheringResult? GatheringResult { get; }
 
+        /// <summary>
+        /// この撃破で同時出撃枠が拡張された場合、拡張後の枠数（→ 「古代エルフ通信技術の復元」）。
+        /// 拡張が起きなかった撃破・撤退・調査・採取ではnull。ボス討伐（DungeonResult）でのみ設定されうる。
+        /// </summary>
+        public int? SquadSlotsExpandedTo { get; } = null;
+
         public DungeonMissionResolution(Party party, FloorBoss boss, DungeonField field, double intelRateBefore, ScoutingResult scoutingResult)
         {
             Party = party;
@@ -41,7 +47,9 @@ namespace GuildManager.Core.Systems
             ScoutingResult = scoutingResult;
         }
 
-        public DungeonMissionResolution(Party party, FloorBoss boss, DungeonField field, double intelRateBefore, DungeonResult dungeonResult)
+        public DungeonMissionResolution(
+            Party party, FloorBoss boss, DungeonField field, double intelRateBefore, DungeonResult dungeonResult,
+            int? squadSlotsExpandedTo = null)
         {
             Party = party;
             Boss = boss;
@@ -49,6 +57,7 @@ namespace GuildManager.Core.Systems
             MissionType = DungeonMissionType.BossAssault;
             IntelRateBefore = intelRateBefore;
             DungeonResult = dungeonResult;
+            SquadSlotsExpandedTo = squadSlotsExpandedTo;
         }
 
         public DungeonMissionResolution(Party party, FloorBoss boss, DungeonField field, double intelRateBefore, TraversalResult traversalResult)

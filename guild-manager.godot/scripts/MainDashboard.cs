@@ -110,6 +110,9 @@ public partial class MainDashboard : Control
 		_goldLabel = GetNode<Label>("%GoldLabel");
 		_rankLabel = GetNode<Label>("%RankLabel");
 		_threatLabel = GetNode<Label>("%ThreatLabel");
+		// 治安度（脅威度）は敗北条件から撤廃済み（→ Core側 DefeatSystem・経営破綻への一本化改訂）。
+		// 月次助成金カットの内部判定にはまだ使うが、プレイヤーへは表示しない。
+		_threatLabel.Visible = false;
 		_squadSlotLabel = GetNode<Label>("%SquadSlotLabel");
 		_adventurerList = GetNode<ItemList>("%AdventurerList");
 		_adventurerDetailLabel = GetNode<RichTextLabel>("%AdventurerDetailLabel");
@@ -981,10 +984,19 @@ public partial class MainDashboard : Control
 
 		if (assault.Outcome == DungeonOutcome.Victory)
 		{
+			sb.AppendLine("[color=cyan]【生体コード回収】アルベールはボスから古代遺伝子結晶の採取に成功した！[/color]");
+
 			var next = _state.GetCurrentFloorBoss();
 			sb.AppendLine(next != null
 				? $"[color=cyan]さらに深層、第{next.Floor}層への道が開けた。[/color]"
 				: "[color=gold][b]★ 大迷宮の全階層を踏破した！[/b][/color]");
+
+			// 森の節目ボス撃破による出撃枠拡張（「古代エルフの多頭通信術式」復元、→ DungeonExpeditionSystem）。
+			if (resolution.SquadSlotsExpandedTo.HasValue)
+			{
+				sb.AppendLine($"[color=gold][font_size=18][b]★ 古代エルフの多頭通信術式が復元！ " +
+					$"同時に指揮可能な部隊数が【{resolution.SquadSlotsExpandedTo.Value}部隊】に拡大しました。[/b][/font_size][/color]");
+			}
 		}
 
 		EnqueueBossPlayback(sb.ToString());

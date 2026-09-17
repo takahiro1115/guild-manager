@@ -278,11 +278,18 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void ProcessWeek_SetsThreatThresholdNewlyCrossed_WhenCrossing75PercentThisWeek()
         {
-            var state = new GameState { ThreatLevel = 74 };
-            var expired = new Quest { QuestType = QuestType.Subjugation, DeadlineWeeks = 1 };
-            state.AvailableQuests.Add(expired);
-            // AlwaysMaxRngで放置クエストの脅威度上昇量を最大化する。
-            var system = BuildSystem(securityRng: new AlwaysMaxRng());
+            // 放置（期限切れ）による脅威度上昇は撤廃済み（→ SecuritySystem.ApplyAbandonedQuest、
+            // 「未出撃週の治安悪化」ロジック無効化）。ThreatThresholdNewlyCrossedフラグ自体は
+            // まだ生きている（→ SubsidyCutThreatThreshold判定）ため、実際に出撃して失敗した
+            // 討伐クエストによる脅威度上昇（→ SecuritySystem.ApplyQuestResolution）で確認する。
+            var weakling = new Adventurer { STR = 1, AGI = 1, VIT = 1, MND = 1, DEX = 1, LDR = 1 };
+            weakling.CurrentHP = weakling.MaxHP;
+            var quest = new Quest { QuestType = QuestType.Subjugation, Difficulty = 100, ScoutRequirement = 1 };
+            var state = new GameState { Adventurers = { weakling }, ThreatLevel = 74 };
+            state.ActiveDispatches.Add(new ActiveDispatch { Party = PartyOf(weakling), Quest = quest, WeeksRemaining = 1 });
+            // AlwaysMaxRngで索敵・HP消費%ロールを最大化し、確実に苦戦敗退・戦線崩壊（失敗）させる。
+            // securityRngもAlwaysMaxRngにして脅威度上昇量を最大化する。
+            var system = BuildSystem(questRng: new AlwaysMaxRng(), securityRng: new AlwaysMaxRng());
 
             var result = system.ProcessWeek(state);
 
@@ -440,6 +447,21 @@ namespace GuildManager.Core.Tests
             var result = system.ProcessWeek(state);
 
             Assert.False(result.Flags.DefeatOccurred);
+        }
+
+        [Fact]
+        public void ProcessWeek_DoesNotSetDefeatOccurred_AtThreatLevel100_WhenFinancesHealthy()
+        {
+            // 治安崩壊（脅威度100%到達による即時敗北）は撤廃済み。資金が健全なら、
+            // 脅威度が何%であっても週次決算で敗北は成立しない（→ DefeatSystem）。
+            var state = new GameState { Gold = 10000, ThreatLevel = 100 };
+            var system = BuildSystem();
+
+            var result = system.ProcessWeek(state);
+
+            Assert.False(result.Flags.DefeatOccurred);
+            Assert.Null(result.NewDefeatReason);
+            Assert.Null(state.DefeatReason);
         }
 
         // ---------------- ShouldStopAutoSkip 複合判定 ----------------
