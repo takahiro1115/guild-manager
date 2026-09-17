@@ -165,14 +165,26 @@ namespace GuildManager.Core.Models
         /// </summary>
         public List<DungeonMissionRecord> DungeonMissions { get; set; } = new();
 
+        /// <summary>
+        /// ギルドの素材インベントリ（→ GameState.Materials、探索（採取）任務の成果）。
+        /// キーは素材Id、値は所持数。Dictionary&lt;string,int&gt;は文字列キーのため
+        /// Compatibility等と違って変換用の別Recordは不要、直接JSON化できる。
+        /// </summary>
+        public Dictionary<string, int> Materials { get; set; } = new();
+
         // 装備カタログは静的コード定義のため保存不要（Adventurer側は装備IDの
         // 文字列のみ保持しているため、カタログさえコード内にあれば復元できる）
     }
 
-    /// <summary>大迷宮への出撃1件分（→ GameState.ActiveDungeonMissions）。ボスはIdで参照する。</summary>
+    /// <summary>
+    /// 大迷宮への出撃1件分（→ GameState.ActiveDungeonMissions）。
+    /// フィールドはIdで参照する。ボスはIdで参照するが、採取（Gathering）はボスを対象にしない
+    /// ためnull許容（→ ActiveDungeonMission.Boss）。
+    /// </summary>
     public class DungeonMissionRecord
     {
-        public Guid BossId { get; set; }
+        public string FieldId { get; set; } = "";
+        public Guid? BossId { get; set; }
         public string MissionType { get; set; } = ""; // enum→文字列で保存
         public List<Guid> PartyMemberIds { get; set; } = new();
         public List<string> ConsumableItemIds { get; set; } = new();

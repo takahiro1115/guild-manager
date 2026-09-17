@@ -207,6 +207,25 @@ namespace GuildManager.Core.Models
         /// </summary>
         public FloorBoss? GetCurrentFloorBoss() => GetActiveField()?.GetNextActiveBoss();
 
+        /// <summary>
+        /// ギルドの素材インベントリ（→ Models.MaterialCatalog、探索（採取）任務の成果）。
+        /// キーは素材Id、値は所持数。未所持の素材はキー自体が存在しない（→ AddMaterial）。
+        /// </summary>
+        public Dictionary<string, int> Materials { get; set; } = new();
+
+        /// <summary>
+        /// 素材を加算する（→ Systems.GatheringResolverの成果適用）。countが0以下、または
+        /// materialIdが空の場合は何もしない（防御的：不正な呼び出しを黙って無視する）。
+        /// </summary>
+        public void AddMaterial(string materialId, int count)
+        {
+            if (string.IsNullOrEmpty(materialId) || count <= 0)
+                return;
+
+            Materials.TryGetValue(materialId, out int current);
+            Materials[materialId] = current + count;
+        }
+
         /// <summary>指定した種類の施設の現在Lvを返す。該当データが無い場合は1を返す（防御的フォールバック）。</summary>
         public int GetFacilityLevel(FacilityType type)
         {
@@ -245,6 +264,7 @@ namespace GuildManager.Core.Models
                 AvailableQuests = new List<Quest>(AvailableQuests),
                 SavedParties = new List<SavedParty>(SavedParties),
                 DungeonFields = new List<DungeonField>(DungeonFields),
+                Materials = new Dictionary<string, int>(Materials),
             };
 
             foreach (var kv in Compatibility)
@@ -292,7 +312,8 @@ namespace GuildManager.Core.Models
             {
                 data.DungeonMissions.Add(new DungeonMissionRecord
                 {
-                    BossId = mission.Boss.Id,
+                    FieldId = mission.Field.Id,
+                    BossId = mission.Boss?.Id,
                     MissionType = mission.MissionType.ToString(),
                     PartyMemberIds = mission.Party.Members.Select(m => m.Id).ToList(),
                     ConsumableItemIds = new List<string>(mission.Party.ConsumableItemIds),
@@ -335,6 +356,7 @@ namespace GuildManager.Core.Models
                 AvailableQuests = new List<Quest>(data.AvailableQuests),
                 SavedParties = new List<SavedParty>(data.SavedParties),
                 DungeonFields = new List<DungeonField>(data.DungeonFields),
+                Materials = new Dictionary<string, int>(data.Materials),
                 Facilities = new List<Facility>(),
             };
 
@@ -405,8 +427,24 @@ namespace GuildManager.Core.Models
             // 同一インスタンスを引き、ボスも各DungeonField.Bosses内の同一インスタンスを指すよう解決する。
             foreach (var record in data.DungeonMissions)
             {
-                var boss = state.DungeonFields.SelectMany(f => f.Bosses).FirstOrDefault(b => b.Id == record.BossId)
-                    ?? throw new FormatException($"セーブデータが破損しています：出撃先の階層ボスId {record.BossId} が見つかりません。");
+                // ボスを対象にする出撃（調査・討伐）はボスIdから所属フィールドを逆引きする
+                // （→ FieldId未保存の旧セーブとの互換）。採取（Gathering）はボスを持たないため
+                // FieldIdから直接引く。
+                DungeonField field;
+                FloorBoss? boss = null;
+
+                if (record.BossId.HasValue)
+                {
+                    boss = state.DungeonFields.SelectMany(f => f.Bosses).FirstOrDefault(b => b.Id == record.BossId.Value)
+                        ?? throw new FormatException($"セーブデータが破損しています：出撃先の階層ボスId {record.BossId} が見つかりません。");
+                    field = state.DungeonFields.FirstOrDefault(f => f.Bosses.Contains(boss))
+                        ?? throw new FormatException($"セーブデータが破損しています：階層ボス「{boss.Name}」の所属フィールドが見つかりません。");
+                }
+                else
+                {
+                    field = state.DungeonFields.FirstOrDefault(f => f.Id == record.FieldId)
+                        ?? throw new FormatException($"セーブデータが破損しています：出撃先のフィールドId「{record.FieldId}」が見つかりません。");
+                }
 
                 var party = new Party();
                 foreach (var memberId in record.PartyMemberIds)
@@ -420,6 +458,7 @@ namespace GuildManager.Core.Models
                 state.ActiveDungeonMissions.Add(new ActiveDungeonMission
                 {
                     Party = party,
+                    Field = field,
                     Boss = boss,
                     MissionType = ParseEnum<DungeonMissionType>(record.MissionType, nameof(DungeonMissionType)),
                 });

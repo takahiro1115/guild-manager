@@ -26,7 +26,8 @@ namespace GuildManager.Core.Tests
             new DungeonResolver(new AlwaysMinRng()),
             new SatisfactionSystem(),
             new CompatibilitySystem(new AlwaysMinRng()),
-            new DungeonTraversalResolver(new AlwaysMinRng()));
+            new DungeonTraversalResolver(new AlwaysMinRng()),
+            new GatheringResolver(new AlwaysMinRng()));
 
         private static Adventurer MakeAdventurer(JobClass job, int stat)
         {
@@ -143,6 +144,55 @@ namespace GuildManager.Core.Tests
             Assert.Equal(2, cave.ReachedFloor); // defeatedBoss.Floor(1) + 1
             Assert.False(forestBoss.IsDefeated);
             Assert.Equal(1, forest.ReachedFloor); // 森は依然として無傷
+        }
+
+        [Fact]
+        public void DungeonExpedition_Gathering_AddsMaterialsToState()
+        {
+            // 探索（採取）任務の週次解決によって、state.Materials に指定素材が加算されること
+            // （→ 第3の任務「探索（Gathering）」仕様）。
+            var forestBoss = new FloorBoss { Name = "森のボス", Floor = 1, MaxHp = 999_999, CurrentHp = 999_999 };
+            var forest = new DungeonField { Id = "forest", Name = "森", Order = 1, IsUnlocked = true, ReachedFloor = 1, Bosses = { forestBoss } };
+            var state = new GameState { DungeonFields = { forest } };
+            var system = BuildSystem();
+
+            var party = PartyOf(MakeAdventurer(JobClass.Ranger, 40), MakeAdventurer(JobClass.Thief, 40));
+            Assert.True(system.TryDispatchGathering(state, party, forest));
+            Assert.Single(state.ActiveDungeonMissions);
+            Assert.True(party.Members.All(m => m.IsDispatched));
+
+            var resolution = Assert.Single(system.ProcessWeeklyMissions(state));
+
+            Assert.Equal(DungeonMissionType.Gathering, resolution.MissionType);
+            Assert.Null(resolution.Boss);
+            Assert.NotNull(resolution.GatheringResult);
+            var gathering = resolution.GatheringResult!;
+
+            Assert.True(gathering.MaterialCount > 0);
+            Assert.NotEmpty(gathering.MaterialId);
+            Assert.True(state.Materials.ContainsKey(gathering.MaterialId));
+            Assert.Equal(gathering.MaterialCount, state.Materials[gathering.MaterialId]);
+            Assert.True(state.Gold >= gathering.GoldEarned); // 初期資金＋採取ゴールド
+
+            Assert.Empty(state.ActiveDungeonMissions);
+            Assert.True(party.Members.All(m => !m.IsDispatched));
+            Assert.Equal(1, state.TotalDispatchCount);
+            // 採取はボスを対象にしないため、森のボスは無傷のまま。
+            Assert.False(forestBoss.IsDefeated);
+        }
+
+        [Fact]
+        public void TryDispatchGathering_Fails_WhenFieldLocked_OrPartyUnavailable()
+        {
+            var lockedField = new DungeonField { Id = "cave", Name = "洞窟", Order = 2, IsUnlocked = false };
+            var unlockedField = new DungeonField { Id = "forest", Name = "森", Order = 1, IsUnlocked = true };
+            var state = new GameState { DungeonFields = { unlockedField, lockedField } };
+            var system = BuildSystem();
+
+            Assert.False(system.TryDispatchGathering(state, PartyOf(MakeAdventurer(JobClass.Ranger, 40)), lockedField));
+            Assert.False(system.TryDispatchGathering(state, new Party(), unlockedField));
+
+            Assert.Empty(state.ActiveDungeonMissions);
         }
 
         [Fact]
@@ -430,10 +480,49 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
+        public void RoundTrip_PreservesMaterialsAndGatheringMission_ThroughJson()
+        {
+            // 採取任務はボスを持たない（Boss=null）ため、FieldIdだけを頼りに復元できることを確認する
+            // （→ 第3の任務「探索（Gathering）」仕様）。
+            var forestBoss = new FloorBoss { Name = "森のボス", Floor = 1, MaxHp = 999_999, CurrentHp = 999_999 };
+            var forest = new DungeonField { Id = "forest", Name = "森", Order = 1, IsUnlocked = true, ReachedFloor = 1, Bosses = { forestBoss } };
+            var a = MakeAdventurer(JobClass.Ranger, 40);
+            var state = new GameState { Adventurers = { a }, DungeonFields = { forest } };
+            state.AddMaterial(MaterialCatalog.HerbMoonlightId, 3);
+            BuildSystem().TryDispatchGathering(state, PartyOf(a), forest);
+
+            var json = JsonSerializer.Serialize(state.ToSaveData());
+            var restored = GameState.FromSaveData(JsonSerializer.Deserialize<SaveData>(json)!);
+
+            Assert.Equal(3, restored.Materials[MaterialCatalog.HerbMoonlightId]);
+
+            var mission = Assert.Single(restored.ActiveDungeonMissions);
+            Assert.Equal(DungeonMissionType.Gathering, mission.MissionType);
+            Assert.Null(mission.Boss);
+            Assert.Equal("forest", mission.Field.Id);
+            Assert.Same(restored.DungeonFields.Single(f => f.Id == "forest"), mission.Field); // 同一インスタンス
+            Assert.All(mission.Party.Members, m => Assert.Contains(m, restored.Adventurers));
+        }
+
+        [Fact]
         public void FromSaveData_Throws_WhenMissionReferencesUnknownBoss()
         {
             var (state, a, b, boss) = MakeState();
             BuildSystem().TryDispatch(state, PartyOf(a, b), boss, DungeonMissionType.Scouting);
+            var data = state.ToSaveData();
+            data.DungeonFields.Clear();
+
+            Assert.Throws<FormatException>(() => GameState.FromSaveData(data));
+        }
+
+        [Fact]
+        public void FromSaveData_Throws_WhenGatheringMissionReferencesUnknownField()
+        {
+            var forest = new DungeonField { Id = "forest", Name = "森", Order = 1, IsUnlocked = true };
+            var a = MakeAdventurer(JobClass.Ranger, 40);
+            var state = new GameState { Adventurers = { a }, DungeonFields = { forest } };
+            BuildSystem().TryDispatchGathering(state, PartyOf(a), forest);
+
             var data = state.ToSaveData();
             data.DungeonFields.Clear();
 
