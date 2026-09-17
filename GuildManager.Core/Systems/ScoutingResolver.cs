@@ -37,7 +37,12 @@ namespace GuildManager.Core.Systems
         /// <summary>
         /// 調査隊をボスへ差し向け、解析率を更新する。boss.IntelRate は本メソッドが直接書き換える。
         /// </summary>
-        public ScoutingResult Resolve(Party party, FloorBoss boss)
+        /// <param name="state">
+        /// 省略可能。渡した場合、研究「秘薬の斥候試薬」（→ Models.ResearchIds.ScoutReagent）が
+        /// 完了済みなら解析率上昇量にボーナス倍率を掛ける（→ アルベールの研究室）。
+        /// nullなら通常どおりボーナス無しで解決する（既存の呼び出し側・テストとの互換用）。
+        /// </param>
+        public ScoutingResult Resolve(Party party, FloorBoss boss, GameState? state = null)
         {
             if (party.Members.Count == 0)
                 throw new InvalidOperationException("空のパーティは調査に出せません。");
@@ -68,6 +73,14 @@ namespace GuildManager.Core.Systems
                 QuestEventOutcome.Success => ScoutingBalance.IntelGainSuccess,
                 _ => ScoutingBalance.IntelGainPartial,
             };
+
+            // 研究バフ：秘薬の斥候試薬が完了済みなら、解析率上昇量に倍率を掛ける（→ アルベールの研究室）。
+            if (state != null && state.IsResearchCompleted(ResearchIds.ScoutReagent))
+            {
+                var research = ResearchBalance.Find(ResearchIds.ScoutReagent);
+                if (research != null)
+                    gain *= research.EffectValue;
+            }
 
             double before = boss.IntelRate;
             boss.IntelRate = Math.Min(ScoutingBalance.IntelTierComplete, boss.IntelRate + gain);

@@ -1,0 +1,5 @@
+id,name,description,effect_type,effect_value,required_gold,required_materials
+res_scout_reagent,秘薬の斥候試薬,調査部隊に配布する試薬。ボスの生態解析が捗るようになる（解析率獲得量+25%）。,IntelRateBonus,1.25,300,herb_moonlight:5;moss_luminous:3
+res_gathering_bag,拡張採取袋,採取部隊の携行品を改良し、一度に持ち帰れる素材が1個増える。,GatheringYieldBonus,1,200,relic_shard:3;ore_black:4
+res_light_tread,軽装の踏破術,足取りを軽くする秘伝の歩法。道中進軍の走破力が底上げされる。,TraversalBonus,15,250,spore_mutant:4;ash_volcanic:3
+res_infirmary_elixir,医務室特製霊薬,医務室に常備する回復薬を改良し、静養時のHP自然回復量が15%増える。,HpRecoveryBonus,0.15,350,crystal_void:3;essence_abyssal:2

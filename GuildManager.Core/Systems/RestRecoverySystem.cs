@@ -20,7 +20,11 @@ namespace GuildManager.Core.Systems
     ///   （全治週数のカウントダウン → 全快）。
     /// - 回復量は → BAL: 静養/待機回復（training.csv、TrainingBalance.RestRecoveryRatio）に、
     ///   医務室（Infirmary）の現在Lvに連動する倍率を掛ける
-    ///   （→ FacilityBalance.GetInfirmaryHpRecoveryMultiplier）。上限は MaxHP。
+    ///   （→ FacilityBalance.GetInfirmaryHpRecoveryMultiplier）。研究「医務室特製霊薬」
+    ///   （→ Models.ResearchIds.InfirmaryElixir）が完了済みならさらにボーナス倍率が乗る
+    ///   （→ アルベールの研究室。対象ファイル一覧には無かったが、ResearchEffectType.
+    ///   HpRecoveryBonusの効果を実際に消費する場所がここ以外に存在しないため、購入できるのに
+    ///   何の効果も発生しない研究を残さないよう本ファイルも合わせて変更した）。上限は MaxHP。
     /// </summary>
     public class RestRecoverySystem
     {
@@ -31,6 +35,14 @@ namespace GuildManager.Core.Systems
         /// <param name="dispatchedAdventurerIds">今週出撃したパーティのメンバーID（出撃なしの週は空集合）。</param>
         public void ProcessWeeklyRest(GameState state, IReadOnlySet<Guid> dispatchedAdventurerIds)
         {
+            double researchBonus = 0;
+            if (state.IsResearchCompleted(ResearchIds.InfirmaryElixir))
+            {
+                var research = ResearchBalance.Find(ResearchIds.InfirmaryElixir);
+                if (research != null)
+                    researchBonus = research.EffectValue;
+            }
+
             foreach (var adventurer in state.Adventurers)
             {
                 if (dispatchedAdventurerIds.Contains(adventurer.Id))
@@ -46,7 +58,7 @@ namespace GuildManager.Core.Systems
                     continue;
 
                 double facilityMultiplier = FacilityBalance.GetInfirmaryHpRecoveryMultiplier(state.GetFacilityLevel(FacilityType.Infirmary));
-                int recovery = (int)(adventurer.MaxHP * TrainingBalance.RestRecoveryRatio * facilityMultiplier);
+                int recovery = (int)(adventurer.MaxHP * TrainingBalance.RestRecoveryRatio * facilityMultiplier * (1 + researchBonus));
                 adventurer.CurrentHP = Math.Min(adventurer.MaxHP, adventurer.CurrentHP + recovery);
             }
         }

@@ -94,6 +94,9 @@ public partial class MainDashboard : Control
 	private DungeonPanel _dungeonPanel = null!;
 	private DungeonExpeditionSystem _dungeonExpeditionSystem = null!;
 
+	// ---- アルベールの研究室（素材投資システム） ----
+	private ResearchPanel _researchPanel = null!;
+
 	/// <summary>ステータス詳細パネルに表示中の冒険者。週送り後もこの人物の表示を維持する。</summary>
 	private Guid? _detailAdventurerId;
 
@@ -171,10 +174,15 @@ public partial class MainDashboard : Control
 		centerPanel.SetTabTitle(0, "クエスト・派遣");
 		centerPanel.SetTabTitle(1, "冒険者");
 		centerPanel.SetTabTitle(2, "大迷宮（Dungeon）");
+		centerPanel.SetTabTitle(3, "研究室（Lab）");
 
 		_dungeonPanel = GetNode<DungeonPanel>("%DungeonTab");
 		_dungeonPanel.LogRequested += AppendLog;
 		_dungeonPanel.StateChanged += RefreshAll;
+
+		_researchPanel = GetNode<ResearchPanel>("%ResearchTab");
+		_researchPanel.LogRequested += AppendLog;
+		_researchPanel.StateChanged += RefreshAll;
 
 		_adventurerList.ItemClicked += OnAdventurerItemClicked;
 		_nextWeekButton.Pressed += OnNextWeekPressed;
@@ -1272,6 +1280,7 @@ public partial class MainDashboard : Control
 		RefreshConfidence();
 		RefreshAdventurerDetail();
 		_dungeonPanel.Refresh(_state);
+		_researchPanel.Refresh(_state);
 	}
 
 	/// <summary>

@@ -8,6 +8,7 @@
 [ext_resource type="PackedScene" path="res://party_formation_popup.tscn" id="6_partyformation"]
 [ext_resource type="PackedScene" path="res://temporary_swap_popup.tscn" id="7_temporaryswap"]
 [ext_resource type="PackedScene" path="res://dungeon_panel.tscn" id="8_dungeon"]
+[ext_resource type="PackedScene" path="res://research_panel.tscn" id="9_research"]
 
 [node name="MainDashboard" type="Control" unique_id=210796005]
 layout_mode = 3
@@ -187,6 +188,12 @@ unique_name_in_owner = true
 visible = false
 layout_mode = 2
 metadata/_tab_index = 2
+
+[node name="ResearchTab" parent="Root/BodyPanel/CenterPanel" unique_id=176574643 instance=ExtResource("9_research")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+metadata/_tab_index = 3
 
 [node name="RightPanel" type="VBoxContainer" parent="Root/BodyPanel" unique_id=763252257]
 layout_mode = 2
