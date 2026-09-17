@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using GuildManager.Core.Models;
+using GuildManager.Core.Rng;
 
 namespace GuildManager.Core.Systems
 {
@@ -19,8 +20,12 @@ namespace GuildManager.Core.Systems
     /// </summary>
     public class DungeonExpeditionSystem
     {
+        // traversalResolverを省略した場合の既定シード（固定シードで再現性を保つ。→ MainDashboardの方針と同じ）。
+        private const int DefaultTraversalSeed = 1719;
+
         private readonly ScoutingResolver _scoutingResolver;
         private readonly DungeonResolver _dungeonResolver;
+        private readonly DungeonTraversalResolver _traversalResolver;
         private readonly SatisfactionSystem _satisfactionSystem;
         private readonly CompatibilitySystem _compatibilitySystem;
 
@@ -28,10 +33,14 @@ namespace GuildManager.Core.Systems
             ScoutingResolver scoutingResolver,
             DungeonResolver dungeonResolver,
             SatisfactionSystem satisfactionSystem,
-            CompatibilitySystem compatibilitySystem)
+            CompatibilitySystem compatibilitySystem,
+            // 省略可能：道中進軍の解決（→ DungeonTraversalResolver、大迷宮5フィールド拡張仕様）。
+            // 既存の呼び出し側を変更せずに接続できるよう、調査用の乱数から派生した既定値を持たせている。
+            DungeonTraversalResolver? traversalResolver = null)
         {
             _scoutingResolver = scoutingResolver;
             _dungeonResolver = dungeonResolver;
+            _traversalResolver = traversalResolver ?? new DungeonTraversalResolver(new SeededRng(DefaultTraversalSeed));
             _satisfactionSystem = satisfactionSystem;
             _compatibilitySystem = compatibilitySystem;
         }
@@ -106,8 +115,24 @@ namespace GuildManager.Core.Systems
 
                 if (mission.MissionType == DungeonMissionType.Scouting)
                 {
-                    var scouting = _scoutingResolver.Resolve(mission.Party, mission.Boss);
-                    resolutions.Add(new DungeonMissionResolution(mission.Party, mission.Boss, intelBefore, scouting));
+                    // 調査任務の分岐（→ 03 §4.5.2）：mission.Boss は出撃時点で
+                    // GetCurrentFloorBoss()（＝そのフィールドの次の未撃破ボス）を指しているため、
+                    // ここで改めて GetNextActiveBoss() を引き直す必要はない。
+                    var field = state.DungeonFields.FirstOrDefault(f => f.Bosses.Contains(mission.Boss));
+
+                    if (field != null && field.ReachedFloor < mission.Boss.Floor)
+                    {
+                        // 分岐A：道中進軍。まだボス階層に到達していない＝素通りで一気に進める。
+                        var traversal = _traversalResolver.Resolve(mission.Party, field, mission.Boss);
+                        resolutions.Add(new DungeonMissionResolution(mission.Party, mission.Boss, intelBefore, traversal));
+                    }
+                    else
+                    {
+                        // 分岐B：ボス解析。既にボス階層に到達している（＝field==nullという
+                        // 防御的フォールバック時も含める）ため、従来どおりIntelRateを上げる。
+                        var scouting = _scoutingResolver.Resolve(mission.Party, mission.Boss);
+                        resolutions.Add(new DungeonMissionResolution(mission.Party, mission.Boss, intelBefore, scouting));
+                    }
                 }
                 else
                 {

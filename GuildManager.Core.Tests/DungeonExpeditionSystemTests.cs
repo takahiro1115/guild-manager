@@ -25,7 +25,8 @@ namespace GuildManager.Core.Tests
             new ScoutingResolver(new AlwaysMinRng()),
             new DungeonResolver(new AlwaysMinRng()),
             new SatisfactionSystem(),
-            new CompatibilitySystem(new AlwaysMinRng()));
+            new CompatibilitySystem(new AlwaysMinRng()),
+            new DungeonTraversalResolver(new AlwaysMinRng()));
 
         private static Adventurer MakeAdventurer(JobClass job, int stat)
         {
@@ -145,6 +146,104 @@ namespace GuildManager.Core.Tests
             Assert.False(b.IsDispatched);
             Assert.Equal(2, state.Adventurers.Count);
             Assert.Equal(1, state.TotalDispatchCount);
+        }
+
+        // ---------------- 道中進軍（調査任務の分岐、→ 03 §4.5.2） ----------------
+
+        /// <summary>
+        /// 道中進軍テスト用のフィールド。デフォルトのMakeStateとは異なり、ReachedFloorとボスの
+        /// 階層を意図的に切り離せるようにしている（分岐A＝道中進軍を発生させるため）。
+        /// </summary>
+        private static (GameState State, DungeonField Field, FloorBoss NextBoss) MakeTraversalState(
+            int reachedFloor, int nextBossFloor, params FloorBoss[] otherBosses)
+        {
+            var nextBoss = new FloorBoss { Name = $"第{nextBossFloor}階層のボス", Floor = nextBossFloor, MaxHp = 999_999, CurrentHp = 999_999 };
+            var field = new DungeonField
+            {
+                Id = "test", Name = "テスト用フィールド", Order = 1, IsUnlocked = true,
+                ReachedFloor = reachedFloor,
+            };
+            field.Bosses.AddRange(otherBosses);
+            field.Bosses.Add(nextBoss);
+            var state = new GameState { DungeonFields = { field } };
+            return (state, field, nextBoss);
+        }
+
+        [Fact]
+        public void DungeonTraversal_HighAgilityParty_AdvancesMultipleFloors()
+        {
+            // 高AGI/DEX部隊なら、道中調査1回で1階層だけでなく複数階層（電撃/迅速/通常進軍）を
+            // 一気に進めること。目標ボスは十分遠くに置き、ストッパーに引っかからないようにする。
+            var (state, field, nextBoss) = MakeTraversalState(reachedFloor: 1, nextBossFloor: 100);
+            var party = PartyOf(MakeAdventurer(JobClass.Thief, 300), MakeAdventurer(JobClass.Ranger, 300));
+            var system = BuildSystem();
+            system.TryDispatch(state, party, nextBoss, DungeonMissionType.Scouting);
+
+            var resolution = Assert.Single(system.ProcessWeeklyMissions(state));
+
+            Assert.NotNull(resolution.TraversalResult);
+            Assert.Null(resolution.ScoutingResult);
+            Assert.Null(resolution.DungeonResult);
+            Assert.True(resolution.TraversalResult!.FloorAfter - resolution.TraversalResult.FloorBefore >= 2,
+                "高AGI/DEX部隊なら1階層ではなく複数階層（+2〜+4）進むはず");
+            Assert.Equal(field.ReachedFloor, resolution.TraversalResult.FloorAfter);
+            Assert.False(resolution.TraversalResult.StopperTriggered);
+        }
+
+        [Fact]
+        public void DungeonTraversal_ClampsAtNextUndefeatedBossFloor()
+        {
+            // 1Fから進軍した際、走破力が十分（電撃進軍相当）であっても、未撃破の5Fボスで
+            // 強制的に足止めされること（5Fを超えて9F等へは進めない）。
+            var (state, field, boss5F) = MakeTraversalState(reachedFloor: 1, nextBossFloor: 5);
+            var party = PartyOf(MakeAdventurer(JobClass.Thief, 300), MakeAdventurer(JobClass.Ranger, 300));
+            var system = BuildSystem();
+            system.TryDispatch(state, party, boss5F, DungeonMissionType.Scouting);
+
+            var resolution = Assert.Single(system.ProcessWeeklyMissions(state));
+
+            Assert.Equal(5, resolution.TraversalResult!.FloorAfter);
+            Assert.Equal(5, field.ReachedFloor);
+            Assert.True(resolution.TraversalResult.StopperTriggered);
+            Assert.Same(boss5F, resolution.TraversalResult.TargetBoss);
+        }
+
+        [Fact]
+        public void DungeonTraversal_PassesDefeatedBossFloor()
+        {
+            // 5Fボス撃破後（ReachedFloor=6）の道中調査は、5Fで足止めされず、
+            // 次の未撃破ボスである10Fを目標に素通りで進軍できること。
+            var defeated5F = new FloorBoss { Name = "撃破済みの5Fボス", Floor = 5, MaxHp = 100, IsDefeated = true };
+            var (state, field, boss10F) = MakeTraversalState(reachedFloor: 6, nextBossFloor: 10, defeated5F);
+            var party = PartyOf(MakeAdventurer(JobClass.Thief, 300), MakeAdventurer(JobClass.Ranger, 300));
+            var system = BuildSystem();
+            system.TryDispatch(state, party, boss10F, DungeonMissionType.Scouting);
+
+            var resolution = Assert.Single(system.ProcessWeeklyMissions(state));
+
+            Assert.NotNull(resolution.TraversalResult);
+            Assert.True(resolution.TraversalResult!.FloorAfter > 6, "5Fで止まらず、6Fより先へ進めるはず");
+            Assert.True(resolution.TraversalResult.FloorAfter <= 10); // 10Fボスでストッパーがかかる可能性はある
+            Assert.Equal(field.ReachedFloor, resolution.TraversalResult.FloorAfter);
+        }
+
+        [Fact]
+        public void DungeonScouting_AtBossFloor_PerformsIntelAnalysis()
+        {
+            // ReachedFloorが未撃破ボスの階層と一致している時は、道中進軍ではなく
+            // 既存のボス解析（ScoutingResolver）が実行され、IntelRateが上昇すること。
+            var (state, field, boss) = MakeTraversalState(reachedFloor: 10, nextBossFloor: 10);
+            var party = PartyOf(MakeAdventurer(JobClass.Ranger, 40), MakeAdventurer(JobClass.Scholar, 40));
+            var system = BuildSystem();
+            system.TryDispatch(state, party, boss, DungeonMissionType.Scouting);
+
+            var resolution = Assert.Single(system.ProcessWeeklyMissions(state));
+
+            Assert.NotNull(resolution.ScoutingResult);
+            Assert.Null(resolution.TraversalResult);
+            Assert.Null(resolution.DungeonResult);
+            Assert.True(boss.IntelRate > 0.0);
+            Assert.Equal(10, field.ReachedFloor); // ボス解析では到達階層は動かない
         }
 
         [Fact]
