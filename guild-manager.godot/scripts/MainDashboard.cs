@@ -52,22 +52,6 @@ public partial class MainDashboard : Control
 	/// <summary>同時出撃枠の使用状況（→ コアシステム刷新仕様「4. 進行管理」）。</summary>
 	private Label _squadSlotLabel = null!;
 
-	private ItemList _questList = null!;
-	private ItemList _dispatchPartyList = null!;
-
-	/// <summary>
-	/// 選択中のクエスト×パーティーの「勝算」（→ SuccessConfidence）。
-	/// 情報公開の原則（→ コミットd7c7f39）により、成功率の数値そのものは表示しない。
-	/// </summary>
-	private RichTextLabel _confidenceLabel = null!;
-
-	private Button _temporarySwapButton = null!;
-
-	// ---- 後方支援（緊急撤退・緊急回復。→ コアシステム刷新仕様「(3) ギルドマスター後方支援機能」） ----
-	private ItemList _activeDispatchList = null!;
-	private Button _emergencyRetreatButton = null!;
-	private Button _emergencyHealButton = null!;
-	private EmergencySupportSystem _emergencySupportSystem = null!;
 	private GuildProgressionSystem _guildProgressionSystem = null!;
 	private ItemList _adventurerList = null!;
 	private RichTextLabel _adventurerDetailLabel = null!;
@@ -78,24 +62,26 @@ public partial class MainDashboard : Control
 	private RecruitmentPopup _recruitmentPopup = null!;
 	private Button _raiseWageButton = null!;
 	private Button _payBonusButton = null!;
-	private FacilityPopup _facilityPopup = null!;
-	private Button _facilityButton = null!;
 	private AdvisorPopup _advisorPopup = null!;
 	private Button _advisorButton = null!;
 	private Button _retireButton = null!;
 	private EquipmentPopup _equipmentPopup = null!;
 	private Button _equipmentButton = null!;
 	private Button _saveButton = null!;
-	private PartyFormationPopup _partyFormationPopup = null!;
-	private Button _partyFormationButton = null!;
-	private TemporarySwapPopup _temporarySwapPopup = null!;
 
-	// ---- 大迷宮（ダンジョン攻略システム：調査任務・階層ボス討伐） ----
+	// ---- 大迷宮（ダンジョン攻略システム：調査・討伐・採取。出撃の主画面） ----
 	private DungeonPanel _dungeonPanel = null!;
 	private DungeonExpeditionSystem _dungeonExpeditionSystem = null!;
 
+	// ---- 編成・施設（旧ポップアップをタブ化） ----
+	private PartyFormationPanel _partyFormationPanel = null!;
+	private FacilityPanel _facilityPanel = null!;
+
 	// ---- アルベールの研究室（素材投資システム） ----
 	private ResearchPanel _researchPanel = null!;
+
+	/// <summary>大迷宮へ1部隊も出撃予定が無いまま週を進めようとした時の確認ダイアログ。</summary>
+	private ConfirmationDialog _noDungeonDispatchDialog = null!;
 
 	/// <summary>ステータス詳細パネルに表示中の冒険者。週送り後もこの人物の表示を維持する。</summary>
 	private Guid? _detailAdventurerId;
@@ -118,13 +104,6 @@ public partial class MainDashboard : Control
 	/// </summary>
 	private Action _afterBossPlayback;
 
-	/// <summary>
-	/// 派遣直前の一時的な入れ替え結果（→ 03 §4.0.2）。null＝一時編成なし（保存された
-	/// パーティーのMemberIdsをそのまま使う）。次週へ進めるたびに必ずリセットされる
-	/// （「今回の出撃だけ」の一時的な適用のため、SavedParty自体は変更しない）。
-	/// </summary>
-	private List<Guid> _temporaryDispatchMemberIds;
-
 	public override void _Ready()
 	{
 		_weekLabel = GetNode<Label>("%WeekLabel");
@@ -132,21 +111,6 @@ public partial class MainDashboard : Control
 		_rankLabel = GetNode<Label>("%RankLabel");
 		_threatLabel = GetNode<Label>("%ThreatLabel");
 		_squadSlotLabel = GetNode<Label>("%SquadSlotLabel");
-		_questList = GetNode<ItemList>("%QuestList");
-		_dispatchPartyList = GetNode<ItemList>("%DispatchPartyList");
-		_confidenceLabel = GetNode<RichTextLabel>("%ConfidenceLabel");
-		_temporarySwapButton = GetNode<Button>("%TemporarySwapButton");
-		_activeDispatchList = GetNode<ItemList>("%ActiveDispatchList");
-		_emergencyRetreatButton = GetNode<Button>("%EmergencyRetreatButton");
-		_emergencyHealButton = GetNode<Button>("%EmergencyHealButton");
-
-		// クエスト・パーティーの選択が変わるたびに「勝算」を再計算して表示する
-		// （→ コアシステム刷新仕様「成功率予測エンジン」。編成を変えた手応えを即座に返す）。
-		_questList.ItemSelected += _ => RefreshConfidence();
-		_dispatchPartyList.ItemSelected += _ => RefreshConfidence();
-		_activeDispatchList.ItemSelected += _ => RefreshEmergencyButtons();
-		_emergencyRetreatButton.Pressed += OnEmergencyRetreatPressed;
-		_emergencyHealButton.Pressed += OnEmergencyHealPressed;
 		_adventurerList = GetNode<ItemList>("%AdventurerList");
 		_adventurerDetailLabel = GetNode<RichTextLabel>("%AdventurerDetailLabel");
 		_portraitTextureRect = GetNode<TextureRect>("%PortraitTextureRect");
@@ -156,33 +120,47 @@ public partial class MainDashboard : Control
 		_recruitmentPopup = GetNode<RecruitmentPopup>("%RecruitmentPopup");
 		_raiseWageButton = GetNode<Button>("%RaiseWageButton");
 		_payBonusButton = GetNode<Button>("%PayBonusButton");
-		_facilityPopup = GetNode<FacilityPopup>("%FacilityPopup");
-		_facilityButton = GetNode<Button>("%FacilityButton");
 		_advisorPopup = GetNode<AdvisorPopup>("%AdvisorPopup");
 		_advisorButton = GetNode<Button>("%AdvisorButton");
 		_retireButton = GetNode<Button>("%RetireButton");
 		_equipmentPopup = GetNode<EquipmentPopup>("%EquipmentPopup");
 		_equipmentButton = GetNode<Button>("%EquipmentButton");
-		_partyFormationPopup = GetNode<PartyFormationPopup>("%PartyFormationPopup");
-		_partyFormationButton = GetNode<Button>("%PartyFormationButton");
-		_temporarySwapPopup = GetNode<TemporarySwapPopup>("%TemporarySwapPopup");
 
-		// 中央ペインのタブ化（→ 03 §9、項目57）。タブ本体（QuestDispatchTab/AdventurerTab）は
-		// 既存の命名規約（ノード名は英語、日本語表示はtext/title側）に合わせて英語名のままにし、
-		// タブ見出しはここでコードから設定する（初期表示は「クエスト・派遣」＝タブ0）。
+		// 中央ペインのタブ（→ 03 §9）。出撃の窓口は大迷宮に一本化したため、大迷宮をタブ0
+		// （起動時の初期表示）に置く。タブ本体のノード名は英語、見出しはここでコードから設定する。
 		var centerPanel = GetNode<TabContainer>("%CenterPanel");
-		centerPanel.SetTabTitle(0, "クエスト・派遣");
-		centerPanel.SetTabTitle(1, "冒険者");
-		centerPanel.SetTabTitle(2, "大迷宮（Dungeon）");
+		centerPanel.SetTabTitle(0, "大迷宮（Dungeon）");
+		centerPanel.SetTabTitle(1, "編成");
+		centerPanel.SetTabTitle(2, "冒険者");
 		centerPanel.SetTabTitle(3, "研究室（Lab）");
+		centerPanel.SetTabTitle(4, "施設");
+		centerPanel.CurrentTab = 0;
 
 		_dungeonPanel = GetNode<DungeonPanel>("%DungeonTab");
 		_dungeonPanel.LogRequested += AppendLog;
 		_dungeonPanel.StateChanged += RefreshAll;
 
+		_partyFormationPanel = GetNode<PartyFormationPanel>("%PartyFormationTab");
+		_partyFormationPanel.StateChanged += RefreshAll;
+
 		_researchPanel = GetNode<ResearchPanel>("%ResearchTab");
 		_researchPanel.LogRequested += AppendLog;
 		_researchPanel.StateChanged += RefreshAll;
+
+		_facilityPanel = GetNode<FacilityPanel>("%FacilityTab");
+		_facilityPanel.StateChanged += RefreshAll;
+
+		_noDungeonDispatchDialog = new ConfirmationDialog
+		{
+			Title = "確認",
+			DialogText = "大迷宮へ部隊を派遣していませんが、週を進めますか？",
+			OkButtonText = "週を進める",
+			CancelButtonText = "やめる",
+		};
+		// 確定直後に採用試験ポップアップ等を開くことがあるため、ダイアログが閉じ切ってから
+		// 週送りを実行する（同一フレームで別の排他ウィンドウを開くとGodotがエラーにする）。
+		_noDungeonDispatchDialog.Confirmed += () => Callable.From(AdvanceWeek).CallDeferred();
+		AddChild(_noDungeonDispatchDialog);
 
 		_adventurerList.ItemClicked += OnAdventurerItemClicked;
 		_nextWeekButton.Pressed += OnNextWeekPressed;
@@ -190,17 +168,11 @@ public partial class MainDashboard : Control
 		_recruitmentPopup.Closed += OnRecruitmentPopupClosed;
 		_raiseWageButton.Pressed += OnRaiseWagePressed;
 		_payBonusButton.Pressed += OnPayBonusPressed;
-		_facilityButton.Pressed += OnFacilityButtonPressed;
-		_facilityPopup.Closed += OnFacilityPopupClosed;
 		_advisorButton.Pressed += OnAdvisorButtonPressed;
 		_advisorPopup.Closed += OnAdvisorPopupClosed;
 		_retireButton.Pressed += OnRetirePressed;
 		_equipmentButton.Pressed += OnEquipmentButtonPressed;
 		_equipmentPopup.Closed += OnEquipmentPopupClosed;
-		_partyFormationButton.Pressed += OnPartyFormationButtonPressed;
-		_partyFormationPopup.Closed += OnPartyFormationPopupClosed;
-		_temporarySwapButton.Pressed += OnTemporarySwapButtonPressed;
-		_temporarySwapPopup.Applied += OnTemporarySwapApplied;
 		_saveButton = GetNode<Button>("%SaveButton");
 		_saveButton.Pressed += OnSaveButtonPressed;
 
@@ -226,9 +198,10 @@ public partial class MainDashboard : Control
 		_advisorSystem = new AdvisorSystem();
 		_equipmentSystem = new EquipmentSystem();
 		_partyFormationSystem = new PartyFormationSystem();
-		// 後方支援・進行管理（→ コアシステム刷新仕様）。進行管理は昇格時の新人補充に
-		// 採用システムを使うため、同じインスタンスを共有する（二重管理を避ける）。
-		_emergencySupportSystem = new EmergencySupportSystem();
+		_partyFormationPanel.Initialize(_partyFormationSystem);
+		_facilityPanel.Initialize(_facilitySystem);
+		// 進行管理（→ コアシステム刷新仕様）。昇格時の新人補充に採用システムを使うため、
+		// 同じインスタンスを共有する（二重管理を避ける）。
 		_guildProgressionSystem = new GuildProgressionSystem(_recruitmentSystem);
 		// 大迷宮（→ ダンジョン攻略システム）。調査・討伐は別シードにし、互いの抽選回数が結果に
 		// 影響しないようにする。強制除籍の余波（満足度・相性）は既存インスタンスを共有する。
@@ -267,9 +240,6 @@ public partial class MainDashboard : Control
 
 		RefreshAll();
 
-		if (_questList.ItemCount > 0)
-			_questList.Select(0);
-
 		if (_recruitmentSystem.IsTutorialRecruitmentWeek(_state.WeekNumber))
 		{
 			// 第1週チュートリアル採用試験（→ 初期編成改訂仕様）。初期固定メンバー3名に加え、
@@ -300,31 +270,24 @@ public partial class MainDashboard : Control
 
 	private void OnContinueChosen(ConfirmationDialog dialog)
 	{
-		dialog.QueueFree();
-
 		var loaded = _saveLoadService.Load();
 		if (loaded == null)
 		{
-			ShowLoadFailedPrompt();
+			CloseDialogThenRun(dialog, ShowLoadFailedPrompt);
 			return;
 		}
 
+		dialog.QueueFree();
 		_state = loaded;
 		// 大迷宮（5フィールド拡張）の実装前に作られたセーブにはフィールドが無い。
 		// 攻略対象が空のままにならないよう補う。
 		if (_state.DungeonFields.Count == 0)
 			_state.DungeonFields = SampleData.CreateDefaultFields();
 		RefreshAll();
-		if (_questList.ItemCount > 0)
-			_questList.Select(0);
 		AppendLog($"[color=cyan]セーブデータから再開しました（第{_state.WeekNumber}週）。[/color]");
 	}
 
-	private void OnNewGameChosen(ConfirmationDialog dialog)
-	{
-		dialog.QueueFree();
-		StartNewGame();
-	}
+	private void OnNewGameChosen(ConfirmationDialog dialog) => CloseDialogThenRun(dialog, StartNewGame);
 
 	/// <summary>
 	/// ロード失敗時（破損ファイル・バージョン不一致等）のフォールバック（→ 03 §12）。
@@ -337,10 +300,23 @@ public partial class MainDashboard : Control
 		{
 			DialogText = "セーブデータの読み込みに失敗しました。新規ゲームを開始します。",
 		};
-		dialog.Confirmed += () => { dialog.QueueFree(); StartNewGame(); };
-		dialog.Canceled += () => { dialog.QueueFree(); StartNewGame(); };
+		dialog.Confirmed += () => CloseDialogThenRun(dialog, StartNewGame);
+		dialog.Canceled += () => CloseDialogThenRun(dialog, StartNewGame);
 		AddChild(dialog);
 		dialog.PopupCentered();
+	}
+
+	/// <summary>
+	/// ダイアログを閉じ、シーンツリーから実際に外れてから後続処理を呼ぶ。
+	/// QueueFree() は削除をフレーム末尾まで遅らせるため、同じフレームで採用ポップアップ等の
+	/// 排他ウィンドウを開くと「既に排他的な子ウィンドウがある」エラーで開かず、
+	/// DisableWeekAdvancement() 済みの「次週へ」が二度と有効にならなかった。
+	/// </summary>
+	private async void CloseDialogThenRun(Window dialog, Action followUp)
+	{
+		dialog.QueueFree();
+		await ToSignal(dialog, Node.SignalName.TreeExited);
+		followUp();
 	}
 
 	/// <summary>「セーブ」ボタン（手動保存）。押すと即座にセーブし、完了を週報ログに通知する（→ 03 §12）。</summary>
@@ -360,49 +336,12 @@ public partial class MainDashboard : Control
 	}
 
 	/// <summary>
-	/// 冒険者一覧のクリックでステータス詳細パネルを更新する（→ 03 §4.0.2改訂で
-	/// 派遣メンバーの選択はDispatchPartyList側へ移ったため、この一覧は閲覧専用になった）。
+	/// 冒険者一覧のクリックでステータス詳細パネルを更新する（出撃メンバーの選択は
+	/// 編成タブ・大迷宮タブ側で行うため、この一覧は閲覧専用）。
 	/// </summary>
 	private void OnAdventurerItemClicked(long index, Vector2 atPosition, long mouseButtonIndex)
 	{
 		ShowAdventurerDetail(_state.Adventurers[(int)index]);
-	}
-
-	/// <summary>「パーティー編成」ボタン。永続的なパーティー編成画面を開く（→ 03 §4.0.2）。</summary>
-	private void OnPartyFormationButtonPressed()
-	{
-		_partyFormationPopup.Open(_state, _partyFormationSystem);
-	}
-
-	/// <summary>パーティー編成画面が閉じた時のコールバック。編成の変化（未編成一覧等）を反映する。</summary>
-	private void OnPartyFormationPopupClosed()
-	{
-		RefreshAll();
-	}
-
-	/// <summary>
-	/// 「出撃メンバーを一時編成する」ボタン。選択中のパーティーを基準に、今回の出撃だけの
-	/// 一時的な入れ替えを行う（→ 03 §4.0.2。SavedParty自体は変更しない）。
-	/// </summary>
-	private void OnTemporarySwapButtonPressed()
-	{
-		var selected = _dispatchPartyList.GetSelectedItems();
-		if (selected.Length == 0)
-		{
-			AppendLog("[color=orange]一時編成する前に、出撃パーティーを選択してください。[/color]");
-			return;
-		}
-
-		var savedParty = _state.SavedParties[selected[0]];
-		var baseline = _temporaryDispatchMemberIds ?? savedParty.MemberIds;
-		_temporarySwapPopup.Open(_state, baseline);
-	}
-
-	/// <summary>一時編成が確定した時のコールバック。今週の出撃にのみ適用する（SavedPartyは不変）。</summary>
-	private void OnTemporarySwapApplied(List<Guid> memberIds)
-	{
-		_temporaryDispatchMemberIds = memberIds;
-		AppendLog("[color=cyan]今回の出撃メンバーを一時的に変更した（保存されている編成は変わらない）。[/color]");
 	}
 
 	/// <summary>
@@ -433,145 +372,36 @@ public partial class MainDashboard : Control
 		_autoSkipButton.Disabled = false;
 	}
 
-	// ---- 後方支援（→ コアシステム刷新仕様「(3) ギルドマスター後方支援機能」） ----
-
 	/// <summary>
-	/// 「緊急撤退」ボタン。選択中の派遣を即時打ち切り、部隊を無傷のまま帰還させる。
-	/// 判定自体が行われないため報酬は得られないが、負傷・戦死も発生しない。
-	/// </summary>
-	private void OnEmergencyRetreatPressed()
-	{
-		var dispatch = CurrentSelectedDispatch();
-		if (dispatch == null)
-		{
-			AppendLog("[color=orange]撤退させる部隊を「派遣中の部隊」から選択してください。[/color]");
-			return;
-		}
-
-		string questName = dispatch.Quest.Name;
-		if (!_emergencySupportSystem.TryEmergencyRetreat(_state, dispatch))
-		{
-			AppendLog("[color=orange]その部隊は既に帰還しています。[/color]");
-			return;
-		}
-
-		AppendLog($"[color=cyan]「{questName}」から部隊を緊急撤退させた。報酬は得られないが、全員無事に帰還した。[/color]");
-		RefreshAll();
-	}
-
-	/// <summary>
-	/// 「緊急回復」ボタン。備蓄（資金）を消費して部隊全員のHPを回復し、任務を続行させる。
-	/// 1出撃につき1回まで（→ ActiveDispatch.EmergencyHealUsed）。
-	/// </summary>
-	private void OnEmergencyHealPressed()
-	{
-		var dispatch = CurrentSelectedDispatch();
-		if (dispatch == null)
-		{
-			AppendLog("[color=orange]回復させる部隊を「派遣中の部隊」から選択してください。[/color]");
-			return;
-		}
-
-		if (!_emergencySupportSystem.TryEmergencyHeal(_state, dispatch))
-		{
-			AppendLog(dispatch.EmergencyHealUsed
-				? "[color=orange]この出撃では既に緊急回復を使用しています（1出撃につき1回まで）。[/color]"
-				: $"[color=orange]緊急回復の物資（{EmergencyBalance.EmergencyHealCostGold}G）が足りません。[/color]");
-			return;
-		}
-
-		AppendLog($"[color=lime]「{dispatch.Quest.Name}」の部隊へ物資を緊急輸送した。全員のHPが回復した。[/color]");
-		RefreshAll();
-	}
-
-	/// <summary>
-	/// 「次週へ」の本体。
-	/// パーティを選んでいれば派遣（複数週クエストは満了週まで結果が出ない。→ 03 §4.0.1）し、
-	/// 選んでいなければ「休養」として扱う。どちらの場合も、週給引き落とし・負傷回復・
-	/// 週数の進行は必ず行う（→ 03 §3.6：全員負傷中でも時間を進めて回復を待てるようにするため）。
+	/// 「次週へ」ボタン（Spaceキー連動）。出撃は大迷宮タブで週送り前に予約しておく方式のため、
+	/// 大迷宮へ1部隊も出撃予定が無ければ、うっかり週を進めないよう確認ダイアログを挟む。
 	/// </summary>
 	private void OnNextWeekPressed()
 	{
+		if (_noDungeonDispatchDialog.Visible)
+			return;
+
+		if (_state.ActiveDungeonMissions.Count == 0)
+		{
+			_noDungeonDispatchDialog.PopupCentered();
+			return;
+		}
+
+		AdvanceWeek();
+	}
+
+	/// <summary>
+	/// 週送りの本体。週給引き落とし・負傷回復・週数の進行は出撃の有無にかかわらず必ず行う
+	/// （→ 03 §3.6：全員負傷中でも時間を進めて回復を待てるようにするため）。
+	/// </summary>
+	private void AdvanceWeek()
+	{
 		int thisWeek = _state.WeekNumber;
-		var selectedQuestIndices = _questList.GetSelectedItems();
-		var selectedPartyIndices = _dispatchPartyList.GetSelectedItems();
-		bool wantsToDispatch = selectedPartyIndices.Length > 0;
 
-		if (wantsToDispatch)
-		{
-			if (selectedQuestIndices.Length == 0)
-			{
-				// ここだけは週送りを中断して選び直してもらう（「派遣するつもりだった週」を
-				// 無言で消費してしまわないため）。ただし週報ログの1行だけでは
-				// 「ボタンが反応しない」ようにしか見えないので、操作した本人の視線の先
-				// （編成欄の直下）にも警告を出す。
-				AppendLog("[color=orange]クエストを選択してください。[/color]");
-				ShowDispatchBlockedNotice("クエストが選ばれていないため、まだ出撃できない（週も進んでいない）。");
-				return;
-			}
-
-			// 同時出撃枠の確認（→ コアシステム刷新仕様「4. 進行管理」）。枠は「部隊の数」であって
-			// 人数ではない：1枠の中で1〜4名を自由に割り振れる。
-			//
-			// 枠が埋まっている場合でも**週送り自体は必ず進める**（派遣だけを見送る）。
-			// ここで処理を打ち切ると、派遣中の部隊は週が進まない限り帰還しないため、
-			// 「枠が空くのを待つこともできない」完全な詰みになる
-			// （→ 本メソッドdocコメント・03 §3.6「時間は必ず進む」）。
-			if (!QuestDispatchSystem.CanDispatch(_state))
-			{
-				AppendLog($"[color=orange]同時出撃枠（{_state.UnlockedSquadSlots}枠）がすべて埋まっているため、" +
-					"今週は新たな派遣を見送った（時間は進む）。派遣中の部隊の帰還を待つか、後方支援で緊急撤退させること。[/color]");
-			}
-			else
-			{
-				// 派遣時、編成メンバーのうち出撃可能な者だけで自動的に出撃する（→ 03 §4.0.2）。
-				// 一時編成（_temporaryDispatchMemberIds）が設定されていればそちらを優先し、
-				// 無ければ保存されている編成（SavedParty.MemberIds）をそのまま使う。
-				var savedParty = _state.SavedParties[selectedPartyIndices[0]];
-				var memberIdSource = _temporaryDispatchMemberIds ?? savedParty.MemberIds;
-
-				foreach (var unavailable in PartyFormationSystem.GetUnavailableMembers(_state, memberIdSource))
-				{
-					string reason = unavailable.IsDispatched ? "派遣中" : unavailable.IsRetired ? "引退済み" : "重傷";
-					AppendLog($"[color=gray]{unavailable.Name}は{reason}のため出撃できません。[/color]");
-				}
-
-				var party = PartyFormationSystem.BuildDispatchParty(_state, memberIdSource);
-				if (party.IsEmpty)
-				{
-					AppendLog($"[color=orange]「{savedParty.Name}」は出撃可能なメンバーがいないため、今週は派遣できません。[/color]");
-				}
-				else
-				{
-					var quest = _state.AvailableQuests[selectedQuestIndices[0]];
-					// 枠のチェックは上で済ませているが、実際の派遣もTryDispatch経由で行う
-					// （枠の判定と実行を同じ経路に通し、将来の抜け道を作らないため）。
-					_questDispatchSystem.TryDispatch(_state, party, quest);
-
-					// 昇格試験（ボス）は決戦の場であることをログでも強調する（→ Phase 3）。
-					if (quest.IsBoss)
-					{
-						AppendLog($"[color=gold][b]⚔ 第{thisWeek}週：「{savedParty.Name}」（{party.Members.Count}名）が" +
-							$"昇格試験「{quest.Name}」へ向かった。総力戦になる。[/b][/color]");
-					}
-
-					if (quest.DurationWeeks > 1)
-					{
-						AppendLog($"[color=cyan]第{thisWeek}週：「{savedParty.Name}」（{party.Members.Count}名）が{quest.Name}へ出発した" +
-							$"（拘束{quest.DurationWeeks}週間、第{thisWeek + quest.DurationWeeks - 1}週に結果判明）。[/color]");
-					}
-				}
-			}
-		}
-		else if (_state.ActiveDungeonMissions.Count == 0)
-		{
+		if (_state.ActiveDungeonMissions.Count == 0)
 			AppendLog($"[color=gray]第{thisWeek}週：今週は誰も出撃せず、静養に努めた。[/color]");
-		}
 
-		// 一時編成は「今回の出撃だけ」の適用のため、週送りのたびに必ずリセットする（→ 03 §4.0.2）。
-		_temporaryDispatchMemberIds = null;
-
-		// 派遣の選択（出撃操作）以外の週次決算処理は、WeekProcessingSystemに集約されている
+		// 出撃操作以外の週次決算処理は、WeekProcessingSystemに集約されている
 		// （→ 03 §1.3。手動の「次週へ」・自動スキップの両方がこの同じ実装を経由することで、
 		// 挙動が食い違わないようにしている）。
 		var settlement = _weekProcessingSystem.ProcessWeek(_state);
@@ -790,18 +620,6 @@ public partial class MainDashboard : Control
 		{
 			EnableWeekAdvancement();
 		}
-	}
-
-	/// <summary>「施設投資」ボタン。施設投資ポップアップを開く（採用試験とは異なり、いつでも自由に開閉できる）。</summary>
-	private void OnFacilityButtonPressed()
-	{
-		_facilityPopup.Open(_state, _facilitySystem);
-	}
-
-	/// <summary>施設投資ポップアップが閉じた時のコールバック。着工・所持金の変化を反映する。</summary>
-	private void OnFacilityPopupClosed()
-	{
-		RefreshAll();
 	}
 
 	/// <summary>「顧問管理」ボタン。顧問役職割り当てポップアップを開く（いつでも自由に開閉できる）。</summary>
@@ -1249,22 +1067,6 @@ public partial class MainDashboard : Control
 		// 大迷宮への出撃予定も同じ枠を消費する（→ QuestDispatchSystem.CanDispatch）。
 		_squadSlotLabel.Text = $"出撃枠: {_state.ActiveDispatches.Count + _state.ActiveDungeonMissions.Count}/{_state.UnlockedSquadSlots}";
 
-		_questList.Clear();
-		foreach (var q in _state.AvailableQuests)
-		{
-			_questList.AddItem($"{q.Name}（{QuestTypeLabel(q.QuestType)} / " +
-				$"規模{ScaleLabel(q.Scale)}・{q.DurationWeeks}週 / 報酬{q.RewardGold}G / 期限あと{q.DeadlineWeeks}週）");
-		}
-
-		// 出撃パーティー一覧（→ 03 §4.0.2）：保存済み編成のうち、現時点で出撃可能な人数を添えて表示する。
-		_dispatchPartyList.Clear();
-		foreach (var party in _state.SavedParties)
-		{
-			int availableCount = PartyFormationSystem.BuildDispatchParty(_state, party.MemberIds).Members.Count;
-			int totalCount = party.MemberIds.Count(id => _state.Adventurers.Any(a => a.Id == id));
-			_dispatchPartyList.AddItem($"{party.Name}（{availableCount}/{totalCount}名 出撃可能）");
-		}
-
 		_adventurerList.Clear();
 		foreach (var a in _state.Adventurers)
 		{
@@ -1276,130 +1078,12 @@ public partial class MainDashboard : Control
 			_adventurerList.AddItem($"{a.Name}（{a.JobClass}） HP{a.CurrentHP}/{a.MaxHP}　総合PA{a.TotalPA:F1}　{a.Age}歳 {status}");
 		}
 
-		RefreshActiveDispatchList();
-		RefreshConfidence();
 		RefreshAdventurerDetail();
 		_dungeonPanel.Refresh(_state);
+		_partyFormationPanel.Refresh(_state);
 		_researchPanel.Refresh(_state);
+		_facilityPanel.Refresh(_state);
 	}
-
-	/// <summary>
-	/// 派遣中の部隊一覧（後方支援の対象選択用。→ コアシステム刷新仕様
-	/// 「(3) ギルドマスター後方支援機能」）。選択状態は週送りのたびにリセットされる。
-	/// </summary>
-	private void RefreshActiveDispatchList()
-	{
-		_activeDispatchList.Clear();
-		foreach (var dispatch in _state.ActiveDispatches)
-		{
-			string members = string.Join("・", dispatch.Party.Members.Select(m => m.Name));
-			string healState = dispatch.EmergencyHealUsed ? "／緊急回復 使用済" : "";
-			_activeDispatchList.AddItem(
-				$"{dispatch.Quest.Name}：{members}（残り{dispatch.WeeksRemaining}週{healState}）");
-		}
-
-		RefreshEmergencyButtons();
-	}
-
-	/// <summary>
-	/// 後方支援ボタンの有効・無効を、選択中の派遣内容に応じて切り替える。
-	/// 緊急回復は1出撃1回まで・資金が必要（→ EmergencySupportSystem.TryEmergencyHeal）。
-	/// </summary>
-	private void RefreshEmergencyButtons()
-	{
-		var dispatch = CurrentSelectedDispatch();
-
-		_emergencyRetreatButton.Disabled = dispatch == null;
-		_emergencyHealButton.Disabled =
-			dispatch == null || dispatch.EmergencyHealUsed || _state.Gold < EmergencyBalance.EmergencyHealCostGold;
-		_emergencyHealButton.Text = $"緊急回復（{EmergencyBalance.EmergencyHealCostGold}G）";
-	}
-
-	/// <summary>
-	/// 派遣中部隊一覧で選択中の派遣（未選択ならnull）。
-	/// 本プロジェクトのGodot側は#nullable未設定のため、CurrentDetailAdventurerと同様に
-	/// Null許容注釈（?）を付けずnullを返す既存の流儀へ揃えている。
-	/// </summary>
-	private ActiveDispatch CurrentSelectedDispatch()
-	{
-		var selected = _activeDispatchList.GetSelectedItems();
-		if (selected.Length == 0) return null;
-
-		int index = selected[0];
-		return index >= 0 && index < _state.ActiveDispatches.Count ? _state.ActiveDispatches[index] : null;
-	}
-
-	/// <summary>
-	/// 選択中のクエスト×パーティーの「勝算」を表示する（→ SuccessRateCalculator）。
-	///
-	/// 情報公開の原則（→ コミットd7c7f39「Ratio・クエスト難易度/ランク・相性数値を非表示に」）に従い、
-	/// 内部で算出した成功率（0.0〜1.0）の数値そのものは決して表示せず、
-	/// 5段階の定性表現（→ SuccessConfidence）だけを出す。
-	/// </summary>
-	private void RefreshConfidence()
-	{
-		_confidenceLabel.Clear();
-
-		var questIndices = _questList.GetSelectedItems();
-		var partyIndices = _dispatchPartyList.GetSelectedItems();
-		if (questIndices.Length == 0 || partyIndices.Length == 0)
-		{
-			_confidenceLabel.AppendText("[color=gray]クエストと出撃パーティーを選ぶと、斥候からの見立てが聞ける。[/color]");
-			return;
-		}
-
-		var quest = _state.AvailableQuests[questIndices[0]];
-		var savedParty = _state.SavedParties[partyIndices[0]];
-		var memberIdSource = _temporaryDispatchMemberIds ?? savedParty.MemberIds;
-		var party = PartyFormationSystem.BuildDispatchParty(_state, memberIdSource);
-
-		if (party.IsEmpty)
-		{
-			_confidenceLabel.AppendText("[color=orange]出撃できるメンバーがいない。[/color]");
-			return;
-		}
-
-		var confidence = SuccessRateCalculator.GetConfidence(party, quest);
-		_confidenceLabel.AppendText(
-			$"勝算：[color={ConfidenceColor(confidence)}][b]{ConfidenceLabel(confidence)}[/b][/color]" +
-			$"　（{party.Members.Count}名で出撃・推奨{quest.RecommendedMembers}名）");
-	}
-
-	/// <summary>
-	/// 週送りが「出撃できないので中断した」ことを、操作した本人の視線の先に表示する。
-	///
-	/// 週報ログ（右ペイン）だけに出していた時期は、プレイヤーからは
-	/// 「次週へボタンを押しても何も起こらない＝ボタンが壊れている」ようにしか見えず、
-	/// 実際にそう報告された（実機テストで再現を確認）。押した直後に、押した場所の近くで
-	/// 理由を返すことを優先する。次に編成・クエスト選択が変われば
-	/// RefreshConfidence が通常の勝算表示へ戻す。
-	/// </summary>
-	private void ShowDispatchBlockedNotice(string reason)
-	{
-		_confidenceLabel.Clear();
-		_confidenceLabel.AppendText($"[color=orange][b]⚠ {reason}[/b][/color]");
-	}
-
-	/// <summary>勝算の定性表現（→ SuccessConfidence）の表示文言。Core側は列挙子のみを持つ（→ 05技術メモ）。</summary>
-	private static string ConfidenceLabel(SuccessConfidence confidence) => confidence switch
-	{
-		SuccessConfidence.Overwhelming => "楽勝そうだ",
-		SuccessConfidence.Favorable => "勝算はある",
-		SuccessConfidence.Even => "五分五分か",
-		SuccessConfidence.Risky => "かなり厳しい",
-		SuccessConfidence.Reckless => "無謀だ",
-		_ => confidence.ToString()
-	};
-
-	private static string ConfidenceColor(SuccessConfidence confidence) => confidence switch
-	{
-		SuccessConfidence.Overwhelming => "lime",
-		SuccessConfidence.Favorable => "cyan",
-		SuccessConfidence.Even => "yellow",
-		SuccessConfidence.Risky => "orange",
-		SuccessConfidence.Reckless => "red",
-		_ => "white"
-	};
 
 	/// <summary>
 	/// ステータス詳細パネルを、直近にクリックされた冒険者の最新の値で再描画する。
@@ -1511,24 +1195,6 @@ public partial class MainDashboard : Control
 		var item = ItemCatalog.FindById(itemId);
 		return item?.Name ?? "（不明）";
 	}
-
-	private static string ScaleLabel(QuestScale scale) => scale switch
-	{
-		QuestScale.Small => "小",
-		QuestScale.Medium => "中",
-		QuestScale.Large => "大",
-		_ => scale.ToString()
-	};
-
-	private static string QuestTypeLabel(QuestType type) => type switch
-	{
-		QuestType.Subjugation => "討伐",
-		QuestType.Exploration => "調査・探索",
-		QuestType.Escort => "護衛",
-		QuestType.Gathering => "採取",
-		QuestType.Patrol => "巡回",
-		_ => type.ToString()
-	};
 
 	private static string FacilityLabel(FacilityType type) => type switch
 	{

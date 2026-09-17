@@ -1,0 +1,32 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/UI/FacilityPanel.cs" id="1_script"]
+
+[node name="FacilityPanel" type="VBoxContainer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_script")
+
+[node name="TitleLabel" type="Label" parent="."]
+layout_mode = 2
+text = "施設投資：着工は同時1件まで。着工時に費用を前払いし、工期経過で完成する。"
+autowrap_mode = 2
+
+[node name="FacilityList" type="ItemList" parent="."]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 240)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="FacilityStatusLabel" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 2
+text = ""
+
+[node name="StartConstructionButton" type="Button" parent="."]
+unique_name_in_owner = true
+layout_mode = 2
+text = "選択した施設に着工する"

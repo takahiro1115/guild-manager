@@ -1,0 +1,113 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/UI/PartyFormationPanel.cs" id="1_script"]
+
+[node name="PartyFormationPanel" type="VBoxContainer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_script")
+
+[node name="TitleLabel" type="Label" parent="."]
+layout_mode = 2
+text = "パーティー編成：1人は同時に1つのパーティーにしか所属できない。険悪なペア（相性30未満）は赤字で警告表示されるが、編成自体は妨げない。"
+autowrap_mode = 2
+
+[node name="PartyRow" type="HBoxContainer" parent="."]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="PartyListPanel" type="VBoxContainer" parent="PartyRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="PartyListLabel" type="Label" parent="PartyRow/PartyListPanel"]
+layout_mode = 2
+text = "パーティー一覧"
+
+[node name="PartyList" type="ItemList" parent="PartyRow/PartyListPanel"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 160)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="NameRow" type="HBoxContainer" parent="PartyRow/PartyListPanel"]
+layout_mode = 2
+
+[node name="NameEdit" type="LineEdit" parent="PartyRow/PartyListPanel/NameRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "パーティー名"
+
+[node name="CreateButton" type="Button" parent="PartyRow/PartyListPanel/NameRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "新規作成"
+
+[node name="ActionRow" type="HBoxContainer" parent="PartyRow/PartyListPanel"]
+layout_mode = 2
+
+[node name="RenameButton" type="Button" parent="PartyRow/PartyListPanel/ActionRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "名前を変更"
+
+[node name="DeleteButton" type="Button" parent="PartyRow/PartyListPanel/ActionRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "削除"
+
+[node name="MemberListPanel" type="VBoxContainer" parent="PartyRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="MemberListLabel" type="Label" parent="PartyRow/MemberListPanel"]
+layout_mode = 2
+text = "選択中パーティーのメンバー（最大4名）"
+
+[node name="MemberList" type="ItemList" parent="PartyRow/MemberListPanel"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 160)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="RemoveMemberButton" type="Button" parent="PartyRow/MemberListPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "外す（未編成に戻す） ▶"
+
+[node name="UnassignedListPanel" type="VBoxContainer" parent="PartyRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="UnassignedListLabel" type="Label" parent="PartyRow/UnassignedListPanel"]
+layout_mode = 2
+text = "未編成の冒険者"
+
+[node name="UnassignedList" type="ItemList" parent="PartyRow/UnassignedListPanel"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 160)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="AddMemberButton" type="Button" parent="PartyRow/UnassignedListPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "◀ 追加する"
+
+[node name="CompatibilityLabel" type="RichTextLabel" parent="."]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 70)
+layout_mode = 2
+bbcode_enabled = true
+
+[node name="StatusLabel" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 2
+text = ""
+autowrap_mode = 2

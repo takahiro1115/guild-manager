@@ -5,14 +5,15 @@ using GuildManager.Core.Models;
 using GuildManager.Core.Systems;
 
 /// <summary>
-/// パーティー編成（永続化）画面（仕様書 03 §4.0.2・§5.3.1）。
+/// 中央ペイン「編成」タブ（仕様書 03 §4.0.2・§5.3.1。旧 PartyFormationPopup をタブ埋め込み型へ移行）。
 ///
-/// 他のポップアップと同様、意思決定を強制しない（いつでも自由に開いたり閉じたりできる）。
 /// 左：保存済みパーティー一覧（作成・改名・削除）／中央：選択中パーティーのメンバー
 /// （最大4名、外せる）／右：未編成の冒険者一覧（追加できる）／下：選択中パーティー内の
 /// 相性険悪ペアの警告表示（→ 03 §5.3.1。表示のみで編成をブロックしない）。
+/// 編成の変更は大迷宮タブの出撃部隊一覧にも影響するため、StateChanged で MainDashboard に
+/// 全体の再描画を依頼する（DungeonPanel・ResearchPanel と同じ流儀）。
 /// </summary>
-public partial class PartyFormationPopup : PopupPanel
+public partial class PartyFormationPanel : VBoxContainer
 {
 	private ItemList _partyList = null!;
 	private LineEdit _nameEdit = null!;
@@ -29,11 +30,14 @@ public partial class PartyFormationPopup : PopupPanel
 	private GameState _state = null!;
 	private PartyFormationSystem _partyFormationSystem = null!;
 
-	/// <summary>現在選択中のパーティー（未選択ならnull）。</summary>
+	/// <summary>
+	/// 現在選択中のパーティー（未選択ならnull）。ポップアップ時代と違いタブは週送りのたびに
+	/// 再描画されるため、同じゲーム状態である限り選択を維持する。
+	/// </summary>
 	private SavedParty _selectedParty;
 
-	/// <summary>ポップアップが閉じたことを通知する（編成の変化をUI側に反映させるため）。</summary>
-	public event Action Closed = delegate { };
+	/// <summary>編成の変更でゲーム状態が変わったことを通知する。</summary>
+	public event Action StateChanged = delegate { };
 
 	public override void _Ready()
 	{
@@ -55,21 +59,25 @@ public partial class PartyFormationPopup : PopupPanel
 		_deleteButton.Pressed += OnDeletePressed;
 		_removeMemberButton.Pressed += OnRemoveMemberPressed;
 		_addMemberButton.Pressed += OnAddMemberPressed;
-		PopupHide += () => Closed.Invoke();
 	}
 
-	public void Open(GameState state, PartyFormationSystem partyFormationSystem)
+	public void Initialize(PartyFormationSystem partyFormationSystem)
 	{
-		_state = state;
 		_partyFormationSystem = partyFormationSystem;
-		_selectedParty = null;
-
-		RefreshAll();
-		PopupCentered();
 	}
 
-	private void RefreshAll()
+	/// <summary>最新のゲーム状態でタブ全体を再描画する（MainDashboard.RefreshAllから毎回呼ぶ）。</summary>
+	public void Refresh(GameState state)
 	{
+		// 新規ゲーム・ロードでゲーム状態自体が差し替わった場合は、旧状態の選択を持ち越さない。
+		if (!ReferenceEquals(_state, state))
+		{
+			_selectedParty = null;
+			_nameEdit.Text = "";
+			_statusLabel.Text = "";
+		}
+
+		_state = state;
 		RefreshPartyList();
 		RefreshMemberAndUnassignedLists();
 		RefreshCompatibilityWarnings();
@@ -160,7 +168,7 @@ public partial class PartyFormationPopup : PopupPanel
 		_selectedParty = _partyFormationSystem.CreateParty(_state, name);
 		_nameEdit.Text = "";
 		_statusLabel.Text = $"「{name}」を作成した。";
-		RefreshAll();
+		StateChanged.Invoke();
 	}
 
 	private void OnRenamePressed()
@@ -180,7 +188,7 @@ public partial class PartyFormationPopup : PopupPanel
 
 		_partyFormationSystem.RenameParty(_selectedParty, name);
 		_statusLabel.Text = "名前を変更した。";
-		RefreshPartyList();
+		StateChanged.Invoke();
 	}
 
 	private void OnDeletePressed()
@@ -196,7 +204,7 @@ public partial class PartyFormationPopup : PopupPanel
 		_selectedParty = null;
 		_nameEdit.Text = "";
 		_statusLabel.Text = $"「{name}」を削除した（未編成に戻った）。";
-		RefreshAll();
+		StateChanged.Invoke();
 	}
 
 	private void OnAddMemberPressed()
@@ -224,7 +232,7 @@ public partial class PartyFormationPopup : PopupPanel
 		}
 
 		_statusLabel.Text = $"{adventurer.Name} を「{_selectedParty.Name}」に編成した。";
-		RefreshAll();
+		StateChanged.Invoke();
 	}
 
 	private void OnRemoveMemberPressed()
@@ -246,7 +254,6 @@ public partial class PartyFormationPopup : PopupPanel
 		var member = _state.Adventurers.FirstOrDefault(a => a.Id == memberId);
 		_partyFormationSystem.RemoveMember(_selectedParty, memberId);
 		_statusLabel.Text = $"{member?.Name ?? "（不明）"} を未編成に戻した。";
-		RefreshAll();
+		StateChanged.Invoke();
 	}
-
 }
