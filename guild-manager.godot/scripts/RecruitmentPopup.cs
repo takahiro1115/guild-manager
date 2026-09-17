@@ -150,12 +150,16 @@ public partial class RecruitmentPopup : PopupPanel
 	/// <summary>
 	/// Escape・外側クリックなど、ボタン以外の経路でポップアップが閉じようとした場合のフック。
 	/// 意思決定（採用/見送る）が済んでいなければ、閉じさせずに即座に再表示する。
+	///
+	/// 文字列指定の CallDeferred(nameof(PopupCentered)) はエンジン側のメソッド名
+	/// （"popup_centered"）で解決されるため「Method not found」で必ず失敗し、ポップアップが
+	/// 消えたまま Closed も来ず「次週へ」が押せなくなっていた。ラムダを Callable にして呼ぶ。
 	/// </summary>
 	private void OnPopupHide()
 	{
 		if (!_decided)
 		{
-			CallDeferred(nameof(PopupCentered));
+			Callable.From(() => PopupCentered()).CallDeferred();
 			return;
 		}
 

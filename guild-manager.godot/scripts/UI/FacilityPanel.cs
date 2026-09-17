@@ -5,13 +5,13 @@ using GuildManager.Core.Models;
 using GuildManager.Core.Systems;
 
 /// <summary>
-/// 施設Lv投資のポップアップ（仕様書 03 §6・§6.1）。
+/// 中央ペイン「施設」タブ（仕様書 03 §6・§6.1。旧 FacilityPopup をタブ埋め込み型へ移行）。
 ///
-/// 新春採用試験ポップアップ（RecruitmentPopup）とは異なり、意思決定を強制しない
-/// （いつでも自由に開いたり閉じたりできる）。着工は同時1件のみで、他の施設が
-/// 工事中の間は着工ボタンが失敗する（理由は状況ラベルに表示）。
+/// 着工は同時1件のみで、他の施設が工事中の間は着工ボタンが失敗する（理由は状況ラベルに表示）。
+/// 所持金等の画面全体の再描画は MainDashboard の責務のため、StateChanged イベントで依頼する
+/// （DungeonPanel・ResearchPanel と同じ流儀）。
 /// </summary>
-public partial class FacilityPopup : PopupPanel
+public partial class FacilityPanel : VBoxContainer
 {
 	private ItemList _facilityList = null!;
 	private Button _startConstructionButton = null!;
@@ -20,8 +20,8 @@ public partial class FacilityPopup : PopupPanel
 	private GameState _state = null!;
 	private FacilitySystem _facilitySystem = null!;
 
-	/// <summary>ポップアップが閉じたことを通知する（着工・所持金の変化をUI側に反映させるため）。</summary>
-	public event Action Closed = delegate { };
+	/// <summary>着工でゲーム状態（所持金・建設キュー）が変わったことを通知する。</summary>
+	public event Action StateChanged = delegate { };
 
 	public override void _Ready()
 	{
@@ -30,16 +30,18 @@ public partial class FacilityPopup : PopupPanel
 		_statusLabel = GetNode<Label>("%FacilityStatusLabel");
 
 		_startConstructionButton.Pressed += OnStartConstructionPressed;
-		PopupHide += () => Closed.Invoke();
 	}
 
-	public void Open(GameState state, FacilitySystem facilitySystem)
+	public void Initialize(FacilitySystem facilitySystem)
+	{
+		_facilitySystem = facilitySystem;
+	}
+
+	/// <summary>最新のゲーム状態でタブ全体を再描画する（MainDashboard.RefreshAllから毎回呼ぶ）。</summary>
+	public void Refresh(GameState state)
 	{
 		_state = state;
-		_facilitySystem = facilitySystem;
-
 		RefreshList();
-		PopupCentered();
 	}
 
 	private void RefreshList()
@@ -74,8 +76,7 @@ public partial class FacilityPopup : PopupPanel
 		var facility = _state.Facilities[selected[0]];
 		if (_facilitySystem.TryStartConstruction(_state, facility.Type))
 		{
-			_statusLabel.Text = $"{FacilityLabel(facility.Type)}の着工を開始した。";
-			RefreshList();
+			StateChanged.Invoke();
 		}
 		else if (_state.UnderConstruction != null)
 		{
