@@ -1095,6 +1095,30 @@ public partial class MainDashboard : Control
 			return;
 		}
 
+		if (resolution.TraversalResult != null)
+		{
+			var traversal = resolution.TraversalResult;
+			sb.AppendLine($"[b]第{weekNumber}週：大迷宮 第{traversal.FloorBefore}層〜 道中進軍[/b]");
+			sb.AppendLine(traversal.Rank switch
+			{
+				TraversalRank.Lightning => "[color=lime]◆ 敵の気配を巧みにかわし、電撃的に奥へ進んだ。[/color]",
+				TraversalRank.Swift => "[color=cyan]◆ 淀みない足取りで、迅速に奥へ進んだ。[/color]",
+				TraversalRank.Normal => "[color=cyan]◆ 着実に一歩ずつ、奥へ進んだ。[/color]",
+				_ => "[color=orange]◆ 幾度も行く手を阻まれながら、なんとか奥へ進んだ。[/color]",
+			});
+			sb.AppendLine($"到達階層 第{traversal.FloorBefore}層 → 第{traversal.FloorAfter}層" +
+				$"（+{traversal.FloorAfter - traversal.FloorBefore}階層）");
+			if (traversal.StopperTriggered && traversal.TargetBoss != null)
+			{
+				sb.AppendLine($"[color=gold][b]⚠ 最奥にて階層ボス【{traversal.TargetBoss.Name}】を発見！ 進軍が阻まれた。[/b][/color]");
+			}
+			sb.AppendLine("[color=cyan]部隊は全員生還した。[/color]");
+			AppendHpLossLines(sb, traversal.HpLostByAdventurer);
+
+			AppendLog(sb.ToString());
+			return;
+		}
+
 		var assault = resolution.DungeonResult;
 		if (assault == null)
 			return;
