@@ -147,7 +147,7 @@ namespace GuildManager.Core.Systems
                     // （毎回必ず成果が出る）。
                     state.TotalDispatchCount++;
 
-                    var gathering = _gatheringResolver.Resolve(mission.Party, mission.Field);
+                    var gathering = _gatheringResolver.Resolve(mission.Party, mission.Field, state);
                     state.AddMaterial(gathering.MaterialId, gathering.MaterialCount);
                     state.Gold += gathering.GoldEarned;
 
@@ -184,13 +184,13 @@ namespace GuildManager.Core.Systems
                     if (mission.Field.ReachedFloor < boss.Floor)
                     {
                         // 分岐A：道中進軍。まだボス階層に到達していない＝素通りで一気に進める。
-                        var traversal = _traversalResolver.Resolve(mission.Party, mission.Field, boss);
+                        var traversal = _traversalResolver.Resolve(mission.Party, mission.Field, boss, state);
                         resolutions.Add(new DungeonMissionResolution(mission.Party, boss, mission.Field, intelBefore, traversal));
                     }
                     else
                     {
                         // 分岐B：ボス解析。既にボス階層に到達しているため、従来どおりIntelRateを上げる。
-                        var scouting = _scoutingResolver.Resolve(mission.Party, boss);
+                        var scouting = _scoutingResolver.Resolve(mission.Party, boss, state);
                         resolutions.Add(new DungeonMissionResolution(mission.Party, boss, mission.Field, intelBefore, scouting));
                     }
                 }

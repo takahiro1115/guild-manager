@@ -26,8 +26,15 @@ namespace GuildManager.Core.Systems
             _rng = rng;
         }
 
-        /// <summary>部隊をフィールドへ探索に差し向け、素材・ゴールドを算出する。</summary>
-        public GatheringResult Resolve(Party party, DungeonField field)
+        /// <summary>
+        /// 部隊をフィールドへ探索に差し向け、素材・ゴールドを算出する。
+        /// </summary>
+        /// <param name="state">
+        /// 省略可能。渡した場合、研究「拡張採取袋」（→ Models.ResearchIds.GatheringBag）が
+        /// 完了済みなら獲得数にボーナスを加算する（→ アルベールの研究室）。
+        /// nullなら通常どおりボーナス無しで解決する（既存の呼び出し側・テストとの互換用）。
+        /// </param>
+        public GatheringResult Resolve(Party party, DungeonField field, GameState? state = null)
         {
             if (party.Members.Count == 0)
                 throw new InvalidOperationException("空のパーティは探索任務に出せません。");
@@ -37,6 +44,14 @@ namespace GuildManager.Core.Systems
 
             int materialCount = Math.Max(1, (int)(score / GatheringBalance.MaterialYieldDivisor))
                 + field.ReachedFloor / GatheringBalance.ReachedFloorDivisor;
+
+            // 研究バフ：拡張採取袋が完了済みなら、獲得数にボーナスを加算する（→ アルベールの研究室）。
+            if (state != null && state.IsResearchCompleted(ResearchIds.GatheringBag))
+            {
+                var research = ResearchBalance.Find(ResearchIds.GatheringBag);
+                if (research != null)
+                    materialCount += (int)research.EffectValue;
+            }
 
             result.MaterialId = RollMaterial(field);
             result.MaterialCount = materialCount;

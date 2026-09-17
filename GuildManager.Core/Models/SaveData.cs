@@ -172,6 +172,15 @@ namespace GuildManager.Core.Models
         /// </summary>
         public Dictionary<string, int> Materials { get; set; } = new();
 
+        /// <summary>
+        /// 完了済みの研究Id一覧（→ GameState.CompletedResearchIds、アルベールの研究室）。
+        /// HashSet&lt;string&gt;はJSON配列として直接シリアライズできる。本フィールド追加前の
+        /// 既存セーブにはJSON側にキー自体が無いが、System.Text.Jsonは未知プロパティを
+        /// 単純に無視して既定値（空集合）のまま復元するため、ロード自体が失敗することはない
+        /// （→ 03 §12「既存セーブとの互換性維持」）。
+        /// </summary>
+        public HashSet<string> CompletedResearchIds { get; set; } = new();
+
         // 装備カタログは静的コード定義のため保存不要（Adventurer側は装備IDの
         // 文字列のみ保持しているため、カタログさえコード内にあれば復元できる）
     }

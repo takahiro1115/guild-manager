@@ -35,14 +35,18 @@ namespace GuildManager.Core.Systems
         /// 部隊を道中へ差し向け、到達階層を進める。field.ReachedFloor は本メソッドが直接書き換える。
         /// nextBossの階層を超えて進むことはない（ストッパー、→ TraversalResult.StopperTriggered）。
         /// </summary>
-        public TraversalResult Resolve(Party party, DungeonField field, FloorBoss nextBoss)
+        /// <param name="state">
+        /// 省略可能。CalculateTraversalScoreへそのまま渡す（→ 研究「軽装の踏破術」のボーナス）。
+        /// nullなら通常どおりボーナス無しで解決する（既存の呼び出し側・テストとの互換用）。
+        /// </param>
+        public TraversalResult Resolve(Party party, DungeonField field, FloorBoss nextBoss, GameState? state = null)
         {
             if (party.Members.Count == 0)
                 throw new InvalidOperationException("空のパーティは道中進軍に出せません。");
 
             var result = new TraversalResult { FloorBefore = field.ReachedFloor };
 
-            double score = CalculateTraversalScore(party);
+            double score = CalculateTraversalScore(party, state);
             double requirement = CurrentFloorRequirement(field);
             double ratio = requirement <= 0 ? double.MaxValue : score / requirement;
 
@@ -70,17 +74,32 @@ namespace GuildManager.Core.Systems
         }
 
         /// <summary>
-        /// 走破力＝Σ(AGI+DEX)×係数 ＋ 部隊長LDR×係数。空の部隊は0。
+        /// 走破力＝Σ(AGI+DEX)×係数 ＋ 部隊長LDR×係数（＋研究ボーナス）。空の部隊は0
+        /// （stateの有無・研究の完了状況に関わらず、部隊が空ならボーナスも乗らない）。
         /// public static にしてあるのは出撃前のプレビュー（UI）とテストから同じ式を使うため
         /// （→ ScoutingResolver.CalculateStealthScoreと同じ考え方）。
         /// </summary>
-        public static double CalculateTraversalScore(Party party)
+        /// <param name="state">
+        /// 省略可能。渡した場合、研究「軽装の踏破術」（→ Models.ResearchIds.LightTread）が
+        /// 完了済みなら走破力に加算する（→ アルベールの研究室）。DungeonPanel側の出撃前
+        /// プレビューでも同じ式を使うため、UIとResolve内部の両方でボーナスが一致する。
+        /// </param>
+        public static double CalculateTraversalScore(Party party, GameState? state = null)
         {
             if (party.IsEmpty) return 0;
 
-            return party.Members.Sum(m => m.GetEffectiveStat("AGI") + m.GetEffectiveStat("DEX"))
+            double score = party.Members.Sum(m => m.GetEffectiveStat("AGI") + m.GetEffectiveStat("DEX"))
                 * DungeonTraversalBalance.StatCoefficient
                 + party.Members[0].GetEffectiveStat("LDR") * DungeonTraversalBalance.LeaderCoefficient;
+
+            if (state != null && state.IsResearchCompleted(ResearchIds.LightTread))
+            {
+                var research = ResearchBalance.Find(ResearchIds.LightTread);
+                if (research != null)
+                    score += research.EffectValue;
+            }
+
+            return score;
         }
 
         /// <summary>道中進軍の要求値＝現在到達階層×係数（深く潜るほど道中も険しくなる）。</summary>

@@ -226,6 +226,17 @@ namespace GuildManager.Core.Models
             Materials[materialId] = current + count;
         }
 
+        /// <summary>
+        /// 完了済みの研究Id一覧（→ Models.ResearchDefinition・アルベールの研究室）。
+        /// 一度完了した研究は取り消せない（削除する経路を用意しない）。初期値は空集合、
+        /// 既存セーブ（本フィールド追加前）はJSON側にキーが無いため復元時は自動的に空集合になる
+        /// （→ 互換性維持。研究未完了の状態として扱われるだけで、ロード自体は失敗しない）。
+        /// </summary>
+        public HashSet<string> CompletedResearchIds { get; set; } = new();
+
+        /// <summary>指定した研究が完了済みか。</summary>
+        public bool IsResearchCompleted(string researchId) => CompletedResearchIds.Contains(researchId);
+
         /// <summary>指定した種類の施設の現在Lvを返す。該当データが無い場合は1を返す（防御的フォールバック）。</summary>
         public int GetFacilityLevel(FacilityType type)
         {
@@ -265,6 +276,7 @@ namespace GuildManager.Core.Models
                 SavedParties = new List<SavedParty>(SavedParties),
                 DungeonFields = new List<DungeonField>(DungeonFields),
                 Materials = new Dictionary<string, int>(Materials),
+                CompletedResearchIds = new HashSet<string>(CompletedResearchIds),
             };
 
             foreach (var kv in Compatibility)
@@ -357,6 +369,7 @@ namespace GuildManager.Core.Models
                 SavedParties = new List<SavedParty>(data.SavedParties),
                 DungeonFields = new List<DungeonField>(data.DungeonFields),
                 Materials = new Dictionary<string, int>(data.Materials),
+                CompletedResearchIds = new HashSet<string>(data.CompletedResearchIds),
                 Facilities = new List<Facility>(),
             };
 
