@@ -220,7 +220,7 @@ namespace GuildManager.Core.Systems
                 }
                 else
                 {
-                    var assault = _dungeonResolver.Resolve(mission.Party, boss);
+                    var assault = _dungeonResolver.Resolve(mission.Party, boss, state);
                     ApplyForcedRetirements(state, mission.Party, assault.ForceRetiredAdventurerIds);
 
                     // 撃破成功時のみ、フィールドの進行（最高到達階層・次フィールド開放・報酬・

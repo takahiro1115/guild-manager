@@ -20,11 +20,10 @@ namespace GuildManager.Core.Systems
     ///   （全治週数のカウントダウン → 全快）。
     /// - 回復量は → BAL: 静養/待機回復（training.csv、TrainingBalance.RestRecoveryRatio）に、
     ///   医務室（Infirmary）の現在Lvに連動する倍率を掛ける
-    ///   （→ FacilityBalance.GetInfirmaryHpRecoveryMultiplier）。研究「薬草湿布の調合」
-    ///   （→ Models.ResearchIds.HerbPoultice）が完了済みならさらにボーナス倍率が乗る
-    ///   （→ アルベールの研究室。対象ファイル一覧には無かったが、ResearchEffectType.
-    ///   HpRecoveryBonusの効果を実際に消費する場所がここ以外に存在しないため、購入できるのに
-    ///   何の効果も発生しない研究を残さないよう本ファイルも合わせて変更した）。上限は MaxHP。
+    ///   （→ FacilityBalance.GetInfirmaryHpRecoveryMultiplier）。HpRecoveryBonus種別の研究
+    ///   （薬草湿布の調合・硬化軟膏の調合等）が完了済みなら、完了分すべてのEffectValueを
+    ///   合計してさらにボーナス倍率が乗る（→ Balance.ResearchBalance.GetTotalEffectValue、
+    ///   アルベールの研究室。同種の研究が複数完了していても加算で重複できる）。上限は MaxHP。
     /// </summary>
     public class RestRecoverySystem
     {
@@ -35,13 +34,7 @@ namespace GuildManager.Core.Systems
         /// <param name="dispatchedAdventurerIds">今週出撃したパーティのメンバーID（出撃なしの週は空集合）。</param>
         public void ProcessWeeklyRest(GameState state, IReadOnlySet<Guid> dispatchedAdventurerIds)
         {
-            double researchBonus = 0;
-            if (state.IsResearchCompleted(ResearchIds.HerbPoultice))
-            {
-                var research = ResearchBalance.Find(ResearchIds.HerbPoultice);
-                if (research != null)
-                    researchBonus = research.EffectValue;
-            }
+            double researchBonus = ResearchBalance.GetTotalEffectValue(state, ResearchEffectType.HpRecoveryBonus);
 
             foreach (var adventurer in state.Adventurers)
             {

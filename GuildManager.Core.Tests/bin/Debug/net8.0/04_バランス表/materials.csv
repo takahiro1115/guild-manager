@@ -2,3 +2,11 @@ Id,Name,Description,FieldId,MinFloor,MaxFloor,BaseYield
 mat_forest_herb,月光草,月明かりの下でだけ光る薬草。傷薬の下地になる。,forest,1,10,3
 mat_forest_wood,霊樹の枝,森の主とされる霊樹から落ちた枝。加工しやすく軽い。,forest,1,10,2
 mat_forest_spore,変異胞子,深部の魔力で変異した胞子。扱いには注意が要る。,forest,5,10,1
+mat_cave_moss,発光苔,鍾乳洞の暗がりでほのかに光る苔。灯り代わりにもなる。,cave,1,30,3
+mat_cave_ore,黒鉱石,洞窟の深部で採れる艶のある鉱石。加工に手間がかかる。,cave,20,60,2
+mat_ruins_scrap,遺物の欠片,廃墟のあちこちに散らばる古代文明の残骸。用途は不明。,ruins,1,40,3
+mat_ruins_rune,ルーン石,古代文字が刻まれた石片。解読すれば何かに使えそうだ。,ruins,20,80,2
+mat_canyon_ash,火山灰,峡谷に降り積もる灼熱の灰。断熱材として重宝される。,canyon,1,50,3
+mat_canyon_gem,紅玉鉱石,溶岩の熱で結晶化した鉱石。宝飾にも研究にも使える。,canyon,20,100,2
+mat_abyss_dust,虚空の粉塵,深淵の特異点でだけ舞う、光を吸い込む粉塵。,abyss,1,70,3
+mat_abyss_crystal,深淵の結晶,深淵の圧力で生まれた結晶。魂魄の気配を宿すという。,abyss,20,150,2

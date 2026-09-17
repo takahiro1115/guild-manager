@@ -18,6 +18,11 @@ namespace GuildManager.Core.Tests
             public int NextInt(int min, int max) => min;
         }
 
+        private class AlwaysMaxRng : IRng
+        {
+            public int NextInt(int min, int max) => max;
+        }
+
         private static Adventurer MakeAdventurer(int agiDex, int ldr = 0)
         {
             var a = new Adventurer { STR = 10, AGI = agiDex, VIT = 30, MND = 10, DEX = agiDex, LDR = ldr, INT = 10 };
@@ -35,11 +40,12 @@ namespace GuildManager.Core.Tests
         // ---------------- research.csv・ResearchBalance ----------------
 
         [Fact]
-        public void ResearchBalance_LoadsAllFourDefinitions_WithMaterialsParsed()
+        public void ResearchBalance_LoadsAllEightDefinitions_WithMaterialsParsed()
         {
+            // 4種（forestフィールド分）＋2026年9月新設の4種（cave/ruins/canyon/abyssフィールド分）＝計8種。
             var all = ResearchBalance.GetAll();
 
-            Assert.Equal(4, all.Count);
+            Assert.Equal(8, all.Count);
             Assert.All(all, r => Assert.NotEmpty(r.RequiredMaterials));
             Assert.All(all, r => Assert.True(r.RequiredGold > 0));
 
@@ -51,6 +57,22 @@ namespace GuildManager.Core.Tests
 
             Assert.Equal(ResearchEffectType.GatheringYieldBonus, ResearchBalance.Find(ResearchIds.GatheringBag)!.EffectType);
             Assert.Equal(ResearchEffectType.TraversalBonus, ResearchBalance.Find(ResearchIds.LightTread)!.EffectType);
+
+            var caveOintment = ResearchBalance.Find(ResearchIds.CaveOintment);
+            Assert.NotNull(caveOintment);
+            Assert.Equal(ResearchEffectType.HpRecoveryBonus, caveOintment!.EffectType);
+
+            var ruinsTactics = ResearchBalance.Find(ResearchIds.RuinsTactics);
+            Assert.NotNull(ruinsTactics);
+            Assert.Equal(ResearchEffectType.IntelRateBonus, ruinsTactics!.EffectType);
+
+            var canyonTread = ResearchBalance.Find(ResearchIds.CanyonTread);
+            Assert.NotNull(canyonTread);
+            Assert.Equal(ResearchEffectType.TraversalBonus, canyonTread!.EffectType);
+
+            var abyssPreservation = ResearchBalance.Find(ResearchIds.AbyssPreservation);
+            Assert.NotNull(abyssPreservation);
+            Assert.Equal(ResearchEffectType.SurvivalThresholdBonus, abyssPreservation!.EffectType);
             Assert.Equal(ResearchEffectType.HpRecoveryBonus, ResearchBalance.Find(ResearchIds.HerbPoultice)!.EffectType);
         }
 
@@ -103,6 +125,79 @@ namespace GuildManager.Core.Tests
             // ③何も持っていない
             var nothing = new GameState { Gold = 0 };
             Assert.False(ResearchSystem.CanStartResearch(nothing, research));
+        }
+
+        // ---------------- 洞窟・廃墟・峡谷・深淵フィールド分の新規研究（2026年9月新設） ----------------
+
+        [Theory]
+        [InlineData("res_cave_ointment", ResearchEffectType.HpRecoveryBonus)]
+        [InlineData("res_ruins_tactics", ResearchEffectType.IntelRateBonus)]
+        [InlineData("res_canyon_tread", ResearchEffectType.TraversalBonus)]
+        [InlineData("res_abyss_preservation", ResearchEffectType.SurvivalThresholdBonus)]
+        public void ResearchSystem_CanComplete_NewFieldResearches(string researchId, ResearchEffectType expectedEffectType)
+        {
+            var research = ResearchBalance.Find(researchId)!;
+            Assert.Equal(expectedEffectType, research.EffectType);
+            Assert.True(research.EffectValue > 0);
+
+            var state = new GameState { Gold = research.RequiredGold };
+            foreach (var (materialId, count) in research.RequiredMaterials)
+                state.AddMaterial(materialId, count);
+
+            Assert.True(ResearchSystem.CanStartResearch(state, research));
+            Assert.True(ResearchSystem.CompleteResearch(state, research));
+
+            Assert.Equal(0, state.Gold);
+            Assert.True(state.IsResearchCompleted(researchId));
+            foreach (var (materialId, count) in research.RequiredMaterials)
+                Assert.Equal(0, state.Materials.GetValueOrDefault(materialId));
+        }
+
+        [Fact]
+        public void ResearchBalance_GetTotalEffectValue_StacksMultipleResearchesOfSameType()
+        {
+            // 同じ効果種別（IntelRateBonus）の研究を2つ完了すると、EffectValueが合算されること
+            // （→ 生体蛍光試薬＋古代戦術録の解読。以前は研究Idを1つだけ固定でチェックしていたため
+            // 2つ目以降が無視される不具合があった、→ Balance.ResearchBalance.GetTotalEffectValue）。
+            var scoutReagent = ResearchBalance.Find(ResearchIds.ScoutReagent)!;
+            var ruinsTactics = ResearchBalance.Find(ResearchIds.RuinsTactics)!;
+            var state = new GameState();
+
+            Assert.Equal(0, ResearchBalance.GetTotalEffectValue(state, ResearchEffectType.IntelRateBonus));
+
+            state.CompletedResearchIds.Add(scoutReagent.Id);
+            Assert.Equal(scoutReagent.EffectValue, ResearchBalance.GetTotalEffectValue(state, ResearchEffectType.IntelRateBonus), precision: 6);
+
+            state.CompletedResearchIds.Add(ruinsTactics.Id);
+            Assert.Equal(scoutReagent.EffectValue + ruinsTactics.EffectValue,
+                ResearchBalance.GetTotalEffectValue(state, ResearchEffectType.IntelRateBonus), precision: 6);
+        }
+
+        [Fact]
+        public void DungeonResolver_AppliesSurvivalThresholdBonus_ReducingHpLoss()
+        {
+            // 魂魄安定の霊香（SurvivalThresholdBonus）完了済みなら、ボス討伐のHP消費率が
+            // 軽減されること（→ DungeonResolver.ApplyHpLoss）。
+            var bossWithout = new FloorBoss { Name = "軽減確認用ボス", Floor = 1, MaxHp = 1, CurrentHp = 1 };
+            var bossWith = new FloorBoss { Name = "軽減確認用ボス", Floor = 1, MaxHp = 1, CurrentHp = 1 };
+            var memberWithout = new Adventurer { STR = 300, AGI = 300, VIT = 300, MND = 300, DEX = 300, LDR = 300, INT = 300 };
+            memberWithout.CurrentHP = memberWithout.MaxHP;
+            var memberWith = new Adventurer { STR = 300, AGI = 300, VIT = 300, MND = 300, DEX = 300, LDR = 300, INT = 300 };
+            memberWith.CurrentHP = memberWith.MaxHP;
+
+            var resolver = new DungeonResolver(new AlwaysMaxRng()); // 常に最大割合でHP消費させる
+            var partyWithout = PartyOf(memberWithout);
+            resolver.Resolve(partyWithout, bossWithout, state: null);
+
+            var research = ResearchBalance.Find(ResearchIds.AbyssPreservation)!;
+            var state = new GameState();
+            state.CompletedResearchIds.Add(research.Id);
+            var partyWith = PartyOf(memberWith);
+            resolver.Resolve(partyWith, bossWith, state);
+
+            int lossWithout = memberWithout.MaxHP - memberWithout.CurrentHP;
+            int lossWith = memberWith.MaxHP - memberWith.CurrentHP;
+            Assert.True(lossWith < lossWithout, "SurvivalThresholdBonus研究の完了でHP消費が軽減されるはず");
         }
 
         // ---------------- 研究バフの適用（各Resolverへの参照追加） ----------------

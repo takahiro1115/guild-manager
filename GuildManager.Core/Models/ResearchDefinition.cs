@@ -32,6 +32,15 @@ namespace GuildManager.Core.Models
         /// EffectValue（例：15）はスコア計算の最後に加算する。
         /// </summary>
         TraversalBonus,
+
+        /// <summary>
+        /// ボス討伐時のHP消費率（%）からの固定減算（→ Systems.DungeonResolver、2026年9月新設）。
+        /// EffectValue（例：5）はHP消費率から%ポイントでそのまま差し引く（0未満にはしない）。
+        /// 即死級ギミック未対策時の全損（100%消費）も対象のため、「事故が起きても魂だけは
+        /// 引き留める」＝致命傷を軽傷へ和らげる効果として働く（致死判定という確率分岐を持たない
+        /// ダンジョン戦闘の設計上、生存"閾値"ではなく被ダメージそのものを削る形で実現する）。
+        /// </summary>
+        SurvivalThresholdBonus,
     }
 
     /// <summary>
@@ -76,5 +85,19 @@ namespace GuildManager.Core.Models
 
         /// <summary>薬草湿布の調合：静養時のHP自然回復量にボーナス（→ HpRecoveryBonus）。</summary>
         public const string HerbPoultice = "res_herb_poultice";
+
+        // ---- 洞窟・廃墟・峡谷・深淵フィールド分（2026年9月新設） ----
+
+        /// <summary>硬化軟膏の調合：静養時のHP自然回復量にボーナス（→ HpRecoveryBonus。HerbPoulticeと加算で重複可）。</summary>
+        public const string CaveOintment = "res_cave_ointment";
+
+        /// <summary>古代戦術録の解読：ボス調査の解析率獲得量にボーナス（→ IntelRateBonus。ScoutReagentと加算で重複可）。</summary>
+        public const string RuinsTactics = "res_ruins_tactics";
+
+        /// <summary>耐熱踏破法：道中進軍の走破力スコアにボーナス（→ TraversalBonus。LightTreadと加算で重複可）。</summary>
+        public const string CanyonTread = "res_canyon_tread";
+
+        /// <summary>魂魄安定の霊香：ボス討伐時のHP消費率を軽減（→ SurvivalThresholdBonus）。</summary>
+        public const string AbyssPreservation = "res_abyss_preservation";
     }
 }

@@ -177,9 +177,11 @@ namespace GuildManager.Core.Data
                 int dangerLevel = Math.Clamp(1 + index / 2 + fieldEscalation, 1, 5);
                 double counterThreshold = 40 + floor * 1.5 + fieldEscalation * 30;
 
-                // 確定ドロップ素材：materials.csvが現時点forestフィールド分しか定義していないため
-                // （→ 03 §4.5.5、候補A）、forest（Order=1）のボスにのみ設定する。他フィールドは
-                // 素材ドロップ無し（null）のまま。3種を巡回させ、個数は段が進むほど緩やかに増やす。
+                // 確定ドロップ素材（→ materials.csv、Balance.MaterialBalance）。
+                // forest（Order=1）：全10体で3種を巡回させる（候補A最初の実装分）。
+                // cave/ruins/canyon/abyss（Order 2〜5、2026年9月拡張）：節目ボス（10F・20F）のみ、
+                // フィールド固有の希少素材を確定ドロップする（materials.csv側のMinFloorが高い
+                // ＝採取では入手しづらい方の素材。ボス討伐という難所を通した安定供給経路にする）。
                 string? rewardMaterialId = def.Order == 1
                     ? (index % 3) switch
                     {
@@ -187,7 +189,16 @@ namespace GuildManager.Core.Data
                         1 => MaterialIds.ForestWood,
                         _ => MaterialIds.ForestSpore,
                     }
-                    : null;
+                    : (floor == 10 || floor == 20)
+                        ? def.Id switch
+                        {
+                            "cave" => MaterialIds.CaveOre,
+                            "ruins" => MaterialIds.RuinsRune,
+                            "canyon" => MaterialIds.CanyonGem,
+                            "abyss" => MaterialIds.AbyssCrystal,
+                            _ => null,
+                        }
+                        : null;
                 int rewardMaterialCount = rewardMaterialId != null ? Math.Clamp(3 + index / 4, 3, 5) : 0;
 
                 bosses.Add(new FloorBoss

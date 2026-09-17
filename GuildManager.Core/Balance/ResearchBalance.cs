@@ -92,5 +92,14 @@ namespace GuildManager.Core.Balance
 
         /// <summary>指定Idの研究定義。未定義のIdはnull（防御的：research.csv側の設定漏れを黙って握り潰さない用途以外では、呼び出し側が null許容で扱う）。</summary>
         public static ResearchDefinition? Find(string id) => Definitions.FirstOrDefault(d => d.Id == id);
+
+        /// <summary>
+        /// 指定した効果種別のうち、stateで完了済みの研究のEffectValue合計（2026年9月新設）。
+        /// 同じ効果種別の研究が複数完了していても加算で重複できるようにする（→ 各Resolver・
+        /// Systemの研究バフ参照。以前は研究Idを1つだけ固定でチェックしていたため、フィールド
+        /// 拡張で同種の研究が増えても2つ目以降が反映されない不具合があった）。
+        /// </summary>
+        public static double GetTotalEffectValue(GameState state, ResearchEffectType effectType) =>
+            Definitions.Where(d => d.EffectType == effectType && state.IsResearchCompleted(d.Id)).Sum(d => d.EffectValue);
     }
 }

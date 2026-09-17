@@ -36,7 +36,13 @@ namespace GuildManager.Core.Systems
         /// 部隊を階層ボスへ差し向け、討伐を解決する。撃破した場合は boss.IsDefeated を立て、
         /// boss.CurrentHp を0にする（撤退時はボスのHPを元に戻し、次回は仕切り直しとする）。
         /// </summary>
-        public DungeonResult Resolve(Party party, FloorBoss boss)
+        /// <param name="state">
+        /// 省略可能。渡した場合、SurvivalThresholdBonus種別の研究（魂魄安定の霊香等）が
+        /// 完了済みなら、完了分すべてのEffectValueを合計してHP消費率（%）から差し引く
+        /// （→ Balance.ResearchBalance.GetTotalEffectValue、アルベールの研究室、ApplyHpLoss）。
+        /// nullなら通常どおりボーナス無しで解決する（既存の呼び出し側・テストとの互換用）。
+        /// </param>
+        public DungeonResult Resolve(Party party, FloorBoss boss, GameState? state = null)
         {
             if (party.Members.Count == 0)
                 throw new InvalidOperationException("空のパーティはダンジョンに出せません。");
@@ -72,7 +78,10 @@ namespace GuildManager.Core.Systems
                 boss.IsDefeated = true;
             }
 
-            ApplyHpLoss(result, party);
+            double survivalBonus = state != null
+                ? ResearchBalance.GetTotalEffectValue(state, ResearchEffectType.SurvivalThresholdBonus)
+                : 0;
+            ApplyHpLoss(result, party, survivalBonus);
 
             // 携行アイテムは使い切り（→ QuestResolver.Resolve と同じ扱い）。
             party.ConsumableItemIds.Clear();
@@ -132,8 +141,12 @@ namespace GuildManager.Core.Systems
         /// HP下限は0：0に到達した冒険者は強制除籍（恒久ロスト）となる
         /// （→ DungeonResult.ForceRetiredAdventurerIds。世界観上は「秘薬で一命を取り留めたが
         /// アルベールが登録を抹消した」という扱い）。
+        ///
+        /// survivalBonus（2026年9月新設、→ ResearchEffectType.SurvivalThresholdBonus）は
+        /// 算出後のHP消費率（%）から%ポイントで差し引く（0未満にはしない）。即死級ギミック
+        /// 未対策時の全損（100%）にも適用されるため、事故を軽傷へ和らげる効果として働く。
         /// </summary>
-        private void ApplyHpLoss(DungeonResult result, Party party)
+        private void ApplyHpLoss(DungeonResult result, Party party, double survivalBonus = 0)
         {
             bool instantKillTriggered = result.UncounteredGimmicks.Contains(BossGimmickType.InstantKill);
 
@@ -154,6 +167,8 @@ namespace GuildManager.Core.Systems
                     lossPct = _rng.NextInt(minPct, maxPct);
                     lossPct = (int)Math.Clamp(Math.Round(lossPct * result.DamageMultiplier), 0, 100);
                 }
+
+                lossPct = (int)Math.Max(0, lossPct - survivalBonus);
 
                 int hpLoss = member.MaxHP * lossPct / 100;
                 int newHp = Math.Max(0, member.CurrentHP - hpLoss);

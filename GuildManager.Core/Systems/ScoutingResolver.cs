@@ -38,9 +38,11 @@ namespace GuildManager.Core.Systems
         /// 調査隊をボスへ差し向け、解析率を更新する。boss.IntelRate は本メソッドが直接書き換える。
         /// </summary>
         /// <param name="state">
-        /// 省略可能。渡した場合、研究「生体蛍光試薬」（→ Models.ResearchIds.ScoutReagent）が
-        /// 完了済みなら解析率上昇量に(1+EffectValue)倍を掛ける（→ アルベールの研究室）。
-        /// nullなら通常どおりボーナス無しで解決する（既存の呼び出し側・テストとの互換用）。
+        /// 省略可能。渡した場合、IntelRateBonus種別の研究（生体蛍光試薬・古代戦術録の解読等）が
+        /// 完了済みなら、完了分すべてのEffectValueを合計して(1+合計)倍を解析率上昇量に掛ける
+        /// （→ Balance.ResearchBalance.GetTotalEffectValue、アルベールの研究室。同種の研究が
+        /// 複数完了していても加算で重複できる）。nullなら通常どおりボーナス無しで解決する
+        /// （既存の呼び出し側・テストとの互換用）。
         /// </param>
         public ScoutingResult Resolve(Party party, FloorBoss boss, GameState? state = null)
         {
@@ -74,14 +76,11 @@ namespace GuildManager.Core.Systems
                 _ => ScoutingBalance.IntelGainPartial,
             };
 
-            // 研究バフ：生体蛍光試薬が完了済みなら、解析率上昇量に(1+EffectValue)倍を掛ける
-            // （→ アルベールの研究室。EffectValue=0.25なら「+25%」＝1.25倍、HpRecoveryBonusと同じ加算率の考え方）。
-            if (state != null && state.IsResearchCompleted(ResearchIds.ScoutReagent))
-            {
-                var research = ResearchBalance.Find(ResearchIds.ScoutReagent);
-                if (research != null)
-                    gain *= 1 + research.EffectValue;
-            }
+            // 研究バフ：IntelRateBonus種別の研究が完了済みなら、合計EffectValueで解析率上昇量に
+            // (1+合計)倍を掛ける（→ アルベールの研究室。EffectValue=0.25なら「+25%」＝1.25倍、
+            // HpRecoveryBonusと同じ加算率の考え方）。
+            if (state != null)
+                gain *= 1 + ResearchBalance.GetTotalEffectValue(state, ResearchEffectType.IntelRateBonus);
 
             double before = boss.IntelRate;
             boss.IntelRate = Math.Min(ScoutingBalance.IntelTierComplete, boss.IntelRate + gain);

@@ -154,13 +154,33 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void GatheringResolver_UndefinedField_YieldsNoMaterial()
         {
-            // materials.csvは現時点でforestフィールド分しか定義していない（候補A、→ 03 §4.5.5）。
-            // 未定義のフィールドでは空文字が返り、素材は抽選されない。
+            // materials.csvに行が無いフィールドId（5フィールドすべてに素材定義が揃った後も、
+            // 将来追加されうる未知のフィールドを想定）では空文字が返り、素材は抽選されない
+            // （→ MaterialBalance.GetEligibleMaterials、防御的フォールバック）。
             var party = PartyOf(MakeAdventurer(agiDex: 40, ldr: 20));
 
-            var result = new GatheringResolver(new AlwaysMinRng()).Resolve(party, MakeField("cave"));
+            var result = new GatheringResolver(new AlwaysMinRng()).Resolve(party, MakeField("nonexistent_field"));
 
             Assert.Equal("", result.MaterialId);
+        }
+
+        [Theory]
+        [InlineData("cave", "mat_cave_moss")]
+        [InlineData("ruins", "mat_ruins_scrap")]
+        [InlineData("canyon", "mat_canyon_ash")]
+        [InlineData("abyss", "mat_abyss_dust")]
+        public void GatheringResolver_ExtractsMaterials_ForNewFields(string fieldId, string expectedShallowMaterialId)
+        {
+            // 洞窟・廃墟・峡谷・深淵の各フィールドでも採取任務が成立し、materials.csvで定義した
+            // 素材を獲得できること（2026年9月、候補Aの4フィールド拡張）。浅い到達階層（1）では
+            // 各フィールドの2種のうちMinFloorが低い方（一覧の先頭、AlwaysMinRngで必ず選ばれる）
+            // だけが対象になる。
+            var party = PartyOf(MakeAdventurer(agiDex: 40, ldr: 20));
+
+            var result = new GatheringResolver(new AlwaysMinRng()).Resolve(party, MakeField(fieldId, reachedFloor: 1));
+
+            Assert.Equal(expectedShallowMaterialId, result.MaterialId);
+            Assert.True(result.MaterialCount >= 1);
         }
 
         [Fact]

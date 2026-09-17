@@ -30,9 +30,11 @@ namespace GuildManager.Core.Systems
         /// 部隊をフィールドへ探索に差し向け、素材・ゴールドを算出する。
         /// </summary>
         /// <param name="state">
-        /// 省略可能。渡した場合、研究「拡張採取袋」（→ Models.ResearchIds.GatheringBag）が
-        /// 完了済みなら獲得数にボーナスを加算する（→ アルベールの研究室）。
-        /// nullなら通常どおりボーナス無しで解決する（既存の呼び出し側・テストとの互換用）。
+        /// 省略可能。渡した場合、GatheringYieldBonus種別の研究（特殊保存嚢等）が完了済みなら、
+        /// 完了分すべてのEffectValueを合計して獲得数に加算する（→ Balance.ResearchBalance.
+        /// GetTotalEffectValue、アルベールの研究室。同種の研究が複数完了していても加算で
+        /// 重複できる）。nullなら通常どおりボーナス無しで解決する（既存の呼び出し側・
+        /// テストとの互換用）。
         /// </param>
         public GatheringResult Resolve(Party party, DungeonField field, GameState? state = null)
         {
@@ -49,13 +51,10 @@ namespace GuildManager.Core.Systems
                 + (int)(score / GatheringBalance.MaterialYieldDivisor)
                 + field.ReachedFloor / GatheringBalance.ReachedFloorDivisor);
 
-            // 研究バフ：拡張採取袋が完了済みなら、獲得数にボーナスを加算する（→ アルベールの研究室）。
-            if (state != null && state.IsResearchCompleted(ResearchIds.GatheringBag))
-            {
-                var research = ResearchBalance.Find(ResearchIds.GatheringBag);
-                if (research != null)
-                    materialCount += (int)research.EffectValue;
-            }
+            // 研究バフ：GatheringYieldBonus種別の研究が完了済みなら、合計EffectValueを獲得数へ
+            // 加算する（→ アルベールの研究室）。
+            if (state != null)
+                materialCount += (int)ResearchBalance.GetTotalEffectValue(state, ResearchEffectType.GatheringYieldBonus);
 
             result.MaterialId = materialId;
             result.MaterialCount = materialCount;

@@ -3,3 +3,7 @@ res_herb_poultice,薬草湿布の調合,月光草をすり潰して作る湿布�
 res_scout_reagent,生体蛍光試薬,変異胞子と霊樹の枝から精製する試薬。ボスの生体解析が捗るようになる。,mat_forest_spore:3;mat_forest_wood:3,300,IntelRateBonus,0.25
 res_gathering_bag,特殊保存嚢,霊樹の枝を編んで作る携行袋。採取部隊が一度に持ち帰れる素材が増える。,mat_forest_wood:5,250,GatheringYieldBonus,1.0
 res_light_tread,軽量踏破靴,霊樹の枝と月光草の繊維で仕立てる軽量靴。道中進軍の走破力が上がる。,mat_forest_wood:3;mat_forest_herb:3,300,TraversalBonus,15.0
+res_cave_ointment,硬化軟膏の調合,発光苔と黒鉱石から作る軟膏。静養時のHP自然回復量をさらに底上げする。,mat_cave_moss:5;mat_cave_ore:2,500,HpRecoveryBonus,0.15
+res_ruins_tactics,古代戦術録の解読,遺物の欠片とルーン石から古代の戦術を読み解く。ボス調査の解析効率がさらに上がる。,mat_ruins_scrap:6;mat_ruins_rune:3,800,IntelRateBonus,0.25
+res_canyon_tread,耐熱踏破法,火山灰と紅玉鉱石で編み出す踏破法。道中進軍の走破力をさらに底上げする。,mat_canyon_ash:8;mat_canyon_gem:4,1200,TraversalBonus,20.0
+res_abyss_preservation,魂魄安定の霊香,虚空の粉塵と深淵の結晶から焚く霊香。事故のさなかでも魂の定着を助け、致命的な損耗を和らげる。,mat_abyss_dust:10;mat_abyss_crystal:5,2000,SurvivalThresholdBonus,5.0

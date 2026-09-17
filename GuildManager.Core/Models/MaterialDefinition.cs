@@ -33,5 +33,15 @@ namespace GuildManager.Core.Models
         public const string ForestHerb = "mat_forest_herb";
         public const string ForestWood = "mat_forest_wood";
         public const string ForestSpore = "mat_forest_spore";
+
+        // ---- 洞窟・廃墟・峡谷・深淵フィールド分（2026年9月新設） ----
+        public const string CaveMoss = "mat_cave_moss";
+        public const string CaveOre = "mat_cave_ore";
+        public const string RuinsScrap = "mat_ruins_scrap";
+        public const string RuinsRune = "mat_ruins_rune";
+        public const string CanyonAsh = "mat_canyon_ash";
+        public const string CanyonGem = "mat_canyon_gem";
+        public const string AbyssDust = "mat_abyss_dust";
+        public const string AbyssCrystal = "mat_abyss_crystal";
     }
 }

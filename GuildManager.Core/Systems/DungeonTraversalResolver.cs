@@ -80,9 +80,11 @@ namespace GuildManager.Core.Systems
         /// （→ ScoutingResolver.CalculateStealthScoreと同じ考え方）。
         /// </summary>
         /// <param name="state">
-        /// 省略可能。渡した場合、研究「軽装の踏破術」（→ Models.ResearchIds.LightTread）が
-        /// 完了済みなら走破力に加算する（→ アルベールの研究室）。DungeonPanel側の出撃前
-        /// プレビューでも同じ式を使うため、UIとResolve内部の両方でボーナスが一致する。
+        /// 省略可能。渡した場合、TraversalBonus種別の研究（軽量踏破靴・耐熱踏破法等）が
+        /// 完了済みなら、完了分すべてのEffectValueを合計して走破力に加算する
+        /// （→ Balance.ResearchBalance.GetTotalEffectValue、アルベールの研究室。同種の研究が
+        /// 複数完了していても加算で重複できる）。DungeonPanel側の出撃前プレビューでも同じ式を
+        /// 使うため、UIとResolve内部の両方でボーナスが一致する。
         /// </param>
         public static double CalculateTraversalScore(Party party, GameState? state = null)
         {
@@ -92,12 +94,8 @@ namespace GuildManager.Core.Systems
                 * DungeonTraversalBalance.StatCoefficient
                 + party.Members[0].GetEffectiveStat("LDR") * DungeonTraversalBalance.LeaderCoefficient;
 
-            if (state != null && state.IsResearchCompleted(ResearchIds.LightTread))
-            {
-                var research = ResearchBalance.Find(ResearchIds.LightTread);
-                if (research != null)
-                    score += research.EffectValue;
-            }
+            if (state != null)
+                score += ResearchBalance.GetTotalEffectValue(state, ResearchEffectType.TraversalBonus);
 
             return score;
         }

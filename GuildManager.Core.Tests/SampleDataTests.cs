@@ -1,3 +1,4 @@
+using System.Linq;
 using GuildManager.Core.Data;
 using GuildManager.Core.Models;
 using Xunit;
@@ -29,6 +30,42 @@ namespace GuildManager.Core.Tests
             var adventurers = SampleData.CreateStarterAdventurers();
 
             Assert.All(adventurers, a => Assert.Equal(Gender.Female, a.Gender));
+        }
+
+        [Theory]
+        [InlineData("cave", MaterialIds.CaveOre)]
+        [InlineData("ruins", MaterialIds.RuinsRune)]
+        [InlineData("canyon", MaterialIds.CanyonGem)]
+        [InlineData("abyss", MaterialIds.AbyssCrystal)]
+        public void FloorBoss_NewFieldBosses_HaveRewardMaterials(string fieldId, string expectedMaterialId)
+        {
+            // 洞窟・廃墟・峡谷・深淵の各フィールドは、節目ボス（10F・20F）のみフィールド固有の
+            // 希少素材を確定ドロップする（2026年9月、候補Aの4フィールド拡張、→ 03 §4.5.5）。
+            var field = SampleData.CreateDefaultFields().Single(f => f.Id == fieldId);
+            var boss10F = field.Bosses.Single(b => b.Floor == 10);
+            var boss20F = field.Bosses.Single(b => b.Floor == 20);
+
+            foreach (var boss in new[] { boss10F, boss20F })
+            {
+                Assert.Equal(expectedMaterialId, boss.RewardMaterialId);
+                Assert.InRange(boss.RewardMaterialCount, 3, 5);
+            }
+
+            // 10F・20F以外のボスは素材ドロップを持たない（節目ボス限定の仕様）。
+            var otherBosses = field.Bosses.Where(b => b.Floor != 10 && b.Floor != 20);
+            Assert.All(otherBosses, b => Assert.Null(b.RewardMaterialId));
+        }
+
+        [Fact]
+        public void FloorBoss_ForestBosses_CycleThroughAllThreeMaterials()
+        {
+            // forestフィールドは候補A最初の実装分として、全10体で3種を巡回する
+            // （cave等の「節目ボスのみ」仕様とは異なる、→ 03 §0.4）。
+            var field = SampleData.CreateDefaultFields().Single(f => f.Id == "forest");
+
+            Assert.All(field.Bosses, b => Assert.NotNull(b.RewardMaterialId));
+            var distinctMaterials = field.Bosses.Select(b => b.RewardMaterialId).Distinct().ToList();
+            Assert.Equal(3, distinctMaterials.Count);
         }
     }
 }
