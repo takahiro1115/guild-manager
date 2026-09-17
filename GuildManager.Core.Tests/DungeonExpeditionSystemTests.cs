@@ -497,13 +497,13 @@ namespace GuildManager.Core.Tests
             var forest = new DungeonField { Id = "forest", Name = "森", Order = 1, IsUnlocked = true, ReachedFloor = 1, Bosses = { forestBoss } };
             var a = MakeAdventurer(JobClass.Ranger, 40);
             var state = new GameState { Adventurers = { a }, DungeonFields = { forest } };
-            state.AddMaterial(MaterialCatalog.HerbMoonlightId, 3);
+            state.AddMaterial(MaterialIds.ForestHerb, 3);
             BuildSystem().TryDispatchGathering(state, PartyOf(a), forest);
 
             var json = JsonSerializer.Serialize(state.ToSaveData());
             var restored = GameState.FromSaveData(JsonSerializer.Deserialize<SaveData>(json)!);
 
-            Assert.Equal(3, restored.Materials[MaterialCatalog.HerbMoonlightId]);
+            Assert.Equal(3, restored.Materials[MaterialIds.ForestHerb]);
 
             var mission = Assert.Single(restored.ActiveDungeonMissions);
             Assert.Equal(DungeonMissionType.Gathering, mission.MissionType);

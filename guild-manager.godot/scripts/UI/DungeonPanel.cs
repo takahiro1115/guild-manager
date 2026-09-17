@@ -189,7 +189,7 @@ public partial class DungeonPanel : ScrollContainer
 
 	/// <summary>
 	/// 選択中フィールドで獲得可能な素材と、ギルドの現在の在庫数を表示する
-	/// （→ Models.MaterialCatalog、第3の任務「探索（採取）」仕様）。
+	/// （→ Balance.MaterialBalance、第3の任務「探索（採取）」仕様）。
 	/// </summary>
 	private void RefreshMaterialsInfo()
 	{
@@ -197,17 +197,17 @@ public partial class DungeonPanel : ScrollContainer
 		if (_selectedField == null)
 			return;
 
-		var drops = MaterialCatalog.GetFieldDrops(_selectedField.Id);
-		if (drops.Count == 0)
+		var materials = MaterialBalance.GetFieldMaterials(_selectedField.Id);
+		if (materials.Count == 0)
 		{
 			_materialsLabel.AppendText("[color=gray]このフィールドで採れる素材の情報はまだ無い。[/color]");
 			return;
 		}
 
-		string parts = string.Join("、", drops.Select(d =>
+		string parts = string.Join("、", materials.Select(m =>
 		{
-			int stock = _state.Materials.TryGetValue(d.MaterialId, out int count) ? count : 0;
-			return $"{MaterialCatalog.GetName(d.MaterialId)}（在庫{stock}）";
+			int stock = _state.Materials.TryGetValue(m.Id, out int count) ? count : 0;
+			return $"{m.Name}（在庫{stock}）";
 		}));
 
 		_materialsLabel.AppendText($"[b]獲得可能な素材[/b]：{parts}");

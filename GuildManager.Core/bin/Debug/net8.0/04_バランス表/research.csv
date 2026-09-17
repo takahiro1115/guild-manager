@@ -1,5 +1,5 @@
-id,name,description,effect_type,effect_value,required_gold,required_materials
-res_scout_reagent,秘薬の斥候試薬,調査部隊に配布する試薬。ボスの生態解析が捗るようになる（解析率獲得量+25%）。,IntelRateBonus,1.25,300,herb_moonlight:5;moss_luminous:3
-res_gathering_bag,拡張採取袋,採取部隊の携行品を改良し、一度に持ち帰れる素材が1個増える。,GatheringYieldBonus,1,200,relic_shard:3;ore_black:4
-res_light_tread,軽装の踏破術,足取りを軽くする秘伝の歩法。道中進軍の走破力が底上げされる。,TraversalBonus,15,250,spore_mutant:4;ash_volcanic:3
-res_infirmary_elixir,医務室特製霊薬,医務室に常備する回復薬を改良し、静養時のHP自然回復量が15%増える。,HpRecoveryBonus,0.15,350,crystal_void:3;essence_abyssal:2
+Id,Name,Description,RequiredMaterials,RequiredGold,EffectType,EffectValue
+res_herb_poultice,薬草湿布の調合,月光草をすり潰して作る湿布薬。静養時のHP自然回復量を底上げする。,mat_forest_herb:5,200,HpRecoveryBonus,0.15
+res_scout_reagent,生体蛍光試薬,変異胞子と霊樹の枝から精製する試薬。ボスの生体解析が捗るようになる。,mat_forest_spore:3;mat_forest_wood:3,300,IntelRateBonus,0.25
+res_gathering_bag,特殊保存嚢,霊樹の枝を編んで作る携行袋。採取部隊が一度に持ち帰れる素材が増える。,mat_forest_wood:5,250,GatheringYieldBonus,1.0
+res_light_tread,軽量踏破靴,霊樹の枝と月光草の繊維で仕立てる軽量靴。道中進軍の走破力が上がる。,mat_forest_wood:3;mat_forest_herb:3,300,TraversalBonus,15.0

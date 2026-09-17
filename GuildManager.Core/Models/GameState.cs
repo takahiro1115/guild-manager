@@ -212,7 +212,7 @@ namespace GuildManager.Core.Models
         public FloorBoss? GetCurrentFloorBoss() => GetActiveField()?.GetNextActiveBoss();
 
         /// <summary>
-        /// ギルドの素材インベントリ（→ Models.MaterialCatalog、探索（採取）任務の成果）。
+        /// ギルドの素材インベントリ（→ Balance.MaterialBalance、探索（採取）任務の成果）。
         /// キーは素材Id、値は所持数。未所持の素材はキー自体が存在しない（→ AddMaterial）。
         /// </summary>
         public Dictionary<string, int> Materials { get; set; } = new();

@@ -67,7 +67,7 @@ public partial class ResearchPanel : ScrollContainer
 		string parts = string.Join("、", knownIds.Select(id =>
 		{
 			int stock = _state.Materials.TryGetValue(id, out int count) ? count : 0;
-			return $"{MaterialCatalog.GetName(id)}×{stock}";
+			return $"{MaterialBalance.GetName(id)}×{stock}";
 		}));
 		_resourcesLabel.AppendText($"[b]素材在庫[/b]：{parts}");
 	}
@@ -129,7 +129,7 @@ public partial class ResearchPanel : ScrollContainer
 		var materialParts = research.RequiredMaterials.Select(kv =>
 		{
 			int have = _state.Materials.TryGetValue(kv.Key, out int count) ? count : 0;
-			string part = $"{MaterialCatalog.GetName(kv.Key)}: {have}/{kv.Value}";
+			string part = $"{MaterialBalance.GetName(kv.Key)}: {have}/{kv.Value}";
 			return have < kv.Value ? $"[color=red]{part}[/color]" : part;
 		});
 

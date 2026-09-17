@@ -9,7 +9,7 @@ namespace GuildManager.Core.Systems
     /// </summary>
     public class GatheringResult
     {
-        /// <summary>抽選で獲得した素材のId（→ Models.MaterialCatalog）。</summary>
+        /// <summary>抽選で獲得した素材のId（→ Balance.MaterialBalance）。</summary>
         public string MaterialId { get; set; } = "";
 
         /// <summary>獲得した素材の個数。</summary>

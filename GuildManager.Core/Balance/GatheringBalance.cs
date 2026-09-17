@@ -16,7 +16,10 @@ namespace GuildManager.Core.Balance
         public static readonly double DexCoefficient = BalanceData.GetDouble(FileName, "DexCoefficient");
         public static readonly double LeaderLdrCoefficient = BalanceData.GetDouble(FileName, "LeaderLdrCoefficient");
 
-        /// <summary>基本素材獲得数＝Max(1, (int)(採取スコア÷この値)) ＋ (到達階層÷ReachedFloorDivisor)。</summary>
+        /// <summary>盗賊(Thief)・斥候(Ranger)1名につき採取スコアへ加算する固定ボーナス。</summary>
+        public static readonly double ThiefRangerScoreBonus = BalanceData.GetDouble(FileName, "ThiefRangerScoreBonus");
+
+        /// <summary>基本素材獲得数＝Max(1, 選ばれた素材のBaseYield＋(int)(採取スコア÷この値)＋(到達階層÷ReachedFloorDivisor))。</summary>
         public static readonly double MaterialYieldDivisor = BalanceData.GetDouble(FileName, "MaterialYieldDivisor");
 
         /// <summary>到達階層による獲得数ボーナスの除数。</summary>

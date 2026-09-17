@@ -40,3 +40,4 @@ D:\My Documents\GuildManager\GuildManager.Core\bin\Debug\net8.0\04_バランス�
 D:\My Documents\GuildManager\GuildManager.Core\bin\Debug\net8.0\04_バランス表\dungeon_traversal.csv
 D:\My Documents\GuildManager\GuildManager.Core\bin\Debug\net8.0\04_バランス表\gathering.csv
 D:\My Documents\GuildManager\GuildManager.Core\bin\Debug\net8.0\04_バランス表\research.csv
+D:\My Documents\GuildManager\GuildManager.Core\bin\Debug\net8.0\04_バランス表\materials.csv

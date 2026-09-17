@@ -1,0 +1,37 @@
+namespace GuildManager.Core.Models
+{
+    /// <summary>
+    /// 素材1件分の定義（→ 第3の任務「探索（採取）」）。値は
+    /// docs/04_バランス表/materials.csv から読み込む（→ Balance.MaterialBalance）。
+    ///
+    /// MinFloor/MaxFloorはこの素材が見つかる階層帯の目安。採取任務での実際の抽選対象は
+    /// フィールドの到達階層（DungeonField.ReachedFloor）がMinFloor以上かどうかだけで判定する
+    /// （→ Systems.GatheringResolver）。MaxFloorはCSV上の記録用メタ情報であり、
+    /// 到達階層がこれを超えても抽選対象から外れることはない（深く進んでも入手経路を
+    /// 失わせないための設計判断）。
+    /// </summary>
+    public class MaterialDefinition
+    {
+        public string Id { get; init; } = "";
+        public string Name { get; init; } = "";
+        public string Description { get; init; } = "";
+        public string FieldId { get; init; } = "";
+        public int MinFloor { get; init; }
+        public int MaxFloor { get; init; }
+
+        /// <summary>この素材が選ばれた際の基準獲得個数（→ Systems.GatheringResolver.Resolve）。</summary>
+        public int BaseYield { get; init; }
+    }
+
+    /// <summary>
+    /// GatheringResolver・ResearchBalanceの各所が参照する素材Idの定数。マジックストリングを
+    /// 1箇所へ集約する（→ Models.ResearchIdsと同じ考え方）。対応する詳細（表示名・獲得条件）は
+    /// materials.csv側で管理する。
+    /// </summary>
+    public static class MaterialIds
+    {
+        public const string ForestHerb = "mat_forest_herb";
+        public const string ForestWood = "mat_forest_wood";
+        public const string ForestSpore = "mat_forest_spore";
+    }
+}

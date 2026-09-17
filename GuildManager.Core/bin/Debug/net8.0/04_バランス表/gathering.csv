@@ -2,7 +2,8 @@ key,value,unit,note
 AgiCoefficient,1.0,倍,採取スコアのAGI係数
 DexCoefficient,1.2,倍,採取スコアのDEX係数
 LeaderLdrCoefficient,0.5,倍,採取スコアへの部隊長LDR係数
-MaterialYieldDivisor,30,pt,基本素材獲得数＝Max(1、(int)(採取スコア÷この値))＋(到達階層÷ReachedFloorDivisor)
+ThiefRangerScoreBonus,10,pt,盗賊(Thief)・斥候(Ranger)1名につき採取スコアへ加算する固定ボーナス
+MaterialYieldDivisor,30,pt,基本素材獲得数＝Max(1、(int)(採取スコア÷この値))＋(到達階層÷ReachedFloorDivisor)＋選ばれた素材のBaseYield
 ReachedFloorDivisor,10,層,到達階層による獲得数ボーナスの除数（深いフィールドほど多く採れる）
 GoldPerScore,0.5,G/pt,換金ゴールド＝採取スコア×この係数（少量の一時金）
 HpLossPctMin,5,%,採取任務のHP消費率下限

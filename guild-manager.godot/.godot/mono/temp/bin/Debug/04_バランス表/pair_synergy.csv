@@ -1,0 +1,3 @@
+trait_a,trait_b,quest_type,value,note
+Brave,Attentive,All,15,豪胆×注意深い：息の合った補完関係。全クエスト種別に加算（仮値）
+Scholar,Brave,Escort,-15,知識人×豪胆：判断の仲違い。護衛のみ減算（仮値）

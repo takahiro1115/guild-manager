@@ -141,13 +141,26 @@ namespace GuildManager.Core.Tests
         {
             var party = PartyOf(MakeAdventurer(agiDex: 40, ldr: 20));
 
-            // AlwaysMinRng：NextInt(1,100)は常に1を返す → 各フィールドの抽選表で最初の（＝最も出現率が
-            // 高い）素材が選ばれる。
-            var forestResult = new GatheringResolver(new AlwaysMinRng()).Resolve(party, MakeField("forest"));
-            Assert.Equal(MaterialCatalog.HerbMoonlightId, forestResult.MaterialId);
+            // AlwaysMinRng：NextInt(min,max)は常にminを返す → 抽選対象一覧の先頭（0番目）が選ばれる。
+            // 到達階層1では変異胞子（MinFloor=5）はまだ対象外なので、月光草・霊樹の枝の2種のみが対象。
+            var result = new GatheringResolver(new AlwaysMinRng()).Resolve(party, MakeField("forest", reachedFloor: 1));
+            Assert.Equal(MaterialIds.ForestHerb, result.MaterialId);
 
-            var caveResult = new GatheringResolver(new AlwaysMinRng()).Resolve(PartyOf(MakeAdventurer(40, 20)), MakeField("cave"));
-            Assert.Equal(MaterialCatalog.MossLuminousId, caveResult.MaterialId);
+            // 到達階層5以上になると変異胞子も抽選対象に加わる（MinFloorのみで判定、→ MaterialDefinition）。
+            var deepEligible = MaterialBalance.GetEligibleMaterials("forest", reachedFloor: 5);
+            Assert.Equal(3, deepEligible.Count);
+        }
+
+        [Fact]
+        public void GatheringResolver_UndefinedField_YieldsNoMaterial()
+        {
+            // materials.csvは現時点でforestフィールド分しか定義していない（候補A、→ 03 §4.5.5）。
+            // 未定義のフィールドでは空文字が返り、素材は抽選されない。
+            var party = PartyOf(MakeAdventurer(agiDex: 40, ldr: 20));
+
+            var result = new GatheringResolver(new AlwaysMinRng()).Resolve(party, MakeField("cave"));
+
+            Assert.Equal("", result.MaterialId);
         }
 
         [Fact]
@@ -155,6 +168,50 @@ namespace GuildManager.Core.Tests
         {
             var resolver = new GatheringResolver(new AlwaysMinRng());
             Assert.Throws<System.InvalidOperationException>(() => resolver.Resolve(new Party(), MakeField()));
+        }
+
+        // ---------------- スコアへの盗賊・斥候ボーナス／GameStateへの反映（指示書指定テスト） ----------------
+
+        [Fact]
+        public void GatheringResolver_CalculatesYield_BasedOnStatsAndClassBonus()
+        {
+            var warrior = MakeAdventurer(agiDex: 40, ldr: 20); // JobClassの既定値（Warrior）のまま
+            var thief = MakeAdventurer(agiDex: 40, ldr: 20);
+            thief.JobClass = JobClass.Thief;
+
+            double warriorScore = GatheringResolver.CalculateGatheringScore(PartyOf(warrior));
+            double thiefScore = GatheringResolver.CalculateGatheringScore(PartyOf(thief));
+
+            Assert.Equal(warriorScore + GatheringBalance.ThiefRangerScoreBonus, thiefScore, precision: 6);
+
+            var warriorResult = new GatheringResolver(new AlwaysMinRng()).Resolve(PartyOf(warrior), MakeField(reachedFloor: 1));
+            var thiefResult = new GatheringResolver(new AlwaysMinRng()).Resolve(PartyOf(thief), MakeField(reachedFloor: 1));
+
+            Assert.True(thiefResult.MaterialCount >= warriorResult.MaterialCount,
+                "盗賊・斥候ボーナスにより採取スコアが上がるため、獲得数も同等以上になるはず");
+        }
+
+        [Fact]
+        public void Gathering_AddsMaterials_ToGameState()
+        {
+            var member = MakeAdventurer(agiDex: 40, ldr: 20);
+            var field = MakeField("forest", reachedFloor: 1);
+            var state = new GameState { Adventurers = { member }, DungeonFields = { field } };
+
+            var dungeon = new DungeonExpeditionSystem(
+                new ScoutingResolver(new AlwaysMinRng()),
+                new DungeonResolver(new AlwaysMinRng()),
+                new SatisfactionSystem(),
+                new CompatibilitySystem(new AlwaysMinRng()),
+                gatheringResolver: new GatheringResolver(new AlwaysMinRng()));
+
+            Assert.True(dungeon.TryDispatchGathering(state, PartyOf(member), field));
+            var resolutions = dungeon.ProcessWeeklyMissions(state);
+
+            var gathering = Assert.Single(resolutions).GatheringResult!;
+            Assert.NotEmpty(gathering.MaterialId);
+            Assert.True(state.Materials.ContainsKey(gathering.MaterialId));
+            Assert.Equal(gathering.MaterialCount, state.Materials[gathering.MaterialId]);
         }
     }
 }

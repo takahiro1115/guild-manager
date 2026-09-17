@@ -903,7 +903,7 @@ public partial class MainDashboard : Control
 		if (resolution.GatheringResult != null)
 		{
 			var gathering = resolution.GatheringResult;
-			string materialName = MaterialCatalog.GetName(gathering.MaterialId);
+			string materialName = MaterialBalance.GetName(gathering.MaterialId);
 			sb.AppendLine($"[b]第{weekNumber}週：大迷宮 探索（採取）任務[/b]");
 			sb.AppendLine($"[color=lime]【採取任務】{resolution.Field.Name}にて素材を回収（{materialName}×{gathering.MaterialCount}、" +
 				$"換金{gathering.GoldEarned}Gを獲得）。[/color]");

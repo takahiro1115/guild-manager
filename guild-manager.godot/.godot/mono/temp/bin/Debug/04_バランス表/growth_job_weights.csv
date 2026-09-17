@@ -1,0 +1,8 @@
+job,STR,AGI,VIT,MND,DEX,LDR,INT
+Warrior,3,1,3,0,1,1,0
+Knight,2,0,4,1,0,2,0
+Ranger,1,3,1,0,3,1,0
+Thief,1,4,1,0,3,0,0
+Mage,0,1,1,3,1,1,2
+Cleric,0,1,2,3,1,2,0
+Scholar,0,1,0,2,1,1,4

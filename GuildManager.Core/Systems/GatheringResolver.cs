@@ -11,7 +11,7 @@ namespace GuildManager.Core.Systems
     ///
     /// 調査任務（ScoutingResolver）・道中進軍（DungeonTraversalResolver）と並ぶ低リスク経路。
     /// 特定のボスではなく**フィールドそのもの**を対象にする（→ ActiveDungeonMission.Boss はnull）。
-    /// 成果は素材（→ Models.MaterialCatalog、フィールドごとの抽選表）と少量の換金ゴールド。
+    /// 成果は素材（→ Balance.MaterialBalance、フィールドごとの定義）と少量の換金ゴールド。
     /// HP下限1で止まり、致死判定には一切接続しない（→ ScoutingResolver.MinHpと同じ考え方）。
     /// </summary>
     public class GatheringResolver
@@ -42,8 +42,12 @@ namespace GuildManager.Core.Systems
             var result = new GatheringResult();
             double score = CalculateGatheringScore(party);
 
-            int materialCount = Math.Max(1, (int)(score / GatheringBalance.MaterialYieldDivisor))
-                + field.ReachedFloor / GatheringBalance.ReachedFloorDivisor;
+            string materialId = RollMaterial(field);
+            int baseYield = MaterialBalance.Find(materialId)?.BaseYield ?? 0;
+
+            int materialCount = Math.Max(1, baseYield
+                + (int)(score / GatheringBalance.MaterialYieldDivisor)
+                + field.ReachedFloor / GatheringBalance.ReachedFloorDivisor);
 
             // 研究バフ：拡張採取袋が完了済みなら、獲得数にボーナスを加算する（→ アルベールの研究室）。
             if (state != null && state.IsResearchCompleted(ResearchIds.GatheringBag))
@@ -53,7 +57,7 @@ namespace GuildManager.Core.Systems
                     materialCount += (int)research.EffectValue;
             }
 
-            result.MaterialId = RollMaterial(field);
+            result.MaterialId = materialId;
             result.MaterialCount = materialCount;
             result.GoldEarned = (int)Math.Round(score * GatheringBalance.GoldPerScore);
 
@@ -63,9 +67,9 @@ namespace GuildManager.Core.Systems
         }
 
         /// <summary>
-        /// 採取スコア＝(Σ(AGI×係数＋DEX×係数)＋部隊長LDR×係数)×部隊の平均HP比率。空の部隊は0。
-        /// public static にしてあるのは出撃前のプレビュー（UI）とテストから同じ式を使うため
-        /// （→ ScoutingResolver.CalculateStealthScoreと同じ考え方）。
+        /// 採取スコア＝(Σ(AGI×係数＋DEX×係数)＋部隊長LDR×係数＋盗賊・斥候ボーナス)×部隊の平均HP比率。
+        /// 空の部隊は0。public static にしてあるのは出撃前のプレビュー（UI）とテストから同じ式を
+        /// 使うため（→ ScoutingResolver.CalculateStealthScoreと同じ考え方）。
         /// </summary>
         public static double CalculateGatheringScore(Party party)
         {
@@ -76,31 +80,28 @@ namespace GuildManager.Core.Systems
                     + m.GetEffectiveStat("DEX") * GatheringBalance.DexCoefficient)
                 + party.Members[0].GetEffectiveStat("LDR") * GatheringBalance.LeaderLdrCoefficient;
 
+            // 盗賊・斥候ボーナス：地形の見極め・目利きに長けた職業が1名いるごとに固定ボーナスを加算する。
+            double classBonus = party.Members.Count(m => m.JobClass is JobClass.Thief or JobClass.Ranger)
+                * GatheringBalance.ThiefRangerScoreBonus;
+
             double hpRatio = party.Members.Average(m => (double)m.CurrentHP / m.MaxHP);
 
-            return statSum * hpRatio;
+            return (statSum + classBonus) * hpRatio;
         }
 
         /// <summary>
-        /// フィールド固有の抽選表（→ MaterialCatalog.GetFieldDrops）から素材を1種選ぶ。
-        /// 抽選表が空（未定義のフィールドId）の場合は空文字を返す。
+        /// フィールド・到達階層で抽選対象になる素材（→ MaterialBalance.GetEligibleMaterials）から
+        /// 1種を等確率で選ぶ。対象が空（未定義のフィールドId・到達階層がどの素材のMinFloorにも
+        /// 届いていない）場合は空文字を返す。
         /// </summary>
         private string RollMaterial(DungeonField field)
         {
-            var drops = MaterialCatalog.GetFieldDrops(field.Id);
-            if (drops.Count == 0)
+            var eligible = MaterialBalance.GetEligibleMaterials(field.Id, field.ReachedFloor);
+            if (eligible.Count == 0)
                 return "";
 
-            int roll = _rng.NextInt(1, 100);
-            int cumulative = 0;
-            foreach (var drop in drops)
-            {
-                cumulative += drop.Percent;
-                if (roll <= cumulative)
-                    return drop.MaterialId;
-            }
-
-            return drops[^1].MaterialId; // 端数の丸め対策（合計が100をわずかに割り込む場合の保険）
+            int index = _rng.NextInt(0, eligible.Count - 1);
+            return eligible[index].Id;
         }
 
         /// <summary>

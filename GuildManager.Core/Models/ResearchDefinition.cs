@@ -15,8 +15,9 @@ namespace GuildManager.Core.Models
         HpRecoveryBonus,
 
         /// <summary>
-        /// ボス調査（解析）時の解析率獲得量への乗算倍率（→ Systems.ScoutingResolver）。
-        /// EffectValue（例：1.25）は今回の解析率上昇量にそのまま掛ける。
+        /// ボス調査（解析）時の解析率獲得量への加算倍率（→ Systems.ScoutingResolver）。
+        /// EffectValue（例：0.25）は「+25%」を意味し、HpRecoveryBonusと同じ考え方で
+        /// (1+EffectValue) を今回の解析率上昇量に掛ける。
         /// </summary>
         IntelRateBonus,
 
@@ -64,16 +65,16 @@ namespace GuildManager.Core.Models
     /// </summary>
     public static class ResearchIds
     {
-        /// <summary>秘薬の斥候試薬：ボス調査の解析率獲得量にボーナス（→ IntelRateBonus）。</summary>
+        /// <summary>生体蛍光試薬：ボス調査の解析率獲得量にボーナス（→ IntelRateBonus）。</summary>
         public const string ScoutReagent = "res_scout_reagent";
 
-        /// <summary>拡張採取袋：採取任務の素材獲得数にボーナス（→ GatheringYieldBonus）。</summary>
+        /// <summary>特殊保存嚢：採取任務の素材獲得数にボーナス（→ GatheringYieldBonus）。</summary>
         public const string GatheringBag = "res_gathering_bag";
 
-        /// <summary>軽装の踏破術：道中進軍の走破力スコアにボーナス（→ TraversalBonus）。</summary>
+        /// <summary>軽量踏破靴：道中進軍の走破力スコアにボーナス（→ TraversalBonus）。</summary>
         public const string LightTread = "res_light_tread";
 
-        /// <summary>医務室特製霊薬：静養時のHP自然回復量にボーナス（→ HpRecoveryBonus）。</summary>
-        public const string InfirmaryElixir = "res_infirmary_elixir";
+        /// <summary>薬草湿布の調合：静養時のHP自然回復量にボーナス（→ HpRecoveryBonus）。</summary>
+        public const string HerbPoultice = "res_herb_poultice";
     }
 }

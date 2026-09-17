@@ -1,0 +1,4 @@
+Id,Name,Description,FieldId,MinFloor,MaxFloor,BaseYield
+mat_forest_herb,月光草,月明かりの下でだけ光る薬草。傷薬の下地になる。,forest,1,10,3
+mat_forest_wood,霊樹の枝,森の主とされる霊樹から落ちた枝。加工しやすく軽い。,forest,1,10,2
+mat_forest_spore,変異胞子,深部の魔力で変異した胞子。扱いには注意が要る。,forest,5,10,1

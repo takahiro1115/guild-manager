@@ -46,11 +46,12 @@ namespace GuildManager.Core.Tests
             var scoutReagent = ResearchBalance.Find(ResearchIds.ScoutReagent);
             Assert.NotNull(scoutReagent);
             Assert.Equal(ResearchEffectType.IntelRateBonus, scoutReagent!.EffectType);
-            Assert.True(scoutReagent.RequiredMaterials.ContainsKey(MaterialCatalog.HerbMoonlightId));
+            Assert.True(scoutReagent.RequiredMaterials.ContainsKey(MaterialIds.ForestSpore));
+            Assert.True(scoutReagent.RequiredMaterials.ContainsKey(MaterialIds.ForestWood));
 
             Assert.Equal(ResearchEffectType.GatheringYieldBonus, ResearchBalance.Find(ResearchIds.GatheringBag)!.EffectType);
             Assert.Equal(ResearchEffectType.TraversalBonus, ResearchBalance.Find(ResearchIds.LightTread)!.EffectType);
-            Assert.Equal(ResearchEffectType.HpRecoveryBonus, ResearchBalance.Find(ResearchIds.InfirmaryElixir)!.EffectType);
+            Assert.Equal(ResearchEffectType.HpRecoveryBonus, ResearchBalance.Find(ResearchIds.HerbPoultice)!.EffectType);
         }
 
         // ---------------- ResearchSystem ----------------
@@ -171,11 +172,64 @@ namespace GuildManager.Core.Tests
             var injured2 = new Adventurer { VIT = 50 };
             injured2.CurrentHP = 1;
             var stateWith = new GameState { Adventurers = { injured2 } };
-            stateWith.CompletedResearchIds.Add(ResearchIds.InfirmaryElixir);
+            stateWith.CompletedResearchIds.Add(ResearchIds.HerbPoultice);
             new RestRecoverySystem().ProcessWeeklyRest(stateWith, new System.Collections.Generic.HashSet<System.Guid>());
             int recoveryWith = injured2.CurrentHP - 1;
 
             Assert.True(recoveryWith > recoveryWithout, "研究完了済みなら静養時のHP回復量が増えるはず（→ HpRecoveryBonus）");
+        }
+
+        // ---------------- 上記と同義の指示書指定テスト名（意図の取り違えを防ぐため別名でも残す） ----------------
+
+        [Fact]
+        public void ResearchSystem_Unlock_DeductsResources_AndMarksCompleted()
+        {
+            var research = ResearchBalance.Find(ResearchIds.HerbPoultice)!;
+            var state = new GameState { Gold = research.RequiredGold };
+            foreach (var (materialId, count) in research.RequiredMaterials)
+                state.AddMaterial(materialId, count);
+
+            Assert.True(ResearchSystem.CompleteResearch(state, research));
+
+            Assert.Equal(0, state.Gold);
+            foreach (var (materialId, count) in research.RequiredMaterials)
+                Assert.Equal(0, state.Materials.GetValueOrDefault(materialId));
+            Assert.Contains(research.Id, state.CompletedResearchIds);
+        }
+
+        [Fact]
+        public void ResearchSystem_CannotUnlock_WhenResourcesInsufficient()
+        {
+            var research = ResearchBalance.Find(ResearchIds.HerbPoultice)!;
+            var state = new GameState { Gold = research.RequiredGold - 1 };
+            foreach (var (materialId, count) in research.RequiredMaterials)
+                state.AddMaterial(materialId, count);
+
+            Assert.False(ResearchSystem.CanStartResearch(state, research));
+            Assert.False(ResearchSystem.CompleteResearch(state, research));
+            Assert.DoesNotContain(research.Id, state.CompletedResearchIds);
+        }
+
+        [Fact]
+        public void ResearchEffect_HpRecovery_Applied()
+        {
+            var research = ResearchBalance.Find(ResearchIds.HerbPoultice)!;
+            Assert.Equal(ResearchEffectType.HpRecoveryBonus, research.EffectType);
+
+            var injured = new Adventurer { VIT = 50 };
+            injured.CurrentHP = 1;
+            var stateWithout = new GameState { Adventurers = { injured } };
+            new RestRecoverySystem().ProcessWeeklyRest(stateWithout, new System.Collections.Generic.HashSet<System.Guid>());
+            int recoveryWithout = injured.CurrentHP - 1;
+
+            var injured2 = new Adventurer { VIT = 50 };
+            injured2.CurrentHP = 1;
+            var stateWith = new GameState { Adventurers = { injured2 } };
+            stateWith.CompletedResearchIds.Add(research.Id);
+            new RestRecoverySystem().ProcessWeeklyRest(stateWith, new System.Collections.Generic.HashSet<System.Guid>());
+            int recoveryWith = injured2.CurrentHP - 1;
+
+            Assert.True(recoveryWith > recoveryWithout, "HpRecoveryBonus研究の完了で静養回復量が増えるはず");
         }
     }
 }
