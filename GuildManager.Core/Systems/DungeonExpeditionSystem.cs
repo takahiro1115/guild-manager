@@ -48,7 +48,13 @@ namespace GuildManager.Core.Systems
         /// <summary>
         /// 大迷宮へ出撃させる。以下のいずれかに該当すれば何もせずfalseを返す（Try*系の共通パターン）：
         /// 同時出撃枠が埋まっている／部隊が空／ボスがGameState上に存在しない・撃破済み／
-        /// 出撃不可（重傷・派遣中等）のメンバーが含まれている。
+        /// ボスの所属フィールドが未開放／出撃不可（重傷・派遣中等）のメンバーが含まれている。
+        ///
+        /// フィールド未開放のチェック（→ 大迷宮フィールド選択UI仕様）はCore層で行う：
+        /// UI（DungeonPanel）は未開放フィールドを選択できないようにしているが、それはUI側の
+        /// 制約に過ぎない。出撃の可否そのものはCore層で自己完結して判定すべきという方針
+        /// （→ QuestDispatchSystem.CanDispatch等、既存のTry*系メソッドと同じ考え方）により、
+        /// ここでも独立して検査する。
         /// </summary>
         public bool TryDispatch(GameState state, Party party, FloorBoss boss, DungeonMissionType missionType)
         {
@@ -56,7 +62,9 @@ namespace GuildManager.Core.Systems
                 return false;
             if (party.IsEmpty || party.Members.Any(m => !m.IsAvailable))
                 return false;
-            if (!state.DungeonFields.Any(f => f.Bosses.Contains(boss)) || boss.IsDefeated)
+
+            var field = state.DungeonFields.FirstOrDefault(f => f.Bosses.Contains(boss));
+            if (field == null || !field.IsUnlocked || boss.IsDefeated)
                 return false;
 
             state.ActiveDungeonMissions.Add(new ActiveDungeonMission

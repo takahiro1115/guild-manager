@@ -16,6 +16,14 @@ layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 
+[node name="FieldLabel" type="Label" parent="VBox"]
+layout_mode = 2
+text = "挑戦するダンジョンを選択"
+
+[node name="FieldOptionButton" type="OptionButton" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+
 [node name="ProgressLabel" type="RichTextLabel" parent="VBox"]
 unique_name_in_owner = true
 layout_mode = 2
