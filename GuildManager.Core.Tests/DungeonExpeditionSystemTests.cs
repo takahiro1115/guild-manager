@@ -403,6 +403,89 @@ namespace GuildManager.Core.Tests
             Assert.False(b.IsDispatched);
         }
 
+        // ---------------- 解決後の状態解除・道中進軍の出撃登録（2026年9月改訂） ----------------
+
+        [Fact]
+        public void DungeonExpeditionSystem_AfterGatheringResolution_PartyCanDispatchNextWeek()
+        {
+            // 採取任務から帰還した部隊は、翌週そのまま道中調査（深度開拓）へ再出撃できること。
+            // 解決時に ActiveDungeonMission がリストから除去され、メンバーの IsDispatched が
+            // 解除される（＝出撃枠も解放される）ことを、実際の再出撃まで通して確認する。
+            var boss = new FloorBoss { Name = "第10階層のボス", Floor = 10, MaxHp = 999_999, CurrentHp = 999_999 };
+            var field = new DungeonField
+            {
+                Id = "forest", Name = "翠緑の原生林", Order = 1, IsUnlocked = true, ReachedFloor = 1,
+                Bosses = { boss },
+            };
+            var a = MakeAdventurer(JobClass.Ranger, 40);
+            var b = MakeAdventurer(JobClass.Thief, 40);
+            var state = new GameState { Adventurers = { a, b }, DungeonFields = { field } };
+            var system = BuildSystem();
+
+            Assert.True(system.TryDispatchGathering(state, PartyOf(a, b), field));
+            Assert.True(a.IsDispatched);
+            Assert.False(QuestDispatchSystem.CanDispatch(state)); // 1枠を採取が占有
+
+            Assert.Single(system.ProcessWeeklyMissions(state));
+
+            // 解決後：出撃予定は空、メンバーは待機中（出撃可能）へ戻り、枠も空く。
+            Assert.Empty(state.ActiveDungeonMissions);
+            Assert.False(a.IsDispatched);
+            Assert.False(b.IsDispatched);
+            Assert.True(a.IsAvailable);
+            Assert.True(b.IsAvailable);
+            Assert.True(QuestDispatchSystem.CanDispatch(state));
+
+            // 翌週：同じ部隊で道中調査へ再出撃できる（ReachedFloor=1 < ボス10F → 道中進軍）。
+            Assert.True(system.TryDispatch(state, PartyOf(a, b), boss, DungeonMissionType.Scouting));
+            var resolution = Assert.Single(system.ProcessWeeklyMissions(state));
+            Assert.NotNull(resolution.TraversalResult);
+        }
+
+        [Fact]
+        public void DungeonExpeditionSystem_CanDispatchTraversal_WhenFloorBelowBoss()
+        {
+            // 到達階層が未撃破ボスの階層未満（9層 vs 10層）なら、調査出撃は道中進軍として
+            // 登録・解決され、到達階層が前進すること（→ ScoutingResolverではなく
+            // DungeonTraversalResolverが走る。§4.5.3分岐A）。
+            var (state, field, boss10F) = MakeTraversalState(reachedFloor: 9, nextBossFloor: 10);
+            var party = PartyOf(MakeAdventurer(JobClass.Thief, 60), MakeAdventurer(JobClass.Ranger, 60));
+            var system = BuildSystem();
+
+            Assert.True(QuestDispatchSystem.CanDispatch(state));
+            Assert.True(system.TryDispatch(state, party, boss10F, DungeonMissionType.Scouting));
+
+            var mission = Assert.Single(state.ActiveDungeonMissions);
+            Assert.Equal(DungeonMissionType.Scouting, mission.MissionType);
+            Assert.Same(boss10F, mission.Boss);
+
+            var resolution = Assert.Single(system.ProcessWeeklyMissions(state));
+
+            Assert.NotNull(resolution.TraversalResult); // 解析ではなく道中進軍として解決される
+            Assert.Null(resolution.ScoutingResult);
+            Assert.Equal(10, field.ReachedFloor);       // 9→10（未撃破ボス階層で足止め）
+            Assert.True(resolution.TraversalResult!.StopperTriggered);
+            Assert.Empty(state.ActiveDungeonMissions);  // 解決後は出撃予定から除去される
+        }
+
+        [Fact]
+        public void DungeonExpeditionSystem_CanDispatchTraversal_EvenWhenBossFullyAnalyzed()
+        {
+            // 解析率が100%のボスでも、まだその階層へ到達していなければ道中調査（深度開拓）には
+            // 出撃できること。UI側の「完全解析済みなので調査不要」という抑止が道中進軍にまで
+            // 及んでいた不整合の回帰テスト（→ DungeonPanel.OnDispatchPressed、2026年9月改訂）。
+            var (state, field, boss10F) = MakeTraversalState(reachedFloor: 5, nextBossFloor: 10);
+            boss10F.IntelRate = 1.0;
+            var party = PartyOf(MakeAdventurer(JobClass.Thief, 60), MakeAdventurer(JobClass.Ranger, 60));
+            var system = BuildSystem();
+
+            Assert.True(system.TryDispatch(state, party, boss10F, DungeonMissionType.Scouting));
+            var resolution = Assert.Single(system.ProcessWeeklyMissions(state));
+
+            Assert.NotNull(resolution.TraversalResult);
+            Assert.True(field.ReachedFloor > 5, "完全解析済みでも道中進軍で深度は前進するはず");
+        }
+
         // ---------------- 撃破報酬（ゴールド・名声・素材ドロップ、2026年9月新設） ----------------
 
         [Fact]

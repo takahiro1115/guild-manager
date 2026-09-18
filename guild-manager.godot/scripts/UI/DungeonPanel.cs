@@ -563,16 +563,37 @@ public partial class DungeonPanel : ScrollContainer
 		}
 	}
 
-	/// <summary>出撃できない理由（出撃できるならnull）。ボス（調査・討伐）を対象にする出撃向け。</summary>
+	/// <summary>
+	/// 出撃できない理由（出撃できるならnull）。ボス（調査・討伐）を対象にする出撃向け。
+	///
+	/// Core側（DungeonExpeditionSystem.TryDispatch）の失敗条件をすべて網羅し、
+	/// 「出撃条件を満たしていない」という曖昧な表示に落ちないようにする（→ 2026年9月改訂）。
+	/// </summary>
 	private string GetDispatchBlockedReason(FloorBoss boss, SavedParty saved, Party party)
 	{
 		if (boss == null) return "挑むべき階層ボスがいない。";
 		if (_state.DefeatReason != null) return "ギルドは既に解散した。";
-		if (saved == null) return "出撃部隊を選ぶと、斥候の見立てと対策の充足状況が表示される。";
-		if (party.IsEmpty) return "この部隊には出撃できるメンバーがいない。";
+		if (saved == null) return "出撃部隊が選択されていない。上の一覧から出撃させる編成を選ぶこと。";
+		if (_selectedField != null && !_selectedField.IsUnlocked)
+			return $"「{_selectedField.Name}」はまだ開放されていない。";
+		if (boss.IsDefeated) return $"第{boss.Floor}層のボスは既に撃破済み。";
+		if (party.IsEmpty)
+		{
+			var unavailable = PartyFormationSystem.GetUnavailableMembers(_state, saved.MemberIds);
+			return unavailable.Count > 0
+				? $"この部隊は全員出撃できない状態（重傷・派遣中など）：{string.Join("、", unavailable.Select(m => m.Name))}"
+				: "この部隊には出撃できるメンバーがいない（編成が空）。";
+		}
 		if (!QuestDispatchSystem.CanDispatch(_state))
-			return $"同時出撃枠（{_state.UnlockedSquadSlots}枠）がすべて埋まっている。";
+			return $"同時出撃枠（{_state.UnlockedSquadSlots}枠）がすべて埋まっている。帰還を待つか、出撃予定を取り消すこと。";
 		return null;
+	}
+
+	/// <summary>出撃失敗の理由を出撃状況ラベルへ表示する（→ 具体的な失敗理由の提示、2026年9月改訂）。</summary>
+	private void ShowDispatchFailure(string reason)
+	{
+		_dispatchStatusLabel.Clear();
+		_dispatchStatusLabel.AppendText($"[color=orange][b]⚠ 出撃できなかった：{reason}[/b][/color]");
 	}
 
 	/// <summary>
@@ -583,10 +604,17 @@ public partial class DungeonPanel : ScrollContainer
 	{
 		if (_selectedField == null) return "挑戦するダンジョンがない。";
 		if (_state.DefeatReason != null) return "ギルドは既に解散した。";
-		if (saved == null) return "出撃部隊を選ぶと、採取の見立てが表示される。";
-		if (party.IsEmpty) return "この部隊には出撃できるメンバーがいない。";
+		if (saved == null) return "出撃部隊が選択されていない。上の一覧から出撃させる編成を選ぶこと。";
+		if (!_selectedField.IsUnlocked) return $"「{_selectedField.Name}」はまだ開放されていない。";
+		if (party.IsEmpty)
+		{
+			var unavailable = PartyFormationSystem.GetUnavailableMembers(_state, saved.MemberIds);
+			return unavailable.Count > 0
+				? $"この部隊は全員出撃できない状態（重傷・派遣中など）：{string.Join("、", unavailable.Select(m => m.Name))}"
+				: "この部隊には出撃できるメンバーがいない（編成が空）。";
+		}
 		if (!QuestDispatchSystem.CanDispatch(_state))
-			return $"同時出撃枠（{_state.UnlockedSquadSlots}枠）がすべて埋まっている。";
+			return $"同時出撃枠（{_state.UnlockedSquadSlots}枠）がすべて埋まっている。帰還を待つか、出撃予定を取り消すこと。";
 		return null;
 	}
 
@@ -729,8 +757,20 @@ public partial class DungeonPanel : ScrollContainer
 		// プレイヤーが選んで出撃を指示できる。
 		var boss = _selectedField?.GetNextActiveBoss();
 		var saved = SelectedSavedParty();
-		if (boss == null || saved == null || _expeditionSystem == null)
+		if (_expeditionSystem == null)
 			return;
+
+		// 失敗理由は必ず具体的に出す（以前はここで無言returnしており、ボタンを押しても
+		// 何も起きないように見えていた。→ 2026年9月改訂）。
+		if (_selectedField == null || boss == null || saved == null)
+		{
+			ShowDispatchFailure(_selectedField == null
+				? "挑戦するダンジョン（フィールド）が選択されていない。"
+				: boss == null
+					? "このフィールドは完全制覇済みで、挑むべき階層ボスがいない。"
+					: "出撃部隊が選択されていない。上の一覧から出撃させる編成を選ぶこと。");
+			return;
+		}
 
 		var party = PartyFormationSystem.BuildDispatchParty(_state, saved.MemberIds);
 		int pouchCost = 0;
@@ -743,16 +783,24 @@ public partial class DungeonPanel : ScrollContainer
 			pouchCost = DungeonExpeditionSystem.CalculateConsumableCost(party.ConsumableItemIds);
 		}
 
+		// 道中進軍（深度開拓）中かどうか。到達階層がボス階層未満なら、この調査出撃は
+		// 解析ではなく道中進軍として解決される（→ §4.5.3分岐A、DungeonTraversalResolver）。
+		bool traveling = _selectedField.ReachedFloor < boss.Floor;
+
 		string blockedReason = GetDispatchBlockedReason(boss, saved, party);
-		if (blockedReason == null && missionType == DungeonMissionType.Scouting &&
+		// 「完全解析済みなので調査不要」の抑止は、ボス階層に到達済み（＝解析フェーズ）の場合のみ。
+		// 道中進軍中は解析率に一切触れないため、解析率100%でも深度開拓のために出撃できる
+		// （RefreshDispatchSection側のボタン活性判定と条件を揃える。→ 2026年9月改訂）。
+		if (blockedReason == null && missionType == DungeonMissionType.Scouting && !traveling &&
 			ScoutingResolver.GetTier(boss.IntelRate) == IntelTier.Complete)
 			blockedReason = "完全解析済みのため、これ以上の調査は不要。";
+		if (blockedReason == null && missionType == DungeonMissionType.BossAssault && traveling)
+			blockedReason = $"第{boss.Floor}層のボスにはまだ到達していない（現在 第{_selectedField.ReachedFloor}層）。まず道中調査で深度を開拓すること。";
 		if (blockedReason == null && missionType == DungeonMissionType.BossAssault && _state.Gold < pouchCost)
 			blockedReason = $"携行ポーチの代金（{pouchCost}G）が足りない（所持金 {_state.Gold}G）。";
 		if (blockedReason != null || !_expeditionSystem.TryDispatch(_state, party, boss, missionType))
 		{
-			_dispatchStatusLabel.Clear();
-			_dispatchStatusLabel.AppendText($"[color=orange][b]⚠ 出撃できなかった：{blockedReason ?? "出撃条件を満たしていない。"}[/b][/color]");
+			ShowDispatchFailure(blockedReason ?? "出撃条件を満たしていない（同時出撃枠・部隊の状態・フィールドの開放状況を確認）。");
 			return;
 		}
 
@@ -778,15 +826,23 @@ public partial class DungeonPanel : ScrollContainer
 	private void OnGatheringDispatchPressed()
 	{
 		var saved = SelectedSavedParty();
-		if (_selectedField == null || saved == null || _expeditionSystem == null)
+		if (_expeditionSystem == null)
 			return;
+
+		// 調査・討伐と同じく、押しても何も起きない状態を作らず必ず理由を出す（→ 2026年9月改訂）。
+		if (_selectedField == null || saved == null)
+		{
+			ShowDispatchFailure(_selectedField == null
+				? "採取に向かうダンジョン（フィールド）が選択されていない。"
+				: "出撃部隊が選択されていない。上の一覧から出撃させる編成を選ぶこと。");
+			return;
+		}
 
 		var party = PartyFormationSystem.BuildDispatchParty(_state, saved.MemberIds);
 		string blockedReason = GetGatheringBlockedReason(saved, party);
 		if (blockedReason != null || !_expeditionSystem.TryDispatchGathering(_state, party, _selectedField))
 		{
-			_dispatchStatusLabel.Clear();
-			_dispatchStatusLabel.AppendText($"[color=orange][b]⚠ 出撃できなかった：{blockedReason ?? "出撃条件を満たしていない。"}[/b][/color]");
+			ShowDispatchFailure(blockedReason ?? "出撃条件を満たしていない（同時出撃枠・部隊の状態・フィールドの開放状況を確認）。");
 			return;
 		}
 

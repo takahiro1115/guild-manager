@@ -234,10 +234,11 @@ public partial class MainDashboard : Control
 	/// <summary>新規ゲームとして開始する（既存の初期化処理。→ 03 §12「セーブが無ければ新規ゲーム」）。</summary>
 	private void StartNewGame()
 	{
+		// 旧クエスト掲示板は2026年9月、大迷宮への一本化改訂で停止した（→ WeekProcessingSystem）。
+		// AvailableQuestsは初期配置も行わず、常に空のまま（出撃導線は大迷宮タブのみ）。
 		_state = new GameState
 		{
 			Adventurers = SampleData.CreateStarterAdventurers(),
-			AvailableQuests = SampleData.CreateStarterQuests(),
 			DungeonFields = SampleData.CreateDefaultFields(),
 		};
 

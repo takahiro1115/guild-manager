@@ -161,18 +161,14 @@ namespace GuildManager.Core.Systems
             }
             result.Flags.DeathOrPermanentInjuryOccurred = anyFallenOrNewOldWound;
 
-            // 受注可能クエスト一覧の週次管理（→ 03 §4.0・§4.4）：期限切れ（放置）の除去と補充。
-            // 放置された討伐クエストは脅威度上昇の対象になる。
-            var expiredQuests = _questBoardSystem.ProcessWeeklyBoard(state);
-            foreach (var expiredQuest in expiredQuests)
-            {
-                int abandonedThreatDelta = _securitySystem.ApplyAbandonedQuest(state, expiredQuest);
-                result.AbandonedQuestThreatDeltas.Add((expiredQuest, abandonedThreatDelta));
-            }
-            // 討伐クエストの期限切れ「1週前」判定（→ 03 §1.3自動スキップ停止条件8）。
-            // ProcessWeeklyBoardでDeadlineWeeksを減算した後の状態を見るため、この位置で呼ぶ。
-            result.QuestsExpiringNextWeek.AddRange(QuestBoardSystem.GetQuestsExpiringNextWeek(state));
-            result.Flags.SubjugationQuestExpiringNextWeek = result.QuestsExpiringNextWeek.Count > 0;
+            // 受注可能クエスト一覧の週次管理（旧クエスト掲示板、→ 03 §4.0・§4.4）は
+            // 2026年9月、大迷宮への一本化改訂で停止した。新規クエストの補充・自動生成、
+            // 期限（DeadlineWeeks）の減算、期限切れ（放置）の除去、および「期限切れ1週前」の
+            // 警告（→ 03 §1.3自動スキップ停止条件8）はいずれも行わない。
+            // その結果 result.AbandonedQuestThreatDeltas・QuestsExpiringNextWeek は常に空、
+            // Flags.SubjugationQuestExpiringNextWeek は常にfalseのままになる。
+            // QuestBoardSystem自体は削除していない（旧セーブに残る AvailableQuests を
+            // そのまま読めるようにするため。クラス単体のロジックは引き続きテストで検証されている）。
 
             // 出撃の有無にかかわらず、時間は必ず進む。
             _economySystem.ApplyWeeklyWages(state);

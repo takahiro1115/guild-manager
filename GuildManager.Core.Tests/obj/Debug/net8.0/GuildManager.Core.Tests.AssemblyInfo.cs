@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("GuildManager.Core.Tests")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+2aa8f94c8d0cb42a7b092eb4a5a42837489619a4")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4f40ac3fde8b7b19bf1b481bffd91014e8a8ef62")]
 [assembly: System.Reflection.AssemblyProductAttribute("GuildManager.Core.Tests")]
 [assembly: System.Reflection.AssemblyTitleAttribute("GuildManager.Core.Tests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

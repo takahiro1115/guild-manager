@@ -333,23 +333,18 @@ namespace GuildManager.Core.Tests
             Assert.False(result.Flags.FinalQuestNewlyUnlocked);
         }
 
-        // ---------------- SubjugationQuestExpiringNextWeek ----------------
+        // ---------------- SubjugationQuestExpiringNextWeek（2026年9月、大迷宮一本化で撤廃） ----------------
 
-        [Fact]
-        public void ProcessWeek_SetsSubjugationQuestExpiringNextWeek_WhenDeadlineBecomesOne()
-        {
-            var state = new GameState();
-            state.AvailableQuests.Add(new Quest { QuestType = QuestType.Subjugation, DeadlineWeeks = 2 });
-            var system = BuildSystem();
-
-            var result = system.ProcessWeek(state);
-
-            Assert.True(result.Flags.SubjugationQuestExpiringNextWeek);
-        }
+        // 旧テスト ProcessWeek_SetsSubjugationQuestExpiringNextWeek_WhenDeadlineBecomesOne と
+        // ProcessWeek_FiresExpiringNextWeek_OnlyOnceAcrossQuestLifetime は、旧クエスト掲示板の
+        // 期限減算と「期限切れ1週前」警告（→ 03 §1.3自動スキップ停止条件8）を前提としていたため
+        // 削除した。停止後の期待挙動は WeekProcessingSystem_ShouldNotGenerateOrWarnOldQuests
+        // （上記「旧クエスト掲示板の停止」セクション）で検証している。
 
         [Fact]
         public void ProcessWeek_DoesNotSetSubjugationQuestExpiringNextWeek_WhenDeadlineStillFarAway()
         {
+            // 掲示板の週次更新が停止した後は、残り週数に関わらず常に発火しない。
             var state = new GameState();
             state.AvailableQuests.Add(new Quest { QuestType = QuestType.Subjugation, DeadlineWeeks = 10 });
             var system = BuildSystem();
@@ -357,20 +352,6 @@ namespace GuildManager.Core.Tests
             var result = system.ProcessWeek(state);
 
             Assert.False(result.Flags.SubjugationQuestExpiringNextWeek);
-        }
-
-        [Fact]
-        public void ProcessWeek_FiresExpiringNextWeek_OnlyOnceAcrossQuestLifetime()
-        {
-            var state = new GameState();
-            state.AvailableQuests.Add(new Quest { QuestType = QuestType.Subjugation, DeadlineWeeks = 2 });
-            var system = BuildSystem();
-
-            var firstWeek = system.ProcessWeek(state); // 2→1：発火するはず
-            var secondWeek = system.ProcessWeek(state); // 1→0：期限切れで除去され、対象から消える
-
-            Assert.True(firstWeek.Flags.SubjugationQuestExpiringNextWeek);
-            Assert.False(secondWeek.Flags.SubjugationQuestExpiringNextWeek);
         }
 
         // ---------------- SatisfactionWarningOccurred ----------------
@@ -462,6 +443,46 @@ namespace GuildManager.Core.Tests
             Assert.False(result.Flags.DefeatOccurred);
             Assert.Null(result.NewDefeatReason);
             Assert.Null(state.DefeatReason);
+        }
+
+        // ---------------- 旧クエスト掲示板の停止（2026年9月、大迷宮一本化） ----------------
+
+        [Fact]
+        public void WeekProcessingSystem_ShouldNotGenerateOrWarnOldQuests()
+        {
+            // 旧クエスト掲示板の週次更新（補充・自動生成・期限減算・期限切れ・「期限切れ1週前」警告）は
+            // 大迷宮への一本化改訂で停止済み（→ WeekProcessingSystem.ProcessWeek）。
+            // 旧セーブに残っていたクエストも、放置しても減算・除去・警告の対象にならない。
+            var state = new GameState();
+            state.AvailableQuests.Add(new Quest { Name = "旧掲示板の残骸", QuestType = QuestType.Subjugation, DeadlineWeeks = 2 });
+            var system = BuildSystem();
+
+            for (int i = 0; i < 5; i++)
+            {
+                var result = system.ProcessWeek(state);
+
+                Assert.Empty(result.QuestsExpiringNextWeek);
+                Assert.False(result.Flags.SubjugationQuestExpiringNextWeek);
+                Assert.Empty(result.AbandonedQuestThreatDeltas);
+            }
+
+            // 補充も行われない（残骸1件のまま増えない）／期限も減らない。
+            Assert.Single(state.AvailableQuests);
+            Assert.Equal(2, state.AvailableQuests[0].DeadlineWeeks);
+        }
+
+        [Fact]
+        public void WeekProcessingSystem_ShouldNotReplenishQuests_FromEmptyBoard()
+        {
+            // 受注可能一覧が空の新規ゲーム（→ MainDashboard.StartNewGameは初期クエストを
+            // 配置しない）でも、週を進めてもクエストは1件も生成されない。
+            var state = new GameState();
+            var system = BuildSystem();
+
+            for (int i = 0; i < 10; i++)
+                system.ProcessWeek(state);
+
+            Assert.Empty(state.AvailableQuests);
         }
 
         // ---------------- 昇格試験クエストの自動生成（2026年9月、大迷宮一本化により無効化） ----------------
