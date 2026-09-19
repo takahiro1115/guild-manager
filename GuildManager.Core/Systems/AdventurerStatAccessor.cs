@@ -68,38 +68,5 @@ namespace GuildManager.Core.Systems
                 default: throw new ArgumentOutOfRangeException(nameof(name), name, "未知のステータス名");
             }
         }
-
-        /// <summary>生涯ピーク値の取得（→ 03 §2.2新規・§7）。顧問効果算出の基準に使う。</summary>
-        public static int GetPeak(Adventurer a, string name) => name switch
-        {
-            "STR" => a.PeakSTR,
-            "AGI" => a.PeakAGI,
-            "VIT" => a.PeakVIT,
-            "MND" => a.PeakMND,
-            "DEX" => a.PeakDEX,
-            "LDR" => a.PeakLDR,
-            "INT" => a.PeakINT,
-            _ => throw new ArgumentOutOfRangeException(nameof(name), name, "未知のステータス名")
-        };
-
-        /// <summary>
-        /// 生涯ピーク値の更新。成長ロールで実効値が上昇した際にGrowthSystemから呼ばれる。
-        /// Adventurer側のプロパティが Max(記録済み値, 現在の実効値) を返す設計のため、
-        /// 実際に記録されるかどうか（縮む方向への代入が無視されるか）はプロパティ側に委ねてよい。
-        /// </summary>
-        public static void SetPeak(Adventurer a, string name, int value)
-        {
-            switch (name)
-            {
-                case "STR": a.PeakSTR = value; break;
-                case "AGI": a.PeakAGI = value; break;
-                case "VIT": a.PeakVIT = value; break;
-                case "MND": a.PeakMND = value; break;
-                case "DEX": a.PeakDEX = value; break;
-                case "LDR": a.PeakLDR = value; break;
-                case "INT": a.PeakINT = value; break;
-                default: throw new ArgumentOutOfRangeException(nameof(name), name, "未知のステータス名");
-            }
-        }
     }
 }

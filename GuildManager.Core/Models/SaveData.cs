@@ -92,7 +92,7 @@ namespace GuildManager.Core.Models
         /// 氏名・引退週・年齢・職業のみを持つ最小限の型を提案していたが、
         /// 既存の`GameState.RetiredAdventurers`は`List&lt;Adventurer&gt;`
         /// （Adventurer本体をそのまま保持する設計）であり、顧問効果の算出
-        /// （AdvisorSystem.GetTrainerBonus等）は生涯ピーク値（PeakSTR等）や
+        /// （AdvisorSystem.GetTrainerBonus等）は引退時の実効ステータス（STR等）や
         /// 特性（TraitIds）を参照する。最小限のRecordに変換すると、これらの
         /// 情報がロード後に失われ、ロード直後の顧問効果が正しく算出できなく
         /// なってしまう。指示書の「既存実装をそのまま流用する」という方針

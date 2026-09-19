@@ -162,7 +162,7 @@ namespace GuildManager.Core.Systems
                     continue; // 教官が伝授可能な特性を（生徒が未所持な形で）持っていない
 
                 double chance = TraitBalance.TraitTransmissionBaseRatePercent
-                    + GetPeakStatBonus(trainer, facility)
+                    + GetTargetStatBonus(trainer, facility)
                     + (trainer.HasTrait(TraitCatalog.MentorId) ? TraitBalance.TraitTransmissionMentorBonusPercent : 0);
 
                 int roll = _rng.NextInt(1, 100);
@@ -177,16 +177,17 @@ namespace GuildManager.Core.Systems
         }
 
         /// <summary>
-        /// 教官の対象ステータス（配置先施設が扱うもの）生涯ピーク平均に比例したボーナス（%）。
+        /// 教官の対象ステータス（配置先施設が扱うもの）の実効値平均に比例したボーナス（%）。
         /// GrowthSystem.GetTrainerBonusと同じ「対象ステータス平均」を使うが、こちらは
-        /// TraitBalance.TraitTransmissionPeakStatBonusMaxPercentを満額（ピーク平均100）とする
+        /// TraitBalance.TraitTransmissionPeakStatBonusMaxPercentを満額（平均100）とする
         /// 別スケールのため、AdvisorSystem.GetTrainerBonusは流用しない。
+        /// （CSVキー名の「Peak」は生涯ピーク値撤廃前の名残。値の意味は「対象ステータス平均100での満額」）
         /// </summary>
-        private static double GetPeakStatBonus(Adventurer trainer, FacilityType facility)
+        private static double GetTargetStatBonus(Adventurer trainer, FacilityType facility)
         {
             var targetStats = FacilityBalance.GetTrainingTargetStats(facility);
-            double peakAverage = targetStats.Average(stat => AdventurerStatAccessor.GetPeak(trainer, stat));
-            return (peakAverage / 100.0) * TraitBalance.TraitTransmissionPeakStatBonusMaxPercent;
+            double average = targetStats.Average(stat => AdventurerStatAccessor.GetStat(trainer, stat));
+            return (average / 100.0) * TraitBalance.TraitTransmissionPeakStatBonusMaxPercent;
         }
     }
 }

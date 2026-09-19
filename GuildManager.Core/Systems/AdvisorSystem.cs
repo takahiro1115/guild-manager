@@ -9,8 +9,9 @@ namespace GuildManager.Core.Systems
     /// 顧問制度（教官・参謀・スカウト）。仕様書 03 §7 参照。
     ///
     /// 「得意ステータスは何か」を判定する一致判定ロジックは持たない。各役職が参照する
-    /// 特定ステータス(群)の生涯ピーク値（Adventurer.PeakXXX）を見て、連続比例のボーナスを
-    /// 算出するだけである（→ AdvisorBalance）。
+    /// 特定ステータス(群)の引退時の実効値（Adventurer.STR等）を見て、連続比例のボーナスを
+    /// 算出するだけである（→ AdvisorBalance）。生涯ピーク値は加齢衰微の廃止（v2.0）に伴い撤廃した
+    /// （引退後に実効値が下がる経路が無いため、実効値そのものが現役時代の到達値を表す）。
     ///
     /// 割り当て対象は GameState.RetiredAdventurers（引退済み・顧問候補）に限る。
     /// ポストは「教官(施設ごとに4枠)・参謀(作戦資料室に1枠)・スカウト(冒険者支援室に1枠)」の
@@ -106,34 +107,35 @@ namespace GuildManager.Core.Systems
         // ---------------- ボーナス算出（連続比例。一致判定なし） ----------------
 
         /// <summary>
-        /// 教官ボーナス：配置先施設の対象ステータス（1つまたは2つの平均）の生涯ピーク値に比例。
+        /// 教官ボーナス：配置先施設の対象ステータス（1つまたは2つの平均）の実効値に比例。
         /// 成長ロールの確率倍率（GrowthBalance.TrainingFacilityMultiplier）に加算する値として返す。
         /// </summary>
         public static double GetTrainerBonus(Adventurer trainer, FacilityType facility)
         {
             var targetStats = FacilityBalance.GetTrainingTargetStats(facility);
-            double peakAverage = targetStats.Average(stat => AdventurerStatAccessor.GetPeak(trainer, stat));
-            return peakAverage * AdvisorBalance.TrainerBonusCoefficient;
+            double average = targetStats.Average(stat => AdventurerStatAccessor.GetStat(trainer, stat));
+            return average * AdvisorBalance.TrainerBonusCoefficient;
         }
 
         /// <summary>
-        /// 参謀ボーナス：生涯ピーク7能力平均に比例。PartyScout（§4.1）とSurvivalThreshold
-        /// （§4.3）の両方に同じ値を加算する想定（→ QuestResolver.Resolveの引数として渡す）。
+        /// 参謀ボーナス：7能力（STR・VIT・AGI・DEX・INT・MND・LDR）の実効値平均に比例。
+        /// PartyScout（§4.1）とSurvivalThreshold（§4.3）の両方に同じ値を加算する想定
+        /// （→ QuestResolver.Resolveの引数として渡す）。
         /// </summary>
         public static double GetAdvisorBonus(Adventurer advisor)
         {
-            double peakAverage = AdventurerStatAccessor.AllStatNames.Average(stat => AdventurerStatAccessor.GetPeak(advisor, stat));
-            return peakAverage * AdvisorBalance.AdvisorBonusCoefficient;
+            double average = AdventurerStatAccessor.AllStatNames.Average(stat => AdventurerStatAccessor.GetStat(advisor, stat));
+            return average * AdvisorBalance.AdvisorBonusCoefficient;
         }
 
         /// <summary>
-        /// スカウトボーナス：生涯ピークのLDR・DEX平均に比例。新春採用試験の有望新人応募率に
+        /// スカウトボーナス：LDR・DEXの実効値平均に比例。新春採用試験の有望新人応募率に
         /// 加算する値として返す（→ RecruitmentSystem.GenerateCandidatesの引数として渡す）。
         /// </summary>
         public static double GetScoutMasterBonus(Adventurer scoutMaster)
         {
-            double peakAverage = (AdventurerStatAccessor.GetPeak(scoutMaster, "LDR") + AdventurerStatAccessor.GetPeak(scoutMaster, "DEX")) / 2.0;
-            return peakAverage * AdvisorBalance.ScoutMasterBonusCoefficient;
+            double average = (AdventurerStatAccessor.GetStat(scoutMaster, "LDR") + AdventurerStatAccessor.GetStat(scoutMaster, "DEX")) / 2.0;
+            return average * AdvisorBalance.ScoutMasterBonusCoefficient;
         }
     }
 }

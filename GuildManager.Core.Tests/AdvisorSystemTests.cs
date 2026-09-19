@@ -284,8 +284,10 @@ namespace GuildManager.Core.Tests
 
         // ---------------- ボーナス算出（連続比例。一致判定なし） ----------------
 
+        // 生涯ピーク値は撤廃済み（v2.0）。いずれのボーナスも引退時の実効ステータス（STR等）を直接参照する。
+
         [Fact]
-        public void GetTrainerBonus_IsProportionalToTargetStatsPeakAverage()
+        public void GetTrainerBonus_IsProportionalToTargetStatsEffectiveAverage()
         {
             var trainer = new Adventurer { STR = 80, VIT = 60 }; // 戦士訓練所の対象=[STR,VIT]、平均70
 
@@ -305,9 +307,10 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
-        public void GetAdvisorBonus_IsProportionalToSevenStatPeakAverage()
+        public void GetAdvisorBonus_IsProportionalToSevenStatEffectiveAverage()
         {
-            var advisor = new Adventurer { STR = 70, AGI = 70, VIT = 70, MND = 70, DEX = 70, LDR = 70, INT = 70 };
+            // 7能力の実効値がばらついていても、単純平均（=70）を基準にする。
+            var advisor = new Adventurer { STR = 100, AGI = 40, VIT = 90, MND = 50, DEX = 70, LDR = 80, INT = 60 };
 
             double bonus = AdvisorSystem.GetAdvisorBonus(advisor);
 
@@ -315,7 +318,7 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
-        public void GetScoutMasterBonus_IsProportionalToLdrDexPeakAverage()
+        public void GetScoutMasterBonus_IsProportionalToLdrDexEffectiveAverage()
         {
             var scoutMaster = new Adventurer { LDR = 80, DEX = 60 }; // 平均70
 
@@ -325,21 +328,29 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
-        public void Bonuses_UsePeakValue_NotCurrentDeclinedValue()
+        public void Bonuses_FollowCurrentEffectiveStats_Directly()
         {
-            // 顧問効果は現在の実効値ではなく生涯ピーク値を基準にする（→ 03 §7 方針の確認）。
-            // PeakLDR/PeakDEXへ明示的に80を記録した状態（＝現役時代に到達したピーク）を再現し、
-            // その後、現在値だけが衰微等で下がったと仮定する。
+            // 生涯ピーク値の撤廃（v2.0）以降、顧問効果は引退時の実効ステータスをそのまま参照する。
+            // 実効値が変われば、ボーナスも記録値に縛られずにそのまま追従する。
             var advisor = new Adventurer { LDR = 80, DEX = 80 };
-            advisor.PeakLDR = 80; // 明示的にピークを記録（GrowthSystemの成長ロールが行うのと同じ操作）
-            advisor.PeakDEX = 80;
-            advisor.LDR = 20; // 衰微等で現在値のみ下がった想定
+            Assert.Equal(80.0 * AdvisorBalance.ScoutMasterBonusCoefficient, AdvisorSystem.GetScoutMasterBonus(advisor), precision: 6);
+
+            advisor.LDR = 20;
             advisor.DEX = 20;
 
-            double bonus = AdvisorSystem.GetScoutMasterBonus(advisor);
+            Assert.Equal(20.0 * AdvisorBalance.ScoutMasterBonusCoefficient, AdvisorSystem.GetScoutMasterBonus(advisor), precision: 6);
+        }
 
-            // Peakゲッターは Max(記録済みの値, 現在値) を返すため、現在値が下がってもPeakは80のまま。
-            Assert.Equal(80.0 * AdvisorBalance.ScoutMasterBonusCoefficient, bonus, precision: 6);
+        [Fact]
+        public void TrainerAndAdvisorBonuses_IgnoreStatsOutsideTheirTargets()
+        {
+            // 教官は担当施設の対象ステータスだけを見る（戦士訓練所=STR/VIT。INT・LDRがいくら高くても無関係）。
+            var trainer = new Adventurer { STR = 50, VIT = 30, INT = 100, LDR = 100 };
+
+            Assert.Equal(40.0 * AdvisorBalance.TrainerBonusCoefficient,
+                AdvisorSystem.GetTrainerBonus(trainer, FacilityType.WarriorHall), precision: 6);
+            Assert.Equal(100.0 * AdvisorBalance.TrainerBonusCoefficient,
+                AdvisorSystem.GetTrainerBonus(trainer, FacilityType.MageLab), precision: 6);
         }
     }
 }

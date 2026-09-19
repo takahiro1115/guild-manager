@@ -251,16 +251,18 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
-        public void ProcessTrainingGrowth_UpdatesPeak_WhenStatGrows()
+        public void ProcessTrainingGrowth_IncreasesEffectiveStat_WhenStatGrows()
         {
+            // 成長ロール成功時は実効値だけが上がる（生涯ピーク値の更新処理は撤廃済み、v2.0）。
             var adventurer = new Adventurer { Age = 18, STR = 40, PA_STR = 80 };
             var state = new GameState { Adventurers = { adventurer } };
             state.TrainingAssignments.Add(adventurer.Id, FacilityType.WarriorHall);
             var system = new GrowthSystem(new AlwaysMinRng());
 
-            system.ProcessTrainingGrowth(state, NoDispatch);
+            var growth = Assert.Single(system.ProcessTrainingGrowth(state, NoDispatch));
 
-            Assert.Equal(41, adventurer.PeakSTR); // 成長後の実効値が生涯ピークにも反映される
+            Assert.Equal("STR", growth.Stat);
+            Assert.Equal(41, adventurer.STR);
         }
 
         [Fact]

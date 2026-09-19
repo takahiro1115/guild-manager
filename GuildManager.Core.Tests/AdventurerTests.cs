@@ -162,48 +162,5 @@ namespace GuildManager.Core.Tests
 
             Assert.Equal(-0.6, a.SumTraitEffect(TraitEffectType.StatPercentReduction), precision: 10);
         }
-
-        // ---------------- 生涯ピーク値（→ 03 §2.2新規・§7） ----------------
-
-        [Fact]
-        public void PeakStats_DefaultToCurrentActualValue_WhenNeverExplicitlyRecorded()
-        {
-            // 一度も成長していない冒険者は、Peak==現在の実効値になる
-            // （SampleData・RecruitmentSystemで別途Peakを初期化する必要はない設計。→ 項目30.4）。
-            var a = new Adventurer { STR = 60, VIT = 55, AGI = 35, DEX = 20, MND = 10, INT = 15, LDR = 40 };
-
-            Assert.Equal(60, a.PeakSTR);
-            Assert.Equal(55, a.PeakVIT);
-            Assert.Equal(35, a.PeakAGI);
-            Assert.Equal(20, a.PeakDEX);
-            Assert.Equal(10, a.PeakMND);
-            Assert.Equal(15, a.PeakINT);
-            Assert.Equal(40, a.PeakLDR);
-        }
-
-        [Fact]
-        public void PeakStat_RemembersHighestRecordedValue_EvenAfterActualValueDecreases()
-        {
-            var a = new Adventurer { STR = 40 };
-            a.PeakSTR = 40; // 成長ロールで記録された、という想定（GrowthSystemが行う操作を模擬）
-
-            a.STR = 20; // 衰微・古傷等で現在値のみ下がった想定（Peakには影響しない）
-
-            Assert.Equal(20, a.STR);
-            Assert.Equal(40, a.PeakSTR); // ピークは下がらない
-        }
-
-        [Fact]
-        public void PeakStat_NeverGoesBelowCurrentActualValue()
-        {
-            // Peakのgetterは Max(記録値, 現在値) を返すため、現在値がピークの記録値より
-            // 高い場合はその現在値がそのまま返る（ピークが実質的な下限を割ることは無い）。
-            var a = new Adventurer { STR = 10 };
-            a.PeakSTR = 10;
-
-            a.STR = 90; // 通常はGrowthSystem経由でPeakも同時に更新されるが、ここでは実効値のみ変更
-
-            Assert.Equal(90, a.PeakSTR);
-        }
     }
 }

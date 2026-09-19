@@ -81,11 +81,24 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
+        public void LegacySave_WithPeakStatFields_StillDeserializes()
+        {
+            // 生涯ピーク値（PeakSTR等）撤廃前のセーブには Peak* 項目が残っている。
+            // 未知の項目として無視され、実効ステータスはそのまま読み込めること。
+            var json = "{\"Name\":\"古参の顧問\",\"STR\":80,\"LDR\":60,\"PeakSTR\":95,\"PeakLDR\":70}";
+
+            var restored = JsonSerializer.Deserialize<Adventurer>(json)!;
+
+            Assert.Equal("古参の顧問", restored.Name);
+            Assert.Equal(80, restored.STR);
+            Assert.Equal(60, restored.LDR);
+        }
+
+        [Fact]
         public void RoundTrip_PreservesActiveRetiredAndFallenAdventurers()
         {
             var active = new Adventurer { Name = "現役", STR = 50 };
             var retired = new Adventurer { Name = "引退", STR = 80 };
-            retired.PeakSTR = 90; // 生涯ピーク値（顧問効果算出の基準）を明示的に記録
             var fallen = new Adventurer { Name = "戦死", FellAtWeek = 10 };
 
             var state = new GameState
@@ -101,8 +114,8 @@ namespace GuildManager.Core.Tests
             Assert.Equal("現役", restored.Adventurers[0].Name);
             Assert.Single(restored.RetiredAdventurers);
             Assert.Equal("引退", restored.RetiredAdventurers[0].Name);
-            // 生涯ピーク値が失われていないことを確認（顧問効果算出に必須。→ 実装コメント参照）
-            Assert.Equal(90, restored.RetiredAdventurers[0].PeakSTR);
+            // 引退時の実効ステータスが失われていないことを確認（顧問効果算出に必須。→ 実装コメント参照）
+            Assert.Equal(80, restored.RetiredAdventurers[0].STR);
             Assert.Single(restored.FallenAdventurers);
             Assert.Equal(10, restored.FallenAdventurers[0].FellAtWeek);
         }

@@ -19,8 +19,7 @@ namespace GuildManager.Core.Systems
     /// v1.3改訂：
     ///  - 経路2の対象ステータスは、配置先の訓練施設が扱うステータスに限定される
     ///    （戦士訓練所→STR・VIT、教会→MND、魔法研究所→INT、斥候所→AGI・DEX）。
-    ///  - 実効値が成長した際、対応するPeakフィールド（生涯ピーク値）も更新する。
-    ///  - 配置先施設に教官が配置されていれば、その教官の対象ステータス生涯ピーク値に
+    ///  - 配置先施設に教官が配置されていれば、その教官の対象ステータス実効値に
     ///    比例したボーナスが成長ロールの確率倍率に加算される（→ AdvisorSystem.GetTrainerBonus）。
     ///
     /// 加齢による恒久的な衰微・年齢進行・強制引退は引き続き AgingSystem が担当する
@@ -112,11 +111,6 @@ namespace GuildManager.Core.Systems
 
             if (after == before)
                 return null; // 既にPA上限で実質変化なし＝報告しない
-
-            // 生涯ピーク値の更新（→ 03 §2.2新規）。衰微・古傷では更新しない（GrowthSystem経由の
-            // 成長のみが更新箇所）。Adventurerのプロパティ側がMax(記録済み値, 現在値)を返すため、
-            // 縮む方向の代入は自動的に無視される。
-            AdventurerStatAccessor.SetPeak(adventurer, stat, after);
 
             return new GrowthEvent(adventurer, stat, before, after);
         }

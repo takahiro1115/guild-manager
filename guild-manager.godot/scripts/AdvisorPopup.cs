@@ -64,8 +64,8 @@ public partial class AdvisorPopup : PopupPanel
 		{
 			_candidateList.AddItem(
 				$"{candidate.Name}（{candidate.JobClass}） 引退時{candidate.RetiredAtAge}歳" +
-				$"　ピークSTR{candidate.PeakSTR}/VIT{candidate.PeakVIT}/AGI{candidate.PeakAGI}" +
-				$"/DEX{candidate.PeakDEX}/MND{candidate.PeakMND}/INT{candidate.PeakINT}/LDR{candidate.PeakLDR}");
+				$"　STR{candidate.STR}/VIT{candidate.VIT}/AGI{candidate.AGI}" +
+				$"/DEX{candidate.DEX}/MND{candidate.MND}/INT{candidate.INT}/LDR{candidate.LDR}");
 		}
 
 		_statusLabel.Text = BuildStatusText();

@@ -81,22 +81,10 @@ namespace GuildManager.Core.Models
         /// <summary>総合PA＝7つのPAの平均（v1.2改訂：INT活性化に伴い6値→7値平均。採用試験・スカウト評価用。仕様書 03 §2.2）。</summary>
         public double TotalPA => (PA_STR + PA_AGI + PA_VIT + PA_MND + PA_DEX + PA_LDR + PA_INT) / 7.0;
 
-        // ---- 生涯ピーク値（顧問効果算出の基準。仕様書 03 §2.2新規・§7）。 ----
-        // 衰微処理・古傷（Trait）による実効値低下では変更されない。成長ロール（経路1・経路2）で
-        // 実効値が上昇した時のみ、GrowthSystemが対応するPeakフィールドを更新する。
-        //
-        // 各プロパティのgetterは Max(記録済みのピーク, 現在の実効値) を返すことで、
-        // 「現在値を下回るピークは有り得ない」という不変条件を自動的に保証する
-        // （＝生成直後で一度も成長していない冒険者は、Peak==現在の実効値になる。
-        // SampleData・RecruitmentSystemで別途Peakを初期化する必要はない）。
-        private int _peakSTR, _peakVIT, _peakAGI, _peakDEX, _peakMND, _peakINT, _peakLDR;
-        public int PeakSTR { get => Math.Max(_peakSTR, STR); set => _peakSTR = value; }
-        public int PeakVIT { get => Math.Max(_peakVIT, VIT); set => _peakVIT = value; }
-        public int PeakAGI { get => Math.Max(_peakAGI, AGI); set => _peakAGI = value; }
-        public int PeakDEX { get => Math.Max(_peakDEX, DEX); set => _peakDEX = value; }
-        public int PeakMND { get => Math.Max(_peakMND, MND); set => _peakMND = value; }
-        public int PeakINT { get => Math.Max(_peakINT, INT); set => _peakINT = value; }
-        public int PeakLDR { get => Math.Max(_peakLDR, LDR); set => _peakLDR = value; }
+        // 生涯ピーク値（PeakSTR等）は、加齢衰微の廃止（v2.0、8年稼働モデル）により実効値が
+        // 下がる経路が無くなったため撤廃した。顧問効果は引退時の実効ステータス（STR等）を
+        // 直接参照する（→ AdvisorSystem、仕様書 03 §2.2・§7）。旧セーブに残る Peak* 項目は
+        // デシリアライズ時に無視される。
 
         // ---- 特性（Trait）。仕様書 03 §5.3・§4.3 参照。 ----
 
