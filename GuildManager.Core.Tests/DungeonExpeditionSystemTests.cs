@@ -1221,6 +1221,73 @@ namespace GuildManager.Core.Tests
             Assert.Contains(c, state2.Adventurers);
         }
 
+        // ---------------- 任務成果による士気の変動の大迷宮への再配線（SatisfactionSystem.ApplyExpeditionSatisfaction） ----------------
+
+        [Fact]
+        public void ExpeditionSatisfaction_IsWiredInto_TraversalAndBossVictory()
+        {
+            // 1週目：1F→5F の道中進軍で +1、2週目：撃破で +10。
+            var (state, _, boss, a, b) = MakeDeepDiveState(bossFloor: 5, bossHp: 1);
+            a.Satisfaction = 50; b.Satisfaction = 50;
+            var system = BuildSystem();
+            system.TryDispatch(state, PartyOf(a, b), boss, DungeonMissionType.Scouting);
+            var mission = state.ActiveDungeonMissions[0];
+
+            system.ProcessWeeklyMissions(state);
+            Assert.Equal(50 + SatisfactionBalance.ExpeditionTraversalSuccess, a.Satisfaction);
+
+            system.TryEngageBoss(state, mission, Array.Empty<string>());
+            var victory = Assert.Single(system.ProcessWeeklyMissions(state));
+
+            Assert.Equal(DungeonOutcome.Victory, victory.DungeonResult!.Outcome);
+            Assert.Equal(50 + SatisfactionBalance.ExpeditionTraversalSuccess + SatisfactionBalance.ExpeditionBossVictory, a.Satisfaction);
+            Assert.Equal(a.Satisfaction, b.Satisfaction);
+        }
+
+        [Fact]
+        public void ExpeditionSatisfaction_IsWiredInto_SurveyAndGathering()
+        {
+            var (state, field, boss, a, b) = MakeDeepDiveState(bossFloor: 10);
+            a.Satisfaction = 50; b.Satisfaction = 50;
+            var system = BuildSystem();
+
+            // 迷宮調査：能力値300の部隊 vs 10Fの要求護衛値35 → 護衛「余裕」で +2。
+            system.TryDispatchSurvey(state, PartyOf(a, b), boss);
+            var survey = Assert.Single(system.ProcessWeeklyMissions(state));
+            Assert.Equal(GuardTier.Abundant, survey.ScoutingResult!.GuardTier);
+            Assert.Equal(50 + SatisfactionBalance.ExpeditionSurveyAbundant, a.Satisfaction);
+
+            // 採取：素材を持ち帰れて +1。
+            system.TryDispatchGathering(state, PartyOf(a, b), field);
+            system.ProcessWeeklyMissions(state);
+            Assert.Equal(50 + SatisfactionBalance.ExpeditionSurveyAbundant + SatisfactionBalance.ExpeditionGatheringSuccess, a.Satisfaction);
+        }
+
+        [Theory]
+        [InlineData(1, true)]   // 撃破（要求火力＝1×45）
+        [InlineData(90, false)] // 火力不足で撤退（要求火力＝90×45）
+        public void ExpeditionSatisfaction_BossFight_WithForcedRetirement_StacksLossPenalty(int bossFloor, bool expectVictory)
+        {
+            // ギミック無しのボス：撃破でHP12%・撤退でHP20%を失う（AlwaysMinRng）。瀕死の隊員だけが強制除籍になり、
+            // 生存者には「仲間ロストの余波（-30）」と「撃破+10／撤退-5」が重なって適用される。除籍者には適用しない。
+            var boss = new FloorBoss { Name = "試験用の主", Floor = bossFloor, MaxHp = 1, CurrentHp = 1 };
+            var (state, dying, survivor, _) = MakeState(boss);
+            dying.CurrentHP = 1;
+            dying.Satisfaction = 70;
+            survivor.Satisfaction = 70;
+            var system = BuildSystem();
+            system.TryDispatch(state, PartyOf(dying, survivor), boss, DungeonMissionType.BossAssault);
+
+            var fight = Assert.Single(system.ProcessWeeklyMissions(state));
+
+            Assert.Equal(expectVictory ? DungeonOutcome.Victory : DungeonOutcome.Retreat, fight.DungeonResult!.Outcome);
+            Assert.Contains(dying, state.FallenAdventurers);
+            Assert.Contains(survivor, state.Adventurers);
+            int outcomeDelta = expectVictory ? SatisfactionBalance.ExpeditionBossVictory : SatisfactionBalance.ExpeditionBossDefeat;
+            Assert.Equal(70 - SatisfactionBalance.PartyLossPenalty + outcomeDelta, survivor.Satisfaction);
+            Assert.Equal(70, dying.Satisfaction);
+        }
+
         // ---------------- 迷宮調査（Survey、2026年9月新設） ----------------
 
         [Fact]

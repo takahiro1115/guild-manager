@@ -3,7 +3,13 @@ NoDeploymentWeeksThreshold,4,週,出場機会なしの判定週数（対象は�
 NoDeploymentPenalty,5,pt,出場機会なしの満足度減少量（毎週）
 WageAdequacyRatio,0.8,倍,適正週給に対するこの比率未満で賃金不満とみなす
 UnderpaidPenalty,8,pt,賃金不満時の満足度減少量（毎週）
-VictoryBonus,10,pt,Bランク以上のクエスト達成時の満足度上昇量
+Satisfaction_BossVictory,10,pt,大迷宮：階層ボス撃破時の士気高揚（生存隊員全員。旧・クエスト達成時のVictoryBonusを置き換え）
+Satisfaction_BossDefeat,-5,pt,大迷宮：ボス戦で撤退・敗退した時の挫折感（生存隊員全員）
+Satisfaction_SurveyAbundant,2,pt,大迷宮：迷宮調査で護衛「余裕」だった時
+Satisfaction_SurveySufficient,1,pt,大迷宮：迷宮調査で護衛「十分」だった時（「充足」は変動なし）
+Satisfaction_SurveyDeficient,-5,pt,大迷宮：迷宮調査で護衛「不足」により潰走した時
+Satisfaction_TraversalSuccess,1,pt,大迷宮：道中進軍で1階層以上進み生還した週
+Satisfaction_GatheringSuccess,1,pt,大迷宮：採取で素材を持ち帰れた時（取れなければ変動なし）
 PartyLossPenalty,30,pt,同パーティのメンバー戦死時の満足度減少量
 HostilePairPenalty,10,pt,険悪ペアと同パーティ出撃時の満足度減少量（該当件数分だけ加算）
 NegotiationThreshold,20,pt,この満足度未満で退団検討（昇給要求・移籍警告）

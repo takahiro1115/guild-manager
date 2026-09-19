@@ -342,6 +342,9 @@ namespace GuildManager.Core.Systems
 
                 var resolution = new DungeonMissionResolution(mission.Party, mission.Field, gathering);
                 resolution.GrowthEvents = _growthSystem.ApplyExpeditionGrowth(state, mission.Party, DungeonMissionType.Gathering, isBossVictory: false);
+                // 士気（→ SatisfactionSystem.ApplyExpeditionSatisfaction）：素材を持ち帰れた時のみ上がる。
+                _satisfactionSystem.ApplyExpeditionSatisfaction(state, mission.Party, DungeonMissionType.Gathering,
+                    succeeded: !string.IsNullOrEmpty(gathering.MaterialId) && gathering.MaterialCount > 0);
                 ReturnHome(state, mission, resolution);
                 return resolution;
             }
@@ -397,7 +400,11 @@ namespace GuildManager.Core.Systems
             var resolution = new DungeonMissionResolution(mission.Party, boss, field, boss?.IntelRate ?? 0, traversal);
             // 出撃成長（→ GrowthSystem.ApplyExpeditionGrowth）：実際に1階層以上進軍した週のみ。
             if (traversal.FloorAfter > traversal.FloorBefore)
+            {
                 resolution.GrowthEvents = _growthSystem.ApplyExpeditionGrowth(state, mission.Party, DungeonMissionType.Scouting, isBossVictory: false);
+                // 士気：進軍して生還した週（道中はHP下限1のため、進軍した者は必ず生還している）。
+                _satisfactionSystem.ApplyExpeditionSatisfaction(state, mission.Party, DungeonMissionType.Scouting, succeeded: true);
+            }
 
             if (traversal.StopperTriggered && traversal.TargetBoss != null)
             {
@@ -451,6 +458,9 @@ namespace GuildManager.Core.Systems
             var resolution = new DungeonMissionResolution(
                 mission.Party, boss, mission.Field, intelBefore, scouting, DungeonMissionType.Survey);
             resolution.GrowthEvents = _growthSystem.ApplyExpeditionGrowth(state, mission.Party, DungeonMissionType.Survey, isBossVictory: false);
+            // 士気：護衛段階に連動（余裕/十分で上昇、不足＝潰走で低下）。
+            _satisfactionSystem.ApplyExpeditionSatisfaction(state, mission.Party, DungeonMissionType.Survey,
+                succeeded: scouting.GuardTier != GuardTier.Deficient, surveyGuardTier: scouting.GuardTier);
             ReturnHome(state, mission, resolution);
             return resolution;
         }
@@ -501,6 +511,10 @@ namespace GuildManager.Core.Systems
             // 出撃成長：撃破した場合のみ（全7能力・試行回数多）。撤退・全滅では成長しない。強制除籍者は対象外。
             resolution.GrowthEvents = _growthSystem.ApplyExpeditionGrowth(
                 state, mission.Party, DungeonMissionType.BossAssault, isBossVictory: assault.Outcome == DungeonOutcome.Victory);
+            // 士気：撃破なら高揚、撤退・敗退なら挫折（生存者のみ。強制除籍者が出た場合の仲間ロストの余波-30は
+            // ApplyForcedRetirements で既に適用済みで、これと加算で重なる）。
+            _satisfactionSystem.ApplyExpeditionSatisfaction(state, mission.Party, DungeonMissionType.BossAssault,
+                succeeded: assault.Outcome == DungeonOutcome.Victory);
             ReturnHome(state, mission, resolution);
             return resolution;
         }

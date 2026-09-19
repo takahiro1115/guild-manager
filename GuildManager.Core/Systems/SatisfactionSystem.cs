@@ -96,10 +96,56 @@ namespace GuildManager.Core.Systems
         }
 
         /// <summary>
+        /// 大迷宮の任務成果による士気の変動（→ 03 §5.1「勝利・功績」、BAL: satisfaction.csv Satisfaction_*）。
+        /// 旧通常クエストの「勝利・功績ボーナス」を、大迷宮の任務成果へ再配線したもの：
+        ///  - ボス討伐（BossAssault）：撃破（succeeded）なら +BossVictory、撤退・敗退なら +BossDefeat（負の値）
+        ///  - 迷宮調査（Survey）：護衛段階（surveyGuardTier）で 余裕 +2／十分 +1／充足 0／不足 -5
+        ///  - 道中進軍（Scouting＝潜行）：進軍して生還した（succeeded）週に +TraversalSuccess
+        ///  - 採取（Gathering）：素材を持ち帰れた（succeeded）時に +GatheringSuccess（取れなければ変動なし）
+        /// 対象は部隊の生存者のみ（現役ロースターに残り、HPが1以上の者。強制除籍者は対象外）。
+        /// 満足度は0〜100にクランプする。適用した変動量（対象者1人あたり）を返す。
+        /// 強制除籍が出た場合の「仲間ロストの余波」（-30、→ ApplyPartyLossPenalty）は別途
+        /// DungeonExpeditionSystem が除籍処理の中で適用する（本メソッドとは加算で重なる）。
+        /// </summary>
+        public int ApplyExpeditionSatisfaction(
+            GameState state, Party party, DungeonMissionType missionType, bool succeeded, GuardTier? surveyGuardTier = null)
+        {
+            int delta = ExpeditionSatisfactionDelta(missionType, succeeded, surveyGuardTier);
+            if (delta == 0)
+                return 0;
+
+            foreach (var member in party.Members)
+            {
+                if (member.CurrentHP <= 0 || !state.Adventurers.Contains(member))
+                    continue;
+                Adjust(member, delta);
+            }
+
+            return delta;
+        }
+
+        /// <summary>任務成果ごとの士気の変動量（→ ApplyExpeditionSatisfaction）。</summary>
+        public static int ExpeditionSatisfactionDelta(DungeonMissionType missionType, bool succeeded, GuardTier? surveyGuardTier = null) =>
+            missionType switch
+            {
+                DungeonMissionType.BossAssault => succeeded
+                    ? SatisfactionBalance.ExpeditionBossVictory
+                    : SatisfactionBalance.ExpeditionBossDefeat,
+                DungeonMissionType.Survey => surveyGuardTier switch
+                {
+                    GuardTier.Abundant => SatisfactionBalance.ExpeditionSurveyAbundant,
+                    GuardTier.Sufficient => SatisfactionBalance.ExpeditionSurveySufficient,
+                    GuardTier.Deficient => SatisfactionBalance.ExpeditionSurveyDeficient,
+                    _ => 0, // 充足・判定なし
+                },
+                DungeonMissionType.Scouting => succeeded ? SatisfactionBalance.ExpeditionTraversalSuccess : 0,
+                DungeonMissionType.Gathering => succeeded ? SatisfactionBalance.ExpeditionGatheringSuccess : 0,
+                _ => 0,
+            };
+
+        /// <summary>
         /// 仲間ロストの余波：同パーティの死亡で一律-30（→ 03 §4.3・§5.1）。
         /// DungeonExpeditionSystemがボス討伐の強制除籍時に呼び出す。
-        /// （旧通常クエストの「勝利・功績ボーナス」＝ApplyQuestAchievementBonus は、
-        /// 旧クエストの撤去（2026年9月）に伴い削除した。）
         /// </summary>
         public void ApplyPartyLossPenalty(Party party, Guid lostAdventurerId)
         {

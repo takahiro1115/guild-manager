@@ -31,8 +31,29 @@ namespace GuildManager.Core.Balance
         /// </summary>
         public static readonly double AppropriateWageCoefficient = BalanceData.GetDouble(EconomyFileName, "AppropriateWageCoefficient");
 
-        // ---- 勝利・功績（§5.1）。Bランク以上のクエスト達成が対象。 ----
-        public static readonly int VictoryBonus = BalanceData.GetInt(FileName, "VictoryBonus");
+        // ---- 大迷宮の任務成果による士気の変動（§5.1「勝利・功績」、→ SatisfactionSystem.ApplyExpeditionSatisfaction） ----
+        // 旧通常クエスト（Bランク以上の達成で+10＝VictoryBonus）の撤去後、大迷宮の任務成果へ再配線した。
+
+        /// <summary>階層ボス撃破時（生存隊員全員）。</summary>
+        public static readonly int ExpeditionBossVictory = BalanceData.GetInt(FileName, "Satisfaction_BossVictory");
+
+        /// <summary>ボス戦で撤退・敗退した時（生存隊員全員、負の値）。</summary>
+        public static readonly int ExpeditionBossDefeat = BalanceData.GetInt(FileName, "Satisfaction_BossDefeat");
+
+        /// <summary>迷宮調査：護衛「余裕」。</summary>
+        public static readonly int ExpeditionSurveyAbundant = BalanceData.GetInt(FileName, "Satisfaction_SurveyAbundant");
+
+        /// <summary>迷宮調査：護衛「十分」（「充足」は変動なし）。</summary>
+        public static readonly int ExpeditionSurveySufficient = BalanceData.GetInt(FileName, "Satisfaction_SurveySufficient");
+
+        /// <summary>迷宮調査：護衛「不足」による潰走（負の値）。</summary>
+        public static readonly int ExpeditionSurveyDeficient = BalanceData.GetInt(FileName, "Satisfaction_SurveyDeficient");
+
+        /// <summary>道中進軍で1階層以上進み生還した週。</summary>
+        public static readonly int ExpeditionTraversalSuccess = BalanceData.GetInt(FileName, "Satisfaction_TraversalSuccess");
+
+        /// <summary>採取で素材を持ち帰れた時。</summary>
+        public static readonly int ExpeditionGatheringSuccess = BalanceData.GetInt(FileName, "Satisfaction_GatheringSuccess");
 
         /// <summary>仲間ロストの余波（§5.1）。→ 03 §4.3の致死判定（戦死）に接続済み。</summary>
         public static readonly int PartyLossPenalty = BalanceData.GetInt(FileName, "PartyLossPenalty");

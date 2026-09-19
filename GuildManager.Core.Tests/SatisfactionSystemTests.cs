@@ -367,5 +367,118 @@ namespace GuildManager.Core.Tests
             Assert.False(adventurer.NeedsNegotiation);
             Assert.Equal(0, adventurer.NegotiationWeeksElapsed);
         }
+
+        // ---------------- 大迷宮の任務成果による士気の変動（ApplyExpeditionSatisfaction、§5.1「勝利・功績」） ----------------
+
+        private static Adventurer MakeMember(int satisfaction = 50)
+        {
+            var a = new Adventurer { Satisfaction = satisfaction, VIT = 30 };
+            a.CurrentHP = a.MaxHP;
+            return a;
+        }
+
+        private static (GameState State, Party Party) InRoster(params Adventurer[] members)
+        {
+            var state = new GameState();
+            foreach (var m in members) state.Adventurers.Add(m);
+            return (state, PartyOf(members));
+        }
+
+        [Fact]
+        public void ExpeditionSatisfaction_BossVictory_IncreasesSatisfaction()
+        {
+            var a = MakeMember();
+            var b = MakeMember();
+            var (state, party) = InRoster(a, b);
+
+            int delta = new SatisfactionSystem().ApplyExpeditionSatisfaction(state, party, DungeonMissionType.BossAssault, succeeded: true);
+
+            Assert.Equal(10, SatisfactionBalance.ExpeditionBossVictory);
+            Assert.Equal(10, delta);
+            Assert.Equal(60, a.Satisfaction);
+            Assert.Equal(60, b.Satisfaction);
+        }
+
+        [Fact]
+        public void ExpeditionSatisfaction_BossDefeat_DecreasesSatisfaction()
+        {
+            var a = MakeMember();
+            var (state, party) = InRoster(a);
+
+            new SatisfactionSystem().ApplyExpeditionSatisfaction(state, party, DungeonMissionType.BossAssault, succeeded: false);
+
+            Assert.Equal(-5, SatisfactionBalance.ExpeditionBossDefeat);
+            Assert.Equal(45, a.Satisfaction);
+        }
+
+        [Theory]
+        [InlineData(GuardTier.Abundant, 52)]
+        [InlineData(GuardTier.Sufficient, 51)]
+        [InlineData(GuardTier.Marginal, 50)]
+        [InlineData(GuardTier.Deficient, 45)]
+        public void ExpeditionSatisfaction_SurveyTiers_ApplyCorrectDeltas(GuardTier tier, int expected)
+        {
+            var a = MakeMember();
+            var (state, party) = InRoster(a);
+
+            new SatisfactionSystem().ApplyExpeditionSatisfaction(
+                state, party, DungeonMissionType.Survey, succeeded: tier != GuardTier.Deficient, surveyGuardTier: tier);
+
+            Assert.Equal(expected, a.Satisfaction);
+        }
+
+        [Theory]
+        [InlineData(DungeonMissionType.Scouting, true, 51)]  // 道中進軍で生還
+        [InlineData(DungeonMissionType.Scouting, false, 50)] // 進軍していない週は変動なし
+        [InlineData(DungeonMissionType.Gathering, true, 51)] // 素材を持ち帰れた
+        [InlineData(DungeonMissionType.Gathering, false, 50)] // 取れなければ変動なし
+        public void ExpeditionSatisfaction_TraversalAndGathering_OnlyRewardSuccess(DungeonMissionType type, bool succeeded, int expected)
+        {
+            var a = MakeMember();
+            var (state, party) = InRoster(a);
+
+            new SatisfactionSystem().ApplyExpeditionSatisfaction(state, party, type, succeeded);
+
+            Assert.Equal(expected, a.Satisfaction);
+        }
+
+        [Fact]
+        public void ExpeditionSatisfaction_Clamps_BetweenZeroAndOneHundred()
+        {
+            var high = MakeMember(satisfaction: 95);
+            var low = MakeMember(satisfaction: 3);
+            var system = new SatisfactionSystem();
+
+            var (stateHigh, partyHigh) = InRoster(high);
+            system.ApplyExpeditionSatisfaction(stateHigh, partyHigh, DungeonMissionType.BossAssault, succeeded: true);
+
+            var (stateLow, partyLow) = InRoster(low);
+            system.ApplyExpeditionSatisfaction(stateLow, partyLow, DungeonMissionType.Survey, succeeded: false, surveyGuardTier: GuardTier.Deficient);
+
+            Assert.Equal(100, high.Satisfaction); // 95+10 → 上限100
+            Assert.Equal(0, low.Satisfaction);    // 3-5 → 下限0
+        }
+
+        [Fact]
+        public void ExpeditionSatisfaction_DoesNotApply_ToForceRetiredMembers()
+        {
+            // 強制除籍された者（ロースターから外れた者）とHPが0の者には士気の変動を適用しない。
+            // 生存者には、除籍処理で先に適用される仲間ロストの余波（-30）と、本メソッドの変動が重なる。
+            var survivor = MakeMember(satisfaction: 60);
+            var retired = MakeMember(satisfaction: 60);
+            var downed = MakeMember(satisfaction: 60);
+            downed.CurrentHP = 0;
+            var (state, party) = InRoster(survivor, retired, downed);
+            state.Adventurers.Remove(retired);
+            state.FallenAdventurers.Add(retired);
+            var system = new SatisfactionSystem();
+
+            system.ApplyPartyLossPenalty(party, retired.Id);
+            system.ApplyExpeditionSatisfaction(state, party, DungeonMissionType.BossAssault, succeeded: false);
+
+            Assert.Equal(60 - SatisfactionBalance.PartyLossPenalty - 5, survivor.Satisfaction); // -30 -5 = 25
+            Assert.Equal(60, retired.Satisfaction);
+            Assert.Equal(60 - SatisfactionBalance.PartyLossPenalty, downed.Satisfaction); // ロスト余波のみ（HP0は士気変動の対象外）
+        }
     }
 }
