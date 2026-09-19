@@ -11,51 +11,78 @@ grow_vertical = 2
 horizontal_scroll_mode = 0
 script = ExtResource("1_script")
 
-[node name="VBox" type="VBoxContainer" parent="."]
+[node name="MainHSplit" type="HSplitContainer" parent="."]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 
-[node name="FieldLabel" type="Label" parent="VBox"]
+[node name="ZoneA" type="ScrollContainer" parent="MainHSplit"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="ZoneAVBox" type="VBoxContainer" parent="MainHSplit/ZoneA"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="FieldLabel" type="Label" parent="MainHSplit/ZoneA/ZoneAVBox"]
 layout_mode = 2
 text = "挑戦するダンジョンを選択"
 
-[node name="FieldOptionButton" type="OptionButton" parent="VBox"]
+[node name="FieldOptionButton" type="OptionButton" parent="MainHSplit/ZoneA/ZoneAVBox"]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="ProgressLabel" type="RichTextLabel" parent="VBox"]
-unique_name_in_owner = true
-layout_mode = 2
-bbcode_enabled = true
-fit_content = true
-
-[node name="MaterialsLabel" type="RichTextLabel" parent="VBox"]
+[node name="ProgressLabel" type="RichTextLabel" parent="MainHSplit/ZoneA/ZoneAVBox"]
 unique_name_in_owner = true
 layout_mode = 2
 bbcode_enabled = true
 fit_content = true
 
-[node name="BossPanel" type="PanelContainer" parent="VBox"]
-layout_mode = 2
-
-[node name="BossVBox" type="VBoxContainer" parent="VBox/BossPanel"]
-layout_mode = 2
-
-[node name="BossHeaderLabel" type="RichTextLabel" parent="VBox/BossPanel/BossVBox"]
+[node name="MaterialsLabel" type="RichTextLabel" parent="MainHSplit/ZoneA/ZoneAVBox"]
 unique_name_in_owner = true
 layout_mode = 2
 bbcode_enabled = true
 fit_content = true
 
-[node name="IntelRow" type="HBoxContainer" parent="VBox/BossPanel/BossVBox"]
+[node name="RightVSplit" type="VSplitContainer" parent="MainHSplit"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="ZoneB" type="ScrollContainer" parent="MainHSplit/RightVSplit"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="ZoneBVBox" type="VBoxContainer" parent="MainHSplit/RightVSplit/ZoneB"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="BossPanel" type="PanelContainer" parent="MainHSplit/RightVSplit/ZoneB/ZoneBVBox"]
 layout_mode = 2
 
-[node name="IntelTitleLabel" type="Label" parent="VBox/BossPanel/BossVBox/IntelRow"]
+[node name="BossVBox" type="VBoxContainer" parent="MainHSplit/RightVSplit/ZoneB/ZoneBVBox/BossPanel"]
+layout_mode = 2
+
+[node name="BossHeaderLabel" type="RichTextLabel" parent="MainHSplit/RightVSplit/ZoneB/ZoneBVBox/BossPanel/BossVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+bbcode_enabled = true
+fit_content = true
+
+[node name="IntelRow" type="HBoxContainer" parent="MainHSplit/RightVSplit/ZoneB/ZoneBVBox/BossPanel/BossVBox"]
+layout_mode = 2
+
+[node name="IntelTitleLabel" type="Label" parent="MainHSplit/RightVSplit/ZoneB/ZoneBVBox/BossPanel/BossVBox/IntelRow"]
 layout_mode = 2
 text = "解析率"
 
-[node name="IntelProgressBar" type="ProgressBar" parent="VBox/BossPanel/BossVBox/IntelRow"]
+[node name="IntelProgressBar" type="ProgressBar" parent="MainHSplit/RightVSplit/ZoneB/ZoneBVBox/BossPanel/BossVBox/IntelRow"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 20)
 layout_mode = 2
@@ -63,118 +90,159 @@ size_flags_horizontal = 3
 size_flags_vertical = 4
 show_percentage = false
 
-[node name="IntelPercentLabel" type="Label" parent="VBox/BossPanel/BossVBox/IntelRow"]
+[node name="IntelPercentLabel" type="Label" parent="MainHSplit/RightVSplit/ZoneB/ZoneBVBox/BossPanel/BossVBox/IntelRow"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(48, 0)
 layout_mode = 2
 horizontal_alignment = 2
 
-[node name="IntelTierLabel" type="RichTextLabel" parent="VBox/BossPanel/BossVBox"]
+[node name="IntelTierLabel" type="RichTextLabel" parent="MainHSplit/RightVSplit/ZoneB/ZoneBVBox/BossPanel/BossVBox"]
 unique_name_in_owner = true
 layout_mode = 2
 bbcode_enabled = true
 fit_content = true
 
-[node name="CompleteBadgeLabel" type="RichTextLabel" parent="VBox/BossPanel/BossVBox"]
+[node name="CompleteBadgeLabel" type="RichTextLabel" parent="MainHSplit/RightVSplit/ZoneB/ZoneBVBox/BossPanel/BossVBox"]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
 bbcode_enabled = true
 fit_content = true
 
-[node name="GimmickCards" type="VBoxContainer" parent="VBox/BossPanel/BossVBox"]
+[node name="GimmickCards" type="VBoxContainer" parent="MainHSplit/RightVSplit/ZoneB/ZoneBVBox/BossPanel/BossVBox"]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="Separator1" type="HSeparator" parent="VBox"]
+[node name="PouchLabel" type="Label" parent="MainHSplit/RightVSplit/ZoneB/ZoneBVBox"]
+layout_mode = 2
+text = "部隊携行ポーチ（扉前でボス討伐を指令する時に積む、最大2枠）"
+autowrap_mode = 2
+
+[node name="PouchRow" type="HBoxContainer" parent="MainHSplit/RightVSplit/ZoneB/ZoneBVBox"]
 layout_mode = 2
 
-[node name="PartyLabel" type="Label" parent="VBox"]
+[node name="PouchSlot1OptionButton" type="OptionButton" parent="MainHSplit/RightVSplit/ZoneB/ZoneBVBox/PouchRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="PouchSlot2OptionButton" type="OptionButton" parent="MainHSplit/RightVSplit/ZoneB/ZoneBVBox/PouchRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="PouchCostLabel" type="RichTextLabel" parent="MainHSplit/RightVSplit/ZoneB/ZoneBVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+bbcode_enabled = true
+fit_content = true
+
+[node name="ZoneC" type="ScrollContainer" parent="MainHSplit/RightVSplit"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="ZoneCVBox" type="VBoxContainer" parent="MainHSplit/RightVSplit/ZoneC"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="PartyLabel" type="Label" parent="MainHSplit/RightVSplit/ZoneC/ZoneCVBox"]
 layout_mode = 2
 text = "出撃部隊を選択（保存済み編成のうち、待機中のメンバーだけが出撃する）"
 autowrap_mode = 2
 
-[node name="PartyOptionButton" type="OptionButton" parent="VBox"]
+[node name="PartyOptionButton" type="OptionButton" parent="MainHSplit/RightVSplit/ZoneC/ZoneCVBox"]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="PartyMembersLabel" type="RichTextLabel" parent="VBox"]
-unique_name_in_owner = true
-layout_mode = 2
-bbcode_enabled = true
-fit_content = true
-
-[node name="ScoutingForecastLabel" type="RichTextLabel" parent="VBox"]
+[node name="PartyMembersLabel" type="RichTextLabel" parent="MainHSplit/RightVSplit/ZoneC/ZoneCVBox"]
 unique_name_in_owner = true
 layout_mode = 2
 bbcode_enabled = true
 fit_content = true
 
-[node name="ScoutingButton" type="Button" parent="VBox"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "調査任務に出撃"
-
-[node name="CountermeasureLabel" type="RichTextLabel" parent="VBox"]
+[node name="ScoutingForecastLabel" type="RichTextLabel" parent="MainHSplit/RightVSplit/ZoneC/ZoneCVBox"]
 unique_name_in_owner = true
 layout_mode = 2
 bbcode_enabled = true
 fit_content = true
 
-[node name="PouchLabel" type="Label" parent="VBox"]
-layout_mode = 2
-text = "部隊携行ポーチ（ボス討伐時のみ使用、最大2枠）"
-autowrap_mode = 2
-
-[node name="PouchRow" type="HBoxContainer" parent="VBox"]
-layout_mode = 2
-
-[node name="PouchSlot1OptionButton" type="OptionButton" parent="VBox/PouchRow"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="PouchSlot2OptionButton" type="OptionButton" parent="VBox/PouchRow"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="PouchCostLabel" type="RichTextLabel" parent="VBox"]
+[node name="CountermeasureLabel" type="RichTextLabel" parent="MainHSplit/RightVSplit/ZoneC/ZoneCVBox"]
 unique_name_in_owner = true
 layout_mode = 2
 bbcode_enabled = true
 fit_content = true
 
-[node name="AssaultButton" type="Button" parent="VBox"]
+[node name="CommandSeparator" type="HSeparator" parent="MainHSplit/RightVSplit/ZoneC/ZoneCVBox"]
+layout_mode = 2
+
+[node name="CommandLabel" type="Label" parent="MainHSplit/RightVSplit/ZoneC/ZoneCVBox"]
+layout_mode = 2
+text = "コマンド"
+
+[node name="CommandArea" type="VBoxContainer" parent="MainHSplit/RightVSplit/ZoneC/ZoneCVBox"]
+layout_mode = 2
+
+[node name="ScoutingButton" type="Button" parent="MainHSplit/RightVSplit/ZoneC/ZoneCVBox/CommandArea"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "ボス討伐に出撃"
+text = "大迷宮へ潜行（1Fから道中進軍）"
 
-[node name="GatheringButton" type="Button" parent="VBox"]
+[node name="GatheringButton" type="Button" parent="MainHSplit/RightVSplit/ZoneC/ZoneCVBox/CommandArea"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "探索出撃（素材採取）"
 
-[node name="DispatchStatusLabel" type="RichTextLabel" parent="VBox"]
+[node name="DispatchStatusLabel" type="RichTextLabel" parent="MainHSplit/RightVSplit/ZoneC/ZoneCVBox"]
 unique_name_in_owner = true
 layout_mode = 2
 bbcode_enabled = true
 fit_content = true
 
-[node name="Separator2" type="HSeparator" parent="VBox"]
+[node name="PendingSeparator" type="HSeparator" parent="MainHSplit/RightVSplit/ZoneC/ZoneCVBox"]
 layout_mode = 2
 
-[node name="PendingLabel" type="Label" parent="VBox"]
+[node name="PendingLabel" type="Label" parent="MainHSplit/RightVSplit/ZoneC/ZoneCVBox"]
 layout_mode = 2
-text = "出撃予定の部隊（次週の決算で決着する）"
+text = "潜行中の部隊（週次決算ごとに進軍・決着する）"
 
-[node name="PendingMissionList" type="ItemList" parent="VBox"]
+[node name="PendingMissionList" type="ItemList" parent="MainHSplit/RightVSplit/ZoneC/ZoneCVBox"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 60)
 layout_mode = 2
 auto_height = true
 
-[node name="CancelMissionButton" type="Button" parent="VBox"]
+[node name="CancelMissionButton" type="Button" parent="MainHSplit/RightVSplit/ZoneC/ZoneCVBox"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "選択した出撃を取り消す"
+
+[node name="BossDecisionPanel" type="PanelContainer" parent="MainHSplit/RightVSplit/ZoneC/ZoneCVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="BossDecisionVBox" type="VBoxContainer" parent="MainHSplit/RightVSplit/ZoneC/ZoneCVBox/BossDecisionPanel"]
+layout_mode = 2
+
+[node name="BossDecisionLabel" type="RichTextLabel" parent="MainHSplit/RightVSplit/ZoneC/ZoneCVBox/BossDecisionPanel/BossDecisionVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+bbcode_enabled = true
+fit_content = true
+
+[node name="BossDecisionRow" type="HBoxContainer" parent="MainHSplit/RightVSplit/ZoneC/ZoneCVBox/BossDecisionPanel/BossDecisionVBox"]
+layout_mode = 2
+
+[node name="EngageBossButton" type="Button" parent="MainHSplit/RightVSplit/ZoneC/ZoneCVBox/BossDecisionPanel/BossDecisionVBox/BossDecisionRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "⚔️ ボス討伐に挑む"
+
+[node name="RetreatButton" type="Button" parent="MainHSplit/RightVSplit/ZoneC/ZoneCVBox/BossDecisionPanel/BossDecisionVBox/BossDecisionRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "🏃 撤退・帰還する"

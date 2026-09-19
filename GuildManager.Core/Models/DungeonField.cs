@@ -36,8 +36,12 @@ namespace GuildManager.Core.Models
         public bool IsUnlocked { get; set; } = false;
 
         /// <summary>
-        /// 現在の最高到達階層（1〜MaxFloor）。ボス撃破のたびに
-        /// max(現在値, 撃破階層+1) で更新される（→ DungeonExpeditionSystem.ApplyFieldProgression）。
+        /// 最高到達階層の記録（1〜MaxFloor）。ボス撃破のたびに
+        /// max(現在値, 撃破階層+1) で更新される（→ DungeonExpeditionSystem.ApplyFieldProgression）ほか、
+        /// 道中進軍でより深く潜った場合も更新される。
+        ///
+        /// 「毎回1Fリセット」改訂（2026年9月）以降、これは表示・素材の抽選範囲用の記録であって
+        /// 出撃の開始階層ではない（部隊は毎回1階層から潜る。→ ActiveDungeonMission.CurrentFloor）。
         /// </summary>
         public int ReachedFloor { get; set; } = 1;
 
@@ -50,5 +54,19 @@ namespace GuildManager.Core.Models
         /// </summary>
         public FloorBoss? GetNextActiveBoss() =>
             Bosses.Where(b => !b.IsDefeated).OrderBy(b => b.Floor).FirstOrDefault();
+
+        /// <summary>
+        /// 指定階層以降で最初に立ちはだかる未撃破ボス（その階層ちょうどのボスも含む）。
+        /// 潜行中の部隊の足止め先（→ ActiveDungeonMission.CurrentFloor）。無ければnull。
+        /// </summary>
+        public FloorBoss? GetNextUndefeatedBossFrom(int floor) =>
+            Bosses.Where(b => !b.IsDefeated && b.Floor >= floor).OrderBy(b => b.Floor).FirstOrDefault();
+
+        /// <summary>
+        /// 指定階層から次の階層へ進む区間を担当するボス（＝その階層より深い最初のボス。撃破済みも含む）。
+        /// 調査度連動の走破加速（→ DungeonTraversalResolver）はこのボスの解析率を参照する。無ければnull。
+        /// </summary>
+        public FloorBoss? GetSegmentBoss(int floor) =>
+            Bosses.Where(b => b.Floor > floor).OrderBy(b => b.Floor).FirstOrDefault();
     }
 }

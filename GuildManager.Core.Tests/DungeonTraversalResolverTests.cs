@@ -151,6 +151,64 @@ namespace GuildManager.Core.Tests
             Assert.Equal(0, struggling.HpLostByAdventurer[weakMember.Id]);
         }
 
+        // ---------------- 調査度連動の電撃走破（2026年9月新設） ----------------
+
+        [Theory]
+        [InlineData(0.0, 1.0)]
+        [InlineData(0.5, 2.0)]
+        [InlineData(1.0, 3.0)]
+        public void IntelSpeedMultiplier_ScalesFromOneToThree(double intelRate, double expected) =>
+            Assert.Equal(expected, DungeonTraversalResolver.IntelSpeedMultiplier(new FloorBoss { IntelRate = intelRate }), precision: 6);
+
+        [Fact]
+        public void Traversal_WithFullIntel_AppliesTripleSpeedAndLowDamage()
+        {
+            // 同じ電撃進軍（+4階層相当の予算）でも、区間担当ボスが完全解析済みなら3倍の12階層進み、
+            // HP損耗は70%軽減される。比較用に未調査の同条件も解決する。
+            var fullMember = MakeSpecialist(agiDex: 500, ldr: 100);
+            var noneMember = MakeSpecialist(agiDex: 500, ldr: 100);
+            var fullField = MakeField();
+            fullField.Bosses.Add(new FloorBoss { Name = "解析済みのボス", Floor = 50, MaxHp = 1, IntelRate = 1.0 });
+            var noneField = MakeField();
+            noneField.Bosses.Add(new FloorBoss { Name = "未調査のボス", Floor = 50, MaxHp = 1, IntelRate = 0.0 });
+
+            var full = new DungeonTraversalResolver(new AlwaysMaxRng()).Resolve(PartyOf(fullMember), fullField, currentFloor: 1);
+            var none = new DungeonTraversalResolver(new AlwaysMaxRng()).Resolve(PartyOf(noneMember), noneField, currentFloor: 1);
+
+            Assert.Equal(TraversalRank.Lightning, full.Rank);
+            Assert.Equal(4, none.FloorAfter - none.FloorBefore);
+            Assert.Equal(12, full.FloorAfter - full.FloorBefore); // 3倍
+            Assert.Equal(3.0, full.IntelSpeedMultiplier, precision: 6);
+            Assert.Equal(DungeonTraversalBalance.FullIntelDamageMultiplier, full.DamageTakenMultiplier, precision: 6);
+            Assert.Equal(1.0, none.DamageTakenMultiplier, precision: 6);
+
+            int fullLoss = full.HpLostByAdventurer[fullMember.Id];
+            int noneLoss = none.HpLostByAdventurer[noneMember.Id];
+            Assert.True(noneLoss > 0);
+            Assert.Equal((int)(noneLoss * DungeonTraversalBalance.FullIntelDamageMultiplier), fullLoss);
+        }
+
+        [Fact]
+        public void Resolve_FromCurrentFloor_StopsAtFirstUndefeatedBoss_AndKeepsReachedFloorRecord()
+        {
+            // 潜行中の部隊は現在階層から進み、撃破済みボスは素通りして最初の未撃破ボスで止まる。
+            // フィールドの最高到達階層（記録）は、より深く潜れた場合しか更新しない。
+            var field = MakeField(reachedFloor: 30);
+            var defeated = new FloorBoss { Name = "撃破済み", Floor = 3, MaxHp = 1, IsDefeated = true };
+            var target = new FloorBoss { Name = "未撃破", Floor = 4, MaxHp = 1 };
+            field.Bosses.Add(defeated);
+            field.Bosses.Add(target);
+            var party = PartyOf(MakeSpecialist(agiDex: 500, ldr: 100));
+
+            var result = new DungeonTraversalResolver(new AlwaysMinRng()).Resolve(party, field, currentFloor: 1);
+
+            Assert.Equal(4, result.FloorAfter);
+            Assert.True(result.StopperTriggered);
+            Assert.Same(target, result.TargetBoss);
+            Assert.Equal(30, field.ReachedFloor);
+            Assert.Equal(3 * DungeonTraversalBalance.LootGoldPerFloor, result.LootGold);
+        }
+
         [Fact]
         public void Resolve_EmptyParty_Throws()
         {

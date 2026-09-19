@@ -151,13 +151,16 @@ namespace GuildManager.Core.Systems
                 if (resolution.Quest.DurationWeeks > 1)
                     result.Flags.MultiWeekQuestReturned = true;
             }
-            // 大迷宮への出撃（調査任務・ボス討伐）の解決（→ DungeonExpeditionSystem）。
-            // 出撃は常に1週拘束のため、出撃操作をした週の決算で必ず決着する。
+            // 大迷宮への出撃（道中進軍・扉前待機・ボス討伐・採取）を1週分進める（→ DungeonExpeditionSystem）。
+            // 道中調査は複数週にわたって潜行し、未撃破ボスの扉前に着いたら判断待ちで止まる
+            // （→ 毎回1Fリセット・複数週潜行型）。扉前到達は自動スキップの停止条件。
             result.DungeonMissionResolutions.AddRange(_dungeonExpeditionSystem.ProcessWeeklyMissions(state));
             foreach (var resolution in result.DungeonMissionResolutions)
             {
                 if (resolution.DungeonResult != null && resolution.DungeonResult.ForceRetiredAdventurerIds.Count > 0)
                     anyFallenOrNewOldWound = true;
+                if (resolution.ArrivedAtBossDoor)
+                    result.Flags.BossDoorReached = true;
             }
             result.Flags.DeathOrPermanentInjuryOccurred = anyFallenOrNewOldWound;
 

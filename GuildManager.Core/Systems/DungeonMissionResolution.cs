@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using GuildManager.Core.Models;
 
 namespace GuildManager.Core.Systems
@@ -44,6 +45,29 @@ namespace GuildManager.Core.Systems
         /// </summary>
         public DungeonField? FieldNewlyUnlocked { get; } = null;
 
+        // ---- 複数週潜行（2026年9月新設、→ ExpeditionStatus） ----
+
+        /// <summary>この解決後の遠征状態。ReturnedHome=true の場合は帰還済み（出撃は解除されている）。</summary>
+        public ExpeditionStatus StatusAfter { get; set; } = ExpeditionStatus.Advancing;
+
+        /// <summary>この解決後に部隊がいる階層（帰還時は帰還直前の階層）。</summary>
+        public int CurrentFloor { get; set; }
+
+        /// <summary>
+        /// 今週の進軍で未撃破ボスの扉前に到達し、判断待ち（AwaitingBossDecision）になったか。
+        /// 自動スキップの停止条件（→ WeekResult.BossDoorReached）。
+        /// </summary>
+        public bool ArrivedAtBossDoor { get; set; }
+
+        /// <summary>今週の解決で部隊がギルドへ帰還したか（勝利・撤退・全滅・採取完了）。</summary>
+        public bool ReturnedHome { get; set; }
+
+        /// <summary>帰還時にギルドへ格納した道中拾得ゴールド（採取の成果・撃破報酬は含まない）。</summary>
+        public int DepositedGold { get; set; }
+
+        /// <summary>帰還時にギルドへ格納した道中拾得素材（素材Id→個数）。</summary>
+        public Dictionary<string, int> DepositedMaterials { get; set; } = new();
+
         public DungeonMissionResolution(Party party, FloorBoss boss, DungeonField field, double intelRateBefore, ScoutingResult scoutingResult)
         {
             Party = party;
@@ -68,7 +92,20 @@ namespace GuildManager.Core.Systems
             FieldNewlyUnlocked = fieldNewlyUnlocked;
         }
 
-        public DungeonMissionResolution(Party party, FloorBoss boss, DungeonField field, double intelRateBefore, TraversalResult traversalResult)
+        /// <summary>
+        /// 判定を伴わない帰還用（撤退中の部隊の帰還、討伐に向かったボスが既に他部隊に倒されていた等）。
+        /// 4種の結果はいずれもnull。
+        /// </summary>
+        public DungeonMissionResolution(Party party, FloorBoss? boss, DungeonField field, DungeonMissionType missionType)
+        {
+            Party = party;
+            Boss = boss;
+            Field = field;
+            MissionType = missionType;
+            IntelRateBefore = boss?.IntelRate ?? 0;
+        }
+
+        public DungeonMissionResolution(Party party, FloorBoss? boss, DungeonField field, double intelRateBefore, TraversalResult traversalResult)
         {
             Party = party;
             Boss = boss;

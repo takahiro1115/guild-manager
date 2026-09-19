@@ -17,3 +17,7 @@ HpLossPctMin_Normal,12,%,通常進軍でのHP消費率下限
 HpLossPctMax_Normal,16,%,通常進軍でのHP消費率上限
 HpLossPctMin_Struggling,16,%,苦戦進軍でのHP消費率下限（走破力不足で手こずった分、消耗が重い）
 HpLossPctMax_Struggling,20,%,苦戦進軍でのHP消費率上限
+IntelSpeedBonusPerIntel,2.0,倍,調査度連動の走破加速：区間担当ボスの解析率（0.0〜1.0）×この値を1.0へ加算した倍率で進む（未調査1.0倍〜完全解析3.0倍）
+FullIntelDamageMultiplier,0.3,倍,区間担当ボスが完全解析済みの階層を進む際の被ダメージ倍率（HP損耗を70%軽減）
+LootGoldPerFloor,5,G,道中で1階層進むごとに拾い集めるゴールド（帰還時にギルドへ格納）
+LootFloorsPerMaterial,2,階,この階層数を進むごとに、その階層で採れる素材を1個拾う（帰還時にギルドへ格納）

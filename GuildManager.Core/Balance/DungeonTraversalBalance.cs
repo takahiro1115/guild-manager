@@ -41,5 +41,21 @@ namespace GuildManager.Core.Balance
         public static readonly int HpLossPctMaxNormal = BalanceData.GetInt(FileName, "HpLossPctMax_Normal");
         public static readonly int HpLossPctMinStruggling = BalanceData.GetInt(FileName, "HpLossPctMin_Struggling");
         public static readonly int HpLossPctMaxStruggling = BalanceData.GetInt(FileName, "HpLossPctMax_Struggling");
+
+        // ---- 調査度連動の走破加速（2026年9月新設、→ 毎回1Fリセット・複数週潜行型） ----
+
+        /// <summary>走破倍率＝1.0＋区間担当ボスの解析率×この値（未調査1.0倍〜完全解析3.0倍）。</summary>
+        public static readonly double IntelSpeedBonusPerIntel = BalanceData.GetDouble(FileName, "IntelSpeedBonusPerIntel");
+
+        /// <summary>区間担当ボスが完全解析済みの階層を進む際の被ダメージ倍率。</summary>
+        public static readonly double FullIntelDamageMultiplier = BalanceData.GetDouble(FileName, "FullIntelDamageMultiplier");
+
+        // ---- 道中の拾得物（帰還時にギルドへ格納） ----
+
+        /// <summary>1階層進むごとに拾うゴールド。</summary>
+        public static readonly int LootGoldPerFloor = BalanceData.GetInt(FileName, "LootGoldPerFloor");
+
+        /// <summary>この階層数を進むごとに素材を1個拾う。</summary>
+        public static readonly int LootFloorsPerMaterial = BalanceData.GetInt(FileName, "LootFloorsPerMaterial");
     }
 }

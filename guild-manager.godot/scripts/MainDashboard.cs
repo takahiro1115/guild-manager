@@ -52,6 +52,9 @@ public partial class MainDashboard : Control
 	/// <summary>同時出撃枠の使用状況（→ コアシステム刷新仕様「4. 進行管理」）。</summary>
 	private Label _squadSlotLabel = null!;
 
+	/// <summary>ヘッダー領域の素材保有数サマリー（→ 2026年9月UI整理）。</summary>
+	private Label _materialSummaryLabel = null!;
+
 	private GuildProgressionSystem _guildProgressionSystem = null!;
 	private ItemList _adventurerList = null!;
 	private RichTextLabel _adventurerDetailLabel = null!;
@@ -114,6 +117,7 @@ public partial class MainDashboard : Control
 		// 月次助成金カットの内部判定にはまだ使うが、プレイヤーへは表示しない。
 		_threatLabel.Visible = false;
 		_squadSlotLabel = GetNode<Label>("%SquadSlotLabel");
+		_materialSummaryLabel = GetNode<Label>("%MaterialSummaryLabel");
 		_adventurerList = GetNode<ItemList>("%AdventurerList");
 		_adventurerDetailLabel = GetNode<RichTextLabel>("%AdventurerDetailLabel");
 		_portraitTextureRect = GetNode<TextureRect>("%PortraitTextureRect");
@@ -131,17 +135,22 @@ public partial class MainDashboard : Control
 
 		// 中央ペインのタブ（→ 03 §9）。出撃の窓口は大迷宮に一本化したため、大迷宮をタブ0
 		// （起動時の初期表示）に置く。タブ本体のノード名は英語、見出しはここでコードから設定する。
+		// 2026年9月UI整理：旧「編成」「冒険者」を「冒険者・人事」タブに統合し、4タブ構成に集約。
 		var centerPanel = GetNode<TabContainer>("%CenterPanel");
 		centerPanel.SetTabTitle(0, "大迷宮（Dungeon）");
-		centerPanel.SetTabTitle(1, "編成");
-		centerPanel.SetTabTitle(2, "冒険者");
-		centerPanel.SetTabTitle(3, "研究室（Lab）");
-		centerPanel.SetTabTitle(4, "施設");
+		centerPanel.SetTabTitle(1, "冒険者・人事");
+		centerPanel.SetTabTitle(2, "研究室（Lab）");
+		centerPanel.SetTabTitle(3, "施設");
 		centerPanel.CurrentTab = 0;
 
 		_dungeonPanel = GetNode<DungeonPanel>("%DungeonTab");
 		_dungeonPanel.LogRequested += AppendLog;
 		_dungeonPanel.StateChanged += RefreshAll;
+
+		// 「冒険者・人事」タブはサブタブ構造（編成 / 冒険者詳細）を持つTabContainer。
+		var adventurerTab = GetNode<TabContainer>("%AdventurerTab");
+		adventurerTab.SetTabTitle(0, "編成");
+		adventurerTab.SetTabTitle(1, "冒険者");
 
 		_partyFormationPanel = GetNode<PartyFormationPanel>("%PartyFormationTab");
 		_partyFormationPanel.StateChanged += RefreshAll;
@@ -470,32 +479,9 @@ public partial class MainDashboard : Control
 	{
 		int weekNumber = settlement.Flags.Week;
 
-		for (int i = 0; i < settlement.DispatchResolutions.Count; i++)
-		{
-			var resolution = settlement.DispatchResolutions[i];
-			LogResult(weekNumber, resolution.Quest, resolution.Result);
-			LogGrowthEvents(resolution.GrowthEvents);
-			LogFallenAdventurers(weekNumber, resolution.Party, resolution.Result.FallenAdventurerIds); // → 03 §4.3.1
-
-			var (threatQuest, threatDelta) = settlement.ResolvedQuestThreatDeltas[i];
-			LogThreatChange(threatQuest, threatDelta);
-		}
-
 		// 大迷宮への出撃（調査任務・ボス討伐）の結果（→ DungeonExpeditionSystem）。
 		foreach (var dungeonResolution in settlement.DungeonMissionResolutions)
 			LogDungeonMission(weekNumber, dungeonResolution);
-
-		// 受注可能クエスト一覧の週次管理（→ 03 §4.0・§4.4）：期限切れ（放置）の除去と補充。
-		// 放置された討伐クエストは脅威度上昇の対象になる。
-		foreach (var (expiredQuest, abandonedThreatDelta) in settlement.AbandonedQuestThreatDeltas)
-		{
-			if (abandonedThreatDelta != 0)
-				AppendLog($"[color=orange]「{expiredQuest.Name}」が期限切れで放置された。脅威度+{abandonedThreatDelta}%。[/color]");
-		}
-
-		// 討伐クエストの期限切れ「1週前」警告（→ 03 §1.3自動スキップ停止条件8）。
-		foreach (var expiring in settlement.QuestsExpiringNextWeek)
-			AppendLog($"[color=orange][b]⏰ 討伐クエスト「{expiring.Name}」が来週、期限切れになる。[/b][/color]");
 
 		if (settlement.SubsidyAmount.HasValue)
 			AppendLog($"[color=lime]月次助成金 {settlement.SubsidyAmount.Value}G を受け取った{(_state.ThreatLevel > SecurityBalance.SubsidyCutThreatThreshold ? "（脅威度75%超のため50%カット済み）" : "")}。[/color]");
@@ -532,13 +518,6 @@ public partial class MainDashboard : Control
 				$"２つの部隊を同時に動かせるようになった。[/b][/color]");
 			AppendLog($"[color=lime]▶ 昇格報奨金 {promotion.RewardGold}G を受け取った。[/color]");
 			AppendLog($"[color=yellow]▶ 噂を聞きつけた新人が{promotion.NewHireOffers.Count}名、酒場に集まっている。[/color]");
-		}
-
-		// Aランク新規到達フラグ（→ 03 §8.2、v1.10改訂）：最終討伐クエスト自体の中身は未実装。
-		if (settlement.Flags.FinalQuestNewlyUnlocked)
-		{
-			AppendLog("[color=gold][font_size=20][b]★ ギルドがAランクに到達し、最終討伐クエストの依頼が" +
-				"持ち込まれるようになった…！（詳細は追って判明する）[/b][/font_size][/color]");
 		}
 
 		// 敗北条件判定（→ 03 §8.3）：破産（所持金マイナス4週連続、猶予あり）／
@@ -585,22 +564,16 @@ public partial class MainDashboard : Control
 		AppendLog($"[color=cyan][b]≫≫ 自動スキップ：第{startWeek}週から{results.Count}週分を処理した。[/b][/color]");
 
 		int facilityCount = results.Count(r => r.FacilityConstructionCompleted);
-		int multiWeekReturnCount = results.Count(r => r.MultiWeekQuestReturned);
 		int deathCount = results.Count(r => r.DeathOrPermanentInjuryOccurred);
 		int satisfactionCount = results.Count(r => r.SatisfactionWarningOccurred);
 		int threatCount = results.Count(r => r.ThreatThresholdNewlyCrossed);
-		int expiringCount = results.Count(r => r.SubjugationQuestExpiringNextWeek);
-		int finalQuestCount = results.Count(r => r.FinalQuestNewlyUnlocked);
 		int recruitmentCount = results.Count(r => r.RecruitmentTrialOccurred);
 		int defeatCount = results.Count(r => r.DefeatOccurred);
 
 		if (facilityCount > 0) AppendLog($"[color=lime]・施設建設が完了した週：{facilityCount}回[/color]");
-		if (multiWeekReturnCount > 0) AppendLog($"[color=cyan]・複数週クエストが帰還した週：{multiWeekReturnCount}回[/color]");
 		if (deathCount > 0) AppendLog($"[color=red][b]・強制除籍または不可逆の障害が発生した週：{deathCount}回[/b][/color]");
 		if (satisfactionCount > 0) AppendLog($"[color=orange]・契約交渉（満足度警告）が新たに発生した週：{satisfactionCount}回[/color]");
 		if (threatCount > 0) AppendLog($"[color=orange][b]・脅威度が75%または100%を新たに跨いだ週：{threatCount}回[/b][/color]");
-		if (expiringCount > 0) AppendLog($"[color=orange][b]・討伐クエストが翌週期限切れになる週：{expiringCount}回[/b][/color]");
-		if (finalQuestCount > 0) AppendLog("[color=gold][b]★ ギルドがAランクに到達し、最終討伐クエストの依頼が持ち込まれるようになった…！[/b][/color]");
 		if (recruitmentCount > 0) AppendLog($"[color=yellow][b]・新春採用試験の週：{recruitmentCount}回[/b][/color]");
 		if (defeatCount > 0) AppendLog("[color=red][font_size=24][b]■■■ ゲームオーバーが発生した ■■■[/b][/font_size][/color]");
 
@@ -674,39 +647,6 @@ public partial class MainDashboard : Control
 		RefreshAll();
 	}
 
-	private void LogResult(int weekNumber, Quest quest, WeekResolutionResult result)
-	{
-		// イベント由来の追加報酬は RewardGold に合算済みのため、クエスト本体の報酬と
-		// 分けて表示できるよう差し引いておく（→ 03 §4.2.3、項目65・66）。
-		int eventBonusGold = result.Events.TotalBonusRewardGold;
-		int questRewardGold = result.RewardGold - eventBonusGold;
-
-		var sb = new StringBuilder();
-		sb.AppendLine($"[b]第{weekNumber}週：{quest.Name}[/b]");
-		sb.AppendLine($"遭遇: {EncounterLabel(result.Encounter)} / 結果: {ResolutionOutcomeLabel(result)}");
-		sb.AppendLine(result.QuestAchieved
-			? $"達成！報酬 {questRewardGold} G"
-			: "任務失敗。報酬なし。");
-
-		AppendQuestEventLines(sb, result);
-
-		if (eventBonusGold > 0)
-			sb.AppendLine($"[color=gold]戦利品ボーナス +{eventBonusGold} G[/color]");
-
-		foreach (var kv in result.HpLostByAdventurer)
-		{
-			var adv = _state.Adventurers.FirstOrDefault(a => a.Id == kv.Key);
-			if (adv != null)
-				sb.AppendLine($" - {adv.Name}: HP -{kv.Value}（残りHP {adv.CurrentHP}/{adv.MaxHP}）");
-		}
-
-		// 昇格試験（決戦）だけは一括表示せず、1行ずつのステップ再生に回す（→ Phase 3）。
-		if (quest.IsBoss)
-			EnqueueBossPlayback(sb.ToString());
-		else
-			AppendLog(sb.ToString());
-	}
-
 	/// <summary>決戦ログをステップ再生のキューへ積む（空行は除く）。</summary>
 	private void EnqueueBossPlayback(string bbcodeBlock)
 	{
@@ -745,95 +685,6 @@ public partial class MainDashboard : Control
 	}
 
 	/// <summary>
-	/// 今回の解決で発生したランダムイベント（→ 03 §4.2.3、項目65）を週報へ文章で追記する。
-	/// 発生しなかったイベントは何も出さない。
-	///
-	/// 情報公開の原則（→ 03 §4.2.3、項目66）：判定スコア・要求値・閾値といった内部数値は
-	/// 一切出さず、「何が起きたか」という結果だけを報告する。
-	/// </summary>
-	private static void AppendQuestEventLines(StringBuilder sb, WeekResolutionResult result)
-	{
-		if (!result.Events.AnyOccurred)
-			return;
-
-		var strongEnemy = result.Events.StrongEnemy;
-		if (strongEnemy != null)
-		{
-			sb.AppendLine(strongEnemy.Outcome switch
-			{
-				StrongEnemyOutcome.PushedThrough => "[color=cyan]⚔ 強敵に遭遇したが、押し切って撃退した。[/color]",
-				StrongEnemyOutcome.Evaded => "[color=cyan]⚔ 強敵の気配を察知し、賢明にも退いた。[/color]",
-				_ => "[color=orange]⚔ 強敵に苦戦を強いられた。[/color]",
-			});
-		}
-
-		var treasureVault = result.Events.TreasureVault;
-		if (treasureVault != null)
-		{
-			sb.AppendLine(treasureVault.Outcome switch
-			{
-				QuestEventOutcome.GreatSuccess => "[color=lime]◆ 道中で貴重な宝物庫を発見し、大きな戦利品を持ち帰った。[/color]",
-				QuestEventOutcome.Success => "[color=lime]◆ 道中で宝物庫を見つけ、いくらかの戦利品を持ち帰った。[/color]",
-				_ => treasureVault.TrapTriggered
-					? "[color=orange]◆ 宝物庫らしきものを見つけたが、罠にかかり手傷を負った。[/color]"
-					: "[color=gray]◆ 宝物庫らしきものを見つけたが、収穫はなかった。[/color]",
-			});
-		}
-
-		var pushingOn = result.Events.PushingOn;
-		if (pushingOn != null)
-		{
-			sb.AppendLine(pushingOn.Outcome switch
-			{
-				QuestEventOutcome.GreatSuccess => "[color=lime]◇ 予定を超えて粘り、大きな成果を持ち帰ったが、無理がたたった。[/color]",
-				QuestEventOutcome.Success => "[color=lime]◇ 少し粘って、いくらか余分な成果を持ち帰った。[/color]",
-				_ => "[color=orange]◇ 粘ってみたが得るものはなく、無駄に消耗しただけだった。[/color]",
-			});
-		}
-	}
-
-	/// <summary>索敵・遭遇判定（→ 03 §4.1）の結果の日本語ラベル。</summary>
-	private static string EncounterLabel(EncounterResult encounter) => encounter switch
-	{
-		EncounterResult.Surprise => "奇襲成功",
-		EncounterResult.Normal => "通常交戦",
-		EncounterResult.Ambushed => "不意打ちを受けた",
-		_ => encounter.ToString(),
-	};
-
-	/// <summary>
-	/// 週報に出す解決結果の区分名（→ 03 §4.2.3、項目63・66）。討伐は4区分（CombatOutcome）、
-	/// 探索・護衛は3区分（NonCombatOutcome）と、種別で別の概念を使うため表示側で振り分ける。
-	/// </summary>
-	private static string ResolutionOutcomeLabel(WeekResolutionResult result)
-	{
-		if (result.NonCombatOutcome.HasValue)
-		{
-			return result.NonCombatOutcome.Value switch
-			{
-				NonCombatOutcome.GreatSuccess => "大成功",
-				NonCombatOutcome.Success => "成功",
-				NonCombatOutcome.Failure => "失敗",
-				_ => result.NonCombatOutcome.Value.ToString(),
-			};
-		}
-
-		if (result.Outcome.HasValue)
-		{
-			return result.Outcome.Value switch
-			{
-				CombatOutcome.Victory => "完全勝利",
-				CombatOutcome.NarrowWin => "辛勝",
-				CombatOutcome.Defeat => "苦戦敗退",
-				CombatOutcome.Rout => "戦線崩壊",
-				_ => result.Outcome.Value.ToString(),
-			};
-		}
-
-		return "-";
-	}
-
-	/// <summary>
 	/// 今週の成長トリガー（→ 03 §3.1〜3.4）で実際にステータスが伸びた者を週報ログに報告する。
 	/// 見逃さないよう、色（黄）＋太字＋大きめフォントサイズで目立たせる（→ ユーザー要望）。
 	/// </summary>
@@ -844,19 +695,6 @@ public partial class MainDashboard : Control
 			AppendLog(
 				$"[color=yellow][font_size=20][b]▲ {e.Adventurer.Name} の {e.Stat} が上昇！ {e.Before} → {e.After}[/b][/font_size][/color]");
 		}
-	}
-
-	/// <summary>
-	/// 討伐クエストの解決に伴う脅威度の増減を週報ログに報告する（→ 03 §4.4）。
-	/// 討伐クエスト以外（脅威度に影響しない）やクランプで実質変化が無かった場合は何も表示しない。
-	/// </summary>
-	private void LogThreatChange(Quest quest, int threatDelta)
-	{
-		if (threatDelta == 0) return;
-
-		string reason = threatDelta < 0 ? "達成" : "失敗";
-		string sign = threatDelta > 0 ? "+" : "";
-		AppendLog($"[color=orange]討伐クエスト「{quest.Name}」{reason}により脅威度{sign}{threatDelta}%。[/color]");
 	}
 
 	/// <summary>
@@ -915,10 +753,20 @@ public partial class MainDashboard : Control
 			return;
 		}
 
+		if (resolution.ScoutingResult == null && resolution.TraversalResult == null && resolution.DungeonResult == null)
+		{
+			// 判定を伴わない帰還（討伐に向かったボスが既に倒されていた等）。
+			sb.AppendLine($"[b]第{weekNumber}週：大迷宮 {resolution.Field.Name}からの帰還[/b]");
+			sb.AppendLine("[color=gray]目標のボスは既に討たれていたため、部隊は戦わずにギルドへ帰還した。[/color]");
+			AppendDepositLine(sb, resolution);
+			AppendLog(sb.ToString());
+			return;
+		}
+
 		if (resolution.ScoutingResult != null)
 		{
 			var scouting = resolution.ScoutingResult;
-			sb.AppendLine($"[b]第{weekNumber}週：大迷宮 第{boss.Floor}層「{boss.Name}」調査任務[/b]");
+			sb.AppendLine($"[b]第{weekNumber}週：大迷宮 第{boss.Floor}層「{boss.Name}」扉前での偵察[/b]");
 			sb.AppendLine(scouting.StealthSucceeded
 				? "[color=cyan]気づかれることなく潜り込み、じっくりと観察を続けた。[/color]"
 				: "[color=orange]途中で見つかって手傷を負い、落ち着いて観察できなかった。[/color]");
@@ -931,8 +779,8 @@ public partial class MainDashboard : Control
 			sb.AppendLine($"解析率 {resolution.IntelRateBefore * 100:F0}% → {scouting.IntelRateAfter * 100:F0}%" +
 				$"（+{scouting.IntelGained * 100:F0}%）");
 			if (scouting.TierAdvanced)
-				sb.AppendLine($"[color=gold][b]★ 新たな情報を持ち帰った：解析段階が「{DungeonPanel.TierLabel(scouting.TierAfter)}」に到達！[/b][/color]");
-			sb.AppendLine("[color=cyan]調査隊は全員生還した。[/color]");
+				sb.AppendLine($"[color=gold][b]★ 新たな情報を掴んだ：解析段階が「{DungeonPanel.TierLabel(scouting.TierAfter)}」に到達！[/b][/color]");
+			sb.AppendLine("[color=cyan]部隊は扉前に留まり、突入か撤退かの指令を待っている。[/color]");
 			AppendHpLossLines(sb, scouting.HpLostByAdventurer);
 
 			AppendLog(sb.ToString());
@@ -950,13 +798,27 @@ public partial class MainDashboard : Control
 				TraversalRank.Normal => "[color=cyan]◆ 着実に一歩ずつ、奥へ進んだ。[/color]",
 				_ => "[color=orange]◆ 幾度も行く手を阻まれながら、なんとか奥へ進んだ。[/color]",
 			});
-			sb.AppendLine($"到達階層 第{traversal.FloorBefore}層 → 第{traversal.FloorAfter}層" +
+			sb.AppendLine($"現在階層 第{traversal.FloorBefore}層 → 第{traversal.FloorAfter}層" +
 				$"（+{traversal.FloorAfter - traversal.FloorBefore}階層）");
-			if (traversal.StopperTriggered && traversal.TargetBoss != null)
+			if (traversal.IntelSpeedMultiplier > 1.0)
+				sb.AppendLine($"[color=lime]◆ 解析済みの情報を活かし、走破速度 ×{traversal.IntelSpeedMultiplier:F1}で進んだ。[/color]");
+			if (traversal.LootGold > 0 || traversal.LootMaterials.Count > 0)
+				sb.AppendLine($"道中で拾った：{LootText(traversal.LootGold, traversal.LootMaterials)}（帰還時にギルドへ格納）");
+			if (resolution.ArrivedAtBossDoor && traversal.TargetBoss != null)
 			{
-				sb.AppendLine($"[color=gold][b]⚠ 最奥にて階層ボス【{traversal.TargetBoss.Name}】を発見！ 進軍が阻まれた。[/b][/color]");
+				sb.AppendLine($"[color=gold][b]【扉前到達】部隊は第{traversal.TargetBoss.Floor}層ボスの扉前に到達。" +
+					"突入準備を整えて指令を待機中[/b][/color]");
+				sb.AppendLine("[color=gray]大迷宮タブで「ボス討伐に挑む」か「撤退・帰還する」かを指令すること。[/color]");
 			}
-			sb.AppendLine("[color=cyan]部隊は全員生還した。[/color]");
+			else if (resolution.ReturnedHome)
+			{
+				sb.AppendLine("[color=cyan]最深部まで踏破し、部隊はギルドへ帰還した。[/color]");
+				AppendDepositLine(sb, resolution);
+			}
+			else
+			{
+				sb.AppendLine("[color=cyan]部隊は次週さらに奥へ進軍する。[/color]");
+			}
 			AppendHpLossLines(sb, traversal.HpLostByAdventurer);
 
 			AppendLog(sb.ToString());
@@ -991,6 +853,14 @@ public partial class MainDashboard : Control
 		AppendHpLossLines(sb, assault.HpLostByAdventurer);
 		foreach (var line in FallenAdventurerLines(weekNumber, resolution.Party, assault.ForceRetiredAdventurerIds))
 			sb.AppendLine(line);
+		if (resolution.ReturnedHome)
+		{
+			bool wiped = resolution.Party.Members.All(m => !_state.Adventurers.Contains(m));
+			sb.AppendLine(wiped
+				? "[color=red]部隊は全滅した。道中の拾得物も失われた。[/color]"
+				: "[color=cyan]決着後、部隊はギルドへ帰還した。次回は第1層から潜り直す。[/color]");
+			AppendDepositLine(sb, resolution);
+		}
 
 		if (assault.Outcome == DungeonOutcome.Victory)
 		{
@@ -1017,6 +887,20 @@ public partial class MainDashboard : Control
 		}
 
 		EnqueueBossPlayback(sb.ToString());
+	}
+
+	/// <summary>帰還時にギルドへ格納した道中の拾得物（何も無ければ出さない）。</summary>
+	private static void AppendDepositLine(StringBuilder sb, DungeonMissionResolution resolution)
+	{
+		if (resolution.DepositedGold > 0 || resolution.DepositedMaterials.Count > 0)
+			sb.AppendLine($"[color=lime]📦 道中の拾得物を格納：{LootText(resolution.DepositedGold, resolution.DepositedMaterials)}[/color]");
+	}
+
+	private static string LootText(int gold, Dictionary<string, int> materials)
+	{
+		var parts = new List<string> { $"{gold}G" };
+		parts.AddRange(materials.Select(kv => $"{MaterialBalance.GetName(kv.Key)}×{kv.Value}"));
+		return string.Join("、", parts);
 	}
 
 	/// <summary>HP消費の内訳（現役ロースターに残っている者のみ。強制除籍者は別途報告する）。</summary>
@@ -1095,6 +979,7 @@ public partial class MainDashboard : Control
 		// 同時出撃枠の使用状況（→ コアシステム刷新仕様「4. 進行管理」）。
 		// 大迷宮への出撃予定も同じ枠を消費する（→ QuestDispatchSystem.CanDispatch）。
 		_squadSlotLabel.Text = $"出撃枠: {_state.ActiveDispatches.Count + _state.ActiveDungeonMissions.Count}/{_state.UnlockedSquadSlots}";
+		RefreshMaterialSummary();
 
 		_adventurerList.Clear();
 		foreach (var a in _state.Adventurers)
@@ -1112,6 +997,33 @@ public partial class MainDashboard : Control
 		_partyFormationPanel.Refresh(_state);
 		_researchPanel.Refresh(_state);
 		_facilityPanel.Refresh(_state);
+	}
+
+	/// <summary>
+	/// ヘッダー領域に主要素材の保有数をコンパクトに表示する（→ 2026年9月UI整理）。
+	/// 開放済みフィールドの素材と、在庫が1以上ある素材のみを表示する。
+	/// </summary>
+	private void RefreshMaterialSummary()
+	{
+		var allMaterials = MaterialBalance.GetAll();
+		var unlockedFieldIds = _state.DungeonFields
+			.Where(f => f.IsUnlocked)
+			.Select(f => f.Id)
+			.ToHashSet();
+
+		var parts = allMaterials
+			.Where(m => unlockedFieldIds.Contains(m.FieldId) ||
+			            (_state.Materials.TryGetValue(m.Id, out int c) && c > 0))
+			.Select(m =>
+			{
+				int stock = _state.Materials.TryGetValue(m.Id, out int count) ? count : 0;
+				return $"{m.Name}:{stock}";
+			})
+			.ToList();
+
+		_materialSummaryLabel.Text = parts.Count > 0
+			? $"素材: {string.Join("  ", parts)}"
+			: "";
 	}
 
 	/// <summary>

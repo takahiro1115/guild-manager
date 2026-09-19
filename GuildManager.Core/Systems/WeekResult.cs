@@ -44,11 +44,17 @@ namespace GuildManager.Core.Systems
         /// </summary>
         public bool GuildProgressionEventOccurred { get; set; }
 
+        /// <summary>
+        /// 大迷宮へ潜行中の部隊が、今週未撃破ボスの扉前に到達したか（→ ExpeditionStatus.AwaitingBossDecision、
+        /// 2026年9月新設）。「挑む／撤退」の判断をプレイヤーに委ねるため、自動スキップを止める。
+        /// </summary>
+        public bool BossDoorReached { get; set; }
+
         public bool ShouldStopAutoSkip =>
             RecruitmentTrialOccurred || SatisfactionWarningOccurred ||
             FacilityConstructionCompleted || MultiWeekQuestReturned ||
             DeathOrPermanentInjuryOccurred || ThreatThresholdNewlyCrossed ||
             FinalQuestNewlyUnlocked || SubjugationQuestExpiringNextWeek ||
-            DefeatOccurred || GuildProgressionEventOccurred;
+            DefeatOccurred || GuildProgressionEventOccurred || BossDoorReached;
     }
 }

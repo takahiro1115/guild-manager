@@ -31,5 +31,20 @@ namespace GuildManager.Core.Systems
 
         /// <summary>冒険者IDごとの、今回の進軍で失ったHP量。</summary>
         public Dictionary<Guid, int> HpLostByAdventurer { get; set; } = new();
+
+        /// <summary>
+        /// 進軍開始時点の区間担当ボスの解析率から求めた走破倍率（1.0〜3.0、→ DungeonTraversalResolver.IntelSpeedMultiplier）。
+        /// 週報・UIの表示用。実際の進軍は1階層ごとに区間の倍率を引き直す。
+        /// </summary>
+        public double IntelSpeedMultiplier { get; set; } = 1.0;
+
+        /// <summary>今回の進軍に適用した被ダメージ倍率（歩いた階層の平均。完全解析区間のみなら0.3）。</summary>
+        public double DamageTakenMultiplier { get; set; } = 1.0;
+
+        /// <summary>今回の進軍で拾ったゴールド（部隊が持ち歩き、帰還時にギルドへ格納される）。</summary>
+        public int LootGold { get; set; }
+
+        /// <summary>今回の進軍で拾った素材（素材Id→個数）。帰還時にギルドへ格納される。</summary>
+        public Dictionary<string, int> LootMaterials { get; set; } = new();
     }
 }

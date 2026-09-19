@@ -333,6 +333,12 @@ namespace GuildManager.Core.Models
                     MissionType = mission.MissionType.ToString(),
                     PartyMemberIds = mission.Party.Members.Select(m => m.Id).ToList(),
                     ConsumableItemIds = new List<string>(mission.Party.ConsumableItemIds),
+                    Status = mission.Status.ToString(),
+                    CurrentFloor = mission.CurrentFloor,
+                    TargetedBossId = mission.TargetedBoss?.Id,
+                    WeeksElapsed = mission.WeeksElapsed,
+                    CarriedGold = mission.CarriedGold,
+                    CarriedMaterials = new Dictionary<string, int>(mission.CarriedMaterials),
                 });
             }
 
@@ -472,12 +478,36 @@ namespace GuildManager.Core.Models
                 }
                 party.ConsumableItemIds = new List<string>(record.ConsumableItemIds);
 
+                var missionType = ParseEnum<DungeonMissionType>(record.MissionType, nameof(DungeonMissionType));
+
+                // 複数週潜行の状態（→ ActiveDungeonMission.Status等）。項目の無い旧セーブは、
+                // 討伐＝扉前から決戦へ臨む状態、それ以外＝1階層から進軍する状態として復元する。
+                var status = string.IsNullOrEmpty(record.Status)
+                    ? (missionType == DungeonMissionType.BossAssault ? ExpeditionStatus.EngagingBoss : ExpeditionStatus.Advancing)
+                    : ParseEnum<ExpeditionStatus>(record.Status, nameof(ExpeditionStatus));
+                FloorBoss? targetedBoss = null;
+                if (record.TargetedBossId.HasValue)
+                {
+                    targetedBoss = field.Bosses.FirstOrDefault(b => b.Id == record.TargetedBossId.Value)
+                        ?? throw new FormatException($"セーブデータが破損しています：扉前の階層ボスId {record.TargetedBossId} が見つかりません。");
+                }
+                else if (status == ExpeditionStatus.EngagingBoss)
+                {
+                    targetedBoss = boss;
+                }
+
                 state.ActiveDungeonMissions.Add(new ActiveDungeonMission
                 {
                     Party = party,
                     Field = field,
                     Boss = boss,
-                    MissionType = ParseEnum<DungeonMissionType>(record.MissionType, nameof(DungeonMissionType)),
+                    MissionType = missionType,
+                    Status = status,
+                    CurrentFloor = record.CurrentFloor > 0 ? record.CurrentFloor : (targetedBoss?.Floor ?? 1),
+                    TargetedBoss = targetedBoss,
+                    WeeksElapsed = record.WeeksElapsed,
+                    CarriedGold = record.CarriedGold,
+                    CarriedMaterials = new Dictionary<string, int>(record.CarriedMaterials ?? new Dictionary<string, int>()),
                 });
             }
 

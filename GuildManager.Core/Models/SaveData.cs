@@ -197,6 +197,19 @@ namespace GuildManager.Core.Models
         public string MissionType { get; set; } = ""; // enum→文字列で保存
         public List<Guid> PartyMemberIds { get; set; } = new();
         public List<string> ConsumableItemIds { get; set; } = new();
+
+        // ---- 複数週潜行（2026年9月新設、→ ActiveDungeonMission）。旧セーブでは未設定 ----
+
+        /// <summary>遠征状態（enum→文字列）。空文字は旧セーブ：討伐はEngagingBoss、それ以外はAdvancingとして復元する。</summary>
+        public string Status { get; set; } = "";
+
+        /// <summary>現在潜行中の階層。0（旧セーブ）は1として復元する。</summary>
+        public int CurrentFloor { get; set; }
+
+        public Guid? TargetedBossId { get; set; }
+        public int WeeksElapsed { get; set; }
+        public int CarriedGold { get; set; }
+        public Dictionary<string, int> CarriedMaterials { get; set; } = new();
     }
 
     public class CompatibilityPairRecord
