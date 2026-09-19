@@ -913,16 +913,21 @@ public partial class DungeonPanel : ScrollContainer
 
 		var boss = mission.TargetedBoss ?? mission.Boss;
 		string bossName = boss == null ? "" : $"「{boss.Name}」";
+		string loot = LootSummary(mission);
 		return mission.Status switch
 		{
-			ExpeditionStatus.AwaitingBossDecision => $"【扉前・指令待ち】{mission.Field.Name} 第{mission.CurrentFloor}層{bossName}",
-			ExpeditionStatus.EngagingBoss => $"【討伐へ突入】{mission.Field.Name} 第{mission.CurrentFloor}層{bossName}",
-			ExpeditionStatus.Retreating => $"【撤退中】{mission.Field.Name}",
+			ExpeditionStatus.AwaitingBossDecision => $"【扉前・指令待ち】{mission.Field.Name} {mission.CurrentFloor}F{bossName}　{loot}",
+			ExpeditionStatus.EngagingBoss => $"【討伐へ突入】{mission.Field.Name} {mission.CurrentFloor}F{bossName}　{loot}",
+			ExpeditionStatus.Retreating => $"【撤退中】{mission.Field.Name}　{loot}",
 			_ => mission.WeeksElapsed == 0
-				? $"【出発準備】{mission.Field.Name} 第1層から潜行"
-				: $"【進軍中】{mission.Field.Name} 第{mission.CurrentFloor}層",
+				? $"【出発準備】{mission.Field.Name} 1Fから潜行"
+				: $"【進軍中】{mission.Field.Name} {mission.CurrentFloor}F　{loot}",
 		};
 	}
+
+	/// <summary>潜行中一覧向けの拾得物の短い要約（例：「拾得 35G・素材3個」）。</summary>
+	private static string LootSummary(ActiveDungeonMission mission) =>
+		$"拾得 {mission.CarriedGold}G・素材{mission.CarriedMaterials.Values.Sum()}個";
 
 	/// <summary>潜行中一覧で選択されている出撃（無ければnull）。</summary>
 	private ActiveDungeonMission SelectedPendingMission()
@@ -1005,18 +1010,24 @@ public partial class DungeonPanel : ScrollContainer
 			$"部隊：{members}\n持ち帰り予定：{loot}\n" +
 			BuildCountermeasureText(boss, preview, out string tooltip) +
 			"\n[color=gray]指令を出さずに週を越すと、扉前でボスの偵察を続ける（解析率が上がる）。[/color]");
+		if (insufficient)
+		{
+			_bossDecisionLabel.AppendText(
+				$"\n[color=red][b]⚠ ポーチ代金が不足しています（必要 {pouchCost}G／所持金 {_state.Gold}G）。" +
+				"ポーチの選択を減らすか、撤退してください。[/b][/color]");
+		}
 
 		if (pouchCost > 0)
 		{
 			_pouchCostLabel.AppendText(insufficient
-				? $"[color=red]ポーチ代金：{pouchCost}G（所持金不足：{_state.Gold}G）[/color]"
+				? $"[color=red]ポーチ代金が不足しています：{pouchCost}G（所持金 {_state.Gold}G）[/color]"
 				: $"ポーチ代金：{pouchCost}G（挑む指令の時点で支払う）");
 		}
 
 		_engageBossButton.Text = pouchCost > 0 ? $"⚔️ ボス討伐に挑む（ポーチ代 {pouchCost}G）" : "⚔️ ボス討伐に挑む";
 		_engageBossButton.Disabled = insufficient || _state.DefeatReason != null;
 		_engageBossButton.TooltipText = insufficient
-			? $"携行ポーチの代金（{pouchCost}G）が足りない（所持金 {_state.Gold}G）。"
+			? $"ポーチ代金が不足しています（必要 {pouchCost}G／所持金 {_state.Gold}G）。"
 			: tooltip + "\n次週の決算で決戦判定。勝敗にかかわらず決着後はギルドへ帰還する。";
 	}
 

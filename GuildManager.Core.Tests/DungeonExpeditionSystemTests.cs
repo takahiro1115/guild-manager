@@ -963,6 +963,84 @@ namespace GuildManager.Core.Tests
             Assert.False(system.TryCancel(state, mission)); // 出発済みの部隊は取り消せない
         }
 
+        /// <summary>9Fボスの扉前まで潜行させた状態（2週）を作る。</summary>
+        private static (GameState State, FloorBoss Boss, Adventurer A, Adventurer B, DungeonExpeditionSystem System, ActiveDungeonMission Mission)
+            ReachBossDoor()
+        {
+            var (state, _, boss, a, b) = MakeDeepDiveState(bossFloor: 9);
+            var system = BuildSystem();
+            Assert.True(system.TryDispatch(state, PartyOf(a, b), boss, DungeonMissionType.Scouting));
+            var mission = state.ActiveDungeonMissions[0];
+            system.ProcessWeeklyMissions(state);
+            system.ProcessWeeklyMissions(state);
+            Assert.Equal(ExpeditionStatus.AwaitingBossDecision, mission.Status);
+            return (state, boss, a, b, system, mission);
+        }
+
+        [Fact]
+        public void TryEngageBoss_DeductsPouchCost_And_TransitionsToEngaging()
+        {
+            var (state, boss, a, _, system, mission) = ReachBossDoor();
+            var pouch = new[] { ConsumableCatalog.AntidoteId, ConsumableCatalog.CharmId };
+            int expectedCost = DungeonExpeditionSystem.CalculateConsumableCost(pouch);
+            int goldBefore = state.Gold;
+
+            Assert.True(system.TryEngageBoss(state, mission, pouch));
+
+            Assert.True(expectedCost > 0);
+            Assert.Equal(goldBefore - expectedCost, state.Gold);
+            Assert.Equal(ExpeditionStatus.EngagingBoss, mission.Status);
+            Assert.Equal(pouch, mission.Party.ConsumableItemIds);
+            Assert.Same(boss, mission.TargetedBoss);
+            Assert.True(a.IsDispatched);          // 突入待ち：まだ帰還していない
+            Assert.False(boss.IsDefeated);        // 決戦は次週の決算
+        }
+
+        [Fact]
+        public void TryEngageBoss_Fails_WhenInsufficientGold()
+        {
+            var (state, _, _, _, system, mission) = ReachBossDoor();
+            var pouch = new[] { ConsumableCatalog.AntidoteId, ConsumableCatalog.CharmId };
+            state.Gold = DungeonExpeditionSystem.CalculateConsumableCost(pouch) - 1;
+            int goldBefore = state.Gold;
+
+            Assert.False(system.TryEngageBoss(state, mission, pouch));
+
+            Assert.Equal(goldBefore, state.Gold);                           // 引き落とされない
+            Assert.Equal(ExpeditionStatus.AwaitingBossDecision, mission.Status); // 扉前で待機のまま
+            Assert.Empty(mission.Party.ConsumableItemIds);                   // ポーチも積まれない
+
+            // ポーチを空にすれば（0G）同じ所持金でも挑める。
+            Assert.True(system.TryEngageBoss(state, mission, Array.Empty<string>()));
+            Assert.Equal(goldBefore, state.Gold);
+        }
+
+        [Fact]
+        public void TryRetreat_AddsLootToGuild_And_ResetsPartyToIdle()
+        {
+            var (state, _, a, b, system, mission) = ReachBossDoor();
+            int carriedGold = mission.CarriedGold;
+            var carriedMaterials = new Dictionary<string, int>(mission.CarriedMaterials);
+            int hpA = a.CurrentHP;
+            int goldBefore = state.Gold;
+            Assert.True(carriedGold > 0);
+            Assert.NotEmpty(carriedMaterials);
+
+            var resolution = system.TryRetreat(state, mission);
+
+            Assert.NotNull(resolution);
+            Assert.Equal(goldBefore + carriedGold, state.Gold);
+            foreach (var kv in carriedMaterials)
+                Assert.Equal(kv.Value, state.Materials[kv.Key]);
+            Assert.Equal(carriedGold, resolution!.DepositedGold);
+            Assert.Empty(state.ActiveDungeonMissions);
+            Assert.False(a.IsDispatched);
+            Assert.False(b.IsDispatched);
+            Assert.True(a.IsAvailable && b.IsAvailable);
+            Assert.Equal(hpA, a.CurrentHP);                 // 撤退自体ではHPを失わない
+            Assert.True(QuestDispatchSystem.CanDispatch(state)); // 出撃枠も即座に空く
+        }
+
         [Fact]
         public void RoundTrip_PreservesExpeditionProgress_ThroughJson()
         {

@@ -7,5 +7,5 @@ BeautifulCompatibilityGainMultiplier,1.5,倍,容姿秀麗が関与する相性�
 CountryBredExplorationBonus,10,pt,田舎育ちが探索クエストの個人スコアに加算する量（→ 03 §4.2.3・項目64。仮値）
 PairSynergyLdrMitigationCoefficient,0.01,倍,"ペア特性シナジーの合計がマイナスの時だけ働く緩和係数。緩和率＝clamp(隊長LDR×この係数,0,1)（LDR100で全額相殺。→ 03 §4.2.3・pair_synergy.csv。仮値）"
 TraitTransmissionBaseRatePercent,2.0,%,教官による特性伝授の週次基礎確率（→ 特性伝授刷新仕様。仮値）
-TraitTransmissionPeakStatBonusMaxPercent,2.0,%,教官の対象ステータス引退時ステータス平均(100で頭打ち)に比例して加算される最大ボーナス（仮値）
+TraitTransmissionPeakStatBonusMaxPercent,2.0,%,教官の対象ステータスの引退時平均(100で頭打ち)に比例して加算される最大ボーナス（仮値）
 TraitTransmissionMentorBonusPercent,3.0,%,教官が師匠肌(Mentor)を持つ場合に加算される固定ボーナス（仮値）

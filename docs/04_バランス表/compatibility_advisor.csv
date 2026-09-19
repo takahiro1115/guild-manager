@@ -5,6 +5,6 @@ AchievementGain,3,pt,同パーティでクエスト達成した時の相性上�
 FailureLoss,2,pt,同パーティで失敗した時の相性下降量
 DeathWitnessLoss,15,pt,同パーティの戦死に居合わせた生存者同士の相性下降量
 TraumaGrantChancePercent,30,%,戦死に居合わせた生存者へのトラウマ特性付与確率
-TrainerBonusCoefficient,0.005,倍,教官：対象ステータスの引退時ステータス×この係数を成長ロール確率に加算
+TrainerBonusCoefficient,0.005,倍,教官：対象ステータスの引退時の値（施設が扱う能力の平均）×この係数を成長ロール確率に加算
 AdvisorBonusCoefficient,0.2,倍,参謀：引退時ステータス7能力平均×この係数を索敵値と致死回避閾値に加算
 ScoutMasterBonusCoefficient,0.003,倍,スカウト：引退時ステータスLDR/DEX平均×この係数を有望新人出現率に加算
