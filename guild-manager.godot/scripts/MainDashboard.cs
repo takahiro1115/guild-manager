@@ -20,7 +20,6 @@ using GuildManager.Core.Systems;
 public partial class MainDashboard : Control
 {
 	private GameState _state = null!;
-	private QuestResolver _questResolver = null!;
 	private EconomySystem _economySystem = null!;
 	private InjuryRecoverySystem _injuryRecoverySystem = null!;
 	private AgingSystem _agingSystem = null!;
@@ -31,10 +30,7 @@ public partial class MainDashboard : Control
 	private SatisfactionSystem _satisfactionSystem = null!;
 	private CompatibilitySystem _compatibilitySystem = null!;
 	private FacilitySystem _facilitySystem = null!;
-	private QuestDispatchSystem _questDispatchSystem = null!;
 	private GuildRankSystem _guildRankSystem = null!;
-	private SecuritySystem _securitySystem = null!;
-	private QuestBoardSystem _questBoardSystem = null!;
 	private SubsidySystem _subsidySystem = null!;
 	private DefeatSystem _defeatSystem = null!;
 	private AdvisorSystem _advisorSystem = null!;
@@ -55,7 +51,6 @@ public partial class MainDashboard : Control
 	/// <summary>ヘッダー領域の素材保有数サマリー（→ 2026年9月UI整理）。</summary>
 	private Label _materialSummaryLabel = null!;
 
-	private GuildProgressionSystem _guildProgressionSystem = null!;
 	private ItemList _adventurerList = null!;
 	private RichTextLabel _adventurerDetailLabel = null!;
 	private TextureRect _portraitTextureRect = null!;
@@ -90,7 +85,7 @@ public partial class MainDashboard : Control
 	private Guid? _detailAdventurerId;
 
 	// ---- 決戦（ボス）ログのステップ再生（→ コアシステム刷新仕様 Phase 3） ----
-	// 通常任務は結果を一括表示してテンポを優先するが、昇格試験（Quest.IsBoss）だけは
+	// 通常の任務は結果を一括表示してテンポを優先するが、大迷宮のボス討伐だけは
 	// 1行ずつ間を置いて流し、「手に汗握る」時間を作る。自動スキップ経路は
 	// LogWeeklySettlementを通らない（サマリーのみ表示する）ため、ここと競合しない。
 
@@ -190,7 +185,6 @@ public partial class MainDashboard : Control
 
 		// シード固定の乱数。同じシードなら毎回同じ結果になる（デバッグしやすくするため）。
 		// 戦闘用と加齢用で別インスタンス・別シードにし、互いの抽選回数が結果に影響しないようにする。
-		_questResolver = new QuestResolver(new SeededRng(42));
 		_economySystem = new EconomySystem();
 		_injuryRecoverySystem = new InjuryRecoverySystem();
 		_agingSystem = new AgingSystem(new SeededRng(99));
@@ -201,10 +195,7 @@ public partial class MainDashboard : Control
 		_satisfactionSystem = new SatisfactionSystem();
 		_compatibilitySystem = new CompatibilitySystem(new SeededRng(2525));
 		_facilitySystem = new FacilitySystem();
-		_questDispatchSystem = new QuestDispatchSystem(_questResolver, _growthSystem, _economySystem, _satisfactionSystem, _compatibilitySystem);
 		_guildRankSystem = new GuildRankSystem();
-		_securitySystem = new SecuritySystem(new SeededRng(4649));
-		_questBoardSystem = new QuestBoardSystem(new SeededRng(1192));
 		_subsidySystem = new SubsidySystem();
 		_defeatSystem = new DefeatSystem();
 		_advisorSystem = new AdvisorSystem();
@@ -212,9 +203,6 @@ public partial class MainDashboard : Control
 		_partyFormationSystem = new PartyFormationSystem();
 		_partyFormationPanel.Initialize(_partyFormationSystem);
 		_facilityPanel.Initialize(_facilitySystem);
-		// 進行管理（→ コアシステム刷新仕様）。昇格時の新人補充に採用システムを使うため、
-		// 同じインスタンスを共有する（二重管理を避ける）。
-		_guildProgressionSystem = new GuildProgressionSystem(_recruitmentSystem);
 		// 大迷宮（→ ダンジョン攻略システム）。調査・討伐は別シードにし、互いの抽選回数が結果に
 		// 影響しないようにする。強制除籍の余波（満足度・相性）は既存インスタンスを共有する。
 		_dungeonExpeditionSystem = new DungeonExpeditionSystem(
@@ -224,10 +212,9 @@ public partial class MainDashboard : Control
 		// 週次決算のオーケストレーション（→ 03 §1.3・自動スキップ）。既存の各Systemインスタンスを
 		// そのまま共有し、二重管理（別インスタンスによる状態不整合）を避ける。
 		_weekProcessingSystem = new WeekProcessingSystem(
-			_questDispatchSystem, _guildRankSystem, _securitySystem, _questBoardSystem,
-			_economySystem, _subsidySystem, _trainingSystem, _injuryRecoverySystem,
+			_guildRankSystem, _economySystem, _subsidySystem, _trainingSystem, _injuryRecoverySystem,
 			_restRecoverySystem, _growthSystem, _satisfactionSystem, _agingSystem,
-			_facilitySystem, _defeatSystem, _recruitmentSystem, _guildProgressionSystem,
+			_facilitySystem, _defeatSystem, _recruitmentSystem,
 			_dungeonExpeditionSystem);
 		_autoSkipService = new AutoSkipService(_weekProcessingSystem);
 		// GuildManager.CoreはGodotに依存しない方針（→ 05技術メモ）のため、保存先の実パスは
@@ -243,8 +230,8 @@ public partial class MainDashboard : Control
 	/// <summary>新規ゲームとして開始する（既存の初期化処理。→ 03 §12「セーブが無ければ新規ゲーム」）。</summary>
 	private void StartNewGame()
 	{
-		// 旧クエスト掲示板は2026年9月、大迷宮への一本化改訂で停止した（→ WeekProcessingSystem）。
-		// AvailableQuestsは初期配置も行わず、常に空のまま（出撃導線は大迷宮タブのみ）。
+		// 旧通常クエスト（掲示板・受託依頼）は2026年9月、大迷宮への完全一本化で撤去した。
+		// 出撃導線は大迷宮タブのみ。
 		_state = new GameState
 		{
 			Adventurers = SampleData.CreateStarterAdventurers(),
@@ -425,7 +412,7 @@ public partial class MainDashboard : Control
 
 		RefreshAll();
 
-		// 決戦（昇格試験）のログが溜まっていれば、先にステップ再生を流し、
+		// 決戦（ボス討伐）のログが溜まっていれば、先にステップ再生を流し、
 		// ポップアップ等の割り込みはその完了後に回す（→ Phase 3）。
 		if (_bossLogQueue.Count > 0 && !_bossPlaybackActive)
 		{
@@ -438,7 +425,7 @@ public partial class MainDashboard : Control
 	}
 
 	/// <summary>
-	/// 週次決算の直後に割り込ませる処理（ゲームオーバー確定・新春採用試験・昇格報酬の新人提示）。
+	/// 週次決算の直後に割り込ませる処理（ゲームオーバー確定・新春採用試験）。
 	/// 決戦ログのステップ再生がある週は、再生完了後にここが呼ばれる（→ StartBossPlayback）。
 	/// </summary>
 	private void HandlePostSettlementInterruptions(WeeklySettlementResult settlement)
@@ -452,14 +439,6 @@ public partial class MainDashboard : Control
 			// 新春採用試験（2年目以降の新年第1週のみ）。ポップアップが閉じるまで次週へ進めさせない（→ 03 §9）。
 			DisableWeekAdvancement();
 			_recruitmentPopup.Open(_state, _recruitmentSystem);
-		}
-		else if (settlement.PromotionExamResult != null)
-		{
-			// 昇格試験の突破報酬（→ コアシステム刷新仕様 Phase 4）：第2部隊を編成できるよう、
-			// 集まってきた新人をその場で提示する。週報ログで告知した顔ぶれと一致させるため、
-			// 再生成せず GuildProgressionSystem が生成した応募一覧をそのまま渡す。
-			DisableWeekAdvancement();
-			_recruitmentPopup.Open(_state, _recruitmentSystem, settlement.PromotionExamResult.NewHireOffers);
 		}
 		else if (_state.DefeatReason == null)
 		{
@@ -479,9 +458,13 @@ public partial class MainDashboard : Control
 	{
 		int weekNumber = settlement.Flags.Week;
 
-		// 大迷宮への出撃（調査任務・ボス討伐）の結果（→ DungeonExpeditionSystem）。
+		// 大迷宮への出撃（潜行・迷宮調査・採取・ボス討伐）の結果と、それに伴う出撃成長
+		// （→ DungeonExpeditionSystem・GrowthSystem.ApplyExpeditionGrowth）。
 		foreach (var dungeonResolution in settlement.DungeonMissionResolutions)
+		{
 			LogDungeonMission(weekNumber, dungeonResolution);
+			LogGrowthEvents(dungeonResolution.GrowthEvents);
+		}
 
 		if (settlement.SubsidyAmount.HasValue)
 			AppendLog($"[color=lime]月次助成金 {settlement.SubsidyAmount.Value}G を受け取った{(_state.ThreatLevel > SecurityBalance.SubsidyCutThreatThreshold ? "（脅威度75%超のため50%カット済み）" : "")}。[/color]");
@@ -498,26 +481,6 @@ public partial class MainDashboard : Control
 				? $"[color=gold][b]🏅 ギルド格付けが{settlement.RankChange.Current}ランクに昇格しました！[/b][/color]"
 				: $"[color=orange][b]⚠ ギルド格付けが{settlement.RankChange.Current}ランクに降格しました。[/b][/color]";
 			AppendLog(message);
-		}
-
-		// ランク昇格試験の提示（→ コアシステム刷新仕様 Phase 2）。
-		if (settlement.OfferedPromotionExam != null)
-		{
-			var exam = settlement.OfferedPromotionExam;
-			AppendLog($"[color=gold][font_size=18][b]📜 ギルド本部から昇格試験の通達が届いた：「{exam.Name}」[/b][/font_size][/color]");
-			AppendLog($"[color=gold]事前情報：相手は手強い。推奨{exam.RecommendedMembers}名での総力戦に臨むこと。" +
-				$"（受注期限あと{exam.DeadlineWeeks}週）[/color]");
-		}
-
-		// 昇格試験の突破（→ Phase 4）：ランク昇格・第2部隊枠の開放・報奨金・新人の補充。
-		if (settlement.PromotionExamResult != null)
-		{
-			var promotion = settlement.PromotionExamResult;
-			AppendLog($"[color=gold][font_size=22][b]🏆 昇格試験を突破した！ ギルド格付けが{promotion.NewRank}ランクへ昇格！[/b][/font_size][/color]");
-			AppendLog($"[color=lime][b]▶ 同時出撃枠が{promotion.UnlockedSquadSlots}枠に拡張された。" +
-				$"２つの部隊を同時に動かせるようになった。[/b][/color]");
-			AppendLog($"[color=lime]▶ 昇格報奨金 {promotion.RewardGold}G を受け取った。[/color]");
-			AppendLog($"[color=yellow]▶ 噂を聞きつけた新人が{promotion.NewHireOffers.Count}名、酒場に集まっている。[/color]");
 		}
 
 		// 敗北条件判定（→ 03 §8.3）：破産（所持金マイナス4週連続、猶予あり）／
@@ -732,7 +695,7 @@ public partial class MainDashboard : Control
 	/// <summary>
 	/// 大迷宮への出撃1件の結果を週報に記録する（→ DungeonMissionResolution）。
 	///  - 調査任務：生還の報告と、解析率の上昇（段階が上がれば新情報として強調）を一括表示する。
-	///  - ボス討伐：昇格試験と同じく決戦として扱い、1行ずつのステップ再生に回す（→ Phase 3）。
+	///  - ボス討伐：決戦として扱い、1行ずつのステップ再生に回す（→ Phase 3）。
 	/// </summary>
 	private void LogDungeonMission(int weekNumber, DungeonMissionResolution resolution)
 	{
@@ -993,8 +956,8 @@ public partial class MainDashboard : Control
 		_rankLabel.Text = $"ギルド格付け: {_state.GuildRank}ランク（名声 {_state.Reputation}）";
 		_threatLabel.Text = $"脅威度: {_state.ThreatLevel}%";
 		// 同時出撃枠の使用状況（→ コアシステム刷新仕様「4. 進行管理」）。
-		// 大迷宮への出撃予定も同じ枠を消費する（→ QuestDispatchSystem.CanDispatch）。
-		_squadSlotLabel.Text = $"出撃枠: {_state.ActiveDispatches.Count + _state.ActiveDungeonMissions.Count}/{_state.UnlockedSquadSlots}";
+		// 大迷宮へ出撃中の部隊の数で枠を消費する（→ DungeonExpeditionSystem.CanDispatch）。
+		_squadSlotLabel.Text = $"出撃枠: {_state.ActiveDungeonMissions.Count}/{_state.UnlockedSquadSlots}";
 		RefreshMaterialSummary();
 
 		_adventurerList.Clear();
@@ -1003,7 +966,7 @@ public partial class MainDashboard : Control
 			string status = a.Injury == InjurySeverity.Severe
 				? $"【重傷・出撃不可・回復まで{a.InjuryWeeksRemaining}週】"
 				: a.IsDispatched
-					? $"【派遣中・残り{GetDispatchWeeksRemaining(a)}週】"
+					? "【出撃中】"
 					: "";
 			_adventurerList.AddItem($"{a.Name}（{a.JobClass}） HP{a.CurrentHP}/{a.MaxHP}　総合PA{a.TotalPA:F1}　{a.Age}歳 {status}");
 		}
@@ -1166,15 +1129,6 @@ public partial class MainDashboard : Control
 		FacilityType.RecruitmentOffice => "冒険者支援室",
 		_ => type.ToString()
 	};
-
-	/// <summary>指定した冒険者が派遣中の案件の残り週数を返す（派遣中でなければ0）。</summary>
-	private int GetDispatchWeeksRemaining(Adventurer a)
-	{
-		foreach (var dispatch in _state.ActiveDispatches)
-			if (dispatch.Party.Members.Contains(a))
-				return dispatch.WeeksRemaining;
-		return 0;
-	}
 
 	private static string AgeBandLabel(AgeBand band) => band switch
 	{

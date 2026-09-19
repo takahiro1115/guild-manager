@@ -51,7 +51,7 @@ namespace GuildManager.Core.Tests
             party.TryAdd(adventurer);
             var system = new GrowthSystem(new AlwaysMinRng());
 
-            var events = system.ProcessDeploymentGrowth(party, new Quest { Difficulty = 50 });
+            var events = system.ProcessDeploymentGrowth(party, difficulty: 50);
 
             // Warrior重み表の先頭(累積>=1)はSTR。成長量もAlwaysMinRngで下限(1)。
             Assert.Equal(41, adventurer.STR);
@@ -72,7 +72,7 @@ namespace GuildManager.Core.Tests
             party.TryAdd(adventurer);
             var system = new GrowthSystem(new AlwaysMaxRng());
 
-            var events = system.ProcessDeploymentGrowth(party, new Quest { Difficulty = 100 });
+            var events = system.ProcessDeploymentGrowth(party, difficulty: 100);
 
             Assert.Equal(40, adventurer.STR); // 成長期・難易度100でも閾値は60%止まり、roll=100は必ず外れる
             Assert.Empty(events);
@@ -90,11 +90,11 @@ namespace GuildManager.Core.Tests
 
             var lowParty = new Party();
             lowParty.TryAdd(lowDifficultyMember);
-            system.ProcessDeploymentGrowth(lowParty, new Quest { Difficulty = 0 });
+            system.ProcessDeploymentGrowth(lowParty, difficulty: 0);
 
             var highParty = new Party();
             highParty.TryAdd(highDifficultyMember);
-            system.ProcessDeploymentGrowth(highParty, new Quest { Difficulty = 100 });
+            system.ProcessDeploymentGrowth(highParty, difficulty: 100);
 
             Assert.Equal(0, TotalStats(lowDifficultyMember));
             Assert.True(TotalStats(highDifficultyMember) > 0);
@@ -112,7 +112,7 @@ namespace GuildManager.Core.Tests
             party.TryAdd(adventurer);
             var system = new GrowthSystem(new FixedRollRng(3));
 
-            system.ProcessDeploymentGrowth(party, new Quest { Difficulty = 0 });
+            system.ProcessDeploymentGrowth(party, difficulty: 0);
 
             Assert.Equal(80, adventurer.STR);
         }
@@ -126,7 +126,7 @@ namespace GuildManager.Core.Tests
             party.TryAdd(adventurer);
             var system = new GrowthSystem(new FixedRollRng(3));
 
-            var events = system.ProcessDeploymentGrowth(party, new Quest { Difficulty = 0 });
+            var events = system.ProcessDeploymentGrowth(party, difficulty: 0);
 
             Assert.Equal(80, adventurer.STR);
             Assert.Empty(events);
@@ -142,7 +142,7 @@ namespace GuildManager.Core.Tests
             party.TryAdd(b);
             var system = new GrowthSystem(new AlwaysMinRng());
 
-            system.ProcessDeploymentGrowth(party, new Quest { Difficulty = 50 });
+            system.ProcessDeploymentGrowth(party, difficulty: 50);
 
             Assert.Equal(41, a.STR);
             Assert.Equal(41, b.STR);
@@ -386,6 +386,187 @@ namespace GuildManager.Core.Tests
         {
             var stat = GrowthBalance.PickJobWeightedStat(job, new FixedRollRng(roll));
             Assert.Equal(expectedStat, stat);
+        }
+
+        // ---------------- 経路1：大迷宮の任務による出撃成長（ApplyExpeditionGrowth） ----------------
+
+        /// <summary>
+        /// 成長ロール（NextInt(1,100)）は常に成功（1）を返し、対象能力の抽選（NextInt(0,n-1)）は
+        /// 0,1,2,…と順に巡回するスタブ。どの能力が選ばれたかを決定的に検証するために使う。
+        /// </summary>
+        private class CyclingPickRng : IRng
+        {
+            private int _next;
+            public int NextInt(int min, int max) =>
+                min == 1 && max == 100 ? 1 : min + (_next++ % (max - min + 1));
+        }
+
+        private static Adventurer MakeGrowable(int stat = 30, int pa = 80)
+        {
+            var a = new Adventurer
+            {
+                STR = stat, AGI = stat, VIT = stat, MND = stat, DEX = stat, LDR = stat, INT = stat,
+                PA_STR = pa, PA_AGI = pa, PA_VIT = pa, PA_MND = pa, PA_DEX = pa, PA_LDR = pa, PA_INT = pa,
+            };
+            a.CurrentHP = a.MaxHP;
+            return a;
+        }
+
+        private static (GameState State, Party Party) PartyInRoster(params Adventurer[] members)
+        {
+            var state = new GameState();
+            var party = new Party();
+            foreach (var m in members)
+            {
+                state.Adventurers.Add(m);
+                party.TryAdd(m);
+            }
+            return (state, party);
+        }
+
+        [Fact]
+        public void ExpeditionGrowth_Traversal_AttemptsGrowth_ForLivingMembers()
+        {
+            var a = MakeGrowable();
+            var b = MakeGrowable();
+            var (state, party) = PartyInRoster(a, b);
+
+            var events = new GrowthSystem(new CyclingPickRng())
+                .ApplyExpeditionGrowth(state, party, DungeonMissionType.Scouting, isBossVictory: false);
+
+            // 生存者2名 × 試行回数（GrowthRolls_Traversal=2）がすべて成功し、各+1。
+            Assert.Equal(2, DungeonBalance.GrowthRollsTraversal);
+            Assert.Equal(2 * DungeonBalance.GrowthRollsTraversal, events.Count);
+            Assert.All(events, e => Assert.Contains(e.Stat, new[] { "STR", "VIT", "AGI", "DEX" }));
+            Assert.All(events, e => Assert.Equal(e.Before + 1, e.After));
+            Assert.Equal(31, a.STR); // 巡回：a=STR,VIT／b=AGI,DEX
+            Assert.Equal(31, a.VIT);
+            Assert.Equal(31, b.AGI);
+            Assert.Equal(31, b.DEX);
+            Assert.Equal(30, a.INT); // 対象外の能力は伸びない
+        }
+
+        [Fact]
+        public void ExpeditionGrowth_BossVictory_GrantsHighGrowthRolls()
+        {
+            var a = MakeGrowable();
+            var (state, party) = PartyInRoster(a);
+
+            var plan = GrowthSystem.ExpeditionGrowthPlan(DungeonMissionType.BossAssault, isBossVictory: true);
+            var events = new GrowthSystem(new CyclingPickRng())
+                .ApplyExpeditionGrowth(state, party, DungeonMissionType.BossAssault, isBossVictory: true);
+
+            // ボス撃破は全7能力が対象で、試行回数は5回（道中より多い）。
+            Assert.Equal(5, DungeonBalance.GrowthRollsBossVictory);
+            Assert.Equal(5, plan.Rolls);
+            Assert.Equal(new[] { "STR", "AGI", "VIT", "MND", "DEX", "LDR", "INT" }.OrderBy(s => s), plan.Stats.OrderBy(s => s));
+            Assert.Equal(5, events.Count);
+            Assert.Equal(new[] { "STR", "AGI", "VIT", "MND", "DEX" }, events.Select(e => e.Stat)); // 全7能力から順に選ばれている
+            Assert.True(plan.Rolls > GrowthSystem.ExpeditionGrowthPlan(DungeonMissionType.Scouting, false).Rolls);
+        }
+
+        [Fact]
+        public void ExpeditionGrowth_BossDefeatOrRetreat_GrantsNoGrowth()
+        {
+            var a = MakeGrowable();
+            var (state, party) = PartyInRoster(a);
+
+            var events = new GrowthSystem(new CyclingPickRng())
+                .ApplyExpeditionGrowth(state, party, DungeonMissionType.BossAssault, isBossVictory: false);
+
+            Assert.Empty(events);
+            Assert.Equal(30 * 7, a.STR + a.AGI + a.VIT + a.MND + a.DEX + a.LDR + a.INT);
+        }
+
+        [Fact]
+        public void ExpeditionGrowth_Survey_FavorsIntelAndDex()
+        {
+            var a = MakeGrowable();
+            var (state, party) = PartyInRoster(a);
+
+            var plan = GrowthSystem.ExpeditionGrowthPlan(DungeonMissionType.Survey, isBossVictory: false);
+            var events = new GrowthSystem(new CyclingPickRng())
+                .ApplyExpeditionGrowth(state, party, DungeonMissionType.Survey, isBossVictory: false);
+
+            Assert.Equal(new[] { "INT", "DEX", "LDR", "AGI" }, plan.Stats);
+            Assert.Equal(DungeonBalance.GrowthRollsSurvey, events.Count);
+            Assert.Equal(31, a.INT);
+            Assert.Equal(31, a.DEX);
+            Assert.Equal(30, a.STR);
+            Assert.Equal(30, a.VIT);
+        }
+
+        [Fact]
+        public void ExpeditionGrowth_Gathering_FavorsAgiAndDex()
+        {
+            var a = MakeGrowable();
+            var (state, party) = PartyInRoster(a);
+
+            var plan = GrowthSystem.ExpeditionGrowthPlan(DungeonMissionType.Gathering, isBossVictory: false);
+            var events = new GrowthSystem(new CyclingPickRng())
+                .ApplyExpeditionGrowth(state, party, DungeonMissionType.Gathering, isBossVictory: false);
+
+            Assert.Equal(new[] { "AGI", "DEX", "VIT" }, plan.Stats);
+            Assert.Equal(DungeonBalance.GrowthRollsGathering, events.Count);
+            Assert.Equal(31, a.AGI);
+            Assert.Equal(31, a.DEX);
+            Assert.Equal(30, a.STR);
+            Assert.Equal(30, a.INT);
+        }
+
+        [Fact]
+        public void ExpeditionGrowth_DoesNotExceed_PA()
+        {
+            // 全能力がPAちょうど：成長ロールが成功しても伸びず、報告もしない。
+            var capped = MakeGrowable(stat: 50, pa: 50);
+            // PAまであと1：何度成功しても+1で打ち止め。
+            var nearCap = MakeGrowable(stat: 49, pa: 50);
+            var (state, party) = PartyInRoster(capped, nearCap);
+            var system = new GrowthSystem(new AlwaysMinRng()); // 常に成功・常に先頭の能力（STR）
+
+            var events = system.ApplyExpeditionGrowth(state, party, DungeonMissionType.BossAssault, isBossVictory: true);
+
+            Assert.Equal(50, capped.STR);
+            Assert.Equal(50, nearCap.STR);
+            var single = Assert.Single(events); // nearCapの1回目だけが成長として報告される
+            Assert.Same(nearCap, single.Adventurer);
+            Assert.Equal(50, single.After);
+        }
+
+        [Fact]
+        public void ExpeditionGrowth_DoesNotApply_ToForceRetiredMembers()
+        {
+            // 強制除籍された者（ロースターから外れFallenAdventurersへ移った者）と、HPが0の者は対象外。
+            var survivor = MakeGrowable();
+            var retired = MakeGrowable();
+            var downed = MakeGrowable();
+            downed.CurrentHP = 0;
+            var (state, party) = PartyInRoster(survivor, retired, downed);
+            state.Adventurers.Remove(retired);
+            state.FallenAdventurers.Add(retired);
+
+            var events = new GrowthSystem(new AlwaysMinRng())
+                .ApplyExpeditionGrowth(state, party, DungeonMissionType.BossAssault, isBossVictory: true);
+
+            Assert.All(events, e => Assert.Same(survivor, e.Adventurer));
+            Assert.Equal(DungeonBalance.GrowthRollsBossVictory, events.Count);
+            Assert.Equal(30, retired.STR);
+            Assert.Equal(30, downed.STR);
+        }
+
+        [Fact]
+        public void ExpeditionGrowth_FailedRolls_GrantNoGrowth()
+        {
+            // 成長ロールが成功確率（GrowthBaseChancePercent=35%）を上回れば伸びない。
+            var a = MakeGrowable();
+            var (state, party) = PartyInRoster(a);
+
+            var events = new GrowthSystem(new AlwaysMaxRng())
+                .ApplyExpeditionGrowth(state, party, DungeonMissionType.Scouting, isBossVictory: false);
+
+            Assert.Equal(35, DungeonBalance.GrowthBaseChancePercent);
+            Assert.Empty(events);
+            Assert.Equal(30, a.STR);
         }
     }
 }

@@ -590,7 +590,7 @@ public partial class DungeonPanel : ScrollContainer
 				? $"この部隊は全員出撃できない状態（重傷・派遣中など）：{string.Join("、", unavailable.Select(m => m.Name))}"
 				: "この部隊には出撃できるメンバーがいない（編成が空）。";
 		}
-		if (!QuestDispatchSystem.CanDispatch(_state))
+		if (!DungeonExpeditionSystem.CanDispatch(_state))
 			return $"同時出撃枠（{_state.UnlockedSquadSlots}枠）がすべて埋まっている。帰還を待つか、出撃予定を取り消すこと。";
 		return null;
 	}
@@ -619,7 +619,7 @@ public partial class DungeonPanel : ScrollContainer
 				? $"この部隊は全員出撃できない状態（重傷・派遣中など）：{string.Join("、", unavailable.Select(m => m.Name))}"
 				: "この部隊には出撃できるメンバーがいない（編成が空）。";
 		}
-		if (!QuestDispatchSystem.CanDispatch(_state))
+		if (!DungeonExpeditionSystem.CanDispatch(_state))
 			return $"同時出撃枠（{_state.UnlockedSquadSlots}枠）がすべて埋まっている。帰還を待つか、出撃予定を取り消すこと。";
 		return null;
 	}

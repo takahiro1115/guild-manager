@@ -61,7 +61,7 @@ namespace GuildManager.Core.Systems
             result.DamageMultiplier = CalculateDamageMultiplier(boss, result);
 
             // ---- 火力判定（ボスのHPを削り切れるか） ----
-            double partyPower = party.Members.Sum(m => QuestScoreCalculator.MemberScore(m, QuestType.Subjugation));
+            double partyPower = DungeonPowerCalculator.PartyPower(party.Members);
 
             // 完全解析なら弱点を突ける（→ ScoutingResolver で解析率を1.0まで上げた場合）。
             result.FullIntelBonusApplied = ScoutingResolver.GetTier(boss.IntelRate) == IntelTier.Complete;

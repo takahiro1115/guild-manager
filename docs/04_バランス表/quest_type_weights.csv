@@ -1,6 +1,0 @@
-quest_type,STR,AGI,VIT,MND,DEX,LDR,INT
-Subjugation,0.8,0.5,0.6,0.8,0.4,0.4,0.7
-Exploration,0,1.0,0,0,1.0,1.0,1.0
-Escort,0,0,1.0,1.0,0,1.0,0
-Gathering,0,1.0,0.3,0,1.0,0,0.3
-Patrol,0.5,0.5,0.5,0.5,0.5,0.5,0.5

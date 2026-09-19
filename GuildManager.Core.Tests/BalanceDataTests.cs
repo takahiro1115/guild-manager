@@ -10,11 +10,8 @@ namespace GuildManager.Core.Tests
     ///
     /// 「全CSVファイルが正常に読み込めること」は、GetTableが素直な行分割パーサーであり、
     /// key,value,unit,note形式・テーブル形式のどちらも「ヘッダー行＋列数の揃ったデータ行」
-    /// という構造は共通なので、全22ファイル（項目58で14ファイル・そのフォローアップで
-    /// trait.csv・equipment.csvの2ファイル・項目63でquest_type_weights.csv・
-    /// quest_scoring.csvの2ファイル・項目64でpair_synergy.csv・項目65で
-    /// quest_events.csv・環境ギミック/パーティ携行アイテム刷新仕様でgimmick.csv・
-    /// consumables.csvの2ファイルを追加）に対してGetTableで汎用的に検証できる
+    /// という構造は共通なので、下記の各ファイルに対してGetTableで汎用的に検証できる
+    /// （旧通常クエスト専用のCSV群は、旧クエストの撤去（2026年9月）に伴い削除済み）
     /// （実際の意味付け・型変換は各Balanceクラス側のテスト・既存の回帰テストで
     /// 別途カバーされている）。
     ///
@@ -32,21 +29,13 @@ namespace GuildManager.Core.Tests
         [InlineData("compatibility_advisor.csv")]
         [InlineData("consumables.csv")]
         [InlineData("economy.csv")]
-        [InlineData("emergency.csv")]
         [InlineData("gimmick.csv")]
         [InlineData("progression.csv")]
-        [InlineData("success_rate.csv")]
         [InlineData("equipment.csv")]
         [InlineData("facility.csv")]
         [InlineData("growth_job_weights.csv")]
-        [InlineData("pair_synergy.csv")]
         [InlineData("guild_rank.csv")]
         [InlineData("guild_rank_params.csv")]
-        [InlineData("quest.csv")]
-        [InlineData("quest_events.csv")]
-        [InlineData("quest_scoring.csv")]
-        [InlineData("quest_templates.csv")]
-        [InlineData("quest_type_weights.csv")]
         [InlineData("recruitment.csv")]
         [InlineData("satisfaction.csv")]
         [InlineData("security.csv")]

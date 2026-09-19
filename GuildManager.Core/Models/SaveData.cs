@@ -12,8 +12,8 @@ namespace GuildManager.Core.Models
     ///   System.Text.Jsonで直接シリアライズできない（→ CompatibilityPairs）。
     /// - TrainingAssignmentsも同様にGuidキーの辞書のため、一覧形式に変換する
     ///   （→ TrainingAssignments、こちらも一覧に変換）。
-    /// - Party（ActiveDispatch内）はprivateな内部リストしか持たず、外部からの
-    ///   直接構築ができないため、メンバーIdの一覧に変換する（→ DispatchedQuests）。
+    /// - Party（ActiveDungeonMission内）はprivateな内部リストしか持たず、外部からの
+    ///   直接構築ができないため、メンバーIdの一覧に変換する（→ DungeonMissions）。
     /// - 教官（施設ごと）・参謀（作戦資料室）・スカウト（冒険者支援室）の3種類の
     ///   顧問割り当てto、v1.4改訂でスカウト・参謀も「1つの施設に紐づくポスト」と
     ///   同じ扱いになったため、施設種別名→冒険者Idの単一辞書に統合する
@@ -68,20 +68,15 @@ namespace GuildManager.Core.Models
 
         /// <summary>
         /// 同時出撃枠（→ GameState.UnlockedSquadSlots）。これを保存しないと、
-        /// 昇格試験を突破して2枠に拡張した状態がロードのたびに1枠へ戻ってしまう。
+        /// 節目ボス撃破で拡張した状態がロードのたびに1枠へ戻ってしまう。
         /// 本フィールドを持たない旧セーブ（値0）は、FromSaveData側で初期値へ
         /// フォールバックする。
         /// </summary>
         public int UnlockedSquadSlots { get; set; }
 
-        /// <summary>累計出撃回数（→ GameState.TotalDispatchCount）。昇格試験の提示条件に使う。</summary>
+        /// <summary>累計出撃回数（→ GameState.TotalDispatchCount）。</summary>
         public int TotalDispatchCount { get; set; }
 
-        /// <summary>昇格試験クエストを提示済みか（→ GameState.PromotionExamOffered）。</summary>
-        public bool PromotionExamOffered { get; set; }
-
-        /// <summary>昇格試験を突破済みか（→ GameState.PromotionExamPassed）。</summary>
-        public bool PromotionExamPassed { get; set; }
 
         // ---- 冒険者関連 ----
 
@@ -116,11 +111,11 @@ namespace GuildManager.Core.Models
         ///
         /// 事前調査メモ（項目53）：v1.8（セーブ/ロード）作成時点ではパーティー永続化が
         /// 存在せず、指示書の指摘どおりSaveDataへの反映が漏れていた。今回追加する。
-        /// なお、進行中の複数週クエスト派遣（DispatchedQuestRecord）は、派遣時点で
+        /// なお、大迷宮へ出撃中の部隊（DungeonMissionRecord）は、出撃時点で
         /// 出撃可能だった実際のメンバーIdのスナップショットを保持する設計であり、
         /// SavedParty.Idへの参照は持たない（一時的な入れ替えにより、派遣メンバーが
         /// 編成保存内容と一致しない場合があるため）。そのため、SavedPartiesの編集・
-        /// 削除は進行中の派遣に一切影響しない（→ GameState.ToSaveData/FromSaveDataの
+        /// 削除は出撃中の部隊に一切影響しない（→ GameState.ToSaveData/FromSaveDataの
         /// 変換は独立している）。
         /// </summary>
         public List<SavedParty> SavedParties { get; set; } = new();
@@ -145,9 +140,6 @@ namespace GuildManager.Core.Models
         /// </summary>
         public Dictionary<string, Guid?> AdvisorAssignments { get; set; } = new();
 
-        // ---- クエスト ----
-        public List<Quest> AvailableQuests { get; set; } = new();
-        public List<DispatchedQuestRecord> DispatchedQuests { get; set; } = new();
 
         // ---- 大迷宮（ダンジョン攻略システム） ----
 
@@ -162,6 +154,9 @@ namespace GuildManager.Core.Models
         /// <summary>
         /// 大迷宮へ出撃中の部隊（→ GameState.ActiveDungeonMissions）。出撃操作から週次決算までの
         /// 間に手動セーブを挟んでも、出撃予定と待機中メンバーの状態が食い違わないよう保存する。
+        /// 旧通常クエストの受注可能一覧（AvailableQuests）・派遣中クエスト（DispatchedQuests）・昇格試験フラグは
+        /// 旧クエストの撤去（2026年9月）で削除した。これらを含む旧セーブも、System.Text.Jsonが未知の
+        /// プロパティを無視するためそのまま読み込める（派遣中だった隊員は次の週次決算で待機中へ戻る）。
         /// </summary>
         public List<DungeonMissionRecord> DungeonMissions { get; set; } = new();
 
@@ -226,32 +221,4 @@ namespace GuildManager.Core.Models
         public string Facility { get; set; } = "";
     }
 
-    /// <summary>
-    /// 派遣中（複数週クエスト）1件分。指示書のサンプルは`QuestId`のみを保持する
-    /// 設計だったが、派遣されたクエストは`QuestDispatchSystem.Dispatch`の時点で
-    /// `GameState.AvailableQuests`から取り除かれる（→ QuestDispatchSystem.cs）ため、
-    /// IDだけを保存してもロード後に参照先が存在せず、名前・難易度・報酬額等を
-    /// 復元できない。そのため、クエスト本体をこの中に直接保持する設計に変更した。
-    /// </summary>
-    public class DispatchedQuestRecord
-    {
-        public Quest Quest { get; set; } = new();
-        public List<Guid> PartyMemberIds { get; set; } = new();
-        public int WeeksRemaining { get; set; }
-
-        /// <summary>
-        /// 派遣中パーティが携行している消耗品Id一覧（→ Party.ConsumableItemIds）。
-        /// 使い切りアイテムはクエスト解決時（QuestResolver.Resolve）まで消費されず
-        /// Party上に残り続けるため、複数週クエストの派遣中に週次オートセーブを挟むと
-        /// この一覧を保存しない限りロード時に失われる（事前調査で発覚した保存漏れ）。
-        /// </summary>
-        public List<string> ConsumableItemIds { get; set; } = new();
-
-        /// <summary>
-        /// この派遣で緊急回復（→ EmergencySupportSystem）を使用済みか
-        /// （→ ActiveDispatch.EmergencyHealUsed）。保存しないと、複数週クエストの
-        /// 派遣中にセーブ・ロードを挟むだけで「1出撃1回まで」の制限を回避できてしまう。
-        /// </summary>
-        public bool EmergencyHealUsed { get; set; }
-    }
 }

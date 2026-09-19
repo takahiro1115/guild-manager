@@ -69,6 +69,12 @@ namespace GuildManager.Core.Systems
         public Dictionary<string, int> DepositedMaterials { get; set; } = new();
 
         /// <summary>
+        /// この解決で起きた出撃成長（→ GrowthSystem.ApplyExpeditionGrowth。道中進軍・ボス撃破・
+        /// 迷宮調査・採取）。成長が無ければ空。週報の表示用。
+        /// </summary>
+        public List<GrowthEvent> GrowthEvents { get; set; } = new();
+
+        /// <summary>
         /// 調査結果用。扉前の偵察（潜行中＝Scouting）と迷宮調査（Survey）の両方で使うため、
         /// 種別を missionType で受け取る（省略時は Scouting）。
         /// </summary>

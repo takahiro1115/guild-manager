@@ -21,9 +21,6 @@ namespace GuildManager.Core.Systems
         /// <summary>自動スキップの停止判定に使うフラグ一式。</summary>
         public WeekResult Flags { get; } = new();
 
-        /// <summary>満了した複数週クエストの解決結果一覧（→ QuestDispatchSystem.ProcessWeeklyDispatches）。</summary>
-        public List<DispatchResolution> DispatchResolutions { get; } = new();
-
         /// <summary>
         /// 大迷宮への出撃（調査任務・ボス討伐）の解決結果一覧（→ DungeonExpeditionSystem.ProcessWeeklyMissions）。
         /// </summary>
@@ -41,15 +38,6 @@ namespace GuildManager.Core.Systems
         /// <summary>契約交渉の猶予切れで契約解除された冒険者一覧（→ SatisfactionSystem.ProcessWeeklyNegotiation）。</summary>
         public List<Adventurer> NegotiationTerminated { get; } = new();
 
-        /// <summary>期限切れ（放置）になった討伐クエストと、それに伴う脅威度上昇量の一覧。</summary>
-        public List<(Quest Quest, int ThreatDelta)> AbandonedQuestThreatDeltas { get; } = new();
-
-        /// <summary>クエスト解決に伴う脅威度の増減一覧（討伐クエストのみ、0の場合も含む）。</summary>
-        public List<(Quest Quest, int ThreatDelta)> ResolvedQuestThreatDeltas { get; } = new();
-
-        /// <summary>来週の決算で期限切れになる討伐クエスト一覧（→ 自動スキップ停止条件8）。</summary>
-        public List<Quest> QuestsExpiringNextWeek { get; } = new();
-
         /// <summary>月次助成金として実際に受け取った額（4週に1回のみ値が入る）。</summary>
         public int? SubsidyAmount { get; set; }
 
@@ -61,16 +49,5 @@ namespace GuildManager.Core.Systems
 
         /// <summary>今週新たに確定した敗北理由（無ければnull）。</summary>
         public DefeatReason? NewDefeatReason { get; set; }
-
-        /// <summary>
-        /// 今週提示されたランク昇格試験クエスト（→ GuildProgressionSystem.TryOfferPromotionExam、
-        /// コアシステム刷新仕様 Phase 2）。提示が無ければnull。
-        /// </summary>
-        public Quest? OfferedPromotionExam { get; set; }
-
-        /// <summary>
-        /// 今週の昇格試験突破によって発生した変化（→ Phase 4）。突破していなければnull。
-        /// </summary>
-        public PromotionExamResult? PromotionExamResult { get; set; }
     }
 }

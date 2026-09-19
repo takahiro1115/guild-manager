@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using GuildManager.Core.Balance;
+using GuildManager.Core.Data;
 using GuildManager.Core.Models;
 using GuildManager.Core.Rng;
 using GuildManager.Core.Systems;
@@ -12,10 +13,9 @@ namespace GuildManager.Core.Tests
     /// 序盤の通しシナリオテスト。
     ///
     /// 個々のシステム単体ではなく、実運用と同じ WeekProcessingSystem 経由で検証する。
-    /// 旧仕様の「採取で資金を貯める → 昇格試験が提示される → 決戦に勝つ → 第2部隊枠が開く」
-    /// という受託クエスト経由の昇格試験フローは、2026年9月の大迷宮一本化改訂で無効化した。
-    /// ランク昇格・出撃枠拡張は大迷宮のボス撃破（→ DungeonExpeditionSystem。
-    /// GuildManager.Core.Tests側の該当テストを参照）のみが唯一のトリガーになった。
+    /// 旧通常クエスト（掲示板・受託依頼）の撤去（2026年9月）以降、出撃先は大迷宮のみ。
+    /// 旧仕様の「採取クエストで資金を貯める → 昇格試験 → 第2部隊枠」のフローは撤去済みで、
+    /// ランク昇格・出撃枠拡張は大迷宮の節目ボス撃破（→ DungeonExpeditionSystem）のみが唯一のトリガー。
     /// 実行方法: このフォルダで `dotnet test`
     /// </summary>
     public class EarlyGameScenarioTests
@@ -25,30 +25,24 @@ namespace GuildManager.Core.Tests
             public int NextInt(int min, int max) => min;
         }
 
-        private class FixedRng : IRng
-        {
-            private readonly int _value;
-            public FixedRng(int value) => _value = value;
-            public int NextInt(int min, int max) => Math.Clamp(_value, min, max);
-        }
-
         /// <summary>実運用（MainDashboard）と同じ構成で週次決算を組み立てる。</summary>
-        private static (WeekProcessingSystem Week, QuestDispatchSystem Dispatch) BuildSystems()
+        private static (WeekProcessingSystem Week, DungeonExpeditionSystem Expedition) BuildSystems()
         {
             var growth = new GrowthSystem(new AlwaysMinRng());
             var economy = new EconomySystem();
             var satisfaction = new SatisfactionSystem();
             var compatibility = new CompatibilitySystem(new AlwaysMinRng());
-            // 索敵・HP消費ともに中庸な値を返すRNG（極端な奇襲・不意打ちを避ける）。
-            var questResolver = new QuestResolver(new FixedRng(50));
-            var dispatch = new QuestDispatchSystem(questResolver, growth, economy, satisfaction, compatibility);
             var recruitment = new RecruitmentSystem(new AlwaysMinRng());
+            var expedition = new DungeonExpeditionSystem(
+                new ScoutingResolver(new AlwaysMinRng()),
+                new DungeonResolver(new AlwaysMinRng()),
+                satisfaction,
+                compatibility,
+                new DungeonTraversalResolver(new AlwaysMinRng()),
+                new GatheringResolver(new AlwaysMinRng()));
 
             var week = new WeekProcessingSystem(
-                questDispatchSystem: dispatch,
                 guildRankSystem: new GuildRankSystem(),
-                securitySystem: new SecuritySystem(new AlwaysMinRng()),
-                questBoardSystem: new QuestBoardSystem(new AlwaysMinRng()),
                 economySystem: economy,
                 subsidySystem: new SubsidySystem(),
                 trainingSystem: new TrainingSystem(),
@@ -60,17 +54,16 @@ namespace GuildManager.Core.Tests
                 facilitySystem: new FacilitySystem(),
                 defeatSystem: new DefeatSystem(),
                 recruitmentSystem: recruitment,
-                guildProgressionSystem: new GuildProgressionSystem(recruitment));
+                dungeonExpeditionSystem: expedition);
 
-            return (week, dispatch);
+            return (week, expedition);
         }
 
-        /// <summary>ボス（難易度28）にも勝てる程度に鍛えられた冒険者。週給は0にして資金変動を単純化する。</summary>
-        private static Adventurer MakeVeteran()
+        private static Adventurer MakeAdventurer(int stat)
         {
             var a = new Adventurer
             {
-                STR = 60, AGI = 60, VIT = 60, MND = 60, DEX = 60, LDR = 60, INT = 60,
+                STR = stat, AGI = stat, VIT = stat, MND = stat, DEX = stat, LDR = stat, INT = stat,
                 WeeklyWage = 0,
                 Placement = Placement.Front,
             };
@@ -85,95 +78,56 @@ namespace GuildManager.Core.Tests
             return party;
         }
 
-        private static Quest MakeGatheringQuest() => new Quest
-        {
-            Name = "薬草採取",
-            QuestType = QuestType.Gathering,
-            Rank = QuestRank.E,
-            Difficulty = 8,
-            ScoutRequirement = 8,
-            RewardGold = 60,
-            DeadlineWeeks = 5,
-            RecommendedMembers = 1,
-        };
-
         [Fact]
-        public void EarlyGame_PromotionExamIsNeverOffered_EvenAfterMeetingOldConditions()
+        public void EarlyGame_SingleSquadSlot_BlocksSecondDispatch_UntilTheFirstReturns()
         {
-            var (week, dispatch) = BuildSystems();
-
-            var a = MakeVeteran();
-            var b = MakeVeteran();
-            var state = new GameState { Gold = 0 };
-            foreach (var member in new[] { a, b })
-                state.Adventurers.Add(member);
+            var (week, expedition) = BuildSystems();
+            var a = MakeAdventurer(60);
+            var b = MakeAdventurer(60);
+            var state = new GameState { Gold = 0, Adventurers = { a, b }, DungeonFields = SampleData.CreateDefaultFields() };
+            var forest = state.DungeonFields.First(f => f.IsUnlocked);
 
             // ---- 同時出撃枠は1。1枠の中で1〜4名を自由に割り振れる ----
             Assert.Equal(1, state.UnlockedSquadSlots);
-            Assert.True(QuestDispatchSystem.CanDispatch(state));
+            Assert.True(DungeonExpeditionSystem.CanDispatch(state));
+            Assert.True(expedition.TryDispatchGathering(state, PartyOf(a), forest));
+            Assert.False(expedition.TryDispatchGathering(state, PartyOf(b), forest),
+                "同時出撃枠が1の間は2部隊目を出撃させられないはず");
 
-            // 1枠しかないので、2件目の派遣は枠が空くまで受け付けられない。
-            var firstQuest = MakeGatheringQuest();
-            state.AvailableQuests.Add(firstQuest);
-            Assert.True(dispatch.TryDispatch(state, PartyOf(a), firstQuest));
-            Assert.False(dispatch.TryDispatch(state, PartyOf(b), MakeGatheringQuest()),
-                "同時出撃枠が1の間は2部隊目を派遣できないはず");
+            week.ProcessWeek(state);
 
-            var firstWeek = week.ProcessWeek(state);
-            Assert.Null(firstWeek.OfferedPromotionExam); // 大迷宮一本化改訂で無効化済み
-
-            Assert.Empty(state.ActiveDispatches); // 採取は1週で解決し、枠が空く
+            // 採取は1週で帰還し、枠が空く。累計出撃回数・素材・功績が記録される。
+            Assert.Empty(state.ActiveDungeonMissions);
             Assert.Equal(1, state.TotalDispatchCount);
-
-            // ---- 採取を繰り返し、旧・昇格試験の提示条件（出撃回数・資金）を満たす状態まで進める ----
-            while (state.TotalDispatchCount < ProgressionBalance.PromotionExamMinDispatchCount
-                   || state.Gold < ProgressionBalance.PromotionExamMinGold)
-            {
-                var quest = MakeGatheringQuest();
-                state.AvailableQuests.Add(quest);
-                Assert.True(dispatch.TryDispatch(state, PartyOf(a, b), quest));
-
-                var settlement = week.ProcessWeek(state);
-                Assert.Null(settlement.OfferedPromotionExam); // 条件を満たした週でも二度と提示されない
-            }
-
-            Assert.True(state.TotalDispatchCount >= ProgressionBalance.PromotionExamMinDispatchCount);
-            Assert.True(state.Gold >= ProgressionBalance.PromotionExamMinGold);
-
-            // ---- 旧・昇格試験の条件を満たした後も、受注可能一覧にボスクエストは一切現れない ----
-            Assert.DoesNotContain(state.AvailableQuests, q => q.IsBoss);
-            Assert.False(state.PromotionExamOffered);
-            Assert.Equal(1, state.UnlockedSquadSlots); // 枠拡張は大迷宮ボス撃破のみが唯一のトリガー
-            Assert.Equal(GuildRank.G, state.GuildRank); // 名声も昇格試験報奨も無いため初期ランクのまま
+            Assert.NotEmpty(state.Materials);
+            Assert.Equal(DungeonBalance.ContributionPerGathering, a.TotalContributionScore);
+            Assert.True(expedition.TryDispatchGathering(state, PartyOf(a, b), forest));
+            Assert.Equal(1, state.UnlockedSquadSlots); // 枠拡張は大迷宮の節目ボス撃破のみが唯一のトリガー
         }
 
         [Fact]
-        public void EarlyGame_NoAdventurerIsLostToLowDangerQuests()
+        public void EarlyGame_NoAdventurerIsLostToLowDangerMissions()
         {
-            // 序盤の「即詰み防止」：低危険度任務だけを回している限り、
-            // どれだけ失敗してもロースターから人が消えることはない。
-            var (week, dispatch) = BuildSystems();
+            // 序盤の「即詰み防止」：採取・潜行（道中進軍）・扉前の偵察だけを回している限り、
+            // どれだけ弱い部隊でもロースターから人が消えることはない（HP下限1）。
+            var (week, expedition) = BuildSystems();
+            // 満足度・週給は十分にしておき、契約交渉による退団（→ SatisfactionSystem）がこのテストに
+            // 割り込まないようにする（ここで確かめたいのは任務による喪失の有無だけ）。
+            var rookie = MakeAdventurer(5);
+            rookie.Satisfaction = 100;
+            rookie.WeeklyWage = 1_000;
+            var state = new GameState { Gold = 100_000, Adventurers = { rookie }, DungeonFields = SampleData.CreateDefaultFields() };
+            var forest = state.DungeonFields.First(f => f.IsUnlocked);
 
-            var rookie = new Adventurer { STR = 5, AGI = 5, VIT = 5, MND = 5, DEX = 5, LDR = 5, INT = 5, WeeklyWage = 0 };
-            rookie.CurrentHP = rookie.MaxHP;
-            var state = new GameState { Gold = 500, Adventurers = { rookie } };
-
-            for (int i = 0; i < 6; i++)
+            for (int i = 0; i < 12; i++)
             {
-                // 明らかに実力不足な難易度の採取に繰り返し失敗させる。
-                var hopeless = new Quest
+                if (DungeonExpeditionSystem.CanDispatch(state) && rookie.IsAvailable)
                 {
-                    Name = "危険地帯の採取",
-                    QuestType = QuestType.Gathering,
-                    Difficulty = 90,
-                    ScoutRequirement = 50,
-                    RewardGold = 10,
-                    DeadlineWeeks = 5,
-                };
-                state.AvailableQuests.Add(hopeless);
-
-                if (QuestDispatchSystem.CanDispatch(state))
-                    dispatch.TryDispatch(state, PartyOf(rookie), hopeless);
+                    if (i % 2 == 0)
+                        expedition.TryDispatchGathering(state, PartyOf(rookie), forest);
+                    else
+                        expedition.TryDispatch(state, PartyOf(rookie), forest.GetNextActiveBoss()!, DungeonMissionType.Scouting);
+                }
 
                 week.ProcessWeek(state);
             }

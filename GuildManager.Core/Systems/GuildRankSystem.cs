@@ -13,25 +13,14 @@ namespace GuildManager.Core.Systems
     /// - 現在のランクに見合ったクエスト（同ランク帯以上）を一定週数達成できていないと、
     ///   毎週わずかに名声が自然減衰する（§5.1の「4週連続遠征なしで満足度-5」と同じ発想）。
     ///
-    /// 使い方：クエストが解決するたびに ApplyQuestResult を呼んで名声を加減算し、
-    /// 週次決算で1回だけ ProcessWeeklySettlement を呼んで自然減衰・昇格降格判定を行う
+    /// 使い方：週次決算で1回だけ ProcessWeeklySettlement を呼んで自然減衰・昇格降格判定を行う
     /// （SatisfactionSystem.ProcessWeeklySatisfactionと同じ「呼び出し側が今週の実績を
-    /// boolで渡す」パターン）。
+    /// boolで渡す」パターン）。名声の加算は大迷宮の階層ボス撃破報酬（→ DungeonExpeditionSystem.
+    /// ApplyFieldProgression）が直接行う。旧通常クエストの達成／失敗による名声の加減算
+    /// （ApplyQuestResult）は、旧クエストの撤去（2026年9月）に伴い削除した。
     /// </summary>
     public class GuildRankSystem
     {
-        /// <summary>
-        /// クエスト解決結果を名声に反映する（達成で加算、失敗で減算）。0未満にはならない。
-        /// ランク自体の昇格・降格判定はここでは行わない（週次決算でまとめて行う → ProcessWeeklySettlement）。
-        /// </summary>
-        public void ApplyQuestResult(GameState state, bool questAchieved)
-        {
-            int delta = questAchieved
-                ? GuildRankBalance.ReputationGainOnAchievement
-                : -GuildRankBalance.ReputationLossOnFailure;
-            state.Reputation = Math.Max(0, state.Reputation + delta);
-        }
-
         /// <summary>
         /// 週次決算処理。週に1回だけ呼ぶこと。
         /// 名声自然減衰の判定・適用と、昇格/降格判定（ヒステリシス）を行う。

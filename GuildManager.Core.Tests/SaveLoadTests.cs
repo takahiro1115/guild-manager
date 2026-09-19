@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using GuildManager.Core.Data;
 using GuildManager.Core.Models;
 using GuildManager.Core.Systems;
 using Xunit;
@@ -248,103 +249,42 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
-        public void RoundTrip_PreservesAvailableQuests()
-        {
-            var state = new GameState
-            {
-                AvailableQuests = { new Quest { Name = "ゴブリン討伐", Difficulty = 20, RewardGold = 100 } },
-            };
-
-            var restored = GameState.FromSaveData(state.ToSaveData());
-
-            Assert.Single(restored.AvailableQuests);
-            Assert.Equal("ゴブリン討伐", restored.AvailableQuests[0].Name);
-            Assert.Equal(20, restored.AvailableQuests[0].Difficulty);
-            Assert.Equal(100, restored.AvailableQuests[0].RewardGold);
-        }
-
-        [Fact]
-        public void RoundTrip_PreservesDispatchedQuest_IncludingFullQuestData()
-        {
-            // 派遣されたクエストはDispatch時にAvailableQuestsから除去されるため、
-            // DispatchedQuestRecordがクエスト本体（Id以外の全データ）を保持している
-            // ことを確認する（指示書のQuestIdのみの設計だと復元できないため変更した点）。
-            var member = new Adventurer { Name = "メンバー" };
-            var quest = new Quest { Name = "大規模討伐", Difficulty = 80, RewardGold = 500, Scale = QuestScale.Large };
-            var state = new GameState { Adventurers = { member } };
-            var party = new Party();
-            party.TryAdd(member);
-            state.ActiveDispatches.Add(new ActiveDispatch { Party = party, Quest = quest, WeeksRemaining = 2 });
-
-            var restored = GameState.FromSaveData(state.ToSaveData());
-
-            var dispatch = Assert.Single(restored.ActiveDispatches);
-            Assert.Equal("大規模討伐", dispatch.Quest.Name);
-            Assert.Equal(80, dispatch.Quest.Difficulty);
-            Assert.Equal(500, dispatch.Quest.RewardGold);
-            Assert.Equal(2, dispatch.WeeksRemaining);
-            Assert.Single(dispatch.Party.Members);
-            Assert.Equal("メンバー", dispatch.Party.Members[0].Name);
-        }
-
-        /// <summary>
-        /// 派遣中パーティが携行する消耗品（→ Party.ConsumableItemIds）の往復を確認する。
-        /// 使い切りアイテムはクエスト解決時（QuestResolver.Resolve、満了週）まで
-        /// Party上に残り続けるため、複数週クエストの派遣中に週次オートセーブを挟むと
-        /// 保存しない限りロード時に失われる（事前調査で発覚した保存漏れの回帰テスト）。
-        /// </summary>
-        [Fact]
-        public void RoundTrip_PreservesActiveDispatchConsumableItems()
-        {
-            var member = new Adventurer { Name = "メンバー" };
-            var quest = new Quest { Name = "長期遠征", Difficulty = 60, Scale = QuestScale.Large };
-            var state = new GameState { Adventurers = { member } };
-            var party = new Party();
-            party.TryAdd(member);
-            party.TryAddConsumable(ConsumableCatalog.AntidoteId);
-            party.TryAddConsumable(ConsumableCatalog.SmokeBombId);
-            state.ActiveDispatches.Add(new ActiveDispatch { Party = party, Quest = quest, WeeksRemaining = 3 });
-
-            var restored = GameState.FromSaveData(state.ToSaveData());
-
-            var dispatch = Assert.Single(restored.ActiveDispatches);
-            Assert.Equal(2, dispatch.Party.ConsumableItemIds.Count);
-            Assert.Contains(ConsumableCatalog.AntidoteId, dispatch.Party.ConsumableItemIds);
-            Assert.Contains(ConsumableCatalog.SmokeBombId, dispatch.Party.ConsumableItemIds);
-        }
-
-        [Fact]
-        public void RoundTrip_ActiveDispatchConsumableItems_EmptyWhenPartyCarriesNone()
-        {
-            // 空のポーチ（→ ConsumableItemIdsが空リスト）も、null等にならず往復することを確認する。
-            var member = new Adventurer { Name = "メンバー" };
-            var quest = new Quest { Name = "長期遠征", Difficulty = 60, Scale = QuestScale.Large };
-            var state = new GameState { Adventurers = { member } };
-            var party = new Party();
-            party.TryAdd(member);
-            state.ActiveDispatches.Add(new ActiveDispatch { Party = party, Quest = quest, WeeksRemaining = 3 });
-
-            var restored = GameState.FromSaveData(state.ToSaveData());
-
-            Assert.Empty(Assert.Single(restored.ActiveDispatches).Party.ConsumableItemIds);
-        }
-
-        [Fact]
         public void RoundTrip_DispatchedPartyMember_IsSameInstance_AsInActiveAdventurers()
         {
-            // 派遣中パーティのメンバーと現役ロースターの同一人物が、復元後も
+            // 大迷宮へ出撃中の部隊のメンバーと現役ロースターの同一人物が、復元後も
             // 同じインスタンス（参照）になっていることを確認する（状態の二重管理を防ぐため）。
             var member = new Adventurer { Name = "メンバー" };
-            var state = new GameState { Adventurers = { member } };
+            var state = new GameState { Adventurers = { member }, DungeonFields = SampleData.CreateDefaultFields() };
             var party = new Party();
             party.TryAdd(member);
-            state.ActiveDispatches.Add(new ActiveDispatch { Party = party, Quest = new Quest(), WeeksRemaining = 1 });
+            state.ActiveDungeonMissions.Add(new ActiveDungeonMission
+            {
+                Party = party, Field = state.DungeonFields[0], MissionType = DungeonMissionType.Gathering,
+            });
 
             var restored = GameState.FromSaveData(state.ToSaveData());
 
             var rosterMember = restored.Adventurers.Single();
-            var partyMember = restored.ActiveDispatches.Single().Party.Members.Single();
+            var partyMember = restored.ActiveDungeonMissions.Single().Party.Members.Single();
             Assert.Same(rosterMember, partyMember);
+        }
+
+        [Fact]
+        public void LegacySave_WithRemovedQuestFields_StillLoads()
+        {
+            // 旧通常クエストの撤去（2026年9月）以前のセーブには、受注可能クエスト・派遣中クエスト・
+            // 昇格試験フラグが残っている。未知の項目として無視され、残りはそのまま読み込めること。
+            var data = new GameState { Gold = 777 }.ToSaveData();
+            var json = JsonSerializer.Serialize(data);
+            json = json.TrimEnd('}') +
+                ",\"AvailableQuests\":[{\"Name\":\"ゴブリン討伐\",\"Difficulty\":10}]" +
+                ",\"DispatchedQuests\":[{\"Quest\":{\"Name\":\"遠征\"},\"PartyMemberIds\":[],\"WeeksRemaining\":2}]" +
+                ",\"PromotionExamOffered\":true,\"PromotionExamPassed\":false}";
+
+            var restored = GameState.FromSaveData(JsonSerializer.Deserialize<SaveData>(json)!);
+
+            Assert.Equal(777, restored.Gold);
+            Assert.Empty(restored.ActiveDungeonMissions);
         }
 
         // ---------------- 永続パーティー編成（→ 03 §4.0.2、v1.9改訂：項目53「v1.8作成時の漏れ」対応） ----------------
@@ -397,29 +337,32 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
-        public void RoundTrip_DispatchedQuest_IsIndependent_OfSavedParties()
+        public void RoundTrip_DungeonMission_IsIndependent_OfSavedParties()
         {
-            // 派遣中のパーティー（DispatchedQuestRecord）は出撃時点のメンバーIdの
-            // スナップショットであり、SavedParty.Idへの参照は持たない。そのため、
-            // SavedPartyを削除・編集しても進行中の派遣には一切影響しないことを確認する。
+            // 出撃中の部隊（DungeonMissionRecord）は出撃時点のメンバーIdのスナップショットであり、
+            // SavedParty.Idへの参照は持たない。そのため、SavedPartyを削除・編集しても
+            // 出撃中の部隊には一切影響しないことを確認する。
             var a = new Adventurer { Name = "遠征中メンバー" };
-            var state = new GameState { Adventurers = { a } };
+            var state = new GameState { Adventurers = { a }, DungeonFields = SampleData.CreateDefaultFields() };
             var system = new PartyFormationSystem();
             var savedParty = system.CreateParty(state, "元の編成");
             system.TryAssignMember(state, savedParty, a.Id);
 
             var dispatchParty = new Party();
             dispatchParty.TryAdd(a);
-            state.ActiveDispatches.Add(new ActiveDispatch { Party = dispatchParty, Quest = new Quest { Name = "遠征" }, WeeksRemaining = 3 });
+            state.ActiveDungeonMissions.Add(new ActiveDungeonMission
+            {
+                Party = dispatchParty, Field = state.DungeonFields[0], MissionType = DungeonMissionType.Gathering,
+            });
 
-            // 派遣後にSavedPartyを削除（実運用では有り得るが、影響してはいけない）
+            // 出撃後にSavedPartyを削除（実運用では有り得るが、影響してはいけない）
             system.DeleteParty(state, savedParty);
 
             var restored = GameState.FromSaveData(state.ToSaveData());
 
             Assert.Empty(restored.SavedParties); // SavedPartyは消えている
-            var dispatch = Assert.Single(restored.ActiveDispatches); // が、派遣中クエストは無事に残る
-            Assert.Equal("遠征中メンバー", dispatch.Party.Members.Single().Name);
+            var mission = Assert.Single(restored.ActiveDungeonMissions); // が、出撃中の部隊は無事に残る
+            Assert.Equal("遠征中メンバー", mission.Party.Members.Single().Name);
         }
 
         [Fact]
@@ -442,14 +385,14 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
-        public void FromSaveData_Throws_WhenDispatchedPartyMemberIdIsMissing()
+        public void FromSaveData_Throws_WhenDungeonMissionMemberIdIsMissing()
         {
-            var data = new GameState().ToSaveData();
-            data.DispatchedQuests.Add(new DispatchedQuestRecord
+            var data = new GameState { DungeonFields = SampleData.CreateDefaultFields() }.ToSaveData();
+            data.DungeonMissions.Add(new DungeonMissionRecord
             {
-                Quest = new Quest(),
+                FieldId = data.DungeonFields[0].Id,
+                MissionType = DungeonMissionType.Gathering.ToString(),
                 PartyMemberIds = { Guid.NewGuid() }, // どのリストにも存在しないId
-                WeeksRemaining = 1,
             });
 
             Assert.Throws<FormatException>(() => GameState.FromSaveData(data));

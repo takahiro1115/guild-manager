@@ -21,14 +21,12 @@ namespace GuildManager.Core.Systems
         public bool RecruitmentTrialOccurred { get; set; }
         public bool SatisfactionWarningOccurred { get; set; }
         public bool FacilityConstructionCompleted { get; set; }
-        public bool MultiWeekQuestReturned { get; set; }
         public bool DeathOrPermanentInjuryOccurred { get; set; }
 
         /// <summary>脅威度が75%または100%の閾値を、今週新たに跨いだかどうか。</summary>
         public bool ThreatThresholdNewlyCrossed { get; set; }
 
         public bool FinalQuestNewlyUnlocked { get; set; }
-        public bool SubjugationQuestExpiringNextWeek { get; set; }
 
         /// <summary>
         /// 敗北（破産・治安崩壊）が今週新たに確定したか。指示書の8停止条件には
@@ -38,13 +36,6 @@ namespace GuildManager.Core.Systems
         public bool DefeatOccurred { get; set; }
 
         /// <summary>
-        /// ギルド進行（→ コアシステム刷新仕様「4. 進行管理」）の節目が今週発生したか。
-        /// ランク昇格試験の提示（Phase 2）と、その突破による第2部隊枠の開放（Phase 4）が対象。
-        /// どちらもプレイヤーの意思決定を要求する重要イベントのため、自動スキップを止める。
-        /// </summary>
-        public bool GuildProgressionEventOccurred { get; set; }
-
-        /// <summary>
         /// 大迷宮へ潜行中の部隊が、今週未撃破ボスの扉前に到達したか（→ ExpeditionStatus.AwaitingBossDecision、
         /// 2026年9月新設）。「挑む／撤退」の判断をプレイヤーに委ねるため、自動スキップを止める。
         /// </summary>
@@ -52,9 +43,9 @@ namespace GuildManager.Core.Systems
 
         public bool ShouldStopAutoSkip =>
             RecruitmentTrialOccurred || SatisfactionWarningOccurred ||
-            FacilityConstructionCompleted || MultiWeekQuestReturned ||
+            FacilityConstructionCompleted ||
             DeathOrPermanentInjuryOccurred || ThreatThresholdNewlyCrossed ||
-            FinalQuestNewlyUnlocked || SubjugationQuestExpiringNextWeek ||
-            DefeatOccurred || GuildProgressionEventOccurred || BossDoorReached;
+            FinalQuestNewlyUnlocked ||
+            DefeatOccurred || BossDoorReached;
     }
 }

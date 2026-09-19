@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Linq;
 using GuildManager.Core.Balance;
 using GuildManager.Core.Models;
@@ -9,22 +8,20 @@ namespace GuildManager.Core.Systems
     /// <summary>
     /// 週次決算処理のオーケストレーション。仕様書 03 §1.3（自動スキップ）参照（v1.10改訂で新設）。
     ///
-    /// これまでGodot側（MainDashboard.OnNextWeekPressed）に直接書かれていた「派遣の解決→
-    /// 治安・格付け→受注可能クエストの補充→経済→訓練→回復→成長→満足度→加齢→施設→
-    /// 敗北判定」という一連の週次決算処理を、GuildManager.Core側の1つのメソッドに集約した
+    /// 「大迷宮の出撃の解決→経済→訓練→回復→成長→満足度→加齢→施設→格付け→敗北判定」という
+    /// 一連の週次決算処理を、GuildManager.Core側の1つのメソッドに集約する
     /// （→ 05技術メモ「GuildManager.CoreはGodotに依存しない」方針に沿う）。
     ///
-    /// パーティーの派遣（どのパーティーでどのクエストに出撃するか）は含まない。これは
-    /// プレイヤーの意思決定であり、自動スキップ中は一切行わない（→ 03 §1.3「新しいクエストを
-    /// 自動受注させない」）ため、呼び出し側（UI）が派遣操作を済ませてから本メソッドを呼ぶ想定。
-    /// 既に派遣済みの複数週クエストの解決自体は、本メソッドの中でそのまま行われる。
+    /// 出撃操作（どの部隊をどの任務へ送るか）は含まない。これはプレイヤーの意思決定であり、
+    /// 自動スキップ中は一切行わないため、呼び出し側（UI）が出撃操作を済ませてから本メソッドを呼ぶ想定。
+    /// 既に出撃中の部隊の進行（複数週潜行・扉前待機・決戦）は、本メソッドの中でそのまま行われる。
+    ///
+    /// 旧通常クエスト（掲示板・受託依頼）の解決・治安（脅威度）の増減・昇格試験は、
+    /// 大迷宮への完全一本化（2026年9月）に伴い撤去した（→ 03 §4.0〜§4.4）。
     /// </summary>
     public class WeekProcessingSystem
     {
-        private readonly QuestDispatchSystem _questDispatchSystem;
         private readonly GuildRankSystem _guildRankSystem;
-        private readonly SecuritySystem _securitySystem;
-        private readonly QuestBoardSystem _questBoardSystem;
         private readonly EconomySystem _economySystem;
         private readonly SubsidySystem _subsidySystem;
         private readonly TrainingSystem _trainingSystem;
@@ -36,14 +33,10 @@ namespace GuildManager.Core.Systems
         private readonly FacilitySystem _facilitySystem;
         private readonly DefeatSystem _defeatSystem;
         private readonly RecruitmentSystem _recruitmentSystem;
-        private readonly GuildProgressionSystem _guildProgressionSystem;
         private readonly DungeonExpeditionSystem _dungeonExpeditionSystem;
 
         public WeekProcessingSystem(
-            QuestDispatchSystem questDispatchSystem,
             GuildRankSystem guildRankSystem,
-            SecuritySystem securitySystem,
-            QuestBoardSystem questBoardSystem,
             EconomySystem economySystem,
             SubsidySystem subsidySystem,
             TrainingSystem trainingSystem,
@@ -55,18 +48,11 @@ namespace GuildManager.Core.Systems
             FacilitySystem facilitySystem,
             DefeatSystem defeatSystem,
             RecruitmentSystem recruitmentSystem,
-            // 省略可能：進行管理（→ コアシステム刷新仕様「4. 進行管理」）は、既に注入されている
-            // RecruitmentSystem（昇格時の新人補充に使う）からそのまま組み立てられるため、
-            // 既存の呼び出し側を変更せずに接続できるよう既定値を持たせている。
-            GuildProgressionSystem? guildProgressionSystem = null,
-            // 省略可能：大迷宮への出撃の週次解決（→ DungeonExpeditionSystem）。進行管理と同じく、
-            // 既存の呼び出し側を変更せずに済むよう既定値を持たせている（出撃が無ければ何も起きない）。
+            // 省略可能：大迷宮への出撃の週次解決（→ DungeonExpeditionSystem）。省略時は固定シードの
+            // 既定構成を組み立てる（出撃が無ければ何も起きない）。
             DungeonExpeditionSystem? dungeonExpeditionSystem = null)
         {
-            _questDispatchSystem = questDispatchSystem;
             _guildRankSystem = guildRankSystem;
-            _securitySystem = securitySystem;
-            _questBoardSystem = questBoardSystem;
             _economySystem = economySystem;
             _subsidySystem = subsidySystem;
             _trainingSystem = trainingSystem;
@@ -78,7 +64,6 @@ namespace GuildManager.Core.Systems
             _facilitySystem = facilitySystem;
             _defeatSystem = defeatSystem;
             _recruitmentSystem = recruitmentSystem;
-            _guildProgressionSystem = guildProgressionSystem ?? new GuildProgressionSystem(recruitmentSystem);
             _dungeonExpeditionSystem = dungeonExpeditionSystem ?? new DungeonExpeditionSystem(
                 new ScoutingResolver(new SeededRng(DefaultScoutingSeed)),
                 new DungeonResolver(new SeededRng(DefaultDungeonSeed)),
@@ -92,8 +77,8 @@ namespace GuildManager.Core.Systems
         private const int DefaultCompatibilitySeed = 2526;
 
         /// <summary>
-        /// 1週分の決算処理を実行し、週番号を1つ進める。パーティーの派遣操作（受注クエストを
-        /// 選ぶこと）は本メソッドの対象外＝呼び出し側が本メソッドを呼ぶ前に済ませておく。
+        /// 1週分の決算処理を実行し、週番号を1つ進める。出撃操作は本メソッドの対象外
+        /// ＝呼び出し側が本メソッドを呼ぶ前に済ませておく。
         /// </summary>
         public WeeklySettlementResult ProcessWeek(GameState state)
         {
@@ -104,74 +89,21 @@ namespace GuildManager.Core.Systems
             int threatBefore = state.ThreatLevel;
             bool wasFinalQuestUnlocked = state.FinalQuestUnlocked;
             var neededNegotiationBefore = state.Adventurers.Where(a => a.NeedsNegotiation).Select(a => a.Id).ToHashSet();
-            // 致死判定の「古傷」を新規に負ったかどうかは、判定前の保有状況とのスナップショット
-            // 比較で検出する（QuestResolver.Resolve自体は「今回新たに付与したか」を返さないため）。
-            var hadOldWoundBefore = state.ActiveDispatches
-                .SelectMany(d => d.Party.Members)
-                .Where(m => m.HasTrait(TraitCatalog.OldWoundId))
-                .Select(m => m.Id)
-                .ToHashSet();
 
-            // 派遣中（今週出発した分も含む）の冒険者は、HP自然回復・訓練場成長の対象から外す（→ 03 §4.0.1）。
+            // 出撃中（今週出発した分も含む）の冒険者は、HP自然回復・訓練場成長の対象から外す（→ 03 §4.0.1）。
             var dispatchedIds = state.Adventurers.Where(a => a.IsDispatched).Select(a => a.Id).ToHashSet();
 
-            // 満了した派遣（1週クエストは今週のうちに満了する）を解決する。
-            result.DispatchResolutions.AddRange(_questDispatchSystem.ProcessWeeklyDispatches(state));
-            bool achievedRankAppropriateQuestThisWeek = false;
-            bool anyFallenOrNewOldWound = false;
-            foreach (var resolution in result.DispatchResolutions)
-            {
-                // ギルド格付け（→ 03 §8.1）：名声は解決の都度加減算する。
-                _guildRankSystem.ApplyQuestResult(state, resolution.Result.QuestAchieved);
-                if (resolution.Result.QuestAchieved &&
-                    resolution.Quest.Rank >= GuildRankBalance.ToQuestRankFloor(state.GuildRank))
-                {
-                    achievedRankAppropriateQuestThisWeek = true;
-                }
-
-                // 治安・脅威度（→ 03 §4.4）：対象は討伐クエストのみ（達成で減少・失敗で上昇）。
-                int threatDelta = _securitySystem.ApplyQuestResolution(state, resolution.Quest, resolution.Result.QuestAchieved);
-                result.ResolvedQuestThreatDeltas.Add((resolution.Quest, threatDelta));
-
-                if (resolution.Result.FallenAdventurerIds.Count > 0)
-                    anyFallenOrNewOldWound = true;
-                if (resolution.Party.Members.Any(m => !hadOldWoundBefore.Contains(m.Id) && m.HasTrait(TraitCatalog.OldWoundId)))
-                    anyFallenOrNewOldWound = true;
-
-                // ランク昇格試験による判定は2026年9月、大迷宮への一本化改訂で無効化した。
-                // ランク昇格・出撃枠拡張は DungeonExpeditionSystem.ApplyFieldProgression
-                // （森10F/20Fボス撃破）のみを唯一のトリガーとする（→ 03 §0.4・§4.5.1）。
-                // GuildProgressionSystem.ApplyPromotionIfExamCleared自体は削除していない
-                // （既存セーブの PromotionExamPassed 等のフィールドはそのまま読める。
-                // 実運用では昇格試験クエスト自体がもう生成されないため、この呼び出しを
-                // 復活させても quest.IsBoss が真になることはなく、常にnullを返す）。
-
-                // 複数週クエストの帰還（→ 03 §1.3自動スキップ停止条件4）。1週クエストの
-                // その場解決（＝出発と同じ週に決着）はここでいう「帰還」には含めない。
-                if (resolution.Quest.DurationWeeks > 1)
-                    result.Flags.MultiWeekQuestReturned = true;
-            }
-            // 大迷宮への出撃（道中進軍・扉前待機・ボス討伐・採取）を1週分進める（→ DungeonExpeditionSystem）。
-            // 道中調査は複数週にわたって潜行し、未撃破ボスの扉前に着いたら判断待ちで止まる
-            // （→ 毎回1Fリセット・複数週潜行型）。扉前到達は自動スキップの停止条件。
+            // 大迷宮への出撃（道中進軍・扉前待機・ボス討伐・採取・迷宮調査）を1週分進める
+            // （→ DungeonExpeditionSystem）。潜行は複数週にわたって進み、未撃破ボスの扉前に
+            // 着いたら判断待ちで止まる（→ 毎回1Fリセット・複数週潜行型）。扉前到達は自動スキップの停止条件。
             result.DungeonMissionResolutions.AddRange(_dungeonExpeditionSystem.ProcessWeeklyMissions(state));
             foreach (var resolution in result.DungeonMissionResolutions)
             {
                 if (resolution.DungeonResult != null && resolution.DungeonResult.ForceRetiredAdventurerIds.Count > 0)
-                    anyFallenOrNewOldWound = true;
+                    result.Flags.DeathOrPermanentInjuryOccurred = true;
                 if (resolution.ArrivedAtBossDoor)
                     result.Flags.BossDoorReached = true;
             }
-            result.Flags.DeathOrPermanentInjuryOccurred = anyFallenOrNewOldWound;
-
-            // 受注可能クエスト一覧の週次管理（旧クエスト掲示板、→ 03 §4.0・§4.4）は
-            // 2026年9月、大迷宮への一本化改訂で停止した。新規クエストの補充・自動生成、
-            // 期限（DeadlineWeeks）の減算、期限切れ（放置）の除去、および「期限切れ1週前」の
-            // 警告（→ 03 §1.3自動スキップ停止条件8）はいずれも行わない。
-            // その結果 result.AbandonedQuestThreatDeltas・QuestsExpiringNextWeek は常に空、
-            // Flags.SubjugationQuestExpiringNextWeek は常にfalseのままになる。
-            // QuestBoardSystem自体は削除していない（旧セーブに残る AvailableQuests を
-            // そのまま読めるようにするため。クラス単体のロジックは引き続きテストで検証されている）。
 
             // 出撃の有無にかかわらず、時間は必ず進む。
             _economySystem.ApplyWeeklyWages(state);
@@ -192,20 +124,20 @@ namespace GuildManager.Core.Systems
             result.Flags.SatisfactionWarningOccurred =
                 state.Adventurers.Any(a => a.NeedsNegotiation && !neededNegotiationBefore.Contains(a.Id));
 
-            _agingSystem.ProcessWeeklyAging(state); // → 03 §3：加齢・衰微モデル
+            _agingSystem.ProcessWeeklyAging(state); // → 03 §3：加齢・8年稼働モデル
 
             result.CompletedFacility = _facilitySystem.ProcessWeeklyConstruction(state); // → 03 §6.1：施設Lv投資
             result.Flags.FacilityConstructionCompleted = result.CompletedFacility != null;
 
             // ギルド格付け（→ 03 §8.1・§8.1.1）：名声自然減衰の判定と昇格・降格判定・Aランク到達
             // フラグ（→ GuildRankSystem.UpdateRank）は週次決算で1回だけ行う。
-            result.RankChange = _guildRankSystem.ProcessWeeklySettlement(state, achievedRankAppropriateQuestThisWeek);
+            // 「現ランク相当のクエスト達成」は旧通常クエストの撤去以降は発生しないため、常にfalseを渡す
+            // （＝名声の自然減衰は撤去前と同じく毎週判定される。名声の加算は大迷宮のボス撃破報酬が担う）。
+            result.RankChange = _guildRankSystem.ProcessWeeklySettlement(state, achievedRankAppropriateQuestThisWeek: false);
             result.Flags.FinalQuestNewlyUnlocked = !wasFinalQuestUnlocked && state.FinalQuestUnlocked;
 
             // 脅威度が75%の閾値を今週新たに跨いだか（→ 03 §1.3自動スキップ停止条件6）。
             // 既に閾値を超えたまま変化がない週では発火させない。
-            // 治安崩壊（旧100%閾値）は敗北条件から撤廃済みのため、ここでの判定対象からも外した
-            // （→ DefeatSystem・経営破綻への一本化改訂）。
             result.Flags.ThreatThresholdNewlyCrossed =
                 threatBefore < SecurityBalance.SubsidyCutThreatThreshold && state.ThreatLevel >= SecurityBalance.SubsidyCutThreatThreshold;
 
@@ -219,15 +151,6 @@ namespace GuildManager.Core.Systems
             // 新春採用試験（2年目以降の新年第1週のみ）。ゲームオーバー後は発生させない。
             result.Flags.RecruitmentTrialOccurred =
                 state.DefeatReason == null && _recruitmentSystem.IsRecruitmentWeek(state.WeekNumber);
-
-            // ランク昇格試験の提示（旧コアシステム刷新仕様 Phase 2）は2026年9月、
-            // 大迷宮への一本化改訂で無効化した。旧昇格試験クエスト（「ゴブリンリーダー討伐」等）
-            // はもう AvailableQuests へ追加されない＝週報の「📜 ギルド本部から昇格試験の通達が
-            // 届いた」通知も出なくなる（→ 03 §0.4）。
-
-            // 進行の節目（試験の提示・突破）はどちらもプレイヤーの判断を要するため自動スキップを止める。
-            result.Flags.GuildProgressionEventOccurred =
-                result.OfferedPromotionExam != null || result.PromotionExamResult != null;
 
             return result;
         }

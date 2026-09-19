@@ -81,7 +81,7 @@ namespace GuildManager.Core.Tests
             Assert.True(a.IsDispatched);
             Assert.True(b.IsDispatched);
             // 通常クエストと同じ枠を共有する：1枠のうち1部隊が大迷宮へ出ているので、もう出せない。
-            Assert.False(QuestDispatchSystem.CanDispatch(state));
+            Assert.False(DungeonExpeditionSystem.CanDispatch(state));
         }
 
         [Fact]
@@ -90,7 +90,7 @@ namespace GuildManager.Core.Tests
             var system = BuildSystem();
 
             var (full, a1, b1, boss1) = MakeState();
-            full.ActiveDispatches.Add(new ActiveDispatch());
+            full.ActiveDungeonMissions.Add(new ActiveDungeonMission()); // 唯一の枠を別の出撃が使用中
             Assert.False(system.TryDispatch(full, PartyOf(a1, b1), boss1, DungeonMissionType.Scouting));
 
             var (defeated, a2, b2, boss2) = MakeState();
@@ -104,7 +104,7 @@ namespace GuildManager.Core.Tests
             var (empty, _, _, boss4) = MakeState();
             Assert.False(system.TryDispatch(empty, new Party(), boss4, DungeonMissionType.Scouting));
 
-            Assert.Empty(full.ActiveDungeonMissions);
+            Assert.Single(full.ActiveDungeonMissions); // 使用中の1件のまま（新たに追加されない）
             Assert.Empty(defeated.ActiveDungeonMissions);
             Assert.Empty(injured.ActiveDungeonMissions);
             Assert.False(a3.IsDispatched);
@@ -211,7 +211,7 @@ namespace GuildManager.Core.Tests
 
             Assert.Empty(state.ActiveDungeonMissions);
             Assert.False(a.IsDispatched);
-            Assert.True(QuestDispatchSystem.CanDispatch(state));
+            Assert.True(DungeonExpeditionSystem.CanDispatch(state));
             Assert.Equal(0, state.TotalDispatchCount); // 取り消した出撃は累計に数えない
         }
 
@@ -449,7 +449,7 @@ namespace GuildManager.Core.Tests
 
             Assert.True(system.TryDispatchGathering(state, PartyOf(a, b), field));
             Assert.True(a.IsDispatched);
-            Assert.False(QuestDispatchSystem.CanDispatch(state)); // 1枠を採取が占有
+            Assert.False(DungeonExpeditionSystem.CanDispatch(state)); // 1枠を採取が占有
 
             Assert.Single(system.ProcessWeeklyMissions(state));
 
@@ -459,7 +459,7 @@ namespace GuildManager.Core.Tests
             Assert.False(b.IsDispatched);
             Assert.True(a.IsAvailable);
             Assert.True(b.IsAvailable);
-            Assert.True(QuestDispatchSystem.CanDispatch(state));
+            Assert.True(DungeonExpeditionSystem.CanDispatch(state));
 
             // 翌週：同じ部隊で道中調査へ再出撃できる（ReachedFloor=1 < ボス10F → 道中進軍）。
             Assert.True(system.TryDispatch(state, PartyOf(a, b), boss, DungeonMissionType.Scouting));
@@ -488,7 +488,7 @@ namespace GuildManager.Core.Tests
 
             Assert.True(system.TryDispatch(state, PartyOf(a, b), boss, missionType));
             Assert.True(a.IsDispatched);
-            Assert.False(QuestDispatchSystem.CanDispatch(state));
+            Assert.False(DungeonExpeditionSystem.CanDispatch(state));
 
             if (missionType == DungeonMissionType.BossAssault)
             {
@@ -536,8 +536,7 @@ namespace GuildManager.Core.Tests
 
             // 解決済みの出撃はリストから消え、使用中の枠は0に戻る。
             Assert.Empty(state.ActiveDungeonMissions);
-            Assert.Equal(0, state.ActiveDispatches.Count + state.ActiveDungeonMissions.Count);
-            Assert.True(QuestDispatchSystem.CanDispatch(state));
+            Assert.True(DungeonExpeditionSystem.CanDispatch(state));
 
             // 次週：生還者でそのまま再出撃できる（採取はボスの撃破状況に左右されない）。
             var survivors = new[] { a, b }.Where(m => state.Adventurers.Contains(m) && m.IsAvailable).ToArray();
@@ -567,7 +566,7 @@ namespace GuildManager.Core.Tests
             var party = PartyOf(MakeAdventurer(JobClass.Thief, 60), MakeAdventurer(JobClass.Ranger, 60));
             var system = BuildSystem();
 
-            Assert.True(QuestDispatchSystem.CanDispatch(state));
+            Assert.True(DungeonExpeditionSystem.CanDispatch(state));
             Assert.True(system.TryDispatch(state, party, boss10F, DungeonMissionType.Scouting));
 
             var mission = Assert.Single(state.ActiveDungeonMissions);
@@ -770,9 +769,7 @@ namespace GuildManager.Core.Tests
             var satisfaction = new SatisfactionSystem();
             var compatibility = new CompatibilitySystem(new AlwaysMinRng());
             var week = new WeekProcessingSystem(
-                new QuestDispatchSystem(new QuestResolver(new AlwaysMinRng()), growth, economy, satisfaction, compatibility),
-                new GuildRankSystem(), new SecuritySystem(new AlwaysMinRng()), new QuestBoardSystem(new AlwaysMinRng()),
-                economy, new SubsidySystem(), new TrainingSystem(), new InjuryRecoverySystem(), new RestRecoverySystem(),
+                new GuildRankSystem(), economy, new SubsidySystem(), new TrainingSystem(), new InjuryRecoverySystem(), new RestRecoverySystem(),
                 growth, satisfaction, new AgingSystem(new AlwaysMinRng()), new FacilitySystem(), new DefeatSystem(),
                 new RecruitmentSystem(new AlwaysMinRng()),
                 dungeonExpeditionSystem: BuildSystem());
@@ -793,9 +790,7 @@ namespace GuildManager.Core.Tests
             var satisfaction = new SatisfactionSystem();
             var compatibility = new CompatibilitySystem(new AlwaysMinRng());
             return new WeekProcessingSystem(
-                new QuestDispatchSystem(new QuestResolver(new AlwaysMinRng()), growth, economy, satisfaction, compatibility),
-                new GuildRankSystem(), new SecuritySystem(new AlwaysMinRng()), new QuestBoardSystem(new AlwaysMinRng()),
-                economy, new SubsidySystem(), new TrainingSystem(), new InjuryRecoverySystem(), new RestRecoverySystem(),
+                new GuildRankSystem(), economy, new SubsidySystem(), new TrainingSystem(), new InjuryRecoverySystem(), new RestRecoverySystem(),
                 growth, satisfaction, new AgingSystem(new AlwaysMinRng()), new FacilitySystem(), new DefeatSystem(),
                 new RecruitmentSystem(new AlwaysMinRng()),
                 dungeonExpeditionSystem: expedition);
@@ -898,7 +893,7 @@ namespace GuildManager.Core.Tests
             Assert.False(a.IsDispatched);
             Assert.False(b.IsDispatched);
             Assert.True(a.IsAvailable);
-            Assert.True(QuestDispatchSystem.CanDispatch(state));
+            Assert.True(DungeonExpeditionSystem.CanDispatch(state));
             Assert.Equal(9, field.ReachedFloor); // 最高到達階層の記録は残る
 
             // 次回の出撃は、記録（9F）に関係なく必ず1階層から再スタートする。
@@ -1038,7 +1033,7 @@ namespace GuildManager.Core.Tests
             Assert.False(b.IsDispatched);
             Assert.True(a.IsAvailable && b.IsAvailable);
             Assert.Equal(hpA, a.CurrentHP);                 // 撤退自体ではHPを失わない
-            Assert.True(QuestDispatchSystem.CanDispatch(state)); // 出撃枠も即座に空く
+            Assert.True(DungeonExpeditionSystem.CanDispatch(state)); // 出撃枠も即座に空く
         }
 
         [Fact]
@@ -1063,6 +1058,169 @@ namespace GuildManager.Core.Tests
             Assert.Equal(original.CarriedMaterials, mission.CarriedMaterials);
         }
 
+        // ---------------- 累積功績の大迷宮への再配線（旧クエスト撤去、2026年9月） ----------------
+
+        [Fact]
+        public void DungeonExpedition_Advancing_AddsContributionScore_ToMembers()
+        {
+            // 1Fから9Fボスの扉前まで：1週目 1F→5F（+4階層）、2週目 5F→9F（+4階層）。
+            var (state, _, boss, a, b) = MakeDeepDiveState(bossFloor: 9);
+            var system = BuildSystem();
+            system.TryDispatch(state, PartyOf(a, b), boss, DungeonMissionType.Scouting);
+
+            var week1 = Assert.Single(system.ProcessWeeklyMissions(state));
+            int floors1 = week1.TraversalResult!.FloorAfter - week1.TraversalResult.FloorBefore;
+            Assert.Equal(4, floors1);
+            Assert.Equal(floors1 * DungeonBalance.ContributionPerTraversedFloor, a.TotalContributionScore);
+            Assert.Equal(floors1 * DungeonBalance.ContributionPerTraversedFloor, b.TotalContributionScore);
+
+            system.ProcessWeeklyMissions(state);
+            Assert.Equal(8 * DungeonBalance.ContributionPerTraversedFloor, a.TotalContributionScore); // 進んだ階層数に比例して累積
+            Assert.Equal(8 * DungeonBalance.ContributionPerTraversedFloor, b.TotalContributionScore);
+
+            // 扉前での偵察（進軍なし）では功績は増えない。
+            system.ProcessWeeklyMissions(state);
+            Assert.Equal(8 * DungeonBalance.ContributionPerTraversedFloor, a.TotalContributionScore);
+        }
+
+        [Fact]
+        public void DungeonExpedition_DefeatingBoss_AddsContributionScore_ToMembers()
+        {
+            // 5Fボス（HP1）：1週目で扉前（1F→5F、+4階層）、挑む指令で2週目に撃破。
+            var (state, _, boss, a, b) = MakeDeepDiveState(bossFloor: 5, bossHp: 1);
+            var system = BuildSystem();
+            system.TryDispatch(state, PartyOf(a, b), boss, DungeonMissionType.Scouting);
+            var mission = state.ActiveDungeonMissions[0];
+            system.ProcessWeeklyMissions(state);
+            int afterTraversal = a.TotalContributionScore;
+            Assert.True(system.TryEngageBoss(state, mission, Array.Empty<string>()));
+
+            var fight = Assert.Single(system.ProcessWeeklyMissions(state));
+
+            Assert.Equal(DungeonOutcome.Victory, fight.DungeonResult!.Outcome);
+            int bossPoints = boss.Floor * DungeonBalance.ContributionPerBossFloor;
+            Assert.True(bossPoints > 0);
+            Assert.Equal(afterTraversal + bossPoints, a.TotalContributionScore);
+            Assert.Equal(afterTraversal + bossPoints, b.TotalContributionScore);
+        }
+
+        [Fact]
+        public void DungeonExpedition_BossFight_DoesNotAddContribution_ToForceRetiredMembers()
+        {
+            // 即死級ギミックを未対策で踏み、全員が強制除籍された場合は（撃破もしておらず）功績は加算されない。
+            var (state, a, b, boss) = MakeState(MakeDeadlyBoss());
+            state.Gold = 100_000;
+            var system = BuildSystem();
+            system.TryDispatch(state, PartyOf(a, b), boss, DungeonMissionType.BossAssault);
+
+            system.ProcessWeeklyMissions(state);
+
+            Assert.Contains(a, state.FallenAdventurers);
+            Assert.Equal(0, a.TotalContributionScore);
+            Assert.Equal(0, b.TotalContributionScore);
+        }
+
+        [Fact]
+        public void DungeonExpedition_Gathering_AddsContributionScore_ToMembers()
+        {
+            var (state, field, _, a, b) = MakeDeepDiveState(bossFloor: 10);
+            var system = BuildSystem();
+            Assert.True(system.TryDispatchGathering(state, PartyOf(a, b), field));
+
+            var resolution = Assert.Single(system.ProcessWeeklyMissions(state));
+
+            Assert.False(string.IsNullOrEmpty(resolution.GatheringResult!.MaterialId)); // 素材を獲得できた
+            Assert.True(resolution.GatheringResult.MaterialCount > 0);
+            Assert.Equal(DungeonBalance.ContributionPerGathering, a.TotalContributionScore);
+            Assert.Equal(DungeonBalance.ContributionPerGathering, b.TotalContributionScore);
+        }
+
+        [Fact]
+        public void DungeonExpedition_Gathering_NoContribution_WhenNothingWasCollected()
+        {
+            // 素材定義の無いフィールド（→ MaterialBalance）では何も採れず、功績も加算されない。
+            var (state, field, _, a, b) = MakeDeepDiveState(bossFloor: 10);
+            field.Id = "no_material_field";
+            var system = BuildSystem();
+            system.TryDispatchGathering(state, PartyOf(a, b), field);
+
+            var resolution = Assert.Single(system.ProcessWeeklyMissions(state));
+
+            Assert.True(string.IsNullOrEmpty(resolution.GatheringResult!.MaterialId));
+            Assert.Equal(0, a.TotalContributionScore);
+        }
+
+        // ---------------- 出撃成長の大迷宮への再配線（GrowthSystem.ApplyExpeditionGrowth） ----------------
+
+        /// <summary>成長ロールが常に成功する（AlwaysMinRng）GrowthSystemを差し込んだ出撃システム。</summary>
+        private static DungeonExpeditionSystem BuildSystemWithGuaranteedGrowth() => new(
+            new ScoutingResolver(new AlwaysMinRng()),
+            new DungeonResolver(new AlwaysMinRng()),
+            new SatisfactionSystem(),
+            new CompatibilitySystem(new AlwaysMinRng()),
+            new DungeonTraversalResolver(new AlwaysMinRng()),
+            new GatheringResolver(new AlwaysMinRng()),
+            new GrowthSystem(new AlwaysMinRng()));
+
+        private static void SetPa(Adventurer a, int pa)
+        {
+            a.PA_STR = pa; a.PA_AGI = pa; a.PA_VIT = pa; a.PA_MND = pa; a.PA_DEX = pa; a.PA_LDR = pa; a.PA_INT = pa;
+        }
+
+        [Fact]
+        public void ExpeditionGrowth_IsWiredInto_TraversalBossVictorySurveyAndGathering()
+        {
+            // 道中進軍（1週）→扉前→撃破、の各解決で成長が起き、週報用に GrowthEvents として返ること。
+            var (state, field, boss, a, b) = MakeDeepDiveState(bossFloor: 5, bossHp: 1);
+            SetPa(a, 400); SetPa(b, 400);
+            var system = BuildSystemWithGuaranteedGrowth();
+            system.TryDispatch(state, PartyOf(a, b), boss, DungeonMissionType.Scouting);
+            var mission = state.ActiveDungeonMissions[0];
+
+            var traversal = Assert.Single(system.ProcessWeeklyMissions(state));
+            Assert.Equal(2 * DungeonBalance.GrowthRollsTraversal, traversal.GrowthEvents.Count);
+
+            system.TryEngageBoss(state, mission, Array.Empty<string>());
+            var victory = Assert.Single(system.ProcessWeeklyMissions(state));
+            Assert.Equal(DungeonOutcome.Victory, victory.DungeonResult!.Outcome);
+            Assert.Equal(2 * DungeonBalance.GrowthRollsBossVictory, victory.GrowthEvents.Count);
+
+            // 迷宮調査・採取（いずれも1週で帰還）。
+            var boss10 = new FloorBoss { Name = "第10階層の主", Floor = 10, MaxHp = 999_999, CurrentHp = 999_999 };
+            field.Bosses.Add(boss10);
+            Assert.True(system.TryDispatchSurvey(state, PartyOf(a, b), boss10));
+            var survey = Assert.Single(system.ProcessWeeklyMissions(state));
+            Assert.Equal(2 * DungeonBalance.GrowthRollsSurvey, survey.GrowthEvents.Count);
+
+            Assert.True(system.TryDispatchGathering(state, PartyOf(a, b), field));
+            var gathering = Assert.Single(system.ProcessWeeklyMissions(state));
+            Assert.Equal(2 * DungeonBalance.GrowthRollsGathering, gathering.GrowthEvents.Count);
+        }
+
+        [Fact]
+        public void ExpeditionGrowth_NotGranted_OnBossRetreat_OrForcedRetirement()
+        {
+            // 即死級を未対策で踏み全員が強制除籍：撃破していないうえ除籍者は対象外のため成長なし。
+            var (state, a, b, boss) = MakeState(MakeDeadlyBoss());
+            state.Gold = 100_000;
+            var system = BuildSystemWithGuaranteedGrowth();
+            system.TryDispatch(state, PartyOf(a, b), boss, DungeonMissionType.BossAssault);
+
+            var wiped = Assert.Single(system.ProcessWeeklyMissions(state));
+            Assert.Empty(wiped.GrowthEvents);
+
+            // 火力不足で撤退（生存）：撃破ボーナスも道中分も無い（決戦の週に進軍はしていない）。
+            var tough = new FloorBoss { Name = "堅牢な主", Floor = 90, MaxHp = 999_999, CurrentHp = 999_999 }; // 要求火力＝90×45
+            var (state2, c, d, _) = MakeState(tough);
+            state2.Gold = 100_000;
+            system.TryDispatch(state2, PartyOf(c, d), tough, DungeonMissionType.BossAssault);
+
+            var retreat = Assert.Single(system.ProcessWeeklyMissions(state2));
+            Assert.Equal(DungeonOutcome.Retreat, retreat.DungeonResult!.Outcome);
+            Assert.Empty(retreat.GrowthEvents);
+            Assert.Contains(c, state2.Adventurers);
+        }
+
         // ---------------- 迷宮調査（Survey、2026年9月新設） ----------------
 
         [Fact]
@@ -1077,7 +1235,7 @@ namespace GuildManager.Core.Tests
             var mission = Assert.Single(state.ActiveDungeonMissions);
             Assert.Equal(DungeonMissionType.Survey, mission.MissionType);
             Assert.True(a.IsDispatched);
-            Assert.False(QuestDispatchSystem.CanDispatch(state));
+            Assert.False(DungeonExpeditionSystem.CanDispatch(state));
             Assert.Equal(0.0, boss.IntelRate);
 
             var resolution = Assert.Single(system.ProcessWeeklyMissions(state));
@@ -1091,7 +1249,7 @@ namespace GuildManager.Core.Tests
             Assert.True(resolution.ReturnedHome);
             Assert.Empty(state.ActiveDungeonMissions);
             Assert.False(a.IsDispatched);
-            Assert.True(QuestDispatchSystem.CanDispatch(state));
+            Assert.True(DungeonExpeditionSystem.CanDispatch(state));
             Assert.Equal(1, field.ReachedFloor); // 調査では潜行しない＝到達階層は動かない
         }
 

@@ -25,7 +25,7 @@ namespace GuildManager.Core.Models
         /// <summary>
         /// 永続的なパーティー編成の一覧（仕様書 03 §4.0.2。v1.9改訂で新設）。
         /// クエスト派遣のたびに毎回4人を選び直す必要はなく、事前に編成したこの一覧から
-        /// 1つ選ぶだけでよい（→ PartyFormationSystem・QuestDispatchSystem）。
+        /// 1つ選ぶだけでよい（→ PartyFormationSystem・DungeonExpeditionSystem）。
         /// どのSavedPartyのMemberIdsにも含まれない現役冒険者は「未編成」として扱う
         /// （→ PartyFormationSystem.GetUnassignedAdventurers）。
         /// </summary>
@@ -55,8 +55,6 @@ namespace GuildManager.Core.Models
         /// </summary>
         public List<Adventurer> FallenAdventurers { get; set; } = new();
 
-        public List<Quest> AvailableQuests { get; set; } = new();
-
         /// <summary>
         /// 冒険者2人1組ごとの相性値（0〜100。仕様書 03 §5.3.1）。キーは常に
         /// (小さいGuid, 大きいGuid) の順に正規化して格納する（→ CompatibilitySystem.
@@ -65,12 +63,6 @@ namespace GuildManager.Core.Models
         /// このDictionaryにエントリを作らない）。
         /// </summary>
         public Dictionary<(Guid, Guid), int> Compatibility { get; set; } = new();
-
-        /// <summary>
-        /// 進行中（派遣中）の複数週クエスト一覧（仕様書 03 §4.0.1）。満了週になるまで
-        /// QuestDispatchSystem.ProcessWeeklyDispatches がここから取り除かない限り残り続ける。
-        /// </summary>
-        public List<ActiveDispatch> ActiveDispatches { get; set; } = new();
 
         /// <summary>
         /// 訓練施設に配置されている冒険者と、配置先の施設種別（→ 03 §3.1〜3.4「成長トリガー・
@@ -112,30 +104,18 @@ namespace GuildManager.Core.Models
 
         /// <summary>
         /// 同時に派遣できる部隊の数（→ コアシステム刷新仕様「4. 進行管理」）。初期値1。
-        /// Rank E昇格試験の突破で2へ拡張される（→ GuildProgressionSystem.ApplyPromotion）。
+        /// 森の節目ボス撃破で拡張される（→ DungeonExpeditionSystem.ApplyFieldProgression）。
         /// 1枠の中で何名を出撃させるか（1〜4名のフリーアサイン）は制限しない
         /// ＝「枠」は部隊の数であって人数ではない。
-        /// 実際の制限は QuestDispatchSystem.CanDispatch／TryDispatch で行う。
+        /// 実際の制限は DungeonExpeditionSystem.CanDispatch で行う。
         /// </summary>
         public int UnlockedSquadSlots { get; set; } = ProgressionBalance.InitialSquadSlots;
 
         /// <summary>
-        /// 累計出撃回数（→ コアシステム刷新仕様 Phase 2の提示条件）。
-        /// QuestDispatchSystem.Dispatchのたびに1増える（クエストの成否は問わない）。
+        /// 累計出撃回数。大迷宮への出撃が帰還するたびに1増える（取り消しは数えない、
+        /// → DungeonExpeditionSystem）。
         /// </summary>
         public int TotalDispatchCount { get; set; } = 0;
-
-        /// <summary>
-        /// ランク昇格試験クエストを既に受注可能一覧へ提示したか（→ Phase 2）。
-        /// 一度提示したら重複して追加しないためのフラグ。期限切れで消えた場合の
-        /// 再提示は行わない（→ GuildProgressionSystem）。
-        /// </summary>
-        public bool PromotionExamOffered { get; set; } = false;
-
-        /// <summary>
-        /// ランク昇格試験を突破済みか（→ Phase 4）。突破後は再提示しない。
-        /// </summary>
-        public bool PromotionExamPassed { get; set; } = false;
 
         /// <summary>ギルドの名声（仕様書 03 §8.1）。0未満にはならない。</summary>
         public int Reputation { get; set; } = 0;
@@ -159,11 +139,11 @@ namespace GuildManager.Core.Models
         public int WeeksSinceLastRankAppropriateQuest { get; set; } = 0;
 
         /// <summary>
-        /// 治安の脅威度（0〜100。仕様書 03 §4.4）。討伐クエストの達成で減少する。
+        /// 治安の脅威度（0〜100。仕様書 03 §4.4）。旧通常クエストの撤去（2026年9月）以降、増減する経路は無い。
         /// 75%超で月次助成金50%カット（→ SubsidySystem）。
         /// 「100%到達で即時敗北（治安崩壊）」は撤廃済み（→ Systems.DefeatSystem、
         /// 経営破綻＝資金ショートのみへの一本化改訂）。「未出撃週の放置による上昇」も
-        /// 同改訂で無効化されている（→ Systems.SecuritySystem.ApplyAbandonedQuest）。
+        /// 同改訂で無効化されている（増減を担っていたSecuritySystemは旧クエストと共に撤去済み）。
         /// フィールド自体は月次助成金カット判定に使い続けるため残してある。
         /// </summary>
         public int ThreatLevel { get; set; } = SecurityBalance.InitialThreatLevel;
@@ -192,7 +172,7 @@ namespace GuildManager.Core.Models
 
         /// <summary>
         /// 大迷宮へ出撃中（次の週次決算で解決待ち）の部隊一覧（→ Systems.DungeonExpeditionSystem）。
-        /// 同時出撃枠は通常クエストの派遣（ActiveDispatches）と共有する。
+        /// 同時出撃枠（UnlockedSquadSlots）はこの件数で消費される。
         /// </summary>
         public List<ActiveDungeonMission> ActiveDungeonMissions { get; set; } = new();
 
@@ -271,12 +251,9 @@ namespace GuildManager.Core.Models
                 FinalQuestUnlocked = FinalQuestUnlocked,
                 UnlockedSquadSlots = UnlockedSquadSlots,
                 TotalDispatchCount = TotalDispatchCount,
-                PromotionExamOffered = PromotionExamOffered,
-                PromotionExamPassed = PromotionExamPassed,
                 ActiveAdventurers = new List<Adventurer>(Adventurers),
                 RetiredAdvisorCandidates = new List<Adventurer>(RetiredAdventurers),
                 FallenAdventurers = new List<Adventurer>(FallenAdventurers),
-                AvailableQuests = new List<Quest>(AvailableQuests),
                 SavedParties = new List<SavedParty>(SavedParties),
                 DungeonFields = new List<DungeonField>(DungeonFields),
                 Materials = new Dictionary<string, int>(Materials),
@@ -308,21 +285,6 @@ namespace GuildManager.Core.Models
                 data.AdvisorAssignments[FacilityType.WarRoom.ToString()] = AssignedAdvisor;
             if (AssignedScoutMaster.HasValue)
                 data.AdvisorAssignments[FacilityType.RecruitmentOffice.ToString()] = AssignedScoutMaster;
-
-            foreach (var dispatch in ActiveDispatches)
-            {
-                data.DispatchedQuests.Add(new DispatchedQuestRecord
-                {
-                    Quest = dispatch.Quest,
-                    PartyMemberIds = dispatch.Party.Members.Select(m => m.Id).ToList(),
-                    WeeksRemaining = dispatch.WeeksRemaining,
-                    // 派遣中パーティが携行する消耗品はQuestResolver.Resolve時（満了週）まで
-                    // 消費されずPartyに残り続けるため、複数週クエストの派遣中は必ず保存する
-                    // （→ DispatchedQuestRecord.ConsumableItemIdsのコメント参照）。
-                    ConsumableItemIds = new List<string>(dispatch.Party.ConsumableItemIds),
-                    EmergencyHealUsed = dispatch.EmergencyHealUsed,
-                });
-            }
 
             foreach (var mission in ActiveDungeonMissions)
             {
@@ -370,12 +332,9 @@ namespace GuildManager.Core.Models
                 // 古いセーブでは初期値へフォールバックする。
                 UnlockedSquadSlots = data.UnlockedSquadSlots > 0 ? data.UnlockedSquadSlots : ProgressionBalance.InitialSquadSlots,
                 TotalDispatchCount = data.TotalDispatchCount,
-                PromotionExamOffered = data.PromotionExamOffered,
-                PromotionExamPassed = data.PromotionExamPassed,
                 Adventurers = new List<Adventurer>(data.ActiveAdventurers),
                 RetiredAdventurers = new List<Adventurer>(data.RetiredAdvisorCandidates),
                 FallenAdventurers = new List<Adventurer>(data.FallenAdventurers),
-                AvailableQuests = new List<Quest>(data.AvailableQuests),
                 SavedParties = new List<SavedParty>(data.SavedParties),
                 DungeonFields = new List<DungeonField>(data.DungeonFields),
                 Materials = new Dictionary<string, int>(data.Materials),
@@ -418,7 +377,7 @@ namespace GuildManager.Core.Models
                     state.AssignedTrainers[facilityType] = kv.Value;
             }
 
-            // Party・派遣中クエストの復元：同一のAdventurerインスタンスを使い回すため
+            // 大迷宮へ出撃中の部隊の復元：同一のAdventurerインスタンスを使い回すため
             // （派遣中メンバーの状態変化が現役ロースター側にも同じインスタンスとして
             // 反映されるよう）、Id→Adventurerの参照辞書を1つ作ってから引く。
             var adventurersById = state.Adventurers
@@ -426,27 +385,7 @@ namespace GuildManager.Core.Models
                 .Concat(state.FallenAdventurers)
                 .ToDictionary(a => a.Id);
 
-            foreach (var record in data.DispatchedQuests)
-            {
-                var party = new Party();
-                foreach (var memberId in record.PartyMemberIds)
-                {
-                    if (!adventurersById.TryGetValue(memberId, out var member))
-                        throw new FormatException($"セーブデータが破損しています：派遣中パーティのメンバーId {memberId} が見つかりません。");
-                    party.TryAdd(member);
-                }
-                party.ConsumableItemIds = new List<string>(record.ConsumableItemIds);
-
-                state.ActiveDispatches.Add(new ActiveDispatch
-                {
-                    Party = party,
-                    Quest = record.Quest,
-                    WeeksRemaining = record.WeeksRemaining,
-                    EmergencyHealUsed = record.EmergencyHealUsed,
-                });
-            }
-
-            // 大迷宮への出撃（→ ActiveDungeonMission）。派遣中クエストと同じくメンバーは
+            // 大迷宮への出撃（→ ActiveDungeonMission）。メンバーは
             // 同一インスタンスを引き、ボスも各DungeonField.Bosses内の同一インスタンスを指すよう解決する。
             foreach (var record in data.DungeonMissions)
             {

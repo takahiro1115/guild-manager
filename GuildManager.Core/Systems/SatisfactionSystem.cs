@@ -11,7 +11,7 @@ namespace GuildManager.Core.Systems
     ///
     /// 自然回復の酒場Lv連動（→ §6）は施設Lv投資システムの実装により接続済み。
     /// 仲間ロストの余波（ApplyPartyLossPenalty）は、致死判定の本実装（→ §4.3）に伴い
-    /// QuestDispatchSystem.ProcessWeeklyDispatches から接続済み（戦死判定時に呼ばれる）。
+    /// DungeonExpeditionSystem（ボス討伐の強制除籍時）から接続済み。
     /// 人間関係：相性「険悪」による減点（→ §5.3.1）は、相性システムの実装（v1.4改訂）に
     /// 伴い接続済み（v1.5からの保留を解消）。
     /// </summary>
@@ -67,16 +67,16 @@ namespace GuildManager.Core.Systems
         }
 
         /// <summary>
-        /// 現在進行中（派遣中）の全パーティについて、相性が険悪（30未満）なペアを洗い出し、
+        /// 大迷宮へ出撃中（→ GameState.ActiveDungeonMissions）の全部隊について、相性が険悪（30未満）なペアを洗い出し、
         /// 該当する各冒険者が今週受けるペナルティ合計を返す（→ 03 §5.1・§5.3.1）。
-        /// 派遣中は毎週「同じパーティで出撃している」状態が続くため、拘束期間中は
-        /// 満了週に限らず毎週この判定を行う。
+        /// 出撃中は毎週「同じ部隊で出撃している」状態が続くため、複数週の潜行中は
+        /// 帰還週に限らず毎週この判定を行う（旧通常クエストの派遣一覧から、旧クエスト撤去時に参照先を移した）。
         /// </summary>
         private static Dictionary<Guid, int> ComputeHostilePairPenalty(GameState state)
         {
             var penalty = new Dictionary<Guid, int>();
 
-            foreach (var dispatch in state.ActiveDispatches)
+            foreach (var dispatch in state.ActiveDungeonMissions)
             {
                 var members = dispatch.Party.Members;
                 for (int i = 0; i < members.Count; i++)
@@ -95,19 +95,11 @@ namespace GuildManager.Core.Systems
             return penalty;
         }
 
-        /// <summary>勝利・功績ボーナス：Bランク以上のクエスト達成でパーティ全員+10（→ 03 §5.1）。</summary>
-        public void ApplyQuestAchievementBonus(Party party, Quest quest, bool questAchieved)
-        {
-            if (!questAchieved || quest.Rank < QuestRank.B)
-                return;
-
-            foreach (var member in party.Members)
-                Adjust(member, SatisfactionBalance.VictoryBonus);
-        }
-
         /// <summary>
         /// 仲間ロストの余波：同パーティの死亡で一律-30（→ 03 §4.3・§5.1）。
-        /// QuestDispatchSystem.ProcessWeeklyDispatchesが戦死判定時に呼び出す。
+        /// DungeonExpeditionSystemがボス討伐の強制除籍時に呼び出す。
+        /// （旧通常クエストの「勝利・功績ボーナス」＝ApplyQuestAchievementBonus は、
+        /// 旧クエストの撤去（2026年9月）に伴い削除した。）
         /// </summary>
         public void ApplyPartyLossPenalty(Party party, Guid lostAdventurerId)
         {

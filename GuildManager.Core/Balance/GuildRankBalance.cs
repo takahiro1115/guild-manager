@@ -51,28 +51,6 @@ namespace GuildManager.Core.Balance
         public static GuildRank? PreviousRank(GuildRank rank) =>
             rank == GuildRank.G ? null : (GuildRank)((int)rank - 1);
 
-        /// <summary>
-        /// ギルドランクを、クエストランク（QuestRank）と比較可能な等級に変換する（→ 03 §8.1「同ランク以上のクエスト」判定用の簡易実装）。
-        /// QuestRankにはG・Fに相当する等級が無いため、G・FはいずれもQuestRank.Eとして扱う。
-        /// </summary>
-        public static QuestRank ToQuestRankFloor(GuildRank rank) => rank switch
-        {
-            GuildRank.G => QuestRank.E,
-            GuildRank.F => QuestRank.E,
-            GuildRank.E => QuestRank.E,
-            GuildRank.D => QuestRank.D,
-            GuildRank.C => QuestRank.C,
-            GuildRank.B => QuestRank.B,
-            GuildRank.A => QuestRank.A,
-            GuildRank.S => QuestRank.S,
-            _ => QuestRank.E,
-        };
-
-        /// <summary>クエスト達成時の名声加算量。→ BAL: 格付け/名声増減</summary>
-        public static readonly int ReputationGainOnAchievement = BalanceData.GetInt(ParamsFileName, "ReputationGainOnAchievement");
-
-        /// <summary>クエスト失敗時の名声減算量。→ BAL: 格付け/名声増減</summary>
-        public static readonly int ReputationLossOnFailure = BalanceData.GetInt(ParamsFileName, "ReputationLossOnFailure");
 
         /// <summary>
         /// 現ランク相当のクエストを達成できない状態がこの週数続くと、毎週わずかに名声が減少する

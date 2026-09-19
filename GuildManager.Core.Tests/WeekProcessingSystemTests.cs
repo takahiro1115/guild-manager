@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using GuildManager.Core.Balance;
+using GuildManager.Core.Data;
 using GuildManager.Core.Models;
 using GuildManager.Core.Rng;
 using GuildManager.Core.Systems;
@@ -37,25 +38,18 @@ namespace GuildManager.Core.Tests
 
         /// <summary>
         /// 実運用（MainDashboard）と同じ構成でWeekProcessingSystemを組み立てる。
-        /// クエスト解決関連はAlwaysMinRng（索敵ロール最小＝奇襲成功しやすい、致死判定ロール
-        /// 最小＝常に生存）を既定にし、個別テストで必要な部分だけ差し替える。
+        /// 乱数はAlwaysMinRngを既定にし、個別テストで必要な部分だけ差し替える
+        /// （大迷宮の出撃は既定構成＝固定シード。→ WeekProcessingSystemのコンストラクタ）。
         /// </summary>
         private static WeekProcessingSystem BuildSystem(
-            IRng? questRng = null, IRng? agingRng = null, IRng? growthRng = null,
-            IRng? securityRng = null, IRng? questBoardRng = null, IRng? recruitmentRng = null)
+            IRng? agingRng = null, IRng? growthRng = null, IRng? recruitmentRng = null)
         {
             var growth = new GrowthSystem(growthRng ?? new AlwaysMinRng());
             var economy = new EconomySystem();
             var satisfaction = new SatisfactionSystem();
-            var compatibility = new CompatibilitySystem(new AlwaysMinRng());
-            var questResolver = new QuestResolver(questRng ?? new AlwaysMinRng());
-            var dispatch = new QuestDispatchSystem(questResolver, growth, economy, satisfaction, compatibility);
 
             return new WeekProcessingSystem(
-                questDispatchSystem: dispatch,
                 guildRankSystem: new GuildRankSystem(),
-                securitySystem: new SecuritySystem(securityRng ?? new AlwaysMinRng()),
-                questBoardSystem: new QuestBoardSystem(questBoardRng ?? new AlwaysMinRng()),
                 economySystem: economy,
                 subsidySystem: new SubsidySystem(),
                 trainingSystem: new TrainingSystem(),
@@ -173,69 +167,7 @@ namespace GuildManager.Core.Tests
             Assert.Null(result.CompletedFacility);
         }
 
-        // ---------------- MultiWeekQuestReturned ----------------
-
-        [Fact]
-        public void ProcessWeek_SetsMultiWeekQuestReturned_ForLargeScaleQuestResolution()
-        {
-            var member = new Adventurer { STR = 50, AGI = 50, VIT = 50, MND = 50, DEX = 50, LDR = 50 };
-            member.CurrentHP = member.MaxHP;
-            var state = new GameState { Adventurers = { member } };
-            var quest = new Quest { Scale = QuestScale.Large, Difficulty = 10, ScoutRequirement = 10 };
-            state.ActiveDispatches.Add(new ActiveDispatch { Party = PartyOf(member), Quest = quest, WeeksRemaining = 1 });
-            var system = BuildSystem();
-
-            var result = system.ProcessWeek(state);
-
-            Assert.True(result.Flags.MultiWeekQuestReturned);
-        }
-
-        [Fact]
-        public void ProcessWeek_DoesNotSetMultiWeekQuestReturned_ForSmallScaleQuestResolution()
-        {
-            var member = new Adventurer { STR = 50, AGI = 50, VIT = 50, MND = 50, DEX = 50, LDR = 50 };
-            member.CurrentHP = member.MaxHP;
-            var state = new GameState { Adventurers = { member } };
-            var quest = new Quest { Scale = QuestScale.Small, Difficulty = 10, ScoutRequirement = 10 };
-            state.ActiveDispatches.Add(new ActiveDispatch { Party = PartyOf(member), Quest = quest, WeeksRemaining = 1 });
-            var system = BuildSystem();
-
-            var result = system.ProcessWeek(state);
-
-            Assert.False(result.Flags.MultiWeekQuestReturned);
-        }
-
-        [Fact]
-        public void ProcessWeek_DoesNotSetMultiWeekQuestReturned_WhileStillInTransit()
-        {
-            var member = new Adventurer();
-            var state = new GameState { Adventurers = { member } };
-            var quest = new Quest { Scale = QuestScale.Large };
-            state.ActiveDispatches.Add(new ActiveDispatch { Party = PartyOf(member), Quest = quest, WeeksRemaining = 3 });
-            var system = BuildSystem();
-
-            var result = system.ProcessWeek(state);
-
-            Assert.False(result.Flags.MultiWeekQuestReturned); // まだ満了していない（残り2週になるだけ）
-        }
-
         // ---------------- DeathOrPermanentInjuryOccurred ----------------
-
-        [Fact]
-        public void ProcessWeek_SetsDeathOrPermanentInjuryOccurred_WhenMemberFalls()
-        {
-            var weakling = new Adventurer { STR = 1, AGI = 1, VIT = 1, MND = 1, DEX = 1, LDR = 1 };
-            weakling.CurrentHP = weakling.MaxHP;
-            var state = new GameState { Adventurers = { weakling } };
-            var quest = new Quest { Difficulty = 100, ScoutRequirement = 1 };
-            state.ActiveDispatches.Add(new ActiveDispatch { Party = PartyOf(weakling), Quest = quest, WeeksRemaining = 1 });
-            // AlwaysMaxRngで索敵・HP消費%・致死判定ロールをすべて最大にし、確実に戦死させる。
-            var system = BuildSystem(questRng: new AlwaysMaxRng());
-
-            var result = system.ProcessWeek(state);
-
-            Assert.True(result.Flags.DeathOrPermanentInjuryOccurred);
-        }
 
         [Fact]
         public void ProcessWeek_DoesNotSetDeathOrPermanentInjuryOccurred_WhenNoDispatchResolves()
@@ -275,28 +207,6 @@ namespace GuildManager.Core.Tests
             Assert.False(result.Flags.ThreatThresholdNewlyCrossed);
         }
 
-        [Fact]
-        public void ProcessWeek_SetsThreatThresholdNewlyCrossed_WhenCrossing75PercentThisWeek()
-        {
-            // 放置（期限切れ）による脅威度上昇は撤廃済み（→ SecuritySystem.ApplyAbandonedQuest、
-            // 「未出撃週の治安悪化」ロジック無効化）。ThreatThresholdNewlyCrossedフラグ自体は
-            // まだ生きている（→ SubsidyCutThreatThreshold判定）ため、実際に出撃して失敗した
-            // 討伐クエストによる脅威度上昇（→ SecuritySystem.ApplyQuestResolution）で確認する。
-            var weakling = new Adventurer { STR = 1, AGI = 1, VIT = 1, MND = 1, DEX = 1, LDR = 1 };
-            weakling.CurrentHP = weakling.MaxHP;
-            var quest = new Quest { QuestType = QuestType.Subjugation, Difficulty = 100, ScoutRequirement = 1 };
-            var state = new GameState { Adventurers = { weakling }, ThreatLevel = 74 };
-            state.ActiveDispatches.Add(new ActiveDispatch { Party = PartyOf(weakling), Quest = quest, WeeksRemaining = 1 });
-            // AlwaysMaxRngで索敵・HP消費%ロールを最大化し、確実に苦戦敗退・戦線崩壊（失敗）させる。
-            // securityRngもAlwaysMaxRngにして脅威度上昇量を最大化する。
-            var system = BuildSystem(questRng: new AlwaysMaxRng(), securityRng: new AlwaysMaxRng());
-
-            var result = system.ProcessWeek(state);
-
-            Assert.True(state.ThreatLevel >= SecurityBalance.SubsidyCutThreatThreshold);
-            Assert.True(result.Flags.ThreatThresholdNewlyCrossed);
-        }
-
         // ---------------- FinalQuestNewlyUnlocked ----------------
 
         [Fact]
@@ -331,27 +241,6 @@ namespace GuildManager.Core.Tests
             var result = system.ProcessWeek(state);
 
             Assert.False(result.Flags.FinalQuestNewlyUnlocked);
-        }
-
-        // ---------------- SubjugationQuestExpiringNextWeek（2026年9月、大迷宮一本化で撤廃） ----------------
-
-        // 旧テスト ProcessWeek_SetsSubjugationQuestExpiringNextWeek_WhenDeadlineBecomesOne と
-        // ProcessWeek_FiresExpiringNextWeek_OnlyOnceAcrossQuestLifetime は、旧クエスト掲示板の
-        // 期限減算と「期限切れ1週前」警告（→ 03 §1.3自動スキップ停止条件8）を前提としていたため
-        // 削除した。停止後の期待挙動は WeekProcessingSystem_ShouldNotGenerateOrWarnOldQuests
-        // （上記「旧クエスト掲示板の停止」セクション）で検証している。
-
-        [Fact]
-        public void ProcessWeek_DoesNotSetSubjugationQuestExpiringNextWeek_WhenDeadlineStillFarAway()
-        {
-            // 掲示板の週次更新が停止した後は、残り週数に関わらず常に発火しない。
-            var state = new GameState();
-            state.AvailableQuests.Add(new Quest { QuestType = QuestType.Subjugation, DeadlineWeeks = 10 });
-            var system = BuildSystem();
-
-            var result = system.ProcessWeek(state);
-
-            Assert.False(result.Flags.SubjugationQuestExpiringNextWeek);
         }
 
         // ---------------- SatisfactionWarningOccurred ----------------
@@ -445,92 +334,6 @@ namespace GuildManager.Core.Tests
             Assert.Null(state.DefeatReason);
         }
 
-        // ---------------- 旧クエスト掲示板の停止（2026年9月、大迷宮一本化） ----------------
-
-        [Fact]
-        public void WeekProcessingSystem_ShouldNotGenerateOrWarnOldQuests()
-        {
-            // 旧クエスト掲示板の週次更新（補充・自動生成・期限減算・期限切れ・「期限切れ1週前」警告）は
-            // 大迷宮への一本化改訂で停止済み（→ WeekProcessingSystem.ProcessWeek）。
-            // 旧セーブに残っていたクエストも、放置しても減算・除去・警告の対象にならない。
-            var state = new GameState();
-            state.AvailableQuests.Add(new Quest { Name = "旧掲示板の残骸", QuestType = QuestType.Subjugation, DeadlineWeeks = 2 });
-            var system = BuildSystem();
-
-            for (int i = 0; i < 5; i++)
-            {
-                var result = system.ProcessWeek(state);
-
-                Assert.Empty(result.QuestsExpiringNextWeek);
-                Assert.False(result.Flags.SubjugationQuestExpiringNextWeek);
-                Assert.Empty(result.AbandonedQuestThreatDeltas);
-            }
-
-            // 補充も行われない（残骸1件のまま増えない）／期限も減らない。
-            Assert.Single(state.AvailableQuests);
-            Assert.Equal(2, state.AvailableQuests[0].DeadlineWeeks);
-        }
-
-        [Fact]
-        public void WeekProcessingSystem_ShouldNotReplenishQuests_FromEmptyBoard()
-        {
-            // 受注可能一覧が空の新規ゲーム（→ MainDashboard.StartNewGameは初期クエストを
-            // 配置しない）でも、週を進めてもクエストは1件も生成されない。
-            var state = new GameState();
-            var system = BuildSystem();
-
-            for (int i = 0; i < 10; i++)
-                system.ProcessWeek(state);
-
-            Assert.Empty(state.AvailableQuests);
-        }
-
-        // ---------------- 昇格試験クエストの自動生成（2026年9月、大迷宮一本化により無効化） ----------------
-
-        [Fact]
-        public void WeeklyProcessing_DoesNotGenerate_PromotionExamQuests()
-        {
-            // 昇格試験の提示条件（累計出撃回数・資金）を満たした状態を何週維持しても、
-            // 大迷宮一本化改訂により週次決算からは二度と昇格試験クエストが
-            // AvailableQuestsへ追加されない（→ WeekProcessingSystemはもう
-            // GuildProgressionSystem.TryOfferPromotionExamを呼ばない）。
-            var state = new GameState
-            {
-                TotalDispatchCount = ProgressionBalance.PromotionExamMinDispatchCount,
-                Gold = ProgressionBalance.PromotionExamMinGold,
-            };
-            var system = BuildSystem();
-
-            for (int i = 0; i < 10; i++)
-            {
-                var result = system.ProcessWeek(state);
-                Assert.Null(result.OfferedPromotionExam);
-            }
-
-            Assert.DoesNotContain(state.AvailableQuests, q => q.IsBoss);
-            Assert.False(state.PromotionExamOffered);
-        }
-
-        [Fact]
-        public void WeeklyReport_DoesNotContain_PromotionNotice()
-        {
-            // 週報の「📜 ギルド本部から昇格試験の通達が届いた」通知（MainDashboard側）は、
-            // settlement.OfferedPromotionExamがnullでない場合にのみ出力される。Core側で
-            // このフラグ（と突破時のPromotionExamResult）が常にnullのままであることを
-            // 確認すれば、通知が二度と出ないことが保証される。
-            var state = new GameState
-            {
-                TotalDispatchCount = ProgressionBalance.PromotionExamMinDispatchCount,
-                Gold = ProgressionBalance.PromotionExamMinGold,
-            };
-            var system = BuildSystem();
-
-            var result = system.ProcessWeek(state);
-
-            Assert.Null(result.OfferedPromotionExam);
-            Assert.Null(result.PromotionExamResult);
-        }
-
         // ---------------- ShouldStopAutoSkip 複合判定 ----------------
 
         [Fact]
@@ -563,12 +366,8 @@ namespace GuildManager.Core.Tests
         {
             // 採用試験週(48の倍数+1)・脅威度閾値・満足度警告等のいずれにも該当しない
             // 静かな期間だけを対象に、maxWeeksちょうどで打ち切られることを確認する。
-            // questBoardRng=FixedRng(3)で常に非討伐（調査・探索）テンプレートだけを補充させ、
-            // 「討伐クエストの期限切れ1週前」（→ 停止条件8）が意図せず割り込まないようにする
-            // （討伐クエストは受注可能一覧に常在するため、放置すればいずれ必ず期限切れ間近になる。
-            // これは仕様どおりの挙動であり、このテストの対象外にするための構成）。
             var state = new GameState { WeekNumber = 2, Adventurers = { new Adventurer { Satisfaction = 90, WeeklyWage = 60 } } };
-            var autoSkip = new AutoSkipService(BuildSystem(questBoardRng: new FixedRng(3)));
+            var autoSkip = new AutoSkipService(BuildSystem());
 
             var results = autoSkip.AutoSkip(state, maxWeeks: 10);
 
@@ -602,17 +401,17 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
-        public void AutoSkip_DoesNotDispatchAnyQuest_EvenWhenQuestsAreAvailable()
+        public void AutoSkip_DoesNotDispatchAnyMission()
         {
-            // 自動スキップは新しいクエストを自動受注しない（→ 03 §1.3）。
-            // WeekProcessingSystem.ProcessWeek自体が派遣操作を含まない設計であることを、
-            // 受注可能クエストの残数が「補充されるだけ」で「派遣されて減ることはない」形で確認する。
-            var state = new GameState { Adventurers = { new Adventurer { Satisfaction = 90, WeeklyWage = 60 } } };
-            var autoSkip = new AutoSkipService(BuildSystem(questBoardRng: new FixedRng(3)));
+            // 自動スキップは新しい出撃を自動で行わない（→ 03 §1.3）。WeekProcessingSystem.ProcessWeek自体が
+            // 出撃操作を含まない設計であることを、何週進めても出撃中の部隊が生まれない形で確認する。
+            var state = new GameState { Adventurers = { new Adventurer { Satisfaction = 90, WeeklyWage = 60 } }, DungeonFields = SampleData.CreateDefaultFields() };
+            var autoSkip = new AutoSkipService(BuildSystem());
 
             autoSkip.AutoSkip(state, maxWeeks: 5);
 
-            Assert.Empty(state.ActiveDispatches); // 誰も派遣されていない
+            Assert.Empty(state.ActiveDungeonMissions); // 誰も出撃していない
+            Assert.False(state.Adventurers[0].IsDispatched);
         }
     }
 }

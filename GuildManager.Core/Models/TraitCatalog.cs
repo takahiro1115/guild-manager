@@ -118,7 +118,9 @@ namespace GuildManager.Core.Models
                 new TraitEffect
                 {
                     EffectType = TraitEffectType.QuestTypeScoreBonus,
-                    TargetStat = nameof(QuestType.Exploration), // この効果種別のTargetStatはクエスト種別名
+                    // この効果種別のTargetStatは旧クエスト種別名。旧通常クエストの撤去（2026年9月）以降、
+                    // この効果を参照する計算は無い（特性自体はセーブ互換・伝授のため残している）。
+                    TargetStat = "Exploration",
                     Value = TraitBalance.CountryBredExplorationBonus,
                 }
             }

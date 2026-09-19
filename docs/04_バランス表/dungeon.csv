@@ -15,3 +15,18 @@ BossBaseReputation,2,pt,10Fボス（森）の基準名声（同上の理由でBo
 BossRewardGoldMultiplier,1.30,倍,段（10階進む、またはフィールド1段深くなる）ごとの報奨金・名声乗算係数
 UnexploredHpLossPctMin,30,%,道中進軍で未踏破階層（フィールドの最高到達階層より深い階層）へ踏み込んだ場合のHP消費率の下限（HP下限1、致死・除籍判定には非接続）
 UnexploredHpLossPctMax,50,%,同上の上限。解析済み区間の被ダメージ軽減（dungeon_traversal.csv FullIntelDamageMultiplier）はこの値にも掛かる
+BossPowerWeight_STR,0.8,倍,ボス討伐の部隊火力：各員のSTR実効値への重み（旧quest_type_weights.csv「討伐」行から移設。→ Systems.DungeonPowerCalculator）
+BossPowerWeight_AGI,0.5,倍,同上：AGIへの重み
+BossPowerWeight_VIT,0.6,倍,同上：VITへの重み
+BossPowerWeight_MND,0.8,倍,同上：MNDへの重み
+BossPowerWeight_DEX,0.4,倍,同上：DEXへの重み
+BossPowerWeight_LDR,0.4,倍,同上：LDRへの重み
+BossPowerWeight_INT,0.7,倍,同上：INTへの重み
+ContributionPerTraversedFloor,1,pt,累積功績：道中進軍で1階層進むごとに参加隊員（生存者）へ加算（退職金の上乗せ原資、→ AgingSystem）
+ContributionPerBossFloor,1,pt,累積功績：階層ボス撃破時、ボスの階層×この値を参加隊員（生存者）へ加算
+ContributionPerGathering,2,pt,累積功績：採取任務で素材を獲得した時に参加隊員へ加算
+GrowthRolls_Traversal,2,回,出撃成長：道中進軍（潜行）1週ごとの成長ロール試行回数（対象：STR/VIT/AGI/DEX。→ GrowthSystem.ApplyExpeditionGrowth）
+GrowthRolls_BossVictory,5,回,出撃成長：階層ボス撃破時の成長ロール試行回数（対象：全7能力）。撤退・全滅では発生しない
+GrowthRolls_Survey,2,回,出撃成長：迷宮調査からの帰還時の成長ロール試行回数（対象：INT/DEX/LDR/AGI）
+GrowthRolls_Gathering,2,回,出撃成長：採取任務からの帰還時の成長ロール試行回数（対象：AGI/DEX/VIT）
+GrowthBaseChancePercent,35,%,出撃成長の成長ロール1回あたりの成功確率。成功で対象能力+1（PA上限でクランプ）

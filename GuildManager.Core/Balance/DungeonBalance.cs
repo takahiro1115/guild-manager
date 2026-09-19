@@ -1,3 +1,6 @@
+using System.Collections.Generic;
+using System.Linq;
+
 namespace GuildManager.Core.Balance
 {
     /// <summary>
@@ -57,5 +60,45 @@ namespace GuildManager.Core.Balance
 
         public static readonly int UnexploredHpLossPctMin = BalanceData.GetInt(FileName, "UnexploredHpLossPctMin");
         public static readonly int UnexploredHpLossPctMax = BalanceData.GetInt(FileName, "UnexploredHpLossPctMax");
+
+        // ---- ボス討伐の部隊火力（→ Systems.DungeonPowerCalculator） ----
+        // 旧通常クエストの「討伐」種別の能力重み（quest_type_weights.csv）から、同じ値のまま移設した
+        // （旧クエスト撤去、2026年9月）。
+
+        /// <summary>各員の実効ステータスへの重み（ステータス名→重み）。7能力すべてを持つ。</summary>
+        public static readonly IReadOnlyList<(string Stat, double Weight)> BossPowerWeights =
+            new[] { "STR", "AGI", "VIT", "MND", "DEX", "LDR", "INT" }
+                .Select(stat => (stat, BalanceData.GetDouble(FileName, $"BossPowerWeight_{stat}")))
+                .ToArray();
+
+        // ---- 累積功績（→ Adventurer.TotalContributionScore。退職金の上乗せ原資） ----
+        // 旧通常クエストの解決時に加算していたものを、大迷宮の活動（進軍・ボス撃破・採取）へ再配線した。
+
+        /// <summary>道中進軍で1階層進むごとの功績。</summary>
+        public static readonly int ContributionPerTraversedFloor = BalanceData.GetInt(FileName, "ContributionPerTraversedFloor");
+
+        /// <summary>階層ボス撃破時の功績＝ボスの階層×この値。</summary>
+        public static readonly int ContributionPerBossFloor = BalanceData.GetInt(FileName, "ContributionPerBossFloor");
+
+        /// <summary>採取任務で素材を獲得した時の功績。</summary>
+        public static readonly int ContributionPerGathering = BalanceData.GetInt(FileName, "ContributionPerGathering");
+
+        // ---- 出撃成長（→ GrowthSystem.ApplyExpeditionGrowth。成長トリガー経路1の大迷宮版） ----
+        // 旧通常クエストの撤去で止まっていた「出撃経験による成長」を、大迷宮の任務へ再配線した。
+
+        /// <summary>道中進軍（潜行）1週ごとの成長ロール試行回数。</summary>
+        public static readonly int GrowthRollsTraversal = BalanceData.GetInt(FileName, "GrowthRolls_Traversal");
+
+        /// <summary>階層ボス撃破時の成長ロール試行回数。</summary>
+        public static readonly int GrowthRollsBossVictory = BalanceData.GetInt(FileName, "GrowthRolls_BossVictory");
+
+        /// <summary>迷宮調査からの帰還時の成長ロール試行回数。</summary>
+        public static readonly int GrowthRollsSurvey = BalanceData.GetInt(FileName, "GrowthRolls_Survey");
+
+        /// <summary>採取任務からの帰還時の成長ロール試行回数。</summary>
+        public static readonly int GrowthRollsGathering = BalanceData.GetInt(FileName, "GrowthRolls_Gathering");
+
+        /// <summary>成長ロール1回あたりの成功確率（%）。</summary>
+        public static readonly int GrowthBaseChancePercent = BalanceData.GetInt(FileName, "GrowthBaseChancePercent");
     }
 }

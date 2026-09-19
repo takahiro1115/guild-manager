@@ -11,10 +11,10 @@ namespace GuildManager.Core.Systems
     /// 大迷宮（ダンジョン）への出撃の派遣・週次解決オーケストレーション
     /// （→ ScoutingResolver・DungeonResolver をゲーム進行へ接続する役）。
     ///
-    /// QuestDispatchSystem と同じ流れに揃えている：
+    /// 出撃の流れ：
     ///  - 出撃操作（TryDispatch）では解決せず、メンバーを IsDispatched=true にして待機させる。
     ///  - 週次決算（ProcessWeeklyMissions）で全件をまとめて解決する。
-    ///  - 同時出撃枠は通常クエストの派遣と共有する（→ QuestDispatchSystem.CanDispatch）。
+    ///  - 同時出撃枠（GameState.UnlockedSquadSlots）を出撃中の件数で消費する（→ CanDispatch）。
     ///
     /// 毎回1Fリセット・複数週潜行型（2026年9月改訂、→ ExpeditionStatus）：
     ///  - 道中調査（Scouting）の部隊は毎回1階層から潜り、週ごとに進軍する（Advancing）。
@@ -33,6 +33,7 @@ namespace GuildManager.Core.Systems
         // 各resolverを省略した場合の既定シード（固定シードで再現性を保つ。→ MainDashboardの方針と同じ）。
         private const int DefaultTraversalSeed = 1719;
         private const int DefaultGatheringSeed = 1848;
+        private const int DefaultGrowthSeed = 1907;
 
         private readonly ScoutingResolver _scoutingResolver;
         private readonly DungeonResolver _dungeonResolver;
@@ -40,6 +41,7 @@ namespace GuildManager.Core.Systems
         private readonly GatheringResolver _gatheringResolver;
         private readonly SatisfactionSystem _satisfactionSystem;
         private readonly CompatibilitySystem _compatibilitySystem;
+        private readonly GrowthSystem _growthSystem;
 
         public DungeonExpeditionSystem(
             ScoutingResolver scoutingResolver,
@@ -49,7 +51,9 @@ namespace GuildManager.Core.Systems
             // 省略可能：道中進軍・探索（採取）の解決（→ DungeonTraversalResolver・GatheringResolver）。
             // 既存の呼び出し側を変更せずに接続できるよう、既定値を持たせている。
             DungeonTraversalResolver? traversalResolver = null,
-            GatheringResolver? gatheringResolver = null)
+            GatheringResolver? gatheringResolver = null,
+            // 省略可能：出撃成長（→ GrowthSystem.ApplyExpeditionGrowth）。省略時は固定シードの既定構成。
+            GrowthSystem? growthSystem = null)
         {
             _scoutingResolver = scoutingResolver;
             _dungeonResolver = dungeonResolver;
@@ -57,6 +61,7 @@ namespace GuildManager.Core.Systems
             _gatheringResolver = gatheringResolver ?? new GatheringResolver(new SeededRng(DefaultGatheringSeed));
             _satisfactionSystem = satisfactionSystem;
             _compatibilitySystem = compatibilitySystem;
+            _growthSystem = growthSystem ?? new GrowthSystem(new SeededRng(DefaultGrowthSeed));
         }
 
         /// <summary>
@@ -68,7 +73,7 @@ namespace GuildManager.Core.Systems
         /// フィールド未開放のチェック（→ 大迷宮フィールド選択UI仕様）はCore層で行う：
         /// UI（DungeonPanel）は未開放フィールドを選択できないようにしているが、それはUI側の
         /// 制約に過ぎない。出撃の可否そのものはCore層で自己完結して判定すべきという方針
-        /// （→ QuestDispatchSystem.CanDispatch等、既存のTry*系メソッドと同じ考え方）により、
+        /// （→ CanDispatch等、既存のTry*系メソッドと同じ考え方）により、
         /// ここでも独立して検査する。
         ///
         /// 携行アイテムの代金（2026年9月新設、→ パーティ携行アイテムポーチ）：ボス討伐のみ、
@@ -78,7 +83,7 @@ namespace GuildManager.Core.Systems
         /// </summary>
         public bool TryDispatch(GameState state, Party party, FloorBoss boss, DungeonMissionType missionType)
         {
-            if (!QuestDispatchSystem.CanDispatch(state))
+            if (!CanDispatch(state))
                 return false;
             if (party.IsEmpty || party.Members.Any(m => !m.IsAvailable))
                 return false;
@@ -116,6 +121,14 @@ namespace GuildManager.Core.Systems
             return true;
         }
 
+        /// <summary>
+        /// 同時出撃枠（→ GameState.UnlockedSquadSlots）に空きがあるか。枠は「部隊の数」であって人数ではない：
+        /// 1枠の中で1〜4名を自由に割り振れる（フリーアサイン）。出撃中の部隊（→ ActiveDungeonMissions）の
+        /// 件数で消費される。旧通常クエストの撤去（2026年9月）に伴い QuestDispatchSystem から移した。
+        /// </summary>
+        public static bool CanDispatch(GameState state) =>
+            state.ActiveDungeonMissions.Count < state.UnlockedSquadSlots;
+
         /// <summary>携行アイテム一覧の合計代金（→ Models.ConsumableCatalog）。UIの費用表示からも使う。</summary>
         public static int CalculateConsumableCost(IEnumerable<string> itemIds) =>
             itemIds.Sum(id => ConsumableCatalog.FindById(id)?.Price ?? 0);
@@ -127,7 +140,7 @@ namespace GuildManager.Core.Systems
         /// </summary>
         public bool TryDispatchGathering(GameState state, Party party, DungeonField field)
         {
-            if (!QuestDispatchSystem.CanDispatch(state))
+            if (!CanDispatch(state))
                 return false;
             if (party.IsEmpty || party.Members.Any(m => !m.IsAvailable))
                 return false;
@@ -157,7 +170,7 @@ namespace GuildManager.Core.Systems
         /// </summary>
         public bool TryDispatchSurvey(GameState state, Party party, FloorBoss boss)
         {
-            if (!QuestDispatchSystem.CanDispatch(state))
+            if (!CanDispatch(state))
                 return false;
             if (party.IsEmpty || party.Members.Any(m => !m.IsAvailable))
                 return false;
@@ -294,14 +307,13 @@ namespace GuildManager.Core.Systems
         }
 
         /// <summary>
-        /// どの出撃（→ GameState.ActiveDispatches・ActiveDungeonMissions）にも属していないのに
+        /// どの出撃（→ GameState.ActiveDungeonMissions）にも属していないのに
         /// IsDispatched=true のまま残っている現役冒険者を待機中へ戻す。旧バージョンのセーブや
         /// 解決途中の例外などで生じた不整合から、出撃不能（「待機中 0名」）状態が永続するのを防ぐ。
         /// </summary>
         public static void ReleaseOrphanedDispatchFlags(GameState state)
         {
-            var engagedIds = state.ActiveDispatches.SelectMany(d => d.Party.Members)
-                .Concat(state.ActiveDungeonMissions.SelectMany(m => m.Party.Members))
+            var engagedIds = state.ActiveDungeonMissions.SelectMany(m => m.Party.Members)
                 .Select(m => m.Id)
                 .ToHashSet();
 
@@ -324,7 +336,12 @@ namespace GuildManager.Core.Systems
                 state.AddMaterial(gathering.MaterialId, gathering.MaterialCount);
                 state.Gold += gathering.GoldEarned;
 
+                // 累積功績（→ AwardContribution）：素材を持ち帰れた場合のみ。
+                if (!string.IsNullOrEmpty(gathering.MaterialId) && gathering.MaterialCount > 0)
+                    AwardContribution(state, mission.Party, DungeonBalance.ContributionPerGathering);
+
                 var resolution = new DungeonMissionResolution(mission.Party, mission.Field, gathering);
+                resolution.GrowthEvents = _growthSystem.ApplyExpeditionGrowth(state, mission.Party, DungeonMissionType.Gathering, isBossVictory: false);
                 ReturnHome(state, mission, resolution);
                 return resolution;
             }
@@ -370,10 +387,17 @@ namespace GuildManager.Core.Systems
                 mission.CarriedGold += traversal.LootGold;
                 foreach (var kv in traversal.LootMaterials)
                     mission.CarriedMaterials[kv.Key] = mission.CarriedMaterials.TryGetValue(kv.Key, out int n) ? n + kv.Value : kv.Value;
+
+                // 累積功績（→ AwardContribution）：進軍した階層数に比例。
+                AwardContribution(state, mission.Party,
+                    (traversal.FloorAfter - traversal.FloorBefore) * DungeonBalance.ContributionPerTraversedFloor);
             }
 
             var boss = traversal.TargetBoss ?? mission.Boss;
             var resolution = new DungeonMissionResolution(mission.Party, boss, field, boss?.IntelRate ?? 0, traversal);
+            // 出撃成長（→ GrowthSystem.ApplyExpeditionGrowth）：実際に1階層以上進軍した週のみ。
+            if (traversal.FloorAfter > traversal.FloorBefore)
+                resolution.GrowthEvents = _growthSystem.ApplyExpeditionGrowth(state, mission.Party, DungeonMissionType.Scouting, isBossVictory: false);
 
             if (traversal.StopperTriggered && traversal.TargetBoss != null)
             {
@@ -426,6 +450,7 @@ namespace GuildManager.Core.Systems
             var scouting = _scoutingResolver.Resolve(mission.Party, boss, state);
             var resolution = new DungeonMissionResolution(
                 mission.Party, boss, mission.Field, intelBefore, scouting, DungeonMissionType.Survey);
+            resolution.GrowthEvents = _growthSystem.ApplyExpeditionGrowth(state, mission.Party, DungeonMissionType.Survey, isBossVictory: false);
             ReturnHome(state, mission, resolution);
             return resolution;
         }
@@ -461,6 +486,10 @@ namespace GuildManager.Core.Systems
 
                 ApplyFieldProgression(state, boss);
 
+                // 累積功績（→ AwardContribution）：撃破したボスの階層に比例（深い階層ほど大きい）。
+                // 強制除籍された者はロースターから外れているため加算されない。
+                AwardContribution(state, mission.Party, boss.Floor * DungeonBalance.ContributionPerBossFloor);
+
                 if (state.UnlockedSquadSlots > slotsBefore)
                     squadSlotsExpandedTo = state.UnlockedSquadSlots;
                 fieldNewlyUnlocked = state.DungeonFields
@@ -469,6 +498,9 @@ namespace GuildManager.Core.Systems
 
             var resolution = new DungeonMissionResolution(
                 mission.Party, boss, mission.Field, intelBefore, assault, squadSlotsExpandedTo, fieldNewlyUnlocked);
+            // 出撃成長：撃破した場合のみ（全7能力・試行回数多）。撤退・全滅では成長しない。強制除籍者は対象外。
+            resolution.GrowthEvents = _growthSystem.ApplyExpeditionGrowth(
+                state, mission.Party, DungeonMissionType.BossAssault, isBossVictory: assault.Outcome == DungeonOutcome.Victory);
             ReturnHome(state, mission, resolution);
             return resolution;
         }
@@ -479,6 +511,25 @@ namespace GuildManager.Core.Systems
                 mission.Party, mission.TargetedBoss ?? mission.Boss, mission.Field, mission.MissionType);
             ReturnHome(state, mission, resolution);
             return resolution;
+        }
+
+        /// <summary>
+        /// 累積功績（→ Adventurer.TotalContributionScore、退職金の上乗せ原資 → AgingSystem）を、
+        /// 部隊の生存者（現役ロースターに残っている者）全員へ加算する。旧通常クエストの解決時に
+        /// 加算していたものを、旧クエストの撤去（2026年9月）に伴い大迷宮の活動へ再配線した：
+        /// 道中進軍（1階層ごと）・階層ボス撃破（ボスの階層に比例）・採取（素材獲得時）。
+        /// 係数はいずれも dungeon.csv の Contribution*（→ DungeonBalance）。
+        /// </summary>
+        public static void AwardContribution(GameState state, Party party, int points)
+        {
+            if (points <= 0)
+                return;
+
+            foreach (var member in party.Members)
+            {
+                if (state.Adventurers.Contains(member))
+                    member.TotalContributionScore += points;
+            }
         }
 
         /// <summary>
@@ -513,7 +564,7 @@ namespace GuildManager.Core.Systems
 
         /// <summary>
         /// 強制除籍の処理（→ DungeonResult.ForceRetiredAdventurerIds）。システム上は戦死と同じ
-        /// 恒久ロストのため、QuestDispatchSystem.ProcessWeeklyDispatches の戦死処理と同じ手順
+        /// 恒久ロストのため、旧通常クエストの戦死処理と同じ手順
         /// （仲間ロストの満足度低下・相性の余波・ロースターから記録への移動）を踏む。
         /// </summary>
         private void ApplyForcedRetirements(GameState state, Party party, IEnumerable<Guid> retiredIds)

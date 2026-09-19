@@ -11,41 +11,6 @@ namespace GuildManager.Core.Tests
     /// </summary>
     public class GuildRankSystemTests
     {
-        // ---------------- 名声の加減算 ----------------
-
-        [Fact]
-        public void ApplyQuestResult_AddsReputation_OnAchievement()
-        {
-            var state = new GameState();
-            var system = new GuildRankSystem();
-
-            system.ApplyQuestResult(state, questAchieved: true);
-
-            Assert.Equal(GuildRankBalance.ReputationGainOnAchievement, state.Reputation);
-        }
-
-        [Fact]
-        public void ApplyQuestResult_SubtractsReputation_OnFailure()
-        {
-            var state = new GameState { Reputation = 100 };
-            var system = new GuildRankSystem();
-
-            system.ApplyQuestResult(state, questAchieved: false);
-
-            Assert.Equal(100 - GuildRankBalance.ReputationLossOnFailure, state.Reputation);
-        }
-
-        [Fact]
-        public void ApplyQuestResult_ClampsAtZero_OnRepeatedFailure()
-        {
-            var state = new GameState { Reputation = 5 };
-            var system = new GuildRankSystem();
-
-            system.ApplyQuestResult(state, questAchieved: false);
-
-            Assert.Equal(0, state.Reputation);
-        }
-
         // ---------------- 昇格・降格（ヒステリシス） ----------------
 
         [Fact]
@@ -250,19 +215,6 @@ namespace GuildManager.Core.Tests
 
             Assert.Equal(GuildRank.S, state.GuildRank);
             Assert.True(state.FinalQuestUnlocked);
-        }
-
-        // ---------------- ランク⇔クエストランク変換 ----------------
-
-        [Theory]
-        [InlineData(GuildRank.G, QuestRank.E)]
-        [InlineData(GuildRank.F, QuestRank.E)]
-        [InlineData(GuildRank.E, QuestRank.E)]
-        [InlineData(GuildRank.D, QuestRank.D)]
-        [InlineData(GuildRank.S, QuestRank.S)]
-        public void ToQuestRankFloor_MapsGuildRankToComparableQuestRank(GuildRank guildRank, QuestRank expected)
-        {
-            Assert.Equal(expected, GuildRankBalance.ToQuestRankFloor(guildRank));
         }
     }
 }

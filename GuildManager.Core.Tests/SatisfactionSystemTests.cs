@@ -155,58 +155,6 @@ namespace GuildManager.Core.Tests
             Assert.Equal(0, adventurer.Satisfaction);
         }
 
-        // ---------------- 勝利・功績ボーナス（§5.1） ----------------
-
-        [Fact]
-        public void ApplyQuestAchievementBonus_GrantsBonus_ForBRankAchieved()
-        {
-            var a = new Adventurer { Satisfaction = 50 };
-            var b = new Adventurer { Satisfaction = 50 };
-            var party = PartyOf(a, b);
-            var system = new SatisfactionSystem();
-
-            system.ApplyQuestAchievementBonus(party, new Quest { Rank = QuestRank.B }, questAchieved: true);
-
-            Assert.Equal(60, a.Satisfaction);
-            Assert.Equal(60, b.Satisfaction);
-        }
-
-        [Fact]
-        public void ApplyQuestAchievementBonus_GrantsBonus_ForSRankAchieved()
-        {
-            var a = new Adventurer { Satisfaction = 50 };
-            var party = PartyOf(a);
-            var system = new SatisfactionSystem();
-
-            system.ApplyQuestAchievementBonus(party, new Quest { Rank = QuestRank.S }, questAchieved: true);
-
-            Assert.Equal(60, a.Satisfaction);
-        }
-
-        [Fact]
-        public void ApplyQuestAchievementBonus_NoBonus_ForBelowBRank()
-        {
-            var a = new Adventurer { Satisfaction = 50 };
-            var party = PartyOf(a);
-            var system = new SatisfactionSystem();
-
-            system.ApplyQuestAchievementBonus(party, new Quest { Rank = QuestRank.C }, questAchieved: true);
-
-            Assert.Equal(50, a.Satisfaction);
-        }
-
-        [Fact]
-        public void ApplyQuestAchievementBonus_NoBonus_WhenNotAchieved()
-        {
-            var a = new Adventurer { Satisfaction = 50 };
-            var party = PartyOf(a);
-            var system = new SatisfactionSystem();
-
-            system.ApplyQuestAchievementBonus(party, new Quest { Rank = QuestRank.S }, questAchieved: false);
-
-            Assert.Equal(50, a.Satisfaction);
-        }
-
         // ---------------- 仲間ロストの余波（§5.1・§4.3接続前提） ----------------
 
         [Fact]
@@ -235,7 +183,7 @@ namespace GuildManager.Core.Tests
             var party = PartyOf(a, b);
             var state = new GameState { Adventurers = { a, b } };
             state.Compatibility[CompatibilitySystem.NormalizeKey(a.Id, b.Id)] = CompatibilityBalance.HostileThreshold - 1;
-            state.ActiveDispatches.Add(new ActiveDispatch { Party = party, WeeksRemaining = 2 });
+            state.ActiveDungeonMissions.Add(new ActiveDungeonMission { Party = party });
             var system = new SatisfactionSystem();
 
             system.ProcessWeeklySatisfaction(state, new HashSet<Guid> { a.Id, b.Id });
@@ -253,7 +201,7 @@ namespace GuildManager.Core.Tests
             var party = PartyOf(a, b);
             var state = new GameState { Adventurers = { a, b } };
             state.Compatibility[CompatibilitySystem.NormalizeKey(a.Id, b.Id)] = CompatibilityBalance.HostileThreshold;
-            state.ActiveDispatches.Add(new ActiveDispatch { Party = party, WeeksRemaining = 2 });
+            state.ActiveDungeonMissions.Add(new ActiveDungeonMission { Party = party });
             var system = new SatisfactionSystem();
 
             system.ProcessWeeklySatisfaction(state, new HashSet<Guid> { a.Id, b.Id });
@@ -273,7 +221,7 @@ namespace GuildManager.Core.Tests
             var state = new GameState { Adventurers = { a, b, c } };
             state.Compatibility[CompatibilitySystem.NormalizeKey(a.Id, c.Id)] = CompatibilityBalance.HostileThreshold - 1;
             state.Compatibility[CompatibilitySystem.NormalizeKey(b.Id, c.Id)] = CompatibilityBalance.HostileThreshold - 1;
-            state.ActiveDispatches.Add(new ActiveDispatch { Party = party, WeeksRemaining = 2 });
+            state.ActiveDungeonMissions.Add(new ActiveDungeonMission { Party = party });
             var system = new SatisfactionSystem();
 
             system.ProcessWeeklySatisfaction(state, new HashSet<Guid> { a.Id, b.Id, c.Id });
@@ -292,7 +240,7 @@ namespace GuildManager.Core.Tests
             var b = new Adventurer { Age = 30, Satisfaction = 70, WeeklyWage = 1000 };
             var state = new GameState { Adventurers = { a, b } };
             state.Compatibility[CompatibilitySystem.NormalizeKey(a.Id, b.Id)] = CompatibilityBalance.HostileThreshold - 1;
-            // ActiveDispatchesに登録しない＝現在同パーティで出撃中ではない
+            // ActiveDungeonMissionsに登録しない＝現在同パーティで出撃中ではない
             var system = new SatisfactionSystem();
 
             system.ProcessWeeklySatisfaction(state, new HashSet<Guid> { a.Id, b.Id });
