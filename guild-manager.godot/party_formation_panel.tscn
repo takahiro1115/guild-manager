@@ -10,7 +10,7 @@ grow_horizontal = 2
 grow_vertical = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
-theme_override_constants/separation = 8
+theme_override_constants/separation = 6
 script = ExtResource("1_script")
 
 [node name="HeaderPanel" type="PanelContainer" parent="."]
@@ -19,13 +19,13 @@ layout_mode = 2
 [node name="Margin" type="MarginContainer" parent="HeaderPanel"]
 layout_mode = 2
 theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 8
+theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = 10
-theme_override_constants/margin_bottom = 8
+theme_override_constants/margin_bottom = 6
 
 [node name="HeaderVBox" type="VBoxContainer" parent="HeaderPanel/Margin"]
 layout_mode = 2
-theme_override_constants/separation = 6
+theme_override_constants/separation = 4
 
 [node name="TopRow" type="HBoxContainer" parent="HeaderPanel/Margin/HeaderVBox"]
 layout_mode = 2
@@ -33,7 +33,7 @@ theme_override_constants/separation = 12
 
 [node name="TitleLabel" type="Label" parent="HeaderPanel/Margin/HeaderVBox/TopRow"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 16
+theme_override_font_sizes/font_size = 15
 text = "部隊編成（最大4部隊・同時出撃枠連動）"
 
 [node name="DispatchedBadge" type="PanelContainer" parent="HeaderPanel/Margin/HeaderVBox/TopRow"]
@@ -51,7 +51,7 @@ theme_override_constants/margin_bottom = 2
 [node name="Label" type="Label" parent="HeaderPanel/Margin/HeaderVBox/TopRow/DispatchedBadge/Margin"]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.4, 0.2, 1)
-theme_override_font_sizes/font_size = 13
+theme_override_font_sizes/font_size = 12
 text = "【出撃中・編成変更不可】"
 
 [node name="StatusLabel" type="Label" parent="HeaderPanel/Margin/HeaderVBox/TopRow"]
@@ -59,7 +59,7 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.8, 0.9, 1, 1)
-theme_override_font_sizes/font_size = 13
+theme_override_font_sizes/font_size = 12
 text = "部隊を選択してメンバーを編成してください。"
 horizontal_alignment = 2
 
@@ -69,31 +69,35 @@ theme_override_constants/separation = 8
 
 [node name="SquadButton0" type="Button" parent="HeaderPanel/Margin/HeaderVBox/SelectorRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(140, 36)
+custom_minimum_size = Vector2(130, 32)
 layout_mode = 2
 toggle_mode = true
 button_pressed = true
+theme_override_font_sizes/font_size = 12
 text = "第1部隊"
 
 [node name="SquadButton1" type="Button" parent="HeaderPanel/Margin/HeaderVBox/SelectorRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(140, 36)
+custom_minimum_size = Vector2(130, 32)
 layout_mode = 2
 toggle_mode = true
+theme_override_font_sizes/font_size = 12
 text = "第2部隊"
 
 [node name="SquadButton2" type="Button" parent="HeaderPanel/Margin/HeaderVBox/SelectorRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(140, 36)
+custom_minimum_size = Vector2(130, 32)
 layout_mode = 2
 toggle_mode = true
+theme_override_font_sizes/font_size = 12
 text = "第3部隊"
 
 [node name="SquadButton3" type="Button" parent="HeaderPanel/Margin/HeaderVBox/SelectorRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(140, 36)
+custom_minimum_size = Vector2(130, 32)
 layout_mode = 2
 toggle_mode = true
+theme_override_font_sizes/font_size = 12
 text = "第4部隊"
 
 [node name="VSeparator" type="VSeparator" parent="HeaderPanel/Margin/HeaderVBox/SelectorRow"]
@@ -101,13 +105,15 @@ layout_mode = 2
 
 [node name="SquadNameEdit" type="LineEdit" parent="HeaderPanel/Margin/HeaderVBox/SelectorRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(180, 0)
+custom_minimum_size = Vector2(160, 0)
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 placeholder_text = "部隊名"
 
 [node name="SquadRenameButton" type="Button" parent="HeaderPanel/Margin/HeaderVBox/SelectorRow"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 text = "部隊名を変更"
 
 [node name="SummaryPanel" type="PanelContainer" parent="."]
@@ -116,13 +122,13 @@ layout_mode = 2
 [node name="Margin" type="MarginContainer" parent="SummaryPanel"]
 layout_mode = 2
 theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 6
+theme_override_constants/margin_top = 4
 theme_override_constants/margin_right = 10
-theme_override_constants/margin_bottom = 6
+theme_override_constants/margin_bottom = 4
 
 [node name="SummaryHBox" type="HBoxContainer" parent="SummaryPanel/Margin"]
 layout_mode = 2
-theme_override_constants/separation = 12
+theme_override_constants/separation = 10
 
 [node name="TraversalCard" type="PanelContainer" parent="SummaryPanel/Margin/SummaryHBox"]
 layout_mode = 2
@@ -130,10 +136,10 @@ size_flags_horizontal = 3
 
 [node name="Margin" type="MarginContainer" parent="SummaryPanel/Margin/SummaryHBox/TraversalCard"]
 layout_mode = 2
-theme_override_constants/margin_left = 8
-theme_override_constants/margin_top = 4
-theme_override_constants/margin_right = 8
-theme_override_constants/margin_bottom = 4
+theme_override_constants/margin_left = 6
+theme_override_constants/margin_top = 3
+theme_override_constants/margin_right = 6
+theme_override_constants/margin_bottom = 3
 
 [node name="VBox" type="VBoxContainer" parent="SummaryPanel/Margin/SummaryHBox/TraversalCard/Margin"]
 layout_mode = 2
@@ -148,7 +154,7 @@ text = "走破力予測（道中進軍）"
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.4, 0.9, 1, 1)
-theme_override_font_sizes/font_size = 15
+theme_override_font_sizes/font_size = 14
 text = "0 pt"
 
 [node name="StealthCard" type="PanelContainer" parent="SummaryPanel/Margin/SummaryHBox"]
@@ -157,10 +163,10 @@ size_flags_horizontal = 3
 
 [node name="Margin" type="MarginContainer" parent="SummaryPanel/Margin/SummaryHBox/StealthCard"]
 layout_mode = 2
-theme_override_constants/margin_left = 8
-theme_override_constants/margin_top = 4
-theme_override_constants/margin_right = 8
-theme_override_constants/margin_bottom = 4
+theme_override_constants/margin_left = 6
+theme_override_constants/margin_top = 3
+theme_override_constants/margin_right = 6
+theme_override_constants/margin_bottom = 3
 
 [node name="VBox" type="VBoxContainer" parent="SummaryPanel/Margin/SummaryHBox/StealthCard/Margin"]
 layout_mode = 2
@@ -175,7 +181,7 @@ text = "隠密適性（遭遇回避）"
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.5, 1, 0.5, 1)
-theme_override_font_sizes/font_size = 15
+theme_override_font_sizes/font_size = 14
 text = "0 pt"
 
 [node name="AnalysisCard" type="PanelContainer" parent="SummaryPanel/Margin/SummaryHBox"]
@@ -184,10 +190,10 @@ size_flags_horizontal = 3
 
 [node name="Margin" type="MarginContainer" parent="SummaryPanel/Margin/SummaryHBox/AnalysisCard"]
 layout_mode = 2
-theme_override_constants/margin_left = 8
-theme_override_constants/margin_top = 4
-theme_override_constants/margin_right = 8
-theme_override_constants/margin_bottom = 4
+theme_override_constants/margin_left = 6
+theme_override_constants/margin_top = 3
+theme_override_constants/margin_right = 6
+theme_override_constants/margin_bottom = 3
 
 [node name="VBox" type="VBoxContainer" parent="SummaryPanel/Margin/SummaryHBox/AnalysisCard/Margin"]
 layout_mode = 2
@@ -202,7 +208,7 @@ text = "解析適性（情報収集）"
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.8, 0.6, 1, 1)
-theme_override_font_sizes/font_size = 15
+theme_override_font_sizes/font_size = 14
 text = "0 pt"
 
 [node name="HpHealthCard" type="PanelContainer" parent="SummaryPanel/Margin/SummaryHBox"]
@@ -211,10 +217,10 @@ size_flags_horizontal = 3
 
 [node name="Margin" type="MarginContainer" parent="SummaryPanel/Margin/SummaryHBox/HpHealthCard"]
 layout_mode = 2
-theme_override_constants/margin_left = 8
-theme_override_constants/margin_top = 4
-theme_override_constants/margin_right = 8
-theme_override_constants/margin_bottom = 4
+theme_override_constants/margin_left = 6
+theme_override_constants/margin_top = 3
+theme_override_constants/margin_right = 6
+theme_override_constants/margin_bottom = 3
 
 [node name="VBox" type="VBoxContainer" parent="SummaryPanel/Margin/SummaryHBox/HpHealthCard/Margin"]
 layout_mode = 2
@@ -233,12 +239,12 @@ text = "部隊健全度"
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.9, 0.5, 1)
-theme_override_font_sizes/font_size = 12
+theme_override_font_sizes/font_size = 11
 text = "0%"
 
 [node name="AverageHpBar" type="ProgressBar" parent="SummaryPanel/Margin/SummaryHBox/HpHealthCard/Margin/VBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 10)
+custom_minimum_size = Vector2(0, 8)
 layout_mode = 2
 step = 1.0
 value = 100.0
@@ -250,10 +256,10 @@ size_flags_horizontal = 3
 
 [node name="Margin" type="MarginContainer" parent="SummaryPanel/Margin/SummaryHBox/CompatibilityCard"]
 layout_mode = 2
-theme_override_constants/margin_left = 8
-theme_override_constants/margin_top = 4
-theme_override_constants/margin_right = 8
-theme_override_constants/margin_bottom = 4
+theme_override_constants/margin_left = 6
+theme_override_constants/margin_top = 3
+theme_override_constants/margin_right = 6
+theme_override_constants/margin_bottom = 3
 
 [node name="VBox" type="VBoxContainer" parent="SummaryPanel/Margin/SummaryHBox/CompatibilityCard/Margin"]
 layout_mode = 2
@@ -266,10 +272,11 @@ text = "部隊内相性"
 
 [node name="CompatibilityWarningLabel" type="RichTextLabel" parent="SummaryPanel/Margin/SummaryHBox/CompatibilityCard/Margin/VBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 24)
+custom_minimum_size = Vector2(0, 20)
 layout_mode = 2
 bbcode_enabled = true
 fit_content = true
+theme_override_font_sizes/normal_font_size = 11
 text = "[color=lime]相性良好[/color]"
 
 [node name="MemberSlotsPanel" type="PanelContainer" parent="."]
@@ -278,34 +285,34 @@ layout_mode = 2
 [node name="Margin" type="MarginContainer" parent="MemberSlotsPanel"]
 layout_mode = 2
 theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 8
+theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = 10
-theme_override_constants/margin_bottom = 8
+theme_override_constants/margin_bottom = 6
 
 [node name="VBox" type="VBoxContainer" parent="MemberSlotsPanel/Margin"]
 layout_mode = 2
-theme_override_constants/separation = 6
+theme_override_constants/separation = 4
 
 [node name="SlotsHeader" type="Label" parent="MemberSlotsPanel/Margin/VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 13
+theme_override_font_sizes/font_size = 12
 text = "編成メンバー（最大4名・スロット1が部隊長）"
 
 [node name="MemberSlotsContainer" type="HBoxContainer" parent="MemberSlotsPanel/Margin/VBox"]
 layout_mode = 2
-theme_override_constants/separation = 10
+theme_override_constants/separation = 8
 
 [node name="MemberSlot0" type="PanelContainer" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer"]
-custom_minimum_size = Vector2(0, 190)
+custom_minimum_size = Vector2(0, 148)
 layout_mode = 2
 size_flags_horizontal = 3
 
 [node name="Margin" type="MarginContainer" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot0"]
 layout_mode = 2
-theme_override_constants/margin_left = 8
-theme_override_constants/margin_top = 8
-theme_override_constants/margin_right = 8
-theme_override_constants/margin_bottom = 8
+theme_override_constants/margin_left = 6
+theme_override_constants/margin_top = 4
+theme_override_constants/margin_right = 6
+theme_override_constants/margin_bottom = 4
 
 [node name="EmptySlotContainer0" type="VBoxContainer" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot0/Margin"]
 unique_name_in_owner = true
@@ -315,14 +322,14 @@ alignment = 1
 [node name="Label" type="Label" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot0/Margin/EmptySlotContainer0"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.6, 0.6, 0.6, 1)
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 13
 text = "＋ 空き枠（隊長）"
 horizontal_alignment = 1
 
 [node name="SubLabel" type="Label" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot0/Margin/EmptySlotContainer0"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.4, 0.4, 0.4, 1)
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 10
 text = "下の候補一覧から配属"
 horizontal_alignment = 1
 
@@ -330,7 +337,7 @@ horizontal_alignment = 1
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
-theme_override_constants/separation = 4
+theme_override_constants/separation = 2
 
 [node name="HeaderHBox" type="HBoxContainer" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot0/Margin/FilledSlotContainer0"]
 layout_mode = 2
@@ -339,7 +346,7 @@ layout_mode = 2
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(1, 0.85, 0.4, 1)
-theme_override_font_sizes/font_size = 12
+theme_override_font_sizes/font_size = 11
 text = "【隊長】"
 
 [node name="SlotPositionBadge0" type="Label" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot0/Margin/FilledSlotContainer0/HeaderHBox"]
@@ -351,11 +358,11 @@ text = "【前衛】"
 
 [node name="BodyHBox" type="HBoxContainer" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot0/Margin/FilledSlotContainer0"]
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 6
 
 [node name="SlotPortrait0" type="TextureRect" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot0/Margin/FilledSlotContainer0/BodyHBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(70, 90)
+custom_minimum_size = Vector2(56, 72)
 layout_mode = 2
 expand_mode = 1
 stretch_mode = 6
@@ -363,30 +370,30 @@ stretch_mode = 6
 [node name="InfoVBox" type="VBoxContainer" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot0/Margin/FilledSlotContainer0/BodyHBox"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 2
+theme_override_constants/separation = 1
 
 [node name="SlotNameLabel0" type="Label" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot0/Margin/FilledSlotContainer0/BodyHBox/InfoVBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 13
 text = "氏名"
 
 [node name="SlotJobAgeLabel0" type="Label" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot0/Margin/FilledSlotContainer0/BodyHBox/InfoVBox"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 10
 text = "戦士 (21歳)"
 
 [node name="SlotHpLabel0" type="Label" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot0/Margin/FilledSlotContainer0/BodyHBox/InfoVBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 10
 text = "HP 50/50"
 
 [node name="SlotHpBar0" type="ProgressBar" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot0/Margin/FilledSlotContainer0/BodyHBox/InfoVBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 8)
+custom_minimum_size = Vector2(0, 6)
 layout_mode = 2
 step = 1.0
 value = 100.0
@@ -394,20 +401,22 @@ show_percentage = false
 
 [node name="SlotRemoveButton0" type="Button" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot0/Margin/FilledSlotContainer0"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 24)
 layout_mode = 2
+theme_override_font_sizes/font_size = 11
 text = "編成解除"
 
 [node name="MemberSlot1" type="PanelContainer" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer"]
-custom_minimum_size = Vector2(0, 190)
+custom_minimum_size = Vector2(0, 148)
 layout_mode = 2
 size_flags_horizontal = 3
 
 [node name="Margin" type="MarginContainer" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot1"]
 layout_mode = 2
-theme_override_constants/margin_left = 8
-theme_override_constants/margin_top = 8
-theme_override_constants/margin_right = 8
-theme_override_constants/margin_bottom = 8
+theme_override_constants/margin_left = 6
+theme_override_constants/margin_top = 4
+theme_override_constants/margin_right = 6
+theme_override_constants/margin_bottom = 4
 
 [node name="EmptySlotContainer1" type="VBoxContainer" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot1/Margin"]
 unique_name_in_owner = true
@@ -417,14 +426,14 @@ alignment = 1
 [node name="Label" type="Label" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot1/Margin/EmptySlotContainer1"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.6, 0.6, 0.6, 1)
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 13
 text = "＋ 空き枠"
 horizontal_alignment = 1
 
 [node name="SubLabel" type="Label" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot1/Margin/EmptySlotContainer1"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.4, 0.4, 0.4, 1)
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 10
 text = "下の候補一覧から配属"
 horizontal_alignment = 1
 
@@ -432,7 +441,7 @@ horizontal_alignment = 1
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
-theme_override_constants/separation = 4
+theme_override_constants/separation = 2
 
 [node name="HeaderHBox" type="HBoxContainer" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot1/Margin/FilledSlotContainer1"]
 layout_mode = 2
@@ -441,7 +450,7 @@ layout_mode = 2
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
-theme_override_font_sizes/font_size = 12
+theme_override_font_sizes/font_size = 11
 text = "スロット2"
 
 [node name="SlotPositionBadge1" type="Label" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot1/Margin/FilledSlotContainer1/HeaderHBox"]
@@ -453,11 +462,11 @@ text = "【前衛】"
 
 [node name="BodyHBox" type="HBoxContainer" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot1/Margin/FilledSlotContainer1"]
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 6
 
 [node name="SlotPortrait1" type="TextureRect" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot1/Margin/FilledSlotContainer1/BodyHBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(70, 90)
+custom_minimum_size = Vector2(56, 72)
 layout_mode = 2
 expand_mode = 1
 stretch_mode = 6
@@ -465,30 +474,30 @@ stretch_mode = 6
 [node name="InfoVBox" type="VBoxContainer" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot1/Margin/FilledSlotContainer1/BodyHBox"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 2
+theme_override_constants/separation = 1
 
 [node name="SlotNameLabel1" type="Label" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot1/Margin/FilledSlotContainer1/BodyHBox/InfoVBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 13
 text = "氏名"
 
 [node name="SlotJobAgeLabel1" type="Label" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot1/Margin/FilledSlotContainer1/BodyHBox/InfoVBox"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 10
 text = "戦士 (21歳)"
 
 [node name="SlotHpLabel1" type="Label" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot1/Margin/FilledSlotContainer1/BodyHBox/InfoVBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 10
 text = "HP 50/50"
 
 [node name="SlotHpBar1" type="ProgressBar" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot1/Margin/FilledSlotContainer1/BodyHBox/InfoVBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 8)
+custom_minimum_size = Vector2(0, 6)
 layout_mode = 2
 step = 1.0
 value = 100.0
@@ -496,20 +505,22 @@ show_percentage = false
 
 [node name="SlotRemoveButton1" type="Button" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot1/Margin/FilledSlotContainer1"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 24)
 layout_mode = 2
+theme_override_font_sizes/font_size = 11
 text = "編成解除"
 
 [node name="MemberSlot2" type="PanelContainer" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer"]
-custom_minimum_size = Vector2(0, 190)
+custom_minimum_size = Vector2(0, 148)
 layout_mode = 2
 size_flags_horizontal = 3
 
 [node name="Margin" type="MarginContainer" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot2"]
 layout_mode = 2
-theme_override_constants/margin_left = 8
-theme_override_constants/margin_top = 8
-theme_override_constants/margin_right = 8
-theme_override_constants/margin_bottom = 8
+theme_override_constants/margin_left = 6
+theme_override_constants/margin_top = 4
+theme_override_constants/margin_right = 6
+theme_override_constants/margin_bottom = 4
 
 [node name="EmptySlotContainer2" type="VBoxContainer" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot2/Margin"]
 unique_name_in_owner = true
@@ -519,14 +530,14 @@ alignment = 1
 [node name="Label" type="Label" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot2/Margin/EmptySlotContainer2"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.6, 0.6, 0.6, 1)
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 13
 text = "＋ 空き枠"
 horizontal_alignment = 1
 
 [node name="SubLabel" type="Label" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot2/Margin/EmptySlotContainer2"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.4, 0.4, 0.4, 1)
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 10
 text = "下の候補一覧から配属"
 horizontal_alignment = 1
 
@@ -534,7 +545,7 @@ horizontal_alignment = 1
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
-theme_override_constants/separation = 4
+theme_override_constants/separation = 2
 
 [node name="HeaderHBox" type="HBoxContainer" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot2/Margin/FilledSlotContainer2"]
 layout_mode = 2
@@ -543,7 +554,7 @@ layout_mode = 2
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
-theme_override_font_sizes/font_size = 12
+theme_override_font_sizes/font_size = 11
 text = "スロット3"
 
 [node name="SlotPositionBadge2" type="Label" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot2/Margin/FilledSlotContainer2/HeaderHBox"]
@@ -555,11 +566,11 @@ text = "【前衛】"
 
 [node name="BodyHBox" type="HBoxContainer" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot2/Margin/FilledSlotContainer2"]
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 6
 
 [node name="SlotPortrait2" type="TextureRect" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot2/Margin/FilledSlotContainer2/BodyHBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(70, 90)
+custom_minimum_size = Vector2(56, 72)
 layout_mode = 2
 expand_mode = 1
 stretch_mode = 6
@@ -567,30 +578,30 @@ stretch_mode = 6
 [node name="InfoVBox" type="VBoxContainer" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot2/Margin/FilledSlotContainer2/BodyHBox"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 2
+theme_override_constants/separation = 1
 
 [node name="SlotNameLabel2" type="Label" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot2/Margin/FilledSlotContainer2/BodyHBox/InfoVBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 13
 text = "氏名"
 
 [node name="SlotJobAgeLabel2" type="Label" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot2/Margin/FilledSlotContainer2/BodyHBox/InfoVBox"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 10
 text = "戦士 (21歳)"
 
 [node name="SlotHpLabel2" type="Label" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot2/Margin/FilledSlotContainer2/BodyHBox/InfoVBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 10
 text = "HP 50/50"
 
 [node name="SlotHpBar2" type="ProgressBar" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot2/Margin/FilledSlotContainer2/BodyHBox/InfoVBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 8)
+custom_minimum_size = Vector2(0, 6)
 layout_mode = 2
 step = 1.0
 value = 100.0
@@ -598,20 +609,22 @@ show_percentage = false
 
 [node name="SlotRemoveButton2" type="Button" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot2/Margin/FilledSlotContainer2"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 24)
 layout_mode = 2
+theme_override_font_sizes/font_size = 11
 text = "編成解除"
 
 [node name="MemberSlot3" type="PanelContainer" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer"]
-custom_minimum_size = Vector2(0, 190)
+custom_minimum_size = Vector2(0, 148)
 layout_mode = 2
 size_flags_horizontal = 3
 
 [node name="Margin" type="MarginContainer" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot3"]
 layout_mode = 2
-theme_override_constants/margin_left = 8
-theme_override_constants/margin_top = 8
-theme_override_constants/margin_right = 8
-theme_override_constants/margin_bottom = 8
+theme_override_constants/margin_left = 6
+theme_override_constants/margin_top = 4
+theme_override_constants/margin_right = 6
+theme_override_constants/margin_bottom = 4
 
 [node name="EmptySlotContainer3" type="VBoxContainer" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot3/Margin"]
 unique_name_in_owner = true
@@ -621,14 +634,14 @@ alignment = 1
 [node name="Label" type="Label" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot3/Margin/EmptySlotContainer3"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.6, 0.6, 0.6, 1)
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 13
 text = "＋ 空き枠"
 horizontal_alignment = 1
 
 [node name="SubLabel" type="Label" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot3/Margin/EmptySlotContainer3"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.4, 0.4, 0.4, 1)
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 10
 text = "下の候補一覧から配属"
 horizontal_alignment = 1
 
@@ -636,7 +649,7 @@ horizontal_alignment = 1
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
-theme_override_constants/separation = 4
+theme_override_constants/separation = 2
 
 [node name="HeaderHBox" type="HBoxContainer" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot3/Margin/FilledSlotContainer3"]
 layout_mode = 2
@@ -645,7 +658,7 @@ layout_mode = 2
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
-theme_override_font_sizes/font_size = 12
+theme_override_font_sizes/font_size = 11
 text = "スロット4"
 
 [node name="SlotPositionBadge3" type="Label" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot3/Margin/FilledSlotContainer3/HeaderHBox"]
@@ -657,11 +670,11 @@ text = "【前衛】"
 
 [node name="BodyHBox" type="HBoxContainer" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot3/Margin/FilledSlotContainer3"]
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 6
 
 [node name="SlotPortrait3" type="TextureRect" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot3/Margin/FilledSlotContainer3/BodyHBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(70, 90)
+custom_minimum_size = Vector2(56, 72)
 layout_mode = 2
 expand_mode = 1
 stretch_mode = 6
@@ -669,30 +682,30 @@ stretch_mode = 6
 [node name="InfoVBox" type="VBoxContainer" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot3/Margin/FilledSlotContainer3/BodyHBox"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 2
+theme_override_constants/separation = 1
 
 [node name="SlotNameLabel3" type="Label" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot3/Margin/FilledSlotContainer3/BodyHBox/InfoVBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 13
 text = "氏名"
 
 [node name="SlotJobAgeLabel3" type="Label" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot3/Margin/FilledSlotContainer3/BodyHBox/InfoVBox"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 10
 text = "戦士 (21歳)"
 
 [node name="SlotHpLabel3" type="Label" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot3/Margin/FilledSlotContainer3/BodyHBox/InfoVBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 10
 text = "HP 50/50"
 
 [node name="SlotHpBar3" type="ProgressBar" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot3/Margin/FilledSlotContainer3/BodyHBox/InfoVBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 8)
+custom_minimum_size = Vector2(0, 6)
 layout_mode = 2
 step = 1.0
 value = 100.0
@@ -700,7 +713,9 @@ show_percentage = false
 
 [node name="SlotRemoveButton3" type="Button" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot3/Margin/FilledSlotContainer3"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 24)
 layout_mode = 2
+theme_override_font_sizes/font_size = 11
 text = "編成解除"
 
 [node name="CandidatePanel" type="PanelContainer" parent="."]
@@ -709,14 +724,16 @@ size_flags_vertical = 3
 
 [node name="Margin" type="MarginContainer" parent="CandidatePanel"]
 layout_mode = 2
+size_flags_vertical = 3
 theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 8
+theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = 10
-theme_override_constants/margin_bottom = 8
+theme_override_constants/margin_bottom = 6
 
 [node name="VBox" type="VBoxContainer" parent="CandidatePanel/Margin"]
 layout_mode = 2
-theme_override_constants/separation = 6
+size_flags_vertical = 3
+theme_override_constants/separation = 4
 
 [node name="CandidateHeaderHBox" type="HBoxContainer" parent="CandidatePanel/Margin/VBox"]
 layout_mode = 2
@@ -734,6 +751,7 @@ theme_override_font_sizes/font_size = 11
 text = "※待機中の冒険者を「配属」ボタンで現在部隊の空き枠へ追加できます"
 
 [node name="CandidateScroll" type="ScrollContainer" parent="CandidatePanel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 360)
 layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
@@ -743,4 +761,4 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
-theme_override_constants/separation = 4
+theme_override_constants/separation = 3

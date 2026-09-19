@@ -361,13 +361,13 @@ public partial class PartyFormationPanel : VBoxContainer
 
 		var margin = new MarginContainer();
 		margin.AddThemeConstantOverride("margin_left", 8);
-		margin.AddThemeConstantOverride("margin_top", 4);
+		margin.AddThemeConstantOverride("margin_top", 3);
 		margin.AddThemeConstantOverride("margin_right", 8);
-		margin.AddThemeConstantOverride("margin_bottom", 4);
+		margin.AddThemeConstantOverride("margin_bottom", 3);
 		panel.AddChild(margin);
 
 		var hbox = new HBoxContainer();
-		hbox.AddThemeConstantOverride("separation", 12);
+		hbox.AddThemeConstantOverride("separation", 10);
 		margin.AddChild(hbox);
 
 		// 前後衛バッジ
@@ -383,27 +383,27 @@ public partial class PartyFormationPanel : VBoxContainer
 			posBadge.Text = "【後衛】";
 			posBadge.AddThemeColorOverride("font_color", new Color(0.85f, 0.65f, 1.0f));
 		}
-		posBadge.AddThemeFontSizeOverride("font_size", 12);
+		posBadge.AddThemeFontSizeOverride("font_size", 11);
 		hbox.AddChild(posBadge);
 
 		// 氏名・職業・年齢
 		var nameLabel = new Label();
 		nameLabel.Text = $"{a.Name} ({JobLabel(a.JobClass)}・{a.Age}歳)";
 		nameLabel.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-		nameLabel.AddThemeFontSizeOverride("font_size", 13);
+		nameLabel.AddThemeFontSizeOverride("font_size", 12);
 		hbox.AddChild(nameLabel);
 
 		// HP
 		var hpLabel = new Label();
 		hpLabel.Text = $"HP {a.CurrentHP}/{a.MaxHP}";
-		hpLabel.CustomMinimumSize = new Vector2(80, 0);
-		hpLabel.AddThemeFontSizeOverride("font_size", 12);
+		hpLabel.CustomMinimumSize = new Vector2(76, 0);
+		hpLabel.AddThemeFontSizeOverride("font_size", 11);
 		hbox.AddChild(hpLabel);
 
 		// 状態バッジ
 		var statusBadge = new Label();
-		statusBadge.CustomMinimumSize = new Vector2(100, 0);
-		statusBadge.AddThemeFontSizeOverride("font_size", 12);
+		statusBadge.CustomMinimumSize = new Vector2(96, 0);
+		statusBadge.AddThemeFontSizeOverride("font_size", 11);
 
 		if (isDispatched)
 		{
@@ -445,7 +445,8 @@ public partial class PartyFormationPanel : VBoxContainer
 		// 配属ボタン
 		var assignButton = new Button();
 		assignButton.Text = "配属 ＋";
-		assignButton.CustomMinimumSize = new Vector2(80, 28);
+		assignButton.CustomMinimumSize = new Vector2(76, 24);
+		assignButton.AddThemeFontSizeOverride("font_size", 11);
 		assignButton.Disabled = !canAssign;
 		assignButton.Pressed += () => OnAssignAdventurerClicked(a);
 		hbox.AddChild(assignButton);
