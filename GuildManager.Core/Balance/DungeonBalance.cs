@@ -50,5 +50,12 @@ namespace GuildManager.Core.Balance
 
         /// <summary>段（10階進む、またはフィールド1段深くなる）ごとの報奨金・名声乗算係数。</summary>
         public static readonly double BossRewardGoldMultiplier = BalanceData.GetDouble(FileName, "BossRewardGoldMultiplier");
+
+        // ---- 道中進軍の未踏破損耗（2026年9月新設、→ Systems.DungeonTraversalResolver） ----
+        // 今回の進軍にフィールドの最高到達階層より深い階層が含まれていれば、進軍ランク別の消費率
+        // （dungeon_traversal.csv HpLossPct*）ではなく、この重い消費率を基礎にする。
+
+        public static readonly int UnexploredHpLossPctMin = BalanceData.GetInt(FileName, "UnexploredHpLossPctMin");
+        public static readonly int UnexploredHpLossPctMax = BalanceData.GetInt(FileName, "UnexploredHpLossPctMax");
     }
 }

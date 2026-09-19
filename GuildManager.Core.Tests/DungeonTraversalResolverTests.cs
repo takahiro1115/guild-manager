@@ -139,14 +139,15 @@ namespace GuildManager.Core.Tests
             var weakMember = MakeSpecialist(agiDex: 1);
             weakMember.CurrentHP = 1; // 既に瀕死：それ以上は減らないはず（下限1保証）
             var weakParty = PartyOf(weakMember);
-            var farBoss = new FloorBoss { Name = "遠くのボス", Floor = 100, MaxHp = 1 };
-
+            // 既踏の階層（最高到達階層100Fの記録があるフィールドを1Fから進む）だけを進む場合の、
+            // 進軍ランク別の消費率を確かめる（未踏破を含む進軍は重損耗になるため、→ 下の未踏破テスト）。
             var maxRng = new AlwaysMaxRng();
-            var lightning = new DungeonTraversalResolver(maxRng).Resolve(strongParty, MakeField(1), farBoss);
+            var lightning = new DungeonTraversalResolver(maxRng).Resolve(strongParty, MakeField(100), currentFloor: 1);
+            Assert.False(lightning.EnteredUnexplored);
             Assert.InRange(lightning.HpLostByAdventurer[strongParty.Members[0].Id],
                 0, strongParty.Members[0].MaxHP * DungeonTraversalBalance.HpLossPctMaxLightning / 100);
 
-            var struggling = new DungeonTraversalResolver(maxRng).Resolve(weakParty, MakeField(1), farBoss);
+            var struggling = new DungeonTraversalResolver(maxRng).Resolve(weakParty, MakeField(100), currentFloor: 1);
             Assert.Equal(1, weakMember.CurrentHP); // 下限1でクランプ（HPロスは0扱い）
             Assert.Equal(0, struggling.HpLostByAdventurer[weakMember.Id]);
         }
@@ -207,6 +208,90 @@ namespace GuildManager.Core.Tests
             Assert.Same(target, result.TargetBoss);
             Assert.Equal(30, field.ReachedFloor);
             Assert.Equal(3 * DungeonTraversalBalance.LootGoldPerFloor, result.LootGold);
+        }
+
+        // ---------------- 未踏破階層の重損耗×調査度連動（2026年9月新設） ----------------
+
+        /// <summary>未踏破（最高到達階層1F）のフィールドに、指定の解析率のボスを50Fに置く。</summary>
+        private static DungeonField MakeUnexploredField(double intelRate)
+        {
+            var field = MakeField(reachedFloor: 1);
+            field.Bosses.Add(new FloorBoss { Name = "区間のボス", Floor = 50, MaxHp = 1, IntelRate = intelRate });
+            return field;
+        }
+
+        private static Adventurer MakeSturdySpecialist()
+        {
+            // MaxHPを大きくして、%消費の整数丸めの影響を小さくする。
+            var a = new Adventurer { STR = 10, AGI = 500, VIT = 300, MND = 10, DEX = 500, LDR = 100, INT = 10 };
+            a.CurrentHP = a.MaxHP;
+            return a;
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public void Traversal_IntelRate_Zero_AppliesFullUnexploredDamage(bool maxRoll)
+        {
+            // 解析率0%：走破倍率1.0倍（電撃進軍の4階層そのまま）、未踏破の重損耗30〜50%を軽減なしで受ける。
+            var member = MakeSturdySpecialist();
+            IRng rng = maxRoll ? new AlwaysMaxRng() : new AlwaysMinRng();
+
+            var result = new DungeonTraversalResolver(rng).Resolve(PartyOf(member), MakeUnexploredField(0.0), currentFloor: 1);
+
+            int pct = maxRoll ? DungeonBalance.UnexploredHpLossPctMax : DungeonBalance.UnexploredHpLossPctMin;
+            Assert.Equal(30, DungeonBalance.UnexploredHpLossPctMin);
+            Assert.Equal(50, DungeonBalance.UnexploredHpLossPctMax);
+            Assert.True(result.EnteredUnexplored);
+            Assert.Equal(1.0, result.IntelSpeedMultiplier, precision: 6);
+            Assert.Equal(1.0, result.DamageTakenMultiplier, precision: 6);
+            Assert.Equal(DungeonTraversalBalance.FloorsAdvancedLightning, result.FloorAfter - result.FloorBefore);
+            Assert.Equal(member.MaxHP * pct / 100, result.HpLostByAdventurer[member.Id]);
+        }
+
+        [Fact]
+        public void Traversal_IntelRate_Complete_AppliesMaxBoostAndReduction()
+        {
+            // 解析率100%：進む階層数が3倍（4→12）、未踏破の重損耗も70%カット（50%→15%）。
+            var member = MakeSturdySpecialist();
+
+            var result = new DungeonTraversalResolver(new AlwaysMaxRng()).Resolve(PartyOf(member), MakeUnexploredField(1.0), currentFloor: 1);
+
+            Assert.True(result.EnteredUnexplored);
+            Assert.Equal(3.0, result.IntelSpeedMultiplier, precision: 6);
+            Assert.Equal(DungeonTraversalBalance.FloorsAdvancedLightning * 3, result.FloorAfter - result.FloorBefore);
+            Assert.Equal(0.3, result.DamageTakenMultiplier, precision: 6);
+            int baseLoss = member.MaxHP * DungeonBalance.UnexploredHpLossPctMax / 100;
+            Assert.Equal((int)(baseLoss * 0.3), result.HpLostByAdventurer[member.Id]);
+        }
+
+        [Fact]
+        public void Traversal_IntelRate_Partial_AppliesLinearInterpolation()
+        {
+            // 解析率50%：走破倍率は線形補間で2.0倍（4→8階層）。被ダメージ軽減は完全解析区間のみの
+            // 仕組みを正本として維持するため、50%時点では軽減なし（未踏破の重損耗をそのまま受ける）。
+            var member = MakeSturdySpecialist();
+
+            var result = new DungeonTraversalResolver(new AlwaysMaxRng()).Resolve(PartyOf(member), MakeUnexploredField(0.5), currentFloor: 1);
+
+            Assert.Equal(2.0, result.IntelSpeedMultiplier, precision: 6);
+            Assert.Equal(DungeonTraversalBalance.FloorsAdvancedLightning * 2, result.FloorAfter - result.FloorBefore);
+            Assert.Equal(1.0, result.DamageTakenMultiplier, precision: 6);
+            Assert.Equal(member.MaxHP * DungeonBalance.UnexploredHpLossPctMax / 100, result.HpLostByAdventurer[member.Id]);
+        }
+
+        [Fact]
+        public void Traversal_Unexplored_NeverKillsOrInjures()
+        {
+            // 重損耗でもHP下限1で止まり、負傷・除籍には接続しない。
+            var member = MakeSturdySpecialist();
+            member.CurrentHP = 2;
+
+            new DungeonTraversalResolver(new AlwaysMaxRng()).Resolve(PartyOf(member), MakeUnexploredField(0.0), currentFloor: 1);
+
+            Assert.Equal(1, member.CurrentHP);
+            Assert.Equal(InjurySeverity.None, member.Injury);
+            Assert.False(member.IsRetired);
         }
 
         [Fact]

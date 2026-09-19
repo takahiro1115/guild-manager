@@ -13,3 +13,5 @@ BossHpFloorMultiplier,1.25,倍,段（10階進む、またはフィールド1段�
 BossBaseRewardGold,1000,G,10Fボス（森）の基準報酬ゴールド（指示書に基準値の記載が無かったため、旧5階刻みモデルで森10Fボスに与えていた値を踏襲）
 BossBaseReputation,2,pt,10Fボス（森）の基準名声（同上の理由でBossRewardGoldMultiplierと共通の係数を適用）
 BossRewardGoldMultiplier,1.30,倍,段（10階進む、またはフィールド1段深くなる）ごとの報奨金・名声乗算係数
+UnexploredHpLossPctMin,30,%,道中進軍で未踏破階層（フィールドの最高到達階層より深い階層）へ踏み込んだ場合のHP消費率の下限（HP下限1、致死・除籍判定には非接続）
+UnexploredHpLossPctMax,50,%,同上の上限。解析済み区間の被ダメージ軽減（dungeon_traversal.csv FullIntelDamageMultiplier）はこの値にも掛かる

@@ -38,6 +38,12 @@ namespace GuildManager.Core.Systems
         /// </summary>
         public double IntelSpeedMultiplier { get; set; } = 1.0;
 
+        /// <summary>
+        /// 今回の進軍に未踏破階層（進軍前のフィールドの最高到達階層より深い階層）が含まれていたか。
+        /// trueならHP消費の基礎が未踏破の重損耗（→ DungeonBalance.UnexploredHpLossPct*）になる。
+        /// </summary>
+        public bool EnteredUnexplored { get; set; }
+
         /// <summary>今回の進軍に適用した被ダメージ倍率（歩いた階層の平均。完全解析区間のみなら0.3）。</summary>
         public double DamageTakenMultiplier { get; set; } = 1.0;
 

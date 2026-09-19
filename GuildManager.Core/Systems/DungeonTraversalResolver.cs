@@ -95,6 +95,7 @@ namespace GuildManager.Core.Systems
             double budget = FloorsAdvanced(rank);
             int floor = startFloor;
             int walked = 0;
+            int exploredRecord = field.ReachedFloor; // 進軍前の最高到達階層（これより深い階層が未踏破）
             double damageSum = 0;
             while (floor < limit)
             {
@@ -106,6 +107,8 @@ namespace GuildManager.Core.Systems
                 budget -= cost;
                 floor++;
                 walked++;
+                if (floor > exploredRecord)
+                    result.EnteredUnexplored = true;
                 damageSum += DamageTakenMultiplier(segmentBoss);
                 CollectLoot(result, field, floor);
             }
@@ -228,13 +231,17 @@ namespace GuildManager.Core.Systems
         };
 
         /// <summary>
-        /// 道中進軍のHP消費。ランクが高い（楽に進めた）ほど軽く、苦戦進軍ほど重くなる。
+        /// 道中進軍のHP消費。既踏の階層だけを進んだ場合は、ランクが高い（楽に進めた）ほど軽く、
+        /// 苦戦進軍ほど重くなる。今回の進軍に未踏破階層（進軍前の最高到達階層より深い階層）が
+        /// 含まれていれば、ランクに関係なく重い消費率（→ DungeonBalance.UnexploredHpLossPct*、30〜50%）を基礎にする。
+        /// どちらの場合も調査度連動の被ダメージ軽減（→ DamageTakenMultiplier、完全解析区間は0.3倍）を掛ける。
         /// HPは下限1で止まり、致死判定・負傷状態には一切接続しない。
-        /// damageMultiplier は調査度連動の被ダメージ軽減（→ DamageTakenMultiplier）。
         /// </summary>
         private void ApplyHpLoss(TraversalResult result, Party party, TraversalRank rank, double damageMultiplier)
         {
-            var (minPct, maxPct) = rank switch
+            var (minPct, maxPct) = result.EnteredUnexplored
+                ? (DungeonBalance.UnexploredHpLossPctMin, DungeonBalance.UnexploredHpLossPctMax)
+                : rank switch
             {
                 TraversalRank.Lightning => (DungeonTraversalBalance.HpLossPctMinLightning, DungeonTraversalBalance.HpLossPctMaxLightning),
                 TraversalRank.Swift => (DungeonTraversalBalance.HpLossPctMinSwift, DungeonTraversalBalance.HpLossPctMaxSwift),
