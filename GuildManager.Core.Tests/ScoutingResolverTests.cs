@@ -51,6 +51,12 @@ namespace GuildManager.Core.Tests
             Name = "階層の主", Floor = floor, MaxHp = 500, CurrentHp = 500, IntelRate = intelRate,
         };
 
+        /// <summary>
+        /// 護衛「余裕」時の解析成果倍率。以下の既存テストの部隊（VIT30以上）と浅い階層のボスでは
+        /// 護衛比率が常に1.4以上になるため、期待値にこの倍率を掛けて比較する。
+        /// </summary>
+        private static readonly double AbundantGuard = ScoutingBalance.GuardIntelMultiplierAbundant;
+
         // ---------------- 解析率の段階（→ IntelTier） ----------------
 
         [Theory]
@@ -81,8 +87,8 @@ namespace GuildManager.Core.Tests
 
             Assert.True(result.StealthSucceeded);
             Assert.Equal(QuestEventOutcome.GreatSuccess, result.AnalysisOutcome);
-            Assert.Equal(ScoutingBalance.IntelGainGreatSuccess, result.IntelGained, precision: 10);
-            Assert.Equal(ScoutingBalance.IntelGainGreatSuccess, boss.IntelRate, precision: 10);
+            Assert.Equal(ScoutingBalance.IntelGainGreatSuccess * AbundantGuard, result.IntelGained, precision: 10);
+            Assert.Equal(ScoutingBalance.IntelGainGreatSuccess * AbundantGuard, boss.IntelRate, precision: 10);
         }
 
         [Fact]
@@ -95,7 +101,7 @@ namespace GuildManager.Core.Tests
             var result = new ScoutingResolver(new AlwaysMinRng()).Resolve(party, boss);
 
             Assert.Equal(QuestEventOutcome.Failure, result.AnalysisOutcome);
-            Assert.Equal(ScoutingBalance.IntelGainPartial, result.IntelGained, precision: 10);
+            Assert.Equal(ScoutingBalance.IntelGainPartial * AbundantGuard, result.IntelGained, precision: 10);
         }
 
         [Fact]
@@ -166,25 +172,113 @@ namespace GuildManager.Core.Tests
 
             Assert.False(result.StealthSucceeded);
             Assert.Equal(QuestEventOutcome.Success, result.AnalysisOutcome); // 大成功→成功へ格下げ
-            Assert.Equal(ScoutingBalance.IntelGainSuccess, result.IntelGained, precision: 10);
+            Assert.Equal(ScoutingBalance.IntelGainSuccess * AbundantGuard, result.IntelGained, precision: 10);
         }
 
         // ---------------- HP消費（低リスク経路：致死判定に接続しない） ----------------
 
         [Fact]
-        public void Resolve_DiscoveredParty_LosesMoreHpThanStealthyParty()
+        public void Resolve_HpLoss_IsDecidedByGuardTier_NotByStealth()
         {
-            var stealthy = MakeSpecialist(agiDex: 90, intel: 50);
+            // 2026年9月改訂：HP消費は隠密の成否ではなく護衛段階だけで決まる。
+            // 見つかっても護衛が「余裕」ならHPは減らない。
             var discovered = MakeSpecialist(agiDex: 1, intel: 50);
-            var resolver = new ScoutingResolver(new AlwaysMaxRng());
 
-            var stealthResult = resolver.Resolve(PartyOf(stealthy), MakeBoss(floor: 1));
-            var discoveredResult = resolver.Resolve(PartyOf(discovered), MakeBoss(floor: 5));
+            var result = new ScoutingResolver(new AlwaysMaxRng()).Resolve(PartyOf(discovered), MakeBoss(floor: 5));
 
-            Assert.True(stealthResult.StealthSucceeded);
-            Assert.False(discoveredResult.StealthSucceeded);
-            Assert.True(discoveredResult.HpLostByAdventurer[discovered.Id] > stealthResult.HpLostByAdventurer[stealthy.Id],
-                "見つかった調査隊の方がHP消費が大きいはず");
+            Assert.False(result.StealthSucceeded);
+            Assert.Equal(GuardTier.Abundant, result.GuardTier);
+            Assert.Equal(0, result.HpLostByAdventurer[discovered.Id]);
+        }
+
+        // ---------------- 護衛判定（4段階、2026年9月新設） ----------------
+
+        /// <summary>STR/VIT/INTを個別に指定できる冒険者（その他の能力は低め）。</summary>
+        private static Adventurer MakeGuard(int str, int vit, int intel)
+        {
+            var a = new Adventurer { STR = str, AGI = 10, VIT = vit, MND = 10, DEX = 10, LDR = 0, INT = intel };
+            a.CurrentHP = a.MaxHP;
+            return a;
+        }
+
+        [Fact]
+        public void Scouting_GuardPower_UsesMaxOfStrVitInt()
+        {
+            // 部隊内の各員の max(STR,VIT,INT) のうち最大のもの（合計ではない）。
+            var party = PartyOf(MakeGuard(str: 40, vit: 20, intel: 10), MakeGuard(str: 5, vit: 30, intel: 55), MakeGuard(str: 12, vit: 48, intel: 3));
+
+            Assert.Equal(55, ScoutingResolver.CalculateGuardPower(party), precision: 6);
+            Assert.Equal(40, ScoutingResolver.CalculateGuardPower(PartyOf(MakeGuard(str: 40, vit: 20, intel: 10))), precision: 6);
+            Assert.Equal(0, ScoutingResolver.CalculateGuardPower(new Party()), precision: 6);
+        }
+
+        [Theory]
+        [InlineData(1.40, GuardTier.Abundant)]
+        [InlineData(1.39, GuardTier.Sufficient)]
+        [InlineData(1.00, GuardTier.Sufficient)]
+        [InlineData(0.99, GuardTier.Marginal)]
+        [InlineData(0.70, GuardTier.Marginal)]
+        [InlineData(0.69, GuardTier.Deficient)]
+        public void ClassifyGuard_UsesCsvThresholds(double ratio, GuardTier expected) =>
+            Assert.Equal(expected, ScoutingResolver.ClassifyGuard(ratio));
+
+        [Fact]
+        public void RequiredGuardPower_ScalesWithBossFloor()
+        {
+            Assert.Equal(ScoutingBalance.BaseRequiredGuardPower, ScoutingResolver.RequiredGuardPower(MakeBoss(floor: 10)), precision: 6);
+            Assert.Equal(ScoutingBalance.BaseRequiredGuardPower * 3, ScoutingResolver.RequiredGuardPower(MakeBoss(floor: 30)), precision: 6);
+        }
+
+        [Fact]
+        public void Scouting_GuardTier_Abundant_ProvidesBonusAndZeroDamage()
+        {
+            // 10Fボス：要求護衛値35。護衛力60（STR）→ 比率1.71（余裕）。INTは大成功域。
+            var member = MakeGuard(str: 60, vit: 10, intel: 10);
+            var analyst = MakeSpecialist(agiDex: 200, intel: 300);
+            var boss = MakeBoss(floor: 10);
+
+            var result = new ScoutingResolver(new AlwaysMaxRng()).Resolve(PartyOf(member, analyst), boss);
+
+            Assert.Equal(GuardTier.Abundant, result.GuardTier);
+            Assert.True(result.GuardRatio >= 1.4);
+            Assert.Equal(1.25, ScoutingBalance.GuardIntelMultiplierAbundant, precision: 6);
+            Assert.Equal(QuestEventOutcome.GreatSuccess, result.AnalysisOutcome);
+            Assert.Equal(ScoutingBalance.IntelGainGreatSuccess * 1.25, result.IntelGained, precision: 10);
+            Assert.Equal(0, result.HpLostByAdventurer[member.Id]);
+            Assert.Equal(0, result.HpLostByAdventurer[analyst.Id]);
+            Assert.Equal(member.MaxHP, member.CurrentHP);
+        }
+
+        [Fact]
+        public void Scouting_GuardTier_Deficient_AbortsIntelAndInflictsDamageWithoutDeath()
+        {
+            // 100Fボス：要求護衛値350。護衛力は最大でも50 → 比率0.14（不足）。
+            // INT・隠密がいくら高くても解析成果は0、各員は最大HPの40%を失うが、HP下限1で生存する。
+            var healthy = MakeGuard(str: 50, vit: 50, intel: 50);
+            var exhausted = MakeGuard(str: 10, vit: 10, intel: 10);
+            exhausted.CurrentHP = 3; // 40%の損耗で0以下になる状態
+            var boss = MakeBoss(floor: 100, intelRate: 0.3);
+
+            var result = new ScoutingResolver(new AlwaysMinRng()).Resolve(PartyOf(healthy, exhausted), boss);
+
+            Assert.Equal(GuardTier.Deficient, result.GuardTier);
+            Assert.True(result.GuardRatio < 0.7);
+            Assert.Equal(0.0, result.IntelGained, precision: 10);
+            Assert.Equal(0.3, boss.IntelRate, precision: 10);
+            Assert.Equal(healthy.MaxHP * ScoutingBalance.GuardHpLossPercentDeficient / 100, result.HpLostByAdventurer[healthy.Id]);
+            Assert.Equal(healthy.MaxHP - healthy.MaxHP * 40 / 100, healthy.CurrentHP);
+            Assert.Equal(1, exhausted.CurrentHP);                       // HP下限1で生存
+            Assert.Equal(InjurySeverity.None, exhausted.Injury);        // 負傷・除籍判定には接続しない
+            Assert.False(exhausted.IsRetired);
+        }
+
+        [Theory]
+        [InlineData(GuardTier.Sufficient, 1.0, 8)]
+        [InlineData(GuardTier.Marginal, 0.75, 20)]
+        public void GuardEffects_MatchCsv_ForMiddleTiers(GuardTier tier, double intelMultiplier, int hpLossPercent)
+        {
+            Assert.Equal(intelMultiplier, ScoutingResolver.GuardIntelMultiplier(tier), precision: 6);
+            Assert.Equal(hpLossPercent, ScoutingResolver.GuardHpLossPercent(tier));
         }
 
         [Fact]

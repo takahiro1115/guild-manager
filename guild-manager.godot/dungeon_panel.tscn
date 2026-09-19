@@ -190,6 +190,11 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "大迷宮へ潜行（1Fから道中進軍）"
 
+[node name="SurveyButton" type="Button" parent="MainHSplit/RightVSplit/ZoneC/ZoneCVBox/CommandArea"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "🔍 迷宮調査に出撃"
+
 [node name="GatheringButton" type="Button" parent="MainHSplit/RightVSplit/ZoneC/ZoneCVBox/CommandArea"]
 unique_name_in_owner = true
 layout_mode = 2

@@ -1,3 +1,0 @@
-key,value,unit,note
-EmergencyHealCostGold,80,G,"緊急回復の発動コスト（→ 備蓄資材の消費。素材システムが未実装のためGoldで表現）"
-EmergencyHealRatio,0.2,倍,緊急回復で戻る量＝最大HP×この比率（部隊全員が対象）

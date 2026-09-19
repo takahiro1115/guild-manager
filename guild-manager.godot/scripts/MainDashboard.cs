@@ -766,21 +766,37 @@ public partial class MainDashboard : Control
 		if (resolution.ScoutingResult != null)
 		{
 			var scouting = resolution.ScoutingResult;
-			sb.AppendLine($"[b]第{weekNumber}週：大迷宮 第{boss.Floor}層「{boss.Name}」扉前での偵察[/b]");
-			sb.AppendLine(scouting.StealthSucceeded
-				? "[color=cyan]気づかれることなく潜り込み、じっくりと観察を続けた。[/color]"
-				: "[color=orange]途中で見つかって手傷を負い、落ち着いて観察できなかった。[/color]");
-			sb.AppendLine(scouting.AnalysisOutcome switch
+			bool survey = resolution.MissionType == DungeonMissionType.Survey;
+			sb.AppendLine(survey
+				? $"[b]第{weekNumber}週：大迷宮 第{boss.Floor}層「{boss.Name}」迷宮調査[/b]"
+				: $"[b]第{weekNumber}週：大迷宮 第{boss.Floor}層「{boss.Name}」扉前での偵察[/b]");
+			// 護衛評価（→ GuardTier、2026年9月新設）：解析成果の倍率とHP消費を決める。
+			sb.AppendLine($"護衛評価：{DungeonPanel.GuardTierLabel(scouting.GuardTier)}　" + scouting.GuardTier switch
 			{
-				QuestEventOutcome.GreatSuccess => "[color=lime]◆ 生態を細部まで読み解き、貴重な情報を持ち帰った。[/color]",
-				QuestEventOutcome.Success => "[color=lime]◆ 要点を掴み、有益な情報を持ち帰った。[/color]",
-				_ => "[color=gray]◆ 断片的な情報しか持ち帰れなかった。[/color]",
+				GuardTier.Abundant => "[color=lime]護衛が残党を完封し、調査隊は無傷のまま調べ尽くした。[/color]",
+				GuardTier.Sufficient => "[color=cyan]護衛が残党を退け、軽い手傷で調査を続けられた。[/color]",
+				GuardTier.Marginal => "[color=orange]護衛の手が回らず被弾し、調査は途切れがちになった。[/color]",
+				_ => "[color=red][b]魔物の残党に強襲され調査隊が潰走。解析の成果を持ち帰れなかった。[/b][/color]",
 			});
+			if (scouting.GuardTier != GuardTier.Deficient)
+			{
+				sb.AppendLine(scouting.StealthSucceeded
+					? "[color=cyan]気づかれることなく潜り込み、じっくりと観察を続けた。[/color]"
+					: "[color=orange]途中で見つかり、落ち着いて観察できなかった。[/color]");
+				sb.AppendLine(scouting.AnalysisOutcome switch
+				{
+					QuestEventOutcome.GreatSuccess => "[color=lime]◆ 生態を細部まで読み解き、貴重な情報を持ち帰った。[/color]",
+					QuestEventOutcome.Success => "[color=lime]◆ 要点を掴み、有益な情報を持ち帰った。[/color]",
+					_ => "[color=gray]◆ 断片的な情報しか持ち帰れなかった。[/color]",
+				});
+			}
 			sb.AppendLine($"解析率 {resolution.IntelRateBefore * 100:F0}% → {scouting.IntelRateAfter * 100:F0}%" +
 				$"（+{scouting.IntelGained * 100:F0}%）");
 			if (scouting.TierAdvanced)
 				sb.AppendLine($"[color=gold][b]★ 新たな情報を掴んだ：解析段階が「{DungeonPanel.TierLabel(scouting.TierAfter)}」に到達！[/b][/color]");
-			sb.AppendLine("[color=cyan]部隊は扉前に留まり、突入か撤退かの指令を待っている。[/color]");
+			sb.AppendLine(survey
+				? "[color=cyan]調査隊はギルドへ帰還した。[/color]"
+				: "[color=cyan]部隊は扉前に留まり、突入か撤退かの指令を待っている。[/color]");
 			AppendHpLossLines(sb, scouting.HpLostByAdventurer);
 
 			AppendLog(sb.ToString());

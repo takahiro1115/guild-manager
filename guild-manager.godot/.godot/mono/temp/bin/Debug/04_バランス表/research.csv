@@ -1,5 +1,0 @@
-Id,Name,Description,RequiredMaterials,RequiredGold,EffectType,EffectValue
-res_herb_poultice,薬草湿布の調合,月光草をすり潰して作る湿布薬。静養時のHP自然回復量を底上げする。,mat_forest_herb:5,200,HpRecoveryBonus,0.15
-res_scout_reagent,生体蛍光試薬,変異胞子と霊樹の枝から精製する試薬。ボスの生体解析が捗るようになる。,mat_forest_spore:3;mat_forest_wood:3,300,IntelRateBonus,0.25
-res_gathering_bag,特殊保存嚢,霊樹の枝を編んで作る携行袋。採取部隊が一度に持ち帰れる素材が増える。,mat_forest_wood:5,250,GatheringYieldBonus,1.0
-res_light_tread,軽量踏破靴,霊樹の枝と月光草の繊維で仕立てる軽量靴。道中進軍の走破力が上がる。,mat_forest_wood:3;mat_forest_herb:3,300,TraversalBonus,15.0

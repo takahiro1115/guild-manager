@@ -17,6 +17,9 @@ namespace GuildManager.Core.Systems
     ///  1. 隠密・生還：Σ(AGI+DEX) ＋ 部隊長LDR×係数 vs 階層×要求値。
     ///     失敗すると見つかり、HP消費が重くなり、解析の成果も1段階下がる。
     ///  2. 解析・情報収集：Σ(INT) vs 階層×要求値。Ratioに応じて大成功／成功／失敗。
+    ///  3. 護衛（2026年9月新設）：部隊護衛力（→ CalculateGuardPower）÷要求護衛値の比率で
+    ///     4段階（余裕／十分／充足／不足、→ GuardTier）。解析率上昇量に段階ごとの倍率を掛け、
+    ///     各員のHP消費（最大HP×段階ごとの%）もこの段階だけで決まる。
     ///
     /// 低リスク経路として設計する：致死判定には一切接続せず、HPは下限1で止まる
     /// （→ QuestResolverの探索・護衛と同じ扱い。調査で人を失うと「調べてから挑む」
@@ -27,11 +30,12 @@ namespace GuildManager.Core.Systems
         /// <summary>調査でのHP下限。致死判定に接続しないため0にはしない（→ QuestResolver.NonCombatMinHp と同じ考え方）。</summary>
         private const int MinHp = 1;
 
-        private readonly IRng _rng;
-
+        /// <summary>
+        /// rng は現在使っていない（HP消費が乱数幅から護衛段階ごとの固定率に変わったため、2026年9月改訂）。
+        /// 他のResolverと生成方法を揃え、既存の呼び出し側を変えずに済むよう引数だけ残している。
+        /// </summary>
         public ScoutingResolver(IRng rng)
         {
-            _rng = rng;
         }
 
         /// <summary>
@@ -81,6 +85,12 @@ namespace GuildManager.Core.Systems
             // HpRecoveryBonusと同じ加算率の考え方）。
             if (state != null)
                 gain *= 1 + ResearchBalance.GetTotalEffectValue(state, ResearchEffectType.IntelRateBonus);
+
+            // ---- 判定3：護衛（段階ごとに解析成果へ倍率。不足なら成果0＝調査隊が潰走） ----
+            double guardRequirement = RequiredGuardPower(boss);
+            result.GuardRatio = guardRequirement <= 0 ? double.MaxValue : CalculateGuardPower(party) / guardRequirement;
+            result.GuardTier = ClassifyGuard(result.GuardRatio);
+            gain *= GuardIntelMultiplier(result.GuardTier);
 
             double before = boss.IntelRate;
             boss.IntelRate = Math.Min(ScoutingBalance.IntelTierComplete, boss.IntelRate + gain);
@@ -147,19 +157,66 @@ namespace GuildManager.Core.Systems
             return IntelTier.Unknown;
         }
 
+        // ==================== 護衛判定（2026年9月新設） ====================
+
         /// <summary>
-        /// 調査のHP消費。隠密成功なら軽微、見つかっていれば重くなる。
-        /// HPは下限1で止まり、致死判定・負傷状態には一切接続しない。
+        /// 部隊護衛力＝出撃メンバー全員の中で最大の max(STR, VIT, INT)（装備補正込みの実効値）。
+        /// 腕っぷし（STR）・頑健さ（VIT）・魔導（INT）のいずれかで魔物の残党を退けられる
+        /// 護衛役が1人いれば足りる、という考え方。空の部隊は0。
+        /// public static にしてあるのは出撃前のプレビュー（UI）とテストから同じ式を使うため。
         /// </summary>
-        private void ApplyHpLoss(ScoutingResult result, Party party)
+        public static double CalculateGuardPower(Party party) =>
+            party.IsEmpty
+                ? 0
+                : party.Members.Max(m => Math.Max(m.GetEffectiveStat("STR"),
+                    Math.Max(m.GetEffectiveStat("VIT"), m.GetEffectiveStat("INT"))));
+
+        /// <summary>要求護衛値＝BaseRequiredGuardPower（10F区間の基準）×ボス階層÷10。</summary>
+        public static double RequiredGuardPower(FloorBoss boss) =>
+            ScoutingBalance.BaseRequiredGuardPower * boss.Floor / 10.0;
+
+        /// <summary>護衛比率から4段階（余裕／十分／充足／不足）を求める。</summary>
+        public static GuardTier ClassifyGuard(double ratio)
         {
-            var (minPct, maxPct) = result.StealthSucceeded
-                ? (ScoutingBalance.StealthHpLossPctMin, ScoutingBalance.StealthHpLossPctMax)
-                : (ScoutingBalance.DiscoveredHpLossPctMin, ScoutingBalance.DiscoveredHpLossPctMax);
+            if (ratio >= ScoutingBalance.GuardRatioAbundant) return GuardTier.Abundant;
+            if (ratio >= ScoutingBalance.GuardRatioSufficient) return GuardTier.Sufficient;
+            if (ratio >= ScoutingBalance.GuardRatioMarginal) return GuardTier.Marginal;
+            return GuardTier.Deficient;
+        }
+
+        /// <summary>部隊と対象ボスから護衛段階を求める（UIの事前プレビュー用）。</summary>
+        public static GuardTier PreviewGuardTier(Party party, FloorBoss boss)
+        {
+            double requirement = RequiredGuardPower(boss);
+            return ClassifyGuard(requirement <= 0 ? double.MaxValue : CalculateGuardPower(party) / requirement);
+        }
+
+        public static double GuardIntelMultiplier(GuardTier tier) => tier switch
+        {
+            GuardTier.Abundant => ScoutingBalance.GuardIntelMultiplierAbundant,
+            GuardTier.Sufficient => ScoutingBalance.GuardIntelMultiplierSufficient,
+            GuardTier.Marginal => ScoutingBalance.GuardIntelMultiplierMarginal,
+            _ => ScoutingBalance.GuardIntelMultiplierDeficient,
+        };
+
+        public static int GuardHpLossPercent(GuardTier tier) => tier switch
+        {
+            GuardTier.Abundant => ScoutingBalance.GuardHpLossPercentAbundant,
+            GuardTier.Sufficient => ScoutingBalance.GuardHpLossPercentSufficient,
+            GuardTier.Marginal => ScoutingBalance.GuardHpLossPercentMarginal,
+            _ => ScoutingBalance.GuardHpLossPercentDeficient,
+        };
+
+        /// <summary>
+        /// 調査のHP消費＝各員の最大HP×護衛段階ごとの%（→ GuardHpLossPercent）。
+        /// HPは下限1で止まり、致死判定・負傷状態・強制除籍には一切接続しない。
+        /// </summary>
+        private static void ApplyHpLoss(ScoutingResult result, Party party)
+        {
+            int lossPct = GuardHpLossPercent(result.GuardTier);
 
             foreach (var member in party.Members)
             {
-                int lossPct = _rng.NextInt(minPct, maxPct);
                 int hpLoss = member.MaxHP * lossPct / 100;
                 int newHp = Math.Max(MinHp, member.CurrentHP - hpLoss);
 

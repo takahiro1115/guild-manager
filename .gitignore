@@ -1,0 +1,13 @@
+# クラウド同期ツール（Google Drive等）がリポジトリ直下に作る一時フォルダ。
+# 中身は同期途中の断片ファイルで、リポジトリの内容とは無関係のため追跡しない。
+.tmp.driveupload/
+
+# Antigravity 2.0のローカルMCP連携設定（個人環境依存のため追跡しない）。
+.antigravity/
+
+# ビルド成果物（dotnet build / dotnet test が毎回再生成する）。
+[Bb]in/
+[Oo]bj/
+
+# Godotエディタのキャッシュ・インポート結果・C#ビルド一時ファイル（エディタ起動時に再生成される）。
+.godot/

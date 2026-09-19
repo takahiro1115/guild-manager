@@ -38,6 +38,7 @@ public partial class DungeonPanel : ScrollContainer
 	private RichTextLabel _partyMembersLabel = null!;
 	private RichTextLabel _scoutingForecastLabel = null!;
 	private Button _scoutingButton = null!;
+	private Button _surveyButton = null!;
 	private RichTextLabel _countermeasureLabel = null!;
 	private OptionButton _pouchSlot1OptionButton = null!;
 	private OptionButton _pouchSlot2OptionButton = null!;
@@ -94,6 +95,7 @@ public partial class DungeonPanel : ScrollContainer
 		_partyMembersLabel = GetNode<RichTextLabel>("%PartyMembersLabel");
 		_scoutingForecastLabel = GetNode<RichTextLabel>("%ScoutingForecastLabel");
 		_scoutingButton = GetNode<Button>("%ScoutingButton");
+		_surveyButton = GetNode<Button>("%SurveyButton");
 		_countermeasureLabel = GetNode<RichTextLabel>("%CountermeasureLabel");
 		_pouchSlot1OptionButton = GetNode<OptionButton>("%PouchSlot1OptionButton");
 		_pouchSlot2OptionButton = GetNode<OptionButton>("%PouchSlot2OptionButton");
@@ -113,6 +115,7 @@ public partial class DungeonPanel : ScrollContainer
 		_fieldOptionButton.ItemSelected += OnFieldSelected;
 		_partyOptionButton.ItemSelected += OnPartySelected;
 		_scoutingButton.Pressed += OnDispatchPressed;
+		_surveyButton.Pressed += OnSurveyDispatchPressed;
 		_engageBossButton.Pressed += OnEngageBossPressed;
 		_retreatButton.Pressed += OnRetreatPressed;
 		_gatheringButton.Pressed += OnGatheringDispatchPressed;
@@ -504,6 +507,8 @@ public partial class DungeonPanel : ScrollContainer
 		_countermeasureLabel.Clear();
 		_dispatchStatusLabel.Clear();
 		_scoutingButton.TooltipText = "";
+		_surveyButton.TooltipText = "";
+		_surveyButton.RemoveThemeColorOverride("font_color");
 		_gatheringButton.TooltipText = "";
 
 		var saved = SelectedSavedParty();
@@ -515,6 +520,7 @@ public partial class DungeonPanel : ScrollContainer
 		if (saved == null || party.IsEmpty)
 		{
 			_scoutingButton.Disabled = true;
+			_surveyButton.Disabled = true;
 			_gatheringButton.Disabled = true;
 
 			string reason = !_hasSelectableParty
@@ -527,6 +533,11 @@ public partial class DungeonPanel : ScrollContainer
 
 		string blockedReason = GetDispatchBlockedReason(boss, saved, party);
 		_scoutingButton.Disabled = blockedReason != null;
+		// 迷宮調査は潜行と同じ出撃条件に加え、対象ボスが完全解析済み（解析率1.0）なら出撃できない。
+		bool fullyAnalyzed = boss != null && ScoutingResolver.GetTier(boss.IntelRate) == IntelTier.Complete;
+		_surveyButton.Disabled = blockedReason != null || fullyAnalyzed;
+		if (fullyAnalyzed)
+			_surveyButton.TooltipText = "対象ボスは完全解析済み。これ以上の調査は不要。";
 
 		// 探索（採取）はボスの有無・到達状況に関係なく、フィールドが選ばれてさえいれば出撃できる
 		// （完全踏破後のフィールドでも素材採取だけは続けられる）。
@@ -549,6 +560,8 @@ public partial class DungeonPanel : ScrollContainer
 			return;
 
 		RefreshTraversalForecast(_selectedField, boss, party);
+		if (!fullyAnalyzed)
+			RefreshSurveyForecast(boss, party);
 
 		// 扉前に着いた場合の下見：ポーチで選択中のアイテムも積んだ想定で対策の充足状況を見せる。
 		foreach (var itemId in GetSelectedPouchItemIds())
@@ -657,6 +670,58 @@ public partial class DungeonPanel : ScrollContainer
 	}
 
 	/// <summary>
+	/// 迷宮調査の事前手応え（→ ScoutingResolver.PreviewGuardTier、2026年9月新設）。部隊の護衛評価
+	/// （余裕／十分／充足／不足）をラベルに表示する。「不足」なら警告色とツールチップで危険を知らせる
+	/// （出撃自体は可能）。判定用の要求値そのものは表示しない（→ 情報公開の原則）。
+	/// </summary>
+	private void RefreshSurveyForecast(FloorBoss boss, Party party)
+	{
+		var tier = ScoutingResolver.PreviewGuardTier(party, boss);
+		double guardPower = ScoutingResolver.CalculateGuardPower(party);
+
+		_scoutingForecastLabel.AppendText(
+			$"\n[b]迷宮調査の護衛評価[/b]（第{boss.Floor}層「{boss.Name}」）：" +
+			$"[color={GuardTierColor(tier)}][b]{GuardTierLabel(tier)}[/b][/color]　{GuardTierDescription(tier)}");
+
+		string tooltip =
+			$"護衛力（隊員の中で最も高いSTR・VIT・INT）：{guardPower:F0}\n" +
+			$"護衛評価：{GuardTierLabel(tier)}（解析成果 ×{ScoutingResolver.GuardIntelMultiplier(tier):F2}、" +
+			$"各員のHP消費 最大HPの{ScoutingResolver.GuardHpLossPercent(tier)}%）\n" +
+			"調査は低リスク：HPは減っても強制除籍にはならない。";
+		if (tier == GuardTier.Deficient)
+		{
+			tooltip = "⚠ 護衛役（戦士・騎士・魔導士等）が不足しており危険。魔物の残党に強襲されて潰走し、" +
+				"解析の成果を持ち帰れないうえ大きな手傷を負う。\n" + tooltip;
+			_surveyButton.AddThemeColorOverride("font_color", new Color(1f, 0.45f, 0.3f));
+		}
+		_surveyButton.TooltipText = tooltip;
+	}
+
+	public static string GuardTierLabel(GuardTier tier) => tier switch
+	{
+		GuardTier.Abundant => "余裕",
+		GuardTier.Sufficient => "十分",
+		GuardTier.Marginal => "充足",
+		_ => "不足",
+	};
+
+	private static string GuardTierColor(GuardTier tier) => tier switch
+	{
+		GuardTier.Abundant => "lime",
+		GuardTier.Sufficient => "cyan",
+		GuardTier.Marginal => "orange",
+		_ => "red",
+	};
+
+	private static string GuardTierDescription(GuardTier tier) => tier switch
+	{
+		GuardTier.Abundant => "[color=gray]護衛が残党を寄せ付けず、じっくり調べられそうだ。[/color]",
+		GuardTier.Sufficient => "[color=gray]護衛は十分。多少の手傷で済みそうだ。[/color]",
+		GuardTier.Marginal => "[color=orange]護衛の手が回らず、被弾しながらの調査になりそうだ。[/color]",
+		_ => "[color=red]護衛役（戦士・騎士・魔導士等）が不足しており危険。調査隊が潰走しかねない。[/color]",
+	};
+
+	/// <summary>
 	/// ボス討伐の対策充足状況（BBCode）。解析済み（＝種別が判明している）ギミックごとに充足／未対策を示し、
 	/// 未対策が残っていれば赤字で強制除籍・壊滅のリスクを警告する。tooltip には討伐ボタン向けの要約を返す。
 	/// </summary>
@@ -748,6 +813,46 @@ public partial class DungeonPanel : ScrollContainer
 		StateChanged.Invoke();
 	}
 
+	/// <summary>
+	/// 「🔍 迷宮調査に出撃」ボタン（2026年9月再配置）。選択中フィールドの攻略対象ボスを、
+	/// 次週の決算で1回調査して帰還する1週任務として派遣する（→ DungeonExpeditionSystem.TryDispatchSurvey）。
+	/// </summary>
+	private void OnSurveyDispatchPressed()
+	{
+		var boss = _selectedField?.GetNextActiveBoss();
+		var saved = SelectedSavedParty();
+		if (_expeditionSystem == null)
+			return;
+
+		if (_selectedField == null || boss == null || saved == null)
+		{
+			ShowDispatchFailure(_selectedField == null
+				? "調査するダンジョン（フィールド）が選択されていない。"
+				: boss == null
+					? "このフィールドは完全制覇済みで、調査すべき階層ボスがいない。"
+					: "出撃部隊が選択されていない。上の一覧から出撃させる編成を選ぶこと。");
+			return;
+		}
+
+		var party = PartyFormationSystem.BuildDispatchParty(_state, saved.MemberIds);
+		string blockedReason = GetDispatchBlockedReason(boss, saved, party);
+		if (blockedReason == null && ScoutingResolver.GetTier(boss.IntelRate) == IntelTier.Complete)
+			blockedReason = "対象ボスは完全解析済み。これ以上の調査は不要。";
+		if (blockedReason != null || !_expeditionSystem.TryDispatchSurvey(_state, party, boss))
+		{
+			ShowDispatchFailure(blockedReason ?? "出撃条件を満たしていない（同時出撃枠・部隊の状態・フィールドの開放状況を確認）。");
+			return;
+		}
+
+		var tier = ScoutingResolver.PreviewGuardTier(party, boss);
+		string members = string.Join("・", party.Members.Select(m => m.Name));
+		LogRequested.Invoke($"[color=cyan]第{_state.WeekNumber}週：「{saved.Name}」（{members}）が{_selectedField.Name} 第{boss.Floor}層" +
+			$"「{boss.Name}」の迷宮調査へ出発する（護衛評価：{GuardTierLabel(tier)}、次週の決算で帰還）。[/color]");
+
+		_selectedPartyId = null; // 出撃した部隊は待機中でなくなるため、選択を解除する
+		StateChanged.Invoke();
+	}
+
 	/// <summary>「探索出撃（素材採取）」ボタン。選択中フィールドへ、ボスを介さず直接派遣する。</summary>
 	private void OnGatheringDispatchPressed()
 	{
@@ -803,6 +908,8 @@ public partial class DungeonPanel : ScrollContainer
 	{
 		if (mission.MissionType == DungeonMissionType.Gathering)
 			return $"【探索】{mission.Field.Name}";
+		if (mission.MissionType == DungeonMissionType.Survey)
+			return $"【迷宮調査】{mission.Field.Name} 第{mission.Boss?.Floor}層「{mission.Boss?.Name}」";
 
 		var boss = mission.TargetedBoss ?? mission.Boss;
 		string bossName = boss == null ? "" : $"「{boss.Name}」";
@@ -976,9 +1083,13 @@ public partial class DungeonPanel : ScrollContainer
 			return;
 		}
 
-		LogRequested.Invoke(mission.MissionType == DungeonMissionType.Gathering
-			? $"[color=gray]{mission.Field.Name}への探索出撃を取り消した。部隊は待機に戻った。[/color]"
-			: $"[color=gray]{mission.Field.Name}への潜行を取り消した。部隊は待機に戻った。[/color]");
+		string missionName = mission.MissionType switch
+		{
+			DungeonMissionType.Gathering => "探索出撃",
+			DungeonMissionType.Survey => "迷宮調査",
+			_ => "潜行",
+		};
+		LogRequested.Invoke($"[color=gray]{mission.Field.Name}への{missionName}を取り消した。部隊は待機に戻った。[/color]");
 		StateChanged.Invoke();
 	}
 

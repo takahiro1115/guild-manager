@@ -985,6 +985,86 @@ namespace GuildManager.Core.Tests
             Assert.Equal(original.CarriedMaterials, mission.CarriedMaterials);
         }
 
+        // ---------------- 迷宮調査（Survey、2026年9月新設） ----------------
+
+        [Fact]
+        public void DungeonExpeditionSystem_DispatchScouting_IncreasesIntelRateOnSettlement()
+        {
+            // 「🔍 迷宮調査に出撃」：潜行（1Fから）とは別の1週任務。次週の決算で対象ボスを調査し、
+            // 解析率を加算して帰還する（出撃枠も空く）。
+            var (state, field, boss, a, b) = MakeDeepDiveState(bossFloor: 10);
+            var system = BuildSystem();
+
+            Assert.True(system.TryDispatchSurvey(state, PartyOf(a, b), boss));
+            var mission = Assert.Single(state.ActiveDungeonMissions);
+            Assert.Equal(DungeonMissionType.Survey, mission.MissionType);
+            Assert.True(a.IsDispatched);
+            Assert.False(QuestDispatchSystem.CanDispatch(state));
+            Assert.Equal(0.0, boss.IntelRate);
+
+            var resolution = Assert.Single(system.ProcessWeeklyMissions(state));
+
+            Assert.Equal(DungeonMissionType.Survey, resolution.MissionType);
+            Assert.NotNull(resolution.ScoutingResult);
+            Assert.Null(resolution.TraversalResult);
+            Assert.True(boss.IntelRate > 0.0);
+            Assert.Equal(boss.IntelRate, resolution.ScoutingResult!.IntelRateAfter, precision: 10);
+            Assert.Equal(GuardTier.Abundant, resolution.ScoutingResult.GuardTier); // 能力値300の部隊 vs 要求35
+            Assert.True(resolution.ReturnedHome);
+            Assert.Empty(state.ActiveDungeonMissions);
+            Assert.False(a.IsDispatched);
+            Assert.True(QuestDispatchSystem.CanDispatch(state));
+            Assert.Equal(1, field.ReachedFloor); // 調査では潜行しない＝到達階層は動かない
+        }
+
+        [Fact]
+        public void DispatchSurvey_ClampsIntelRateAtOne_AndRefusesFullyAnalyzedBoss()
+        {
+            var (state, _, boss, a, b) = MakeDeepDiveState(bossFloor: 10);
+            var system = BuildSystem();
+            boss.IntelRate = 0.95;
+
+            Assert.True(system.TryDispatchSurvey(state, PartyOf(a, b), boss));
+            system.ProcessWeeklyMissions(state);
+
+            Assert.Equal(1.0, boss.IntelRate, precision: 10); // 上限1.0でクランプ
+            Assert.False(system.TryDispatchSurvey(state, PartyOf(a, b), boss)); // 完全解析済みは出撃不可
+            Assert.Empty(state.ActiveDungeonMissions);
+        }
+
+        [Fact]
+        public void DispatchSurvey_Fails_WhenSlotFull_BossDefeated_OrPartyUnavailable()
+        {
+            var (state, _, boss, a, b) = MakeDeepDiveState(bossFloor: 10);
+            var system = BuildSystem();
+
+            Assert.False(system.TryDispatchSurvey(state, new Party(), boss));
+            a.IsDispatched = true;
+            Assert.False(system.TryDispatchSurvey(state, PartyOf(a, b), boss));
+            a.IsDispatched = false;
+
+            Assert.True(system.TryDispatchSurvey(state, PartyOf(a), boss));
+            Assert.False(system.TryDispatchSurvey(state, PartyOf(b), boss)); // 枠が埋まっている
+
+            boss.IsDefeated = true;
+            state.UnlockedSquadSlots = 2;
+            Assert.False(system.TryDispatchSurvey(state, PartyOf(b), boss));
+        }
+
+        [Fact]
+        public void RoundTrip_PreservesSurveyMission_ThroughJson()
+        {
+            var (state, _, boss, a, b) = MakeDeepDiveState(bossFloor: 10);
+            BuildSystem().TryDispatchSurvey(state, PartyOf(a, b), boss);
+
+            var json = JsonSerializer.Serialize(state.ToSaveData());
+            var restored = GameState.FromSaveData(JsonSerializer.Deserialize<SaveData>(json)!);
+
+            var mission = Assert.Single(restored.ActiveDungeonMissions);
+            Assert.Equal(DungeonMissionType.Survey, mission.MissionType);
+            Assert.Same(restored.DungeonFields[0].Bosses[0], mission.TargetedBoss);
+        }
+
         // ---------------- GameState・セーブ/ロード ----------------
 
         [Fact]

@@ -28,6 +28,12 @@ namespace GuildManager.Core.Systems
         /// <summary>この調査で新たに段階が上がったか（UIで「新情報を持ち帰った」と強調するため）。</summary>
         public bool TierAdvanced { get; set; }
 
+        /// <summary>護衛評価（→ GuardTier、2026年9月新設）。解析率上昇量の倍率とHP消費率を決める。</summary>
+        public GuardTier GuardTier { get; set; }
+
+        /// <summary>護衛比率＝部隊護衛力÷要求護衛値（週報・デバッグ用）。</summary>
+        public double GuardRatio { get; set; }
+
         /// <summary>冒険者IDごとの、今回の調査で失ったHP量。</summary>
         public Dictionary<Guid, int> HpLostByAdventurer { get; set; } = new();
     }

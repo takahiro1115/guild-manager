@@ -149,6 +149,41 @@ namespace GuildManager.Core.Systems
         }
 
         /// <summary>
+        /// 迷宮調査（→ DungeonMissionType.Survey、「🔍 迷宮調査に出撃」）に出撃させる。対象ボスを
+        /// 次週の決算で1回調査し（→ ScoutingResolver、護衛の4段階判定付き）、解析率を上げて帰還する。
+        /// 1階層からの潜行とは別の1週任務で、扉前まで潜る必要はない。
+        /// 同時出撃枠が埋まっている／部隊が空・出撃不可のメンバーを含む／ボスが存在しない・
+        /// 撃破済み・完全解析済み／所属フィールドが未開放 のいずれかならfalse。
+        /// </summary>
+        public bool TryDispatchSurvey(GameState state, Party party, FloorBoss boss)
+        {
+            if (!QuestDispatchSystem.CanDispatch(state))
+                return false;
+            if (party.IsEmpty || party.Members.Any(m => !m.IsAvailable))
+                return false;
+
+            var field = state.DungeonFields.FirstOrDefault(f => f.Bosses.Contains(boss));
+            if (field == null || !field.IsUnlocked || boss.IsDefeated)
+                return false;
+            if (ScoutingResolver.GetTier(boss.IntelRate) == IntelTier.Complete)
+                return false;
+
+            state.ActiveDungeonMissions.Add(new ActiveDungeonMission
+            {
+                Party = party,
+                Field = field,
+                Boss = boss,
+                MissionType = DungeonMissionType.Survey,
+                TargetedBoss = boss,
+            });
+
+            foreach (var member in party.Members)
+                member.IsDispatched = true;
+
+            return true;
+        }
+
+        /// <summary>
         /// 出撃予定を取り消す。出発前（まだ一度も週次決算を経ていない＝WeeksElapsed==0）の
         /// 出撃のみが対象で、判定は行われていないため何も失わない。潜行を始めた部隊を
         /// 呼び戻すには TryRetreat を使う。対象が存在しない・既に出発済みならfalse。
@@ -294,6 +329,9 @@ namespace GuildManager.Core.Systems
                 return resolution;
             }
 
+            if (mission.MissionType == DungeonMissionType.Survey)
+                return ResolveSurvey(state, mission);
+
             return mission.Status switch
             {
                 ExpeditionStatus.Advancing => Advance(state, mission),
@@ -372,6 +410,24 @@ namespace GuildManager.Core.Systems
             double intelBefore = boss.IntelRate;
             var scouting = _scoutingResolver.Resolve(mission.Party, boss, state);
             return new DungeonMissionResolution(mission.Party, boss, mission.Field, intelBefore, scouting);
+        }
+
+        /// <summary>
+        /// 迷宮調査（Survey）の解決：対象ボスを1回調査して解析率を加算し（上限1.0、→ ScoutingResolver）、
+        /// 帰還する。出発後に対象ボスが他部隊に倒されていた場合は、調査を行わずに帰還する。
+        /// </summary>
+        private DungeonMissionResolution ResolveSurvey(GameState state, ActiveDungeonMission mission)
+        {
+            var boss = mission.TargetedBoss ?? mission.Boss;
+            if (boss == null || boss.IsDefeated)
+                return ReturnHomeWithoutAction(state, mission);
+
+            double intelBefore = boss.IntelRate;
+            var scouting = _scoutingResolver.Resolve(mission.Party, boss, state);
+            var resolution = new DungeonMissionResolution(
+                mission.Party, boss, mission.Field, intelBefore, scouting, DungeonMissionType.Survey);
+            ReturnHome(state, mission, resolution);
+            return resolution;
         }
 
         /// <summary>

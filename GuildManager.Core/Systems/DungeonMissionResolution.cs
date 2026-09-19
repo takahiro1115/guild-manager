@@ -68,12 +68,18 @@ namespace GuildManager.Core.Systems
         /// <summary>帰還時にギルドへ格納した道中拾得素材（素材Id→個数）。</summary>
         public Dictionary<string, int> DepositedMaterials { get; set; } = new();
 
-        public DungeonMissionResolution(Party party, FloorBoss boss, DungeonField field, double intelRateBefore, ScoutingResult scoutingResult)
+        /// <summary>
+        /// 調査結果用。扉前の偵察（潜行中＝Scouting）と迷宮調査（Survey）の両方で使うため、
+        /// 種別を missionType で受け取る（省略時は Scouting）。
+        /// </summary>
+        public DungeonMissionResolution(
+            Party party, FloorBoss boss, DungeonField field, double intelRateBefore, ScoutingResult scoutingResult,
+            DungeonMissionType missionType = DungeonMissionType.Scouting)
         {
             Party = party;
             Boss = boss;
             Field = field;
-            MissionType = DungeonMissionType.Scouting;
+            MissionType = missionType;
             IntelRateBefore = intelRateBefore;
             ScoutingResult = scoutingResult;
         }
