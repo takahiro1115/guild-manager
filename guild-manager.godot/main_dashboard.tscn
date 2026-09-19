@@ -8,6 +8,7 @@
 [ext_resource type="PackedScene" path="res://party_formation_panel.tscn" id="6_partyformation"]
 [ext_resource type="PackedScene" path="res://dungeon_panel.tscn" id="8_dungeon"]
 [ext_resource type="PackedScene" path="res://research_panel.tscn" id="9_research"]
+[ext_resource type="PackedScene" path="res://scenes/AdventurerPanel.tscn" id="10_adventurer"]
 
 [node name="MainDashboard" type="Control" unique_id=210796005]
 layout_mode = 3
@@ -86,65 +87,10 @@ unique_name_in_owner = true
 layout_mode = 2
 metadata/_tab_index = 0
 
-[node name="AdventurerDetailTab" type="VBoxContainer" parent="Root/BodyPanel/CenterPanel/AdventurerTab"]
+[node name="AdventurerDetailTab" parent="Root/BodyPanel/CenterPanel/AdventurerTab" instance=ExtResource("10_adventurer")]
+unique_name_in_owner = true
 layout_mode = 2
 metadata/_tab_index = 1
-
-[node name="Label2" type="Label" parent="Root/BodyPanel/CenterPanel/AdventurerTab/AdventurerDetailTab" unique_id=619444891]
-layout_mode = 2
-text = "現役冒険者一覧（クリックで詳細表示）"
-
-[node name="AdventurerList" type="ItemList" parent="Root/BodyPanel/CenterPanel/AdventurerTab/AdventurerDetailTab" unique_id=220254183]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_vertical = 3
-
-[node name="Label3" type="Label" parent="Root/BodyPanel/CenterPanel/AdventurerTab/AdventurerDetailTab" unique_id=220254184]
-layout_mode = 2
-text = "ステータス詳細（クリックで表示）"
-
-[node name="DetailRow" type="HBoxContainer" parent="Root/BodyPanel/CenterPanel/AdventurerTab/AdventurerDetailTab" unique_id=220254199]
-layout_mode = 2
-
-[node name="PortraitTextureRect" type="TextureRect" parent="Root/BodyPanel/CenterPanel/AdventurerTab/AdventurerDetailTab/DetailRow" unique_id=220254200]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(140, 210)
-layout_mode = 2
-size_flags_vertical = 0
-expand_mode = 1
-stretch_mode = 5
-
-[node name="AdventurerDetailLabel" type="RichTextLabel" parent="Root/BodyPanel/CenterPanel/AdventurerTab/AdventurerDetailTab/DetailRow" unique_id=220254185]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 170)
-layout_mode = 2
-size_flags_horizontal = 3
-bbcode_enabled = true
-
-[node name="EquipmentButton" type="Button" parent="Root/BodyPanel/CenterPanel/AdventurerTab/AdventurerDetailTab" unique_id=220254197]
-unique_name_in_owner = true
-layout_mode = 2
-text = "装備"
-
-[node name="NegotiationRow" type="HBoxContainer" parent="Root/BodyPanel/CenterPanel/AdventurerTab/AdventurerDetailTab" unique_id=220254190]
-layout_mode = 2
-
-[node name="RaiseWageButton" type="Button" parent="Root/BodyPanel/CenterPanel/AdventurerTab/AdventurerDetailTab/NegotiationRow" unique_id=220254191]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
-text = "昇給する（週給1.5倍）"
-
-[node name="PayBonusButton" type="Button" parent="Root/BodyPanel/CenterPanel/AdventurerTab/AdventurerDetailTab/NegotiationRow" unique_id=220254192]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
-text = "ボーナスを払う"
-
-[node name="RetireButton" type="Button" parent="Root/BodyPanel/CenterPanel/AdventurerTab/AdventurerDetailTab" unique_id=220254195]
-unique_name_in_owner = true
-layout_mode = 2
-text = "引退させる（顧問候補にする）"
 
 [node name="ResearchTab" parent="Root/BodyPanel/CenterPanel" unique_id=176574643 instance=ExtResource("9_research")]
 unique_name_in_owner = true

@@ -58,18 +58,17 @@ public partial class MainDashboard : Control
 	private Button _nextWeekButton = null!;
 	private Button _autoSkipButton = null!;
 	private RecruitmentPopup _recruitmentPopup = null!;
-	private Button _raiseWageButton = null!;
-	private Button _payBonusButton = null!;
 	private AdvisorPopup _advisorPopup = null!;
 	private Button _advisorButton = null!;
-	private Button _retireButton = null!;
 	private EquipmentPopup _equipmentPopup = null!;
-	private Button _equipmentButton = null!;
 	private Button _saveButton = null!;
 
 	// ---- 大迷宮（ダンジョン攻略システム：調査・討伐・採取。出撃の主画面） ----
 	private DungeonPanel _dungeonPanel = null!;
 	private DungeonExpeditionSystem _dungeonExpeditionSystem = null!;
+
+	// ---- 冒険者管理（→ 2026年9月UI刷新で独立パネル化） ----
+	private AdventurerPanel _adventurerPanel = null!;
 
 	// ---- 編成・施設（旧ポップアップをタブ化） ----
 	private PartyFormationPanel _partyFormationPanel = null!;
@@ -80,9 +79,6 @@ public partial class MainDashboard : Control
 
 	/// <summary>大迷宮へ1部隊も出撃予定が無いまま週を進めようとした時の確認ダイアログ。</summary>
 	private ConfirmationDialog _noDungeonDispatchDialog = null!;
-
-	/// <summary>ステータス詳細パネルに表示中の冒険者。週送り後もこの人物の表示を維持する。</summary>
-	private Guid? _detailAdventurerId;
 
 	// ---- 決戦（ボス）ログのステップ再生（→ コアシステム刷新仕様 Phase 3） ----
 	// 通常の任務は結果を一括表示してテンポを優先するが、大迷宮のボス討伐だけは
@@ -113,20 +109,13 @@ public partial class MainDashboard : Control
 		_threatLabel.Visible = false;
 		_squadSlotLabel = GetNode<Label>("%SquadSlotLabel");
 		_materialSummaryLabel = GetNode<Label>("%MaterialSummaryLabel");
-		_adventurerList = GetNode<ItemList>("%AdventurerList");
-		_adventurerDetailLabel = GetNode<RichTextLabel>("%AdventurerDetailLabel");
-		_portraitTextureRect = GetNode<TextureRect>("%PortraitTextureRect");
 		_resultLog = GetNode<RichTextLabel>("%ResultLog");
 		_nextWeekButton = GetNode<Button>("%NextWeekButton");
 		_autoSkipButton = GetNode<Button>("%AutoSkipButton");
 		_recruitmentPopup = GetNode<RecruitmentPopup>("%RecruitmentPopup");
-		_raiseWageButton = GetNode<Button>("%RaiseWageButton");
-		_payBonusButton = GetNode<Button>("%PayBonusButton");
 		_advisorPopup = GetNode<AdvisorPopup>("%AdvisorPopup");
 		_advisorButton = GetNode<Button>("%AdvisorButton");
-		_retireButton = GetNode<Button>("%RetireButton");
 		_equipmentPopup = GetNode<EquipmentPopup>("%EquipmentPopup");
-		_equipmentButton = GetNode<Button>("%EquipmentButton");
 
 		// 中央ペインのタブ（→ 03 §9）。出撃の窓口は大迷宮に一本化したため、大迷宮をタブ0
 		// （起動時の初期表示）に置く。タブ本体のノード名は英語、見出しはここでコードから設定する。
@@ -146,6 +135,11 @@ public partial class MainDashboard : Control
 		var adventurerTab = GetNode<TabContainer>("%AdventurerTab");
 		adventurerTab.SetTabTitle(0, "編成");
 		adventurerTab.SetTabTitle(1, "冒険者");
+
+		_adventurerPanel = GetNode<AdventurerPanel>("%AdventurerDetailTab");
+		_adventurerPanel.LogRequested += AppendLog;
+		_adventurerPanel.StateChanged += RefreshAll;
+		_adventurerPanel.EquipmentRequested += OnAdventurerEquipmentRequested;
 
 		_partyFormationPanel = GetNode<PartyFormationPanel>("%PartyFormationTab");
 		_partyFormationPanel.StateChanged += RefreshAll;
@@ -169,16 +163,11 @@ public partial class MainDashboard : Control
 		_noDungeonDispatchDialog.Confirmed += () => Callable.From(AdvanceWeek).CallDeferred();
 		AddChild(_noDungeonDispatchDialog);
 
-		_adventurerList.ItemClicked += OnAdventurerItemClicked;
 		_nextWeekButton.Pressed += OnNextWeekPressed;
 		_autoSkipButton.Pressed += OnAutoSkipButtonPressed;
 		_recruitmentPopup.Closed += OnRecruitmentPopupClosed;
-		_raiseWageButton.Pressed += OnRaiseWagePressed;
-		_payBonusButton.Pressed += OnPayBonusPressed;
 		_advisorButton.Pressed += OnAdvisorButtonPressed;
 		_advisorPopup.Closed += OnAdvisorPopupClosed;
-		_retireButton.Pressed += OnRetirePressed;
-		_equipmentButton.Pressed += OnEquipmentButtonPressed;
 		_equipmentPopup.Closed += OnEquipmentPopupClosed;
 		_saveButton = GetNode<Button>("%SaveButton");
 		_saveButton.Pressed += OnSaveButtonPressed;
@@ -209,6 +198,7 @@ public partial class MainDashboard : Control
 			new ScoutingResolver(new SeededRng(1453)), new DungeonResolver(new SeededRng(1588)),
 			_satisfactionSystem, _compatibilitySystem);
 		_dungeonPanel.Initialize(_dungeonExpeditionSystem);
+		_adventurerPanel.Initialize(_satisfactionSystem, _agingSystem);
 		// 週次決算のオーケストレーション（→ 03 §1.3・自動スキップ）。既存の各Systemインスタンスを
 		// そのまま共有し、二重管理（別インスタンスによる状態不整合）を避ける。
 		_weekProcessingSystem = new WeekProcessingSystem(
@@ -335,14 +325,7 @@ public partial class MainDashboard : Control
 		}
 	}
 
-	/// <summary>
-	/// 冒険者一覧のクリックでステータス詳細パネルを更新する（出撃メンバーの選択は
-	/// 編成タブ・大迷宮タブ側で行うため、この一覧は閲覧専用）。
-	/// </summary>
-	private void OnAdventurerItemClicked(long index, Vector2 atPosition, long mouseButtonIndex)
-	{
-		ShowAdventurerDetail(_state.Adventurers[(int)index]);
-	}
+
 
 	/// <summary>
 	/// 新春採用試験ポップアップ（→ 03 §2.4・§9）が閉じた時のコールバック。
@@ -574,33 +557,9 @@ public partial class MainDashboard : Control
 		RefreshAll();
 	}
 
-	/// <summary>
-	/// 「引退させる（顧問候補にする）」ボタン（→ 03 §7「引退の経路」）。表示中の冒険者を
-	/// 40歳未満でも任意のタイミングで早期引退させ、顧問候補にする。退職金は既存の
-	/// 40歳強制引退と共通の処理（AgingSystem.RetireVoluntarily）で支給する。
-	/// </summary>
-	private void OnRetirePressed()
+	/// <summary>冒険者詳細パネルからの装備ポップアップ開放依頼。</summary>
+	private void OnAdventurerEquipmentRequested(Adventurer target)
 	{
-		var target = CurrentDetailAdventurer();
-		if (target == null) return;
-
-		if (target.IsDispatched)
-		{
-			AppendLog($"[color=gray]{target.Name} は派遣中のため引退させられません（帰還を待ってください）。[/color]");
-			return;
-		}
-
-		_agingSystem.RetireVoluntarily(_state, target);
-		AppendLog($"[color=cyan]{target.Name} が引退し、顧問候補になった。[/color]");
-		RefreshAll();
-	}
-
-	/// <summary>「装備」ボタン。表示中の冒険者の装備購入・着脱ポップアップを開く（→ 03 §4.2.2）。</summary>
-	private void OnEquipmentButtonPressed()
-	{
-		var target = CurrentDetailAdventurer();
-		if (target == null) return;
-
 		_equipmentPopup.Open(_state, target, _equipmentSystem);
 	}
 
@@ -913,36 +872,7 @@ public partial class MainDashboard : Control
 		}
 	}
 
-	/// <summary>
-	/// 「昇給する」ボタン（→ 03 §5.2）。表示中の冒険者の週給を1.5倍に引き上げる
-	/// （倍率選択UIは未実装のため、仕様の下限=最小限の昇給で固定。→ 03 §5.2）。
-	/// </summary>
-	private void OnRaiseWagePressed()
-	{
-		var target = CurrentDetailAdventurer();
-		if (target == null) return;
 
-		_satisfactionSystem.RaiseWage(target, 1.5);
-		AppendLog($"[color=lime]{target.Name} の週給を {target.WeeklyWage}G に引き上げた。[/color]");
-		RefreshAll();
-	}
-
-	/// <summary>「ボーナスを払う」ボタン（→ 03 §5.2）。表示中の冒険者に一時金を支給する。</summary>
-	private void OnPayBonusPressed()
-	{
-		var target = CurrentDetailAdventurer();
-		if (target == null) return;
-
-		int bonus = target.WeeklyWage * SatisfactionBalance.BonusWeeksEquivalent;
-		_satisfactionSystem.PayBonus(_state, target);
-		AppendLog($"[color=lime]{target.Name} にボーナス {bonus}G を支給した。[/color]");
-		RefreshAll();
-	}
-
-	private Adventurer CurrentDetailAdventurer() =>
-		_detailAdventurerId.HasValue
-			? _state.Adventurers.FirstOrDefault(a => a.Id == _detailAdventurerId.Value)
-			: null;
 
 	private void AppendLog(string bbcodeText)
 	{
@@ -960,18 +890,7 @@ public partial class MainDashboard : Control
 		_squadSlotLabel.Text = $"出撃枠: {_state.ActiveDungeonMissions.Count}/{_state.UnlockedSquadSlots}";
 		RefreshMaterialSummary();
 
-		_adventurerList.Clear();
-		foreach (var a in _state.Adventurers)
-		{
-			string status = a.Injury == InjurySeverity.Severe
-				? $"【重傷・出撃不可・回復まで{a.InjuryWeeksRemaining}週】"
-				: a.IsDispatched
-					? "【出撃中】"
-					: "";
-			_adventurerList.AddItem($"{a.Name}（{a.JobClass}） HP{a.CurrentHP}/{a.MaxHP}　総合PA{a.TotalPA:F1}　{a.Age}歳 {status}");
-		}
-
-		RefreshAdventurerDetail();
+		_adventurerPanel.Refresh(_state);
 		_dungeonPanel.Refresh(_state);
 		_partyFormationPanel.Refresh(_state);
 		_researchPanel.Refresh(_state);
@@ -1005,116 +924,9 @@ public partial class MainDashboard : Control
 			: "";
 	}
 
-	/// <summary>
-	/// ステータス詳細パネルを、直近にクリックされた冒険者の最新の値で再描画する。
-	/// 週送り直後もパネルの表示対象を維持するため RefreshAll から毎回呼び出す。
-	///
-	/// 引退・装備・昇給・ボーナス支給は冒険者個人に関する事項のため、必ず
-	/// 「冒険者を選択してから選ぶ」（→ ユーザー要望）。先頭の冒険者を暗黙に選択済み
-	/// 扱いにするフォールバックは行わない（選択せずに誤って引退等を実行することを防ぐ）。
-	/// 選択中の冒険者が居なくなった場合（引退・戦死・週送り直後など）も、
-	/// 自動的に別の誰かへ選択を移さず、未選択状態に戻す。
-	/// </summary>
-	private void RefreshAdventurerDetail()
-	{
-		var target = CurrentDetailAdventurer();
-		if (target != null)
-			ShowAdventurerDetail(target);
-		else
-			ShowNoAdventurerSelected();
-	}
 
-	/// <summary>
-	/// 冒険者が未選択の状態（ゲーム開始直後・週送りで選択対象が居なくなった場合等）の表示。
-	/// 個人操作系ボタン（昇給・ボーナス支給・引退・装備）を無効化する。
-	/// </summary>
-	private void ShowNoAdventurerSelected()
-	{
-		_detailAdventurerId = null;
-		_adventurerDetailLabel.Clear();
-		_adventurerDetailLabel.AppendText("[color=gray]左の一覧から冒険者を選択してください。[/color]");
-		_portraitTextureRect.Texture = null; // 未選択時はポートレートも表示しない
-		_raiseWageButton.Disabled = true;
-		_payBonusButton.Disabled = true;
-		_retireButton.Disabled = true;
-		_equipmentButton.Disabled = true;
-	}
 
-	/// <summary>冒険者1名分のステータス詳細（仕様書 03 §2）を詳細パネルに表示する。</summary>
-	private void ShowAdventurerDetail(Adventurer a)
-	{
-		_detailAdventurerId = a.Id;
 
-		var sb = new StringBuilder();
-		sb.AppendLine($"[b]{a.Name}[/b]（{a.JobClass}） {a.Age}歳・{AgeBandLabel(a.AgeBand)}");
-		sb.AppendLine($"HP {a.CurrentHP}/{a.MaxHP}　満足度 {a.Satisfaction}/100");
-		sb.AppendLine(InjuryLabel(a));
-		if (a.TraitIds.Count > 0)
-			sb.AppendLine($"特性: {string.Join("、", a.TraitIds.Select(TraitLabel))}");
-		if (a.NeedsNegotiation)
-		{
-			int remaining = Math.Max(0, SatisfactionBalance.NegotiationGraceWeeks - a.NegotiationWeeksElapsed);
-			sb.AppendLine($"[color=orange]⚠ 契約交渉中（あと{remaining}週で対応しないと退団）[/color]");
-		}
-		sb.AppendLine();
-		sb.AppendLine("[b]能力値（実効値 / 潜在能力PA）[/b]");
-		sb.AppendLine($"STR {a.STR} / {a.PA_STR}　　VIT {a.VIT} / {a.PA_VIT}　　AGI {a.AGI} / {a.PA_AGI}");
-		sb.AppendLine($"DEX {a.DEX} / {a.PA_DEX}　　MND {a.MND} / {a.PA_MND}　　INT {a.INT} / {a.PA_INT}");
-		sb.AppendLine($"LDR {a.LDR} / {a.PA_LDR}");
-		sb.AppendLine($"総合PA: {a.TotalPA:F1}");
-		sb.AppendLine();
-		sb.AppendLine("[b]装備[/b]（→ 03 §4.2.2）");
-		sb.AppendLine($"武器: {EquipmentLabel(a.EquippedWeaponId)}　　防具: {EquipmentLabel(a.EquippedArmorId)}");
-		sb.AppendLine($"アクセサリー1: {EquipmentLabel(a.EquippedAccessory1Id)}　　アクセサリー2: {EquipmentLabel(a.EquippedAccessory2Id)}");
-		sb.AppendLine();
-		sb.AppendLine($"週給: {a.WeeklyWage} G");
-
-		_adventurerDetailLabel.Clear();
-		_adventurerDetailLabel.AppendText(sb.ToString());
-		_portraitTextureRect.Texture = LoadPortraitTexture(a.PortraitId);
-
-		// 冒険者を選択したので、個人操作系ボタンを有効化する（→ ShowNoAdventurerSelectedの対）。
-		_raiseWageButton.Disabled = false;
-		_payBonusButton.Disabled = false;
-		_retireButton.Disabled = false;
-		_equipmentButton.Disabled = false;
-	}
-
-	/// <summary>
-	/// ポートレート画像を解決する（→ 03 §2.1、項目62）。PortraitIdが設定されていれば
-	/// `res://assets/portraits/{PortraitId}.png` を読み込み、未設定またはファイルが
-	/// 存在しない場合はシルエット画像（unknown_silhouette.png）を返す。採用組の
-	/// ほとんどはPortraitId未設定になるため、シルエット表示は異常系ではなく正常系。
-	///
-	/// 将来のモンタージュ方式（職業×性別×装備での合成）への布石：装備の
-	/// VisualPartIdと同じ「IDだけCoreに持たせ、実際の画像解決はGodot側」という
-	/// パターンに揃えてあるため、「PortraitIdが無い場合はシルエット」という
-	/// この分岐を「PortraitIdが無い場合は職業×性別×装備から合成する」に
-	/// 差し替えるだけで済む。
-	/// </summary>
-	private static Texture2D LoadPortraitTexture(string portraitId)
-	{
-		if (!string.IsNullOrEmpty(portraitId))
-		{
-			string path = $"res://assets/portraits/{portraitId}.png";
-			if (ResourceLoader.Exists(path))
-			{
-				var texture = GD.Load<Texture2D>(path);
-				if (texture != null)
-					return texture;
-			}
-		}
-
-		return GD.Load<Texture2D>("res://assets/portraits/unknown_silhouette.png");
-	}
-
-	/// <summary>装備スロット表示用のラベル（未装備ならその旨を表示する。→ 03 §4.2.2）。</summary>
-	private static string EquipmentLabel(string itemId)
-	{
-		if (itemId == null) return "なし";
-		var item = ItemCatalog.FindById(itemId);
-		return item?.Name ?? "（不明）";
-	}
 
 	private static string FacilityLabel(FacilityType type) => type switch
 	{
@@ -1130,23 +942,4 @@ public partial class MainDashboard : Control
 		_ => type.ToString()
 	};
 
-	private static string AgeBandLabel(AgeBand band) => band switch
-	{
-		AgeBand.GrowthPeriod => "成長期",
-		AgeBand.PrimePeriod => "全盛期",
-		AgeBand.MaturePeriod => "円熟期",
-		AgeBand.LimitPeriod => "限界期",
-		_ => band.ToString()
-	};
-
-	private static string InjuryLabel(Adventurer a) => a.Injury switch
-	{
-		InjurySeverity.None => "負傷: なし",
-		InjurySeverity.Light => $"負傷: 軽傷（全治まで{a.InjuryWeeksRemaining}週）",
-		InjurySeverity.Severe => $"[color=red]負傷: 重傷・出撃不可（全治まで{a.InjuryWeeksRemaining}週）[/color]",
-		_ => a.Injury.ToString()
-	};
-
-	/// <summary>特性IDの表示名を返す（→ 03 §5.3）。カタログに無いIDはそのまま表示する（防御的フォールバック）。</summary>
-	private static string TraitLabel(string traitId) => TraitCatalog.FindById(traitId)?.DisplayName ?? traitId;
 }
