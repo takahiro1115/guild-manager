@@ -23,6 +23,20 @@ namespace GuildManager.Core.Balance
         /// </summary>
         public static readonly double AdvisorBonusCoefficient = BalanceData.GetDouble(FileName, "AdvisorBonusCoefficient");
 
+        // ---- 参謀の大迷宮支援（2026年9月、旧クエスト撤去で失われた加算先を大迷宮へ再配線） ----
+
+        /// <summary>
+        /// 参謀の引退時7能力平均×この係数を、迷宮調査（ボス解析）の解析率上昇量への加算率とする
+        /// （→ ScoutingResolver。研究ボーナスと合算）。平均50で+10%。
+        /// </summary>
+        public static readonly double SurveyIntelBonusCoefficient = BalanceData.GetDouble(FileName, "Advisor_SurveyIntelBonusCoeff");
+
+        /// <summary>
+        /// 参謀の引退時7能力平均×この係数を、道中潜行の走破力スコアへ直接加算する
+        /// （→ DungeonTraversalResolver.CalculateTraversalScore）。平均50で+10。
+        /// </summary>
+        public static readonly double TraversalPowerBonusCoefficient = BalanceData.GetDouble(FileName, "Advisor_TraversalPowerBonusCoeff");
+
         /// <summary>
         /// スカウトボーナス係数。生涯ピークのLDR・DEX平均に掛け、新春採用試験の
         /// 有望新人応募率（RecruitmentBalance.HighPotentialBaseChance）に加算する。

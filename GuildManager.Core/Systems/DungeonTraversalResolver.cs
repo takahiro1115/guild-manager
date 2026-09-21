@@ -77,6 +77,11 @@ namespace GuildManager.Core.Systems
                 throw new InvalidOperationException("空のパーティは道中進軍に出せません。");
 
             var result = new TraversalResult { FloorBefore = startFloor };
+            if (state != null)
+            {
+                result.AdvisorTraversalBonus = AdvisorSystem.GetAdvisorTraversalPowerBonus(state);
+                result.AdvisorName = result.AdvisorTraversalBonus > 0 ? AdvisorSystem.GetAssignedAdvisor(state)?.Name : null;
+            }
 
             double score = CalculateTraversalScore(party, state);
             double requirement = FloorRequirement(startFloor);
@@ -180,7 +185,7 @@ namespace GuildManager.Core.Systems
         }
 
         /// <summary>
-        /// 走破力＝Σ(AGI+DEX)×係数 ＋ 部隊長LDR×係数（＋研究ボーナス）。空の部隊は0
+        /// 走破力＝Σ(AGI+DEX)×係数 ＋ 部隊長LDR×係数（＋研究ボーナス＋参謀のルート指導ボーナス）。空の部隊は0
         /// （stateの有無・研究の完了状況に関わらず、部隊が空ならボーナスも乗らない）。
         /// public static にしてあるのは出撃前のプレビュー（UI）とテストから同じ式を使うため
         /// （→ ScoutingResolver.CalculateStealthScoreと同じ考え方）。
@@ -190,7 +195,8 @@ namespace GuildManager.Core.Systems
         /// 完了済みなら、完了分すべてのEffectValueを合計して走破力に加算する
         /// （→ Balance.ResearchBalance.GetTotalEffectValue、アルベールの研究室。同種の研究が
         /// 複数完了していても加算で重複できる）。DungeonPanel側の出撃前プレビューでも同じ式を
-        /// 使うため、UIとResolve内部の両方でボーナスが一致する。
+        /// 使うため、UIとResolve内部の両方でボーナスが一致する。参謀が任命されていれば、
+        /// 参謀の7能力実効値平均×Advisor_TraversalPowerBonusCoeff も加算する（→ AdvisorSystem）。
         /// </param>
         public static double CalculateTraversalScore(Party party, GameState? state = null)
         {
@@ -201,7 +207,11 @@ namespace GuildManager.Core.Systems
                 + party.Members[0].GetEffectiveStat("LDR") * DungeonTraversalBalance.LeaderCoefficient;
 
             if (state != null)
+            {
                 score += ResearchBalance.GetTotalEffectValue(state, ResearchEffectType.TraversalBonus);
+                // 参謀のルート指導（→ AdvisorSystem.GetAdvisorTraversalPowerBonus、2026年9月再配線）。
+                score += AdvisorSystem.GetAdvisorTraversalPowerBonus(state);
+            }
 
             return score;
         }

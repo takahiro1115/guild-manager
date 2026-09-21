@@ -119,14 +119,42 @@ namespace GuildManager.Core.Systems
 
         /// <summary>
         /// 参謀ボーナス：7能力（STR・VIT・AGI・DEX・INT・MND・LDR）の実効値平均に比例。
-        /// PartyScout（§4.1）とSurvivalThreshold（§4.3）の両方に同じ値を加算する想定
-        /// （→ QuestResolver.Resolveの引数として渡す）。
+        /// 旧通常クエストのPartyScout（§4.1）とSurvivalThreshold（§4.3）へ加算していた値。
+        /// 旧クエストの撤去（2026年9月）以降は加算先が無い（大迷宮向けは GetAdvisorSurveyIntelBonus・
+        /// GetAdvisorTraversalPowerBonus）。
         /// </summary>
-        public static double GetAdvisorBonus(Adventurer advisor)
+        public static double GetAdvisorBonus(Adventurer advisor) =>
+            SevenStatAverage(advisor) * AdvisorBalance.AdvisorBonusCoefficient;
+
+        // ---------------- 参謀の大迷宮支援（2026年9月、→ 03 §7.2） ----------------
+
+        /// <summary>任命中の参謀（作戦資料室）。未任命・該当者なしならnull。</summary>
+        public static Adventurer? GetAssignedAdvisor(GameState state) =>
+            state.AssignedAdvisor is Guid id ? state.RetiredAdventurers.FirstOrDefault(a => a.Id == id) : null;
+
+        /// <summary>
+        /// 迷宮調査（ボス解析）の解析率上昇量への加算率（小数。0.10＝+10%）。
+        /// 参謀の7能力実効値平均×Advisor_SurveyIntelBonusCoeff。未任命なら0。
+        /// ScoutingResolver が研究ボーナス（IntelRateBonus）と合算して (1＋合計) 倍に使う。
+        /// </summary>
+        public static double GetAdvisorSurveyIntelBonus(GameState state)
         {
-            double average = AdventurerStatAccessor.AllStatNames.Average(stat => AdventurerStatAccessor.GetStat(advisor, stat));
-            return average * AdvisorBalance.AdvisorBonusCoefficient;
+            var advisor = GetAssignedAdvisor(state);
+            return advisor == null ? 0 : SevenStatAverage(advisor) * AdvisorBalance.SurveyIntelBonusCoefficient;
         }
+
+        /// <summary>
+        /// 道中潜行の走破力スコアへの加算値。参謀の7能力実効値平均×Advisor_TraversalPowerBonusCoeff。
+        /// 未任命なら0。DungeonTraversalResolver.CalculateTraversalScore が研究ボーナスと並べて加算する。
+        /// </summary>
+        public static double GetAdvisorTraversalPowerBonus(GameState state)
+        {
+            var advisor = GetAssignedAdvisor(state);
+            return advisor == null ? 0 : SevenStatAverage(advisor) * AdvisorBalance.TraversalPowerBonusCoefficient;
+        }
+
+        private static double SevenStatAverage(Adventurer advisor) =>
+            AdventurerStatAccessor.AllStatNames.Average(stat => AdventurerStatAccessor.GetStat(advisor, stat));
 
         /// <summary>
         /// スカウトボーナス：LDR・DEXの実効値平均に比例。新春採用試験の有望新人応募率に

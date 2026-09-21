@@ -34,6 +34,12 @@ namespace GuildManager.Core.Systems
         /// <summary>護衛比率＝部隊護衛力÷要求護衛値（週報・デバッグ用）。</summary>
         public double GuardRatio { get; set; }
 
+        /// <summary>参謀の作戦分析による解析率上昇量への加算率（→ AdvisorSystem.GetAdvisorSurveyIntelBonus）。未任命なら0。</summary>
+        public double AdvisorIntelBonus { get; set; }
+
+        /// <summary>支援した参謀の名前（週報表示用）。未任命・ボーナス0ならnull。</summary>
+        public string? AdvisorName { get; set; }
+
         /// <summary>冒険者IDごとの、今回の調査で失ったHP量。</summary>
         public Dictionary<Guid, int> HpLostByAdventurer { get; set; } = new();
     }

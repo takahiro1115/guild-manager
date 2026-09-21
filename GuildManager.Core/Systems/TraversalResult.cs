@@ -47,6 +47,15 @@ namespace GuildManager.Core.Systems
         /// <summary>今回の進軍に適用した被ダメージ倍率（歩いた階層の平均。完全解析区間のみなら0.3）。</summary>
         public double DamageTakenMultiplier { get; set; } = 1.0;
 
+        /// <summary>
+        /// 参謀のルート指導による走破力スコアへの加算値（→ AdvisorSystem.GetAdvisorTraversalPowerBonus）。
+        /// 未任命なら0。走破力（→ DungeonTraversalResolver.CalculateTraversalScore）には既に含まれている。
+        /// </summary>
+        public double AdvisorTraversalBonus { get; set; }
+
+        /// <summary>支援した参謀の名前（週報表示用）。未任命・ボーナス0ならnull。</summary>
+        public string? AdvisorName { get; set; }
+
         /// <summary>今回の進軍で拾ったゴールド（部隊が持ち歩き、帰還時にギルドへ格納される）。</summary>
         public int LootGold { get; set; }
 

@@ -352,5 +352,74 @@ namespace GuildManager.Core.Tests
             Assert.Equal(100.0 * AdvisorBalance.TrainerBonusCoefficient,
                 AdvisorSystem.GetTrainerBonus(trainer, FacilityType.MageLab), precision: 6);
         }
+
+        // ---------------- 参謀の大迷宮支援（2026年9月再配線、→ 03 §7.2） ----------------
+
+        /// <summary>7能力の平均が average になる引退冒険者（値はばらつかせる）。</summary>
+        private static Adventurer MakeAdvisorCandidate()
+        {
+            // (100+40+90+50+70+80+60)/7 = 70
+            return new Adventurer
+            {
+                Name = "参謀ガレス",
+                STR = 100, AGI = 40, VIT = 90, MND = 50, DEX = 70, LDR = 80, INT = 60,
+            };
+        }
+
+        [Fact]
+        public void GetAdvisorSurveyIntelBonus_IsProportionalToSevenStatAverage()
+        {
+            var candidate = MakeAdvisorCandidate();
+            var state = BuildBuiltState(candidate);
+            new AdvisorSystem().TryAssignAdvisor(state, candidate.Id);
+
+            double bonus = AdvisorSystem.GetAdvisorSurveyIntelBonus(state);
+
+            Assert.Equal(0.002, AdvisorBalance.SurveyIntelBonusCoefficient, precision: 6);
+            Assert.Equal(70 * AdvisorBalance.SurveyIntelBonusCoefficient, bonus, precision: 10); // 平均70 → +14%
+        }
+
+        [Fact]
+        public void GetAdvisorTraversalPowerBonus_IsProportionalToSevenStatAverage()
+        {
+            var candidate = MakeAdvisorCandidate();
+            var state = BuildBuiltState(candidate);
+            new AdvisorSystem().TryAssignAdvisor(state, candidate.Id);
+
+            double bonus = AdvisorSystem.GetAdvisorTraversalPowerBonus(state);
+
+            Assert.Equal(70 * AdvisorBalance.TraversalPowerBonusCoefficient, bonus, precision: 10); // 平均70 → +14
+            Assert.Same(candidate, AdvisorSystem.GetAssignedAdvisor(state));
+        }
+
+        [Fact]
+        public void AdvisorDungeonBonuses_AreZero_WhenNoAdvisorIsAssigned()
+        {
+            var candidate = MakeAdvisorCandidate();
+            var state = BuildBuiltState(candidate); // 顧問候補は居るが、参謀には任命していない
+
+            Assert.Null(AdvisorSystem.GetAssignedAdvisor(state));
+            Assert.Equal(0, AdvisorSystem.GetAdvisorSurveyIntelBonus(state), precision: 10);
+            Assert.Equal(0, AdvisorSystem.GetAdvisorTraversalPowerBonus(state), precision: 10);
+        }
+
+        [Fact]
+        public void AdvisorDungeonBonuses_FollowTheCurrentlyAssignedAdvisor()
+        {
+            // 参謀を付け替えると、ボーナスも新しい参謀の能力値に追従する。
+            var weak = new Adventurer { Name = "新米参謀", STR = 10, AGI = 10, VIT = 10, MND = 10, DEX = 10, LDR = 10, INT = 10 };
+            var strong = MakeAdvisorCandidate();
+            var state = BuildBuiltState(weak, strong);
+            var system = new AdvisorSystem();
+
+            system.TryAssignAdvisor(state, weak.Id);
+            double weakBonus = AdvisorSystem.GetAdvisorTraversalPowerBonus(state);
+
+            system.TryAssignAdvisor(state, strong.Id);
+            double strongBonus = AdvisorSystem.GetAdvisorTraversalPowerBonus(state);
+
+            Assert.Equal(10 * AdvisorBalance.TraversalPowerBonusCoefficient, weakBonus, precision: 10);
+            Assert.Equal(70 * AdvisorBalance.TraversalPowerBonusCoefficient, strongBonus, precision: 10);
+        }
     }
 }

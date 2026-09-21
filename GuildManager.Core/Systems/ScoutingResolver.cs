@@ -83,8 +83,14 @@ namespace GuildManager.Core.Systems
             // 研究バフ：IntelRateBonus種別の研究が完了済みなら、合計EffectValueで解析率上昇量に
             // (1+合計)倍を掛ける（→ アルベールの研究室。EffectValue=0.25なら「+25%」＝1.25倍、
             // HpRecoveryBonusと同じ加算率の考え方）。
+            // 参謀（→ AdvisorSystem.GetAdvisorSurveyIntelBonus、2026年9月再配線）：作戦分析による加算率を
+            // 研究ボーナスと合算する。上昇量＝基礎×(1＋研究ボーナス＋参謀解析ボーナス)×護衛倍率。
             if (state != null)
-                gain *= 1 + ResearchBalance.GetTotalEffectValue(state, ResearchEffectType.IntelRateBonus);
+            {
+                result.AdvisorIntelBonus = AdvisorSystem.GetAdvisorSurveyIntelBonus(state);
+                result.AdvisorName = result.AdvisorIntelBonus > 0 ? AdvisorSystem.GetAssignedAdvisor(state)?.Name : null;
+                gain *= 1 + ResearchBalance.GetTotalEffectValue(state, ResearchEffectType.IntelRateBonus) + result.AdvisorIntelBonus;
+            }
 
             // ---- 判定3：護衛（段階ごとに解析成果へ倍率。不足なら成果0＝調査隊が潰走） ----
             double guardRequirement = RequiredGuardPower(boss);

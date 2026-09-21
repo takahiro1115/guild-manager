@@ -301,5 +301,66 @@ namespace GuildManager.Core.Tests
             Assert.Throws<InvalidOperationException>(() =>
                 resolver.Resolve(new Party(), MakeField(), new FloorBoss { Floor = 10, MaxHp = 1 }));
         }
+
+        // ---------------- 参謀のルート指導（→ AdvisorSystem.GetAdvisorTraversalPowerBonus、2026年9月再配線） ----------------
+
+        /// <summary>7能力がすべて statAverage の参謀を作戦資料室に任命した状態。</summary>
+        private static GameState StateWithAdvisor(int statAverage)
+        {
+            var advisor = new Adventurer
+            {
+                Name = "参謀ガレス",
+                STR = statAverage, AGI = statAverage, VIT = statAverage, MND = statAverage,
+                DEX = statAverage, LDR = statAverage, INT = statAverage,
+            };
+            return new GameState { RetiredAdventurers = { advisor }, AssignedAdvisor = advisor.Id };
+        }
+
+        [Fact]
+        public void CalculateTraversalScore_AddsAdvisorBonus_WhenAdvisorIsAssigned()
+        {
+            // 7能力平均50 × Advisor_TraversalPowerBonusCoeff(0.2) ＝ +10。
+            var party = PartyOf(MakeSpecialist(agiDex: 40, ldr: 20)); // Σ(AGI+DEX)=80 ＋ LDR20×0.5 ＝ 90
+            double withoutState = DungeonTraversalResolver.CalculateTraversalScore(party);
+
+            double withAdvisor = DungeonTraversalResolver.CalculateTraversalScore(party, StateWithAdvisor(statAverage: 50));
+
+            Assert.Equal(90, withoutState, precision: 6);
+            Assert.Equal(90 + 10, withAdvisor, precision: 6);
+            Assert.Equal(0.2, AdvisorBalance.TraversalPowerBonusCoefficient, precision: 6);
+        }
+
+        [Fact]
+        public void CalculateTraversalScore_NoAdvisorBonus_WhenUnassigned()
+        {
+            var party = PartyOf(MakeSpecialist(agiDex: 40, ldr: 20));
+
+            double withoutAdvisor = DungeonTraversalResolver.CalculateTraversalScore(party, new GameState());
+
+            Assert.Equal(90, withoutAdvisor, precision: 6);
+        }
+
+        [Fact]
+        public void Resolve_AdvisorBonus_RaisesEffectiveTraversalPower_AndIsReported()
+        {
+            // 1Fの要求値15。部隊だけなら走破力12（Ratio0.8＝苦戦・+1階層）だが、
+            // 参謀の+10で22（Ratio1.47＝迅速・+3階層）まで押し上がる。
+            var field = MakeField(reachedFloor: 1);
+            field.Bosses.Add(new FloorBoss { Name = "遠くのボス", Floor = 50, MaxHp = 1 });
+            var resolver = new DungeonTraversalResolver(new AlwaysMinRng());
+
+            var withoutAdvisor = resolver.Resolve(PartyOf(MakeSpecialist(agiDex: 6)), MakeField(reachedFloor: 1), currentFloor: 1);
+            var withAdvisor = resolver.Resolve(PartyOf(MakeSpecialist(agiDex: 6)), field, currentFloor: 1, state: StateWithAdvisor(statAverage: 50));
+
+            Assert.Equal(TraversalRank.Struggling, withoutAdvisor.Rank);
+            Assert.Equal(0, withoutAdvisor.AdvisorTraversalBonus, precision: 6);
+            Assert.Null(withoutAdvisor.AdvisorName);
+
+            Assert.Equal(TraversalRank.Swift, withAdvisor.Rank);
+            Assert.Equal(10, withAdvisor.AdvisorTraversalBonus, precision: 6);
+            Assert.Equal("参謀ガレス", withAdvisor.AdvisorName);
+            Assert.True(withAdvisor.FloorAfter - withAdvisor.FloorBefore > withoutAdvisor.FloorAfter - withoutAdvisor.FloorBefore,
+                "参謀のルート指導で、同じ部隊でもより深くまで進めるはず");
+        }
     }
 }

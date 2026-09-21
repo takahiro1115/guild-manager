@@ -23,7 +23,7 @@
 | `guild_rank.csv` | 03 §8.1 | GuildRankBalance.Thresholds |
 | `guild_rank_params.csv` | 03 §8.1.1 | GuildRankBalance（名声増減・減衰） |
 | `recruitment.csv` | 03 §2.4・§7.3 | RecruitmentSystem, NameGeneratorBalance |
-| `compatibility_advisor.csv` | 03 §5.3・§7 | CompatibilityBalance, AdvisorBalance |
+| `compatibility_advisor.csv` | 03 §5.3・§7 | CompatibilityBalance, AdvisorBalance（教官成長補正、参謀の大迷宮調査解析ボーナス・道中潜行走破力ボーナス、スカウト有望新人率） |
 | `security.csv` | 03 §4.4・§8.3 | SecurityBalance |
 | `training.csv` | 03 §3.1〜3.4・§3.5改 | TrainingBalance |
 | `trait.csv` | 03 §4.3・§5.3.2・§4.2.3 | TraitBalance（→ TraitCatalog）、ペアシナジーの隊長LDR緩和係数 |
@@ -31,6 +31,12 @@
 | `gimmick.csv` | 環境ギミック刷新仕様 | GimmickBalance（→ Systems.GimmickEvaluator） |
 | `consumables.csv` | パーティ携行アイテム刷新仕様 | ConsumableBalance（→ ConsumableCatalog） |
 | `progression.csv` | 03 §4.5.1 | ProgressionBalance（初期の同時出撃枠） |
+| `dungeon.csv` | 03 §4.5.1・§4.5.4 | DungeonBalance（ボス能力重み・未踏破重損耗・ボス間隔・撃破実績点・出撃成長回数） |
+| `dungeon_traversal.csv` | 03 §4.5.3 | DungeonTraversalBalance（走破力係数・進軍ランク閾値・調査度連動走破倍率） |
+| `scouting.csv` | 03 §4.5.3 | ScoutingBalance（迷宮調査の4段階護衛判定・解析成果倍率・護衛HP損耗） |
+| `gathering.csv` | 03 §4.5.5 | GatheringBalance（採取スコア係数・職業ボーナス・報酬ゴールド） |
+| `materials.csv` | 03 §4.5.5 | MaterialBalance（全5フィールドの採取素材定義・MinFloor・希少度） |
+| `research.csv` | 03 §4.6 | ResearchBalance（アルベール研究室の8プロジェクト・必要素材・ゴールド・効果種別・効果値） |
 
 `trait.csv`・`equipment.csv` は項目58（バランス値のCSV外部化）の時点では対応CSVが
 存在せず対象外だったため、フォローアップとして追加した（値はTraitCatalog.cs・

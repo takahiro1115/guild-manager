@@ -712,6 +712,12 @@ public partial class MainDashboard : Control
 					_ => "[color=gray]◆ 断片的な情報しか持ち帰れなかった。[/color]",
 				});
 			}
+			// 参謀の作戦分析（→ AdvisorSystem.GetAdvisorSurveyIntelBonus、§7.2）。任命されている週のみ。
+			if (scouting.AdvisorName != null)
+			{
+				sb.AppendLine($"[color=cyan]🖋 参謀{scouting.AdvisorName}の作戦分析により解析が促進された" +
+					$"（解析量 +{scouting.AdvisorIntelBonus * 100:F0}%）。[/color]");
+			}
 			sb.AppendLine($"解析率 {resolution.IntelRateBefore * 100:F0}% → {scouting.IntelRateAfter * 100:F0}%" +
 				$"（+{scouting.IntelGained * 100:F0}%）");
 			if (scouting.TierAdvanced)
@@ -740,6 +746,12 @@ public partial class MainDashboard : Control
 				$"（+{traversal.FloorAfter - traversal.FloorBefore}階層）");
 			if (traversal.IntelSpeedMultiplier > 1.0)
 				sb.AppendLine($"[color=lime]◆ 解析済みの情報を活かし、走破速度 ×{traversal.IntelSpeedMultiplier:F1}で進んだ。[/color]");
+			// 参謀のルート指導（→ AdvisorSystem.GetAdvisorTraversalPowerBonus、§7.2）。任命されている週のみ。
+			if (traversal.AdvisorName != null)
+			{
+				sb.AppendLine($"[color=cyan]🗺 参謀{traversal.AdvisorName}のルート指導が道筋を照らした" +
+					$"（走破力 +{traversal.AdvisorTraversalBonus:F0}）。[/color]");
+			}
 			if (traversal.LootGold > 0 || traversal.LootMaterials.Count > 0)
 				sb.AppendLine($"道中で拾った：{LootText(traversal.LootGold, traversal.LootMaterials)}（帰還時にギルドへ格納）");
 			if (resolution.ArrivedAtBossDoor && traversal.TargetBoss != null)

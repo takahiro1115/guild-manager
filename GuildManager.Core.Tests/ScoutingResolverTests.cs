@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using GuildManager.Core.Balance;
 using GuildManager.Core.Models;
 using GuildManager.Core.Rng;
@@ -300,6 +301,66 @@ namespace GuildManager.Core.Tests
         {
             Assert.Throws<InvalidOperationException>(() =>
                 new ScoutingResolver(new AlwaysMinRng()).Resolve(new Party(), MakeBoss()));
+        }
+
+        // ---------------- 参謀の作戦分析（→ AdvisorSystem.GetAdvisorSurveyIntelBonus、2026年9月再配線） ----------------
+
+        /// <summary>7能力がすべて statAverage の参謀を作戦資料室に任命した状態。</summary>
+        private static GameState StateWithAdvisor(int statAverage)
+        {
+            var advisor = new Adventurer
+            {
+                Name = "参謀ガレス",
+                STR = statAverage, AGI = statAverage, VIT = statAverage, MND = statAverage,
+                DEX = statAverage, LDR = statAverage, INT = statAverage,
+            };
+            return new GameState { RetiredAdventurers = { advisor }, AssignedAdvisor = advisor.Id };
+        }
+
+        [Fact]
+        public void Resolve_WithAdvisor_AddsIntelBonus_ProportionalToAdvisorStats()
+        {
+            // 大成功（0.50）×(1＋参謀ボーナス 50×0.002＝0.10)×護衛「余裕」1.25 ＝ 0.6875。
+            var party = PartyOf(MakeSpecialist(agiDex: 60, intel: 60), MakeSpecialist(agiDex: 60, intel: 60));
+            var boss = MakeBoss(floor: 1);
+            var state = StateWithAdvisor(statAverage: 50);
+
+            var result = new ScoutingResolver(new AlwaysMinRng()).Resolve(party, boss, state);
+
+            Assert.Equal(0.10, result.AdvisorIntelBonus, precision: 10);
+            Assert.Equal("参謀ガレス", result.AdvisorName);
+            Assert.Equal(ScoutingBalance.IntelGainGreatSuccess * 1.10 * AbundantGuard, result.IntelGained, precision: 10);
+        }
+
+        [Fact]
+        public void Resolve_WithoutAdvisor_KeepsPreviousCalculation()
+        {
+            var party = PartyOf(MakeSpecialist(agiDex: 60, intel: 60), MakeSpecialist(agiDex: 60, intel: 60));
+            var boss = MakeBoss(floor: 1);
+            var stateWithoutAdvisor = new GameState();
+
+            var result = new ScoutingResolver(new AlwaysMinRng()).Resolve(party, boss, stateWithoutAdvisor);
+
+            Assert.Equal(0.0, result.AdvisorIntelBonus, precision: 10);
+            Assert.Null(result.AdvisorName);
+            Assert.Equal(ScoutingBalance.IntelGainGreatSuccess * AbundantGuard, result.IntelGained, precision: 10);
+        }
+
+        [Fact]
+        public void Resolve_AdvisorBonus_IsAddedToResearchBonus_NotMultiplied()
+        {
+            // 研究ボーナス（IntelRateBonus）と参謀ボーナスは加算で合算する：(1＋研究＋参謀)倍。
+            var party = PartyOf(MakeSpecialist(agiDex: 60, intel: 60), MakeSpecialist(agiDex: 60, intel: 60));
+            var state = StateWithAdvisor(statAverage: 50);
+            var research = ResearchBalance.GetAll().First(r => r.EffectType == ResearchEffectType.IntelRateBonus);
+            state.CompletedResearchIds.Add(research.Id);
+            double researchBonus = ResearchBalance.GetTotalEffectValue(state, ResearchEffectType.IntelRateBonus);
+
+            var result = new ScoutingResolver(new AlwaysMinRng()).Resolve(party, MakeBoss(floor: 1), state);
+
+            Assert.True(researchBonus > 0);
+            Assert.Equal(ScoutingBalance.IntelGainGreatSuccess * (1 + researchBonus + 0.10) * AbundantGuard,
+                result.IntelGained, precision: 10);
         }
     }
 }
