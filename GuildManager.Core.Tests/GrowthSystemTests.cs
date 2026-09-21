@@ -271,7 +271,7 @@ namespace GuildManager.Core.Tests
             // 教官（生涯ピークSTR/VIT平均が高い）を戦士訓練所に配置すると、成長確率倍率が
             // 上乗せされる（→ 03 §7.1）。ここでは、教官が居なければ成長ロールが必ず失敗する
             // ぎりぎりの roll を使い、教官ボーナスが乗ることで成長が成立することを確認する。
-            var trainee = new Adventurer { Age = 25, STR = 40, PA_STR = 80 }; // 全盛期(22〜27)：基礎確率12%
+            var trainee = new Adventurer { Age = 25, STR = 40, PA_STR = 80 }; // 全盛期(23〜)：基礎確率12%
             var trainer = new Adventurer { STR = 100, VIT = 100 }; // 生涯ピーク平均100
             var state = new GameState
             {

@@ -16,7 +16,7 @@
 |---|---|---|
 | `economy.csv` | 03 §8.1・§5.2・§8.3 | EconomyBalance（初期資金・週給/契約金/退職金係数・破産判定週数）, SubsidyBalance, SatisfactionBalance(賃金), RecruitmentSystem(契約金) |
 | `combat.csv` | 03 §4.2・§4.3 | PlacementBalance（配置補正）, CombatBalance（旧討伐フロー用の値の多くは旧クエスト撤去で休眠中） |
-| `aging.csv` | 03 §3.0〜3.7 | GrowthBalance, AgingSystem |
+| `aging.csv` | 03 §3.0〜3.7 | GrowthBalance（年齢帯別成長ロール基礎確率＝新鋭/成長/全盛の3区分・難易度係数・成長量幅）, AgingSystem（満期引退年齢・稼働週数） |
 | `growth_job_weights.csv` | 03 §3.1〜3.4 | GrowthBalance.JobStatWeights |
 | `satisfaction.csv` | 03 §5.1・§5.2 | SatisfactionBalance |
 | `facility.csv` | 03 §6・§6.1 | FacilityBalance |
@@ -78,7 +78,7 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 出していない。変更すると他の数値の前提が連鎖的に崩れるため、コード変更として扱う。
 
 - 1年=48週（`WeeksPerYear`）、1ヶ月=4週（`SubsidyBalance.WeeksPerMonth`）
-- 年齢帯の境界（15/21/27/34/40。`Adventurer.AgeBand`）
+- 年齢帯の境界（18/22。`Adventurer.AgeBand`。→ 03 §3.0の3区分）
 - 各種クランプの上下限（満足度0〜100、相性0〜100、実効値の下限0）
 - 施設の最大Lv（5）
 - 訓練施設ごとの対象ステータス対応（戦士訓練所→STR/VIT 等。職業・施設の定義そのもの）

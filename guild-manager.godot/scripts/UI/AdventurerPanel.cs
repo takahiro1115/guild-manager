@@ -510,10 +510,9 @@ public partial class AdventurerPanel : VBoxContainer
 
 	private static string AgeBandLabel(AgeBand band) => band switch
 	{
-		AgeBand.GrowthPeriod => "成長期",
-		AgeBand.PrimePeriod => "全盛期",
-		AgeBand.MaturePeriod => "円熟期",
-		AgeBand.LimitPeriod => "限界期",
+		AgeBand.Young => "新鋭期",
+		AgeBand.Growing => "成長期",
+		AgeBand.Peak => "全盛期",
 		_ => band.ToString()
 	};
 }

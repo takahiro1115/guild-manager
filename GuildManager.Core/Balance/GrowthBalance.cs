@@ -17,20 +17,19 @@ namespace GuildManager.Core.Balance
         private const string JobWeightsFileName = "growth_job_weights.csv";
 
         // ---- 年齢帯別 成長ロール基礎確率（→ BAL: 加齢/年齢帯別基礎確率） ----
-        // 成長期は基準の1.5倍、以降の年齢帯で逓減する設計（仕様書 03 §3.0）。CSV側では
-        // 既に係数を織り込んだ最終値（例：成長期0.30＝基準0.20×1.5）として持つ。
-        private static readonly double GrowthPeriodProbability = BalanceData.GetDouble(AgingFileName, "GrowthProbability_GrowthPeriod");
-        private static readonly double PrimePeriodProbability = BalanceData.GetDouble(AgingFileName, "GrowthProbability_PrimePeriod");
-        private static readonly double MaturePeriodProbability = BalanceData.GetDouble(AgingFileName, "GrowthProbability_MaturePeriod");
-        private static readonly double LimitPeriodProbability = BalanceData.GetDouble(AgingFileName, "GrowthProbability_LimitPeriod");
+        // 加入初年度（新鋭期）が最も伸び、以降の年齢帯で逓減する設計（仕様書 03 §3.0）。
+        // CSV側では既に係数を織り込んだ最終値（例：成長期0.30＝基準0.20×1.5）として持つ。
+        // 8年稼働モデルで到達不能になった円熟期・限界期のキーは撤去済み（→ 03 §0.11）。
+        private static readonly double YoungProbability = BalanceData.GetDouble(AgingFileName, "GrowthProbability_Young");
+        private static readonly double GrowingProbability = BalanceData.GetDouble(AgingFileName, "GrowthProbability_Growing");
+        private static readonly double PeakProbability = BalanceData.GetDouble(AgingFileName, "GrowthProbability_Peak");
 
         /// <summary>年齢帯別の成長ロール基礎確率（0.0〜1.0）。</summary>
         public static double GetBaseProbability(AgeBand band) => band switch
         {
-            AgeBand.GrowthPeriod => GrowthPeriodProbability,
-            AgeBand.PrimePeriod => PrimePeriodProbability,
-            AgeBand.MaturePeriod => MaturePeriodProbability,
-            AgeBand.LimitPeriod => LimitPeriodProbability,
+            AgeBand.Young => YoungProbability,
+            AgeBand.Growing => GrowingProbability,
+            AgeBand.Peak => PeakProbability,
             _ => 0.0
         };
 

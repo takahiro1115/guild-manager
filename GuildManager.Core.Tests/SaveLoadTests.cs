@@ -574,6 +574,38 @@ namespace GuildManager.Core.Tests
             finally { Directory.Delete(dir, recursive: true); }
         }
 
+        [Theory]
+        [InlineData("\"Mature\"")]
+        [InlineData("\"Declining\"")]
+        [InlineData("2")] // 旧列挙子 MaturePeriod の数値表現
+        [InlineData("3")] // 旧列挙子 LimitPeriod の数値表現
+        public void Load_RestoresOldSave_ContainingRemovedAgeBandValue(string legacyAgeBandJson)
+        {
+            // 8年稼働モデルで到達不能になった円熟期・限界期を撤去した（→ 03 §0.11）。
+            // AgeBandは年齢から求める読み取り専用プロパティのため、旧セーブに残る値は
+            // デシリアライズ時に無視され、年齢から算出し直される（27歳以上は全盛期へクランプ）。
+            var dir = CreateTempSaveDirectory();
+            try
+            {
+                var veteran = new Adventurer { Name = "老練", Age = 30 };
+                var data = new GameState { Adventurers = { veteran } }.ToSaveData();
+
+                // 旧形式を再現：冒険者オブジェクトへ撤去済みの年齢帯の値を差し込む。
+                var json = JsonSerializer.Serialize(data)
+                    .Replace("\"Age\":30", $"\"Age\":30,\"AgeBand\":{legacyAgeBandJson}");
+                File.WriteAllText(Path.Combine(dir, "savegame.json"), json);
+                var service = new SaveLoadService(dir);
+
+                var restored = service.Load();
+
+                Assert.NotNull(restored);
+                var loaded = Assert.Single(restored!.Adventurers);
+                Assert.Equal(30, loaded.Age);
+                Assert.Equal(AgeBand.Peak, loaded.AgeBand);
+            }
+            finally { Directory.Delete(dir, recursive: true); }
+        }
+
         [Fact]
         public void Load_DoesNotDeleteOrOverwrite_CorruptedSaveFile()
         {

@@ -164,12 +164,15 @@ namespace GuildManager.Core.Models
             return total;
         }
 
-        /// <summary>年齢帯（仕様書 03 §3.0 の定義表）。表の範囲外は近い側の帯に丸める。</summary>
+        /// <summary>
+        /// 年齢帯（仕様書 03 §3.0 の定義表）。表の範囲外は近い側の帯に丸める：
+        /// 18歳以下（旧モデルの15〜17歳を含む）は新鋭期、27歳以上（満期引退を越えた
+        /// 旧データ・異常値）はすべて全盛期へ安全にクランプする（→ 03 §0.11）。
+        /// </summary>
         public AgeBand AgeBand =>
-            Age <= 21 ? AgeBand.GrowthPeriod :
-            Age <= 27 ? AgeBand.PrimePeriod :
-            Age <= 34 ? AgeBand.MaturePeriod :
-            AgeBand.LimitPeriod;
+            Age <= 18 ? AgeBand.Young :
+            Age <= 22 ? AgeBand.Growing :
+            AgeBand.Peak;
 
         // ---- 稼働期間と功績（→ 8年稼働・満期引退モデル。03 §3.7改訂） ----
 

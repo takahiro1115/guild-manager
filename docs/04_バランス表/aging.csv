@@ -1,8 +1,7 @@
 key,value,unit,note
-GrowthProbability_GrowthPeriod,0.30,確率,成長期(15-21)の成長ロール基礎確率（基準0.20×1.5）
-GrowthProbability_PrimePeriod,0.12,確率,全盛期(22-27)の成長ロール基礎確率
-GrowthProbability_MaturePeriod,0.05,確率,円熟期(28-34)の成長ロール基礎確率
-GrowthProbability_LimitPeriod,0.02,確率,限界期(35-40)の成長ロール基礎確率
+GrowthProbability_Young,0.35,確率,新鋭期(〜18)の成長ロール基礎確率（加入初年度を優遇）
+GrowthProbability_Growing,0.30,確率,成長期(19-22)の成長ロール基礎確率（基準0.20×1.5）
+GrowthProbability_Peak,0.12,確率,全盛期(23-)の成長ロール基礎確率
 DifficultyCoefficientBase,1.0,倍,経路1(出撃)の難易度成長係数の基礎値
 DifficultyCoefficientPer100,1.0,倍,難易度100あたりの加算量（難易度0で1.0倍・100で2.0倍）
 TrainingFacilityMultiplier,1.0,倍,訓練場経路の成長倍率（施設Lv連動は未接続・現状固定）

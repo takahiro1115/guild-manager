@@ -28,24 +28,38 @@ namespace GuildManager.Core.Tests
         // ---------------- AgeBand 境界（仕様書 03 §3.0） ----------------
 
         [Theory]
-        [InlineData(15, AgeBand.GrowthPeriod)]
-        [InlineData(21, AgeBand.GrowthPeriod)]
-        [InlineData(22, AgeBand.PrimePeriod)]
-        [InlineData(27, AgeBand.PrimePeriod)]
-        [InlineData(28, AgeBand.MaturePeriod)]
-        [InlineData(34, AgeBand.MaturePeriod)]
-        [InlineData(35, AgeBand.LimitPeriod)]
-        [InlineData(40, AgeBand.LimitPeriod)]
+        [InlineData(15, AgeBand.Young)]   // 旧モデルの下限。18歳以下はすべて新鋭期へ丸める
+        [InlineData(18, AgeBand.Young)]   // 8年稼働モデルの加入年齢（固定）
+        [InlineData(19, AgeBand.Growing)]
+        [InlineData(22, AgeBand.Growing)]
+        [InlineData(23, AgeBand.Peak)]
+        [InlineData(26, AgeBand.Peak)]    // 満期引退年齢
+        [InlineData(27, AgeBand.Peak)]    // 満期を越えた例外値・旧データは全盛期へクランプ
+        [InlineData(40, AgeBand.Peak)]
         public void AgeBand_MatchesDefinitionTable(int age, AgeBand expected)
         {
             var adventurer = new Adventurer { Age = age };
             Assert.Equal(expected, adventurer.AgeBand);
         }
 
+        [Theory]
+        [InlineData(18, 0.35)]
+        [InlineData(20, 0.30)]
+        [InlineData(25, 0.12)]
+        [InlineData(99, 0.12)] // 範囲外も全盛期へクランプされ、必ず有効な確率が返る
+        public void GetBaseProbability_ReturnsRateOfEachActiveAgeBand(int age, double expected)
+        {
+            // 8年稼働モデルで到達不能になった円熟期・限界期を撤去し、実働3区分へ純化した
+            // （→ 03 §0.11・§3.0）。どの年齢でも0.0（＝成長しない）には落ちない。
+            var adventurer = new Adventurer { Age = age };
+
+            Assert.Equal(expected, GrowthBalance.GetBaseProbability(adventurer.AgeBand));
+        }
+
         // ---------------- 成長期・全盛期はAgingSystem内では何もしない（成長はGrowthSystemへ移動） ----------------
 
         [Fact]
-        public void ProcessWeeklyAging_GrowthPeriod_DoesNothingToStats()
+        public void ProcessWeeklyAging_YoungBand_DoesNothingToStats()
         {
             var adventurer = new Adventurer
             {
@@ -65,7 +79,7 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
-        public void ProcessWeeklyAging_PrimePeriod_NeitherGrowsNorDeclines()
+        public void ProcessWeeklyAging_PeakBand_NeitherGrowsNorDeclines()
         {
             var adventurer = new Adventurer
             {
