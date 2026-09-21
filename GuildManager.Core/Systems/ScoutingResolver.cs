@@ -75,8 +75,8 @@ namespace GuildManager.Core.Systems
             // ---- 解析率の更新 ----
             double gain = outcome switch
             {
-                QuestEventOutcome.GreatSuccess => ScoutingBalance.IntelGainGreatSuccess,
-                QuestEventOutcome.Success => ScoutingBalance.IntelGainSuccess,
+                SurveyOutcome.GreatSuccess => ScoutingBalance.IntelGainGreatSuccess,
+                SurveyOutcome.Success => ScoutingBalance.IntelGainSuccess,
                 _ => ScoutingBalance.IntelGainPartial,
             };
 
@@ -135,19 +135,19 @@ namespace GuildManager.Core.Systems
         public static double AnalysisRequirement(FloorBoss boss) => boss.Floor * ScoutingBalance.AnalysisRequirementPerFloor;
 
         /// <summary>解析Ratioから3区分を求める。public static にしてあるのはテストから直接呼べるようにするため。</summary>
-        public static QuestEventOutcome ClassifyAnalysis(double ratio)
+        public static SurveyOutcome ClassifyAnalysis(double ratio)
         {
-            if (ratio >= ScoutingBalance.RatioThresholdGreatSuccess) return QuestEventOutcome.GreatSuccess;
-            if (ratio >= ScoutingBalance.RatioThresholdSuccess) return QuestEventOutcome.Success;
-            return QuestEventOutcome.Failure;
+            if (ratio >= ScoutingBalance.RatioThresholdGreatSuccess) return SurveyOutcome.GreatSuccess;
+            if (ratio >= ScoutingBalance.RatioThresholdSuccess) return SurveyOutcome.Success;
+            return SurveyOutcome.Failure;
         }
 
         /// <summary>隠密失敗時に解析成果を1段階下げる（大成功→成功→失敗）。</summary>
-        private static QuestEventOutcome Downgrade(QuestEventOutcome outcome) => outcome switch
+        private static SurveyOutcome Downgrade(SurveyOutcome outcome) => outcome switch
         {
-            QuestEventOutcome.GreatSuccess => QuestEventOutcome.Success,
-            QuestEventOutcome.Success => QuestEventOutcome.Failure,
-            _ => QuestEventOutcome.Failure,
+            SurveyOutcome.GreatSuccess => SurveyOutcome.Success,
+            SurveyOutcome.Success => SurveyOutcome.Failure,
+            _ => SurveyOutcome.Failure,
         };
 
         /// <summary>

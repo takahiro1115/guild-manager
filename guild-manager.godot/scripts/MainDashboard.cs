@@ -700,8 +700,8 @@ public partial class MainDashboard : Control
 					: "[color=orange]途中で見つかり、落ち着いて観察できなかった。[/color]");
 				sb.AppendLine(scouting.AnalysisOutcome switch
 				{
-					QuestEventOutcome.GreatSuccess => "[color=lime]◆ 生態を細部まで読み解き、貴重な情報を持ち帰った。[/color]",
-					QuestEventOutcome.Success => "[color=lime]◆ 要点を掴み、有益な情報を持ち帰った。[/color]",
+					SurveyOutcome.GreatSuccess => "[color=lime]◆ 生態を細部まで読み解き、貴重な情報を持ち帰った。[/color]",
+					SurveyOutcome.Success => "[color=lime]◆ 要点を掴み、有益な情報を持ち帰った。[/color]",
 					_ => "[color=gray]◆ 断片的な情報しか持ち帰れなかった。[/color]",
 				});
 			}

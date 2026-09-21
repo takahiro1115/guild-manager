@@ -364,30 +364,19 @@ public partial class DungeonPanel : ScrollContainer
 
 	// ==================== Zone B: ボス警戒・ポーチ ====================
 
+	// カタログは大迷宮のボスギミック対策4種のみで構成される（→ 03 §0.13）ため、
+	// ポーチの選択肢はカタログ全件をそのまま使う。対策対象のギミックも
+	// ConsumableItem.TargetGimmick から引けるので、UI側に対応表は持たない。
 	private static readonly string[] PouchItemIds =
-	{
-		ConsumableCatalog.AntidoteId, ConsumableCatalog.AcidFlaskId,
-		ConsumableCatalog.NetId, ConsumableCatalog.CharmId,
-	};
+		ConsumableCatalog.GetAll().Select(i => i.Id).ToArray();
 
 	private void PopulatePouchSlot(OptionButton slot)
 	{
 		slot.Clear();
 		slot.AddItem("なし (0G)");
-		foreach (var itemId in PouchItemIds)
-		{
-			var item = ConsumableCatalog.FindById(itemId)!;
-			slot.AddItem($"{item.Name} ({item.Price}G) [{GimmickLabel(GimmickCounteredBy(itemId))}対策]");
-		}
+		foreach (var item in ConsumableCatalog.GetAll())
+			slot.AddItem($"{item.Name} ({item.Price}G) [{GimmickLabel(item.TargetGimmick)}対策]");
 	}
-
-	private static BossGimmickType GimmickCounteredBy(string itemId) => itemId switch
-	{
-		ConsumableCatalog.AntidoteId => BossGimmickType.Poison,
-		ConsumableCatalog.AcidFlaskId => BossGimmickType.HeavyArmor,
-		ConsumableCatalog.NetId => BossGimmickType.Flying,
-		_ => BossGimmickType.InstantKill,
-	};
 
 	private List<string> GetSelectedPouchItemIds()
 	{

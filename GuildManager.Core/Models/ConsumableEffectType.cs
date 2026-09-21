@@ -2,19 +2,17 @@ namespace GuildManager.Core.Models
 {
     /// <summary>
     /// パーティ携行アイテム（消耗品ポーチ）の効果種別。「パーティ携行アイテム」刷新仕様参照。
+    ///
+    /// 2026年9月の棚卸し（→ 03 §0.13）で、参照元を失っていた効果種別
+    /// （DownRateHalving＝煙幕弾／DamageReduction＝高品質傷薬／SatisfactionBonus＝携帯糧食）は
+    /// 対応するアイテムごと撤去した。現存するのは大迷宮のボスギミック対策のみ。
     /// </summary>
     public enum ConsumableEffectType
     {
-        /// <summary>環境ギミックの対策点数に+1する（→ ConsumableItem.CounterTag）。評価器は 03 §0.12 で撤去済みのため現在は未使用。</summary>
+        /// <summary>
+        /// 大迷宮ボスのギミックを対策する（→ ConsumableItem.TargetGimmick・
+        /// BossGimmick.RequiredItemId）。対策済みならそのギミックのペナルティを受けない。
+        /// </summary>
         GimmickCounter,
-
-        /// <summary>ダウン率（HP消費%）を半減させる（煙幕弾）。</summary>
-        DownRateHalving,
-
-        /// <summary>損耗（HP消費%）を固定量だけ軽減する（高品質傷薬）。</summary>
-        DamageReduction,
-
-        /// <summary>クエスト達成時、パーティ全員の満足度に固定加算する（携帯糧食）。</summary>
-        SatisfactionBonus,
     }
 }

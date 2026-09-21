@@ -14,7 +14,7 @@ namespace GuildManager.Core.Systems
         public bool StealthSucceeded { get; set; }
 
         /// <summary>解析判定の区分（大成功／成功／失敗）。既存のイベント判定と同じ3区分を流用する。</summary>
-        public QuestEventOutcome AnalysisOutcome { get; set; }
+        public SurveyOutcome AnalysisOutcome { get; set; }
 
         /// <summary>今回の調査で上昇した解析率。</summary>
         public double IntelGained { get; set; }

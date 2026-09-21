@@ -87,7 +87,7 @@ namespace GuildManager.Core.Tests
             var result = new ScoutingResolver(new AlwaysMinRng()).Resolve(party, boss);
 
             Assert.True(result.StealthSucceeded);
-            Assert.Equal(QuestEventOutcome.GreatSuccess, result.AnalysisOutcome);
+            Assert.Equal(SurveyOutcome.GreatSuccess, result.AnalysisOutcome);
             Assert.Equal(ScoutingBalance.IntelGainGreatSuccess * AbundantGuard, result.IntelGained, precision: 10);
             Assert.Equal(ScoutingBalance.IntelGainGreatSuccess * AbundantGuard, boss.IntelRate, precision: 10);
         }
@@ -101,7 +101,7 @@ namespace GuildManager.Core.Tests
 
             var result = new ScoutingResolver(new AlwaysMinRng()).Resolve(party, boss);
 
-            Assert.Equal(QuestEventOutcome.Failure, result.AnalysisOutcome);
+            Assert.Equal(SurveyOutcome.Failure, result.AnalysisOutcome);
             Assert.Equal(ScoutingBalance.IntelGainPartial * AbundantGuard, result.IntelGained, precision: 10);
         }
 
@@ -172,7 +172,7 @@ namespace GuildManager.Core.Tests
             var result = new ScoutingResolver(new AlwaysMinRng()).Resolve(party, boss);
 
             Assert.False(result.StealthSucceeded);
-            Assert.Equal(QuestEventOutcome.Success, result.AnalysisOutcome); // 大成功→成功へ格下げ
+            Assert.Equal(SurveyOutcome.Success, result.AnalysisOutcome); // 大成功→成功へ格下げ
             Assert.Equal(ScoutingBalance.IntelGainSuccess * AbundantGuard, result.IntelGained, precision: 10);
         }
 
@@ -243,7 +243,7 @@ namespace GuildManager.Core.Tests
             Assert.Equal(GuardTier.Abundant, result.GuardTier);
             Assert.True(result.GuardRatio >= 1.4);
             Assert.Equal(1.25, ScoutingBalance.GuardIntelMultiplierAbundant, precision: 6);
-            Assert.Equal(QuestEventOutcome.GreatSuccess, result.AnalysisOutcome);
+            Assert.Equal(SurveyOutcome.GreatSuccess, result.AnalysisOutcome);
             Assert.Equal(ScoutingBalance.IntelGainGreatSuccess * 1.25, result.IntelGained, precision: 10);
             Assert.Equal(0, result.HpLostByAdventurer[member.Id]);
             Assert.Equal(0, result.HpLostByAdventurer[analyst.Id]);

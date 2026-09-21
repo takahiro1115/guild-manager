@@ -1,14 +1,5 @@
 key,value,unit,note
-Antidote_Price,15,G,解毒薬（瘴気の対策点数+1）の価格
-HolyWater_Price,15,G,聖水（霊体の対策点数+1）の価格
-Torch_Price,10,G,松明（暗黒の対策点数+1）の価格
-ClimbingGear_Price,15,G,登攀具（隘路の対策点数+1）の価格
-Charm_Price,20,G,護符（巨躯の対策点数+1）の価格
+Antidote_Price,15,G,解毒薬（大迷宮ボスの猛毒(Poison)ギミック対策アイテム）の価格
 AcidFlask_Price,25,G,溶解液（大迷宮ボスの重装甲(HeavyArmor)ギミック対策アイテム）の価格
 Net_Price,20,G,捕縛網（大迷宮ボスの飛行(Flying)ギミック対策アイテム）の価格
-SmokeBomb_Price,25,G,煙幕弾の価格
-SmokeBomb_DownRateMultiplier,0.5,倍,煙幕弾がHP消費%に掛ける倍率（ダウン率半減）
-QualityHealingSalve_Price,30,G,高品質傷薬の価格
-QualityHealingSalve_DamageReductionPct,10,pt,高品質傷薬がHP消費%から固定減算する量（損耗-10%）
-TravelRations_Price,10,G,携帯糧食の価格
-TravelRations_SatisfactionBonus,5,pt,携帯糧食がクエスト達成時にパーティ全員へ加算する満足度
+Charm_Price,20,G,身代わりの護符（大迷宮ボスの即死級(InstantKill)ギミック対策アイテム）の価格

@@ -27,7 +27,7 @@
 | `training.csv` | 03 §3.1〜3.4・§3.5改 | TrainingBalance |
 | `trait.csv` | 03 §4.3・§5.3.2・§4.2.3 | TraitBalance（→ TraitCatalog）、ペアシナジーの隊長LDR緩和係数 |
 | `equipment.csv` | 03 §4.2.2 | EquipmentBalance（→ ItemCatalog） |
-| `consumables.csv` | パーティ携行アイテム刷新仕様 | ConsumableBalance（→ ConsumableCatalog） |
+| `consumables.csv` | 03 §4.5.4 | ConsumableBalance（→ ConsumableCatalog。大迷宮ボスギミック対策4種の価格） |
 | `progression.csv` | 03 §4.5.1 | ProgressionBalance（初期の同時出撃枠） |
 | `dungeon.csv` | 03 §4.5.1・§4.5.4 | DungeonBalance（ボス能力重み・未踏破重損耗・ボス間隔・撃破実績点・出撃成長回数） |
 | `dungeon_traversal.csv` | 03 §4.5.3 | DungeonTraversalBalance（走破力係数・進軍ランク閾値・調査度連動走破倍率） |
@@ -86,9 +86,19 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 `GimmickBalance`・`GimmickMitigationLevel`）と共に削除した。大迷宮のボスギミック
 （`dungeon.csv`・`BossGimmickType`）は現役の別システムであり、影響を受けない。
 
-`consumables.csv`はパーティ携行アイテム刷新仕様で新設した。ギミック相殺5種は価格のみ
-（旧・環境ギミック用。評価器の撤去により現在は効果を持たないデータ）、効果アイテム3種
-（煙幕弾・高品質傷薬・携帯糧食）は価格に加えて効果量を持つ。
+`consumables.csv`はパーティ携行アイテム刷新仕様で新設した。**大迷宮のボスギミック対策
+4種の価格のみ**を持つ（→ 03 §4.5.4・`ConsumableCatalog`）。効果は「対策済みならその
+ギミックのペナルティを受けない」で固定のため、効果量のキーは持たない。
+
+| キー | アイテム | 対策するギミック |
+|---|---|---|
+| `Antidote_Price` | 解毒薬 | 猛毒（Poison） |
+| `AcidFlask_Price` | 溶解液 | 重装甲（HeavyArmor） |
+| `Net_Price` | 捕縛網 | 飛行（Flying） |
+| `Charm_Price` | 身代わりの護符 | 即死級攻撃（InstantKill） |
+
+旧・環境ギミックの相殺アイテム（聖水・松明・登攀具）と効果アイテム（煙幕弾・高品質傷薬・
+携帯糧食）のキーは、参照元を失っていたため2026年9月に削除した（→ 03 §0.13）。
 
 **旧通常クエストの撤去（2026年9月、→ 03 §0.8）：** `quest.csv`・`quest_templates.csv`・
 `quest_type_weights.csv`・`quest_scoring.csv`・`quest_events.csv`・`pair_synergy.csv`・

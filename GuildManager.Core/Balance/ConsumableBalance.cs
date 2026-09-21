@@ -9,27 +9,13 @@ namespace GuildManager.Core.Balance
     {
         private const string FileName = "consumables.csv";
 
-        // ---- ギミック相殺アイテム5種：価格のみ（評価器 GimmickEvaluator は 03 §0.12 で撤去済み。現在は効果を持たない） ----
+        // ---- 大迷宮ボスギミック対策アイテム4種：価格のみ（→ 03 §4.5.4「パーティ携行アイテムポーチ」） ----
+        // 効果は「対策済みならそのギミックのペナルティを受けない」で固定のため、効果量は持たない。
+        // 旧・環境ギミック相殺（聖水・松明・登攀具）と効果アイテム（煙幕弾・高品質傷薬・携帯糧食）の
+        // キーは、参照元を失っていたため 03 §0.13 で撤去した。
         public static readonly int AntidotePrice = BalanceData.GetInt(FileName, "Antidote_Price");
-        public static readonly int HolyWaterPrice = BalanceData.GetInt(FileName, "HolyWater_Price");
-        public static readonly int TorchPrice = BalanceData.GetInt(FileName, "Torch_Price");
-        public static readonly int ClimbingGearPrice = BalanceData.GetInt(FileName, "ClimbingGear_Price");
-        public static readonly int CharmPrice = BalanceData.GetInt(FileName, "Charm_Price");
-
-        // ---- 大迷宮ボスギミック対策アイテム2種（2026年9月新設、→ 03 §4.5.4「パーティ携行アイテムポーチ」） ----
         public static readonly int AcidFlaskPrice = BalanceData.GetInt(FileName, "AcidFlask_Price");
         public static readonly int NetPrice = BalanceData.GetInt(FileName, "Net_Price");
-
-        // ---- 煙幕弾：ダウン率（HP消費%）半減 ----
-        public static readonly int SmokeBombPrice = BalanceData.GetInt(FileName, "SmokeBomb_Price");
-        public static readonly double SmokeBombDownRateMultiplier = BalanceData.GetDouble(FileName, "SmokeBomb_DownRateMultiplier");
-
-        // ---- 高品質傷薬：損耗（HP消費%）を固定量軽減 ----
-        public static readonly int QualityHealingSalvePrice = BalanceData.GetInt(FileName, "QualityHealingSalve_Price");
-        public static readonly double QualityHealingSalveDamageReductionPct = BalanceData.GetDouble(FileName, "QualityHealingSalve_DamageReductionPct");
-
-        // ---- 携帯糧食：クエスト達成時に満足度+固定量 ----
-        public static readonly int TravelRationsPrice = BalanceData.GetInt(FileName, "TravelRations_Price");
-        public static readonly double TravelRationsSatisfactionBonus = BalanceData.GetDouble(FileName, "TravelRations_SatisfactionBonus");
+        public static readonly int CharmPrice = BalanceData.GetInt(FileName, "Charm_Price");
     }
 }
