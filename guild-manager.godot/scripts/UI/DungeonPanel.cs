@@ -1,3 +1,4 @@
+#nullable enable
 using Godot;
 using System;
 using System.Collections.Generic;
@@ -10,189 +11,163 @@ using GuildManager.Core.Systems;
 /// <summary>
 /// 中央ペイン「大迷宮（Dungeon）」タブ（→ ダンジョン攻略システム）。
 ///
-/// Core層の調査任務（ScoutingResolver）・階層ボス討伐（DungeonResolver）を、
-/// DungeonExpeditionSystem 経由でゲーム進行へ接続するビュー。表示するのは以下の3つ：
-///  - ボス情報：解析率（IntelRate）に応じて段階的に開示する（→ IntelTier）。
-///  - 出撃フロー：部隊を選び、1階層からの潜行（道中進軍）または探索（採取）へ送り出す。
-///  - 潜行中の部隊の一覧と、扉前に着いた部隊への指令（ボス討伐に挑む／撤退・帰還する）。
-///    （→ 毎回1Fリセット・複数週潜行型、ExpeditionStatus）
+/// 3ゾーン構造（Zone A: 進軍モニター, Zone B: ボス警戒・ポーチ, Zone C: 部隊状況・コマンド）により、
+/// 潜行・調査・採取の3大任務および扉前決断（討伐・撤退）の全動線を視覚的かつ堅牢に集約する。
 ///
 /// 週報ログへの書き込み・画面全体の再描画は MainDashboard の責務のため、
-/// LogRequested・StateChanged イベントで依頼する（ポップアップ群の Closed/Applied と同じ流儀）。
-///
-/// 情報公開の原則（→ コミットd7c7f39）：判定用の要求値・閾値は表示しない。部隊の隠密・解析の
-/// 総合値（＝メンバーの能力値の合計で、プレイヤーが既に見られる値）と、斥候の見立て（定性表現）だけを出す。
+/// LogRequested・StateChanged イベントで依頼する。
 /// </summary>
 public partial class DungeonPanel : ScrollContainer
 {
-	private OptionButton _fieldOptionButton = null!;
-	private RichTextLabel _progressLabel = null!;
+	// ==================== Zone A: 進軍モニター ====================
+	private OptionButton _fieldSelector = null!;
+	private ProgressBar _dungeonProgressBar = null!;
+	private RichTextLabel _floorDisplay = null!;
+	private PanelContainer _expeditionLootContainer = null!;
+	private RichTextLabel _expeditionLootLabel = null!;
 	private RichTextLabel _materialsLabel = null!;
+
+	// ==================== Zone B: ボス警戒・ポーチ ====================
+	private PanelContainer _bossProfileCard = null!;
 	private RichTextLabel _bossHeaderLabel = null!;
 	private ProgressBar _intelProgressBar = null!;
 	private Label _intelPercentLabel = null!;
 	private RichTextLabel _intelTierLabel = null!;
 	private RichTextLabel _completeBadgeLabel = null!;
-	private VBoxContainer _gimmickCards = null!;
-	private OptionButton _partyOptionButton = null!;
-	private RichTextLabel _partyMembersLabel = null!;
-	private RichTextLabel _scoutingForecastLabel = null!;
-	private Button _scoutingButton = null!;
-	private Button _surveyButton = null!;
-	private RichTextLabel _countermeasureLabel = null!;
-	private OptionButton _pouchSlot1OptionButton = null!;
-	private OptionButton _pouchSlot2OptionButton = null!;
+	private VBoxContainer _gimmickContainer = null!;
+	private OptionButton _pouchSlot1 = null!;
+	private OptionButton _pouchSlot2 = null!;
 	private RichTextLabel _pouchCostLabel = null!;
-	private PanelContainer _bossDecisionPanel = null!;
+
+	// ==================== Zone C: 部隊状況・コマンド ====================
+	private OptionButton _squadSelector = null!;
+	private HBoxContainer _squadMemberContainer = null!;
+	private RichTextLabel _missionPreviewLabel = null!;
+	private RichTextLabel _dispatchStatusLabel = null!;
+
+	private HBoxContainer _commandAreaStandby = null!;
+	private Button _surveyButton = null!;
+	private Button _scoutingButton = null!;
+	private Button _gatheringButton = null!;
+
+	private VBoxContainer _commandAreaAdvancing = null!;
+	private RichTextLabel _advancingStatusLabel = null!;
+	private Button _emergencyRetreatButton = null!;
+
+	private VBoxContainer _commandAreaBossDecision = null!;
 	private RichTextLabel _bossDecisionLabel = null!;
 	private Button _engageBossButton = null!;
 	private Button _retreatButton = null!;
-	private Button _gatheringButton = null!;
-	private RichTextLabel _dispatchStatusLabel = null!;
-	private ItemList _pendingMissionList = null!;
-	private Button _cancelMissionButton = null!;
 
-	private GameState _state;
-	private DungeonExpeditionSystem _expeditionSystem;
+	private Button _cancelMissionButton = null!;
+	private ItemList _pendingMissionList = null!;
+
+	// ==================== 状態変数 ====================
+	private GameState _state = null!;
+	private DungeonExpeditionSystem _expeditionSystem = null!;
 
 	/// <summary>
 	/// 選択中の出撃部隊（SavedParty.Id）。週送り・再描画でドロップダウンを作り直しても
-	/// 選択が外れないよう、インデックスではなくIdで覚えておく。
+	/// 選択が外れないよう、インデックスではなくIdで記憶。
 	/// </summary>
 	private Guid? _selectedPartyId;
 
-	/// <summary>
-	/// 選択中のダンジョン（フィールド）のId（→ 大迷宮フィールド選択UI仕様）。
-	/// _selectedPartyIdと同じ理由でIdで覚えておく。nullは「未選択（初回表示前）」を表し、
-	/// その場合はRefreshFieldOptionsがアクティブフィールド（GetActiveField）を既定選択にする。
-	/// </summary>
-	private string _selectedFieldId;
+	/// <summary>選択中のダンジョン（フィールド）のId。</summary>
+	private string? _selectedFieldId;
 
-	/// <summary>選択中のフィールドの実体（_selectedFieldIdから毎回引き直す代わりにキャッシュしておく）。</summary>
-	private DungeonField _selectedField;
+	/// <summary>選択中のフィールドの実体キャッシュ。</summary>
+	private DungeonField? _selectedField;
 
-	/// <summary>待機中メンバーを1人以上含む（＝選択可能な）出撃部隊が存在するか（→ RefreshPartyOptionsで再評価）。</summary>
+	/// <summary>待機中メンバーを1人以上含む出撃部隊が存在するか。</summary>
 	private bool _hasSelectableParty;
 
 	/// <summary>週報ログ（右ペイン）への追記を依頼する（BBCode文字列）。</summary>
 	public event Action<string> LogRequested = delegate { };
 
-	/// <summary>出撃・取り消しでゲーム状態が変わったことを通知する（MainDashboardが全体を再描画する）。</summary>
+	/// <summary>出撃・取り消し等でゲーム状態が変わったことを通知する。</summary>
 	public event Action StateChanged = delegate { };
 
 	public override void _Ready()
 	{
-		_fieldOptionButton = GetNode<OptionButton>("%FieldOptionButton");
-		_progressLabel = GetNode<RichTextLabel>("%ProgressLabel");
+		// Zone A
+		_fieldSelector = GetNode<OptionButton>("%FieldSelector");
+		_dungeonProgressBar = GetNode<ProgressBar>("%DungeonProgressBar");
+		_floorDisplay = GetNode<RichTextLabel>("%FloorDisplay");
+		_expeditionLootContainer = GetNode<PanelContainer>("%ExpeditionLootContainer");
+		_expeditionLootLabel = GetNode<RichTextLabel>("%ExpeditionLootLabel");
 		_materialsLabel = GetNode<RichTextLabel>("%MaterialsLabel");
+
+		// Zone B
+		_bossProfileCard = GetNode<PanelContainer>("%BossProfileCard");
 		_bossHeaderLabel = GetNode<RichTextLabel>("%BossHeaderLabel");
 		_intelProgressBar = GetNode<ProgressBar>("%IntelProgressBar");
 		_intelPercentLabel = GetNode<Label>("%IntelPercentLabel");
 		_intelTierLabel = GetNode<RichTextLabel>("%IntelTierLabel");
 		_completeBadgeLabel = GetNode<RichTextLabel>("%CompleteBadgeLabel");
-		_gimmickCards = GetNode<VBoxContainer>("%GimmickCards");
-		_partyOptionButton = GetNode<OptionButton>("%PartyOptionButton");
-		_partyMembersLabel = GetNode<RichTextLabel>("%PartyMembersLabel");
-		_scoutingForecastLabel = GetNode<RichTextLabel>("%ScoutingForecastLabel");
-		_scoutingButton = GetNode<Button>("%ScoutingButton");
-		_surveyButton = GetNode<Button>("%SurveyButton");
-		_countermeasureLabel = GetNode<RichTextLabel>("%CountermeasureLabel");
-		_pouchSlot1OptionButton = GetNode<OptionButton>("%PouchSlot1OptionButton");
-		_pouchSlot2OptionButton = GetNode<OptionButton>("%PouchSlot2OptionButton");
+		_gimmickContainer = GetNode<VBoxContainer>("%GimmickContainer");
+		_pouchSlot1 = GetNode<OptionButton>("%PouchSlot1");
+		_pouchSlot2 = GetNode<OptionButton>("%PouchSlot2");
 		_pouchCostLabel = GetNode<RichTextLabel>("%PouchCostLabel");
-		_bossDecisionPanel = GetNode<PanelContainer>("%BossDecisionPanel");
+
+		// Zone C
+		_squadSelector = GetNode<OptionButton>("%SquadSelector");
+		_squadMemberContainer = GetNode<HBoxContainer>("%SquadMemberContainer");
+		_missionPreviewLabel = GetNode<RichTextLabel>("%MissionPreviewLabel");
+		_dispatchStatusLabel = GetNode<RichTextLabel>("%DispatchStatusLabel");
+
+		_commandAreaStandby = GetNode<HBoxContainer>("%CommandAreaStandby");
+		_surveyButton = GetNode<Button>("%SurveyButton");
+		_scoutingButton = GetNode<Button>("%ScoutingButton");
+		_gatheringButton = GetNode<Button>("%GatheringButton");
+
+		_commandAreaAdvancing = GetNode<VBoxContainer>("%CommandAreaAdvancing");
+		_advancingStatusLabel = GetNode<RichTextLabel>("%AdvancingStatusLabel");
+		_emergencyRetreatButton = GetNode<Button>("%EmergencyRetreatButton");
+
+		_commandAreaBossDecision = GetNode<VBoxContainer>("%CommandAreaBossDecision");
 		_bossDecisionLabel = GetNode<RichTextLabel>("%BossDecisionLabel");
 		_engageBossButton = GetNode<Button>("%EngageBossButton");
 		_retreatButton = GetNode<Button>("%RetreatButton");
-		_gatheringButton = GetNode<Button>("%GatheringButton");
-		_dispatchStatusLabel = GetNode<RichTextLabel>("%DispatchStatusLabel");
-		_pendingMissionList = GetNode<ItemList>("%PendingMissionList");
+
 		_cancelMissionButton = GetNode<Button>("%CancelMissionButton");
+		_pendingMissionList = GetNode<ItemList>("%PendingMissionList");
+
+		_dungeonProgressBar.MinValue = 0;
+		_dungeonProgressBar.MaxValue = DungeonField.MaxFloor;
 
 		_intelProgressBar.MinValue = 0;
 		_intelProgressBar.MaxValue = 100;
 
-		_fieldOptionButton.ItemSelected += OnFieldSelected;
-		_partyOptionButton.ItemSelected += OnPartySelected;
+		// ボタンテーマ色
+		_engageBossButton.AddThemeColorOverride("font_color", new Color(1f, 0.4f, 0.4f));
+		_retreatButton.AddThemeColorOverride("font_color", new Color(0.4f, 1f, 0.5f));
+		_emergencyRetreatButton.AddThemeColorOverride("font_color", new Color(1f, 0.8f, 0.3f));
+
+		// イベント接続
+		_fieldSelector.ItemSelected += OnFieldSelected;
+		_squadSelector.ItemSelected += OnPartySelected;
 		_scoutingButton.Pressed += OnDispatchPressed;
 		_surveyButton.Pressed += OnSurveyDispatchPressed;
+		_gatheringButton.Pressed += OnGatheringDispatchPressed;
+		_emergencyRetreatButton.Pressed += OnRetreatPressed;
 		_engageBossButton.Pressed += OnEngageBossPressed;
 		_retreatButton.Pressed += OnRetreatPressed;
-		_gatheringButton.Pressed += OnGatheringDispatchPressed;
 		_pendingMissionList.ItemSelected += _ => OnPendingMissionSelected();
 		_cancelMissionButton.Pressed += OnCancelMissionPressed;
-		// タブを表示した時点でも、待機中メンバーの状態から出撃可能な部隊一覧を再評価する
-		// （週次決算で帰還した部隊がドロップダウンに反映されないまま残るのを防ぐ）。
+
 		VisibilityChanged += () =>
 		{
 			if (IsVisibleInTree() && _state != null)
 				Refresh(_state);
 		};
 
-		PopulatePouchSlot(_pouchSlot1OptionButton);
-		PopulatePouchSlot(_pouchSlot2OptionButton);
-		_pouchSlot1OptionButton.ItemSelected += _ => OnPouchChanged();
-		_pouchSlot2OptionButton.ItemSelected += _ => OnPouchChanged();
+		PopulatePouchSlot(_pouchSlot1);
+		PopulatePouchSlot(_pouchSlot2);
+		_pouchSlot1.ItemSelected += OnPouchSlot1Selected;
+		_pouchSlot2.ItemSelected += OnPouchSlot2Selected;
 	}
 
-	/// <summary>ポーチの選択変更：出撃前の下見（対策の充足状況）と扉前の指令エリアの両方を描き直す。</summary>
-	private void OnPouchChanged()
-	{
-		RefreshDispatchSection(_selectedField?.GetNextActiveBoss());
-		RefreshBossDecision();
-	}
-
-	/// <summary>
-	/// ボス討伐専用の携行ポーチ（2026年9月新設、→ パーティ携行アイテムポーチ仕様）。
-	/// 大迷宮ボスのギミック対策口（→ BossGimmick.RequiredItemId）を持つ4種のみを選択肢にする
-	/// （煙幕弾・高品質傷薬・携帯糧食など、通常クエスト向けの効果アイテムはここでは扱わない）。
-	/// </summary>
-	private static readonly string[] PouchItemIds =
-	{
-		ConsumableCatalog.AntidoteId, ConsumableCatalog.AcidFlaskId,
-		ConsumableCatalog.NetId, ConsumableCatalog.CharmId,
-	};
-
-	private void PopulatePouchSlot(OptionButton slot)
-	{
-		slot.Clear();
-		slot.AddItem("なし (0G)");
-		foreach (var itemId in PouchItemIds)
-		{
-			var item = ConsumableCatalog.FindById(itemId)!;
-			slot.AddItem($"{item.Name} ({item.Price}G) [{GimmickLabel(GimmickCounteredBy(itemId))}対策]");
-		}
-	}
-
-	/// <summary>指定アイテムが対策口になっているギミック種別（→ Data.SampleData.CreateGimmick）。表示ラベル用。</summary>
-	private static BossGimmickType GimmickCounteredBy(string itemId) => itemId switch
-	{
-		ConsumableCatalog.AntidoteId => BossGimmickType.Poison,
-		ConsumableCatalog.AcidFlaskId => BossGimmickType.HeavyArmor,
-		ConsumableCatalog.NetId => BossGimmickType.Flying,
-		_ => BossGimmickType.InstantKill, // Charm
-	};
-
-	/// <summary>現在選択中のポーチ2枠のアイテムId一覧（「なし」は含めない）。</summary>
-	private List<string> GetSelectedPouchItemIds()
-	{
-		var ids = new List<string>();
-		foreach (var slot in new[] { _pouchSlot1OptionButton, _pouchSlot2OptionButton })
-		{
-			int index = slot.Selected;
-			if (index >= 1 && index - 1 < PouchItemIds.Length)
-				ids.Add(PouchItemIds[index - 1]);
-		}
-		return ids;
-	}
-
-	private void ResetPouchSelection()
-	{
-		_pouchSlot1OptionButton.Select(0);
-		_pouchSlot2OptionButton.Select(0);
-	}
-
-	/// <summary>出撃の派遣・取り消しに使うシステムを受け取る（MainDashboard._Readyから1回だけ呼ぶ）。</summary>
+	/// <summary>出撃の派遣・取り消しに使うシステムを受け取る（MainDashboard._Readyから1回呼ぶ）。</summary>
 	public void Initialize(DungeonExpeditionSystem expeditionSystem)
 	{
 		_expeditionSystem = expeditionSystem;
@@ -206,26 +181,22 @@ public partial class DungeonPanel : ScrollContainer
 		RefreshFieldOptions();
 		var boss = _selectedField?.GetNextActiveBoss();
 		RefreshProgress(boss);
+		RefreshExpeditionLoot();
 		RefreshMaterialsInfo();
 		RefreshBossInfo(boss);
+		RefreshPouchCost();
 		RefreshPartyOptions();
 		RefreshDispatchSection(boss);
 		RefreshPendingMissions();
+		UpdateCommandAreaVisibility();
 	}
 
-	// ==================== ダンジョン（フィールド）選択 ====================
+	// ==================== Zone A: ダンジョン選択・進軍モニター ====================
 
-	/// <summary>
-	/// ダンジョン選択ドロップダウン。state.DungeonFieldsをOrder順に並べ、未開放のフィールドは
-	/// 「？？？（未開放）」と表示して選択不可にする。既定選択はアクティブフィールド
-	/// （開放済みかつ未制覇の最も若いOrder、→ GameState.GetActiveField）。
-	/// 一度プレイヤーが選び直したフィールドは、そのIdが有効な限り週送りをまたいで維持する
-	/// （_selectedPartyIdと同じ流儀）。
-	/// </summary>
 	private void RefreshFieldOptions()
 	{
 		var fields = _state.DungeonFields.OrderBy(f => f.Order).ToList();
-		_fieldOptionButton.Clear();
+		_fieldSelector.Clear();
 
 		if (fields.Count == 0)
 		{
@@ -234,8 +205,6 @@ public partial class DungeonPanel : ScrollContainer
 			return;
 		}
 
-		// 全フィールド制覇済み（GetActiveFieldがnull）の場合は、最も深いフィールドを既定にする
-		// （踏破済みの様子を確認できるようにするため）。
 		string defaultFieldId = _state.GetActiveField()?.Id
 			?? fields.LastOrDefault(f => f.IsUnlocked)?.Id
 			?? fields[0].Id;
@@ -244,10 +213,10 @@ public partial class DungeonPanel : ScrollContainer
 		for (int i = 0; i < fields.Count; i++)
 		{
 			var field = fields[i];
-			_fieldOptionButton.AddItem(field.IsUnlocked
+			_fieldSelector.AddItem(field.IsUnlocked
 				? $"{field.Name}（到達: {field.ReachedFloor}/{DungeonField.MaxFloor}F）"
 				: "？？？（未開放）");
-			_fieldOptionButton.SetItemDisabled(i, !field.IsUnlocked);
+			_fieldSelector.SetItemDisabled(i, !field.IsUnlocked);
 
 			bool isKeptSelection = _selectedFieldId != null && field.Id == _selectedFieldId && field.IsUnlocked;
 			bool isDefaultSelection = _selectedFieldId == null && field.Id == defaultFieldId;
@@ -255,7 +224,7 @@ public partial class DungeonPanel : ScrollContainer
 				selectIndex = i;
 		}
 
-		_fieldOptionButton.Select(selectIndex);
+		_fieldSelector.Select(selectIndex);
 		_selectedField = fields[selectIndex];
 		_selectedFieldId = _selectedField.Id;
 	}
@@ -264,22 +233,113 @@ public partial class DungeonPanel : ScrollContainer
 	{
 		var fields = _state.DungeonFields.OrderBy(f => f.Order).ToList();
 		if (index < 0 || index >= fields.Count || !fields[(int)index].IsUnlocked)
-			return; // 未開放の項目はSetItemDisabledで選択自体をブロックしているが、念のため防御しておく
+			return;
 
 		_selectedField = fields[(int)index];
 		_selectedFieldId = _selectedField.Id;
 
 		var boss = _selectedField.GetNextActiveBoss();
 		RefreshProgress(boss);
+		RefreshExpeditionLoot();
 		RefreshMaterialsInfo();
 		RefreshBossInfo(boss);
 		RefreshDispatchSection(boss);
 	}
 
-	/// <summary>
-	/// 選択中フィールドで獲得可能な素材と、ギルドの現在の在庫数を表示する
-	/// （→ Balance.MaterialBalance、第3の任務「探索（採取）」仕様）。
-	/// </summary>
+	private void RefreshProgress(FloorBoss? boss)
+	{
+		_floorDisplay.Clear();
+		if (_selectedField == null)
+		{
+			_dungeonProgressBar.Value = 0;
+			_floorDisplay.AppendText("[color=gray]ダンジョン情報がありません。[/color]");
+			return;
+		}
+
+		_dungeonProgressBar.Value = _selectedField.ReachedFloor;
+
+		var allBosses = _state.DungeonFields.SelectMany(f => f.Bosses).ToList();
+		int totalCleared = allBosses.Count(b => b.IsDefeated);
+		int totalBosses = allBosses.Count;
+
+		var sb = new StringBuilder();
+		if (boss == null)
+		{
+			sb.AppendLine($"[color=gold][b]🏆 {_selectedField.Name} 完全踏破！（到達 {DungeonField.MaxFloor}F）[/b][/color]");
+			sb.AppendLine($"大迷宮全体：{totalCleared}/{totalBosses}層 踏破完了");
+		}
+		else
+		{
+			sb.AppendLine($"[b]{_selectedField.Name}[/b] 最高到達：[color=cyan][b]{_selectedField.ReachedFloor}[/b][/color]/100F　全体：{totalCleared}/{totalBosses}層");
+			sb.AppendLine($"現在目標：第{boss.Floor}層 主「[color=orange]{boss.Name}[/color]」");
+		}
+
+		// 潜行中アクティブ部隊のピン位置
+		var activeMission = _state.ActiveDungeonMissions
+			.FirstOrDefault(m => m.Field.Id == _selectedField.Id && m.MissionType == DungeonMissionType.Scouting);
+		if (activeMission != null)
+		{
+			string statusText = activeMission.Status switch
+			{
+				ExpeditionStatus.AwaitingBossDecision => "[color=gold]【扉前待機】[/color]",
+				ExpeditionStatus.EngagingBoss => "[color=red]【討伐突入】[/color]",
+				ExpeditionStatus.Retreating => "[color=gray]【撤退中】[/color]",
+				_ => "[color=cyan]【進軍中】[/color]",
+			};
+			sb.AppendLine($"📍 部隊現在地：{statusText} 第{activeMission.CurrentFloor}層");
+		}
+
+		// ボスチェックポイント可視化（到達・撃破済み表示）
+		var defeatedCheckpoints = _selectedField.Bosses.Where(b => b.IsDefeated).Select(b => $"{b.Floor}F✔").ToList();
+		string checkpointStr = defeatedCheckpoints.Count > 0 ? string.Join(" ", defeatedCheckpoints) : "なし";
+		sb.AppendLine($"[color=gray]制覇区間：{checkpointStr}[/color]");
+
+		// 電撃進軍倍率
+		double speed = DungeonTraversalResolver.IntelSpeedMultiplier(_selectedField.GetSegmentBoss(1));
+		sb.Append($"[color=gray]⚡ 電撃進軍速度：×{speed:F1}（ボス解析度連動）[/color]");
+
+		_floorDisplay.AppendText(sb.ToString());
+	}
+
+	private void RefreshExpeditionLoot()
+	{
+		_expeditionLootLabel.Clear();
+		if (_selectedField == null)
+		{
+			_expeditionLootLabel.AppendText("[color=gray]ダンジョンが選択されていません。[/color]");
+			return;
+		}
+
+		var fieldMissions = _state.ActiveDungeonMissions
+			.Where(m => m.Field.Id == _selectedField.Id && m.MissionType == DungeonMissionType.Scouting)
+			.ToList();
+
+		if (fieldMissions.Count == 0)
+		{
+			_expeditionLootLabel.AppendText("[color=gray]待機中（この迷宮を潜行中の部隊はありません）[/color]");
+			return;
+		}
+
+		int totalGold = fieldMissions.Sum(m => m.CarriedGold);
+		var allMats = fieldMissions.SelectMany(m => m.CarriedMaterials)
+			.GroupBy(kv => kv.Key)
+			.ToDictionary(g => g.Key, g => g.Sum(x => x.Value));
+
+		var sb = new StringBuilder();
+		sb.AppendLine($"💰 拾得ゴールド：[color=gold][b]{totalGold}G[/b][/color]");
+		if (allMats.Count > 0)
+		{
+			string matSummary = string.Join("、", allMats.Select(kv => $"{MaterialBalance.GetName(kv.Key)}×{kv.Value}"));
+			sb.Append($"📦 拾得素材：{matSummary}");
+		}
+		else
+		{
+			sb.Append("[color=gray]📦 拾得素材：なし[/color]");
+		}
+
+		_expeditionLootLabel.AppendText(sb.ToString());
+	}
+
 	private void RefreshMaterialsInfo()
 	{
 		_materialsLabel.Clear();
@@ -302,36 +362,102 @@ public partial class DungeonPanel : ScrollContainer
 		_materialsLabel.AppendText($"[b]獲得可能な素材[/b]：{parts}");
 	}
 
-	// ==================== 表示：踏破状況・ボス情報 ====================
+	// ==================== Zone B: ボス警戒・ポーチ ====================
 
-	private void RefreshProgress(FloorBoss boss)
+	private static readonly string[] PouchItemIds =
 	{
-		var allBosses = _state.DungeonFields.SelectMany(f => f.Bosses).ToList();
-		int total = allBosses.Count;
-		int cleared = allBosses.Count(b => b.IsDefeated);
+		ConsumableCatalog.AntidoteId, ConsumableCatalog.AcidFlaskId,
+		ConsumableCatalog.NetId, ConsumableCatalog.CharmId,
+	};
 
-		_progressLabel.Clear();
-		if (total == 0)
-			_progressLabel.AppendText("[color=gray]大迷宮の情報がまだ届いていない。[/color]");
-		else if (_selectedField == null)
-			_progressLabel.AppendText("[color=gray]表示できるダンジョンがない。[/color]");
-		else if (boss == null)
-			_progressLabel.AppendText($"[color=gold][b]🏆 {_selectedField.Name}は完全踏破された！" +
-				$"（{_selectedField.ReachedFloor}/{DungeonField.MaxFloor}F）[/b][/color]　全体 {cleared}/{total}層踏破");
-		else
-			_progressLabel.AppendText($"[b]{_selectedField.Name}[/b]：第{boss.Floor}層に挑戦中／" +
-				$"到達{_selectedField.ReachedFloor}/{DungeonField.MaxFloor}層　全体 {cleared}/{total}層踏破");
+	private void PopulatePouchSlot(OptionButton slot)
+	{
+		slot.Clear();
+		slot.AddItem("なし (0G)");
+		foreach (var itemId in PouchItemIds)
+		{
+			var item = ConsumableCatalog.FindById(itemId)!;
+			slot.AddItem($"{item.Name} ({item.Price}G) [{GimmickLabel(GimmickCounteredBy(itemId))}対策]");
+		}
 	}
 
-	/// <summary>
-	/// ボス情報エリア。解析率の段階（→ ScoutingResolver.GetTier）に応じて開示内容を出し分ける：
-	///  - 基本情報未満：名前と階層のみ。最大HP・概要は「？？？」。
-	///  - 基本情報：最大HPが判明。危険の正体はまだ分からない。
-	///  - 危険情報：ギミック種別（猛毒・重装甲など）が判明。
-	///  - 対策情報：各ギミックの対策（職業・能力・携行品）まで判明。
-	///  - 完全解析：弱点看破のバッジを表示（討伐時の与ダメージ補正）。
-	/// </summary>
-	private void RefreshBossInfo(FloorBoss boss)
+	private static BossGimmickType GimmickCounteredBy(string itemId) => itemId switch
+	{
+		ConsumableCatalog.AntidoteId => BossGimmickType.Poison,
+		ConsumableCatalog.AcidFlaskId => BossGimmickType.HeavyArmor,
+		ConsumableCatalog.NetId => BossGimmickType.Flying,
+		_ => BossGimmickType.InstantKill,
+	};
+
+	private List<string> GetSelectedPouchItemIds()
+	{
+		var ids = new List<string>();
+		foreach (var slot in new[] { _pouchSlot1, _pouchSlot2 })
+		{
+			int index = slot.Selected;
+			if (index >= 1 && index - 1 < PouchItemIds.Length)
+				ids.Add(PouchItemIds[index - 1]);
+		}
+		return ids;
+	}
+
+	private void ResetPouchSelection()
+	{
+		_pouchSlot1.Select(0);
+		_pouchSlot2.Select(0);
+		RefreshPouchCost();
+	}
+
+	private void OnPouchSlot1Selected(long index)
+	{
+		if (index > 0 && index == _pouchSlot2.Selected)
+		{
+			_pouchSlot2.Select(0);
+		}
+		OnPouchChanged();
+	}
+
+	private void OnPouchSlot2Selected(long index)
+	{
+		if (index > 0 && index == _pouchSlot1.Selected)
+		{
+			_pouchSlot1.Select(0);
+		}
+		OnPouchChanged();
+	}
+
+	private void OnPouchChanged()
+	{
+		RefreshPouchCost();
+		var boss = _selectedField?.GetNextActiveBoss();
+		RefreshBossInfo(boss);
+		RefreshDispatchSection(boss);
+		RefreshBossDecision();
+	}
+
+	private void RefreshPouchCost()
+	{
+		_pouchCostLabel.Clear();
+		var selectedItemIds = GetSelectedPouchItemIds();
+		int pouchCost = DungeonExpeditionSystem.CalculateConsumableCost(selectedItemIds);
+		if (pouchCost == 0)
+		{
+			_pouchCostLabel.AppendText("[color=gray]ポーチ費用：0G（アイテム未携行）[/color]");
+			return;
+		}
+
+		bool insufficient = _state.Gold < pouchCost;
+		if (insufficient)
+		{
+			_pouchCostLabel.AppendText($"[color=red][b]⚠ ポーチ代金不足：必要 {pouchCost}G／所持金 {_state.Gold}G[/b][/color]");
+		}
+		else
+		{
+			_pouchCostLabel.AppendText($"ポーチ代金：[color=gold][b]{pouchCost}G[/b][/color]（所持金 {_state.Gold}G）※決戦突入時に支払い");
+		}
+	}
+
+	private void RefreshBossInfo(FloorBoss? boss)
 	{
 		ClearGimmickCards();
 		_bossHeaderLabel.Clear();
@@ -346,6 +472,7 @@ public partial class DungeonPanel : ScrollContainer
 			_intelProgressBar.Value = 0;
 			_intelPercentLabel.Text = "-";
 			_completeBadgeLabel.Visible = false;
+			AddGimmickCard("[color=gold]このダンジョンのボスはすべて撃破されました。[/color]");
 			return;
 		}
 
@@ -353,14 +480,14 @@ public partial class DungeonPanel : ScrollContainer
 		string maxHp = tier >= IntelTier.Basic ? boss.MaxHp.ToString() : "？？？";
 
 		_bossHeaderLabel.AppendText(
-			$"[font_size=18][b]第{boss.Floor}層の主「{boss.Name}」[/b][/font_size]\n" +
+			$"[font_size=15][b]第{boss.Floor}層の主「{boss.Name}」[/b][/font_size]\n" +
 			$"出現階層：第{boss.Floor}層　　最大HP：{maxHp}");
 
 		_intelProgressBar.Value = Math.Round(boss.IntelRate * 100);
 		_intelPercentLabel.Text = $"{boss.IntelRate * 100:F0}%";
 
 		_intelTierLabel.AppendText($"解析段階：[color={TierColor(tier)}][b]{TierLabel(tier)}[/b][/color]");
-		string nextHint = NextTierHint(tier);
+		string? nextHint = NextTierHint(tier);
 		if (nextHint != null)
 			_intelTierLabel.AppendText($"　[color=gray]（{nextHint}）[/color]");
 
@@ -374,8 +501,8 @@ public partial class DungeonPanel : ScrollContainer
 		if (tier < IntelTier.Hazards)
 		{
 			string overview = tier == IntelTier.Unknown
-				? "ボス概要：？？？"
-				: "ボス概要：何らかの危険な能力を持っている気配がある。正体はまだ掴めていない。";
+				? "ボス特殊能力：？？？（情報解析率50%以上で危険情報が開示されます）"
+				: "ボス概要：何らかの危険な能力を持っている気配がある。正体はまだ掴めていない。（解析率50%で判明）";
 			AddGimmickCard($"[color=gray]{overview}[/color]");
 			return;
 		}
@@ -386,11 +513,17 @@ public partial class DungeonPanel : ScrollContainer
 			return;
 		}
 
+		// 選択部隊＋ポーチでの対策状況プレビュー
+		var saved = SelectedSavedParty();
+		var previewParty = saved == null ? new Party() : PartyFormationSystem.BuildDispatchParty(_state, saved.MemberIds);
+		foreach (var itemId in GetSelectedPouchItemIds())
+			previewParty.TryAddConsumable(itemId);
+
 		foreach (var gimmick in boss.Gimmicks)
-			AddGimmickCard(BuildGimmickCardText(gimmick, tier));
+			AddGimmickCard(BuildGimmickCardText(gimmick, tier, previewParty));
 	}
 
-	private static string BuildGimmickCardText(BossGimmick gimmick, IntelTier tier)
+	private static string BuildGimmickCardText(BossGimmick gimmick, IntelTier tier, Party party)
 	{
 		var sb = new StringBuilder();
 		sb.Append($"[b]【{GimmickLabel(gimmick.Type)}】[/b]　危険度 [color=orange]{DangerStars(gimmick.DangerLevel)}[/color]\n");
@@ -399,19 +532,34 @@ public partial class DungeonPanel : ScrollContainer
 		if (tier >= IntelTier.Countermeasures)
 		{
 			var routes = CounterRoutes(gimmick);
-			sb.Append("\n[color=cyan]対策：");
-			sb.Append(routes.Count > 0 ? string.Join("／", routes) + "（いずれか1つで成立）" : "有効な対策が見つからない");
+			sb.Append("\n[color=cyan]対策条件：");
+			sb.Append(routes.Count > 0 ? string.Join("／", routes) + "（いずれか1つ）" : "有効な対策が見つからない");
 			sb.Append("[/color]");
 		}
 		else
 		{
-			sb.Append("\n[color=gray]対策：？？？（解析率を上げれば判明する）[/color]");
+			sb.Append("\n[color=gray]対策条件：？？？（解析率75%で開示）[/color]");
+		}
+
+		// 対策充足状況
+		bool countered = DungeonResolver.IsCountered(gimmick, party);
+		if (countered)
+		{
+			sb.Append("\n[color=lime][b]✔ 対策充足[/b][/color]（部隊編成またはポーチで対応済み）");
+		}
+		else
+		{
+			if (gimmick.Type == BossGimmickType.InstantKill)
+				sb.Append("\n[color=red][b]☠ 即死級攻撃 未対策（部隊壊滅・強制除籍の極大リスク！）[/b][/color]");
+			else if (gimmick.Type == BossGimmickType.HeavyArmor)
+				sb.Append("\n[color=red][b]✖ 重装甲 未対策（装甲に阻まれ被ダメージ大幅増！）[/b][/color]");
+			else
+				sb.Append("\n[color=red][b]✖ 未対策（被ダメージ増大のリスク）[/b][/color]");
 		}
 
 		return sb.ToString();
 	}
 
-	/// <summary>対策口の一覧（職業・能力合算・携行品）。判定用の閾値の数値は出さない（→ 情報公開の原則）。</summary>
 	private static List<string> CounterRoutes(BossGimmick gimmick)
 	{
 		var routes = new List<string>();
@@ -426,37 +574,47 @@ public partial class DungeonPanel : ScrollContainer
 
 	private void AddGimmickCard(string bbcode)
 	{
-		var card = new PanelContainer();
+		var card = new PanelContainer
+		{
+			SizeFlagsHorizontal = SizeFlags.ExpandFill,
+		};
+		var margin = new MarginContainer
+		{
+			SizeFlagsHorizontal = SizeFlags.ExpandFill,
+		};
+		margin.AddThemeConstantOverride("margin_left", 6);
+		margin.AddThemeConstantOverride("margin_top", 4);
+		margin.AddThemeConstantOverride("margin_right", 6);
+		margin.AddThemeConstantOverride("margin_bottom", 4);
+		card.AddChild(margin);
+
 		var label = new RichTextLabel
 		{
 			BbcodeEnabled = true,
 			FitContent = true,
 			SizeFlagsHorizontal = SizeFlags.ExpandFill,
 		};
+		label.AddThemeFontSizeOverride("normal_font_size", 11);
 		label.AppendText(bbcode);
-		card.AddChild(label);
-		_gimmickCards.AddChild(card);
+		margin.AddChild(label);
+		_gimmickContainer.AddChild(card);
 	}
 
 	private void ClearGimmickCards()
 	{
-		foreach (var child in _gimmickCards.GetChildren())
+		foreach (var child in _gimmickContainer.GetChildren())
 		{
-			_gimmickCards.RemoveChild(child);
+			_gimmickContainer.RemoveChild(child);
 			child.QueueFree();
 		}
 	}
 
-	// ==================== 出撃フロー ====================
+	// ==================== Zone C: 部隊状況・出撃フロー ====================
 
-	/// <summary>
-	/// 出撃部隊のドロップダウン。保存済み編成（→ GameState.SavedParties）を並べ、
-	/// 待機中のメンバーが1人もいない編成は選べないようにする。
-	/// </summary>
 	private void RefreshPartyOptions()
 	{
-		_partyOptionButton.Clear();
-		_partyOptionButton.AddItem("（出撃部隊を選択）");
+		_squadSelector.Clear();
+		_squadSelector.AddItem("（出撃部隊を選択）");
 
 		_hasSelectableParty = false;
 		int selectIndex = 0;
@@ -467,8 +625,8 @@ public partial class DungeonPanel : ScrollContainer
 			int total = saved.MemberIds.Count(id => _state.Adventurers.Any(a => a.Id == id));
 
 			int itemIndex = i + 1;
-			_partyOptionButton.AddItem($"{saved.Name}（待機中 {available}/{total}名）");
-			_partyOptionButton.SetItemDisabled(itemIndex, available == 0);
+			_squadSelector.AddItem($"{saved.Name}（待機中 {available}/{total}名）");
+			_squadSelector.SetItemDisabled(itemIndex, available == 0);
 			if (available > 0)
 				_hasSelectableParty = true;
 
@@ -476,7 +634,7 @@ public partial class DungeonPanel : ScrollContainer
 				selectIndex = itemIndex;
 		}
 
-		_partyOptionButton.Select(selectIndex);
+		_squadSelector.Select(selectIndex);
 		if (selectIndex == 0)
 			_selectedPartyId = null;
 	}
@@ -487,24 +645,181 @@ public partial class DungeonPanel : ScrollContainer
 			? _state.SavedParties[(int)index - 1].Id
 			: null;
 
-		RefreshDispatchSection(_selectedField?.GetNextActiveBoss());
+		if (_selectedPartyId != null)
+		{
+			_pendingMissionList.DeselectAll();
+			_cancelMissionButton.Disabled = true;
+		}
+
+		var boss = _selectedField?.GetNextActiveBoss();
+		RefreshDispatchSection(boss);
+		UpdateCommandAreaVisibility();
 	}
 
-	private SavedParty SelectedSavedParty() =>
+	private SavedParty? SelectedSavedParty() =>
 		_selectedPartyId.HasValue ? _state.SavedParties.FirstOrDefault(p => p.Id == _selectedPartyId.Value) : null;
 
-	/// <summary>
-	/// 選択中の部隊のメンバー・道中の見立て・対策の充足状況（下見）と、出撃ボタンの可否を更新する。
-	///
-	/// 毎回1Fリセット・複数週潜行型（2026年9月改訂）：大迷宮への出撃は常に「1階層から潜行」の1種類。
-	/// ボスへの突入は出撃時ではなく、扉前に到達した部隊へ個別に指令する（→ RefreshBossDecision）。
-	/// ここでの対策充足状況は、この部隊が扉前に着いた場合の下見（ポーチ選択も反映）として表示する。
-	/// </summary>
-	private void RefreshDispatchSection(FloorBoss boss)
+	private void RefreshSquadMemberCards()
 	{
-		_partyMembersLabel.Clear();
-		_scoutingForecastLabel.Clear();
-		_countermeasureLabel.Clear();
+		foreach (var child in _squadMemberContainer.GetChildren())
+		{
+			_squadMemberContainer.RemoveChild(child);
+			child.QueueFree();
+		}
+
+		var saved = SelectedSavedParty();
+		var members = saved != null
+			? saved.MemberIds.Select(id => _state.Adventurers.FirstOrDefault(a => a.Id == id)).ToList()
+			: new List<Adventurer?>();
+
+		for (int i = 0; i < 4; i++)
+		{
+			var card = new PanelContainer
+			{
+				SizeFlagsHorizontal = SizeFlags.ExpandFill,
+				CustomMinimumSize = new Vector2(90, 64),
+			};
+			var margin = new MarginContainer
+			{
+				SizeFlagsHorizontal = SizeFlags.ExpandFill,
+				SizeFlagsVertical = SizeFlags.ExpandFill,
+			};
+			margin.AddThemeConstantOverride("margin_left", 6);
+			margin.AddThemeConstantOverride("margin_top", 4);
+			margin.AddThemeConstantOverride("margin_right", 6);
+			margin.AddThemeConstantOverride("margin_bottom", 4);
+			card.AddChild(margin);
+
+			var hbox = new HBoxContainer
+			{
+				SizeFlagsHorizontal = SizeFlags.ExpandFill,
+				SizeFlagsVertical = SizeFlags.ExpandFill,
+			};
+			hbox.AddThemeConstantOverride("separation", 6);
+			margin.AddChild(hbox);
+
+			if (saved != null && i < members.Count && members[i] != null)
+			{
+				var adv = members[i]!;
+				bool isFront = PlacementRules.GetDefault(adv.JobClass) == Placement.Front;
+				bool isDispatched = _state.ActiveDungeonMissions.Any(m => m.Party.Members.Any(p => p.Id == adv.Id));
+				bool isAvailable = adv.CurrentHP > 0 && !isDispatched;
+
+				// ポートレート
+				var portrait = new TextureRect
+				{
+					CustomMinimumSize = new Vector2(32, 32),
+					SizeFlagsVertical = SizeFlags.ShrinkCenter,
+					ExpandMode = TextureRect.ExpandModeEnum.FitWidthProportional,
+					StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+				};
+				LoadPortraitTexture(portrait, adv.PortraitId);
+				hbox.AddChild(portrait);
+
+				var vbox = new VBoxContainer
+				{
+					SizeFlagsHorizontal = SizeFlags.ExpandFill,
+					SizeFlagsVertical = SizeFlags.ShrinkCenter,
+				};
+				vbox.AddThemeConstantOverride("separation", 2);
+				hbox.AddChild(vbox);
+
+				// 氏名
+				var nameLabel = new Label
+				{
+					Text = adv.Name,
+				};
+				nameLabel.AddThemeFontSizeOverride("font_size", 11);
+				nameLabel.AddThemeColorOverride("font_color", isAvailable ? new Color(1, 1, 1) : new Color(0.6f, 0.6f, 0.6f));
+				vbox.AddChild(nameLabel);
+
+				// 職業・前後衛
+				var badgeRow = new HBoxContainer();
+				badgeRow.AddThemeConstantOverride("separation", 4);
+
+				var jobLabel = new Label
+				{
+					Text = JobLabel(adv.JobClass),
+				};
+				jobLabel.AddThemeFontSizeOverride("font_size", 10);
+				jobLabel.AddThemeColorOverride("font_color", new Color(0.8f, 0.85f, 0.9f));
+				badgeRow.AddChild(jobLabel);
+
+				var posBadge = new Label
+				{
+					Text = isFront ? "【前衛】" : "【後衛】",
+				};
+				posBadge.AddThemeFontSizeOverride("font_size", 10);
+				posBadge.AddThemeColorOverride("font_color", isFront
+					? new Color(0.4f, 0.9f, 1.0f)
+					: new Color(0.85f, 0.65f, 1.0f));
+				badgeRow.AddChild(posBadge);
+				vbox.AddChild(badgeRow);
+
+				// HPバー＆数値
+				var hpRow = new HBoxContainer();
+				hpRow.AddThemeConstantOverride("separation", 4);
+				var hpBar = new ProgressBar
+				{
+					MinValue = 0,
+					MaxValue = Math.Max(1, adv.MaxHP),
+					Value = adv.CurrentHP,
+					ShowPercentage = false,
+					SizeFlagsHorizontal = SizeFlags.ExpandFill,
+					SizeFlagsVertical = SizeFlags.ShrinkCenter,
+					CustomMinimumSize = new Vector2(0, 6),
+				};
+				hpRow.AddChild(hpBar);
+
+				var hpLabel = new Label
+				{
+					Text = adv.CurrentHP == 0 ? "重傷" : isDispatched ? "出撃中" : $"{adv.CurrentHP}/{adv.MaxHP}",
+				};
+				hpLabel.AddThemeFontSizeOverride("font_size", 10);
+				hpLabel.AddThemeColorOverride("font_color", adv.CurrentHP == 0 ? new Color(1f, 0.3f, 0.3f) : new Color(0.9f, 0.9f, 0.9f));
+				hpRow.AddChild(hpLabel);
+				vbox.AddChild(hpRow);
+			}
+			else
+			{
+				var emptyLabel = new Label
+				{
+					Text = saved == null ? "（部隊未選択）" : "（空枠）",
+					HorizontalAlignment = HorizontalAlignment.Center,
+					VerticalAlignment = VerticalAlignment.Center,
+					SizeFlagsHorizontal = SizeFlags.ExpandFill,
+					SizeFlagsVertical = SizeFlags.ExpandFill,
+				};
+				emptyLabel.AddThemeFontSizeOverride("font_size", 10);
+				emptyLabel.AddThemeColorOverride("font_color", new Color(0.5f, 0.5f, 0.5f));
+				hbox.AddChild(emptyLabel);
+			}
+
+			_squadMemberContainer.AddChild(card);
+		}
+	}
+
+	private static void LoadPortraitTexture(TextureRect rect, string? portraitId)
+	{
+		var path = !string.IsNullOrEmpty(portraitId) ? $"res://assets/portraits/{portraitId}.png" : null;
+		if (path != null && ResourceLoader.Exists(path))
+		{
+			rect.Texture = GD.Load<Texture2D>(path);
+		}
+		else
+		{
+			const string fallback = "res://assets/portraits/unknown_silhouette.png";
+			if (ResourceLoader.Exists(fallback))
+				rect.Texture = GD.Load<Texture2D>(fallback);
+			else
+				rect.Texture = null;
+		}
+	}
+
+	private void RefreshDispatchSection(FloorBoss? boss)
+	{
+		RefreshSquadMemberCards();
+		_missionPreviewLabel.Clear();
 		_dispatchStatusLabel.Clear();
 		_scoutingButton.TooltipText = "";
 		_surveyButton.TooltipText = "";
@@ -514,9 +829,6 @@ public partial class DungeonPanel : ScrollContainer
 		var saved = SelectedSavedParty();
 		var party = saved == null ? new Party() : PartyFormationSystem.BuildDispatchParty(_state, saved.MemberIds);
 
-		// 防御的フォールバック：出撃させる部隊が決まっていない（未選択、または選択中の部隊に
-		// 待機中メンバーが残っていない）場合は、見立て等の部隊依存の表示を一切出さず、
-		// 出撃ボタンをすべて無効化する（主語の欠けた見立て文が残るのを防ぐ）。
 		if (saved == null || party.IsEmpty)
 		{
 			_scoutingButton.Disabled = true;
@@ -526,60 +838,93 @@ public partial class DungeonPanel : ScrollContainer
 			string reason = !_hasSelectableParty
 				? "出撃可能な待機部隊がありません"
 				: GetDispatchBlockedReason(boss, saved, party) ?? GetGatheringBlockedReason(saved, party)
-					?? "出撃部隊が選択されていない。上の一覧から出撃させる編成を選ぶこと。";
+					?? "出撃部隊が選択されていません。上のドロップダウンから編成を選択してください。";
 			_dispatchStatusLabel.AppendText($"[color=gray]{reason}[/color]");
+			_missionPreviewLabel.AppendText("[color=gray]出撃部隊を選択すると、潜行・調査・採取の各見立てが表示されます。[/color]");
 			return;
 		}
 
-		string blockedReason = GetDispatchBlockedReason(boss, saved, party);
+		string? blockedReason = GetDispatchBlockedReason(boss, saved, party);
 		_scoutingButton.Disabled = blockedReason != null;
-		// 迷宮調査は潜行と同じ出撃条件に加え、対象ボスが完全解析済み（解析率1.0）なら出撃できない。
 		bool fullyAnalyzed = boss != null && ScoutingResolver.GetTier(boss.IntelRate) == IntelTier.Complete;
 		_surveyButton.Disabled = blockedReason != null || fullyAnalyzed;
 		if (fullyAnalyzed)
 			_surveyButton.TooltipText = "対象ボスは完全解析済み。これ以上の調査は不要。";
 
-		// 探索（採取）はボスの有無・到達状況に関係なく、フィールドが選ばれてさえいれば出撃できる
-		// （完全踏破後のフィールドでも素材採取だけは続けられる）。
-		string gatheringBlockedReason = GetGatheringBlockedReason(saved, party);
+		string? gatheringBlockedReason = GetGatheringBlockedReason(saved, party);
 		_gatheringButton.Disabled = gatheringBlockedReason != null;
 
 		if (blockedReason != null)
 			_dispatchStatusLabel.AppendText($"[color=gray]{blockedReason}[/color]");
 
-		_partyMembersLabel.AppendText("出撃メンバー：" +
-			string.Join("、", party.Members.Select(m => $"{m.Name}（{JobLabel(m.JobClass)} HP{m.CurrentHP}/{m.MaxHP}）")));
-		var waiting = PartyFormationSystem.GetUnavailableMembers(_state, saved.MemberIds);
-		if (waiting.Count > 0)
-			_partyMembersLabel.AppendText($"\n[color=gray]出撃できない：{string.Join("、", waiting.Select(m => m.Name))}[/color]");
+		var sb = new StringBuilder();
 
+		// 1. 潜行見立て
+		if (_selectedField != null && boss != null)
+		{
+			double score = DungeonTraversalResolver.CalculateTraversalScore(party, _state);
+			double requirement = DungeonTraversalResolver.FloorRequirement(1);
+			double ratio = requirement <= 0 ? double.MaxValue : score / requirement;
+			var rank = DungeonTraversalResolver.ClassifyRatio(ratio);
+			double speed = DungeonTraversalResolver.IntelSpeedMultiplier(_selectedField.GetSegmentBoss(1));
+
+			string rankView = rank switch
+			{
+				TraversalRank.Lightning => "[color=lime]電撃的に奥まで進めそうだ[/color]",
+				TraversalRank.Swift => "[color=cyan]迅速に奥へ進めそうだ[/color]",
+				TraversalRank.Normal => "[color=cyan]着実に奥へ進めそうだ[/color]",
+				_ => "[color=orange]手こずりながらも、少しは奥へ進めるだろう[/color]",
+			};
+
+			sb.AppendLine($"[b]🏃 大迷宮潜行（1Fから進軍）[/b]　走破力：[color=cyan]{score:F0}[/color] → 見立て：{rankView}");
+			sb.AppendLine($"[color=gray]目標：第{boss.Floor}層「{boss.Name}」扉前まで潜行（区間進軍倍率 ×{speed:F1}）[/color]");
+
+			_scoutingButton.TooltipText =
+				$"走破力の総合値（AGI+DEX合計＋部隊長LDR補正）：{score:F0}\n" +
+				"道中進軍は低リスク：HPは減っても強制除籍にはならない。\n" +
+				"道中で拾った素材・ゴールドは、ギルドへ帰還した時点で格納される。";
+		}
+
+		// 2. 調査見立て
+		if (boss != null && !fullyAnalyzed)
+		{
+			var tier = ScoutingResolver.PreviewGuardTier(party, boss);
+			double guardPower = ScoutingResolver.CalculateGuardPower(party);
+
+			sb.AppendLine($"[b]🔍 迷宮調査[/b]　護衛評価：[color={GuardTierColor(tier)}][b]{GuardTierLabel(tier)}[/b][/color]（護衛力 {guardPower:F0}） {GuardTierDescription(tier)}");
+
+			string tooltip =
+				$"護衛力（隊員の中で最も高いSTR・VIT・INT）：{guardPower:F0}\n" +
+				$"護衛評価：{GuardTierLabel(tier)}（解析成果 ×{ScoutingResolver.GuardIntelMultiplier(tier):F2}、" +
+				$"各員のHP消費 最大HPの{ScoutingResolver.GuardHpLossPercent(tier)}%）\n" +
+				"調査は低リスク：HPは減っても強制除籍にはならない。";
+			if (tier == GuardTier.Deficient)
+			{
+				tooltip = "⚠ 護衛役（戦士・騎士・魔導士等）が不足しており危険。魔物の残党に強襲されて潰走し、" +
+					"解析の成果を持ち帰れないうえ大きな手傷を負う。\n" + tooltip;
+				_surveyButton.AddThemeColorOverride("font_color", new Color(1f, 0.45f, 0.3f));
+			}
+			_surveyButton.TooltipText = tooltip;
+		}
+
+		// 3. 採取見立て
 		if (_selectedField != null)
-			RefreshGatheringForecast(_selectedField, party);
+		{
+			double gatheringScore = GatheringResolver.CalculateGatheringScore(party);
+			sb.Append($"[b]🌿 探索出撃（素材採取）[/b]　部隊採取スコア：[color=lime]{gatheringScore:F0}[/color]");
+			_gatheringButton.TooltipText =
+				$"採取の総合値（AGI+DEX合計＋部隊長LDR補正、部隊のHP比率で減衰）：{gatheringScore:F0}\n" +
+				"探索は低リスク：HPは減っても強制除籍にはならない。";
+		}
 
-		if (boss == null || _selectedField == null)
-			return;
-
-		RefreshTraversalForecast(_selectedField, boss, party);
-		if (!fullyAnalyzed)
-			RefreshSurveyForecast(boss, party);
-
-		// 扉前に着いた場合の下見：ポーチで選択中のアイテムも積んだ想定で対策の充足状況を見せる。
-		foreach (var itemId in GetSelectedPouchItemIds())
-			party.TryAddConsumable(itemId);
-		_countermeasureLabel.AppendText("[color=gray]（扉前に着いた場合の下見）[/color]\n" + BuildCountermeasureText(boss, party, out _));
+		_missionPreviewLabel.AppendText(sb.ToString());
 	}
 
-	/// <summary>
-	/// 出撃できない理由（出撃できるならnull）。ボス（調査・討伐）を対象にする出撃向け。
-	///
-	/// Core側（DungeonExpeditionSystem.TryDispatch）の失敗条件をすべて網羅し、
-	/// 「出撃条件を満たしていない」という曖昧な表示に落ちないようにする（→ 2026年9月改訂）。
-	/// </summary>
-	private string GetDispatchBlockedReason(FloorBoss boss, SavedParty saved, Party party)
+	private string? GetDispatchBlockedReason(FloorBoss? boss, SavedParty? saved, Party party)
 	{
 		if (boss == null) return "挑むべき階層ボスがいない。";
 		if (_state.DefeatReason != null) return "ギルドは既に解散した。";
-		if (saved == null) return "出撃部隊が選択されていない。上の一覧から出撃させる編成を選ぶこと。";
+		if (saved == null) return "出撃部隊が選択されていない。上のドロップダウンから編成を選ぶこと。";
 		if (_selectedField != null && !_selectedField.IsUnlocked)
 			return $"「{_selectedField.Name}」はまだ開放されていない。";
 		if (boss.IsDefeated) return $"第{boss.Floor}層のボスは既に撃破済み。";
@@ -595,22 +940,11 @@ public partial class DungeonPanel : ScrollContainer
 		return null;
 	}
 
-	/// <summary>出撃失敗の理由を出撃状況ラベルへ表示する（→ 具体的な失敗理由の提示、2026年9月改訂）。</summary>
-	private void ShowDispatchFailure(string reason)
-	{
-		_dispatchStatusLabel.Clear();
-		_dispatchStatusLabel.AppendText($"[color=orange][b]⚠ 出撃できなかった：{reason}[/b][/color]");
-	}
-
-	/// <summary>
-	/// 出撃できない理由（出撃できるならnull）。探索（採取）向け：ボス（GetDispatchBlockedReason）
-	/// と違い、対象ボスの有無は問わない（フィールドそのものが対象のため）。
-	/// </summary>
-	private string GetGatheringBlockedReason(SavedParty saved, Party party)
+	private string? GetGatheringBlockedReason(SavedParty? saved, Party party)
 	{
 		if (_selectedField == null) return "挑戦するダンジョンがない。";
 		if (_state.DefeatReason != null) return "ギルドは既に解散した。";
-		if (saved == null) return "出撃部隊が選択されていない。上の一覧から出撃させる編成を選ぶこと。";
+		if (saved == null) return "出撃部隊が選択されていない。上のドロップダウンから編成を選ぶこと。";
 		if (!_selectedField.IsUnlocked) return $"「{_selectedField.Name}」はまだ開放されていない。";
 		if (party.IsEmpty)
 		{
@@ -624,107 +958,307 @@ public partial class DungeonPanel : ScrollContainer
 		return null;
 	}
 
-	/// <summary>
-	/// 道中進軍の見立て。部隊の走破力（AGI+DEX）の総合値と、調査度連動の走破倍率
-	/// （→ DungeonTraversalResolver.IntelSpeedMultiplier）を示し、進み具合の見込みは定性表現に
-	/// とどめる（要求値は出さない）。出撃は毎回1階層から始まるため、1階層からの見立てを出す。
-	/// </summary>
-	private void RefreshTraversalForecast(DungeonField field, FloorBoss boss, Party party)
+	private void ShowDispatchFailure(string reason)
 	{
-		double score = DungeonTraversalResolver.CalculateTraversalScore(party, _state);
-		double requirement = DungeonTraversalResolver.FloorRequirement(1);
-		double ratio = requirement <= 0 ? double.MaxValue : score / requirement;
-		var rank = DungeonTraversalResolver.ClassifyRatio(ratio);
-		double speed = DungeonTraversalResolver.IntelSpeedMultiplier(field.GetSegmentBoss(1));
-
-		string rankView = rank switch
-		{
-			TraversalRank.Lightning => "[color=lime]電撃的に奥まで進めそうだ[/color]",
-			TraversalRank.Swift => "[color=cyan]迅速に奥へ進めそうだ[/color]",
-			TraversalRank.Normal => "[color=cyan]着実に奥へ進めそうだ[/color]",
-			_ => "[color=orange]手こずりながらも、少しは奥へ進めるだろう[/color]",
-		};
-
-		_scoutingForecastLabel.AppendText(
-			$"[b]道中進軍の見立て[/b]　走破力（AGI+DEX）：{score:F0}　→ この部隊なら{rankView}\n" +
-			$"[color=gray]1階層から潜行し、第{boss.Floor}層「{boss.Name}」の扉前で進軍を止めて指令を待つ。" +
-			$"解析済みの区間ほど速く安全に抜けられる（現在の区間 走破倍率 ×{speed:F1}）。[/color]");
-
-		_scoutingButton.TooltipText =
-			$"走破力の総合値（AGI+DEX合計＋部隊長LDR補正）：{score:F0}\n" +
-			"道中進軍は低リスク：HPは減っても強制除籍にはならない。\n" +
-			"道中で拾った素材・ゴールドは、ギルドへ帰還した時点で格納される。";
+		_dispatchStatusLabel.Clear();
+		_dispatchStatusLabel.AppendText($"[color=orange][b]⚠ 出撃できなかった：{reason}[/b][/color]");
 	}
 
-	/// <summary>
-	/// 探索（採取）の見立て。部隊の採取スコア（AGI+DEX＋部隊長LDR、HP比率で減衰）を
-	/// ツールチップに表示する（→ GatheringResolver）。要求値相当のものは存在しないため
-	/// 定性表現の見立てラベルは無く、数値そのものだけを見せる。
-	/// </summary>
-	private void RefreshGatheringForecast(DungeonField field, Party party)
+	private void OnDispatchPressed()
 	{
-		double score = GatheringResolver.CalculateGatheringScore(party);
-		_gatheringButton.TooltipText =
-			$"採取の総合値（AGI+DEX合計＋部隊長LDR補正、部隊のHP比率で減衰）：{score:F0}\n" +
-			"探索は低リスク：HPは減っても強制除籍にはならない。";
-	}
+		var boss = _selectedField?.GetNextActiveBoss();
+		var saved = SelectedSavedParty();
+		if (_expeditionSystem == null)
+			return;
 
-	/// <summary>
-	/// 迷宮調査の事前手応え（→ ScoutingResolver.PreviewGuardTier、2026年9月新設）。部隊の護衛評価
-	/// （余裕／十分／充足／不足）をラベルに表示する。「不足」なら警告色とツールチップで危険を知らせる
-	/// （出撃自体は可能）。判定用の要求値そのものは表示しない（→ 情報公開の原則）。
-	/// </summary>
-	private void RefreshSurveyForecast(FloorBoss boss, Party party)
-	{
-		var tier = ScoutingResolver.PreviewGuardTier(party, boss);
-		double guardPower = ScoutingResolver.CalculateGuardPower(party);
-
-		_scoutingForecastLabel.AppendText(
-			$"\n[b]迷宮調査の護衛評価[/b]（第{boss.Floor}層「{boss.Name}」）：" +
-			$"[color={GuardTierColor(tier)}][b]{GuardTierLabel(tier)}[/b][/color]　{GuardTierDescription(tier)}");
-
-		string tooltip =
-			$"護衛力（隊員の中で最も高いSTR・VIT・INT）：{guardPower:F0}\n" +
-			$"護衛評価：{GuardTierLabel(tier)}（解析成果 ×{ScoutingResolver.GuardIntelMultiplier(tier):F2}、" +
-			$"各員のHP消費 最大HPの{ScoutingResolver.GuardHpLossPercent(tier)}%）\n" +
-			"調査は低リスク：HPは減っても強制除籍にはならない。";
-		if (tier == GuardTier.Deficient)
+		if (_selectedField == null || boss == null || saved == null)
 		{
-			tooltip = "⚠ 護衛役（戦士・騎士・魔導士等）が不足しており危険。魔物の残党に強襲されて潰走し、" +
-				"解析の成果を持ち帰れないうえ大きな手傷を負う。\n" + tooltip;
-			_surveyButton.AddThemeColorOverride("font_color", new Color(1f, 0.45f, 0.3f));
+			ShowDispatchFailure(_selectedField == null
+				? "挑戦するダンジョン（フィールド）が選択されていない。"
+				: boss == null
+					? "このフィールドは完全制覇済みで、挑むべき階層ボスがいない。"
+					: "出撃部隊が選択されていない。上のドロップダウンから編成を選ぶこと。");
+			return;
 		}
-		_surveyButton.TooltipText = tooltip;
+
+		var party = PartyFormationSystem.BuildDispatchParty(_state, saved.MemberIds);
+		string? blockedReason = GetDispatchBlockedReason(boss, saved, party);
+		if (blockedReason != null || !_expeditionSystem.TryDispatch(_state, party, boss, DungeonMissionType.Scouting))
+		{
+			ShowDispatchFailure(blockedReason ?? "出撃条件を満たしていない（同時出撃枠・部隊の状態・フィールドの開放状況を確認）。");
+			return;
+		}
+
+		string members = string.Join("・", party.Members.Select(m => m.Name));
+		LogRequested.Invoke($"[color=cyan]第{_state.WeekNumber}週：「{saved.Name}」（{members}）が{_selectedField.Name}の" +
+			$"第1層から潜行を開始する（目標：第{boss.Floor}層「{boss.Name}」の扉前）。[/color]");
+
+		_selectedPartyId = null;
+		StateChanged.Invoke();
 	}
 
-	public static string GuardTierLabel(GuardTier tier) => tier switch
+	private void OnSurveyDispatchPressed()
 	{
-		GuardTier.Abundant => "余裕",
-		GuardTier.Sufficient => "十分",
-		GuardTier.Marginal => "充足",
-		_ => "不足",
-	};
+		var boss = _selectedField?.GetNextActiveBoss();
+		var saved = SelectedSavedParty();
+		if (_expeditionSystem == null)
+			return;
 
-	private static string GuardTierColor(GuardTier tier) => tier switch
+		if (_selectedField == null || boss == null || saved == null)
+		{
+			ShowDispatchFailure(_selectedField == null
+				? "調査するダンジョン（フィールド）が選択されていない。"
+				: boss == null
+					? "このフィールドは完全制覇済みで、調査すべき階層ボスがいない。"
+					: "出撃部隊が選択されていない。上のドロップダウンから編成を選ぶこと。");
+			return;
+		}
+
+		var party = PartyFormationSystem.BuildDispatchParty(_state, saved.MemberIds);
+		string? blockedReason = GetDispatchBlockedReason(boss, saved, party);
+		if (blockedReason == null && ScoutingResolver.GetTier(boss.IntelRate) == IntelTier.Complete)
+			blockedReason = "対象ボスは完全解析済み。これ以上の調査は不要。";
+		if (blockedReason != null || !_expeditionSystem.TryDispatchSurvey(_state, party, boss))
+		{
+			ShowDispatchFailure(blockedReason ?? "出撃条件を満たしていない（同時出撃枠・部隊の状態・フィールドの開放状況を確認）。");
+			return;
+		}
+
+		var tier = ScoutingResolver.PreviewGuardTier(party, boss);
+		string members = string.Join("・", party.Members.Select(m => m.Name));
+		LogRequested.Invoke($"[color=cyan]第{_state.WeekNumber}週：「{saved.Name}」（{members}）が{_selectedField.Name} 第{boss.Floor}層" +
+			$"「{boss.Name}」の迷宮調査へ出発する（護衛評価：{GuardTierLabel(tier)}、次週の決算で帰還）。[/color]");
+
+		_selectedPartyId = null;
+		StateChanged.Invoke();
+	}
+
+	private void OnGatheringDispatchPressed()
 	{
-		GuardTier.Abundant => "lime",
-		GuardTier.Sufficient => "cyan",
-		GuardTier.Marginal => "orange",
-		_ => "red",
-	};
+		var saved = SelectedSavedParty();
+		if (_expeditionSystem == null)
+			return;
 
-	private static string GuardTierDescription(GuardTier tier) => tier switch
+		if (_selectedField == null || saved == null)
+		{
+			ShowDispatchFailure(_selectedField == null
+				? "採取に向かうダンジョン（フィールド）が選択されていない。"
+				: "出撃部隊が選択されていない。上のドロップダウンから編成を選ぶこと。");
+			return;
+		}
+
+		var party = PartyFormationSystem.BuildDispatchParty(_state, saved.MemberIds);
+		string? blockedReason = GetGatheringBlockedReason(saved, party);
+		if (blockedReason != null || !_expeditionSystem.TryDispatchGathering(_state, party, _selectedField))
+		{
+			ShowDispatchFailure(blockedReason ?? "出撃条件を満たしていない（同時出撃枠・部隊の状態・フィールドの開放状況を確認）。");
+			return;
+		}
+
+		string members = string.Join("・", party.Members.Select(m => m.Name));
+		LogRequested.Invoke($"[color=cyan]第{_state.WeekNumber}週：「{saved.Name}」（{members}）が{_selectedField.Name}へ" +
+			"探索（採取）任務へ出発する（次週の決算で帰還）。[/color]");
+
+		_selectedPartyId = null;
+		StateChanged.Invoke();
+	}
+
+	// ==================== 潜行中の部隊・状況排他コマンド ====================
+
+	private void RefreshPendingMissions()
 	{
-		GuardTier.Abundant => "[color=gray]護衛が残党を寄せ付けず、じっくり調べられそうだ。[/color]",
-		GuardTier.Sufficient => "[color=gray]護衛は十分。多少の手傷で済みそうだ。[/color]",
-		GuardTier.Marginal => "[color=orange]護衛の手が回らず、被弾しながらの調査になりそうだ。[/color]",
-		_ => "[color=red]護衛役（戦士・騎士・魔導士等）が不足しており危険。調査隊が潰走しかねない。[/color]",
-	};
+		_pendingMissionList.Clear();
+		foreach (var mission in _state.ActiveDungeonMissions)
+		{
+			string members = string.Join("・", mission.Party.Members.Select(m => m.Name));
+			_pendingMissionList.AddItem($"{MissionLabel(mission)}：{members}");
+		}
 
-	/// <summary>
-	/// ボス討伐の対策充足状況（BBCode）。解析済み（＝種別が判明している）ギミックごとに充足／未対策を示し、
-	/// 未対策が残っていれば赤字で強制除籍・壊滅のリスクを警告する。tooltip には討伐ボタン向けの要約を返す。
-	/// </summary>
+		if (_state.ActiveDungeonMissions.Count == 0)
+			_pendingMissionList.AddItem("（潜行中の部隊はいない）", null, false);
+
+		_cancelMissionButton.Disabled = true;
+	}
+
+	private static string MissionLabel(ActiveDungeonMission mission)
+	{
+		if (mission.MissionType == DungeonMissionType.Gathering)
+			return $"【探索】{mission.Field.Name}";
+		if (mission.MissionType == DungeonMissionType.Survey)
+			return $"【迷宮調査】{mission.Field.Name} 第{mission.Boss?.Floor}層「{mission.Boss?.Name}」";
+
+		var boss = mission.TargetedBoss ?? mission.Boss;
+		string bossName = boss == null ? "" : $"「{boss.Name}」";
+		string loot = LootSummary(mission);
+		return mission.Status switch
+		{
+			ExpeditionStatus.AwaitingBossDecision => $"【扉前・指令待ち】{mission.Field.Name} {mission.CurrentFloor}F{bossName}　{loot}",
+			ExpeditionStatus.EngagingBoss => $"【討伐突入】{mission.Field.Name} {mission.CurrentFloor}F{bossName}　{loot}",
+			ExpeditionStatus.Retreating => $"【撤退中】{mission.Field.Name}　{loot}",
+			_ => mission.WeeksElapsed == 0
+				? $"【出発準備】{mission.Field.Name} 1Fから潜行"
+				: $"【進軍中】{mission.Field.Name} {mission.CurrentFloor}F　{loot}",
+		};
+	}
+
+	private static string LootSummary(ActiveDungeonMission mission) =>
+		$"拾得 {mission.CarriedGold}G・素材{mission.CarriedMaterials.Values.Sum()}個";
+
+	private ActiveDungeonMission? SelectedPendingMission()
+	{
+		var selected = _pendingMissionList.GetSelectedItems();
+		if (selected.Length == 0)
+			return null;
+		int index = selected[0];
+		return index >= 0 && index < _state.ActiveDungeonMissions.Count ? _state.ActiveDungeonMissions[index] : null;
+	}
+
+	private void OnPendingMissionSelected()
+	{
+		var mission = SelectedPendingMission();
+		_cancelMissionButton.Disabled = mission == null || mission.WeeksElapsed > 0;
+		UpdateCommandAreaVisibility();
+	}
+
+	private ActiveDungeonMission? DecisionTarget()
+	{
+		var selected = SelectedPendingMission();
+		if (selected != null && IsRetreatable(selected))
+			return selected;
+		return _state.ActiveDungeonMissions.FirstOrDefault(m => m.Status == ExpeditionStatus.AwaitingBossDecision);
+	}
+
+	private static bool IsRetreatable(ActiveDungeonMission mission) =>
+		mission.MissionType == DungeonMissionType.Scouting &&
+		(mission.Status == ExpeditionStatus.AwaitingBossDecision ||
+		 (mission.Status == ExpeditionStatus.Advancing && mission.WeeksElapsed > 0));
+
+	private void UpdateCommandAreaVisibility()
+	{
+		var selectedMission = SelectedPendingMission();
+
+		if (selectedMission != null)
+		{
+			if (selectedMission.Status == ExpeditionStatus.AwaitingBossDecision)
+			{
+				_commandAreaBossDecision.Visible = true;
+				_commandAreaAdvancing.Visible = false;
+				_commandAreaStandby.Visible = false;
+				RefreshBossDecision();
+				return;
+			}
+			else if (selectedMission.Status == ExpeditionStatus.Advancing)
+			{
+				_commandAreaAdvancing.Visible = true;
+				_commandAreaBossDecision.Visible = false;
+				_commandAreaStandby.Visible = false;
+				RefreshAdvancingStatus(selectedMission);
+				return;
+			}
+		}
+
+		// 未選択時でも扉前到達部隊が存在すれば優先表示
+		var awaitingMission = _state?.ActiveDungeonMissions.FirstOrDefault(m => m.Status == ExpeditionStatus.AwaitingBossDecision);
+		if (awaitingMission != null && _selectedPartyId == null)
+		{
+			_commandAreaBossDecision.Visible = true;
+			_commandAreaAdvancing.Visible = false;
+			_commandAreaStandby.Visible = false;
+			RefreshBossDecision();
+			return;
+		}
+
+		// 通常待機出撃コマンド
+		_commandAreaStandby.Visible = true;
+		_commandAreaAdvancing.Visible = false;
+		_commandAreaBossDecision.Visible = false;
+	}
+
+	private void RefreshAdvancingStatus(ActiveDungeonMission mission)
+	{
+		_advancingStatusLabel.Clear();
+		string members = string.Join("・", mission.Party.Members.Select(m => $"{m.Name}(HP{m.CurrentHP}/{m.MaxHP})"));
+		string loot = CarriedLootText(mission);
+		bool canRetreat = IsRetreatable(mission);
+
+		var sb = new StringBuilder();
+		sb.AppendLine($"[b]【進軍中】{mission.Field.Name} 第{mission.CurrentFloor}層[/b]（経過 {mission.WeeksElapsed}週）");
+		sb.AppendLine($"部隊：{members}");
+		sb.AppendLine($"道中拾得：{loot}");
+		if (canRetreat)
+		{
+			sb.Append("[color=cyan]次週さらに奥へ進軍します。途中で切り上げる場合は下の「緊急帰還指示」を実行してください。[/color]");
+		}
+		else
+		{
+			sb.Append("[color=gray]出発準備中です。取り消す場合は右上の「出撃取り消し」ボタンを押してください。[/color]");
+		}
+
+		_advancingStatusLabel.AppendText(sb.ToString());
+		_emergencyRetreatButton.Disabled = !canRetreat;
+	}
+
+	private void RefreshBossDecision()
+	{
+		_bossDecisionLabel.Clear();
+		_engageBossButton.TooltipText = "";
+
+		var mission = DecisionTarget();
+		if (mission == null)
+		{
+			_engageBossButton.Disabled = true;
+			_retreatButton.Disabled = true;
+			return;
+		}
+
+		string members = string.Join("・", mission.Party.Members.Select(m => $"{m.Name}(HP{m.CurrentHP}/{m.MaxHP})"));
+		string loot = CarriedLootText(mission);
+		_retreatButton.Disabled = !IsRetreatable(mission);
+
+		if (mission.Status != ExpeditionStatus.AwaitingBossDecision || mission.TargetedBoss == null)
+		{
+			_bossDecisionLabel.AppendText($"[b]{mission.Field.Name} 第{mission.CurrentFloor}層を進軍中[/b]：{members}\n" +
+				$"持ち帰り予定：{loot}");
+			_engageBossButton.Disabled = true;
+			_engageBossButton.TooltipText = "ボスの扉前に到達してから挑める。";
+			return;
+		}
+
+		var boss = mission.TargetedBoss;
+		var preview = new Party();
+		foreach (var member in mission.Party.Members)
+			preview.TryAdd(member);
+		foreach (var itemId in GetSelectedPouchItemIds())
+			preview.TryAddConsumable(itemId);
+		int pouchCost = DungeonExpeditionSystem.CalculateConsumableCost(preview.ConsumableItemIds);
+		bool insufficient = pouchCost > 0 && _state.Gold < pouchCost;
+
+		_bossDecisionLabel.AppendText(
+			$"[color=gold][b]【扉前到達】第{boss.Floor}層「{boss.Name}」の扉前で指令を待っている[/b][/color]\n" +
+			$"部隊：{members}\n持ち帰り予定：{loot}\n" +
+			BuildCountermeasureText(boss, preview, out string tooltip) +
+			"\n[color=gray]指令を出さずに週を越すと、扉前でボスの偵察を続ける（解析率が上がる）。[/color]");
+		if (insufficient)
+		{
+			_bossDecisionLabel.AppendText(
+				$"\n[color=red][b]⚠ ポーチ代金が不足しています（必要 {pouchCost}G／所持金 {_state.Gold}G）。" +
+				"ポーチの選択を減らすか、撤退してください。[/b][/color]");
+		}
+
+		_engageBossButton.Text = pouchCost > 0 ? $"⚔️ ボス討伐に挑む（ポーチ代 {pouchCost}G）" : "⚔️ ボス討伐に挑む";
+		_engageBossButton.Disabled = insufficient || _state.DefeatReason != null;
+		_engageBossButton.TooltipText = insufficient
+			? $"ポーチ代金が不足しています（必要 {pouchCost}G／所持金 {_state.Gold}G）。"
+			: tooltip + "\n次週の決算で決戦判定。勝敗にかかわらず決着後はギルドへ帰還する。";
+	}
+
+	private static string CarriedLootText(ActiveDungeonMission mission)
+	{
+		var parts = new List<string> { $"{mission.CarriedGold}G" };
+		parts.AddRange(mission.CarriedMaterials.Select(kv => $"{MaterialBalance.GetName(kv.Key)}×{kv.Value}"));
+		return string.Join("、", parts);
+	}
+
 	private static string BuildCountermeasureText(FloorBoss boss, Party party, out string tooltip)
 	{
 		var tier = ScoutingResolver.GetTier(boss.IntelRate);
@@ -776,268 +1310,6 @@ public partial class DungeonPanel : ScrollContainer
 		return sb.ToString().TrimEnd('\n');
 	}
 
-	/// <summary>「大迷宮へ潜行」ボタン。選択中フィールドへ、1階層から潜る道中進軍として出撃させる。</summary>
-	private void OnDispatchPressed()
-	{
-		// 現在パネルで選択中のフィールドを対象に派遣する（→ 大迷宮フィールド選択UI仕様）。
-		var boss = _selectedField?.GetNextActiveBoss();
-		var saved = SelectedSavedParty();
-		if (_expeditionSystem == null)
-			return;
-
-		// 失敗理由は必ず具体的に出す（以前はここで無言returnしており、ボタンを押しても
-		// 何も起きないように見えていた。→ 2026年9月改訂）。
-		if (_selectedField == null || boss == null || saved == null)
-		{
-			ShowDispatchFailure(_selectedField == null
-				? "挑戦するダンジョン（フィールド）が選択されていない。"
-				: boss == null
-					? "このフィールドは完全制覇済みで、挑むべき階層ボスがいない。"
-					: "出撃部隊が選択されていない。上の一覧から出撃させる編成を選ぶこと。");
-			return;
-		}
-
-		var party = PartyFormationSystem.BuildDispatchParty(_state, saved.MemberIds);
-		string blockedReason = GetDispatchBlockedReason(boss, saved, party);
-		if (blockedReason != null || !_expeditionSystem.TryDispatch(_state, party, boss, DungeonMissionType.Scouting))
-		{
-			ShowDispatchFailure(blockedReason ?? "出撃条件を満たしていない（同時出撃枠・部隊の状態・フィールドの開放状況を確認）。");
-			return;
-		}
-
-		string members = string.Join("・", party.Members.Select(m => m.Name));
-		LogRequested.Invoke($"[color=cyan]第{_state.WeekNumber}週：「{saved.Name}」（{members}）が{_selectedField.Name}の" +
-			$"第1層から潜行を開始する（目標：第{boss.Floor}層「{boss.Name}」の扉前）。[/color]");
-
-		_selectedPartyId = null; // 出撃した部隊は待機中でなくなるため、選択を解除する
-		StateChanged.Invoke();
-	}
-
-	/// <summary>
-	/// 「🔍 迷宮調査に出撃」ボタン（2026年9月再配置）。選択中フィールドの攻略対象ボスを、
-	/// 次週の決算で1回調査して帰還する1週任務として派遣する（→ DungeonExpeditionSystem.TryDispatchSurvey）。
-	/// </summary>
-	private void OnSurveyDispatchPressed()
-	{
-		var boss = _selectedField?.GetNextActiveBoss();
-		var saved = SelectedSavedParty();
-		if (_expeditionSystem == null)
-			return;
-
-		if (_selectedField == null || boss == null || saved == null)
-		{
-			ShowDispatchFailure(_selectedField == null
-				? "調査するダンジョン（フィールド）が選択されていない。"
-				: boss == null
-					? "このフィールドは完全制覇済みで、調査すべき階層ボスがいない。"
-					: "出撃部隊が選択されていない。上の一覧から出撃させる編成を選ぶこと。");
-			return;
-		}
-
-		var party = PartyFormationSystem.BuildDispatchParty(_state, saved.MemberIds);
-		string blockedReason = GetDispatchBlockedReason(boss, saved, party);
-		if (blockedReason == null && ScoutingResolver.GetTier(boss.IntelRate) == IntelTier.Complete)
-			blockedReason = "対象ボスは完全解析済み。これ以上の調査は不要。";
-		if (blockedReason != null || !_expeditionSystem.TryDispatchSurvey(_state, party, boss))
-		{
-			ShowDispatchFailure(blockedReason ?? "出撃条件を満たしていない（同時出撃枠・部隊の状態・フィールドの開放状況を確認）。");
-			return;
-		}
-
-		var tier = ScoutingResolver.PreviewGuardTier(party, boss);
-		string members = string.Join("・", party.Members.Select(m => m.Name));
-		LogRequested.Invoke($"[color=cyan]第{_state.WeekNumber}週：「{saved.Name}」（{members}）が{_selectedField.Name} 第{boss.Floor}層" +
-			$"「{boss.Name}」の迷宮調査へ出発する（護衛評価：{GuardTierLabel(tier)}、次週の決算で帰還）。[/color]");
-
-		_selectedPartyId = null; // 出撃した部隊は待機中でなくなるため、選択を解除する
-		StateChanged.Invoke();
-	}
-
-	/// <summary>「探索出撃（素材採取）」ボタン。選択中フィールドへ、ボスを介さず直接派遣する。</summary>
-	private void OnGatheringDispatchPressed()
-	{
-		var saved = SelectedSavedParty();
-		if (_expeditionSystem == null)
-			return;
-
-		// 調査・討伐と同じく、押しても何も起きない状態を作らず必ず理由を出す（→ 2026年9月改訂）。
-		if (_selectedField == null || saved == null)
-		{
-			ShowDispatchFailure(_selectedField == null
-				? "採取に向かうダンジョン（フィールド）が選択されていない。"
-				: "出撃部隊が選択されていない。上の一覧から出撃させる編成を選ぶこと。");
-			return;
-		}
-
-		var party = PartyFormationSystem.BuildDispatchParty(_state, saved.MemberIds);
-		string blockedReason = GetGatheringBlockedReason(saved, party);
-		if (blockedReason != null || !_expeditionSystem.TryDispatchGathering(_state, party, _selectedField))
-		{
-			ShowDispatchFailure(blockedReason ?? "出撃条件を満たしていない（同時出撃枠・部隊の状態・フィールドの開放状況を確認）。");
-			return;
-		}
-
-		string members = string.Join("・", party.Members.Select(m => m.Name));
-		LogRequested.Invoke($"[color=cyan]第{_state.WeekNumber}週：「{saved.Name}」（{members}）が{_selectedField.Name}へ" +
-			"探索（採取）任務へ出発する（次週の決算で帰還）。[/color]");
-
-		_selectedPartyId = null; // 出撃した部隊は待機中でなくなるため、選択を解除する
-		StateChanged.Invoke();
-	}
-
-	// ==================== 潜行中の部隊・扉前の指令 ====================
-
-	private void RefreshPendingMissions()
-	{
-		_pendingMissionList.Clear();
-		foreach (var mission in _state.ActiveDungeonMissions)
-		{
-			string members = string.Join("・", mission.Party.Members.Select(m => m.Name));
-			_pendingMissionList.AddItem($"{MissionLabel(mission)}：{members}");
-		}
-
-		if (_state.ActiveDungeonMissions.Count == 0)
-			_pendingMissionList.AddItem("（潜行中の部隊はいない）", null, false);
-
-		_cancelMissionButton.Disabled = true;
-		RefreshBossDecision();
-	}
-
-	/// <summary>潜行中一覧の1行分のラベル。遠征状態（→ ExpeditionStatus）と現在階層を示す。</summary>
-	private static string MissionLabel(ActiveDungeonMission mission)
-	{
-		if (mission.MissionType == DungeonMissionType.Gathering)
-			return $"【探索】{mission.Field.Name}";
-		if (mission.MissionType == DungeonMissionType.Survey)
-			return $"【迷宮調査】{mission.Field.Name} 第{mission.Boss?.Floor}層「{mission.Boss?.Name}」";
-
-		var boss = mission.TargetedBoss ?? mission.Boss;
-		string bossName = boss == null ? "" : $"「{boss.Name}」";
-		string loot = LootSummary(mission);
-		return mission.Status switch
-		{
-			ExpeditionStatus.AwaitingBossDecision => $"【扉前・指令待ち】{mission.Field.Name} {mission.CurrentFloor}F{bossName}　{loot}",
-			ExpeditionStatus.EngagingBoss => $"【討伐へ突入】{mission.Field.Name} {mission.CurrentFloor}F{bossName}　{loot}",
-			ExpeditionStatus.Retreating => $"【撤退中】{mission.Field.Name}　{loot}",
-			_ => mission.WeeksElapsed == 0
-				? $"【出発準備】{mission.Field.Name} 1Fから潜行"
-				: $"【進軍中】{mission.Field.Name} {mission.CurrentFloor}F　{loot}",
-		};
-	}
-
-	/// <summary>潜行中一覧向けの拾得物の短い要約（例：「拾得 35G・素材3個」）。</summary>
-	private static string LootSummary(ActiveDungeonMission mission) =>
-		$"拾得 {mission.CarriedGold}G・素材{mission.CarriedMaterials.Values.Sum()}個";
-
-	/// <summary>潜行中一覧で選択されている出撃（無ければnull）。</summary>
-	private ActiveDungeonMission SelectedPendingMission()
-	{
-		var selected = _pendingMissionList.GetSelectedItems();
-		if (selected.Length == 0)
-			return null;
-		int index = selected[0];
-		return index >= 0 && index < _state.ActiveDungeonMissions.Count ? _state.ActiveDungeonMissions[index] : null;
-	}
-
-	private void OnPendingMissionSelected()
-	{
-		var mission = SelectedPendingMission();
-		_cancelMissionButton.Disabled = mission == null || mission.WeeksElapsed > 0;
-		RefreshBossDecision();
-	}
-
-	/// <summary>
-	/// 扉前の指令の対象。潜行中一覧で選んだ出撃が撤退可能ならそれを、そうでなければ
-	/// 扉前で指令を待っている最初の部隊を対象にする。
-	/// </summary>
-	private ActiveDungeonMission DecisionTarget()
-	{
-		var selected = SelectedPendingMission();
-		if (selected != null && IsRetreatable(selected))
-			return selected;
-		return _state.ActiveDungeonMissions.FirstOrDefault(m => m.Status == ExpeditionStatus.AwaitingBossDecision);
-	}
-
-	private static bool IsRetreatable(ActiveDungeonMission mission) =>
-		mission.MissionType == DungeonMissionType.Scouting &&
-		(mission.Status == ExpeditionStatus.AwaitingBossDecision ||
-		 (mission.Status == ExpeditionStatus.Advancing && mission.WeeksElapsed > 0));
-
-	/// <summary>
-	/// 扉前の指令エリア（→ 【⚔️ ボス討伐に挑む】【🏃 撤退・帰還する】）。扉前で判断待ちの部隊
-	/// （または一覧で選んだ進軍中の部隊）がいる時だけ表示する。挑む場合は携行ポーチの選択を
-	/// その部隊に積んだ想定で、対策の充足状況と代金を示す。
-	/// </summary>
-	private void RefreshBossDecision()
-	{
-		_bossDecisionLabel.Clear();
-		_pouchCostLabel.Clear();
-		_engageBossButton.TooltipText = "";
-
-		var mission = DecisionTarget();
-		_bossDecisionPanel.Visible = mission != null;
-		if (mission == null)
-		{
-			_engageBossButton.Disabled = true;
-			_retreatButton.Disabled = true;
-			return;
-		}
-
-		string members = string.Join("・", mission.Party.Members.Select(m => $"{m.Name}(HP{m.CurrentHP}/{m.MaxHP})"));
-		string loot = CarriedLootText(mission);
-		_retreatButton.Disabled = !IsRetreatable(mission);
-
-		if (mission.Status != ExpeditionStatus.AwaitingBossDecision || mission.TargetedBoss == null)
-		{
-			_bossDecisionLabel.AppendText($"[b]{mission.Field.Name} 第{mission.CurrentFloor}層を進軍中[/b]：{members}\n" +
-				$"持ち帰り予定：{loot}");
-			_engageBossButton.Disabled = true;
-			_engageBossButton.TooltipText = "ボスの扉前に到達してから挑める。";
-			return;
-		}
-
-		var boss = mission.TargetedBoss;
-		var preview = new Party();
-		foreach (var member in mission.Party.Members)
-			preview.TryAdd(member);
-		foreach (var itemId in GetSelectedPouchItemIds())
-			preview.TryAddConsumable(itemId);
-		int pouchCost = DungeonExpeditionSystem.CalculateConsumableCost(preview.ConsumableItemIds);
-		bool insufficient = pouchCost > 0 && _state.Gold < pouchCost;
-
-		_bossDecisionLabel.AppendText(
-			$"[color=gold][b]【扉前到達】第{boss.Floor}層「{boss.Name}」の扉前で指令を待っている[/b][/color]\n" +
-			$"部隊：{members}\n持ち帰り予定：{loot}\n" +
-			BuildCountermeasureText(boss, preview, out string tooltip) +
-			"\n[color=gray]指令を出さずに週を越すと、扉前でボスの偵察を続ける（解析率が上がる）。[/color]");
-		if (insufficient)
-		{
-			_bossDecisionLabel.AppendText(
-				$"\n[color=red][b]⚠ ポーチ代金が不足しています（必要 {pouchCost}G／所持金 {_state.Gold}G）。" +
-				"ポーチの選択を減らすか、撤退してください。[/b][/color]");
-		}
-
-		if (pouchCost > 0)
-		{
-			_pouchCostLabel.AppendText(insufficient
-				? $"[color=red]ポーチ代金が不足しています：{pouchCost}G（所持金 {_state.Gold}G）[/color]"
-				: $"ポーチ代金：{pouchCost}G（挑む指令の時点で支払う）");
-		}
-
-		_engageBossButton.Text = pouchCost > 0 ? $"⚔️ ボス討伐に挑む（ポーチ代 {pouchCost}G）" : "⚔️ ボス討伐に挑む";
-		_engageBossButton.Disabled = insufficient || _state.DefeatReason != null;
-		_engageBossButton.TooltipText = insufficient
-			? $"ポーチ代金が不足しています（必要 {pouchCost}G／所持金 {_state.Gold}G）。"
-			: tooltip + "\n次週の決算で決戦判定。勝敗にかかわらず決着後はギルドへ帰還する。";
-	}
-
-	private static string CarriedLootText(ActiveDungeonMission mission)
-	{
-		var parts = new List<string> { $"{mission.CarriedGold}G" };
-		parts.AddRange(mission.CarriedMaterials.Select(kv => $"{MaterialBalance.GetName(kv.Key)}×{kv.Value}"));
-		return string.Join("、", parts);
-	}
-
 	private void OnEngageBossPressed()
 	{
 		var mission = DecisionTarget();
@@ -1057,7 +1329,7 @@ public partial class DungeonPanel : ScrollContainer
 		string pouchNote = pouchCost > 0 ? $"　携行ポーチ代 {pouchCost}Gを支払った。" : "";
 		LogRequested.Invoke($"[color=gold][b]⚔ 第{_state.WeekNumber}週：{members}が第{boss!.Floor}層「{boss.Name}」の扉を開き、" +
 			$"討伐へ突入する（次週の決算で決着）。[/b]{pouchNote}[/color]");
-		ResetPouchSelection(); // 積み込んだポーチは使用予定。次の指令に備えて選択を戻す。
+		ResetPouchSelection();
 		StateChanged.Invoke();
 	}
 
@@ -1104,7 +1376,7 @@ public partial class DungeonPanel : ScrollContainer
 		StateChanged.Invoke();
 	}
 
-	// ==================== 表示文言（Core側は列挙子のみを持つ。→ 05技術メモ） ====================
+	// ==================== 表示文言・ヘルパー ====================
 
 	public static string GimmickLabel(BossGimmickType type) => type switch
 	{
@@ -1150,8 +1422,7 @@ public partial class DungeonPanel : ScrollContainer
 		_ => "white",
 	};
 
-	/// <summary>次の開示段階の案内（完全解析済みならnull）。閾値はバランス表（scouting.csv）から引く。</summary>
-	private static string NextTierHint(IntelTier tier) => tier switch
+	private static string? NextTierHint(IntelTier tier) => tier switch
 	{
 		IntelTier.Unknown => $"解析率{ScoutingBalance.IntelTierBasic * 100:F0}%で規模が判明",
 		IntelTier.Basic => $"解析率{ScoutingBalance.IntelTierHazards * 100:F0}%で危険ギミックが判明",
@@ -1160,7 +1431,7 @@ public partial class DungeonPanel : ScrollContainer
 		_ => null,
 	};
 
-	private static string JobLabel(JobClass job) => job switch
+	public static string JobLabel(JobClass job) => job switch
 	{
 		JobClass.Warrior => "重戦士",
 		JobClass.Ranger => "斥候",
@@ -1170,5 +1441,29 @@ public partial class DungeonPanel : ScrollContainer
 		JobClass.Thief => "盗賊",
 		JobClass.Scholar => "学者",
 		_ => job.ToString(),
+	};
+
+	public static string GuardTierLabel(GuardTier tier) => tier switch
+	{
+		GuardTier.Abundant => "余裕",
+		GuardTier.Sufficient => "十分",
+		GuardTier.Marginal => "充足",
+		_ => "不足",
+	};
+
+	private static string GuardTierColor(GuardTier tier) => tier switch
+	{
+		GuardTier.Abundant => "lime",
+		GuardTier.Sufficient => "cyan",
+		GuardTier.Marginal => "orange",
+		_ => "red",
+	};
+
+	private static string GuardTierDescription(GuardTier tier) => tier switch
+	{
+		GuardTier.Abundant => "[color=gray]護衛が残党を寄せ付けず、じっくり調べられそうだ。[/color]",
+		GuardTier.Sufficient => "[color=gray]護衛は十分。多少の手傷で済みそうだ。[/color]",
+		GuardTier.Marginal => "[color=orange]護衛の手が回らず、被弾しながらの調査になりそうだ。[/color]",
+		_ => "[color=red]護衛役（戦士・騎士・魔導士等）が不足しており危険。調査隊が潰走しかねない。[/color]",
 	};
 }
