@@ -40,6 +40,47 @@
 存在せず対象外だったため、フォローアップとして追加した（値はTraitCatalog.cs・
 ItemCatalog.csに直書きされていた旧値をそのまま書き起こしたもの。挙動は変わらない）。
 
+## 大迷宮への再配線で追加された主なキー（2026年9月、→ 03 §0.8〜§0.9）
+
+旧通常クエストの撤去に伴い、成長・満足度・功績・参謀ボーナスの各経路を大迷宮の3大任務
+（道中進軍／迷宮調査／階層ボス討伐／採取）へ繋ぎ直した。その際に追加・移設されたキー：
+
+**`dungeon.csv`**
+
+- `BossPowerWeight_STR`〜`_INT` … ボス討伐の部隊火力に対する各能力の重み
+  （旧 `quest_type_weights.csv` の「討伐」行から**値を変えずに移設**。→ `DungeonPowerCalculator`）。
+- `GrowthRolls_Traversal`／`_BossVictory`／`_Survey`／`_Gathering`（2／5／2／2回）…
+  任務ごとの成長ロール試行回数。対象能力は任務によって異なる（潜行＝STR/VIT/AGI/DEX、
+  ボス撃破＝全7能力、調査＝INT/DEX/LDR/AGI、採取＝AGI/DEX/VIT。→ `GrowthSystem.ApplyExpeditionGrowth`）。
+- `GrowthBaseChancePercent`（35%）… 上記ロール1回あたりの成功確率。成功で対象能力+1（PA上限でクランプ）。
+- `ContributionPerTraversedFloor`／`ContributionPerBossFloor`／`ContributionPerGathering` …
+  累積功績（`Adventurer.TotalContributionScore`＝退職金の上乗せ原資）の加算量。
+  ボス撃破はボスの階層×係数で加算される。
+
+**`compatibility_advisor.csv`**
+
+- `Advisor_SurveyIntelBonusCoeff`（0.002）… 参謀の引退時7能力平均×この係数を、迷宮調査の
+  解析率上昇量への**加算率**とする（平均50で+10%。研究ボーナスと合算）。
+- `Advisor_TraversalPowerBonusCoeff`（0.2）… 同平均×この係数を、道中潜行の走破力スコアへ
+  **直接加算**する（平均50で+10）。
+- `AdvisorBonusCoefficient` は旧クエスト用で加算先を失っており、休眠中のキー。
+
+**`satisfaction.csv`**
+
+- `Satisfaction_BossVictory`／`_BossDefeat`／`_SurveyAbundant`／`_SurveySufficient`／
+  `_SurveyDeficient`／`_TraversalSuccess`／`_GatheringSuccess` … 大迷宮の任務成果に応じた
+  週次の満足度増減。旧・クエスト達成時の `VictoryBonus` を置き換えたもの。適用対象は
+  部隊の生存者のみ（強制除籍者には適用しない。→ `SatisfactionSystem.ApplyExpeditionSatisfaction`）。
+- `OpportunityPenaltyMinAge`（23）／`OpportunityPenaltyMaxAge`（26）… 出場機会ペナルティの
+  対象年齢。年齢帯の3区分化（→ 03 §0.11）に合わせ、新・全盛期へ整合させた際に
+  コード直書きから外部化した（→ 03 §0.12）。22歳以下は育成猶予として対象外。
+
+**`economy.csv`**
+
+- `BankruptcyConsecutiveWeeksThreshold`（4週）… 破産＝唯一の敗北条件の判定週数
+  （→ `DefeatSystem`）。脅威度の撤去で `security.csv` を廃止した際、脅威度とは無関係な
+  この値だけをここへ移設した（→ 03 §0.10）。
+
 **旧・環境ギミックの撤去（2026年9月、→ 03 §0.12）：** `gimmick.csv` は、旧通常クエストの
 撤去（→ 03 §0.8）で発生源を失い呼び出し元が無くなっていた評価器（`GimmickEvaluator`・
 `GimmickBalance`・`GimmickMitigationLevel`）と共に削除した。大迷宮のボスギミック
