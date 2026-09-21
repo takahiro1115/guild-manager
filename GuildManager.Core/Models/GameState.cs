@@ -139,16 +139,6 @@ namespace GuildManager.Core.Models
         public int WeeksSinceLastRankAppropriateQuest { get; set; } = 0;
 
         /// <summary>
-        /// 治安の脅威度（0〜100。仕様書 03 §4.4）。旧通常クエストの撤去（2026年9月）以降、増減する経路は無い。
-        /// 75%超で月次助成金50%カット（→ SubsidySystem）。
-        /// 「100%到達で即時敗北（治安崩壊）」は撤廃済み（→ Systems.DefeatSystem、
-        /// 経営破綻＝資金ショートのみへの一本化改訂）。「未出撃週の放置による上昇」も
-        /// 同改訂で無効化されている（増減を担っていたSecuritySystemは旧クエストと共に撤去済み）。
-        /// フィールド自体は月次助成金カット判定に使い続けるため残してある。
-        /// </summary>
-        public int ThreatLevel { get; set; } = SecurityBalance.InitialThreatLevel;
-
-        /// <summary>
         /// 所持金がマイナスの週が連続何週続いているか（仕様書 03 §8.3「破産」）。
         /// プラスに戻った週に0へリセットされる。DefeatSystem.ProcessWeeklySettlementが更新する。
         /// </summary>
@@ -244,7 +234,6 @@ namespace GuildManager.Core.Models
                 Money = Gold,
                 Reputation = Reputation,
                 GuildRank = GuildRank.ToString(),
-                ThreatLevel = ThreatLevel,
                 ConsecutiveNegativeGoldWeeks = ConsecutiveNegativeGoldWeeks,
                 DefeatReason = DefeatReason?.ToString(),
                 WeeksSinceLastRankAppropriateQuest = WeeksSinceLastRankAppropriateQuest,
@@ -322,7 +311,6 @@ namespace GuildManager.Core.Models
                 Gold = data.Money,
                 Reputation = data.Reputation,
                 GuildRank = ParseEnum<GuildRank>(data.GuildRank, nameof(GuildRank)),
-                ThreatLevel = data.ThreatLevel,
                 ConsecutiveNegativeGoldWeeks = data.ConsecutiveNegativeGoldWeeks,
                 DefeatReason = data.DefeatReason == null ? null : ParseEnum<DefeatReason>(data.DefeatReason, nameof(DefeatReason)),
                 WeeksSinceLastRankAppropriateQuest = data.WeeksSinceLastRankAppropriateQuest,

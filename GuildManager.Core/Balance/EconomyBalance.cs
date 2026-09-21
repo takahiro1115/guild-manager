@@ -34,5 +34,12 @@ namespace GuildManager.Core.Balance
 
         /// <summary>退職金を払いきれなかった場合の名声低下量（→ AgingSystem.Retire）。</summary>
         public static readonly int SeveranceShortfallReputationPenalty = BalanceData.GetInt(FileName, "SeveranceShortfallReputationPenalty");
+
+        /// <summary>
+        /// 破産：所持金マイナスがこの週数連続で解消されないと敗北（→ 03 §8.3、DefeatSystem）。
+        /// 脅威度システムの撤去（2026年9月）に伴い security.csv / SecurityBalance を廃止したため、
+        /// 脅威度とは無関係なこの値（唯一の敗北条件）をここへ移設した。
+        /// </summary>
+        public static readonly int BankruptcyConsecutiveWeeksThreshold = BalanceData.GetInt(FileName, "BankruptcyConsecutiveWeeksThreshold");
     }
 }

@@ -43,7 +43,6 @@ public partial class MainDashboard : Control
 	private Label _weekLabel = null!;
 	private Label _goldLabel = null!;
 	private Label _rankLabel = null!;
-	private Label _threatLabel = null!;
 
 	/// <summary>同時出撃枠の使用状況（→ コアシステム刷新仕様「4. 進行管理」）。</summary>
 	private Label _squadSlotLabel = null!;
@@ -103,10 +102,6 @@ public partial class MainDashboard : Control
 		_weekLabel = GetNode<Label>("%WeekLabel");
 		_goldLabel = GetNode<Label>("%GoldLabel");
 		_rankLabel = GetNode<Label>("%RankLabel");
-		_threatLabel = GetNode<Label>("%ThreatLabel");
-		// 治安度（脅威度）は敗北条件から撤廃済み（→ Core側 DefeatSystem・経営破綻への一本化改訂）。
-		// 月次助成金カットの内部判定にはまだ使うが、プレイヤーへは表示しない。
-		_threatLabel.Visible = false;
 		_squadSlotLabel = GetNode<Label>("%SquadSlotLabel");
 		_materialSummaryLabel = GetNode<Label>("%MaterialSummaryLabel");
 		_resultLog = GetNode<RichTextLabel>("%ResultLog");
@@ -450,7 +445,7 @@ public partial class MainDashboard : Control
 		}
 
 		if (settlement.SubsidyAmount.HasValue)
-			AppendLog($"[color=lime]月次助成金 {settlement.SubsidyAmount.Value}G を受け取った{(_state.ThreatLevel > SecurityBalance.SubsidyCutThreatThreshold ? "（脅威度75%超のため50%カット済み）" : "")}。[/color]");
+			AppendLog($"[color=lime]月次助成金 {settlement.SubsidyAmount.Value}G を受け取った。[/color]");
 
 		LogGrowthEvents(settlement.TrainingGrowthEvents); // → 03 §3.1〜3.4：成長トリガー経路2（訓練場配置）
 		LogNegotiationStatus(settlement.NegotiationTerminated); // → 03 §5.2：契約交渉・退団
@@ -512,14 +507,12 @@ public partial class MainDashboard : Control
 		int facilityCount = results.Count(r => r.FacilityConstructionCompleted);
 		int deathCount = results.Count(r => r.DeathOrPermanentInjuryOccurred);
 		int satisfactionCount = results.Count(r => r.SatisfactionWarningOccurred);
-		int threatCount = results.Count(r => r.ThreatThresholdNewlyCrossed);
 		int recruitmentCount = results.Count(r => r.RecruitmentTrialOccurred);
 		int defeatCount = results.Count(r => r.DefeatOccurred);
 
 		if (facilityCount > 0) AppendLog($"[color=lime]・施設建設が完了した週：{facilityCount}回[/color]");
 		if (deathCount > 0) AppendLog($"[color=red][b]・強制除籍または不可逆の障害が発生した週：{deathCount}回[/b][/color]");
 		if (satisfactionCount > 0) AppendLog($"[color=orange]・契約交渉（満足度警告）が新たに発生した週：{satisfactionCount}回[/color]");
-		if (threatCount > 0) AppendLog($"[color=orange][b]・脅威度が75%または100%を新たに跨いだ週：{threatCount}回[/b][/color]");
 		if (recruitmentCount > 0) AppendLog($"[color=yellow][b]・新春採用試験の週：{recruitmentCount}回[/b][/color]");
 		if (defeatCount > 0) AppendLog("[color=red][font_size=24][b]■■■ ゲームオーバーが発生した ■■■[/b][/font_size][/color]");
 
@@ -896,7 +889,6 @@ public partial class MainDashboard : Control
 		_weekLabel.Text = $"週: {_state.WeekNumber}";
 		_goldLabel.Text = $"所持金: {_state.Gold} G";
 		_rankLabel.Text = $"ギルド格付け: {_state.GuildRank}ランク（名声 {_state.Reputation}）";
-		_threatLabel.Text = $"脅威度: {_state.ThreatLevel}%";
 		// 同時出撃枠の使用状況（→ コアシステム刷新仕様「4. 進行管理」）。
 		// 大迷宮へ出撃中の部隊の数で枠を消費する（→ DungeonExpeditionSystem.CanDispatch）。
 		_squadSlotLabel.Text = $"出撃枠: {_state.ActiveDungeonMissions.Count}/{_state.UnlockedSquadSlots}";

@@ -33,7 +33,7 @@ namespace GuildManager.Core.Systems
             else
                 state.ConsecutiveNegativeGoldWeeks = 0;
 
-            if (state.ConsecutiveNegativeGoldWeeks >= SecurityBalance.BankruptcyConsecutiveWeeksThreshold)
+            if (state.ConsecutiveNegativeGoldWeeks >= EconomyBalance.BankruptcyConsecutiveWeeksThreshold)
             {
                 state.DefeatReason = DefeatReason.Bankruptcy;
                 return DefeatReason.Bankruptcy;

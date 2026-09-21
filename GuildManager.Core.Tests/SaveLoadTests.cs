@@ -29,7 +29,6 @@ namespace GuildManager.Core.Tests
                 Gold = 12345,
                 Reputation = 987,
                 GuildRank = GuildRank.B,
-                ThreatLevel = 30,
                 ConsecutiveNegativeGoldWeeks = 2,
                 DefeatReason = null,
                 WeeksSinceLastRankAppropriateQuest = 5,
@@ -41,7 +40,6 @@ namespace GuildManager.Core.Tests
             Assert.Equal(12345, restored.Gold);
             Assert.Equal(987, restored.Reputation);
             Assert.Equal(GuildRank.B, restored.GuildRank);
-            Assert.Equal(30, restored.ThreatLevel);
             Assert.Equal(2, restored.ConsecutiveNegativeGoldWeeks);
             Assert.Null(restored.DefeatReason);
             Assert.Equal(5, restored.WeeksSinceLastRankAppropriateQuest);
@@ -534,6 +532,44 @@ namespace GuildManager.Core.Tests
                 var service = new SaveLoadService(dir);
 
                 Assert.Null(service.Load()); // GameState.FromSaveDataのFormatExceptionを捕捉して null
+            }
+            finally { Directory.Delete(dir, recursive: true); }
+        }
+
+        [Theory]
+        [InlineData("ThreatLevel")]
+        [InlineData("threat_level")]
+        public void Load_RestoresOldSave_ContainingRemovedThreatLevelField(string removedFieldName)
+        {
+            // 脅威度システムの撤去（2026年9月）で SaveData.ThreatLevel を削除した。
+            // 撤去前に作られたセーブには当該フィールドが残っているため、未知のメンバーとして
+            // 黙って無視され、他の値が正常に復元されることを保証する（→ 03 §12のセーブ互換性方針）。
+            var dir = CreateTempSaveDirectory();
+            try
+            {
+                var data = new GameState
+                {
+                    WeekNumber = 17,
+                    Gold = 4321,
+                    Reputation = 210,
+                    GuildRank = GuildRank.D,
+                    ConsecutiveNegativeGoldWeeks = 1,
+                }.ToSaveData();
+
+                // 旧形式を再現：シリアライズ済みJSONへ撤去済みフィールドを差し込む。
+                var json = JsonSerializer.Serialize(data);
+                json = "{" + $"\"{removedFieldName}\":75," + json.Substring(1);
+                File.WriteAllText(Path.Combine(dir, "savegame.json"), json);
+                var service = new SaveLoadService(dir);
+
+                var restored = service.Load();
+
+                Assert.NotNull(restored);
+                Assert.Equal(17, restored!.WeekNumber);
+                Assert.Equal(4321, restored.Gold);
+                Assert.Equal(210, restored.Reputation);
+                Assert.Equal(GuildRank.D, restored.GuildRank);
+                Assert.Equal(1, restored.ConsecutiveNegativeGoldWeeks);
             }
             finally { Directory.Delete(dir, recursive: true); }
         }

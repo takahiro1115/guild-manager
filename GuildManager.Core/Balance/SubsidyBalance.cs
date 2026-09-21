@@ -4,7 +4,7 @@ using GuildManager.Core.Models;
 namespace GuildManager.Core.Balance
 {
     /// <summary>
-    /// 月次助成金（Subsidy）関連のバランス値。仕様書 03 §8.1「助成金額」・§4.4 参照。
+    /// 月次助成金（Subsidy）関連のバランス値。仕様書 03 §8.1「助成金額」参照。
     /// 値は docs/04_バランス表/economy.csv から読み込む（→ 03 §10.1、項目58）。
     ///
     /// WeeksPerMonth（1ヶ月＝4週）は構造値のため、economy.csvにも参考として同じ値が
@@ -32,8 +32,5 @@ namespace GuildManager.Core.Balance
         };
 
         public static int GetBaseAmount(GuildRank rank) => BaseAmount[rank];
-
-        /// <summary>脅威度が閾値超過時のカット後倍率（50%カット）。→ SecurityBalance.SubsidyCutThreatThreshold</summary>
-        public static readonly double ThreatCutMultiplier = BalanceData.GetDouble(FileName, "SubsidyThreatCutMultiplier");
     }
 }

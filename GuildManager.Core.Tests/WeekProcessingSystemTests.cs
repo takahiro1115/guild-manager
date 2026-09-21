@@ -180,33 +180,6 @@ namespace GuildManager.Core.Tests
             Assert.False(result.Flags.DeathOrPermanentInjuryOccurred);
         }
 
-        // ---------------- ThreatThresholdNewlyCrossed ----------------
-
-        [Fact]
-        public void ProcessWeek_DoesNotSetThreatThresholdNewlyCrossed_WhenBelowBothThresholds()
-        {
-            var state = new GameState { ThreatLevel = 10 };
-            var system = BuildSystem();
-
-            var result = system.ProcessWeek(state);
-
-            Assert.False(result.Flags.ThreatThresholdNewlyCrossed);
-        }
-
-        [Fact]
-        public void ProcessWeek_DoesNotSetThreatThresholdNewlyCrossed_WhenAlreadyAboveThreshold_AndStaysAbove()
-        {
-            // 既に脅威度80%（75%閾値を超過済み）で、今週も変化が無い（放置クエストも無い）場合、
-            // 「新たに跨いだ」わけではないので発火しない。
-            var state = new GameState { ThreatLevel = 80 };
-            var system = BuildSystem();
-
-            var result = system.ProcessWeek(state);
-
-            Assert.Equal(80, state.ThreatLevel); // このテストでは脅威度が変化しないことが前提
-            Assert.False(result.Flags.ThreatThresholdNewlyCrossed);
-        }
-
         // ---------------- FinalQuestNewlyUnlocked ----------------
 
         [Fact]
@@ -287,7 +260,7 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void ProcessWeek_SetsDefeatOccurred_OnNewBankruptcy()
         {
-            var state = new GameState { Gold = -100, ConsecutiveNegativeGoldWeeks = SecurityBalance.BankruptcyConsecutiveWeeksThreshold - 1 };
+            var state = new GameState { Gold = -100, ConsecutiveNegativeGoldWeeks = EconomyBalance.BankruptcyConsecutiveWeeksThreshold - 1 };
             var system = BuildSystem();
 
             var result = system.ProcessWeek(state);
@@ -320,11 +293,11 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
-        public void ProcessWeek_DoesNotSetDefeatOccurred_AtThreatLevel100_WhenFinancesHealthy()
+        public void ProcessWeek_DoesNotSetDefeatOccurred_WhenFinancesHealthy()
         {
-            // 治安崩壊（脅威度100%到達による即時敗北）は撤廃済み。資金が健全なら、
-            // 脅威度が何%であっても週次決算で敗北は成立しない（→ DefeatSystem）。
-            var state = new GameState { Gold = 10000, ThreatLevel = 100 };
+            // 敗北条件は破産のみ（治安崩壊は撤廃済み）。資金が健全なら週次決算で敗北は成立しない
+            // （→ DefeatSystem）。
+            var state = new GameState { Gold = 10000 };
             var system = BuildSystem();
 
             var result = system.ProcessWeek(state);
@@ -390,7 +363,7 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void AutoSkip_StopsOnDefeat_EvenThoughNotInLiteralEightConditions()
         {
-            var state = new GameState { Gold = -1, ConsecutiveNegativeGoldWeeks = SecurityBalance.BankruptcyConsecutiveWeeksThreshold - 1 };
+            var state = new GameState { Gold = -1, ConsecutiveNegativeGoldWeeks = EconomyBalance.BankruptcyConsecutiveWeeksThreshold - 1 };
             var autoSkip = new AutoSkipService(BuildSystem());
 
             var results = autoSkip.AutoSkip(state, maxWeeks: 100);

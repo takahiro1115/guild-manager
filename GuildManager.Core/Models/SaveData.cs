@@ -33,7 +33,6 @@ namespace GuildManager.Core.Models
         public int Money { get; set; }
         public int Reputation { get; set; }
         public string GuildRank { get; set; } = ""; // enum→文字列で保存
-        public int ThreatLevel { get; set; }
 
         /// <summary>
         /// 破産判定（→ 03 §8.3）の連続週数カウンタ。指示書のSaveDataサンプルには

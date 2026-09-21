@@ -38,7 +38,6 @@ namespace GuildManager.Core.Tests
         [InlineData("guild_rank_params.csv")]
         [InlineData("recruitment.csv")]
         [InlineData("satisfaction.csv")]
-        [InlineData("security.csv")]
         [InlineData("trait.csv")]
         [InlineData("training.csv")]
         public void GetTable_LoadsEveryBalanceCsvFile_WithoutError(string fileName)

@@ -1,9 +1,0 @@
-key,value,unit,note
-InitialThreatLevel,0,pt,ゲーム開始時の脅威度
-ThreatIncreaseMin,2,pt,討伐クエストの放置・失敗1件あたりの脅威度上昇量の下限
-ThreatIncreaseMax,5,pt,同上限
-ThreatDecreaseMin,10,pt,討伐クエスト達成1件あたりの脅威度減少量の下限
-ThreatDecreaseMax,15,pt,同上限
-SubsidyCutThreatThreshold,75,pt,これを超えると月次助成金が50%カットされる
-SecurityCollapseThreshold,100,pt,これに到達すると治安崩壊＝即時敗北（猶予なし）
-BankruptcyConsecutiveWeeksThreshold,4,週,所持金マイナスがこの週数連続で解消されないと破産＝敗北

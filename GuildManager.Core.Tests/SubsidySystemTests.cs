@@ -33,7 +33,7 @@ namespace GuildManager.Core.Tests
         [InlineData(48)]
         public void ProcessWeeklySubsidy_GrantsSubsidy_OnMonthBoundaryWeeks(int weekNumber)
         {
-            var state = new GameState { WeekNumber = weekNumber, Gold = 1000, GuildRank = GuildRank.G, ThreatLevel = 0 };
+            var state = new GameState { WeekNumber = weekNumber, Gold = 1000, GuildRank = GuildRank.G };
             var system = new SubsidySystem();
 
             var amount = system.ProcessWeeklySubsidy(state);
@@ -45,8 +45,8 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void ProcessWeeklySubsidy_UsesHigherAmount_ForHigherGuildRank()
         {
-            var lowRankState = new GameState { WeekNumber = 4, GuildRank = GuildRank.G, ThreatLevel = 0 };
-            var highRankState = new GameState { WeekNumber = 4, GuildRank = GuildRank.S, ThreatLevel = 0 };
+            var lowRankState = new GameState { WeekNumber = 4, GuildRank = GuildRank.G };
+            var highRankState = new GameState { WeekNumber = 4, GuildRank = GuildRank.S };
             var system = new SubsidySystem();
 
             var lowAmount = system.ProcessWeeklySubsidy(lowRankState);
@@ -55,40 +55,27 @@ namespace GuildManager.Core.Tests
             Assert.True(highAmount > lowAmount);
         }
 
-        [Fact]
-        public void ProcessWeeklySubsidy_CutsAmountInHalf_WhenThreatExceedsThreshold()
+        [Theory]
+        [InlineData(GuildRank.G)]
+        [InlineData(GuildRank.F)]
+        [InlineData(GuildRank.E)]
+        [InlineData(GuildRank.D)]
+        [InlineData(GuildRank.C)]
+        [InlineData(GuildRank.B)]
+        [InlineData(GuildRank.A)]
+        [InlineData(GuildRank.S)]
+        public void ProcessWeeklySubsidy_PaysFullRankAmount_WithoutAnyCut(GuildRank rank)
         {
-            var state = new GameState
-            {
-                WeekNumber = 4,
-                Gold = 0,
-                GuildRank = GuildRank.C,
-                ThreatLevel = SecurityBalance.SubsidyCutThreatThreshold + 1,
-            };
+            // 脅威度システムの撤去（2026年9月）により「脅威度75%超で50%カット」は廃止された。
+            // 助成金はギルド格付けのみで決まり、常に満額支給される（→ SubsidySystem）。
+            var state = new GameState { WeekNumber = 4, Gold = 0, GuildRank = rank };
             var system = new SubsidySystem();
 
             var amount = system.ProcessWeeklySubsidy(state);
 
-            int expected = (int)(SubsidyBalance.GetBaseAmount(GuildRank.C) * SubsidyBalance.ThreatCutMultiplier);
+            int expected = SubsidyBalance.GetBaseAmount(rank);
             Assert.Equal(expected, amount);
             Assert.Equal(expected, state.Gold);
-        }
-
-        [Fact]
-        public void ProcessWeeklySubsidy_DoesNotCut_WhenThreatAtThresholdExactly()
-        {
-            // 「75%超」でカットなので、ちょうど75はカット対象外。
-            var state = new GameState
-            {
-                WeekNumber = 4,
-                GuildRank = GuildRank.C,
-                ThreatLevel = SecurityBalance.SubsidyCutThreatThreshold,
-            };
-            var system = new SubsidySystem();
-
-            var amount = system.ProcessWeeklySubsidy(state);
-
-            Assert.Equal(SubsidyBalance.GetBaseAmount(GuildRank.C), amount);
         }
     }
 }

@@ -86,7 +86,6 @@ namespace GuildManager.Core.Systems
             int thisWeek = state.WeekNumber;
             result.Flags.Week = thisWeek;
 
-            int threatBefore = state.ThreatLevel;
             bool wasFinalQuestUnlocked = state.FinalQuestUnlocked;
             var neededNegotiationBefore = state.Adventurers.Where(a => a.NeedsNegotiation).Select(a => a.Id).ToHashSet();
 
@@ -108,7 +107,7 @@ namespace GuildManager.Core.Systems
             // 出撃の有無にかかわらず、時間は必ず進む。
             _economySystem.ApplyWeeklyWages(state);
 
-            // 月次助成金（4週に1回。→ 03 §8.1・§4.4：脅威度75%超で50%カット）。
+            // 月次助成金（4週に1回。→ 03 §8.1：ギルド格付け連動で満額支給）。
             result.SubsidyAmount = _subsidySystem.ProcessWeeklySubsidy(state);
 
             _trainingSystem.ProcessWeeklyTraining(state, dispatchedIds); // → 03 §3.1〜3.4・§3.5改：訓練場の週次費用・HP微減
@@ -135,11 +134,6 @@ namespace GuildManager.Core.Systems
             // （＝名声の自然減衰は撤去前と同じく毎週判定される。名声の加算は大迷宮のボス撃破報酬が担う）。
             result.RankChange = _guildRankSystem.ProcessWeeklySettlement(state, achievedRankAppropriateQuestThisWeek: false);
             result.Flags.FinalQuestNewlyUnlocked = !wasFinalQuestUnlocked && state.FinalQuestUnlocked;
-
-            // 脅威度が75%の閾値を今週新たに跨いだか（→ 03 §1.3自動スキップ停止条件6）。
-            // 既に閾値を超えたまま変化がない週では発火させない。
-            result.Flags.ThreatThresholdNewlyCrossed =
-                threatBefore < SecurityBalance.SubsidyCutThreatThreshold && state.ThreatLevel >= SecurityBalance.SubsidyCutThreatThreshold;
 
             // 敗北条件判定（→ 03 §8.3）：週次決算の最後に1回だけ行う。
             // 破産（所持金マイナス4週連続、猶予あり）のみが唯一の敗北条件（→ DefeatSystem）。

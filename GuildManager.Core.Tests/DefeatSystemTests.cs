@@ -68,30 +68,16 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void GameOver_OnlyTriggeredByBankruptcy()
         {
-            // 脅威度が100%（旧・治安崩壊の閾値）に到達していても、資金が健全（破産カウンタ未達）
-            // なら敗北しない。
-            var healthy = new GameState { Gold = 100, ThreatLevel = 100 };
+            // 資金が健全（破産カウンタ未達）なら敗北しない。
+            var healthy = new GameState { Gold = 100 };
             Assert.Null(new DefeatSystem().ProcessWeeklySettlement(healthy));
             Assert.Null(healthy.DefeatReason);
 
-            // 脅威度が0%（治安良好）でも、資金マイナスが4週連続なら破産で敗北する
-            // （＝脅威度の高低に関わらず、唯一の敗北条件は破産であることを確認する）。
-            var bankrupt = new GameState { Gold = -1, ThreatLevel = 0, ConsecutiveNegativeGoldWeeks = 3 };
+            // 資金マイナスが4週連続なら破産で敗北する（＝唯一の敗北条件は破産）。
+            var bankrupt = new GameState { Gold = -1, ConsecutiveNegativeGoldWeeks = 3 };
             var result = new DefeatSystem().ProcessWeeklySettlement(bankrupt);
             Assert.Equal(DefeatReason.Bankruptcy, result);
             Assert.Equal(DefeatReason.Bankruptcy, bankrupt.DefeatReason);
-        }
-
-        [Fact]
-        public void ProcessWeeklySettlement_DoesNotDefeat_AtThreatLevel100_WhenFinancesHealthy()
-        {
-            var state = new GameState { Gold = 100, ThreatLevel = 100 };
-            var system = new DefeatSystem();
-
-            var result = system.ProcessWeeklySettlement(state);
-
-            Assert.Null(result);
-            Assert.Null(state.DefeatReason);
         }
 
         // ---------------- 一度確定したら上書きしない ----------------
@@ -99,7 +85,7 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void ProcessWeeklySettlement_DoesNotOverwriteExistingDefeatReason()
         {
-            var state = new GameState { Gold = 100, ThreatLevel = 100, DefeatReason = DefeatReason.Bankruptcy };
+            var state = new GameState { Gold = 100, DefeatReason = DefeatReason.Bankruptcy };
             var system = new DefeatSystem();
 
             var result = system.ProcessWeeklySettlement(state);
