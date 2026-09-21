@@ -1,6 +1,8 @@
 key,value,unit,note
-NoDeploymentWeeksThreshold,4,週,出場機会なしの判定週数（対象は全盛期22-27歳）
+NoDeploymentWeeksThreshold,4,週,出場機会なしの判定週数（対象は全盛期23-26歳）
 NoDeploymentPenalty,5,pt,出場機会なしの満足度減少量（毎週）
+OpportunityPenaltyMinAge,23,歳,出場機会ペナルティの対象年齢の下限（全盛期の開始年齢。→ 03 §3.0）
+OpportunityPenaltyMaxAge,26,歳,出場機会ペナルティの対象年齢の上限（満期引退年齢）
 WageAdequacyRatio,0.8,倍,適正週給に対するこの比率未満で賃金不満とみなす
 UnderpaidPenalty,8,pt,賃金不満時の満足度減少量（毎週）
 Satisfaction_BossVictory,10,pt,大迷宮：階層ボス撃破時の士気高揚（生存隊員全員。旧・クエスト達成時のVictoryBonusを置き換え）

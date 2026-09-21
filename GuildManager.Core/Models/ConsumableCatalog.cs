@@ -12,7 +12,7 @@ namespace GuildManager.Core.Models
     /// </summary>
     public static class ConsumableCatalog
     {
-        // ---- ギミック相殺（→ GimmickBalance.GetCounterItemId・GimmickEvaluator） ----
+        // ---- ギミック相殺（旧・環境ギミック用。評価器は 03 §0.12 で撤去済みのため現在は効果を持たない） ----
         public const string AntidoteId = "Antidote";
         public const string HolyWaterId = "HolyWater";
         public const string TorchId = "Torch";

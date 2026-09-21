@@ -9,7 +9,7 @@ namespace GuildManager.Core.Balance
     {
         private const string FileName = "consumables.csv";
 
-        // ---- ギミック相殺アイテム5種：価格のみ（効果は+1点固定・→ GimmickEvaluator） ----
+        // ---- ギミック相殺アイテム5種：価格のみ（評価器 GimmickEvaluator は 03 §0.12 で撤去済み。現在は効果を持たない） ----
         public static readonly int AntidotePrice = BalanceData.GetInt(FileName, "Antidote_Price");
         public static readonly int HolyWaterPrice = BalanceData.GetInt(FileName, "HolyWater_Price");
         public static readonly int TorchPrice = BalanceData.GetInt(FileName, "Torch_Price");

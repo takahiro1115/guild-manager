@@ -27,7 +27,6 @@
 | `training.csv` | 03 §3.1〜3.4・§3.5改 | TrainingBalance |
 | `trait.csv` | 03 §4.3・§5.3.2・§4.2.3 | TraitBalance（→ TraitCatalog）、ペアシナジーの隊長LDR緩和係数 |
 | `equipment.csv` | 03 §4.2.2 | EquipmentBalance（→ ItemCatalog） |
-| `gimmick.csv` | 環境ギミック刷新仕様 | GimmickBalance（→ Systems.GimmickEvaluator） |
 | `consumables.csv` | パーティ携行アイテム刷新仕様 | ConsumableBalance（→ ConsumableCatalog） |
 | `progression.csv` | 03 §4.5.1 | ProgressionBalance（初期の同時出撃枠） |
 | `dungeon.csv` | 03 §4.5.1・§4.5.4 | DungeonBalance（ボス能力重み・未踏破重損耗・ボス間隔・撃破実績点・出撃成長回数） |
@@ -41,21 +40,14 @@
 存在せず対象外だったため、フォローアップとして追加した（値はTraitCatalog.cs・
 ItemCatalog.csに直書きされていた旧値をそのまま書き起こしたもの。挙動は変わらない）。
 
-`gimmick.csv`は環境ギミック刷新仕様で新設した表形式ファイル。列は
-`tag,stat,threshold_partial,threshold_full,phase,none_multiplier,partial_multiplier,full_multiplier,counter_item,note`：
-
-- `tag` … 環境ギミックの種類（→ Models.EnvironmentTag の各値）。
-- `stat` … 対策点数の算出に使う実効値（パーティ全員の合算）。
-- `threshold_partial`/`threshold_full` … 合算値がこの値以上で+1点/+2点。
-- `phase` … ペナルティ係数の適用先（`Scouting`＝フェーズ1索敵値／`Score`＝フェーズ2点数／
-  `Attrition`＝損耗・HP消費%）。
-- `none_multiplier`/`partial_multiplier`/`full_multiplier` … 対策達成度（未充足/一部/完全）ごとの
-  係数。完全充足は1.0（ペナルティ無効）で統一している。
-- `counter_item` … この点数を+1する携行アイテムのId（→ ConsumableCatalog）。
+**旧・環境ギミックの撤去（2026年9月、→ 03 §0.12）：** `gimmick.csv` は、旧通常クエストの
+撤去（→ 03 §0.8）で発生源を失い呼び出し元が無くなっていた評価器（`GimmickEvaluator`・
+`GimmickBalance`・`GimmickMitigationLevel`）と共に削除した。大迷宮のボスギミック
+（`dungeon.csv`・`BossGimmickType`）は現役の別システムであり、影響を受けない。
 
 `consumables.csv`はパーティ携行アイテム刷新仕様で新設した。ギミック相殺5種は価格のみ
-（効果は+1点で固定・仕様側で規定）、効果アイテム3種（煙幕弾・高品質傷薬・携帯糧食）は
-価格に加えて効果量を持つ。
+（旧・環境ギミック用。評価器の撤去により現在は効果を持たないデータ）、効果アイテム3種
+（煙幕弾・高品質傷薬・携帯糧食）は価格に加えて効果量を持つ。
 
 **旧通常クエストの撤去（2026年9月、→ 03 §0.8）：** `quest.csv`・`quest_templates.csv`・
 `quest_type_weights.csv`・`quest_scoring.csv`・`quest_events.csv`・`pair_synergy.csv`・

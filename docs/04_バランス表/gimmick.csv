@@ -1,6 +1,0 @@
-tag,stat,threshold_partial,threshold_full,phase,none_multiplier,partial_multiplier,full_multiplier,counter_item,note
-Miasma,MND,30,60,Attrition,2.0,1.5,1.0,Antidote,瘴気：神官等のMND合算で浄化。未対策だと損耗(HP消費%)が2倍、一部対策で1.5倍、完全対策で通常通り(1.0倍)
-Undead,MND,30,60,Score,0.7,0.85,1.0,HolyWater,霊体：MND合算で浄化。未対策だとフェーズ2の点数が0.7倍に低下、一部対策で0.85倍、完全対策で低下なし
-Darkness,DEX,30,60,Scouting,0.7,0.85,1.0,Torch,暗黒：斥候等のDEX合算で視界確保。未対策だとフェーズ1の索敵値が0.7倍に低下、一部対策で0.85倍、完全対策で低下なし
-NarrowPath,AGI,30,60,Score,0.7,0.85,1.0,ClimbingGear,隘路：AGI合算で身のこなし。未対策だとフェーズ2の点数が0.7倍に低下、一部対策で0.85倍、完全対策で低下なし
-Colossal,STR,30,60,Attrition,2.0,1.5,1.0,Charm,巨躯：STR合算で力押し。未対策だと損耗(HP消費%)が2倍、一部対策で1.5倍、完全対策で通常通り(1.0倍)

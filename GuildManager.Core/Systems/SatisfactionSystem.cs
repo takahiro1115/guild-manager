@@ -42,8 +42,8 @@ namespace GuildManager.Core.Systems
                 {
                     adventurer.WeeksSinceLastDeployment++;
 
-                    // 出場機会：22〜27歳が「4週連続で遠征なし」なら毎週-5（→ 03 §5.1）。
-                    if (IsPrimeAgeForOuting(adventurer.Age) &&
+                    // 出場機会：全盛期（23〜26歳）が「4週連続で遠征なし」なら毎週-5（→ 03 §5.1）。
+                    if (IsPeakAgeForOuting(adventurer.Age) &&
                         adventurer.WeeksSinceLastDeployment >= SatisfactionBalance.NoDeploymentWeeksThreshold)
                     {
                         delta -= SatisfactionBalance.NoDeploymentPenalty;
@@ -229,7 +229,13 @@ namespace GuildManager.Core.Systems
             state.Adventurers.Remove(adventurer);
         }
 
-        private static bool IsPrimeAgeForOuting(int age) => age >= 22 && age <= 27; // §5.1「22〜27歳」
+        /// <summary>
+        /// 出場機会ペナルティの対象年齢か（→ 03 §5.1）。年齢帯の3区分化（→ 03 §0.11）に伴い、
+        /// 対象を新・全盛期（23〜26歳、→ BAL: satisfaction.csv）へ整合させた。22歳（成長期）は
+        /// 育成猶予として対象外（→ 03 §0.12）。
+        /// </summary>
+        private static bool IsPeakAgeForOuting(int age) =>
+            age >= SatisfactionBalance.OpportunityPenaltyMinAge && age <= SatisfactionBalance.OpportunityPenaltyMaxAge;
 
         private static double GetAppropriateWage(Adventurer adventurer) =>
             adventurer.TotalPA * SatisfactionBalance.AppropriateWageCoefficient;

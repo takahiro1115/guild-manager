@@ -1,14 +1,14 @@
 namespace GuildManager.Core.Models
 {
     /// <summary>
-    /// クエストに設定される環境ギミック。仕様書「環境ギミック」刷新仕様参照。
-    /// クエストは0件以上のタグを持ち（→ Quest.EnvironmentTags）、各タグごとに
-    /// パーティの対策度合いが3段階（未充足/一部/完全）で評価される
-    /// （→ Systems.GimmickEvaluator・Balance.GimmickBalance）。
+    /// 旧・通常クエストに設定されていた環境ギミック。仕様書「環境ギミック」刷新仕様参照。
+    /// クエストは0件以上のタグを持ち、各タグごとにパーティの対策度合いが3段階
+    /// （未充足/一部/完全）で評価される設計だった。
     ///
-    /// 各タグが影響するフェーズ・対象ステータス・相殺アイテムは gimmick.csv 側の定義
-    /// （構造ではなく調整対象の数値のため）。ここでは「5種のギミックが存在する」という
-    /// 構造そのものだけを定義する。
+    /// **現状：** 旧通常クエストの撤去（→ 03 §0.8）で発生源が無くなり、評価器
+    /// （`GimmickEvaluator`）・定義CSV（`gimmick.csv`）は 03 §0.12 で撤去済み。
+    /// この列挙型は携行アイテムの相殺対象タグ（→ ConsumableItem.CounterTag）としてのみ
+    /// 残っており、大迷宮のボスギミック（→ BossGimmickType）とは別物。
     /// </summary>
     public enum EnvironmentTag
     {

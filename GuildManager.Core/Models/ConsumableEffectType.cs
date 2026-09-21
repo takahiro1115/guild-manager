@@ -5,7 +5,7 @@ namespace GuildManager.Core.Models
     /// </summary>
     public enum ConsumableEffectType
     {
-        /// <summary>環境ギミックの対策点数に+1する（→ ConsumableItem.CounterTag、GimmickEvaluator）。</summary>
+        /// <summary>環境ギミックの対策点数に+1する（→ ConsumableItem.CounterTag）。評価器は 03 §0.12 で撤去済みのため現在は未使用。</summary>
         GimmickCounter,
 
         /// <summary>ダウン率（HP消費%）を半減させる（煙幕弾）。</summary>

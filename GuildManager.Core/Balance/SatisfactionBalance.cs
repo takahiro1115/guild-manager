@@ -15,9 +15,17 @@ namespace GuildManager.Core.Balance
         public const int Min = 0;
         public const int Max = 100;
 
-        // ---- 出場機会（§5.1）。対象年齢帯は22〜27歳（全盛期）固定（仕様書どおり）。 ----
+        // ---- 出場機会（§5.1）。対象は全盛期（23〜26歳、→ 03 §3.0 の年齢帯定義）。 ----
         public static readonly int NoDeploymentWeeksThreshold = BalanceData.GetInt(FileName, "NoDeploymentWeeksThreshold");
         public static readonly int NoDeploymentPenalty = BalanceData.GetInt(FileName, "NoDeploymentPenalty");
+
+        /// <summary>
+        /// 出場機会ペナルティの対象年齢の下限・上限。年齢帯の3区分化（→ 03 §0.11）に伴い、
+        /// 旧・全盛期の22〜27歳から新・全盛期の23〜26歳へ整合させた（→ 03 §0.12）。
+        /// 22歳（成長期）は育成猶予として対象外になる。
+        /// </summary>
+        public static readonly int OpportunityPenaltyMinAge = BalanceData.GetInt(FileName, "OpportunityPenaltyMinAge");
+        public static readonly int OpportunityPenaltyMaxAge = BalanceData.GetInt(FileName, "OpportunityPenaltyMaxAge");
 
         // ---- 賃金妥当性（§5.1）。→ BAL: 満足度/賃金妥当性 ----
         public static readonly double WageAdequacyRatio = BalanceData.GetDouble(FileName, "WageAdequacyRatio");

@@ -37,13 +37,17 @@ namespace GuildManager.Core.Tests
             Assert.Equal(0, adventurer.WeeksSinceLastDeployment);
         }
 
-        [Fact]
-        public void ProcessWeeklySatisfaction_AppliesNoDeploymentPenalty_AtFourthConsecutiveWeek()
+        [Theory]
+        [InlineData(23)] // 全盛期の下限
+        [InlineData(24)]
+        [InlineData(26)] // 全盛期の上限（満期引退年齢）
+        public void ProcessWeeklySatisfaction_AppliesNoDeploymentPenalty_AtFourthConsecutiveWeek(int age)
         {
-            // 22〜27歳が対象。週給は適正値以上にして賃金ペナルティを混入させない。
+            // 対象は全盛期（23〜26歳、→ 03 §5.1・§0.12）。週給は適正値以上にして
+            // 賃金ペナルティを混入させない。
             var adventurer = new Adventurer
             {
-                Age = 24,
+                Age = age,
                 Satisfaction = 70,
                 WeeksSinceLastDeployment = 3, // 今回で4週目に到達
                 PA_STR = 100, PA_AGI = 100, PA_VIT = 100, PA_MND = 100, PA_DEX = 100, PA_LDR = 100,
@@ -77,9 +81,10 @@ namespace GuildManager.Core.Tests
         }
 
         [Theory]
+        [InlineData(18)] // 新鋭期
         [InlineData(21)] // 成長期
-        [InlineData(28)] // 円熟期
-        public void ProcessWeeklySatisfaction_NoDeploymentPenalty_OnlyAppliesToPrimeAgeBand(int age)
+        [InlineData(22)] // 成長期の上限：年齢帯3区分化まで対象だったが、育成猶予として対象外になった
+        public void ProcessWeeklySatisfaction_NoDeploymentPenalty_OnlyAppliesToPeakAgeBand(int age)
         {
             var adventurer = new Adventurer
             {
@@ -92,7 +97,7 @@ namespace GuildManager.Core.Tests
 
             system.ProcessWeeklySatisfaction(state, NoDispatch);
 
-            Assert.Equal(71, adventurer.Satisfaction); // 22〜27歳以外はペナルティ対象外。自然回復+1のみ
+            Assert.Equal(71, adventurer.Satisfaction); // 全盛期(23〜26歳)以外はペナルティ対象外。自然回復+1のみ
         }
 
         // ---------------- 賃金妥当性ペナルティ（§5.1） ----------------
