@@ -751,7 +751,7 @@ theme_override_font_sizes/font_size = 11
 text = "※待機中の冒険者を「配属」ボタンで現在部隊の空き枠へ追加できます"
 
 [node name="CandidateScroll" type="ScrollContainer" parent="CandidatePanel/Margin/VBox"]
-custom_minimum_size = Vector2(0, 360)
+custom_minimum_size = Vector2(0, 260)
 layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
