@@ -101,12 +101,14 @@ layout_mode = 2
 metadata/_tab_index = 3
 
 [node name="RightPanel" type="VBoxContainer" parent="Root/BodyPanel" unique_id=763252257]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(440, 0)
 layout_mode = 2
-size_flags_horizontal = 3
 
 [node name="Label" type="Label" parent="Root/BodyPanel/RightPanel" unique_id=1329327818]
 layout_mode = 2
-text = "週報"
+theme_override_font_sizes/font_size = 15
+text = "作戦週報"
 
 [node name="ResultLog" type="RichTextLabel" parent="Root/BodyPanel/RightPanel" unique_id=1076099228]
 unique_name_in_owner = true
@@ -114,11 +116,6 @@ layout_mode = 2
 size_flags_vertical = 3
 bbcode_enabled = true
 scroll_following = true
-
-[node name="AdvisorButton" type="Button" parent="Root/BodyPanel/RightPanel" unique_id=220254196]
-unique_name_in_owner = true
-layout_mode = 2
-text = "顧問管理"
 
 [node name="NextWeekButton" type="Button" parent="Root" unique_id=22271400]
 unique_name_in_owner = true

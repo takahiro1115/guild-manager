@@ -109,7 +109,6 @@ public partial class MainDashboard : Control
 		_autoSkipButton = GetNode<Button>("%AutoSkipButton");
 		_recruitmentPopup = GetNode<RecruitmentPopup>("%RecruitmentPopup");
 		_advisorPopup = GetNode<AdvisorPopup>("%AdvisorPopup");
-		_advisorButton = GetNode<Button>("%AdvisorButton");
 		_equipmentPopup = GetNode<EquipmentPopup>("%EquipmentPopup");
 
 		// 中央ペインのタブ（→ 03 §9）。出撃の窓口は大迷宮に一本化したため、大迷宮をタブ0
@@ -135,6 +134,8 @@ public partial class MainDashboard : Control
 		_adventurerPanel.LogRequested += AppendLog;
 		_adventurerPanel.StateChanged += RefreshAll;
 		_adventurerPanel.EquipmentRequested += OnAdventurerEquipmentRequested;
+		_adventurerPanel.AdvisorRequested += OnAdvisorButtonPressed;
+		_advisorButton = _adventurerPanel.AdvisorButton;
 
 		_partyFormationPanel = GetNode<PartyFormationPanel>("%PartyFormationTab");
 		_partyFormationPanel.StateChanged += RefreshAll;
@@ -161,7 +162,6 @@ public partial class MainDashboard : Control
 		_nextWeekButton.Pressed += OnNextWeekPressed;
 		_autoSkipButton.Pressed += OnAutoSkipButtonPressed;
 		_recruitmentPopup.Closed += OnRecruitmentPopupClosed;
-		_advisorButton.Pressed += OnAdvisorButtonPressed;
 		_advisorPopup.Closed += OnAdvisorPopupClosed;
 		_equipmentPopup.Closed += OnEquipmentPopupClosed;
 		_saveButton = GetNode<Button>("%SaveButton");
@@ -541,6 +541,7 @@ public partial class MainDashboard : Control
 	/// <summary>「顧問管理」ボタン。顧問役職割り当てポップアップを開く（いつでも自由に開閉できる）。</summary>
 	private void OnAdvisorButtonPressed()
 	{
+		if (_state == null) return;
 		_advisorPopup.Open(_state, _advisorSystem);
 	}
 

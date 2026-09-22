@@ -10,7 +10,35 @@ grow_horizontal = 2
 grow_vertical = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
+theme_override_constants/separation = 6
 script = ExtResource("1_script")
+
+[node name="HeaderPanel" type="PanelContainer" parent="."]
+layout_mode = 2
+
+[node name="Margin" type="MarginContainer" parent="HeaderPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 6
+
+[node name="HeaderHBox" type="HBoxContainer" parent="HeaderPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="TitleLabel" type="Label" parent="HeaderPanel/Margin/HeaderHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 15
+text = "冒険者名簿・個人詳細"
+
+[node name="AdvisorButton" type="Button" parent="HeaderPanel/Margin/HeaderHBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(110, 32)
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "👔 顧問管理"
 
 [node name="HSplit" type="HSplitContainer" parent="."]
 layout_mode = 2

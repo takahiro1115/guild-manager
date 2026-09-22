@@ -88,6 +88,7 @@ public partial class AdventurerPanel : VBoxContainer
 	private Button _raiseWageButton = null!;
 	private Button _payBonusButton = null!;
 	private Button _retireButton = null!;
+	private Button _advisorButton = null!;
 
 	/// <summary>ステータス詳細パネルに表示中の冒険者Id。週送り後もこの人物の表示を維持する。</summary>
 	private Guid? _detailAdventurerId;
@@ -100,6 +101,12 @@ public partial class AdventurerPanel : VBoxContainer
 
 	/// <summary>装備ポップアップの開放を依頼する（MainDashboardがポップアップを所有するため）。</summary>
 	public event Action<Adventurer> EquipmentRequested = delegate { };
+
+	/// <summary>顧問管理ポップアップの開放を依頼する（MainDashboardがポップアップを所有するため）。</summary>
+	public event Action AdvisorRequested = delegate { };
+
+	/// <summary>顧問管理ボタンへの参照。</summary>
+	public Button AdvisorButton => _advisorButton;
 
 	public override void _Ready()
 	{
@@ -166,6 +173,7 @@ public partial class AdventurerPanel : VBoxContainer
 		_raiseWageButton = GetNode<Button>("%RaiseWageButton");
 		_payBonusButton = GetNode<Button>("%PayBonusButton");
 		_retireButton = GetNode<Button>("%RetireButton");
+		_advisorButton = GetNode<Button>("%AdvisorButton");
 
 		// シグナル配線
 		_adventurerList.ItemClicked += OnAdventurerItemClicked;
@@ -173,6 +181,7 @@ public partial class AdventurerPanel : VBoxContainer
 		_raiseWageButton.Pressed += OnRaiseWagePressed;
 		_payBonusButton.Pressed += OnPayBonusPressed;
 		_retireButton.Pressed += OnRetirePressed;
+		_advisorButton.Pressed += () => AdvisorRequested.Invoke();
 
 		// 初期状態は未選択
 		ShowNoAdventurerSelected();

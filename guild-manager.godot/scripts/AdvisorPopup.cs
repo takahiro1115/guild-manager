@@ -60,12 +60,15 @@ public partial class AdvisorPopup : PopupPanel
 	private void RefreshList()
 	{
 		_candidateList.Clear();
-		foreach (var candidate in _state.RetiredAdventurers)
+		if (_state?.RetiredAdventurers != null)
 		{
-			_candidateList.AddItem(
-				$"{candidate.Name}（{candidate.JobClass}） 引退時{candidate.RetiredAtAge}歳" +
-				$"　STR{candidate.STR}/VIT{candidate.VIT}/AGI{candidate.AGI}" +
-				$"/DEX{candidate.DEX}/MND{candidate.MND}/INT{candidate.INT}/LDR{candidate.LDR}");
+			foreach (var candidate in _state.RetiredAdventurers)
+			{
+				_candidateList.AddItem(
+					$"{candidate.Name}（{candidate.JobClass}） 引退時{candidate.RetiredAtAge}歳" +
+					$"　STR{candidate.STR}/VIT{candidate.VIT}/AGI{candidate.AGI}" +
+					$"/DEX{candidate.DEX}/MND{candidate.MND}/INT{candidate.INT}/LDR{candidate.LDR}");
+			}
 		}
 
 		_statusLabel.Text = BuildStatusText();
