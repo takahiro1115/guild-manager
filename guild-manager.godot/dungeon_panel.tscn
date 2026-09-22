@@ -199,6 +199,31 @@ layout_mode = 2
 bbcode_enabled = true
 fit_content = true
 
+[node name="BossHpRow" type="HBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="BossHpTitle" type="Label" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/BossHpRow"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = "ボスHP"
+
+[node name="BossHpBar" type="ProgressBar" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/BossHpRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 16)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+step = 1.0
+show_percentage = false
+
+[node name="BossHpLabel" type="Label" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/BossHpRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+horizontal_alignment = 2
+
 [node name="IntelRow" type="HBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox"]
 layout_mode = 2
 theme_override_constants/separation = 8
@@ -245,12 +270,14 @@ theme_override_constants/separation = 4
 layout_mode = 2
 theme_override_colors/font_color = Color(0.8, 0.85, 0.9, 1)
 theme_override_font_sizes/font_size = 12
-text = "ボス特殊ギミック解析"
+text = "ボス特殊ギミック解析（4大能力）"
 
-[node name="GimmickContainer" type="VBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/GimmickWrapper"]
+[node name="GimmickContainer" type="GridContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/GimmickWrapper"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_constants/separation = 4
+columns = 2
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 6
 
 [node name="PouchCard" type="PanelContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox"]
 layout_mode = 2
@@ -358,6 +385,7 @@ bbcode_enabled = true
 fit_content = true
 
 [node name="ActionCommandContainer" type="PanelContainer" parent="Margin/MainHBox/RightColumn/ZoneC/ZoneCMargin/ZoneCVBox"]
+unique_name_in_owner = true
 layout_mode = 2
 
 [node name="Margin" type="MarginContainer" parent="Margin/MainHBox/RightColumn/ZoneC/ZoneCMargin/ZoneCVBox/ActionCommandContainer"]
@@ -372,21 +400,21 @@ unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="SurveyButton" type="Button" parent="Margin/MainHBox/RightColumn/ZoneC/ZoneCMargin/ZoneCVBox/ActionCommandContainer/Margin/CommandAreaStandby"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 36)
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 12
-text = "🔍 迷宮調査に出撃"
-
 [node name="ScoutingButton" type="Button" parent="Margin/MainHBox/RightColumn/ZoneC/ZoneCMargin/ZoneCVBox/ActionCommandContainer/Margin/CommandAreaStandby"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 36)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 12
-text = "🏃 大迷宮へ潜行 (1Fから進軍)"
+text = "🏃 大迷宮へ潜行（進軍）"
+
+[node name="SurveyButton" type="Button" parent="Margin/MainHBox/RightColumn/ZoneC/ZoneCMargin/ZoneCVBox/ActionCommandContainer/Margin/CommandAreaStandby"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 12
+text = "🔍 迷宮調査に出撃（解析）"
 
 [node name="GatheringButton" type="Button" parent="Margin/MainHBox/RightColumn/ZoneC/ZoneCMargin/ZoneCVBox/ActionCommandContainer/Margin/CommandAreaStandby"]
 unique_name_in_owner = true
@@ -394,7 +422,7 @@ custom_minimum_size = Vector2(0, 36)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 12
-text = "🌿 探索出撃 (素材採取)"
+text = "🌿 探索出撃（素材採取）"
 
 [node name="CommandAreaAdvancing" type="VBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneC/ZoneCMargin/ZoneCVBox/ActionCommandContainer/Margin"]
 unique_name_in_owner = true

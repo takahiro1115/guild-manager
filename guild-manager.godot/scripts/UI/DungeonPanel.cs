@@ -30,11 +30,13 @@ public partial class DungeonPanel : ScrollContainer
 	// ==================== Zone B: ボス警戒・ポーチ ====================
 	private PanelContainer _bossProfileCard = null!;
 	private RichTextLabel _bossHeaderLabel = null!;
+	private ProgressBar _bossHpBar = null!;
+	private Label _bossHpLabel = null!;
 	private ProgressBar _intelProgressBar = null!;
 	private Label _intelPercentLabel = null!;
 	private RichTextLabel _intelTierLabel = null!;
 	private RichTextLabel _completeBadgeLabel = null!;
-	private VBoxContainer _gimmickContainer = null!;
+	private GridContainer _gimmickContainer = null!;
 	private OptionButton _pouchSlot1 = null!;
 	private OptionButton _pouchSlot2 = null!;
 	private RichTextLabel _pouchCostLabel = null!;
@@ -100,11 +102,13 @@ public partial class DungeonPanel : ScrollContainer
 		// Zone B
 		_bossProfileCard = GetNode<PanelContainer>("%BossProfileCard");
 		_bossHeaderLabel = GetNode<RichTextLabel>("%BossHeaderLabel");
+		_bossHpBar = GetNode<ProgressBar>("%BossHpBar");
+		_bossHpLabel = GetNode<Label>("%BossHpLabel");
 		_intelProgressBar = GetNode<ProgressBar>("%IntelProgressBar");
 		_intelPercentLabel = GetNode<Label>("%IntelPercentLabel");
 		_intelTierLabel = GetNode<RichTextLabel>("%IntelTierLabel");
 		_completeBadgeLabel = GetNode<RichTextLabel>("%CompleteBadgeLabel");
-		_gimmickContainer = GetNode<VBoxContainer>("%GimmickContainer");
+		_gimmickContainer = GetNode<GridContainer>("%GimmickContainer");
 		_pouchSlot1 = GetNode<OptionButton>("%PouchSlot1");
 		_pouchSlot2 = GetNode<OptionButton>("%PouchSlot2");
 		_pouchCostLabel = GetNode<RichTextLabel>("%PouchCostLabel");
@@ -116,8 +120,8 @@ public partial class DungeonPanel : ScrollContainer
 		_dispatchStatusLabel = GetNode<RichTextLabel>("%DispatchStatusLabel");
 
 		_commandAreaStandby = GetNode<HBoxContainer>("%CommandAreaStandby");
-		_surveyButton = GetNode<Button>("%SurveyButton");
 		_scoutingButton = GetNode<Button>("%ScoutingButton");
+		_surveyButton = GetNode<Button>("%SurveyButton");
 		_gatheringButton = GetNode<Button>("%GatheringButton");
 
 		_commandAreaAdvancing = GetNode<VBoxContainer>("%CommandAreaAdvancing");
@@ -134,6 +138,9 @@ public partial class DungeonPanel : ScrollContainer
 
 		_dungeonProgressBar.MinValue = 0;
 		_dungeonProgressBar.MaxValue = DungeonField.MaxFloor;
+
+		_bossHpBar.MinValue = 0;
+		_bossHpBar.MaxValue = 100;
 
 		_intelProgressBar.MinValue = 0;
 		_intelProgressBar.MaxValue = 100;
@@ -296,7 +303,7 @@ public partial class DungeonPanel : ScrollContainer
 
 		// 電撃進軍倍率
 		double speed = DungeonTraversalResolver.IntelSpeedMultiplier(_selectedField.GetSegmentBoss(1));
-		sb.Append($"[color=gray]⚡ 電撃進軍速度：×{speed:F1}（ボス解析度連動）[/color]");
+		sb.Append($"[bgcolor=#1e3f20][color=lime][b] ⚡ 進軍速度倍率：×{speed:F1} Speed [/b][/color][/bgcolor] [color=gray]（ボス解析度連動）[/color]");
 
 		_floorDisplay.AppendText(sb.ToString());
 	}
@@ -446,6 +453,14 @@ public partial class DungeonPanel : ScrollContainer
 		}
 	}
 
+	private static readonly BossGimmickType[] MajorGimmickTypes = new[]
+	{
+		BossGimmickType.Poison,
+		BossGimmickType.HeavyArmor,
+		BossGimmickType.Flying,
+		BossGimmickType.InstantKill,
+	};
+
 	private void RefreshBossInfo(FloorBoss? boss)
 	{
 		ClearGimmickCards();
@@ -453,24 +468,47 @@ public partial class DungeonPanel : ScrollContainer
 		_intelTierLabel.Clear();
 		_completeBadgeLabel.Clear();
 
+		// 選択部隊＋ポーチでの対策状況プレビュー
+		var saved = SelectedSavedParty();
+		var previewParty = saved == null ? new Party() : PartyFormationSystem.BuildDispatchParty(_state, saved.MemberIds);
+		foreach (var itemId in GetSelectedPouchItemIds())
+			previewParty.TryAddConsumable(itemId);
+
 		if (boss == null)
 		{
 			_bossHeaderLabel.AppendText(_selectedField != null
 				? $"[color=gold][b]🏆 このダンジョンは完全踏破されました（{_selectedField.ReachedFloor}/{DungeonField.MaxFloor}F）。[/b][/color]"
 				: "[color=gray]挑むべき階層ボスはいない。[/color]");
+			_bossHpBar.Value = 0;
+			_bossHpLabel.Text = "-";
 			_intelProgressBar.Value = 0;
 			_intelPercentLabel.Text = "-";
 			_completeBadgeLabel.Visible = false;
-			AddGimmickCard("[color=gold]このダンジョンのボスはすべて撃破されました。[/color]");
+			PopulateGimmickCards(null, IntelTier.Unknown, previewParty);
 			return;
 		}
 
 		var tier = ScoutingResolver.GetTier(boss.IntelRate);
-		string maxHp = tier >= IntelTier.Basic ? boss.MaxHp.ToString() : "？？？";
 
 		_bossHeaderLabel.AppendText(
 			$"[font_size=15][b]第{boss.Floor}層の主「{boss.Name}」[/b][/font_size]\n" +
-			$"出現階層：第{boss.Floor}層　　最大HP：{maxHp}");
+			$"出現階層：第{boss.Floor}層");
+
+		if (tier < IntelTier.Basic)
+		{
+			_bossHpBar.MinValue = 0;
+			_bossHpBar.MaxValue = 100;
+			_bossHpBar.Value = 0;
+			_bossHpLabel.Text = "？？？ / ？？？";
+		}
+		else
+		{
+			_bossHpBar.MinValue = 0;
+			_bossHpBar.MaxValue = Math.Max(1, boss.MaxHp);
+			_bossHpBar.Value = Math.Clamp(boss.CurrentHp, 0, boss.MaxHp);
+			double hpPct = (double)boss.CurrentHp / Math.Max(1, boss.MaxHp) * 100.0;
+			_bossHpLabel.Text = $"{boss.CurrentHp} / {boss.MaxHp} ({hpPct:F0}%)";
+		}
 
 		_intelProgressBar.Value = Math.Round(boss.IntelRate * 100);
 		_intelPercentLabel.Text = $"{boss.IntelRate * 100:F0}%";
@@ -487,66 +525,98 @@ public partial class DungeonPanel : ScrollContainer
 				$"[bgcolor=#5a4500][color=gold][b] ◆ 完全解析済み：弱点看破により討伐時の与ダメージ+{DungeonBalance.FullIntelDamageBonus * 100:F0}% ボーナス中 [/b][/color][/bgcolor]");
 		}
 
-		if (tier < IntelTier.Hazards)
-		{
-			string overview = tier == IntelTier.Unknown
-				? "ボス特殊能力：？？？（情報解析率50%以上で危険情報が開示されます）"
-				: "ボス概要：何らかの危険な能力を持っている気配がある。正体はまだ掴めていない。（解析率50%で判明）";
-			AddGimmickCard($"[color=gray]{overview}[/color]");
-			return;
-		}
-
-		if (boss.Gimmicks.Count == 0)
-		{
-			AddGimmickCard("[color=lime]特筆すべき危険な能力は見当たらない。[/color]");
-			return;
-		}
-
-		// 選択部隊＋ポーチでの対策状況プレビュー
-		var saved = SelectedSavedParty();
-		var previewParty = saved == null ? new Party() : PartyFormationSystem.BuildDispatchParty(_state, saved.MemberIds);
-		foreach (var itemId in GetSelectedPouchItemIds())
-			previewParty.TryAddConsumable(itemId);
-
-		foreach (var gimmick in boss.Gimmicks)
-			AddGimmickCard(BuildGimmickCardText(gimmick, tier, previewParty));
+		PopulateGimmickCards(boss, tier, previewParty);
 	}
 
-	private static string BuildGimmickCardText(BossGimmick gimmick, IntelTier tier, Party party)
+	private void PopulateGimmickCards(FloorBoss? boss, IntelTier tier, Party previewParty)
 	{
-		var sb = new StringBuilder();
-		sb.Append($"[b]【{GimmickLabel(gimmick.Type)}】[/b]　危険度 [color=orange]{DangerStars(gimmick.DangerLevel)}[/color]\n");
-		sb.Append($"{GimmickDescription(gimmick.Type)}");
+		ClearGimmickCards();
 
-		if (tier >= IntelTier.Countermeasures)
+		foreach (var type in MajorGimmickTypes)
 		{
-			var routes = CounterRoutes(gimmick);
-			sb.Append("\n[color=cyan]対策条件：");
-			sb.Append(routes.Count > 0 ? string.Join("／", routes) + "（いずれか1つ）" : "有効な対策が見つからない");
-			sb.Append("[/color]");
-		}
-		else
-		{
-			sb.Append("\n[color=gray]対策条件：？？？（解析率75%で開示）[/color]");
-		}
+			string title = GimmickLabel(type);
+			var card = new PanelContainer
+			{
+				SizeFlagsHorizontal = SizeFlags.ExpandFill,
+				SizeFlagsVertical = SizeFlags.ExpandFill,
+				CustomMinimumSize = new Vector2(160, 56),
+			};
+			var margin = new MarginContainer
+			{
+				SizeFlagsHorizontal = SizeFlags.ExpandFill,
+				SizeFlagsVertical = SizeFlags.ExpandFill,
+			};
+			margin.AddThemeConstantOverride("margin_left", 6);
+			margin.AddThemeConstantOverride("margin_top", 4);
+			margin.AddThemeConstantOverride("margin_right", 6);
+			margin.AddThemeConstantOverride("margin_bottom", 4);
+			card.AddChild(margin);
 
-		// 対策充足状況
-		bool countered = DungeonResolver.IsCountered(gimmick, party);
-		if (countered)
-		{
-			sb.Append("\n[color=lime][b]✔ 対策充足[/b][/color]（部隊編成またはポーチで対応済み）");
-		}
-		else
-		{
-			if (gimmick.Type == BossGimmickType.InstantKill)
-				sb.Append("\n[color=red][b]☠ 即死級攻撃 未対策（部隊壊滅・強制除籍の極大リスク！）[/b][/color]");
-			else if (gimmick.Type == BossGimmickType.HeavyArmor)
-				sb.Append("\n[color=red][b]✖ 重装甲 未対策（装甲に阻まれ被ダメージ大幅増！）[/b][/color]");
+			var label = new RichTextLabel
+			{
+				BbcodeEnabled = true,
+				FitContent = true,
+				SizeFlagsHorizontal = SizeFlags.ExpandFill,
+			};
+			label.AddThemeFontSizeOverride("normal_font_size", 11);
+
+			var sb = new StringBuilder();
+			sb.Append($"[b]【{title}】[/b] ");
+
+			if (boss == null)
+			{
+				sb.Append("[color=gray]対象なし[/color]\n");
+				sb.Append("[color=lime]✔ 安全[/color]");
+			}
+			else if (tier < IntelTier.Hazards)
+			{
+				sb.Append("[color=gray]危険度 ？？？[/color]\n");
+				sb.Append("[color=yellow]？ 未解析（解析率50%で開示）[/color]");
+			}
 			else
-				sb.Append("\n[color=red][b]✖ 未対策（被ダメージ増大のリスク）[/b][/color]");
-		}
+			{
+				var gimmick = boss.Gimmicks.FirstOrDefault(g => g.Type == type);
+				if (gimmick != null)
+				{
+					sb.Append($"危険度 [color=orange]{DangerStars(gimmick.DangerLevel)}[/color]\n");
 
-		return sb.ToString();
+					if (tier >= IntelTier.Countermeasures)
+					{
+						var routes = CounterRoutes(gimmick);
+						string routeStr = routes.Count > 0 ? string.Join("／", routes) : "有効な対策なし";
+						sb.Append($"[color=cyan]対策：{routeStr}[/color]\n");
+					}
+					else
+					{
+						sb.Append("[color=gray]対策条件：？？？（解析率75%で開示）[/color]\n");
+					}
+
+					bool countered = DungeonResolver.IsCountered(gimmick, previewParty);
+					if (countered)
+					{
+						sb.Append("[color=lime][b]✔ 対策充足[/b][/color]");
+					}
+					else
+					{
+						if (type == BossGimmickType.InstantKill)
+							sb.Append("[color=red][b]☠ 即死級 未対策（壊滅リスク）[/b][/color]");
+						else if (type == BossGimmickType.HeavyArmor)
+							sb.Append("[color=red][b]✖ 重装甲 未対策（被ダメ増）[/b][/color]");
+						else
+							sb.Append("[color=red][b]✖ 未対策[/b][/color]");
+					}
+				}
+				else
+				{
+					sb.Append("[color=gray]能力なし[/color]\n");
+					sb.Append("[color=lime][b]✔ 安全（この能力は不所持）[/b][/color]");
+				}
+			}
+
+			label.AppendText(sb.ToString());
+			margin.AddChild(label);
+			_gimmickContainer.AddChild(card);
+		}
 	}
 
 	private static List<string> CounterRoutes(BossGimmick gimmick)
@@ -559,34 +629,6 @@ public partial class DungeonPanel : ScrollContainer
 		if (!string.IsNullOrEmpty(gimmick.RequiredItemId))
 			routes.Add($"「{ConsumableCatalog.FindById(gimmick.RequiredItemId)?.Name ?? gimmick.RequiredItemId}」の携行");
 		return routes;
-	}
-
-	private void AddGimmickCard(string bbcode)
-	{
-		var card = new PanelContainer
-		{
-			SizeFlagsHorizontal = SizeFlags.ExpandFill,
-		};
-		var margin = new MarginContainer
-		{
-			SizeFlagsHorizontal = SizeFlags.ExpandFill,
-		};
-		margin.AddThemeConstantOverride("margin_left", 6);
-		margin.AddThemeConstantOverride("margin_top", 4);
-		margin.AddThemeConstantOverride("margin_right", 6);
-		margin.AddThemeConstantOverride("margin_bottom", 4);
-		card.AddChild(margin);
-
-		var label = new RichTextLabel
-		{
-			BbcodeEnabled = true,
-			FitContent = true,
-			SizeFlagsHorizontal = SizeFlags.ExpandFill,
-		};
-		label.AddThemeFontSizeOverride("normal_font_size", 11);
-		label.AppendText(bbcode);
-		margin.AddChild(label);
-		_gimmickContainer.AddChild(card);
 	}
 
 	private void ClearGimmickCards()
@@ -865,7 +907,7 @@ public partial class DungeonPanel : ScrollContainer
 				_ => "[color=orange]手こずりながらも、少しは奥へ進めるだろう[/color]",
 			};
 
-			sb.AppendLine($"[b]🏃 大迷宮潜行（1Fから進軍）[/b]　走破力：[color=cyan]{score:F0}[/color] → 見立て：{rankView}");
+			sb.AppendLine($"[b]🏃 大迷宮へ潜行（進軍）[/b]　走破力：[color=cyan]{score:F0}[/color] → 見立て：{rankView}");
 			sb.AppendLine($"[color=gray]目標：第{boss.Floor}層「{boss.Name}」扉前まで潜行（区間進軍倍率 ×{speed:F1}）[/color]");
 
 			_scoutingButton.TooltipText =
@@ -880,7 +922,7 @@ public partial class DungeonPanel : ScrollContainer
 			var tier = ScoutingResolver.PreviewGuardTier(party, boss);
 			double guardPower = ScoutingResolver.CalculateGuardPower(party);
 
-			sb.AppendLine($"[b]🔍 迷宮調査[/b]　護衛評価：[color={GuardTierColor(tier)}][b]{GuardTierLabel(tier)}[/b][/color]（護衛力 {guardPower:F0}） {GuardTierDescription(tier)}");
+			sb.AppendLine($"[b]🔍 迷宮調査に出撃（解析）[/b]　護衛評価：[color={GuardTierColor(tier)}][b]{GuardTierLabel(tier)}[/b][/color]（護衛力 {guardPower:F0}） {GuardTierDescription(tier)}");
 
 			string tooltip =
 				$"護衛力（隊員の中で最も高いSTR・VIT・INT）：{guardPower:F0}\n" +
