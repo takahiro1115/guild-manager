@@ -211,6 +211,64 @@ namespace GuildManager.Core.Tests
                 "盗賊・斥候ボーナスにより採取スコアが上がるため、獲得数も同等以上になるはず");
         }
 
+        // ---------------- 未鑑定遺物のドロップ（→ 03 §4.7、指示書指定テスト） ----------------
+
+        [Fact]
+        public void Gathering_CanDrop_UnidentifiedItem()
+        {
+            // AlwaysMinRng：ドロップ判定のNextInt(1,100)が常に1を返すため、ドロップ確率
+            // （基礎5%〜上限15%）を必ず下回り、遺物が出土する。
+            var member = MakeAdventurer(agiDex: 40, ldr: 20);
+            var field = MakeField("forest", reachedFloor: 1);
+            var state = new GameState { Adventurers = { member }, DungeonFields = { field } };
+
+            var dungeon = new DungeonExpeditionSystem(
+                new ScoutingResolver(new AlwaysMinRng()),
+                new DungeonResolver(new AlwaysMinRng()),
+                new SatisfactionSystem(),
+                new CompatibilitySystem(new AlwaysMinRng()),
+                gatheringResolver: new GatheringResolver(new AlwaysMinRng()));
+
+            Assert.True(dungeon.TryDispatchGathering(state, PartyOf(member), field));
+            var resolution = Assert.Single(dungeon.ProcessWeeklyMissions(state));
+
+            var relic = Assert.Single(state.UnidentifiedItems);
+            Assert.Same(relic, resolution.GatheringResult!.UnidentifiedItemFound);
+            Assert.Same(relic, Assert.Single(resolution.RelicsFound));
+            Assert.Equal("forest", relic.OriginFieldId);
+            Assert.Equal(1, relic.OriginFloor);
+            Assert.True(relic.AppraisalCost > 0);
+            Assert.StartsWith("？？？", relic.Name);
+        }
+
+        [Fact]
+        public void Gathering_DoesNotDropRelic_WhenRollExceedsDropRate()
+        {
+            // AlwaysMaxRng：ドロップ判定が常に100を返すため、上限15%を超えて必ず外れる。
+            var member = MakeAdventurer(agiDex: 40, ldr: 20);
+            var field = MakeField("forest", reachedFloor: 1);
+
+            var result = new GatheringResolver(new AlwaysMaxRng()).Resolve(PartyOf(member), field);
+
+            Assert.Null(result.UnidentifiedItemFound);
+        }
+
+        [Fact]
+        public void Gathering_RelicDropChance_RisesWithScoreAndDepth()
+        {
+            // ドロップ確率は採取スコア（DEX/AGI/隊長LDR由来）と到達階層で伸びる
+            // （→ RelicBalance.GetGatheringDropPercent）。
+            double weakScore = GatheringResolver.CalculateGatheringScore(PartyOf(MakeAdventurer(agiDex: 5)));
+            double strongScore = GatheringResolver.CalculateGatheringScore(PartyOf(MakeAdventurer(agiDex: 200, ldr: 100)));
+
+            int shallowWeak = RelicBalance.GetGatheringDropPercent(weakScore, 1);
+            int deepStrong = RelicBalance.GetGatheringDropPercent(strongScore, 80);
+
+            Assert.Equal(RelicBalance.GatheringDropBasePct, shallowWeak);
+            Assert.True(deepStrong > shallowWeak);
+            Assert.True(deepStrong <= RelicBalance.GatheringDropMaxPct);
+        }
+
         [Fact]
         public void Gathering_AddsMaterials_ToGameState()
         {

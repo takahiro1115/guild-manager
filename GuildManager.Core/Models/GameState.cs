@@ -201,6 +201,23 @@ namespace GuildManager.Core.Models
         }
 
         /// <summary>
+        /// 未鑑定の古代遺物（レリック）の在庫（→ Models.UnidentifiedItem、03 §4.7）。探索（採取）任務の
+        /// 副産物と階層ボス撃破の確定ドロップで積み上がり、鑑定（→ Systems.AppraisalSystem.Appraise）で
+        /// 1個ずつ消費される。本フィールド追加前の既存セーブにはJSON側にキー自体が無いが、
+        /// System.Text.Jsonは未知プロパティを無視して既定値（空リスト）のまま復元するため、
+        /// ロード自体が失敗することはない（→ CompletedResearchIdsと同じ互換性の担保）。
+        /// </summary>
+        public List<UnidentifiedItem> UnidentifiedItems { get; set; } = new();
+
+        /// <summary>
+        /// ギルド保管庫（→ Models.EquipmentItem、03 §4.7）。鑑定で出土した武具など、まだ誰にも
+        /// 装備させていない現物の在庫。冒険者側は従来どおりカタログIdの文字列で装備状態を持つ
+        /// （→ Adventurer.EquippedWeaponId）ため、ここは「在庫」専用で装備状態は表現しない。
+        /// UnidentifiedItemsと同じく、本フィールドを持たない旧セーブでは空リストで復元される。
+        /// </summary>
+        public List<EquipmentItem> Armory { get; set; } = new();
+
+        /// <summary>
         /// 完了済みの研究Id一覧（→ Models.ResearchDefinition・アルベールの研究室）。
         /// 一度完了した研究は取り消せない（削除する経路を用意しない）。初期値は空集合、
         /// 既存セーブ（本フィールド追加前）はJSON側にキーが無いため復元時は自動的に空集合になる
@@ -246,6 +263,8 @@ namespace GuildManager.Core.Models
                 SavedParties = new List<SavedParty>(SavedParties),
                 DungeonFields = new List<DungeonField>(DungeonFields),
                 Materials = new Dictionary<string, int>(Materials),
+                UnidentifiedItems = new List<UnidentifiedItem>(UnidentifiedItems),
+                Armory = new List<EquipmentItem>(Armory),
                 CompletedResearchIds = new HashSet<string>(CompletedResearchIds),
             };
 
@@ -326,6 +345,10 @@ namespace GuildManager.Core.Models
                 SavedParties = new List<SavedParty>(data.SavedParties),
                 DungeonFields = new List<DungeonField>(data.DungeonFields),
                 Materials = new Dictionary<string, int>(data.Materials),
+                // 未鑑定遺物・ギルド保管庫（→ 03 §4.7）。本フィールドを持たない旧セーブでは
+                // System.Text.Jsonがプロパティ初期化子の空リストをそのまま残すため、空で復元される。
+                UnidentifiedItems = new List<UnidentifiedItem>(data.UnidentifiedItems ?? new List<UnidentifiedItem>()),
+                Armory = new List<EquipmentItem>(data.Armory ?? new List<EquipmentItem>()),
                 CompletedResearchIds = new HashSet<string>(data.CompletedResearchIds),
                 Facilities = new List<Facility>(),
             };

@@ -1477,6 +1477,74 @@ namespace GuildManager.Core.Tests
             Assert.Throws<FormatException>(() => GameState.FromSaveData(data));
         }
 
+        // ---------------- 未鑑定遺物のドロップ（→ 03 §4.7） ----------------
+
+        [Fact]
+        public void ProcessWeeklyMissions_BossVictory_DropsUnidentifiedRelic()
+        {
+            var boss = new FloorBoss { Name = "弱いボス", Floor = 10, MaxHp = 1, CurrentHp = 1 };
+            var field = new DungeonField { Id = "forest", Name = "常夜の森", Order = 1, IsUnlocked = true, Bosses = { boss } };
+            var state = new GameState { DungeonFields = { field } };
+            var strongParty = PartyOf(MakeAdventurer(JobClass.Warrior, 200), MakeAdventurer(JobClass.Cleric, 200));
+
+            var system = BuildSystem();
+            Assert.True(system.TryDispatch(state, strongParty, boss, DungeonMissionType.BossAssault));
+            var resolution = Assert.Single(system.ProcessWeeklyMissions(state));
+
+            Assert.Equal(DungeonOutcome.Victory, resolution.DungeonResult!.Outcome);
+
+            // 撃破は確定ドロップ。最低保証希少度（→ relic.csv BossMinimumRarity）を下回らない。
+            var relic = Assert.Single(state.UnidentifiedItems);
+            Assert.Same(relic, Assert.Single(resolution.RelicsFound));
+            Assert.True(relic.Rarity >= RelicBalance.BossMinimumRarity);
+            Assert.Equal("forest", relic.OriginFieldId);
+            Assert.Equal(10, relic.OriginFloor);
+            Assert.Equal(RelicBalance.GetAppraisalCost(relic.Rarity), relic.AppraisalCost);
+        }
+
+        [Fact]
+        public void ProcessWeeklyMissions_BossRetreat_DropsNoRelic()
+        {
+            // 撤退（火力不足）では遺物は出ない。撃破成功時のみの報酬であること。
+            var boss = new FloorBoss { Name = "硬すぎるボス", Floor = 90, MaxHp = 999999, CurrentHp = 999999 };
+            var field = new DungeonField { Id = "forest", Name = "常夜の森", Order = 1, IsUnlocked = true, Bosses = { boss } };
+            var state = new GameState { DungeonFields = { field } };
+            var weakParty = PartyOf(MakeAdventurer(JobClass.Scholar, 5));
+
+            var system = BuildSystem();
+            Assert.True(system.TryDispatch(state, weakParty, boss, DungeonMissionType.BossAssault));
+            var resolution = Assert.Single(system.ProcessWeeklyMissions(state));
+
+            Assert.Equal(DungeonOutcome.Retreat, resolution.DungeonResult!.Outcome);
+            Assert.Empty(state.UnidentifiedItems);
+            Assert.Empty(resolution.RelicsFound);
+        }
+
+        [Fact]
+        public void RoundTrip_PreservesUnidentifiedItems_AndArmory()
+        {
+            var state = new GameState();
+            state.UnidentifiedItems.Add(new UnidentifiedItem
+            {
+                Name = "？？？ 苔むした封印箱", Rarity = ItemRarity.Epic,
+                OriginFieldId = "cave", OriginFloor = 35, AppraisalCost = 500,
+            });
+            state.Armory.Add(EquipmentItem.FromCatalog(ItemCatalog.IronSword, acquiredAtWeek: 12, acquiredFrom: "鑑定"));
+
+            var restored = GameState.FromSaveData(state.ToSaveData());
+
+            var relic = Assert.Single(restored.UnidentifiedItems);
+            Assert.Equal(ItemRarity.Epic, relic.Rarity);
+            Assert.Equal("cave", relic.OriginFieldId);
+            Assert.Equal(35, relic.OriginFloor);
+            Assert.Equal(500, relic.AppraisalCost);
+
+            var equipment = Assert.Single(restored.Armory);
+            Assert.Equal(ItemCatalog.IronSwordId, equipment.ItemId);
+            Assert.Equal(12, equipment.AcquiredAtWeek);
+            Assert.NotNull(equipment.GetDefinition());
+        }
+
         // ---------------- 出撃前プレビュー ----------------
 
         [Fact]

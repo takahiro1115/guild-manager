@@ -69,6 +69,13 @@ namespace GuildManager.Core.Systems
         public Dictionary<string, int> DepositedMaterials { get; set; } = new();
 
         /// <summary>
+        /// この解決で持ち帰った未鑑定の古代遺物（→ 03 §4.7）。採取任務の副産物（確率ドロップ）と
+        /// 階層ボス撃破の確定ドロップで設定される。既に GameState.UnidentifiedItems へ格納済みの
+        /// 同一インスタンスを指す（週報ログの表示用）。何も出なければ空。
+        /// </summary>
+        public List<UnidentifiedItem> RelicsFound { get; set; } = new();
+
+        /// <summary>
         /// この解決で起きた出撃成長（→ GrowthSystem.ApplyExpeditionGrowth。道中進軍・ボス撃破・
         /// 迷宮調査・採取）。成長が無ければ空。週報の表示用。
         /// </summary>

@@ -34,6 +34,7 @@ namespace GuildManager.Core.Systems
         private const int DefaultTraversalSeed = 1719;
         private const int DefaultGatheringSeed = 1848;
         private const int DefaultGrowthSeed = 1907;
+        private const int DefaultRelicSeed = 1969;
 
         private readonly ScoutingResolver _scoutingResolver;
         private readonly DungeonResolver _dungeonResolver;
@@ -42,6 +43,12 @@ namespace GuildManager.Core.Systems
         private readonly SatisfactionSystem _satisfactionSystem;
         private readonly CompatibilitySystem _compatibilitySystem;
         private readonly GrowthSystem _growthSystem;
+
+        /// <summary>
+        /// 階層ボス撃破の遺物ドロップ用の乱数（→ 03 §4.7）。他の判定（討伐・調査・採取）と
+        /// 別インスタンス・別シードにし、互いの抽選回数が結果に影響しないようにする。
+        /// </summary>
+        private readonly IRng _relicRng;
 
         public DungeonExpeditionSystem(
             ScoutingResolver scoutingResolver,
@@ -53,7 +60,9 @@ namespace GuildManager.Core.Systems
             DungeonTraversalResolver? traversalResolver = null,
             GatheringResolver? gatheringResolver = null,
             // 省略可能：出撃成長（→ GrowthSystem.ApplyExpeditionGrowth）。省略時は固定シードの既定構成。
-            GrowthSystem? growthSystem = null)
+            GrowthSystem? growthSystem = null,
+            // 省略可能：階層ボス撃破の遺物ドロップ用乱数（→ 03 §4.7）。省略時は固定シード。
+            IRng? relicRng = null)
         {
             _scoutingResolver = scoutingResolver;
             _dungeonResolver = dungeonResolver;
@@ -62,6 +71,7 @@ namespace GuildManager.Core.Systems
             _satisfactionSystem = satisfactionSystem;
             _compatibilitySystem = compatibilitySystem;
             _growthSystem = growthSystem ?? new GrowthSystem(new SeededRng(DefaultGrowthSeed));
+            _relicRng = relicRng ?? new SeededRng(DefaultRelicSeed);
         }
 
         /// <summary>
@@ -341,6 +351,15 @@ namespace GuildManager.Core.Systems
                     AwardContribution(state, mission.Party, DungeonBalance.ContributionPerGathering);
 
                 var resolution = new DungeonMissionResolution(mission.Party, mission.Field, gathering);
+
+                // 未鑑定の古代遺物（→ 03 §4.7）：GatheringResolverが記録したドロップを
+                // ここでギルドの未鑑定在庫へ移す（素材・ゴールドと同じく反映は週次解決側の責務）。
+                if (gathering.UnidentifiedItemFound != null)
+                {
+                    state.UnidentifiedItems.Add(gathering.UnidentifiedItemFound);
+                    resolution.RelicsFound.Add(gathering.UnidentifiedItemFound);
+                }
+
                 resolution.GrowthEvents = _growthSystem.ApplyExpeditionGrowth(state, mission.Party, DungeonMissionType.Gathering, isBossVictory: false);
                 // 士気（→ SatisfactionSystem.ApplyExpeditionSatisfaction）：素材を持ち帰れた時のみ上がる。
                 _satisfactionSystem.ApplyExpeditionSatisfaction(state, mission.Party, DungeonMissionType.Gathering,
@@ -489,6 +508,7 @@ namespace GuildManager.Core.Systems
             // 撤退（Retreat）時は何も進行しない。
             int? squadSlotsExpandedTo = null;
             DungeonField? fieldNewlyUnlocked = null;
+            UnidentifiedItem? relic = null;
             if (assault.Outcome == DungeonOutcome.Victory)
             {
                 int slotsBefore = state.UnlockedSquadSlots;
@@ -504,10 +524,20 @@ namespace GuildManager.Core.Systems
                     squadSlotsExpandedTo = state.UnlockedSquadSlots;
                 fieldNewlyUnlocked = state.DungeonFields
                     .FirstOrDefault(f => f.IsUnlocked && !unlockedFieldIdsBefore.Contains(f.Id));
+
+                // 未鑑定の古代遺物の確定ドロップ（→ 03 §4.7）。撃破したボスの階層が深いほど
+                // 希少度ロールが伸び、さらにボス撃破ボーナスと最低保証希少度が乗る
+                // （→ RelicBalance.BossRelicRollBonus・BossMinimumRarity）。
+                relic = AppraisalSystem.CreateRelic(
+                    _relicRng, mission.Field.Id, boss.Floor,
+                    RelicBalance.BossRelicRollBonus, RelicBalance.BossMinimumRarity);
+                state.UnidentifiedItems.Add(relic);
             }
 
             var resolution = new DungeonMissionResolution(
                 mission.Party, boss, mission.Field, intelBefore, assault, squadSlotsExpandedTo, fieldNewlyUnlocked);
+            if (relic != null)
+                resolution.RelicsFound.Add(relic);
             // 出撃成長：撃破した場合のみ（全7能力・試行回数多）。撤退・全滅では成長しない。強制除籍者は対象外。
             resolution.GrowthEvents = _growthSystem.ApplyExpeditionGrowth(
                 state, mission.Party, DungeonMissionType.BossAssault, isBossVictory: assault.Outcome == DungeonOutcome.Victory);

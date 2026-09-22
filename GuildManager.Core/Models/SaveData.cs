@@ -167,6 +167,22 @@ namespace GuildManager.Core.Models
         public Dictionary<string, int> Materials { get; set; } = new();
 
         /// <summary>
+        /// 未鑑定の古代遺物の在庫（→ GameState.UnidentifiedItems、03 §4.7）。UnidentifiedItemは
+        /// 文字列・整数・列挙のみで構成されているため、Compatibility等と違って変換用の別Recordは
+        /// 不要で、直接JSON化できる。本フィールド追加前の既存セーブにはJSON側にキー自体が無いが、
+        /// System.Text.Jsonは未知プロパティを無視し、初期化子の空リストのまま復元するため
+        /// ロード自体は失敗しない（→ 03 §12「既存セーブとの互換性維持」）。
+        /// </summary>
+        public List<UnidentifiedItem> UnidentifiedItems { get; set; } = new();
+
+        /// <summary>
+        /// ギルド保管庫の装備在庫（→ GameState.Armory、03 §4.7）。EquipmentItemはカタログIdと
+        /// 表示名のみを持つためそのままJSON化できる（カタログ定義そのものはコード側にあり保存不要、
+        /// → 本ファイル末尾の注記と同じ考え方）。UnidentifiedItemsと同じく旧セーブでは空で復元される。
+        /// </summary>
+        public List<EquipmentItem> Armory { get; set; } = new();
+
+        /// <summary>
         /// 完了済みの研究Id一覧（→ GameState.CompletedResearchIds、アルベールの研究室）。
         /// HashSet&lt;string&gt;はJSON配列として直接シリアライズできる。本フィールド追加前の
         /// 既存セーブにはJSON側にキー自体が無いが、System.Text.Jsonは未知プロパティを

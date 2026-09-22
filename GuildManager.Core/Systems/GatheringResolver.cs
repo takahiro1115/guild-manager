@@ -59,10 +59,28 @@ namespace GuildManager.Core.Systems
             result.MaterialId = materialId;
             result.MaterialCount = materialCount;
             result.GoldEarned = (int)Math.Round(score * GatheringBalance.GoldPerScore);
+            result.UnidentifiedItemFound = RollRelic(field, score);
 
             ApplyHpLoss(result, party);
 
             return result;
+        }
+
+        /// <summary>
+        /// 未鑑定の古代遺物のドロップ判定（→ 03 §4.7）。採取スコア（DEX/AGI/隊長LDR由来）と
+        /// フィールドの最高到達階層が高いほど確率が上がる（→ RelicBalance.GetGatheringDropPercent、
+        /// 基礎5%〜上限15%）。ドロップしなければnull。
+        ///
+        /// ここではGameStateを書き換えず、結果（GatheringResult）に記録するだけに留める
+        /// （素材・ゴールドと同じく、ギルドへの反映は週次解決側の責務。→ GatheringResolver冒頭の方針）。
+        /// </summary>
+        private UnidentifiedItem? RollRelic(DungeonField field, double score)
+        {
+            int dropPct = RelicBalance.GetGatheringDropPercent(score, field.ReachedFloor);
+            if (_rng.NextInt(1, 100) > dropPct)
+                return null;
+
+            return AppraisalSystem.CreateRelic(_rng, field.Id, field.ReachedFloor);
         }
 
         /// <summary>

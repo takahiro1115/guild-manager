@@ -606,6 +606,83 @@ namespace GuildManager.Core.Tests
             finally { Directory.Delete(dir, recursive: true); }
         }
 
+        // ---------------- 未鑑定遺物・ギルド保管庫（→ 03 §4.7、2026年9月新設） ----------------
+
+        [Fact]
+        public void RoundTrip_PreservesUnidentifiedItemsAndArmory()
+        {
+            var state = new GameState { Gold = 5000 };
+            state.UnidentifiedItems.Add(new UnidentifiedItem
+            {
+                Name = "？？？ 歪んだ古代装具", Rarity = ItemRarity.Legendary,
+                OriginFieldId = "abyss", OriginFloor = 70, AppraisalCost = 1200,
+            });
+            state.Armory.Add(EquipmentItem.FromCatalog(ItemCatalog.HeavyArmor, acquiredAtWeek: 40, acquiredFrom: "鑑定"));
+
+            // 実際のJSONシリアライズを通しても往復できること（EquipmentItem.GetDefinitionを
+            // プロパティではなくメソッドにしてあるのは、カタログ定義がJSONへ書き出されるのを
+            // 避けるため。→ Models.EquipmentItem）。
+            var json = JsonSerializer.Serialize(state.ToSaveData());
+            var restored = GameState.FromSaveData(JsonSerializer.Deserialize<SaveData>(json)!);
+
+            var relic = Assert.Single(restored.UnidentifiedItems);
+            Assert.Equal(ItemRarity.Legendary, relic.Rarity);
+            Assert.Equal("abyss", relic.OriginFieldId);
+            Assert.Equal(70, relic.OriginFloor);
+            Assert.Equal(1200, relic.AppraisalCost);
+
+            var equipment = Assert.Single(restored.Armory);
+            Assert.Equal(ItemCatalog.HeavyArmorId, equipment.ItemId);
+            Assert.Equal("重装鎧", equipment.Name);
+            Assert.Equal(40, equipment.AcquiredAtWeek);
+        }
+
+        [Fact]
+        public void LegacySave_WithoutUnidentifiedItemsAndArmory_StillLoads()
+        {
+            // 遺物・保管庫の新設（2026年9月）以前のセーブには unidentified_items / armory に
+            // 相当するキーが存在しない。System.Text.Jsonはプロパティ初期化子の空リストを
+            // そのまま残すため、空在庫として正常に復元されること（→ 03 §12の互換性方針）。
+            var dir = CreateTempSaveDirectory();
+            try
+            {
+                var data = new GameState { WeekNumber = 23, Gold = 8888 }.ToSaveData();
+                var json = JsonSerializer.Serialize(data);
+
+                // シリアライズ済みJSONから当該キーを丸ごと取り除き、旧形式を再現する。
+                json = json.Replace("\"UnidentifiedItems\":[],", "").Replace("\"Armory\":[],", "");
+                Assert.DoesNotContain("\"UnidentifiedItems\"", json);
+                Assert.DoesNotContain("\"Armory\"", json);
+
+                File.WriteAllText(Path.Combine(dir, "savegame.json"), json);
+                var restored = new SaveLoadService(dir).Load();
+
+                Assert.NotNull(restored);
+                Assert.Equal(23, restored!.WeekNumber);
+                Assert.Equal(8888, restored.Gold);
+                Assert.Empty(restored.UnidentifiedItems);
+                Assert.Empty(restored.Armory);
+            }
+            finally { Directory.Delete(dir, recursive: true); }
+        }
+
+        [Fact]
+        public void LegacySave_WithExplicitNullUnidentifiedItems_StillLoads()
+        {
+            // 手編集・別バージョンの書き出し等でキーが null になっていても、
+            // FromSaveData側のnull合体（→ GameState.FromSaveData）で空在庫へ落ちること。
+            var data = new GameState { Gold = 321 }.ToSaveData();
+            var json = JsonSerializer.Serialize(data)
+                .Replace("\"UnidentifiedItems\":[]", "\"UnidentifiedItems\":null")
+                .Replace("\"Armory\":[]", "\"Armory\":null");
+
+            var restored = GameState.FromSaveData(JsonSerializer.Deserialize<SaveData>(json)!);
+
+            Assert.Equal(321, restored.Gold);
+            Assert.Empty(restored.UnidentifiedItems);
+            Assert.Empty(restored.Armory);
+        }
+
         [Fact]
         public void Load_DoesNotDeleteOrOverwrite_CorruptedSaveFile()
         {

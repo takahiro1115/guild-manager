@@ -1,0 +1,116 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/UI/InventoryPanel.cs" id="1_script"]
+
+[node name="InventoryPanel" type="VBoxContainer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 6
+script = ExtResource("1_script")
+
+[node name="TitleLabel" type="Label" parent="."]
+layout_mode = 2
+theme_override_font_sizes/font_size = 15
+text = "倉庫・遺物：大迷宮から持ち帰った未鑑定の古代遺物をアルベールに鑑定させ、採取素材とギルド保管庫の在庫を一元管理する。"
+autowrap_mode = 2
+
+[node name="Tabs" type="TabContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+current_tab = 0
+
+[node name="RelicTab" type="HBoxContainer" parent="Tabs"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 10
+metadata/_tab_index = 0
+
+[node name="RelicLeftPane" type="VBoxContainer" parent="Tabs/RelicTab"]
+custom_minimum_size = Vector2(620, 0)
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="RelicSummaryLabel" type="RichTextLabel" parent="Tabs/RelicTab/RelicLeftPane"]
+unique_name_in_owner = true
+layout_mode = 2
+bbcode_enabled = true
+fit_content = true
+
+[node name="RelicList" type="ItemList" parent="Tabs/RelicTab/RelicLeftPane"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+allow_reselect = true
+
+[node name="RelicSeparator" type="VSeparator" parent="Tabs/RelicTab"]
+layout_mode = 2
+
+[node name="RelicRightPane" type="VBoxContainer" parent="Tabs/RelicTab"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="RelicDetailLabel" type="RichTextLabel" parent="Tabs/RelicTab/RelicRightPane"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+bbcode_enabled = true
+
+[node name="AlbertPanel" type="PanelContainer" parent="Tabs/RelicTab/RelicRightPane"]
+custom_minimum_size = Vector2(0, 150)
+layout_mode = 2
+
+[node name="AlbertMargin" type="MarginContainer" parent="Tabs/RelicTab/RelicRightPane/AlbertPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 8
+
+[node name="AlbertCommentLabel" type="RichTextLabel" parent="Tabs/RelicTab/RelicRightPane/AlbertPanel/AlbertMargin"]
+unique_name_in_owner = true
+layout_mode = 2
+bbcode_enabled = true
+scroll_following = true
+
+[node name="AppraiseButton" type="Button" parent="Tabs/RelicTab/RelicRightPane"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 46)
+layout_mode = 2
+disabled = true
+theme_override_font_sizes/font_size = 16
+text = "🔬 アルベールに鑑定させる"
+
+[node name="MaterialTab" type="ScrollContainer" parent="Tabs"]
+visible = false
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+metadata/_tab_index = 1
+
+[node name="MaterialListBox" type="VBoxContainer" parent="Tabs/MaterialTab"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="ArmoryTab" type="ScrollContainer" parent="Tabs"]
+visible = false
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+metadata/_tab_index = 2
+
+[node name="ArmoryListBox" type="VBoxContainer" parent="Tabs/ArmoryTab"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6

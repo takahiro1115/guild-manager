@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using GuildManager.Core.Models;
 
 namespace GuildManager.Core.Systems
 {
@@ -17,6 +18,13 @@ namespace GuildManager.Core.Systems
 
         /// <summary>採取と並行して得た換金ゴールド（少量の一時金）。</summary>
         public int GoldEarned { get; set; }
+
+        /// <summary>
+        /// 今回の採取で掘り当てた未鑑定の古代遺物（→ 03 §4.7）。ドロップしなかった週はnull。
+        /// GameState.UnidentifiedItemsへの反映は週次解決側が行う（→ DungeonExpeditionSystem.
+        /// ResolveMission。GatheringResolver自体はGameStateを書き換えない設計のため）。
+        /// </summary>
+        public UnidentifiedItem? UnidentifiedItemFound { get; set; }
 
         /// <summary>冒険者IDごとの、今回の採取で失ったHP量。</summary>
         public Dictionary<Guid, int> HpLostByAdventurer { get; set; } = new();

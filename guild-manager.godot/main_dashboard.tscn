@@ -9,6 +9,7 @@
 [ext_resource type="PackedScene" path="res://scenes/DungeonPanel.tscn" id="8_dungeon"]
 [ext_resource type="PackedScene" path="res://research_panel.tscn" id="9_research"]
 [ext_resource type="PackedScene" path="res://scenes/AdventurerPanel.tscn" id="10_adventurer"]
+[ext_resource type="PackedScene" path="res://scenes/InventoryPanel.tscn" id="11_inventory"]
 
 [node name="MainDashboard" type="Control" unique_id=210796005]
 layout_mode = 3
@@ -100,6 +101,13 @@ layout_mode = 2
 toggle_mode = true
 text = "🏥 施設管理"
 
+[node name="NavWarehouseBtn" type="Button" parent="Root/NavigationBar" unique_id=450192837]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(150, 36)
+layout_mode = 2
+toggle_mode = true
+text = "📦 倉庫・遺物"
+
 [node name="MainContentArea" type="HBoxContainer" parent="Root" unique_id=1658892758]
 unique_name_in_owner = true
 layout_mode = 2
@@ -149,6 +157,12 @@ unique_name_in_owner = true
 visible = false
 layout_mode = 2
 metadata/_tab_index = 4
+
+[node name="InventoryTab" parent="Root/MainContentArea/CenterPanel" unique_id=176574646 instance=ExtResource("11_inventory")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+metadata/_tab_index = 5
 
 [node name="RightPanel" type="VBoxContainer" parent="Root/MainContentArea" unique_id=763252257]
 unique_name_in_owner = true

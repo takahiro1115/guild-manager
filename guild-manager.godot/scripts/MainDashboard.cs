@@ -69,7 +69,10 @@ public partial class MainDashboard : Control
 		Adventurer = 1,
 		Party = 2,
 		Research = 3,
-		Facility = 4
+		Facility = 4,
+
+		/// <summary>倉庫・遺物（未鑑定遺物の鑑定・採取素材・ギルド保管庫。→ 03 §4.7）。</summary>
+		Warehouse = 5
 	}
 
 	private TabContainer _centerPanel = null!;
@@ -79,6 +82,7 @@ public partial class MainDashboard : Control
 	private Button _navPartyBtn = null!;
 	private Button _navResearchBtn = null!;
 	private Button _navFacilityBtn = null!;
+	private Button _navWarehouseBtn = null!;
 
 	// ---- 大迷宮（ダンジョン攻略システム：調査・討伐・採取。出撃の主画面） ----
 	private DungeonPanel _dungeonPanel = null!;
@@ -93,6 +97,10 @@ public partial class MainDashboard : Control
 
 	// ---- アルベールの研究室（素材投資システム） ----
 	private ResearchPanel _researchPanel = null!;
+
+	// ---- 倉庫・遺物（未鑑定遺物の鑑定・採取素材・ギルド保管庫。→ 03 §4.7） ----
+	private InventoryPanel _inventoryPanel = null!;
+	private AppraisalSystem _appraisalSystem = null!;
 
 	/// <summary>大迷宮へ1部隊も出撃予定が無いまま週を進めようとした時の確認ダイアログ。</summary>
 	private ConfirmationDialog _noDungeonDispatchDialog = null!;
@@ -139,12 +147,14 @@ public partial class MainDashboard : Control
 		_navPartyBtn = GetNode<Button>("%NavPartyBtn");
 		_navResearchBtn = GetNode<Button>("%NavResearchBtn");
 		_navFacilityBtn = GetNode<Button>("%NavFacilityBtn");
+		_navWarehouseBtn = GetNode<Button>("%NavWarehouseBtn");
 
 		_navDungeonBtn.Pressed += () => SwitchView(DashboardView.Dungeon);
 		_navAdventurerBtn.Pressed += () => SwitchView(DashboardView.Adventurer);
 		_navPartyBtn.Pressed += () => SwitchView(DashboardView.Party);
 		_navResearchBtn.Pressed += () => SwitchView(DashboardView.Research);
 		_navFacilityBtn.Pressed += () => SwitchView(DashboardView.Facility);
+		_navWarehouseBtn.Pressed += () => SwitchView(DashboardView.Warehouse);
 
 		_dungeonPanel = GetNode<DungeonPanel>("%DungeonTab");
 		_dungeonPanel.LogRequested += AppendLog;
@@ -166,6 +176,10 @@ public partial class MainDashboard : Control
 
 		_facilityPanel = GetNode<FacilityPanel>("%FacilityTab");
 		_facilityPanel.StateChanged += RefreshAll;
+
+		_inventoryPanel = GetNode<InventoryPanel>("%InventoryTab");
+		_inventoryPanel.LogRequested += AppendLog;
+		_inventoryPanel.StateChanged += RefreshAll;
 
 		SwitchView(DashboardView.Dungeon);
 
@@ -209,6 +223,9 @@ public partial class MainDashboard : Control
 		_partyFormationSystem = new PartyFormationSystem();
 		_partyFormationPanel.Initialize(_partyFormationSystem);
 		_facilityPanel.Initialize(_facilitySystem);
+		// 鑑定（→ 03 §4.7）。他の判定と別シードにし、互いの抽選回数が結果に影響しないようにする。
+		_appraisalSystem = new AppraisalSystem(new SeededRng(4649));
+		_inventoryPanel.Initialize(_appraisalSystem);
 		// 大迷宮（→ ダンジョン攻略システム）。調査・討伐は別シードにし、互いの抽選回数が結果に
 		// 影響しないようにする。強制除籍の余波（満足度・相性）は既存インスタンスを共有する。
 		_dungeonExpeditionSystem = new DungeonExpeditionSystem(
@@ -685,6 +702,7 @@ public partial class MainDashboard : Control
 			sb.AppendLine($"[color=lime]【採取任務】{resolution.Field.Name}にて素材を回収（{materialName}×{gathering.MaterialCount}、" +
 				$"換金{gathering.GoldEarned}Gを獲得）。[/color]");
 			sb.AppendLine("[color=cyan]探索部隊は全員生還した。[/color]");
+			AppendRelicLines(sb, resolution);
 			AppendHpLossLines(sb, gathering.HpLostByAdventurer);
 
 			AppendLog(sb.ToString());
@@ -814,6 +832,7 @@ public partial class MainDashboard : Control
 			if (!string.IsNullOrEmpty(boss.RewardMaterialId))
 				rewardLine += $" ／ 📦 {MaterialBalance.GetName(boss.RewardMaterialId)} ×{boss.RewardMaterialCount}";
 			sb.AppendLine($"[color=lime]{rewardLine}[/color]");
+			AppendRelicLines(sb, resolution);
 		}
 
 		AppendHpLossLines(sb, assault.HpLostByAdventurer);
@@ -853,6 +872,21 @@ public partial class MainDashboard : Control
 		}
 
 		EnqueueBossPlayback(sb.ToString());
+	}
+
+	/// <summary>
+	/// 未鑑定の古代遺物の持ち帰り報告（→ 03 §4.7）。採取の副産物・階層ボス撃破の確定ドロップの
+	/// 両方で使う。何も出なかった週は1行も出さない。
+	/// </summary>
+	private static void AppendRelicLines(StringBuilder sb, DungeonMissionResolution resolution)
+	{
+		foreach (var relic in resolution.RelicsFound)
+		{
+			var profile = RelicBalance.Get(relic.Rarity);
+			sb.AppendLine($"[color=gold][b]【遺物発見】未鑑定の古代遺物を持ち帰った！[/b][/color]　" +
+				$"[color={profile.ColorName}]{relic.Name}（{profile.Label}）[/color]");
+			sb.AppendLine($"[color=gray]倉庫・遺物タブでアルベールに鑑定させること（鑑定費用 {relic.AppraisalCost}G）。[/color]");
+		}
 	}
 
 	/// <summary>帰還時にギルドへ格納した道中の拾得物（何も無ければ出さない）。</summary>
@@ -909,7 +943,7 @@ public partial class MainDashboard : Control
 
 	/// <summary>
 	/// メニューナビゲーションバーによるメインビューの切り替え。
-	/// 大迷宮画面のみ右ペイン（作戦週報）を表示し、内政画面（人事・編成・研究・施設）では
+	/// 大迷宮画面のみ右ペイン（作戦週報）を表示し、内政画面（人事・編成・研究・施設・倉庫）では
 	/// 週報ペインを非表示にして中央ペインを画面横幅の全領域（約1900px）へ拡張する。
 	/// </summary>
 	private void SwitchView(DashboardView view)
@@ -931,7 +965,8 @@ public partial class MainDashboard : Control
 			(DashboardView.Adventurer, _navAdventurerBtn),
 			(DashboardView.Party, _navPartyBtn),
 			(DashboardView.Research, _navResearchBtn),
-			(DashboardView.Facility, _navFacilityBtn)
+			(DashboardView.Facility, _navFacilityBtn),
+			(DashboardView.Warehouse, _navWarehouseBtn)
 		};
 
 		foreach (var (view, btn) in buttons)
@@ -964,6 +999,7 @@ public partial class MainDashboard : Control
 		_partyFormationPanel.Refresh(_state);
 		_researchPanel.Refresh(_state);
 		_facilityPanel.Refresh(_state);
+		_inventoryPanel.Refresh(_state);
 	}
 
 	/// <summary>
