@@ -539,7 +539,7 @@ public partial class DungeonPanel : ScrollContainer
 			{
 				SizeFlagsHorizontal = SizeFlags.ExpandFill,
 				SizeFlagsVertical = SizeFlags.ExpandFill,
-				CustomMinimumSize = new Vector2(160, 56),
+				CustomMinimumSize = new Vector2(140, 46),
 			};
 			var margin = new MarginContainer
 			{
@@ -547,9 +547,9 @@ public partial class DungeonPanel : ScrollContainer
 				SizeFlagsVertical = SizeFlags.ExpandFill,
 			};
 			margin.AddThemeConstantOverride("margin_left", 6);
-			margin.AddThemeConstantOverride("margin_top", 4);
+			margin.AddThemeConstantOverride("margin_top", 2);
 			margin.AddThemeConstantOverride("margin_right", 6);
-			margin.AddThemeConstantOverride("margin_bottom", 4);
+			margin.AddThemeConstantOverride("margin_bottom", 2);
 			card.AddChild(margin);
 
 			var label = new RichTextLabel

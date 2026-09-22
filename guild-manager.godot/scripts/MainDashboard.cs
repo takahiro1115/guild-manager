@@ -79,7 +79,6 @@ public partial class MainDashboard : Control
 	private Button _navPartyBtn = null!;
 	private Button _navResearchBtn = null!;
 	private Button _navFacilityBtn = null!;
-	private Button _navAdvisorBtn = null!;
 
 	// ---- 大迷宮（ダンジョン攻略システム：調査・討伐・採取。出撃の主画面） ----
 	private DungeonPanel _dungeonPanel = null!;
@@ -140,14 +139,12 @@ public partial class MainDashboard : Control
 		_navPartyBtn = GetNode<Button>("%NavPartyBtn");
 		_navResearchBtn = GetNode<Button>("%NavResearchBtn");
 		_navFacilityBtn = GetNode<Button>("%NavFacilityBtn");
-		_navAdvisorBtn = GetNode<Button>("%NavAdvisorBtn");
 
 		_navDungeonBtn.Pressed += () => SwitchView(DashboardView.Dungeon);
 		_navAdventurerBtn.Pressed += () => SwitchView(DashboardView.Adventurer);
 		_navPartyBtn.Pressed += () => SwitchView(DashboardView.Party);
 		_navResearchBtn.Pressed += () => SwitchView(DashboardView.Research);
 		_navFacilityBtn.Pressed += () => SwitchView(DashboardView.Facility);
-		_navAdvisorBtn.Pressed += OnAdvisorButtonPressed;
 
 		_dungeonPanel = GetNode<DungeonPanel>("%DungeonTab");
 		_dungeonPanel.LogRequested += AppendLog;

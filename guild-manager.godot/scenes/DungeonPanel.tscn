@@ -29,10 +29,10 @@ size_flags_vertical = 3
 theme_override_constants/separation = 12
 
 [node name="ZoneA" type="PanelContainer" parent="Margin/MainHBox"]
+custom_minimum_size = Vector2(440, 0)
 layout_mode = 2
-size_flags_horizontal = 3
+size_flags_horizontal = 0
 size_flags_vertical = 3
-size_flags_stretch_ratio = 0.85
 
 [node name="ZoneAMargin" type="MarginContainer" parent="Margin/MainHBox/ZoneA"]
 layout_mode = 2
@@ -155,23 +155,21 @@ fit_content = true
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
-size_flags_stretch_ratio = 1.15
-theme_override_constants/separation = 10
+theme_override_constants/separation = 8
 
 [node name="ZoneB" type="PanelContainer" parent="Margin/MainHBox/RightColumn"]
 layout_mode = 2
-size_flags_vertical = 3
 
 [node name="ZoneBMargin" type="MarginContainer" parent="Margin/MainHBox/RightColumn/ZoneB"]
 layout_mode = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 8
-theme_override_constants/margin_right = 10
-theme_override_constants/margin_bottom = 8
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 6
 
 [node name="ZoneBVBox" type="VBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin"]
 layout_mode = 2
-theme_override_constants/separation = 6
+theme_override_constants/separation = 4
 
 [node name="ZoneBTitle" type="Label" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox"]
 layout_mode = 2
@@ -185,13 +183,13 @@ layout_mode = 2
 [node name="Margin" type="MarginContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard"]
 layout_mode = 2
 theme_override_constants/margin_left = 8
-theme_override_constants/margin_top = 6
+theme_override_constants/margin_top = 4
 theme_override_constants/margin_right = 8
-theme_override_constants/margin_bottom = 6
+theme_override_constants/margin_bottom = 4
 
 [node name="VBox" type="VBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin"]
 layout_mode = 2
-theme_override_constants/separation = 4
+theme_override_constants/separation = 3
 
 [node name="BossHeaderLabel" type="RichTextLabel" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox"]
 unique_name_in_owner = true
@@ -264,7 +262,7 @@ fit_content = true
 
 [node name="GimmickWrapper" type="VBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox"]
 layout_mode = 2
-theme_override_constants/separation = 4
+theme_override_constants/separation = 2
 
 [node name="GimmickTitle" type="Label" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/GimmickWrapper"]
 layout_mode = 2
@@ -276,8 +274,8 @@ text = "ボス特殊ギミック解析（4大能力）"
 unique_name_in_owner = true
 layout_mode = 2
 columns = 2
-theme_override_constants/h_separation = 8
-theme_override_constants/v_separation = 6
+theme_override_constants/h_separation = 6
+theme_override_constants/v_separation = 4
 
 [node name="PouchCard" type="PanelContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox"]
 layout_mode = 2
@@ -285,13 +283,13 @@ layout_mode = 2
 [node name="Margin" type="MarginContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/PouchCard"]
 layout_mode = 2
 theme_override_constants/margin_left = 8
-theme_override_constants/margin_top = 6
+theme_override_constants/margin_top = 4
 theme_override_constants/margin_right = 8
-theme_override_constants/margin_bottom = 6
+theme_override_constants/margin_bottom = 4
 
 [node name="VBox" type="VBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/PouchCard/Margin"]
 layout_mode = 2
-theme_override_constants/separation = 4
+theme_override_constants/separation = 2
 
 [node name="PouchTitle" type="Label" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/PouchCard/Margin/VBox"]
 layout_mode = 2
@@ -327,14 +325,14 @@ size_flags_vertical = 3
 
 [node name="ZoneCMargin" type="MarginContainer" parent="Margin/MainHBox/RightColumn/ZoneC"]
 layout_mode = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 8
-theme_override_constants/margin_right = 10
-theme_override_constants/margin_bottom = 8
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 6
 
 [node name="ZoneCVBox" type="VBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneC/ZoneCMargin"]
 layout_mode = 2
-theme_override_constants/separation = 6
+theme_override_constants/separation = 5
 
 [node name="ZoneCTitle" type="Label" parent="Margin/MainHBox/RightColumn/ZoneC/ZoneCMargin/ZoneCVBox"]
 layout_mode = 2
@@ -358,7 +356,7 @@ theme_override_font_sizes/font_size = 12
 
 [node name="SquadMemberContainer" type="HBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneC/ZoneCMargin/ZoneCVBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 72)
+custom_minimum_size = Vector2(0, 68)
 layout_mode = 2
 theme_override_constants/separation = 6
 
@@ -498,7 +496,7 @@ text = "出撃取り消し"
 
 [node name="PendingMissionList" type="ItemList" parent="Margin/MainHBox/RightColumn/ZoneC/ZoneCMargin/ZoneCVBox/PendingSection"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 56)
+custom_minimum_size = Vector2(0, 48)
 layout_mode = 2
 theme_override_font_sizes/font_size = 11
 auto_height = true

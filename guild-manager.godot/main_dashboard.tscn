@@ -100,12 +100,6 @@ layout_mode = 2
 toggle_mode = true
 text = "🏥 施設管理"
 
-[node name="NavAdvisorBtn" type="Button" parent="Root/NavigationBar" unique_id=450192837]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(130, 36)
-layout_mode = 2
-text = "👔 顧問室"
-
 [node name="MainContentArea" type="HBoxContainer" parent="Root" unique_id=1658892758]
 unique_name_in_owner = true
 layout_mode = 2
