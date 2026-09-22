@@ -62,6 +62,25 @@ public partial class MainDashboard : Control
 	private EquipmentPopup _equipmentPopup = null!;
 	private Button _saveButton = null!;
 
+	// ---- メニューナビゲーションバー & ペイン制御 ----
+	private enum DashboardView
+	{
+		Dungeon = 0,
+		Adventurer = 1,
+		Party = 2,
+		Research = 3,
+		Facility = 4
+	}
+
+	private TabContainer _centerPanel = null!;
+	private Control _rightPanel = null!;
+	private Button _navDungeonBtn = null!;
+	private Button _navAdventurerBtn = null!;
+	private Button _navPartyBtn = null!;
+	private Button _navResearchBtn = null!;
+	private Button _navFacilityBtn = null!;
+	private Button _navAdvisorBtn = null!;
+
 	// ---- 大迷宮（ダンジョン攻略システム：調査・討伐・採取。出撃の主画面） ----
 	private DungeonPanel _dungeonPanel = null!;
 	private DungeonExpeditionSystem _dungeonExpeditionSystem = null!;
@@ -111,24 +130,28 @@ public partial class MainDashboard : Control
 		_advisorPopup = GetNode<AdvisorPopup>("%AdvisorPopup");
 		_equipmentPopup = GetNode<EquipmentPopup>("%EquipmentPopup");
 
-		// 中央ペインのタブ（→ 03 §9）。出撃の窓口は大迷宮に一本化したため、大迷宮をタブ0
-		// （起動時の初期表示）に置く。タブ本体のノード名は英語、見出しはここでコードから設定する。
-		// 2026年9月UI整理：旧「編成」「冒険者」を「冒険者・人事」タブに統合し、4タブ構成に集約。
-		var centerPanel = GetNode<TabContainer>("%CenterPanel");
-		centerPanel.SetTabTitle(0, "大迷宮（Dungeon）");
-		centerPanel.SetTabTitle(1, "冒険者・人事");
-		centerPanel.SetTabTitle(2, "研究室（Lab）");
-		centerPanel.SetTabTitle(3, "施設");
-		centerPanel.CurrentTab = 0;
+		_centerPanel = GetNode<TabContainer>("%CenterPanel");
+		_centerPanel.TabsVisible = false;
+
+		_rightPanel = GetNode<Control>("%RightPanel");
+
+		_navDungeonBtn = GetNode<Button>("%NavDungeonBtn");
+		_navAdventurerBtn = GetNode<Button>("%NavAdventurerBtn");
+		_navPartyBtn = GetNode<Button>("%NavPartyBtn");
+		_navResearchBtn = GetNode<Button>("%NavResearchBtn");
+		_navFacilityBtn = GetNode<Button>("%NavFacilityBtn");
+		_navAdvisorBtn = GetNode<Button>("%NavAdvisorBtn");
+
+		_navDungeonBtn.Pressed += () => SwitchView(DashboardView.Dungeon);
+		_navAdventurerBtn.Pressed += () => SwitchView(DashboardView.Adventurer);
+		_navPartyBtn.Pressed += () => SwitchView(DashboardView.Party);
+		_navResearchBtn.Pressed += () => SwitchView(DashboardView.Research);
+		_navFacilityBtn.Pressed += () => SwitchView(DashboardView.Facility);
+		_navAdvisorBtn.Pressed += OnAdvisorButtonPressed;
 
 		_dungeonPanel = GetNode<DungeonPanel>("%DungeonTab");
 		_dungeonPanel.LogRequested += AppendLog;
 		_dungeonPanel.StateChanged += RefreshAll;
-
-		// 「冒険者・人事」タブはサブタブ構造（編成 / 冒険者詳細）を持つTabContainer。
-		var adventurerTab = GetNode<TabContainer>("%AdventurerTab");
-		adventurerTab.SetTabTitle(0, "編成");
-		adventurerTab.SetTabTitle(1, "冒険者");
 
 		_adventurerPanel = GetNode<AdventurerPanel>("%AdventurerDetailTab");
 		_adventurerPanel.LogRequested += AppendLog;
@@ -146,6 +169,8 @@ public partial class MainDashboard : Control
 
 		_facilityPanel = GetNode<FacilityPanel>("%FacilityTab");
 		_facilityPanel.StateChanged += RefreshAll;
+
+		SwitchView(DashboardView.Dungeon);
 
 		_noDungeonDispatchDialog = new ConfirmationDialog
 		{
@@ -883,6 +908,48 @@ public partial class MainDashboard : Control
 	private void AppendLog(string bbcodeText)
 	{
 		_resultLog.AppendText(bbcodeText + "\n");
+	}
+
+	/// <summary>
+	/// メニューナビゲーションバーによるメインビューの切り替え。
+	/// 大迷宮画面のみ右ペイン（作戦週報）を表示し、内政画面（人事・編成・研究・施設）では
+	/// 週報ペインを非表示にして中央ペインを画面横幅の全領域（約1900px）へ拡張する。
+	/// </summary>
+	private void SwitchView(DashboardView view)
+	{
+		_centerPanel.CurrentTab = (int)view;
+		_rightPanel.Visible = (view == DashboardView.Dungeon);
+
+		UpdateButtonHighlights(view);
+	}
+
+	/// <summary>
+	/// ナビゲーションボタンのアクティブ状態および視覚強調（トグル押し込み・ハイライト色）を更新する。
+	/// </summary>
+	private void UpdateButtonHighlights(DashboardView activeView)
+	{
+		var buttons = new (DashboardView View, Button Btn)[]
+		{
+			(DashboardView.Dungeon, _navDungeonBtn),
+			(DashboardView.Adventurer, _navAdventurerBtn),
+			(DashboardView.Party, _navPartyBtn),
+			(DashboardView.Research, _navResearchBtn),
+			(DashboardView.Facility, _navFacilityBtn)
+		};
+
+		foreach (var (view, btn) in buttons)
+		{
+			bool isActive = (view == activeView);
+			btn.SetPressedNoSignal(isActive);
+			if (isActive)
+			{
+				btn.Modulate = new Color(1.0f, 1.0f, 0.5f, 1.0f);
+			}
+			else
+			{
+				btn.Modulate = new Color(0.9f, 0.9f, 0.9f, 1.0f);
+			}
+		}
 	}
 
 	private void RefreshAll()
