@@ -98,7 +98,8 @@ namespace GuildManager.Core.Systems
 
             // プールのIdはRelicBalanceの読み込み時にItemCatalog照合済みのため、ここでnullにはならない。
             var definition = ItemCatalog.FindById(catalogId)!;
-            var equipment = EquipmentItem.FromCatalog(definition, state.WeekNumber, BuildOriginText(item));
+            // 希少度を個体へ刻む：売却額（→ 03 §4.8）と保管庫UIでの扱いが希少度で変わるため。
+            var equipment = EquipmentItem.FromCatalog(definition, state.WeekNumber, BuildOriginText(item), item.Rarity);
             state.Armory.Add(equipment);
 
             return new AppraisalResult

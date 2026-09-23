@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using GuildManager.Core.Balance;
 using GuildManager.Core.Models;
 
 namespace GuildManager.Core.Systems
@@ -90,8 +91,14 @@ namespace GuildManager.Core.Systems
         }
 
         /// <summary>
-        /// 冒険者の全装備枠を解除し、すべての個体をギルド保管庫へ回収する（2026年9月新設、→ §4.2.2「形見装備」）。
-        /// 回収した個体の一覧を返す（週報ログ・引退メッセージでの表示用。何も装備していなければ空）。
+        /// 冒険者の全装備枠を解除し、すべての個体をギルド保管庫へ回収する（2026年9月新設、
+        /// → §4.2.2「離脱時の自動回収」）。回収した個体の一覧を返す（週報ログ・引退メッセージでの
+        /// 表示用。何も装備していなければ空）。
+        ///
+        /// 扱いは**ギルド備品の返還**であって「形見」という独立した枠組みではない（2026年9月整理）：
+        /// 回収された個体は他の在庫と区別されず、誰でも装備でき、売却もできる。前所有者を偲ぶ
+        /// 特別な装備（真の遺産化）は、将来の「銘入り装備」で扱う（→ 06タスクリスト）。
+        /// ここで記録するのは入手経路の文字列（誰から返ってきたか）だけに留める。
         ///
         /// 用途は**ギルドからの離脱**：満期引退・早期引退（→ AgingSystem.Retire）、決戦での強制除籍
         /// （→ DungeonExpeditionSystem.ApplyForcedRetirements）、契約解除・退団
@@ -102,17 +109,17 @@ namespace GuildManager.Core.Systems
         /// 定義上まだ出撃中であり、そこで弾いてしまうと肝心の経路で装備を取りこぼす。
         ///
         /// 回収した個体には入手経路（→ EquipmentItem.AcquiredFrom）として、誰から返ってきたのかを
-        /// 書き込む。保管庫一覧（→ UI: InventoryPanel）で「第40週 ○○の形見」と辿れるようにするため。
+        /// 書き込む。保管庫一覧（→ UI: InventoryPanel）で「第40週 ○○から返還」と辿れるようにするため。
         /// </summary>
         /// <param name="acquiredFrom">
-        /// 保管庫の在庫に記録する入手経路。省略時は「○○の形見」。引退・退団のように本人が健在な
-        /// 経路では、呼び出し側が実態に合う文言（「○○（引退）から返還」等）を渡す。
+        /// 保管庫の在庫に記録する入手経路。省略時は「○○から返還」。呼び出し側は離脱の種別に合わせた
+        /// 文言（「○○（引退）から返還」「○○（除籍）から返還」等）を渡す。
         /// </param>
         public static IReadOnlyList<EquipmentItem> UnequipAllToArmory(
             GameState state, Adventurer adventurer, string? acquiredFrom = null)
         {
             var recovered = new List<EquipmentItem>();
-            string provenance = acquiredFrom ?? $"{adventurer.Name}の形見";
+            string provenance = acquiredFrom ?? $"{adventurer.Name}から返還";
 
             foreach (var slot in Adventurer.AllSlots)
             {
@@ -142,6 +149,96 @@ namespace GuildManager.Core.Systems
         /// （→ DungeonExpeditionSystem.TryDispatchのフィールド未開放チェックと同じ考え方）。
         /// </summary>
         public static bool CanChangeEquipment(Adventurer adventurer) => !adventurer.IsDispatched;
+
+        // ==================== 売却（→ 03 §4.8） ====================
+
+        /// <summary>
+        /// 保管庫の武具1点あたりの売却額（→ 03 §4.8）。2系統ある：
+        ///  - **カタログ品（無銘、`EquipmentItem.Rarity` が null）**：カタログ定価の50%（端数切り捨て、
+        ///    → BAL: equipment.csv の *_Price）。買い直せる物なので目減りする。
+        ///  - **鑑定で出土した個体（Rarity あり）**：希少度ごとの基準額（→ BAL: relic.csv の SellPrice*）。
+        ///    定価とは無関係に希少度だけで決まる（「掘り出し物」としての価値）。
+        ///
+        /// カタログから引けない個体（カタログから消えた武具の旧データ）は0を返す＝売っても1Gにならない。
+        /// 武具の解体（素材への還元）は実装しない（→ 03 §4.8。世界観上、武具は打ち直せない）。
+        /// </summary>
+        public static int GetSellPrice(EquipmentItem item)
+        {
+            if (item.Rarity.HasValue)
+                return RelicBalance.GetSellPrice(item.Rarity.Value);
+
+            var definition = item.GetDefinition();
+            return definition == null ? 0 : definition.Price / 2;
+        }
+
+        /// <summary>
+        /// 保管庫の武具をまとめて売却する（→ 03 §4.8）。itemIds は個体Id（→ EquipmentItem.Id）の
+        /// 文字列表現で受け取る（UI のリスト行がGuidを文字列で持つため）。
+        ///
+        /// 以下のいずれかに該当する場合は**保管庫・所持金を一切動かさず** false を返す
+        /// （一部だけ売れて残りが失敗する、という半端な状態を作らないための全か無か判定）：
+        ///  - itemIds が空
+        ///  - 同じ個体Idが重複している
+        ///  - 保管庫に無い個体Idが含まれている（＝誰かが装備中、または存在しない）
+        ///
+        /// 「冒険者が装備中の個体は売れない」は、**保管庫に在るかどうか**の判定で自然に担保される
+        /// （装備中の個体は保管庫から抜けている、という不変条件。→ 本クラス冒頭）。念のため
+        /// 現役・引退・除籍の全ロースターの装備枠も突き合わせて二重に弾く。
+        /// </summary>
+        public static bool TrySellEquipments(GameState state, IEnumerable<string> itemIds, out int totalGold)
+        {
+            totalGold = 0;
+
+            var requested = itemIds.ToList();
+            if (requested.Count == 0 || requested.Distinct().Count() != requested.Count)
+                return false;
+
+            var byId = state.Armory.ToDictionary(e => e.Id.ToString());
+            var targets = new List<EquipmentItem>();
+
+            foreach (var id in requested)
+            {
+                if (!byId.TryGetValue(id, out var item))
+                    return false; // 保管庫に無い＝装備中か存在しない
+                targets.Add(item);
+            }
+
+            if (targets.Any(item => IsEquippedBySomeone(state, item)))
+                return false;
+
+            foreach (var item in targets)
+            {
+                state.Armory.Remove(item);
+                totalGold += GetSellPrice(item);
+            }
+
+            state.Gold += totalGold;
+            return true;
+        }
+
+        /// <summary>
+        /// 指定した個体が誰かの装備枠に入っているか（現役・引退済み・除籍者の全員を見る）。
+        /// 通常は「保管庫に在る」だけで十分だが、セーブデータの破損等で個体が二重に現れた場合に
+        /// 売却で装備が消えるのを防ぐための二重チェック（→ TrySellEquipments）。
+        /// </summary>
+        private static bool IsEquippedBySomeone(GameState state, EquipmentItem item) =>
+            state.Adventurers
+                .Concat(state.RetiredAdventurers)
+                .Concat(state.FallenAdventurers)
+                .Any(a => Adventurer.AllSlots.Any(slot => ReferenceEquals(a.GetEquipped(slot), item)
+                    || a.GetEquipped(slot)?.Id == item.Id));
+
+        /// <summary>
+        /// 保管庫の武具のうち、同じカタログId・同じ希少度の個体をまとめた在庫単位（→ UI: InventoryPanel）。
+        /// 単価が群の中で一様になるよう希少度も鍵に含める（カタログ品と鑑定品では売却額の系統が違う）。
+        /// </summary>
+        public static IReadOnlyList<IGrouping<(string ItemId, ItemRarity? Rarity), EquipmentItem>> GroupArmoryForSale(
+            GameState state) =>
+            state.Armory
+                .GroupBy(e => (e.ItemId, e.Rarity))
+                .OrderBy(g => g.Key.ItemId, StringComparer.Ordinal)
+                .ThenBy(g => g.Key.Rarity ?? ItemRarity.Common)
+                .ToList();
 
         /// <summary>
         /// 指定した冒険者・スロットに対して、保管庫から装備できる個体の一覧（→ UI: EquipmentPopup）。

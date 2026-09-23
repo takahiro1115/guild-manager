@@ -225,7 +225,7 @@ public partial class MainDashboard : Control
 		_facilityPanel.Initialize(_facilitySystem);
 		// 鑑定（→ 03 §4.7）。他の判定と別シードにし、互いの抽選回数が結果に影響しないようにする。
 		_appraisalSystem = new AppraisalSystem(new SeededRng(4649));
-		_inventoryPanel.Initialize(_appraisalSystem);
+		_inventoryPanel.Initialize(_appraisalSystem, _economySystem);
 		// 大迷宮（→ ダンジョン攻略システム）。調査・討伐は別シードにし、互いの抽選回数が結果に
 		// 影響しないようにする。強制除籍の余波（満足度・相性）は既存インスタンスを共有する。
 		_dungeonExpeditionSystem = new DungeonExpeditionSystem(
@@ -671,12 +671,12 @@ public partial class MainDashboard : Control
 
 	/// <summary>
 	/// 致命傷→秘薬治療→強制除籍の報告文（→ LogFallenAdventurers）。大迷宮の決戦ログでも同じ文面を使う。
-	/// keepsakes（→ DungeonMissionResolution.RecoveredKeepsakes）には、アルベールが回収して
-	/// ギルド保管庫へ格納した形見の装備が入る（→ 03 §4.2.2「形見装備」）。該当が無ければ空の辞書を渡す。
+	/// recoveredEquipment（→ DungeonMissionResolution.RecoveredEquipment）には、アルベールが回収して
+	/// ギルド保管庫へ返還された装備が入る（→ 03 §4.2.2「離脱時の自動回収」）。該当が無ければ空の辞書を渡す。
 	/// </summary>
 	private static IEnumerable<string> FallenAdventurerLines(
 		int weekNumber, Party party, IEnumerable<Guid> fallenIds,
-		IReadOnlyDictionary<Guid, List<EquipmentItem>> keepsakes)
+		IReadOnlyDictionary<Guid, List<EquipmentItem>> recoveredEquipment)
 	{
 		foreach (var id in fallenIds)
 		{
@@ -688,10 +688,10 @@ public partial class MainDashboard : Control
 			yield return $"[color=orange]アルベールの秘薬で一命は取り留めたが、「危ないじゃないか！」と激怒したマスターにより" +
 				$"{fallen.Name}のギルド登録は強制抹消された。二度と戻らない。[/color]";
 
-			if (keepsakes.TryGetValue(id, out var recovered) && recovered.Count > 0)
+			if (recoveredEquipment.TryGetValue(id, out var recovered) && recovered.Count > 0)
 			{
-				yield return $"[color=cyan]🎗 アルベールは{fallen.Name}の武具を回収し、ギルド保管庫へ格納した" +
-					$"（{string.Join("、", recovered.Select(e => e.Name))}）。形見として次代へ受け継ぐこと。[/color]";
+				yield return $"[color=cyan]📦 アルベールは{fallen.Name}の武具を回収し、ギルド備品としてギルド保管庫へ返還した" +
+					$"（{string.Join("、", recovered.Select(e => e.Name))}）。[/color]";
 			}
 		}
 	}
@@ -849,7 +849,7 @@ public partial class MainDashboard : Control
 
 		AppendHpLossLines(sb, assault.HpLostByAdventurer);
 		foreach (var line in FallenAdventurerLines(
-			weekNumber, resolution.Party, assault.ForceRetiredAdventurerIds, resolution.RecoveredKeepsakes))
+			weekNumber, resolution.Party, assault.ForceRetiredAdventurerIds, resolution.RecoveredEquipment))
 			sb.AppendLine(line);
 		if (resolution.ReturnedHome)
 		{

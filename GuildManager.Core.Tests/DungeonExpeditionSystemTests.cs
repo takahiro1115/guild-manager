@@ -1520,7 +1520,7 @@ namespace GuildManager.Core.Tests
             Assert.Empty(resolution.RelicsFound);
         }
 
-        // ---------------- 強制除籍時の形見装備の回収（→ 03 §4.2.2、2026年9月新設） ----------------
+        // ---------------- 強制除籍時の離脱時の装備回収（→ 03 §4.2.2、2026年9月新設） ----------------
 
         [Fact]
         public void BossDefeat_ForceRetirement_CollectsEquipments_ToArmory()
@@ -1554,15 +1554,15 @@ namespace GuildManager.Core.Tests
             Assert.Null(a.EquippedWeapon);
             Assert.Null(b.EquippedArmor);
 
-            // 週報ログ用に、誰の形見が回収されたかの内訳が結果へ載る。
-            Assert.Same(weapon, Assert.Single(resolution.RecoveredKeepsakes[a.Id]));
-            Assert.Same(armor, Assert.Single(resolution.RecoveredKeepsakes[b.Id]));
-            Assert.Equal("アルファの形見", weapon.AcquiredFrom);
+            // 週報ログ用に、誰から何が回収されたかの内訳が結果へ載る。
+            Assert.Same(weapon, Assert.Single(resolution.RecoveredEquipment[a.Id]));
+            Assert.Same(armor, Assert.Single(resolution.RecoveredEquipment[b.Id]));
+            Assert.Equal("アルファ（除籍）から返還", weapon.AcquiredFrom);
             Assert.Equal(40, weapon.AcquiredAtWeek);
         }
 
         [Fact]
-        public void BossDefeat_ForceRetirement_ReportsNoKeepsakes_WhenNothingEquipped()
+        public void BossDefeat_ForceRetirement_ReportsNoRecoveredEquipment_WhenNothingEquipped()
         {
             var (state, a, b, boss) = MakeState(MakeDeadlyBoss());
             state.Gold = 100_000;
@@ -1572,7 +1572,7 @@ namespace GuildManager.Core.Tests
             var resolution = Assert.Single(system.ProcessWeeklyMissions(state));
 
             Assert.Contains(a, state.FallenAdventurers);
-            Assert.Empty(resolution.RecoveredKeepsakes);
+            Assert.Empty(resolution.RecoveredEquipment);
             Assert.Empty(state.Armory);
         }
 
@@ -1594,7 +1594,7 @@ namespace GuildManager.Core.Tests
 
             Assert.Equal(DungeonOutcome.Victory, resolution.DungeonResult!.Outcome);
             Assert.Same(sword, hero.EquippedWeapon);
-            Assert.Empty(resolution.RecoveredKeepsakes);
+            Assert.Empty(resolution.RecoveredEquipment);
         }
 
         [Fact]

@@ -39,6 +39,17 @@ namespace GuildManager.Core.Models
         public string AcquiredFrom { get; set; } = "";
 
         /// <summary>
+        /// 鑑定で出土した個体の希少度（→ Systems.AppraisalSystem、03 §4.7）。
+        /// **null＝カタログ品（無銘の汎用武具）**＝カタログから購入した個体、および
+        /// 本フィールド追加前の旧セーブの個体。
+        ///
+        /// 売却額の系統（→ 03 §4.8、EquipmentSystem.GetSellPrice）と、保管庫UIでの
+        /// 扱い（汎用武具はまとめ売り、金・虹は誤売却防止のため1行ずつ表示）を分ける鍵になる。
+        /// 装備効果そのものには影響しない（効果はカタログ定義が持つ。→ GetDefinition）。
+        /// </summary>
+        public ItemRarity? Rarity { get; set; }
+
+        /// <summary>
         /// カタログ定義を引く。未知のId（カタログから削除された等）ならnull。
         /// プロパティではなくメソッドにしてあるのは、System.Text.Jsonが読み取り専用プロパティを
         /// セーブデータへ書き出してしまうのを避けるため（→ SaveData）。
@@ -57,13 +68,18 @@ namespace GuildManager.Core.Models
         /// </summary>
         public bool IsAllowedFor(JobClass jobClass) => GetDefinition()?.IsAllowedFor(jobClass) ?? false;
 
-        /// <summary>カタログ定義から保管庫の個体を作る。</summary>
-        public static EquipmentItem FromCatalog(Item item, int acquiredAtWeek = 0, string acquiredFrom = "") => new()
+        /// <summary>
+        /// カタログ定義から保管庫の個体を作る。rarity を渡すと「鑑定で出土した個体」として扱われ、
+        /// 売却額が希少度基準になる（→ Rarity）。省略時はカタログ品（無銘）。
+        /// </summary>
+        public static EquipmentItem FromCatalog(
+            Item item, int acquiredAtWeek = 0, string acquiredFrom = "", ItemRarity? rarity = null) => new()
         {
             ItemId = item.Id,
             Name = item.Name,
             AcquiredAtWeek = acquiredAtWeek,
             AcquiredFrom = acquiredFrom,
+            Rarity = rarity,
         };
     }
 }

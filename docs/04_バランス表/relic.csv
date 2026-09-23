@@ -45,3 +45,7 @@ EpicRollThreshold,85,pt,同上：この値以上なら金
 LegendaryRollThreshold,100,pt,同上：この値以上なら虹
 BossRelicRollBonus,25,pt,階層ボス撃破ドロップの希少度ロールへ加算するボーナス
 BossMinimumRarity,Rare,ItemRarity,階層ボス撃破ドロップの最低保証希少度（これ未満のロール結果は引き上げる）
+SellPriceCommon,50,G,銅：鑑定で出土した武具を保管庫から売却する際の1点あたりの額（→ 03 §4.8）
+SellPriceRare,125,G,銀：同上
+SellPriceEpic,250,G,金：同上
+SellPriceLegendary,600,G,虹：同上

@@ -45,6 +45,13 @@ namespace GuildManager.Core.Balance
             public int MaterialRate { get; init; }
             public int GoldRate { get; init; }
 
+            /// <summary>
+            /// この希少度の鑑定で出土した武具を、ギルド保管庫から売却する際の1点あたりの額
+            /// （→ 03 §4.8、Systems.EquipmentSystem.GetSellPrice）。カタログ品（定価の50%）とは
+            /// 別系統の値で、希少度だけで決まる。
+            /// </summary>
+            public int SellPrice { get; init; }
+
             public int GoldRewardMin { get; init; }
             public int GoldRewardMax { get; init; }
             public int MaterialCountMin { get; init; }
@@ -123,6 +130,7 @@ namespace GuildManager.Core.Balance
                 Label = label,
                 ColorName = colorName,
                 AppraisalCost = BalanceData.GetInt(FileName, "AppraisalCost" + suffix),
+                SellPrice = BalanceData.GetInt(FileName, "SellPrice" + suffix),
                 EquipmentRate = equipmentRate,
                 MaterialRate = materialRate,
                 GoldRate = goldRate,
@@ -170,6 +178,9 @@ namespace GuildManager.Core.Balance
 
         /// <summary>鑑定費用（→ UnidentifiedItem.AppraisalCost）。</summary>
         public static int GetAppraisalCost(ItemRarity rarity) => Profiles[rarity].AppraisalCost;
+
+        /// <summary>鑑定で出土した武具1点の売却額（→ Systems.EquipmentSystem.GetSellPrice、03 §4.8）。</summary>
+        public static int GetSellPrice(ItemRarity rarity) => Profiles[rarity].SellPrice;
 
         /// <summary>表示上の通称（銅・銀・金・虹）。</summary>
         public static string GetRarityLabel(ItemRarity rarity) => Profiles[rarity].Label;

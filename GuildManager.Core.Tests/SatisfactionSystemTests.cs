@@ -306,7 +306,7 @@ namespace GuildManager.Core.Tests
         public void ProcessWeeklyNegotiation_Termination_CollectsEquipments_ToArmory()
         {
             // 退団（他都市へ移籍）は記録リストにも残らないため、装備したまま消えると武具も一緒に
-            // 失われる。ロースターから外す直前にギルド保管庫へ回収される（→ 03 §4.2.2「形見装備」）。
+            // 失われる。ロースターから外す直前にギルド保管庫へ回収される（→ 03 §4.2.2「離脱時の自動回収」）。
             var adventurer = new Adventurer { Name = "退団者", Satisfaction = 10, JobClass = JobClass.Warrior };
             var state = new GameState { WeekNumber = 22, Adventurers = { adventurer } };
             var weapon = EquipmentItem.FromCatalog(ItemCatalog.IronSword);

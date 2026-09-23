@@ -384,7 +384,7 @@ namespace GuildManager.Core.Tests
             Assert.Single(state.RetiredAdventurers); // 重複追加されない
         }
 
-        // ---------------- 形見装備の自動回収（→ 03 §4.2.2、2026年9月新設） ----------------
+        // ---------------- 離脱時の装備自動回収（→ 03 §4.2.2、2026年9月新設） ----------------
 
         [Fact]
         public void Retirement_CollectsEquipments_ToArmory()
@@ -411,7 +411,7 @@ namespace GuildManager.Core.Tests
             Assert.Equal(2, state.Armory.Count);
             Assert.Contains(weapon, state.Armory);
             Assert.Contains(armor, state.Armory);
-            // 引退者は健在なので「形見」ではなく返還として記録する。
+            // 引退は本人が健在なので、その旨が分かる文言で記録する。
             Assert.Equal("満期（引退）から返還", weapon.AcquiredFrom);
             Assert.Equal(48, weapon.AcquiredAtWeek);
         }

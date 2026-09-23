@@ -302,7 +302,7 @@ namespace GuildManager.Core.Tests.Systems
             Assert.Empty(state.Armory);
         }
 
-        // ---------------- 離脱時の一括回収（形見装備、指示書指定テスト） ----------------
+        // ---------------- 離脱時の一括回収（指示書指定テスト） ----------------
 
         [Fact]
         public void UnequipAllToArmory_RemovesAllEquipments_AndAddsToArmory()
@@ -337,9 +337,9 @@ namespace GuildManager.Core.Tests.Systems
                 Assert.Contains(item, recovered);
             }
 
-            // 回収時の週と入手経路（既定は「○○の形見」）が記録される。
+            // 回収時の週と入手経路（既定は「○○から返還」）が記録される。
             Assert.All(recovered, e => Assert.Equal(40, e.AcquiredAtWeek));
-            Assert.All(recovered, e => Assert.Equal($"{adventurer.Name}の形見", e.AcquiredFrom));
+            Assert.All(recovered, e => Assert.Equal($"{adventurer.Name}から返還", e.AcquiredFrom));
         }
 
         [Fact]
@@ -368,7 +368,7 @@ namespace GuildManager.Core.Tests.Systems
         public void UnequipAllToArmory_WorksForDispatchedAdventurer()
         {
             // 決戦で強制除籍される冒険者は定義上まだ出撃中。ここで弾いてしまうと
-            // 肝心の経路で形見を取りこぼすため、一括回収は出撃中ガードを持たない。
+            // 肝心の経路で装備を取りこぼすため、一括回収は出撃中ガードを持たない。
             var (state, adventurer, sword) = MakeStateWith(ItemCatalog.IronSword);
             Assert.True(new EquipmentSystem().TryEquip(state, adventurer, EquipmentSlot.Weapon, sword));
             adventurer.IsDispatched = true;
@@ -387,6 +387,127 @@ namespace GuildManager.Core.Tests.Systems
             EquipmentSystem.UnequipAllToArmory(state, adventurer);
 
             Assert.Equal(adventurer.MaxHP, adventurer.CurrentHP);
+        }
+
+        // ---------------- 売却（→ 03 §4.8、指示書指定テスト） ----------------
+
+        [Fact]
+        public void GetSellPrice_CalculatesCorrectly()
+        {
+            // カタログ品（無銘、Rarity=null）は定価の50%（端数切り捨て）。
+            var ironSword = EquipmentItem.FromCatalog(ItemCatalog.IronSword);
+            Assert.Null(ironSword.Rarity);
+            Assert.Equal(ItemCatalog.IronSword.Price / 2, EquipmentSystem.GetSellPrice(ironSword));
+
+            var heavyArmor = EquipmentItem.FromCatalog(ItemCatalog.HeavyArmor);
+            Assert.Equal(ItemCatalog.HeavyArmor.Price / 2, EquipmentSystem.GetSellPrice(heavyArmor));
+
+            // 鑑定で出土した個体は希少度ごとの基準額（定価とは無関係）。
+            foreach (var rarity in System.Enum.GetValues<ItemRarity>())
+            {
+                var relic = EquipmentItem.FromCatalog(ItemCatalog.IronSword, rarity: rarity);
+                Assert.Equal(RelicBalance.GetSellPrice(rarity), EquipmentSystem.GetSellPrice(relic));
+            }
+
+            // 希少度が上がるほど高く売れる。
+            Assert.True(RelicBalance.GetSellPrice(ItemRarity.Legendary) > RelicBalance.GetSellPrice(ItemRarity.Epic));
+            Assert.True(RelicBalance.GetSellPrice(ItemRarity.Epic) > RelicBalance.GetSellPrice(ItemRarity.Rare));
+            Assert.True(RelicBalance.GetSellPrice(ItemRarity.Rare) > RelicBalance.GetSellPrice(ItemRarity.Common));
+
+            // カタログから引けない個体は0（売っても1Gにならない）。
+            Assert.Equal(0, EquipmentSystem.GetSellPrice(new EquipmentItem { ItemId = "NoSuchItem", Name = "謎" }));
+        }
+
+        [Fact]
+        public void SellEquipments_RemovesItemsFromArmory_AndAddsGold()
+        {
+            var sword = EquipmentItem.FromCatalog(ItemCatalog.IronSword);
+            var armor = EquipmentItem.FromCatalog(ItemCatalog.LeatherArmor);
+            var relic = EquipmentItem.FromCatalog(ItemCatalog.GreatSword, rarity: ItemRarity.Epic);
+            var keep = EquipmentItem.FromCatalog(ItemCatalog.PowerRing);
+            var state = new GameState { Gold = 1000, Armory = { sword, armor, relic, keep } };
+
+            int expected = EquipmentSystem.GetSellPrice(sword)
+                + EquipmentSystem.GetSellPrice(armor)
+                + EquipmentSystem.GetSellPrice(relic);
+
+            Assert.True(EquipmentSystem.TrySellEquipments(
+                state, new[] { sword.Id.ToString(), armor.Id.ToString(), relic.Id.ToString() }, out int gold));
+
+            Assert.Equal(expected, gold);
+            Assert.Equal(1000 + expected, state.Gold);
+            Assert.Same(keep, Assert.Single(state.Armory)); // 指定しなかった在庫は残る
+        }
+
+        [Fact]
+        public void SellEquipments_Fails_WhenItemIsEquipped()
+        {
+            // 装備中の個体は保管庫から抜けているため、個体Idを指定しても売れない。
+            var (state, adventurer, sword) = MakeStateWith(ItemCatalog.IronSword);
+            var spare = EquipmentItem.FromCatalog(ItemCatalog.LeatherArmor);
+            state.Armory.Add(spare);
+            state.Gold = 1000;
+            Assert.True(new EquipmentSystem().TryEquip(state, adventurer, EquipmentSlot.Weapon, sword));
+
+            Assert.False(EquipmentSystem.TrySellEquipments(
+                state, new[] { sword.Id.ToString(), spare.Id.ToString() }, out int gold));
+
+            // 全か無か：同時に指定した在庫の武具も売れていない。
+            Assert.Equal(0, gold);
+            Assert.Equal(1000, state.Gold);
+            Assert.Same(sword, adventurer.EquippedWeapon);
+            Assert.Same(spare, Assert.Single(state.Armory));
+        }
+
+        [Fact]
+        public void SellEquipments_Fails_ForUnknownOrDuplicatedIds()
+        {
+            var sword = EquipmentItem.FromCatalog(ItemCatalog.IronSword);
+            var state = new GameState { Gold = 1000, Armory = { sword } };
+
+            // 空の指定。
+            Assert.False(EquipmentSystem.TrySellEquipments(state, System.Array.Empty<string>(), out _));
+
+            // 保管庫に無い個体Id。
+            Assert.False(EquipmentSystem.TrySellEquipments(state, new[] { System.Guid.NewGuid().ToString() }, out _));
+
+            // 同じ個体Idの重複指定（1個しか無い物を2個売ろうとする）。
+            Assert.False(EquipmentSystem.TrySellEquipments(
+                state, new[] { sword.Id.ToString(), sword.Id.ToString() }, out _));
+
+            Assert.Single(state.Armory);
+            Assert.Equal(1000, state.Gold);
+        }
+
+        [Fact]
+        public void SellEquipments_SellsAllStockOfOneCatalogItem()
+        {
+            // 「鉄の剣 ×3 を全売却」に相当する経路（→ UI: InventoryPanel の保管庫タブ）。
+            var swords = Enumerable.Range(0, 3).Select(_ => EquipmentItem.FromCatalog(ItemCatalog.IronSword)).ToList();
+            var state = new GameState { Gold = 0 };
+            state.Armory.AddRange(swords);
+
+            Assert.True(EquipmentSystem.TrySellEquipments(
+                state, swords.Select(e => e.Id.ToString()), out int gold));
+
+            Assert.Equal(EquipmentSystem.GetSellPrice(swords[0]) * 3, gold);
+            Assert.Empty(state.Armory);
+        }
+
+        [Fact]
+        public void GroupArmoryForSale_SeparatesCatalogItemsFromRelics()
+        {
+            // 同じカタログIdでも、カタログ品と鑑定品は売却額の系統が違うため別グループになる。
+            var plain1 = EquipmentItem.FromCatalog(ItemCatalog.IronSword);
+            var plain2 = EquipmentItem.FromCatalog(ItemCatalog.IronSword);
+            var epic = EquipmentItem.FromCatalog(ItemCatalog.IronSword, rarity: ItemRarity.Epic);
+            var state = new GameState { Armory = { plain1, plain2, epic } };
+
+            var groups = EquipmentSystem.GroupArmoryForSale(state);
+
+            Assert.Equal(2, groups.Count);
+            Assert.Equal(2, groups.Single(g => g.Key.Rarity == null).Count());
+            Assert.Single(groups.Single(g => g.Key.Rarity == ItemRarity.Epic));
         }
 
         // ---------------- 購入経路との整合（個体を破棄しない） ----------------

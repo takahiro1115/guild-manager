@@ -21,6 +21,13 @@ namespace GuildManager.Core.Models
 
         /// <summary>この素材が選ばれた際の基準獲得個数（→ Systems.GatheringResolver.Resolve）。</summary>
         public int BaseYield { get; init; }
+
+        /// <summary>
+        /// 1個あたりの売却額（→ Systems.EconomySystem.TrySellMaterial、03 §4.8）。深いフィールドの
+        /// 素材ほど高く設定する。研究レシピ（→ Balance.ResearchBalance）で使う素材を売り払うか
+        /// 貯めておくかのトレードオフを作るための値。
+        /// </summary>
+        public int SellPrice { get; init; }
     }
 
     /// <summary>
