@@ -30,11 +30,12 @@
 | `consumables.csv` | 03 §4.5.4 | ConsumableBalance（→ ConsumableCatalog。大迷宮ボスギミック対策4種の価格） |
 | `progression.csv` | 03 §4.5.1 | ProgressionBalance（初期の同時出撃枠） |
 | `dungeon.csv` | 03 §4.5.1・§4.5.4 | DungeonBalance（ボス能力重み・未踏破重損耗・ボス間隔・撃破実績点・出撃成長回数） |
-| `dungeon_traversal.csv` | 03 §4.5.3 | DungeonTraversalBalance（走破力係数・進軍ランク閾値・調査度連動走破倍率） |
-| `scouting.csv` | 03 §4.5.3 | ScoutingBalance（迷宮調査の4段階護衛判定・解析成果倍率・護衛HP損耗） |
+| `dungeon_traversal.csv` | 03 §4.5.3 | DungeonTraversalBalance（**走破力の重み（VIT/MND/隊長LDR）**・進軍ランク閾値・調査度連動走破倍率） |
+| `scouting.csv` | 03 §4.5.3 | ScoutingBalance（**隠密適性の重み・専門職ボーナス・人数倍率・重装ペナルティ**、迷宮調査の4段階護衛判定・解析成果倍率・護衛HP損耗） |
 | `gathering.csv` | 03 §4.5.5 | GatheringBalance（採取スコア係数・職業ボーナス・報酬ゴールド） |
-| `materials.csv` | 03 §4.5.5 | MaterialBalance（全5フィールドの採取素材定義・MinFloor・希少度） |
+| `materials.csv` | 03 §4.5.5・**§4.8.1** | MaterialBalance（全5フィールドの採取素材定義・MinFloor・基準獲得数・**売却額 `SellPrice`**） |
 | `research.csv` | 03 §4.6 | ResearchBalance（アルベール研究室の8プロジェクト・必要素材・ゴールド・効果種別・効果値） |
+| `relic.csv` | 03 §4.7・§4.8.2 | RelicBalance（未鑑定遺物の希少度4段階＝鑑定費用・鑑定結果比率・換金額と獲得個数の幅・武具の抽選プール・**売却額**、採取ドロップ確率、希少度ロール閾値、ボス撃破ドロップの補正） |
 
 `trait.csv`・`equipment.csv` は項目58（バランス値のCSV外部化）の時点では対応CSVが
 存在せず対象外だったため、フォローアップとして追加した（値はTraitCatalog.cs・
@@ -108,6 +109,68 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 初期の同時出撃枠のみを残し、昇格試験のキーは削除した。`guild_rank_params.csv` の
 クエスト達成／失敗による名声増減キーも削除した。
 
+## 未鑑定遺物・鑑定・売却で追加されたキー（2026年9月、→ 03 §0.14〜§0.16）
+
+**`relic.csv`（新設。→ 03 §4.7・§4.8.2、`RelicBalance`）**
+
+希少度4段階（`Common`＝銅／`Rare`＝銀／`Epic`＝金／`Legendary`＝虹）ごとに、キー名の末尾へ
+希少度名を付けて定義する（例：`AppraisalCostRare`）。
+
+| キー（末尾に希少度名） | 意味 |
+|---|---|
+| `AppraisalCost*` | 鑑定費用（銅100／銀250／金500／虹1200G） |
+| `EquipmentRate*` / `MaterialRate*` / `GoldRate*` | 鑑定結果の比率（%）。**3つの合計が100でなければ読み込み時に例外** |
+| `GoldRewardMin*` / `GoldRewardMax*` | 換金だった場合の獲得ゴールドの幅 |
+| `MaterialCountMin*` / `MaterialCountMax*` | 素材だった場合の獲得個数の幅（Min>Maxなら例外） |
+| `EquipmentPool*` | 武具だった場合の抽選プール（`ItemCatalog` のIdを「;」区切り。空・未登録Idなら例外） |
+| `SellPrice*` | 鑑定で出土した武具を保管庫から売却する際の1点あたりの額（銅50／銀125／金250／虹600G、→ §4.8.2） |
+
+希少度に紐づかないキー：
+
+- `GatheringDropBasePct`（5）／`GatheringDropMaxPct`（15）／`GatheringDropScoreDivisor`（40）／
+  `GatheringDropFloorDivisor`（20）… 探索（採取）任務での遺物ドロップ確率。
+  基礎 ＋ 採取スコア÷40 ＋ 到達階層÷20 を上限15%でクランプする。
+- `RarityFloorBonusDivisor`（10）／`RareRollThreshold`（60）／`EpicRollThreshold`（85）／
+  `LegendaryRollThreshold`（100）… 希少度ロール（1〜100の乱数 ＋ 出土階層÷10 ＋ 任務ボーナス）の閾値。
+- `BossRelicRollBonus`（25）／`BossMinimumRarity`（`Rare`）… 階層ボス撃破ドロップの補正と最低保証希少度。
+
+> **素材の抽選テーブルは `relic.csv` に複製しない。** 鑑定で素材が出た場合の抽選対象は、遺物が
+> 覚えている出土地・出土階層を `materials.csv`（`MaterialBalance.GetEligibleMaterials`）へ渡して
+> 引き直す。フィールドや素材を増やしたときに直すファイルを1つに保つため（→ 03 §10.1）。
+
+**`materials.csv` に `SellPrice` 列を追加（→ 03 §4.8.1）**
+
+列は `Id,Name,Description,FieldId,MinFloor,MaxFloor,BaseYield,SellPrice` の8列になった。
+素材1個あたりの売却額で、深いフィールドの素材ほど高い（月光草8／霊樹の枝12／変異胞子25／
+発光苔10／黒鉱石30／遺物の欠片12／ルーン石35／火山灰14／紅玉鉱石45／虚空の粉塵20／
+深淵の結晶70G）。研究レシピ（`research.csv`）で使う素材を売り払うか貯めておくかが、
+素材経済のトレードオフになる。
+
+> **カタログ品の武具の売却額は新しいキーを作らない。** `equipment.csv` の `*_Price`（定価）の
+> 50%（端数切り捨て）を導出して使う（→ 03 §4.8.2・`EquipmentSystem.GetSellPrice`）。
+> 定価と売却額を二重に持たないため。
+
+## 走破力・隠密適性の差別化で追加されたキー（2026年9月、→ 03 §0.17）
+
+改訂前は `dungeon_traversal.csv` の `StatCoefficient`／`LeaderCoefficient` と
+`scouting.csv` の `StealthStatCoefficient`／`LeaderPanicPreventionCoefficient` が
+**同じ Σ(AGI+DEX) ＋ 部隊長LDR という式を別々に持っていた**ため、編成画面の
+「走破力予測」と「隠密適性」がどんな編成でも同値になっていた。旧4キーは削除し、
+それぞれ別系統のキーへ置き換えた。
+
+**`dungeon_traversal.csv`**
+
+- `Traversal_Weight_Vit`（1.0）／`Traversal_Weight_Mnd`（0.8）／`Traversal_Weight_Ldr`（1.0）…
+  走破力＝Σ(VIT×重み ＋ MND×重み) ＋ 部隊長LDR×重み。**AGI/DEXは参照しない。**
+
+**`scouting.csv`**
+
+- `Stealth_Weight_Agi`（1.0）／`Stealth_Weight_Dex`（1.0）／`Stealth_Weight_Ldr`（0.5）… 基礎隠密の重み。
+- `Stealth_Bonus_RangerThief`（30）… 斥候（Ranger）・盗賊（Thief）1名につき加算。
+- `Stealth_PartySize_Mult_1`〜`_4`（1.10／1.00／0.85／0.70）… 人数倍率（**乗算**）。
+- `Stealth_HeavyArmor_Penalty`（30）… 重装者1名につき**倍率適用後に直接減算**
+  （重装鎧の装備者、または職業が重戦士・騎士。両方該当でも1名分）。結果は0未満にならない。
+
 ## 凡例
 
 - `key` … コード側の定数名に対応する識別子。**変更しないこと**（読み込み時のキーになる）。
@@ -132,5 +195,7 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 - **勝利条件（最終討伐クエスト＝魔王戦）**：詳細未設計のため数値なし。
   中間目標（Aランク到達で`FinalQuestUnlocked`が立つ）までは実装済みだが、
   ここにバランス値として持つべき数値は現時点で存在しない（→ 03 §8.2・§11）。
-- **市場・素材価格**：市場システム自体が未実装（→ 03 §11）。
+- **市場・素材価格の変動**：売却額そのものは実装済み（`materials.csv` の `SellPrice`・
+  `relic.csv` の `SellPrice*`、→ 03 §4.8）だが、**相場が動く市場システム**は未実装（→ 03 §11）。
+  現時点の売却額は固定値で、需給・時期による変動は持たない。
 - **疲労（Fatigue）**：v1.1で廃止済み。旧xlsxに残っていたシートは削除した。
