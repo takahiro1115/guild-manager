@@ -117,26 +117,28 @@ namespace GuildManager.Core.Models
         /// </summary>
         public int TotalDispatchCount { get; set; } = 0;
 
-        /// <summary>ギルドの名声（仕様書 03 §8.1）。0未満にはならない。</summary>
-        public int Reputation { get; set; } = 0;
-
-        /// <summary>ギルドの現在の格付け。初期値はG（最下位）。</summary>
-        public GuildRank GuildRank { get; set; } = GuildRank.G;
+        /// <summary>
+        /// マスター（アルベール）の機嫌（仕様書 03 §8.1、0〜100）。大迷宮での成果で上がり、
+        /// 成果ゼロの週は退屈して下がる（→ MasterMoodSystem）。内職売上の倍率を決め
+        /// （→ EconomySystem.ProcessWeeklySideJobIncome）、0に達すると副官解雇＝敗北（→ DefeatSystem）。
+        /// 旧・名声（Reputation）とギルド格付け（GuildRank）の後継（2026年9月）。
+        /// </summary>
+        public int MasterMood { get; set; } = MasterMoodBalance.InitialMood;
 
         /// <summary>
         /// 「最終討伐クエストの依頼が持ち込まれるようになった」フラグ（仕様書 03 §8.2。
-        /// v1.10改訂で新設）。ギルド格付けが初めてAランク以上に到達した時点でtrueになり、
-        /// 以後は降格しても取り消されない（→ GuildRankSystem.UpdateRank）。最終討伐クエスト
-        /// 自体（出現条件・難易度・専用ロジック）は未設計のまま（ストーリー検討後に別途設計）。
+        /// v1.10改訂で新設）。最終フィールドの100Fボス撃破でtrueになり、以後は取り消されない
+        /// （→ DungeonExpeditionSystem.ApplyFieldProgression）。旧来の「Aランク到達」経路は
+        /// ギルド格付けの廃止（2026年9月）に伴い撤去した。最終討伐クエスト自体は未設計のまま。
         /// </summary>
         public bool FinalQuestUnlocked { get; set; } = false;
 
         /// <summary>
-        /// 現ランク相当（同ランク帯以上）のクエストを最後に達成してから経過した週数（→ 03 §8.1.1）。
-        /// 該当クエストを達成した週に0へリセットされ、それ以外の週は+1される
-        /// （Adventurer.WeeksSinceLastDeploymentと同じパターン）。
+        /// 大迷宮での成果（新階層開拓・有効な調査・採取成功・ボス撃破）が最後にあってから経過した週数
+        /// （→ 03 §8.1.1、MasterMoodSystem）。成果のあった週に0へリセットされ、成果ゼロの週は+1される。
+        /// 旧 WeeksSinceLastRankAppropriateQuest の後継（旧セーブの値は引き継ぐ）。
         /// </summary>
-        public int WeeksSinceLastRankAppropriateQuest { get; set; } = 0;
+        public int WeeksSinceLastGuildActivity { get; set; } = 0;
 
         /// <summary>
         /// 所持金がマイナスの週が連続何週続いているか（仕様書 03 §8.3「破産」）。
@@ -249,11 +251,10 @@ namespace GuildManager.Core.Models
             {
                 CurrentTurn = WeekNumber,
                 Money = Gold,
-                Reputation = Reputation,
-                GuildRank = GuildRank.ToString(),
+                MasterMood = MasterMood,
                 ConsecutiveNegativeGoldWeeks = ConsecutiveNegativeGoldWeeks,
                 DefeatReason = DefeatReason?.ToString(),
-                WeeksSinceLastRankAppropriateQuest = WeeksSinceLastRankAppropriateQuest,
+                WeeksSinceLastGuildActivity = WeeksSinceLastGuildActivity,
                 FinalQuestUnlocked = FinalQuestUnlocked,
                 UnlockedSquadSlots = UnlockedSquadSlots,
                 TotalDispatchCount = TotalDispatchCount,
@@ -328,11 +329,12 @@ namespace GuildManager.Core.Models
             {
                 WeekNumber = data.CurrentTurn,
                 Gold = data.Money,
-                Reputation = data.Reputation,
-                GuildRank = ParseEnum<GuildRank>(data.GuildRank, nameof(GuildRank)),
+                // 機嫌を持たない旧セーブ（名声・格付けの時代）は初期値（平常）で始める（→ 03 §8.1）。
+                MasterMood = Math.Clamp(data.MasterMood ?? MasterMoodBalance.InitialMood, MasterMoodBalance.Min, MasterMoodBalance.Max),
                 ConsecutiveNegativeGoldWeeks = data.ConsecutiveNegativeGoldWeeks,
                 DefeatReason = data.DefeatReason == null ? null : ParseEnum<DefeatReason>(data.DefeatReason, nameof(DefeatReason)),
-                WeeksSinceLastRankAppropriateQuest = data.WeeksSinceLastRankAppropriateQuest,
+                // 旧キー（WeeksSinceLastRankAppropriateQuest）しか無い旧セーブは、その値を引き継ぐ。
+                WeeksSinceLastGuildActivity = data.WeeksSinceLastGuildActivity ?? data.WeeksSinceLastRankAppropriateQuest ?? 0,
                 FinalQuestUnlocked = data.FinalQuestUnlocked,
                 // 進行管理（→ コアシステム刷新仕様「4. 進行管理」）。同時出撃枠は
                 // 0（＝一切派遣できない不整合な状態）で復元されないよう、未設定の

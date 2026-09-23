@@ -50,5 +50,8 @@ namespace GuildManager.Core.Models
 
         /// <summary>鑑定に支払った費用（→ UnidentifiedItem.AppraisalCost。週報ログの収支表示用）。</summary>
         public int AppraisalCost { get; set; }
+
+        /// <summary>鑑定完了によるマスターの機嫌の上昇量（→ MasterMoodSystem.ApplyAppraisal、上限100でクランプ後の実際の量）。</summary>
+        public int MoodGained { get; set; }
     }
 }

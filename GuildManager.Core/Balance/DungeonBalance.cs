@@ -48,10 +48,7 @@ namespace GuildManager.Core.Balance
         /// <summary>10Fボス（森・段1）の基準報酬ゴールド。段が進むごとに BossRewardGoldMultiplier を乗算する。</summary>
         public static readonly double BossBaseRewardGold = BalanceData.GetDouble(FileName, "BossBaseRewardGold");
 
-        /// <summary>10Fボス（森・段1）の基準名声。段が進むごとに BossRewardGoldMultiplier を乗算する。</summary>
-        public static readonly double BossBaseReputation = BalanceData.GetDouble(FileName, "BossBaseReputation");
-
-        /// <summary>段（10階進む、またはフィールド1段深くなる）ごとの報奨金・名声乗算係数。</summary>
+        /// <summary>段（10階進む、またはフィールド1段深くなる）ごとの報奨金乗算係数。</summary>
         public static readonly double BossRewardGoldMultiplier = BalanceData.GetDouble(FileName, "BossRewardGoldMultiplier");
 
         // ---- 道中進軍の未踏破損耗（2026年9月新設、→ Systems.DungeonTraversalResolver） ----

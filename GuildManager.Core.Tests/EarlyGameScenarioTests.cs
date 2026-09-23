@@ -42,9 +42,8 @@ namespace GuildManager.Core.Tests
                 new GatheringResolver(new AlwaysMinRng()));
 
             var week = new WeekProcessingSystem(
-                guildRankSystem: new GuildRankSystem(),
+                masterMoodSystem: new MasterMoodSystem(),
                 economySystem: economy,
-                subsidySystem: new SubsidySystem(),
                 trainingSystem: new TrainingSystem(),
                 injuryRecoverySystem: new InjuryRecoverySystem(),
                 restRecoverySystem: new RestRecoverySystem(),

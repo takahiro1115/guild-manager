@@ -28,22 +28,20 @@ namespace GuildManager.Core.Tests
             {
                 WeekNumber = 42,
                 Gold = 12345,
-                Reputation = 987,
-                GuildRank = GuildRank.B,
+                MasterMood = 73,
                 ConsecutiveNegativeGoldWeeks = 2,
                 DefeatReason = null,
-                WeeksSinceLastRankAppropriateQuest = 5,
+                WeeksSinceLastGuildActivity = 5,
             };
 
             var restored = GameState.FromSaveData(state.ToSaveData());
 
             Assert.Equal(42, restored.WeekNumber);
             Assert.Equal(12345, restored.Gold);
-            Assert.Equal(987, restored.Reputation);
-            Assert.Equal(GuildRank.B, restored.GuildRank);
+            Assert.Equal(73, restored.MasterMood);
             Assert.Equal(2, restored.ConsecutiveNegativeGoldWeeks);
             Assert.Null(restored.DefeatReason);
-            Assert.Equal(5, restored.WeeksSinceLastRankAppropriateQuest);
+            Assert.Equal(5, restored.WeeksSinceLastGuildActivity);
         }
 
         [Fact]
@@ -365,10 +363,10 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
-        public void FromSaveData_Throws_ForInvalidGuildRankString()
+        public void FromSaveData_Throws_ForInvalidDefeatReasonString()
         {
             var data = new GameState().ToSaveData();
-            data.GuildRank = "NotARealRank";
+            data.DefeatReason = "NotARealReason";
 
             Assert.Throws<FormatException>(() => GameState.FromSaveData(data));
         }
@@ -446,7 +444,7 @@ namespace GuildManager.Core.Tests
             try
             {
                 var service = new SaveLoadService(dir);
-                var state = new GameState { WeekNumber = 10, Gold = 7777, GuildRank = GuildRank.C };
+                var state = new GameState { WeekNumber = 10, Gold = 7777, MasterMood = 77 };
 
                 service.Save(state);
 
@@ -455,7 +453,7 @@ namespace GuildManager.Core.Tests
                 Assert.NotNull(loaded);
                 Assert.Equal(10, loaded!.WeekNumber);
                 Assert.Equal(7777, loaded.Gold);
-                Assert.Equal(GuildRank.C, loaded.GuildRank);
+                Assert.Equal(77, loaded.MasterMood);
             }
             finally { Directory.Delete(dir, recursive: true); }
         }
@@ -528,13 +526,58 @@ namespace GuildManager.Core.Tests
             try
             {
                 var data = new GameState().ToSaveData();
-                data.GuildRank = "GarbageRank";
+                data.DefeatReason = "GarbageReason";
                 File.WriteAllText(Path.Combine(dir, "savegame.json"), JsonSerializer.Serialize(data));
                 var service = new SaveLoadService(dir);
 
                 Assert.Null(service.Load()); // GameState.FromSaveDataのFormatExceptionを捕捉して null
             }
             finally { Directory.Delete(dir, recursive: true); }
+        }
+
+        [Fact]
+        public void Load_RestoresOldSave_WithReputationAndGuildRank_InitializesMasterMood()
+        {
+            // 名声・ギルド格付けの時代（2026年9月以前）のセーブ：MasterMood・WeeksSinceLastGuildActivity を持たず、
+            // Reputation・GuildRank・WeeksSinceLastRankAppropriateQuest を持つ。例外なく読み込めて、
+            // 機嫌は初期値（平常50）、経過週数は旧キーの値を引き継ぐこと。
+            var dir = CreateTempSaveDirectory();
+            try
+            {
+                var json = JsonSerializer.Serialize(new GameState { WeekNumber = 23, Gold = 999 }.ToSaveData());
+                using (var doc = JsonDocument.Parse(json))
+                {
+                    var legacy = doc.RootElement.EnumerateObject()
+                        .Where(p => p.Name is not ("MasterMood" or "WeeksSinceLastGuildActivity"))
+                        .ToDictionary(p => p.Name, p => (object)p.Value.Clone());
+                    legacy["Reputation"] = 1234;
+                    legacy["GuildRank"] = "B";
+                    legacy["WeeksSinceLastRankAppropriateQuest"] = 6;
+                    json = JsonSerializer.Serialize(legacy);
+                }
+                Assert.DoesNotContain("MasterMood", json);
+                File.WriteAllText(Path.Combine(dir, "savegame.json"), json);
+
+                var restored = new SaveLoadService(dir).Load();
+
+                Assert.NotNull(restored);
+                Assert.Equal(23, restored!.WeekNumber);
+                Assert.Equal(999, restored.Gold);
+                Assert.Equal(MasterMoodBalance.InitialMood, restored.MasterMood);
+                Assert.Equal(50, restored.MasterMood);
+                Assert.Equal(6, restored.WeeksSinceLastGuildActivity);
+            }
+            finally { Directory.Delete(dir, recursive: true); }
+        }
+
+        [Fact]
+        public void ToSaveData_DoesNotWriteLegacyActivityKey()
+        {
+            var json = JsonSerializer.Serialize(new GameState { WeeksSinceLastGuildActivity = 2 }.ToSaveData());
+
+            Assert.DoesNotContain("WeeksSinceLastRankAppropriateQuest", json);
+            Assert.DoesNotContain("Reputation", json);
+            Assert.Contains("\"WeeksSinceLastGuildActivity\":2", json);
         }
 
         [Theory]
@@ -552,8 +595,7 @@ namespace GuildManager.Core.Tests
                 {
                     WeekNumber = 17,
                     Gold = 4321,
-                    Reputation = 210,
-                    GuildRank = GuildRank.D,
+                    MasterMood = 33,
                     ConsecutiveNegativeGoldWeeks = 1,
                 }.ToSaveData();
 
@@ -568,8 +610,7 @@ namespace GuildManager.Core.Tests
                 Assert.NotNull(restored);
                 Assert.Equal(17, restored!.WeekNumber);
                 Assert.Equal(4321, restored.Gold);
-                Assert.Equal(210, restored.Reputation);
-                Assert.Equal(GuildRank.D, restored.GuildRank);
+                Assert.Equal(33, restored.MasterMood);
                 Assert.Equal(1, restored.ConsecutiveNegativeGoldWeeks);
             }
             finally { Directory.Delete(dir, recursive: true); }

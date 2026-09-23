@@ -46,6 +46,11 @@ namespace GuildManager.Core.Systems
         public bool EnteredUnexplored { get; set; }
 
         /// <summary>
+        /// 今回の進軍で踏み入れた未踏破階層の数（＝新階層開拓。→ MasterMoodSystem の機嫌上昇、2026年9月新設）。
+        /// </summary>
+        public int UnexploredFloorsAdvanced { get; set; }
+
+        /// <summary>
         /// 歩いた階層の被ダメージ倍率の平均（完全解析区間のみなら0.3）。表示用の参考値であり、
         /// HP損耗の計算には使わない（損耗は階層ごとに積み上げる、→ Segments・EffectiveLossPct）。
         /// </summary>

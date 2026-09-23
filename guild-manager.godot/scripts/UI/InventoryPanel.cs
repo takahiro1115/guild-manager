@@ -214,7 +214,7 @@ public partial class InventoryPanel : VBoxContainer
 		LogRequested.Invoke(
 			$"[color=gold][b]🔬 鑑定：{relicName}（{origin}、{profile.Label}）[/b][/color]\n" +
 			$"[color={profile.ColorName}]→ {AppraisalSystem.BuildResultSummary(result)}[/color]" +
-			$"　[color=gray]（鑑定費用 -{result.AppraisalCost}G）[/color]\n" +
+			$"　[color=gray]（鑑定費用 -{result.AppraisalCost}G／マスターの機嫌 +{result.MoodGained} → {_state.MasterMood}/100）[/color]\n" +
 			$"[color=cyan]アルベール『{result.FlavorText}』[/color]");
 
 		// 所持金・素材・保管庫が動くため、画面全体（ヘッダーの素材サマリー等）を作り直す。

@@ -1,18 +1,11 @@
 key,value,unit,note
 InitialGold,3000,G,開始時の所持金（GameState.Gold の初期値）
-SubsidyWeeksPerMonth,4,週,助成金の支給間隔（月次＝4週。構造値のため通常は変更しない）
-SubsidyBaseAmount_G,200,G/月,格付けGの月次助成金
-SubsidyBaseAmount_F,300,G/月,格付けFの月次助成金
-SubsidyBaseAmount_E,450,G/月,格付けEの月次助成金
-SubsidyBaseAmount_D,650,G/月,格付けDの月次助成金
-SubsidyBaseAmount_C,900,G/月,格付けCの月次助成金
-SubsidyBaseAmount_B,1300,G/月,格付けBの月次助成金
-SubsidyBaseAmount_A,1800,G/月,格付けAの月次助成金
-SubsidyBaseAmount_S,2500,G/月,格付けSの月次助成金
+SideJobIntervalWeeks,4,週,アルベールの市販薬・内職売上の入金間隔（月次＝4週。旧SubsidyWeeksPerMonth。構造値のため通常は変更しない）
+SideJobBaseAmount,200,G/月,アルベールの市販薬・内職売上の基本額（旧・格付けGの月次助成金を流用）。実入金＝この値×マスターの機嫌の売上倍率（→ master_mood.csv SideJobMultiplier_*）
 WeeklyWageCoefficient,0.6,倍,週給＝総合PA×この係数（採用時の初期週給算出）
 AppropriateWageCoefficient,0.6,倍,適正週給＝総合PA×この係数（満足度の賃金妥当性判定に使用）
 SigningBonusCoefficient,3.0,倍,契約金＝総合PA×この係数
 SeveranceWeeks,12,×週給,引退時の退職金の基礎部分（週給×この週数）
 SeveranceContributionCoefficient,2.0,G/pt,"退職金の功績加算＝累積功績（TotalContributionScore）×この係数。「十分な退職金を持たせて安全に自立させる」という方針の実装（→ 01_コンセプト.md）"
-SeveranceShortfallReputationPenalty,15,pt,退職金を払いきれなかった場合の名声低下量（約束を守れないギルドとしての評判低下）
+SeveranceShortfallMoodPenalty,15,pt,退職金を払いきれなかった場合のマスターの機嫌の低下量（「退職金を持たせて自立させる」アルベールの信念に背くため。旧SeveranceShortfallReputationPenalty）
 BankruptcyConsecutiveWeeksThreshold,4,週,所持金マイナスがこの週数連続で解消されないと破産＝敗北（→ 03 §8.3。旧security.csvから移設）

@@ -117,8 +117,8 @@ namespace GuildManager.Core.Systems
         /// 満期引退（AdvanceYear経由）と早期引退（RetireVoluntarily）の両方から呼ばれる。
         ///
         /// 退職金を払いきれない場合も引退自体は成立させる（冒険者を人質に取らない）が、
-        /// 「約束した退職金を用意できないギルド」として名声が下がる
-        /// （→ EconomyBalance.SeveranceShortfallReputationPenalty）。
+        /// 「退職金を持たせて自立させる」というアルベールの信念に背くため、マスターの機嫌が下がる
+        /// （→ EconomyBalance.SeveranceShortfallMoodPenalty。旧・名声低下、2026年9月に置き換え）。
         ///
         /// 2026年9月改訂（→ §4.2.2「離脱時の自動回収」）：ロースターから外す**直前に**全装備を
         /// ギルド保管庫へ回収する（→ EquipmentSystem.UnequipAllToArmory）。装備したまま
@@ -137,7 +137,7 @@ namespace GuildManager.Core.Systems
             adventurer.SeverancePaid = true;
 
             if (!canAfford)
-                state.Reputation = Math.Max(0, state.Reputation - EconomyBalance.SeveranceShortfallReputationPenalty);
+                MasterMoodSystem.Adjust(state, -EconomyBalance.SeveranceShortfallMoodPenalty);
 
             // 離脱時の装備回収（→ §4.2.2）。引退は本人が健在なので、その旨が分かる文言で記録する。
             var recovered = EquipmentSystem.UnequipAllToArmory(

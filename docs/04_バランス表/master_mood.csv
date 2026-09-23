@@ -1,0 +1,16 @@
+key,value,unit,note
+InitialMood,50,pt,マスターの機嫌の初期値（0〜100。旧セーブの読み込み時もこの値で初期化する）
+BossDefeatMoodGain,20,pt,階層ボス撃破1体ごとの機嫌上昇
+PioneerMoodPerFloor,2,pt,道中潜行で進軍した未踏破階層（新階層開拓）1階層ごとの機嫌上昇
+SurveySuccessMoodGain,3,pt,迷宮調査から護衛判定「余裕」「十分」で帰還した時の機嫌上昇
+SurveyRoutedMoodLoss,3,pt,迷宮調査で護衛判定「不足」（潰走）となった時の機嫌低下
+GatheringMoodGain,2,pt,探索採取で素材を1個以上獲得して帰還した時の機嫌上昇
+AppraisalMoodGain,1,pt,未鑑定遺物1個の鑑定完了ごとの機嫌上昇（週次決算を待たず即時）
+BoredomMoodDecay,5,pt,大迷宮での成果が1件もなかった週の機嫌低下（退屈減衰）
+TierThreshold_Cheerful,80,pt,この値以上で「上機嫌」
+TierThreshold_Normal,50,pt,この値以上で「平常」
+TierThreshold_Grumpy,20,pt,この値以上で「不機嫌」（未満は「危機」。0で副官解雇＝敗北）
+SideJobMultiplier_Cheerful,1.5,倍,上機嫌時の内職売上倍率
+SideJobMultiplier_Normal,1.0,倍,平常時の内職売上倍率
+SideJobMultiplier_Grumpy,0.5,倍,不機嫌時の内職売上倍率
+SideJobMultiplier_Crisis,0.0,倍,危機時の内職売上倍率

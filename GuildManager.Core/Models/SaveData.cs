@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace GuildManager.Core.Models
 {
@@ -31,8 +32,13 @@ namespace GuildManager.Core.Models
         // ---- ギルド全体のスカラー値 ----
         public int CurrentTurn { get; set; }
         public int Money { get; set; }
-        public int Reputation { get; set; }
-        public string GuildRank { get; set; } = ""; // enum→文字列で保存
+
+        /// <summary>
+        /// マスターの機嫌（→ GameState.MasterMood、2026年9月新設）。null＝このキーを持たない旧セーブ
+        /// （名声 Reputation・格付け GuildRank の時代。両キーはJSONに残っていても読み捨てる）で、
+        /// 読み込み時に初期値（平常）で初期化する。
+        /// </summary>
+        public int? MasterMood { get; set; }
 
         /// <summary>
         /// 破産判定（→ 03 §8.3）の連続週数カウンタ。指示書のSaveDataサンプルには
@@ -49,11 +55,17 @@ namespace GuildManager.Core.Models
         public string? DefeatReason { get; set; }
 
         /// <summary>
-        /// 現ランク相当のクエストを最後に達成してから経過した週数（→ 03 §8.1.1）。
-        /// 指示書のSaveDataサンプルには含まれていなかったが、省略すると名声の
-        /// 自然減衰カウンタがロードのたびにリセットされてしまうため追加した。
+        /// 大迷宮での成果が最後にあってから経過した週数（→ GameState.WeeksSinceLastGuildActivity、03 §8.1.1）。
+        /// null＝このキーを持たない旧セーブ（→ WeeksSinceLastRankAppropriateQuest から引き継ぐ）。
         /// </summary>
-        public int WeeksSinceLastRankAppropriateQuest { get; set; }
+        public int? WeeksSinceLastGuildActivity { get; set; }
+
+        /// <summary>
+        /// 旧キー（読み込み専用）：現ランク相当のクエストを最後に達成してから経過した週数。
+        /// WeeksSinceLastGuildActivity へ改名済み（2026年9月）。新しいセーブには書き出さない（常にnull）。
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public int? WeeksSinceLastRankAppropriateQuest { get; set; }
 
         /// <summary>
         /// 「最終討伐クエストの依頼が持ち込まれるようになった」フラグ（→ 03 §8.2、

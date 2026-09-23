@@ -49,9 +49,8 @@ namespace GuildManager.Core.Tests
             var satisfaction = new SatisfactionSystem();
 
             return new WeekProcessingSystem(
-                guildRankSystem: new GuildRankSystem(),
+                masterMoodSystem: new MasterMoodSystem(),
                 economySystem: economy,
-                subsidySystem: new SubsidySystem(),
                 trainingSystem: new TrainingSystem(),
                 injuryRecoverySystem: new InjuryRecoverySystem(),
                 restRecoverySystem: new RestRecoverySystem(),
@@ -183,21 +182,9 @@ namespace GuildManager.Core.Tests
         // ---------------- FinalQuestNewlyUnlocked ----------------
 
         [Fact]
-        public void ProcessWeek_SetsFinalQuestNewlyUnlocked_WhenReachingRankAThisWeek()
-        {
-            var state = new GameState { GuildRank = GuildRank.B, Reputation = GuildRankBalance.GetThreshold(GuildRank.A).PromoteAt };
-            var system = BuildSystem();
-
-            var result = system.ProcessWeek(state);
-
-            Assert.Equal(GuildRank.A, state.GuildRank);
-            Assert.True(result.Flags.FinalQuestNewlyUnlocked);
-        }
-
-        [Fact]
         public void ProcessWeek_DoesNotSetFinalQuestNewlyUnlocked_WhenAlreadyUnlocked()
         {
-            var state = new GameState { GuildRank = GuildRank.A, FinalQuestUnlocked = true, Reputation = GuildRankBalance.GetThreshold(GuildRank.A).PromoteAt };
+            var state = new GameState { FinalQuestUnlocked = true };
             var system = BuildSystem();
 
             var result = system.ProcessWeek(state);
@@ -206,9 +193,9 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
-        public void ProcessWeek_DoesNotSetFinalQuestNewlyUnlocked_WhenBelowRankA()
+        public void ProcessWeek_DoesNotSetFinalQuestNewlyUnlocked_WhenFinalBossNotDefeated()
         {
-            var state = new GameState { GuildRank = GuildRank.G };
+            var state = new GameState();
             var system = BuildSystem();
 
             var result = system.ProcessWeek(state);
@@ -339,7 +326,8 @@ namespace GuildManager.Core.Tests
         {
             // 採用試験週(48の倍数+1)・脅威度閾値・満足度警告等のいずれにも該当しない
             // 静かな期間だけを対象に、maxWeeksちょうどで打ち切られることを確認する。
-            var state = new GameState { WeekNumber = 2, Adventurers = { new Adventurer { Satisfaction = 90, WeeklyWage = 60 } } };
+            // 出撃しない週は機嫌が退屈減衰（−5/週）するため、10週で副官解雇に届かないよう上機嫌100から始める。
+            var state = new GameState { WeekNumber = 2, MasterMood = 100, Adventurers = { new Adventurer { Satisfaction = 90, WeeklyWage = 60 } } };
             var autoSkip = new AutoSkipService(BuildSystem());
 
             var results = autoSkip.AutoSkip(state, maxWeeks: 10);

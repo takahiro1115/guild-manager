@@ -11,7 +11,7 @@ using GuildManager.Core.Systems;
 
 /// <summary>
 /// Phase 2 最小UI。「編成→週送り→結果→資金」の輪を一周させるためだけの画面。
-/// 満足度・施設・格付け等はまだ扱わない（→ docs/06_タスクリスト.md Phase 3以降）。
+/// 満足度・施設等はまだ扱わない（→ docs/06_タスクリスト.md Phase 3以降）。
 ///
 /// 既知の割り切り（MVPの簡略化）：
 ///  - 週送りのたびにクエスト一覧・冒険者一覧の選択状態はリセットされる（毎週選び直す）。
@@ -30,8 +30,7 @@ public partial class MainDashboard : Control
 	private SatisfactionSystem _satisfactionSystem = null!;
 	private CompatibilitySystem _compatibilitySystem = null!;
 	private FacilitySystem _facilitySystem = null!;
-	private GuildRankSystem _guildRankSystem = null!;
-	private SubsidySystem _subsidySystem = null!;
+	private MasterMoodSystem _masterMoodSystem = null!;
 	private DefeatSystem _defeatSystem = null!;
 	private AdvisorSystem _advisorSystem = null!;
 	private EquipmentSystem _equipmentSystem = null!;
@@ -216,8 +215,7 @@ public partial class MainDashboard : Control
 		_satisfactionSystem = new SatisfactionSystem();
 		_compatibilitySystem = new CompatibilitySystem(new SeededRng(2525));
 		_facilitySystem = new FacilitySystem();
-		_guildRankSystem = new GuildRankSystem();
-		_subsidySystem = new SubsidySystem();
+		_masterMoodSystem = new MasterMoodSystem();
 		_defeatSystem = new DefeatSystem();
 		_advisorSystem = new AdvisorSystem();
 		_equipmentSystem = new EquipmentSystem();
@@ -237,7 +235,7 @@ public partial class MainDashboard : Control
 		// 週次決算のオーケストレーション（→ 03 §1.3・自動スキップ）。既存の各Systemインスタンスを
 		// そのまま共有し、二重管理（別インスタンスによる状態不整合）を避ける。
 		_weekProcessingSystem = new WeekProcessingSystem(
-			_guildRankSystem, _economySystem, _subsidySystem, _trainingSystem, _injuryRecoverySystem,
+			_masterMoodSystem, _economySystem, _trainingSystem, _injuryRecoverySystem,
 			_restRecoverySystem, _growthSystem, _satisfactionSystem, _agingSystem,
 			_facilitySystem, _defeatSystem, _recruitmentSystem,
 			_dungeonExpeditionSystem);
@@ -484,8 +482,15 @@ public partial class MainDashboard : Control
 			LogGrowthEvents(dungeonResolution.GrowthEvents);
 		}
 
-		if (settlement.SubsidyAmount.HasValue)
-			AppendLog($"[color=lime]月次助成金 {settlement.SubsidyAmount.Value}G を受け取った。[/color]");
+		LogMasterMood(settlement.MoodReport); // → 03 §8.1・§8.1.1：マスターの機嫌の変動内訳
+
+		// アルベールの市販薬・内職売上（→ 03 §8.1。4週に1回、機嫌に応じた倍率。旧・月次助成金）。
+		if (settlement.SideJobIncome != null)
+		{
+			var income = settlement.SideJobIncome;
+			AppendLog($"[color=lime]【アルベールの内職】市販薬売上: +{income.FinalGold}G " +
+				$"(基本 {income.BaseGold}G × 機嫌倍率 {income.Multiplier:F1}〔{MoodTierLabel(income.Tier)}・機嫌{income.Mood}〕)[/color]");
+		}
 
 		LogGrowthEvents(settlement.TrainingGrowthEvents); // → 03 §3.1〜3.4：成長トリガー経路2（訓練場配置）
 		LogNegotiationStatus(settlement.NegotiationTerminated); // → 03 §5.2：契約交渉・退団
@@ -493,25 +498,54 @@ public partial class MainDashboard : Control
 		if (settlement.CompletedFacility != null)
 			AppendLog($"[color=lime][b]🏗 {FacilityLabel(settlement.CompletedFacility.Type)}がLv{settlement.CompletedFacility.CurrentLevel}に完成した！[/b][/color]");
 
-		if (settlement.RankChange != null)
-		{
-			string message = settlement.RankChange.IsPromotion
-				? $"[color=gold][b]🏅 ギルド格付けが{settlement.RankChange.Current}ランクに昇格しました！[/b][/color]"
-				: $"[color=orange][b]⚠ ギルド格付けが{settlement.RankChange.Current}ランクに降格しました。[/b][/color]";
-			AppendLog(message);
-		}
-
-		// 敗北条件判定（→ 03 §8.3）：破産（所持金マイナス4週連続、猶予あり）／
-		// 治安崩壊（脅威度100%到達、猶予なし即時敗北）。期限による敗北は無い。
+		// 敗北条件判定（→ 03 §8.3）：副官解雇（マスターの機嫌0、猶予なし即時敗北）／
+		// 破産（所持金マイナス4週連続、猶予あり）。期限による敗北は無い。
 		if (settlement.NewDefeatReason != null)
 		{
-			string reasonLabel = settlement.NewDefeatReason == DefeatReason.Bankruptcy ? "破産" : "治安崩壊";
+			string reasonLabel = settlement.NewDefeatReason switch
+			{
+				DefeatReason.DismissedByMaster => "副官解雇",
+				DefeatReason.Bankruptcy => "破産",
+				_ => "治安崩壊",
+			};
 			AppendLog($"[color=red][font_size=24][b]■■■ ゲームオーバー：{reasonLabel} ■■■[/b][/font_size][/color]");
-			AppendLog(settlement.NewDefeatReason == DefeatReason.Bankruptcy
-				? "[color=red]所持金マイナスが4週連続で解消されませんでした。[/color]"
-				: "[color=red]脅威度が100%に到達し、街の治安が崩壊しました。[/color]");
+			AppendLog(settlement.NewDefeatReason switch
+			{
+				DefeatReason.DismissedByMaster => "[color=red]マスターの機嫌が0に達した。「退屈なギルドに副官は要らん」――あなたはアルベールに解雇された。[/color]",
+				DefeatReason.Bankruptcy => "[color=red]所持金マイナスが4週連続で解消されませんでした。[/color]",
+				_ => "[color=red]脅威度が100%に到達し、街の治安が崩壊しました。[/color]",
+			});
 		}
 	}
+
+	/// <summary>
+	/// マスターの機嫌の週次変動を週報に開示する（→ 03 §8.1・§8.1.1、§4.2.3 特記事項）。
+	/// 成果ゼロの週は退屈減衰を明記する。
+	/// </summary>
+	private void LogMasterMood(MasterMoodReport report)
+	{
+		string reasons = report.Entries.Count == 0
+			? "変動なし"
+			: string.Join("、", report.Entries.Select(e =>
+				e.Applied == e.Delta ? $"{e.Reason} {e.Delta:+0;-0;+0}" : $"{e.Reason} {e.Delta:+0;-0;+0}（上下限で{e.Applied:+0;-0;+0}）"));
+		string color = report.Delta > 0 ? "lime" : report.Delta < 0 ? "orange" : "gray";
+		AppendLog($"[color={color}]【マスターの機嫌】現在: {report.MoodAfter}/100 (今週の変動: {report.Delta:+0;-0;+0} / {reasons})" +
+			$"［{MoodTierLabel(MasterMoodSystem.GetTier(report.MoodAfter))}］[/color]");
+		if (report.Bored)
+		{
+			AppendLog($"[color=orange]大迷宮での成果がなく、アルベールは退屈して機嫌を損ねている (機嫌 -{MasterMoodBalance.BoredomMoodDecay})" +
+				$"〔成果なし {report.WeeksSinceLastGuildActivity}週連続〕[/color]");
+		}
+	}
+
+	/// <summary>機嫌の段階名（→ MasterMoodSystem.GetTier）。</summary>
+	private static string MoodTierLabel(MasterMoodTier tier) => tier switch
+	{
+		MasterMoodTier.Cheerful => "上機嫌",
+		MasterMoodTier.Normal => "平常",
+		MasterMoodTier.Grumpy => "不機嫌",
+		_ => "危機",
+	};
 
 	/// <summary>
 	/// 「自動スキップ」ボタン（→ 03 §1.3）。停止条件（採用試験・満足度警告・施設完成・
@@ -863,8 +897,8 @@ public partial class MainDashboard : Control
 
 		if (assault.Outcome == DungeonOutcome.Victory)
 		{
-			// 撃破報酬の内訳（→ FloorBoss.RewardGold/RewardReputation/RewardMaterialId、2026年9月新設）。
-			string rewardLine = $"💰 報奨獲得：{boss.RewardGold} G ／ 👑 名声 +{boss.RewardReputation}";
+			// 撃破報酬の内訳（→ FloorBoss.RewardGold/RewardMaterialId、2026年9月新設）。名声は廃止し、マスターの機嫌の上昇として週報末尾に集計する。
+			string rewardLine = $"💰 報奨獲得：{boss.RewardGold} G ／ 😊 マスターの機嫌 +{MasterMoodBalance.BossDefeatMoodGain}";
 			if (!string.IsNullOrEmpty(boss.RewardMaterialId))
 				rewardLine += $" ／ 📦 {MaterialBalance.GetName(boss.RewardMaterialId)} ×{boss.RewardMaterialCount}";
 			sb.AppendLine($"[color=lime]{rewardLine}[/color]");
@@ -1030,7 +1064,9 @@ public partial class MainDashboard : Control
 	{
 		_weekLabel.Text = $"週: {_state.WeekNumber}";
 		_goldLabel.Text = $"所持金: {_state.Gold} G";
-		_rankLabel.Text = $"ギルド格付け: {_state.GuildRank}ランク（名声 {_state.Reputation}）";
+		// マスターの機嫌（→ 03 §8.1。旧・ギルド格付け／名声の表示枠を流用）。
+		var moodTier = MasterMoodSystem.GetTier(_state.MasterMood);
+		_rankLabel.Text = $"マスターの機嫌: {_state.MasterMood}/100 ［{MoodTierLabel(moodTier)} 内職×{MasterMoodSystem.GetSideJobMultiplier(moodTier):F1}］";
 		// 同時出撃枠の使用状況（→ コアシステム刷新仕様「4. 進行管理」）。
 		// 大迷宮へ出撃中の部隊の数で枠を消費する（→ DungeonExpeditionSystem.CanDispatch）。
 		_squadSlotLabel.Text = $"出撃枠: {_state.ActiveDungeonMissions.Count}/{_state.UnlockedSquadSlots}";

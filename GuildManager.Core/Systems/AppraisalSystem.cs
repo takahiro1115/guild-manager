@@ -64,6 +64,8 @@ namespace GuildManager.Core.Systems
             result.AppraisalCost = item.AppraisalCost;
             result.Rarity = item.Rarity;
             result.FlavorText = BuildFlavorText(result.Type, item.Rarity);
+            // 鑑定完了でマスターの機嫌が上がる（→ 03 §8.1、2026年9月新設。週次決算を待たず即時）。
+            result.MoodGained = MasterMoodSystem.ApplyAppraisal(state);
             return result;
         }
 

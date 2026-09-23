@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using GuildManager.Core.Balance;
 using GuildManager.Core.Models;
@@ -15,6 +16,26 @@ namespace GuildManager.Core.Systems
         {
             int totalWages = state.Adventurers.Sum(a => a.WeeklyWage);
             state.Gold -= totalWages;
+        }
+
+        /// <summary>
+        /// アルベールの市販薬・内職売上（→ 03 §8.1、旧・月次助成金の後継。2026年9月）。
+        /// SideJobIntervalWeeks週に1回（週番号がその倍数の週）、基本額×マスターの機嫌の売上倍率
+        /// （→ MasterMoodSystem.GetSideJobMultiplier：上機嫌1.5／平常1.0／不機嫌0.5／危機0.0）を入金する。
+        /// 倍率は決算時点の機嫌で決める（呼び出し側は機嫌の週次変動を済ませてから呼ぶ）。
+        /// 入金週でなければ null。
+        /// </summary>
+        public SideJobIncome? ProcessWeeklySideJobIncome(GameState state)
+        {
+            if (state.WeekNumber % EconomyBalance.SideJobIntervalWeeks != 0)
+                return null;
+
+            int mood = state.MasterMood;
+            var tier = MasterMoodSystem.GetTier(mood);
+            double multiplier = MasterMoodSystem.GetSideJobMultiplier(tier);
+            int finalGold = (int)Math.Round(EconomyBalance.SideJobBaseAmount * multiplier);
+            state.Gold += finalGold;
+            return new SideJobIncome(EconomyBalance.SideJobBaseAmount, mood, tier, multiplier, finalGold);
         }
 
         /// <summary>クエスト報酬を所持金に加算する。</summary>

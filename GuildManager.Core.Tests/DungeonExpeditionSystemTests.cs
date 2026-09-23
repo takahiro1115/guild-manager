@@ -379,10 +379,10 @@ namespace GuildManager.Core.Tests
             // field1のOrder==1・Floor==10のため、報酬付与に加えて出撃枠拡張（→ 「古代エルフの
             // 多頭通信術式」復元）も同時に発生する（→ Defeating_Forest_10F_Boss_Unlocks_Slot2_And_NextField
             // と同じ経路。ここではTryDispatch→ProcessWeeklyMissionsの実際の配線を確認する）。
-            var boss = new FloorBoss { Name = "弱いボス", Floor = 10, MaxHp = 1, CurrentHp = 1, RewardGold = 300, RewardReputation = 7 };
+            var boss = new FloorBoss { Name = "弱いボス", Floor = 10, MaxHp = 1, CurrentHp = 1, RewardGold = 300 };
             var field1 = new DungeonField { Id = "f1", Name = "第1フィールド", Order = 1, IsUnlocked = true, Bosses = { boss } };
             var field2 = new DungeonField { Id = "f2", Name = "第2フィールド", Order = 2, IsUnlocked = false };
-            var state = new GameState { Gold = 0, Reputation = 0, DungeonFields = { field1, field2 } };
+            var state = new GameState { Gold = 0, DungeonFields = { field1, field2 } };
             var strongParty = PartyOf(MakeAdventurer(JobClass.Warrior, 200), MakeAdventurer(JobClass.Cleric, 200));
 
             var system = BuildSystem();
@@ -395,11 +395,7 @@ namespace GuildManager.Core.Tests
             Assert.Equal(11, field1.ReachedFloor);
             Assert.True(field2.IsUnlocked); // Floor==10撃破で次フィールドが自動的に開く
             Assert.Equal(300, state.Gold);
-            // 名声：報酬7が先に加算された後、出撃枠拡張の名声同期（→ Rank Eの昇格ラインまで
-            // 引き上げ）で上書きされる（Math.Maxのため、報酬7より確実に大きい）。
-            Assert.Equal(GuildRankBalance.GetThreshold(GuildRank.E).PromoteAt, state.Reputation);
             Assert.Equal(2, state.UnlockedSquadSlots);
-            Assert.True(state.GuildRank >= GuildRank.E);
             Assert.Equal(2, resolution.SquadSlotsExpandedTo);
         }
 
@@ -603,19 +599,19 @@ namespace GuildManager.Core.Tests
             Assert.True(field.ReachedFloor > 5, "完全解析済みでも道中進軍で深度は前進するはず");
         }
 
-        // ---------------- 撃破報酬（ゴールド・名声・素材ドロップ、2026年9月新設） ----------------
+        // ---------------- 撃破報酬（ゴールド・素材ドロップ、2026年9月新設） ----------------
 
         [Fact]
-        public void BossDefeat_GrantsGoldReputationAndMaterials()
+        public void BossDefeat_GrantsGoldAndMaterials()
         {
             var boss = new FloorBoss
             {
                 Name = "報酬確認用ボス", Floor = 5, MaxHp = 1, CurrentHp = 1,
-                RewardGold = 800, RewardReputation = 15,
+                RewardGold = 800,
                 RewardMaterialId = MaterialIds.ForestSpore, RewardMaterialCount = 4,
             };
             var field = new DungeonField { Id = "f1", Name = "テスト用フィールド", Order = 1, IsUnlocked = true, Bosses = { boss } };
-            var state = new GameState { Gold = 0, Reputation = 0, DungeonFields = { field } };
+            var state = new GameState { Gold = 0, DungeonFields = { field } };
             var strongParty = PartyOf(MakeAdventurer(JobClass.Warrior, 200), MakeAdventurer(JobClass.Cleric, 200));
             var system = BuildSystem();
 
@@ -624,7 +620,6 @@ namespace GuildManager.Core.Tests
 
             Assert.Equal(DungeonOutcome.Victory, resolution.DungeonResult!.Outcome);
             Assert.Equal(800, state.Gold);
-            Assert.Equal(15, state.Reputation);
             Assert.Equal(4, state.Materials[MaterialIds.ForestSpore]);
         }
 
@@ -638,21 +633,20 @@ namespace GuildManager.Core.Tests
             var boss = new FloorBoss
             {
                 Name = "弱いボス", Floor = 10, MaxHp = 1, CurrentHp = 1,
-                RewardGold = 300, RewardReputation = 7,
+                RewardGold = 300,
                 RewardMaterialId = MaterialIds.ForestHerb, RewardMaterialCount = 3,
             };
             var field1 = new DungeonField { Id = "f1", Name = "第1フィールド", Order = 1, IsUnlocked = true, Bosses = { boss } };
             var field2 = new DungeonField { Id = "f2", Name = "第2フィールド", Order = 2, IsUnlocked = false };
-            var state = new GameState { Gold = 0, Reputation = 0, DungeonFields = { field1, field2 } };
+            var state = new GameState { Gold = 0, DungeonFields = { field1, field2 } };
             var strongParty = PartyOf(MakeAdventurer(JobClass.Warrior, 200), MakeAdventurer(JobClass.Cleric, 200));
             var system = BuildSystem();
 
             Assert.True(system.TryDispatch(state, strongParty, boss, DungeonMissionType.BossAssault));
             var resolution = Assert.Single(system.ProcessWeeklyMissions(state));
 
-            // 💰報奨・👑名声・📦素材（→ 週報の「報奨獲得」行）。
+            // 💰報奨・📦素材（→ 週報の「報奨獲得」行）。
             Assert.Equal(300, resolution.Boss!.RewardGold);
-            Assert.Equal(7, resolution.Boss.RewardReputation);
             Assert.Equal(MaterialIds.ForestHerb, resolution.Boss.RewardMaterialId);
             Assert.Equal(3, resolution.Boss.RewardMaterialCount);
             // 🗺新フィールド開放（→ 週報の「探索域拡大」行）。
@@ -769,7 +763,7 @@ namespace GuildManager.Core.Tests
             var satisfaction = new SatisfactionSystem();
             var compatibility = new CompatibilitySystem(new AlwaysMinRng());
             var week = new WeekProcessingSystem(
-                new GuildRankSystem(), economy, new SubsidySystem(), new TrainingSystem(), new InjuryRecoverySystem(), new RestRecoverySystem(),
+                new MasterMoodSystem(), economy, new TrainingSystem(), new InjuryRecoverySystem(), new RestRecoverySystem(),
                 growth, satisfaction, new AgingSystem(new AlwaysMinRng()), new FacilitySystem(), new DefeatSystem(),
                 new RecruitmentSystem(new AlwaysMinRng()),
                 dungeonExpeditionSystem: BuildSystem());
@@ -790,7 +784,7 @@ namespace GuildManager.Core.Tests
             var satisfaction = new SatisfactionSystem();
             var compatibility = new CompatibilitySystem(new AlwaysMinRng());
             return new WeekProcessingSystem(
-                new GuildRankSystem(), economy, new SubsidySystem(), new TrainingSystem(), new InjuryRecoverySystem(), new RestRecoverySystem(),
+                new MasterMoodSystem(), economy, new TrainingSystem(), new InjuryRecoverySystem(), new RestRecoverySystem(),
                 growth, satisfaction, new AgingSystem(new AlwaysMinRng()), new FacilitySystem(), new DefeatSystem(),
                 new RecruitmentSystem(new AlwaysMinRng()),
                 dungeonExpeditionSystem: expedition);

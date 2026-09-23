@@ -8,5 +8,11 @@ namespace GuildManager.Core.Models
 
         /// <summary>治安崩壊：脅威度が100%に到達した週の決算時点で猶予なく即時敗北。</summary>
         SecurityCollapse,
+
+        /// <summary>
+        /// 副官解雇：マスター（アルベール）の機嫌が0に達した週の決算時点で猶予なく即時敗北
+        /// （→ GameState.MasterMood、DefeatSystem。2026年9月新設）。
+        /// </summary>
+        DismissedByMaster,
     }
 }

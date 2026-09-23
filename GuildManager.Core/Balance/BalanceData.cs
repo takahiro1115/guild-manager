@@ -25,7 +25,7 @@ namespace GuildManager.Core.Balance
     ///
     /// 対応する2形式：
     ///  - key,value,unit,note 形式（大半のファイル）→ GetInt/GetDouble/GetString
-    ///  - テーブル形式（quest_templates.csv・growth_job_weights.csv・guild_rank.csv）
+    ///  - テーブル形式（growth_job_weights.csv・materials.csv・research.csv 等）
     ///    → GetTable（ヘッダー行と各データ行をそのまま返し、変換は呼び出し側のBalanceクラスが行う）
     ///
     /// ファイル欠損・キー欠損・パース失敗はいずれも BalanceDataException とする。
@@ -124,7 +124,7 @@ namespace GuildManager.Core.Balance
         }
 
         /// <summary>
-        /// テーブル形式ファイル（quest_templates.csv・growth_job_weights.csv・guild_rank.csv）の
+        /// テーブル形式ファイル（growth_job_weights.csv・materials.csv・research.csv 等）の
         /// ヘッダーと全データ行を返す。列への意味付け・型変換は呼び出し側のBalanceクラスが行う。
         /// </summary>
         public static (string[] Header, List<string[]> Rows) GetTable(string fileName)

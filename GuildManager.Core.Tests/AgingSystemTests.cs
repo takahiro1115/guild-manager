@@ -272,35 +272,35 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
-        public void ProcessWeeklyAging_Retirement_StillSucceedsButDamagesReputation_WhenGoldIsShort()
+        public void ProcessWeeklyAging_Retirement_StillSucceedsButLowersMasterMood_WhenGoldIsShort()
         {
             // 退職金を払いきれなくても引退自体は成立させる（冒険者を人質に取らない）が、
-            // 「約束した退職金を用意できないギルド」として名声が下がる。
+            // 「退職金を持たせて自立させる」アルベールの信念に背くため、マスターの機嫌が下がる。
             var adventurer = new Adventurer { Age = 25, WeeklyWage = 50 };
             var state = CreateState(adventurer, weekNumber: 48);
             state.Gold = 10; // 明らかに足りない
-            state.Reputation = 100;
+            state.MasterMood = 60;
             var system = new AgingSystem(new AlwaysMinRng());
 
             system.ProcessWeeklyAging(state);
 
             Assert.True(adventurer.IsRetired);
             Assert.Contains(adventurer, state.RetiredAdventurers);
-            Assert.Equal(100 - EconomyBalance.SeveranceShortfallReputationPenalty, state.Reputation);
+            Assert.Equal(60 - EconomyBalance.SeveranceShortfallMoodPenalty, state.MasterMood);
         }
 
         [Fact]
-        public void ProcessWeeklyAging_Retirement_DoesNotTouchReputation_WhenGoldIsSufficient()
+        public void ProcessWeeklyAging_Retirement_DoesNotTouchMasterMood_WhenGoldIsSufficient()
         {
             var adventurer = new Adventurer { Age = 25, WeeklyWage = 50 };
             var state = CreateState(adventurer, weekNumber: 48);
             state.Gold = 100_000;
-            state.Reputation = 100;
+            state.MasterMood = 60;
             var system = new AgingSystem(new AlwaysMinRng());
 
             system.ProcessWeeklyAging(state);
 
-            Assert.Equal(100, state.Reputation);
+            Assert.Equal(60, state.MasterMood);
         }
 
         [Fact]

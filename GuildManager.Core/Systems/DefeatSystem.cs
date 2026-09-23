@@ -6,7 +6,9 @@ namespace GuildManager.Core.Systems
     /// <summary>
     /// 敗北条件の判定。仕様書 03 §8.3 参照。
     ///
-    /// - 破産：所持金マイナスが4週連続で解消されない（4週間の猶予あり）。これが唯一の敗北条件。
+    /// - 副官解雇：マスターの機嫌（GameState.MasterMood）が0に達した（猶予なく即時。2026年9月新設）。
+    /// - 破産：所持金マイナスが4週連続で解消されない（4週間の猶予あり）。
+    /// 両方が同じ週に成立した場合は副官解雇を優先する。
     ///
     /// 治安崩壊（脅威度100%到達による即時敗北）は撤廃済み（→ 経営破綻への一本化改訂）。
     /// 指示書は本改訂の対象ファイルを WeekProcessingSystem.cs・GameState.cs としていたが、
@@ -27,6 +29,13 @@ namespace GuildManager.Core.Systems
         {
             if (state.DefeatReason != null)
                 return null; // 既に敗北済み：何もしない
+
+            // 副官解雇（2026年9月新設）：マスターの機嫌が0に達したら猶予なく即時敗北。
+            if (state.MasterMood <= MasterMoodBalance.Min)
+            {
+                state.DefeatReason = DefeatReason.DismissedByMaster;
+                return DefeatReason.DismissedByMaster;
+            }
 
             if (state.Gold < 0)
                 state.ConsecutiveNegativeGoldWeeks++;

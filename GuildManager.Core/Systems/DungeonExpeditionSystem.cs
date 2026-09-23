@@ -662,9 +662,8 @@ namespace GuildManager.Core.Systems
             if (field == null)
                 return; // フィールドに属さないボス（旧セーブ・テスト等）は対象外。防御的に何もしない。
 
-            // ①撃破報酬（→ FloorBoss.RewardGold/RewardReputation/RewardMaterialId・RewardMaterialCount）。
+            // ①撃破報酬（→ FloorBoss.RewardGold/RewardMaterialId・RewardMaterialCount。機嫌の上昇は週次決算の MasterMoodSystem が担う）。
             state.Gold += defeatedBoss.RewardGold;
-            state.Reputation += defeatedBoss.RewardReputation;
             if (!string.IsNullOrEmpty(defeatedBoss.RewardMaterialId))
                 state.AddMaterial(defeatedBoss.RewardMaterialId, defeatedBoss.RewardMaterialCount);
 
@@ -694,38 +693,22 @@ namespace GuildManager.Core.Systems
             }
 
             // ⑤最深部（最終フィールドの100Fボス）撃破：最終討伐クエストの解禁フラグを立てる
-            // （→ 03 §8.2。Aランク到達時と同じフラグを共有する＝どちらも「終盤コンテンツが
-            // 解禁された」ことを示す合図として扱う）。
+            // （→ 03 §8.2。旧来の「Aランク到達」経路はギルド格付けの廃止（2026年9月）で撤去し、この経路のみになった）。
             var finalField = state.DungeonFields.OrderByDescending(f => f.Order).FirstOrDefault();
             if (finalField != null && field == finalField && defeatedBoss.Floor == DungeonField.MaxFloor)
                 state.FinalQuestUnlocked = true;
 
             // ⑥出撃枠拡張（「古代エルフの多頭通信術式」復元、→ 大迷宮ボス間隔・敗北条件改訂）。
-            // 森（Order=1）の節目ボス撃破のみが対象：10F撃破で2枠・Rank E相当、
-            // 20F撃破で3枠・Rank D相当まで引き上げる（既に到達値以上ならダウングレードしない）。
+            // 森（Order=1）の節目ボス撃破のみが対象：10F撃破で2枠、20F撃破で3枠まで引き上げる
+            // （既に到達値以上ならダウングレードしない）。旧来はギルド格付けE・D相当への引き上げも
+            // 伴っていたが、格付けの廃止（2026年9月）に伴い出撃枠のみになった。
             if (field.Order == 1)
             {
                 if (defeatedBoss.Floor == 10)
-                    SyncSquadSlotsAndRank(state, targetSlots: 2, targetRank: GuildRank.E);
+                    state.UnlockedSquadSlots = Math.Max(state.UnlockedSquadSlots, 2);
                 else if (defeatedBoss.Floor == 20)
-                    SyncSquadSlotsAndRank(state, targetSlots: 3, targetRank: GuildRank.D);
+                    state.UnlockedSquadSlots = Math.Max(state.UnlockedSquadSlots, 3);
             }
-        }
-
-        /// <summary>
-        /// 出撃枠とギルド格付け・名声を目標値まで引き上げる（下げない）。
-        /// GuildProgressionSystem.ApplyPromotionIfExamClearedと同じパターン：ランクは
-        /// 「名声から導出される」値であり、週次決算の降格判定が毎週走るため、ランクだけを
-        /// 書き換えると次の決算で名声不足と判定され引き戻されてしまう。名声自体を目標ランクの
-        /// 昇格ラインまで引き上げることで、単一の真実（名声→ランク）を保ったまま昇格を成立させる。
-        /// </summary>
-        private static void SyncSquadSlotsAndRank(GameState state, int targetSlots, GuildRank targetRank)
-        {
-            state.UnlockedSquadSlots = Math.Max(state.UnlockedSquadSlots, targetSlots);
-
-            if (state.GuildRank < targetRank)
-                state.GuildRank = targetRank;
-            state.Reputation = Math.Max(state.Reputation, GuildRankBalance.GetThreshold(targetRank).PromoteAt);
         }
 
         private static void ReleaseMembers(Party party)

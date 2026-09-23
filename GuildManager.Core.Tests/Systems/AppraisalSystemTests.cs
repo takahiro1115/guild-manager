@@ -204,6 +204,23 @@ namespace GuildManager.Core.Tests.Systems
         // ---------------- 資金不足（指示書指定テスト） ----------------
 
         [Fact]
+        public void Appraise_RaisesMasterMood_ByOnePerItem()
+        {
+            // 鑑定完了1個ごとにマスターの機嫌+1（→ 03 §8.1、MasterMoodBalance.AppraisalMoodGain）。
+            var first = MakeRelic(ItemRarity.Common);
+            var second = MakeRelic(ItemRarity.Common);
+            var state = new GameState { Gold = 100_000, MasterMood = 50, UnidentifiedItems = { first, second } };
+            var system = new AppraisalSystem(new AlwaysMinRng());
+
+            var r1 = system.Appraise(state, first.Id);
+            var r2 = system.Appraise(state, second.Id);
+
+            Assert.Equal(MasterMoodBalance.AppraisalMoodGain, r1!.MoodGained);
+            Assert.Equal(MasterMoodBalance.AppraisalMoodGain, r2!.MoodGained);
+            Assert.Equal(50 + 2 * MasterMoodBalance.AppraisalMoodGain, state.MasterMood);
+        }
+
+        [Fact]
         public void Appraise_Fails_WhenInsufficientGold()
         {
             var relic = MakeRelic(ItemRarity.Legendary);

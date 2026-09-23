@@ -38,14 +38,14 @@ namespace GuildManager.Core.Systems
         /// <summary>契約交渉の猶予切れで契約解除された冒険者一覧（→ SatisfactionSystem.ProcessWeeklyNegotiation）。</summary>
         public List<Adventurer> NegotiationTerminated { get; } = new();
 
-        /// <summary>月次助成金として実際に受け取った額（4週に1回のみ値が入る）。</summary>
-        public int? SubsidyAmount { get; set; }
+        /// <summary>アルベールの市販薬・内職売上（4週に1回のみ値が入る。→ EconomySystem.ProcessWeeklySideJobIncome）。</summary>
+        public SideJobIncome? SideJobIncome { get; set; }
+
+        /// <summary>今週のマスターの機嫌の変動（→ MasterMoodSystem.ProcessWeeklyMood）。</summary>
+        public MasterMoodReport MoodReport { get; set; } = new();
 
         /// <summary>今週完成した施設（無ければnull）。</summary>
         public Facility? CompletedFacility { get; set; }
-
-        /// <summary>今週発生したギルド格付けの変化（無ければnull）。</summary>
-        public GuildRankChangeEvent? RankChange { get; set; }
 
         /// <summary>今週新たに確定した敗北理由（無ければnull）。</summary>
         public DefeatReason? NewDefeatReason { get; set; }

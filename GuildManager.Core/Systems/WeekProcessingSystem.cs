@@ -8,7 +8,7 @@ namespace GuildManager.Core.Systems
     /// <summary>
     /// 週次決算処理のオーケストレーション。仕様書 03 §1.3（自動スキップ）参照（v1.10改訂で新設）。
     ///
-    /// 「大迷宮の出撃の解決→経済→訓練→回復→成長→満足度→加齢→施設→格付け→敗北判定」という
+    /// 「大迷宮の出撃の解決→マスターの機嫌→経済（週給・内職売上）→訓練→回復→成長→満足度→加齢→施設→敗北判定」という
     /// 一連の週次決算処理を、GuildManager.Core側の1つのメソッドに集約する
     /// （→ 05技術メモ「GuildManager.CoreはGodotに依存しない」方針に沿う）。
     ///
@@ -21,9 +21,8 @@ namespace GuildManager.Core.Systems
     /// </summary>
     public class WeekProcessingSystem
     {
-        private readonly GuildRankSystem _guildRankSystem;
+        private readonly MasterMoodSystem _masterMoodSystem;
         private readonly EconomySystem _economySystem;
-        private readonly SubsidySystem _subsidySystem;
         private readonly TrainingSystem _trainingSystem;
         private readonly InjuryRecoverySystem _injuryRecoverySystem;
         private readonly RestRecoverySystem _restRecoverySystem;
@@ -36,9 +35,8 @@ namespace GuildManager.Core.Systems
         private readonly DungeonExpeditionSystem _dungeonExpeditionSystem;
 
         public WeekProcessingSystem(
-            GuildRankSystem guildRankSystem,
+            MasterMoodSystem masterMoodSystem,
             EconomySystem economySystem,
-            SubsidySystem subsidySystem,
             TrainingSystem trainingSystem,
             InjuryRecoverySystem injuryRecoverySystem,
             RestRecoverySystem restRecoverySystem,
@@ -52,9 +50,8 @@ namespace GuildManager.Core.Systems
             // 既定構成を組み立てる（出撃が無ければ何も起きない）。
             DungeonExpeditionSystem? dungeonExpeditionSystem = null)
         {
-            _guildRankSystem = guildRankSystem;
+            _masterMoodSystem = masterMoodSystem;
             _economySystem = economySystem;
-            _subsidySystem = subsidySystem;
             _trainingSystem = trainingSystem;
             _injuryRecoverySystem = injuryRecoverySystem;
             _restRecoverySystem = restRecoverySystem;
@@ -104,11 +101,15 @@ namespace GuildManager.Core.Systems
                     result.Flags.BossDoorReached = true;
             }
 
+            // マスターの機嫌（→ 03 §8.1・§8.1.1）：大迷宮での成果で上げ、成果ゼロなら退屈減衰。
+            // 内職売上の倍率は「決算時点の機嫌」で決まるため、内職売上より先に済ませる。
+            result.MoodReport = _masterMoodSystem.ProcessWeeklyMood(state, result.DungeonMissionResolutions);
+
             // 出撃の有無にかかわらず、時間は必ず進む。
             _economySystem.ApplyWeeklyWages(state);
 
-            // 月次助成金（4週に1回。→ 03 §8.1：ギルド格付け連動で満額支給）。
-            result.SubsidyAmount = _subsidySystem.ProcessWeeklySubsidy(state);
+            // アルベールの市販薬・内職売上（4週に1回。→ 03 §8.1：機嫌に応じた倍率。旧・月次助成金）。
+            result.SideJobIncome = _economySystem.ProcessWeeklySideJobIncome(state);
 
             _trainingSystem.ProcessWeeklyTraining(state, dispatchedIds); // → 03 §3.1〜3.4・§3.5改：訓練場の週次費用・HP微減
             result.TraitTransmissionEvents.AddRange(_trainingSystem.ProcessWeeklyTraitTransmission(state)); // → 特性伝授刷新仕様：教官からの週次伝授ロール
@@ -123,20 +124,22 @@ namespace GuildManager.Core.Systems
             result.Flags.SatisfactionWarningOccurred =
                 state.Adventurers.Any(a => a.NeedsNegotiation && !neededNegotiationBefore.Contains(a.Id));
 
+            int moodBeforeAging = state.MasterMood;
             _agingSystem.ProcessWeeklyAging(state); // → 03 §3：加齢・8年稼働モデル
+            // 満期引退で退職金を払いきれなかった場合の機嫌低下（→ AgingSystem.Retire）も週報の内訳に載せる。
+            if (state.MasterMood != moodBeforeAging)
+                result.MoodReport.Entries.Add(new MasterMoodEntry("退職金の不足", state.MasterMood - moodBeforeAging, state.MasterMood - moodBeforeAging));
+            result.MoodReport.MoodAfter = state.MasterMood;
 
             result.CompletedFacility = _facilitySystem.ProcessWeeklyConstruction(state); // → 03 §6.1：施設Lv投資
             result.Flags.FacilityConstructionCompleted = result.CompletedFacility != null;
 
-            // ギルド格付け（→ 03 §8.1・§8.1.1）：名声自然減衰の判定と昇格・降格判定・Aランク到達
-            // フラグ（→ GuildRankSystem.UpdateRank）は週次決算で1回だけ行う。
-            // 「現ランク相当のクエスト達成」は旧通常クエストの撤去以降は発生しないため、常にfalseを渡す
-            // （＝名声の自然減衰は撤去前と同じく毎週判定される。名声の加算は大迷宮のボス撃破報酬が担う）。
-            result.RankChange = _guildRankSystem.ProcessWeeklySettlement(state, achievedRankAppropriateQuestThisWeek: false);
+            // 最終討伐クエストの解禁（→ 03 §8.2。最終フィールドの100Fボス撃破で立つ）。
+            // 名声・ギルド格付けは2026年9月に廃止（→ マスターの機嫌、MasterMoodSystem）。
             result.Flags.FinalQuestNewlyUnlocked = !wasFinalQuestUnlocked && state.FinalQuestUnlocked;
 
             // 敗北条件判定（→ 03 §8.3）：週次決算の最後に1回だけ行う。
-            // 破産（所持金マイナス4週連続、猶予あり）のみが唯一の敗北条件（→ DefeatSystem）。
+            // 副官解雇（マスターの機嫌0、即時）と破産（所持金マイナス4週連続、猶予あり）（→ DefeatSystem）。
             result.NewDefeatReason = _defeatSystem.ProcessWeeklySettlement(state);
             result.Flags.DefeatOccurred = result.NewDefeatReason != null;
 

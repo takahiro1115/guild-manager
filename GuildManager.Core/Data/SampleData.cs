@@ -120,9 +120,9 @@ namespace GuildManager.Core.Data
         /// <summary>
         /// 1フィールド分の10体（10, 20, ..., 100階、→ BAL: dungeon.csv BossIntervalFloors）を生成する。
         ///
-        /// HP・報酬ゴールド・名声は「段」（このフィールド内での何体目か＋フィールド順による格上げ）を
+        /// HP・報酬ゴールドは「段」（このフィールド内での何体目か＋フィールド順による格上げ）を
         /// 指数としてCSV係数で滑らかにスケールさせる（→ BAL: dungeon.csv
-        /// BossBaseHp/BossHpFloorMultiplier/BossBaseRewardGold/BossBaseReputation/BossRewardGoldMultiplier）。
+        /// BossBaseHp/BossHpFloorMultiplier/BossBaseRewardGold/BossRewardGoldMultiplier）。
         /// 森（Order=1）の10Fボス（段1）が基準値そのものになる。
         /// </summary>
         private static List<FloorBoss> CreateFieldBosses(FieldDefinition def)
@@ -139,13 +139,12 @@ namespace GuildManager.Core.Data
                 var gimmickType = (BossGimmickType)(index % 4); // Poison→HeavyArmor→Flying→InstantKillの順に循環
                 string tier = GimmickTierPrefix(index / 2); // 2体ごとに強さの形容を変える（若き→…→災厄の）
 
-                // HP・報酬ゴールド・名声：段（index＋fieldEscalation）を指数にCSV係数で乗算する。
+                // HP・報酬ゴールド：段（index＋fieldEscalation）を指数にCSV係数で乗算する。
                 int stageExponent = index + fieldEscalation;
                 double hpMultiplier = Math.Pow(DungeonBalance.BossHpFloorMultiplier, stageExponent);
                 double rewardMultiplier = Math.Pow(DungeonBalance.BossRewardGoldMultiplier, stageExponent);
                 int maxHp = (int)Math.Round(DungeonBalance.BossBaseHp * hpMultiplier);
                 int rewardGold = (int)Math.Round(DungeonBalance.BossBaseRewardGold * rewardMultiplier);
-                int rewardReputation = Math.Max(1, (int)Math.Round(DungeonBalance.BossBaseReputation * rewardMultiplier));
 
                 int dangerLevel = Math.Clamp(1 + index / 2 + fieldEscalation, 1, 5);
                 double counterThreshold = 40 + floor * 1.5 + fieldEscalation * 30;
@@ -181,7 +180,6 @@ namespace GuildManager.Core.Data
                     MaxHp = maxHp,
                     CurrentHp = maxHp,
                     RewardGold = rewardGold,
-                    RewardReputation = rewardReputation,
                     RewardMaterialId = rewardMaterialId,
                     RewardMaterialCount = rewardMaterialCount,
                     Gimmicks = { CreateGimmick(gimmickType, dangerLevel, counterThreshold) },

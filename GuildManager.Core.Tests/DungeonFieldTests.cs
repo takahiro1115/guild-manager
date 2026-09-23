@@ -95,11 +95,8 @@ namespace GuildManager.Core.Tests
             // 深淵（第5）はこの経路では開放されない。
             Assert.False(fields.Single(f => f.Order == 5).IsUnlocked);
 
-            // 「古代エルフの多頭通信術式が復元」：同時出撃枠が1→2に拡張され、
-            // ギルド格付けがRank E相当（名声もEの昇格ラインまで）に同期される。
+            // 「古代エルフの多頭通信術式が復元」：同時出撃枠が1→2に拡張される。
             Assert.Equal(2, state.UnlockedSquadSlots);
-            Assert.True(state.GuildRank >= GuildRank.E);
-            Assert.True(state.Reputation >= GuildRankBalance.GetThreshold(GuildRank.E).PromoteAt);
         }
 
         [Fact]
@@ -116,16 +113,13 @@ namespace GuildManager.Core.Tests
             DungeonExpeditionSystem.ApplyFieldProgression(state, boss20F);
 
             Assert.Equal(3, state.UnlockedSquadSlots);
-            Assert.True(state.GuildRank >= GuildRank.D);
-            Assert.True(state.Reputation >= GuildRankBalance.GetThreshold(GuildRank.D).PromoteAt);
         }
 
         [Fact]
-        public void Defeating_Forest_10F_Boss_DoesNotDowngrade_SlotsOrRank_WhenAlreadyHigher()
+        public void Defeating_Forest_10F_Boss_DoesNotDowngrade_Slots_WhenAlreadyHigher()
         {
             var fields = SampleData.CreateDefaultFields();
-            var state = new GameState { DungeonFields = fields, UnlockedSquadSlots = 5, GuildRank = GuildRank.A };
-            state.Reputation = GuildRankBalance.GetThreshold(GuildRank.A).PromoteAt;
+            var state = new GameState { DungeonFields = fields, UnlockedSquadSlots = 5 };
             var forest = fields.Single(f => f.Order == 1);
             var boss10F = forest.Bosses.Single(b => b.Floor == 10);
             boss10F.IsDefeated = true;
@@ -133,7 +127,6 @@ namespace GuildManager.Core.Tests
             DungeonExpeditionSystem.ApplyFieldProgression(state, boss10F);
 
             Assert.Equal(5, state.UnlockedSquadSlots);
-            Assert.Equal(GuildRank.A, state.GuildRank);
         }
 
         [Fact]
@@ -178,7 +171,7 @@ namespace GuildManager.Core.Tests
         {
             // 出撃枠拡張（10F・20F限定）と干渉しない中立な階層として30Fを使う。
             var fields = SampleData.CreateDefaultFields();
-            var state = new GameState { DungeonFields = fields, Gold = 0, Reputation = 0 };
+            var state = new GameState { DungeonFields = fields, Gold = 0 };
             var forest = fields.Single(f => f.Order == 1);
             var boss30F = forest.Bosses.Single(b => b.Floor == 30);
             boss30F.IsDefeated = true;
@@ -186,7 +179,6 @@ namespace GuildManager.Core.Tests
             DungeonExpeditionSystem.ApplyFieldProgression(state, boss30F);
 
             Assert.Equal(boss30F.RewardGold, state.Gold);
-            Assert.Equal(boss30F.RewardReputation, state.Reputation);
             Assert.True(boss30F.RewardGold > 0);
         }
 
@@ -194,7 +186,7 @@ namespace GuildManager.Core.Tests
         public void DungeonField_BossRewardsAndHp_ScaleWithStageAndFieldOrder()
         {
             // → BAL: dungeon.csv BossBaseHp/BossHpFloorMultiplier/BossBaseRewardGold/
-            // BossBaseReputation/BossRewardGoldMultiplier。森10F（段1）が基準値そのものになり、
+            // BossRewardGoldMultiplier。森10F（段1）が基準値そのものになり、
             // 段が進む・フィールードが深くなるほど乗算係数で滑らかに増える。
             var fields = SampleData.CreateDefaultFields();
             var forest = fields.Single(f => f.Order == 1);
@@ -203,7 +195,6 @@ namespace GuildManager.Core.Tests
             var forest10F = forest.Bosses.Single(b => b.Floor == 10);
             Assert.Equal((int)DungeonBalance.BossBaseHp, forest10F.MaxHp);
             Assert.Equal((int)DungeonBalance.BossBaseRewardGold, forest10F.RewardGold);
-            Assert.Equal((int)DungeonBalance.BossBaseReputation, forest10F.RewardReputation);
 
             var forest20F = forest.Bosses.Single(b => b.Floor == 20);
             Assert.True(forest20F.MaxHp > forest10F.MaxHp, "段が進むほどHPは増えるはず");

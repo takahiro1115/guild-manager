@@ -14,14 +14,13 @@
 
 | ファイル | 対応する仕様書セクション | 対応する実装 |
 |---|---|---|
-| `economy.csv` | 03 §8.1・§5.2・§8.3 | EconomyBalance（初期資金・週給/契約金/退職金係数・破産判定週数）, SubsidyBalance, SatisfactionBalance(賃金), RecruitmentSystem(契約金) |
+| `economy.csv` | 03 §8.1・§5.2・§8.3 | EconomyBalance（初期資金・週給/契約金/退職金係数・退職金不足の機嫌低下・内職売上の基本額と間隔・破産判定週数）, SatisfactionBalance(賃金), RecruitmentSystem(契約金) |
 | `combat.csv` | 03 §4.2・§4.3 | PlacementBalance（配置補正）, CombatBalance（旧討伐フロー用の値の多くは旧クエスト撤去で休眠中） |
 | `aging.csv` | 03 §3.0〜3.7 | GrowthBalance（年齢帯別成長ロール基礎確率＝新鋭/成長/全盛の3区分・難易度係数・成長量幅）, AgingSystem（満期引退年齢・稼働週数） |
 | `growth_job_weights.csv` | 03 §3.1〜3.4 | GrowthBalance.JobStatWeights |
 | `satisfaction.csv` | 03 §5.1・§5.2 | SatisfactionBalance |
 | `facility.csv` | 03 §6・§6.1 | FacilityBalance |
-| `guild_rank.csv` | 03 §8.1 | GuildRankBalance.Thresholds |
-| `guild_rank_params.csv` | 03 §8.1.1 | GuildRankBalance（名声増減・減衰） |
+| `master_mood.csv` | 03 §8.1・§8.1.1 | MasterMoodBalance（マスターの機嫌の初期値・成果ごとの増減・退屈減衰・段階閾値・内職売上倍率） |
 | `recruitment.csv` | 03 §2.4・§7.3 | RecruitmentSystem, NameGeneratorBalance |
 | `compatibility_advisor.csv` | 03 §5.3・§7 | CompatibilityBalance, AdvisorBalance（教官成長補正、参謀の大迷宮調査解析ボーナス・道中潜行走破力ボーナス、スカウト有望新人率） |
 | `training.csv` | 03 §3.1〜3.4・§3.5改 | TrainingBalance |
@@ -78,7 +77,7 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 
 **`economy.csv`**
 
-- `BankruptcyConsecutiveWeeksThreshold`（4週）… 破産＝唯一の敗北条件の判定週数
+- `BankruptcyConsecutiveWeeksThreshold`（4週）… 破産（敗北条件の1つ。もう1つは機嫌0の副官解雇）の判定週数
   （→ `DefeatSystem`）。脅威度の撤去で `security.csv` を廃止した際、脅威度とは無関係な
   この値だけをここへ移設した（→ 03 §0.10）。
 
@@ -108,6 +107,12 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 `dungeon.csv` の `BossPowerWeight_*` へ同じ値のまま移設している。`progression.csv` は
 初期の同時出撃枠のみを残し、昇格試験のキーは削除した。`guild_rank_params.csv` の
 クエスト達成／失敗による名声増減キーも削除した。
+
+**名声・ギルド格付け・助成金の廃止（2026年9月、→ 03 §0.20）：** `guild_rank.csv`・`guild_rank_params.csv`
+は `GuildRank`・`GuildRankSystem`・`GuildRankBalance` と共に削除した。`economy.csv` の
+`SubsidyWeeksPerMonth`・`SubsidyBaseAmount_G〜S` は `SideJobIntervalWeeks`・`SideJobBaseAmount`（旧Gの200G）へ、
+`SeveranceShortfallReputationPenalty` は `SeveranceShortfallMoodPenalty` へ置き換え、`dungeon.csv` の
+`BossBaseReputation` は削除した。代わりに `master_mood.csv` を新設した。
 
 ## 未鑑定遺物・鑑定・売却で追加されたキー（2026年9月、→ 03 §0.14〜§0.16）
 
@@ -183,9 +188,9 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 以下は「バランス調整用の数値」ではなく**構造を定義する値**のため、意図的にCSVへ
 出していない。変更すると他の数値の前提が連鎖的に崩れるため、コード変更として扱う。
 
-- 1年=48週（`WeeksPerYear`）、1ヶ月=4週（`SubsidyBalance.WeeksPerMonth`）
+- 1年=48週（`WeeksPerYear`）
 - 年齢帯の境界（18/22。`Adventurer.AgeBand`。→ 03 §3.0の3区分）
-- 各種クランプの上下限（満足度0〜100、相性0〜100、実効値の下限0）
+- 各種クランプの上下限（満足度0〜100、相性0〜100、マスターの機嫌0〜100、実効値の下限0）
 - 施設の最大Lv（5）
 - 訓練施設ごとの対象ステータス対応（戦士訓練所→STR/VIT 等。職業・施設の定義そのもの）
 - 衰微対象ステータス（STR/AGI/VIT。§3.0の「フィジカル衰微」の定義そのもの）

@@ -131,6 +131,7 @@ namespace GuildManager.Core.Systems
             }
 
             result.FloorAfter = floor;
+            result.UnexploredFloorsAdvanced = steps.Count(s => s.Unexplored);
 
             // 進軍全体の実効倍率（階層数で重み付けした平均）。1階層も進めなかった場合は出発区間の値。
             result.IntelSpeedMultiplier = steps.Count > 0 ? steps.Average(s => s.Speed) : IntelSpeedMultiplier(startSegmentBoss);
