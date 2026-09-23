@@ -384,6 +384,78 @@ namespace GuildManager.Core.Tests
             Assert.Single(state.RetiredAdventurers); // 重複追加されない
         }
 
+        // ---------------- 形見装備の自動回収（→ 03 §4.2.2、2026年9月新設） ----------------
+
+        [Fact]
+        public void Retirement_CollectsEquipments_ToArmory()
+        {
+            // 満期引退：装備したままRetiredAdventurersへ移ると武具に二度と手が届かなくなるため、
+            // ロースターから外す直前にギルド保管庫へ回収される（→ EquipmentSystem.UnequipAllToArmory）。
+            var adventurer = new Adventurer { Name = "満期", Age = 25, WeeklyWage = 40, JobClass = JobClass.Warrior };
+            var state = CreateState(adventurer, weekNumber: 48);
+            state.Gold = 10000;
+            var equipment = new EquipmentSystem();
+            var weapon = EquipmentItem.FromCatalog(ItemCatalog.IronSword);
+            var armor = EquipmentItem.FromCatalog(ItemCatalog.LeatherArmor);
+            state.Armory.AddRange(new[] { weapon, armor });
+            Assert.True(equipment.TryEquip(state, adventurer, EquipmentSlot.Weapon, weapon));
+            Assert.True(equipment.TryEquip(state, adventurer, EquipmentSlot.Armor, armor));
+            Assert.Empty(state.Armory);
+
+            new AgingSystem(new AlwaysMinRng()).ProcessWeeklyAging(state);
+
+            Assert.True(adventurer.IsRetired);
+            Assert.Contains(adventurer, state.RetiredAdventurers);
+            Assert.Null(adventurer.EquippedWeapon);
+            Assert.Null(adventurer.EquippedArmor);
+            Assert.Equal(2, state.Armory.Count);
+            Assert.Contains(weapon, state.Armory);
+            Assert.Contains(armor, state.Armory);
+            // 引退者は健在なので「形見」ではなく返還として記録する。
+            Assert.Equal("満期（引退）から返還", weapon.AcquiredFrom);
+            Assert.Equal(48, weapon.AcquiredAtWeek);
+        }
+
+        [Fact]
+        public void RetireVoluntarily_CollectsEquipments_ToArmory_AndReturnsThem()
+        {
+            var adventurer = new Adventurer { Name = "早期", Age = 24, WeeklyWage = 40, JobClass = JobClass.Warrior };
+            var state = new GameState { WeekNumber = 30, Gold = 10000, Adventurers = { adventurer } };
+            var accessory = EquipmentItem.FromCatalog(ItemCatalog.PowerRing);
+            state.Armory.Add(accessory);
+            Assert.True(new EquipmentSystem().TryEquip(state, adventurer, EquipmentSlot.Accessory1, accessory));
+
+            var recovered = new AgingSystem(new AlwaysMinRng()).RetireVoluntarily(state, adventurer);
+
+            // 回収された装備は戻り値としても受け取れる（UI側の引退メッセージ表示用）。
+            Assert.Same(accessory, Assert.Single(recovered));
+            Assert.Null(adventurer.EquippedAccessory1);
+            Assert.Same(accessory, Assert.Single(state.Armory));
+            Assert.Equal("早期（引退）から返還", accessory.AcquiredFrom);
+        }
+
+        [Fact]
+        public void RetireVoluntarily_ReturnsEmpty_WhenAlreadyRetired()
+        {
+            var adventurer = new Adventurer { Age = 25, IsRetired = true };
+            var state = new GameState { RetiredAdventurers = { adventurer } };
+
+            Assert.Empty(new AgingSystem(new AlwaysMinRng()).RetireVoluntarily(state, adventurer));
+        }
+
+        [Fact]
+        public void Retirement_WithNoEquipment_LeavesArmoryUntouched()
+        {
+            var adventurer = new Adventurer { Age = 25, WeeklyWage = 40 };
+            var state = CreateState(adventurer, weekNumber: 48);
+            state.Gold = 10000;
+
+            new AgingSystem(new AlwaysMinRng()).ProcessWeeklyAging(state);
+
+            Assert.True(adventurer.IsRetired);
+            Assert.Empty(state.Armory);
+        }
+
         [Fact]
         public void ProcessWeeklyAging_SkipsRetiredAdventurersEntirely()
         {

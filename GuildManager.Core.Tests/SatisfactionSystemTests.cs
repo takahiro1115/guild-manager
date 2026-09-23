@@ -303,6 +303,29 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
+        public void ProcessWeeklyNegotiation_Termination_CollectsEquipments_ToArmory()
+        {
+            // 退団（他都市へ移籍）は記録リストにも残らないため、装備したまま消えると武具も一緒に
+            // 失われる。ロースターから外す直前にギルド保管庫へ回収される（→ 03 §4.2.2「形見装備」）。
+            var adventurer = new Adventurer { Name = "退団者", Satisfaction = 10, JobClass = JobClass.Warrior };
+            var state = new GameState { WeekNumber = 22, Adventurers = { adventurer } };
+            var weapon = EquipmentItem.FromCatalog(ItemCatalog.IronSword);
+            state.Armory.Add(weapon);
+            Assert.True(new EquipmentSystem().TryEquip(state, adventurer, EquipmentSlot.Weapon, weapon));
+            Assert.Empty(state.Armory);
+
+            var system = new SatisfactionSystem();
+            for (int i = 0; i < 4; i++)
+                system.ProcessWeeklyNegotiation(state);
+
+            Assert.DoesNotContain(adventurer, state.Adventurers);
+            Assert.Null(adventurer.EquippedWeapon);
+            Assert.Same(weapon, Assert.Single(state.Armory));
+            Assert.Equal("退団者（退団）から返還", weapon.AcquiredFrom);
+            Assert.Equal(22, weapon.AcquiredAtWeek);
+        }
+
+        [Fact]
         public void ProcessWeeklyNegotiation_Termination_FreesTrainingSlot()
         {
             var adventurer = new Adventurer { Satisfaction = 10 };

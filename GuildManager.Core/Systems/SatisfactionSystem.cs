@@ -222,9 +222,16 @@ namespace GuildManager.Core.Systems
         /// <summary>
         /// 自発的な契約解除（→ 03 §5.2「他都市へ移籍（消滅）」）。§4.3の戦死や§3.7の引退とは異なり、
         /// 顧問候補として保持する必要が無いため、単純にロースターから取り除く（削除のみ）。
+        ///
+        /// 2026年9月改訂（→ §4.2.2「形見装備」）：ロースターから外す**直前に**全装備を
+        /// ギルド保管庫へ回収する（→ EquipmentSystem.UnequipAllToArmory）。移籍する本人は
+        /// 記録としても残らないため、装備したまま消えると武具も一緒に失われてしまう
+        /// （ギルドの備品は置いていってもらう、という扱い）。
         /// </summary>
         private static void Terminate(GameState state, Adventurer adventurer)
         {
+            EquipmentSystem.UnequipAllToArmory(state, adventurer, $"{adventurer.Name}（退団）から返還");
+
             state.TrainingAssignments.Remove(adventurer.Id); // 訓練場配置からも外れる（枠を解放）
             state.Adventurers.Remove(adventurer);
         }

@@ -463,8 +463,14 @@ public partial class AdventurerPanel : VBoxContainer
 			return;
 		}
 
-		_agingSystem.RetireVoluntarily(_state, target);
+		// 引退に伴い、身につけていた武具はギルド保管庫へ返還される（→ 03 §4.2.2「形見装備」）。
+		var recovered = _agingSystem.RetireVoluntarily(_state, target);
 		LogRequested($"[color=cyan]{target.Name} が引退し、顧問候補になった。[/color]");
+		if (recovered.Count > 0)
+		{
+			LogRequested($"[color=cyan]🎗 愛用の武具がギルド保管庫へ返還された" +
+				$"（{string.Join("、", recovered.Select(e => e.Name))}）。[/color]");
+		}
 		StateChanged();
 	}
 

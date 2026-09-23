@@ -302,6 +302,93 @@ namespace GuildManager.Core.Tests.Systems
             Assert.Empty(state.Armory);
         }
 
+        // ---------------- 離脱時の一括回収（形見装備、指示書指定テスト） ----------------
+
+        [Fact]
+        public void UnequipAllToArmory_RemovesAllEquipments_AndAddsToArmory()
+        {
+            var adventurer = MakeAdventurer();
+            var weapon = EquipmentItem.FromCatalog(ItemCatalog.IronSword);
+            var armor = EquipmentItem.FromCatalog(ItemCatalog.LeatherArmor);
+            var accessory1 = EquipmentItem.FromCatalog(ItemCatalog.PowerRing);
+            var accessory2 = EquipmentItem.FromCatalog(ItemCatalog.QuickBrooch);
+            var state = new GameState
+            {
+                WeekNumber = 40, Adventurers = { adventurer },
+                Armory = { weapon, armor, accessory1, accessory2 },
+            };
+            var system = new EquipmentSystem();
+            Assert.True(system.TryEquip(state, adventurer, EquipmentSlot.Weapon, weapon));
+            Assert.True(system.TryEquip(state, adventurer, EquipmentSlot.Armor, armor));
+            Assert.True(system.TryEquip(state, adventurer, EquipmentSlot.Accessory1, accessory1));
+            Assert.True(system.TryEquip(state, adventurer, EquipmentSlot.Accessory2, accessory2));
+            Assert.Empty(state.Armory);
+
+            var recovered = EquipmentSystem.UnequipAllToArmory(state, adventurer);
+
+            // 4枠すべてが空になり、4個体すべてが保管庫へ入る。
+            foreach (var slot in Adventurer.AllSlots)
+                Assert.Null(adventurer.GetEquipped(slot));
+            Assert.Equal(4, recovered.Count);
+            Assert.Equal(4, state.Armory.Count);
+            foreach (var item in new[] { weapon, armor, accessory1, accessory2 })
+            {
+                Assert.Contains(item, state.Armory);
+                Assert.Contains(item, recovered);
+            }
+
+            // 回収時の週と入手経路（既定は「○○の形見」）が記録される。
+            Assert.All(recovered, e => Assert.Equal(40, e.AcquiredAtWeek));
+            Assert.All(recovered, e => Assert.Equal($"{adventurer.Name}の形見", e.AcquiredFrom));
+        }
+
+        [Fact]
+        public void UnequipAllToArmory_ReturnsEmpty_WhenNothingEquipped()
+        {
+            var adventurer = MakeAdventurer();
+            var state = new GameState { Adventurers = { adventurer } };
+
+            Assert.Empty(EquipmentSystem.UnequipAllToArmory(state, adventurer));
+            Assert.Empty(state.Armory);
+        }
+
+        [Fact]
+        public void UnequipAllToArmory_CollectsOnlyOccupiedSlots()
+        {
+            var (state, adventurer, armor) = MakeStateWith(ItemCatalog.LeatherArmor);
+            Assert.True(new EquipmentSystem().TryEquip(state, adventurer, EquipmentSlot.Armor, armor));
+
+            var recovered = EquipmentSystem.UnequipAllToArmory(state, adventurer, "テスト回収");
+
+            Assert.Same(armor, Assert.Single(recovered));
+            Assert.Equal("テスト回収", armor.AcquiredFrom);
+        }
+
+        [Fact]
+        public void UnequipAllToArmory_WorksForDispatchedAdventurer()
+        {
+            // 決戦で強制除籍される冒険者は定義上まだ出撃中。ここで弾いてしまうと
+            // 肝心の経路で形見を取りこぼすため、一括回収は出撃中ガードを持たない。
+            var (state, adventurer, sword) = MakeStateWith(ItemCatalog.IronSword);
+            Assert.True(new EquipmentSystem().TryEquip(state, adventurer, EquipmentSlot.Weapon, sword));
+            adventurer.IsDispatched = true;
+
+            Assert.Same(sword, Assert.Single(EquipmentSystem.UnequipAllToArmory(state, adventurer)));
+            Assert.Null(adventurer.EquippedWeapon);
+        }
+
+        [Fact]
+        public void UnequipAllToArmory_ClampsCurrentHp()
+        {
+            var (state, adventurer, armor) = MakeStateWith(ItemCatalog.LeatherArmor);
+            Assert.True(new EquipmentSystem().TryEquip(state, adventurer, EquipmentSlot.Armor, armor));
+            adventurer.CurrentHP = adventurer.MaxHP; // 装備込みの満タン
+
+            EquipmentSystem.UnequipAllToArmory(state, adventurer);
+
+            Assert.Equal(adventurer.MaxHP, adventurer.CurrentHP);
+        }
+
         // ---------------- 購入経路との整合（個体を破棄しない） ----------------
 
         [Fact]

@@ -501,7 +501,7 @@ namespace GuildManager.Core.Systems
 
             double intelBefore = boss.IntelRate;
             var assault = _dungeonResolver.Resolve(mission.Party, boss, state);
-            ApplyForcedRetirements(state, mission.Party, assault.ForceRetiredAdventurerIds);
+            var keepsakes = ApplyForcedRetirements(state, mission.Party, assault.ForceRetiredAdventurerIds);
 
             // 撃破成功時のみ、フィールドの進行（最高到達階層・次フィールド開放・報酬・
             // 節目ボスでの出撃枠拡張）を適用する（→ 大迷宮5フィールド拡張仕様）。
@@ -538,6 +538,7 @@ namespace GuildManager.Core.Systems
                 mission.Party, boss, mission.Field, intelBefore, assault, squadSlotsExpandedTo, fieldNewlyUnlocked);
             if (relic != null)
                 resolution.RelicsFound.Add(relic);
+            resolution.RecoveredKeepsakes = keepsakes;
             // 出撃成長：撃破した場合のみ（全7能力・試行回数多）。撤退・全滅では成長しない。強制除籍者は対象外。
             resolution.GrowthEvents = _growthSystem.ApplyExpeditionGrowth(
                 state, mission.Party, DungeonMissionType.BossAssault, isBossVictory: assault.Outcome == DungeonOutcome.Victory);
@@ -610,9 +611,17 @@ namespace GuildManager.Core.Systems
         /// 強制除籍の処理（→ DungeonResult.ForceRetiredAdventurerIds）。システム上は戦死と同じ
         /// 恒久ロストのため、旧通常クエストの戦死処理と同じ手順
         /// （仲間ロストの満足度低下・相性の余波・ロースターから記録への移動）を踏む。
+        ///
+        /// 2026年9月改訂（→ §4.2.2「形見装備」）：記録リストへ移す**直前に**全装備を
+        /// ギルド保管庫へ回収する（→ EquipmentSystem.UnequipAllToArmory）。倒れた隊員を
+        /// 救い出すアルベールが、その武具も併せて持ち帰る扱い。回収した内訳
+        /// （冒険者Id → 装備一覧）を返し、週報ログで報告できるようにする。
         /// </summary>
-        private void ApplyForcedRetirements(GameState state, Party party, IEnumerable<Guid> retiredIds)
+        private Dictionary<Guid, List<EquipmentItem>> ApplyForcedRetirements(
+            GameState state, Party party, IEnumerable<Guid> retiredIds)
         {
+            var recovered = new Dictionary<Guid, List<EquipmentItem>>();
+
             foreach (var retiredId in retiredIds)
             {
                 _satisfactionSystem.ApplyPartyLossPenalty(party, retiredId);
@@ -622,11 +631,17 @@ namespace GuildManager.Core.Systems
                 if (retired == null)
                     continue;
 
+                var keepsakes = EquipmentSystem.UnequipAllToArmory(state, retired, $"{retired.Name}の形見");
+                if (keepsakes.Count > 0)
+                    recovered[retiredId] = keepsakes.ToList();
+
                 retired.FellAtWeek = state.WeekNumber;
                 state.TrainingAssignments.Remove(retired.Id);
                 state.Adventurers.Remove(retired);
                 state.FallenAdventurers.Add(retired);
             }
+
+            return recovered;
         }
 
         /// <summary>

@@ -76,6 +76,13 @@ namespace GuildManager.Core.Systems
         public List<UnidentifiedItem> RelicsFound { get; set; } = new();
 
         /// <summary>
+        /// 強制除籍された隊員から回収し、ギルド保管庫へ格納した形見の装備（→ 03 §4.2.2「形見装備」、
+        /// EquipmentSystem.UnequipAllToArmory）。キーは冒険者Id。何も装備していなかった者は
+        /// キー自体が入らない。ボス討伐（DungeonResult）でのみ設定されうる。
+        /// </summary>
+        public Dictionary<Guid, List<EquipmentItem>> RecoveredKeepsakes { get; set; } = new();
+
+        /// <summary>
         /// この解決で起きた出撃成長（→ GrowthSystem.ApplyExpeditionGrowth。道中進軍・ボス撃破・
         /// 迷宮調査・採取）。成長が無ければ空。週報の表示用。
         /// </summary>

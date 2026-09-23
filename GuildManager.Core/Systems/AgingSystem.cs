@@ -90,13 +90,16 @@ namespace GuildManager.Core.Systems
         /// 早期引退（仕様書 03 §7「引退の経路」）。プレイヤーが任意のタイミングで
         /// 満期前の現役冒険者を引退させ、顧問候補にする。退職金支給等の処理は
         /// 満期引退（Retire）と共通のものを使う。既に引退済みなら何もしない。
+        ///
+        /// 返り値は、引退に伴ってギルド保管庫へ回収された装備の一覧（→ §4.2.2「形見装備」。
+        /// 何も装備していなければ空）。UI側が「愛用の武具が返還された」旨を報告できるようにするため。
         /// </summary>
-        public void RetireVoluntarily(GameState state, Adventurer adventurer)
+        public IReadOnlyList<EquipmentItem> RetireVoluntarily(GameState state, Adventurer adventurer)
         {
             if (adventurer.IsRetired)
-                return;
+                return Array.Empty<EquipmentItem>();
 
-            Retire(state, adventurer);
+            return Retire(state, adventurer);
         }
 
         /// <summary>
@@ -116,8 +119,12 @@ namespace GuildManager.Core.Systems
         /// 退職金を払いきれない場合も引退自体は成立させる（冒険者を人質に取らない）が、
         /// 「約束した退職金を用意できないギルド」として名声が下がる
         /// （→ EconomyBalance.SeveranceShortfallReputationPenalty）。
+        ///
+        /// 2026年9月改訂（→ §4.2.2「形見装備」）：ロースターから外す**直前に**全装備を
+        /// ギルド保管庫へ回収する（→ EquipmentSystem.UnequipAllToArmory）。装備したまま
+        /// 引退済み一覧へ移ると、その武具に二度と手が届かなくなるため。回収した一覧を返す。
         /// </summary>
-        private void Retire(GameState state, Adventurer adventurer)
+        private IReadOnlyList<EquipmentItem> Retire(GameState state, Adventurer adventurer)
         {
             adventurer.IsRetired = true;
             adventurer.RetiredAtAge = adventurer.Age;
@@ -132,9 +139,15 @@ namespace GuildManager.Core.Systems
             if (!canAfford)
                 state.Reputation = Math.Max(0, state.Reputation - EconomyBalance.SeveranceShortfallReputationPenalty);
 
+            // 形見装備の回収（→ §4.2.2）。引退者は健在なので「形見」ではなく返還として記録する。
+            var recovered = EquipmentSystem.UnequipAllToArmory(
+                state, adventurer, $"{adventurer.Name}（引退）から返還");
+
             state.TrainingAssignments.Remove(adventurer.Id); // 訓練場配置からも外れる（枠を解放）
             state.Adventurers.Remove(adventurer);
             state.RetiredAdventurers.Add(adventurer);
+
+            return recovered;
         }
     }
 }

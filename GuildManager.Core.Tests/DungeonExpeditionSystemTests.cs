@@ -1520,6 +1520,83 @@ namespace GuildManager.Core.Tests
             Assert.Empty(resolution.RelicsFound);
         }
 
+        // ---------------- 強制除籍時の形見装備の回収（→ 03 §4.2.2、2026年9月新設） ----------------
+
+        [Fact]
+        public void BossDefeat_ForceRetirement_CollectsEquipments_ToArmory()
+        {
+            // 即死級ギミックを未対策で踏み、全員が強制除籍される。装備したままFallenAdventurersへ
+            // 移ると武具も一緒に失われるため、記録リストへ移す直前に保管庫へ回収される。
+            var (state, a, b, boss) = MakeState(MakeDeadlyBoss());
+            state.Gold = 100_000;
+            state.WeekNumber = 40;
+            a.Name = "アルファ";
+
+            var equipment = new EquipmentSystem();
+            var weapon = EquipmentItem.FromCatalog(ItemCatalog.IronSword);
+            var armor = EquipmentItem.FromCatalog(ItemCatalog.LeatherArmor);
+            state.Armory.AddRange(new[] { weapon, armor });
+            Assert.True(equipment.TryEquip(state, a, EquipmentSlot.Weapon, weapon));
+            Assert.True(equipment.TryEquip(state, b, EquipmentSlot.Armor, armor));
+            Assert.Empty(state.Armory);
+
+            var system = BuildSystem();
+            Assert.True(system.TryDispatch(state, PartyOf(a, b), boss, DungeonMissionType.BossAssault));
+            var resolution = Assert.Single(system.ProcessWeeklyMissions(state));
+
+            Assert.Contains(a, state.FallenAdventurers);
+            Assert.Contains(b, state.FallenAdventurers);
+
+            // 2人分の装備がすべて保管庫へ戻り、除籍者の枠は空になっている。
+            Assert.Equal(2, state.Armory.Count);
+            Assert.Contains(weapon, state.Armory);
+            Assert.Contains(armor, state.Armory);
+            Assert.Null(a.EquippedWeapon);
+            Assert.Null(b.EquippedArmor);
+
+            // 週報ログ用に、誰の形見が回収されたかの内訳が結果へ載る。
+            Assert.Same(weapon, Assert.Single(resolution.RecoveredKeepsakes[a.Id]));
+            Assert.Same(armor, Assert.Single(resolution.RecoveredKeepsakes[b.Id]));
+            Assert.Equal("アルファの形見", weapon.AcquiredFrom);
+            Assert.Equal(40, weapon.AcquiredAtWeek);
+        }
+
+        [Fact]
+        public void BossDefeat_ForceRetirement_ReportsNoKeepsakes_WhenNothingEquipped()
+        {
+            var (state, a, b, boss) = MakeState(MakeDeadlyBoss());
+            state.Gold = 100_000;
+            var system = BuildSystem();
+            Assert.True(system.TryDispatch(state, PartyOf(a, b), boss, DungeonMissionType.BossAssault));
+
+            var resolution = Assert.Single(system.ProcessWeeklyMissions(state));
+
+            Assert.Contains(a, state.FallenAdventurers);
+            Assert.Empty(resolution.RecoveredKeepsakes);
+            Assert.Empty(state.Armory);
+        }
+
+        [Fact]
+        public void BossVictory_DoesNotDisturbEquipment_OfSurvivors()
+        {
+            // 生還した隊員の装備は動かない（回収は離脱経路だけの処理）。
+            var boss = new FloorBoss { Name = "弱いボス", Floor = 10, MaxHp = 1, CurrentHp = 1 };
+            var field = new DungeonField { Id = "forest", Name = "常夜の森", Order = 1, IsUnlocked = true, Bosses = { boss } };
+            var hero = MakeAdventurer(JobClass.Warrior, 200);
+            var state = new GameState { Adventurers = { hero }, DungeonFields = { field } };
+            var sword = EquipmentItem.FromCatalog(ItemCatalog.IronSword);
+            state.Armory.Add(sword);
+            Assert.True(new EquipmentSystem().TryEquip(state, hero, EquipmentSlot.Weapon, sword));
+
+            var system = BuildSystem();
+            Assert.True(system.TryDispatch(state, PartyOf(hero), boss, DungeonMissionType.BossAssault));
+            var resolution = Assert.Single(system.ProcessWeeklyMissions(state));
+
+            Assert.Equal(DungeonOutcome.Victory, resolution.DungeonResult!.Outcome);
+            Assert.Same(sword, hero.EquippedWeapon);
+            Assert.Empty(resolution.RecoveredKeepsakes);
+        }
+
         [Fact]
         public void RoundTrip_PreservesUnidentifiedItems_AndArmory()
         {

@@ -665,12 +665,18 @@ public partial class MainDashboard : Control
 	/// </summary>
 	private void LogFallenAdventurers(int weekNumber, Party party, HashSet<Guid> fallenIds)
 	{
-		foreach (var line in FallenAdventurerLines(weekNumber, party, fallenIds))
+		foreach (var line in FallenAdventurerLines(weekNumber, party, fallenIds, new Dictionary<Guid, List<EquipmentItem>>()))
 			AppendLog(line);
 	}
 
-	/// <summary>致命傷→秘薬治療→強制除籍の報告文（→ LogFallenAdventurers）。大迷宮の決戦ログでも同じ文面を使う。</summary>
-	private static IEnumerable<string> FallenAdventurerLines(int weekNumber, Party party, IEnumerable<Guid> fallenIds)
+	/// <summary>
+	/// 致命傷→秘薬治療→強制除籍の報告文（→ LogFallenAdventurers）。大迷宮の決戦ログでも同じ文面を使う。
+	/// keepsakes（→ DungeonMissionResolution.RecoveredKeepsakes）には、アルベールが回収して
+	/// ギルド保管庫へ格納した形見の装備が入る（→ 03 §4.2.2「形見装備」）。該当が無ければ空の辞書を渡す。
+	/// </summary>
+	private static IEnumerable<string> FallenAdventurerLines(
+		int weekNumber, Party party, IEnumerable<Guid> fallenIds,
+		IReadOnlyDictionary<Guid, List<EquipmentItem>> keepsakes)
 	{
 		foreach (var id in fallenIds)
 		{
@@ -681,6 +687,12 @@ public partial class MainDashboard : Control
 			yield return $"[color=red][b]✖ {fallen.Name} が致命傷を負った（第{weekNumber}週）。[/b][/color]";
 			yield return $"[color=orange]アルベールの秘薬で一命は取り留めたが、「危ないじゃないか！」と激怒したマスターにより" +
 				$"{fallen.Name}のギルド登録は強制抹消された。二度と戻らない。[/color]";
+
+			if (keepsakes.TryGetValue(id, out var recovered) && recovered.Count > 0)
+			{
+				yield return $"[color=cyan]🎗 アルベールは{fallen.Name}の武具を回収し、ギルド保管庫へ格納した" +
+					$"（{string.Join("、", recovered.Select(e => e.Name))}）。形見として次代へ受け継ぐこと。[/color]";
+			}
 		}
 	}
 
@@ -836,7 +848,8 @@ public partial class MainDashboard : Control
 		}
 
 		AppendHpLossLines(sb, assault.HpLostByAdventurer);
-		foreach (var line in FallenAdventurerLines(weekNumber, resolution.Party, assault.ForceRetiredAdventurerIds))
+		foreach (var line in FallenAdventurerLines(
+			weekNumber, resolution.Party, assault.ForceRetiredAdventurerIds, resolution.RecoveredKeepsakes))
 			sb.AppendLine(line);
 		if (resolution.ReturnedHome)
 		{

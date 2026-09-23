@@ -90,6 +90,52 @@ namespace GuildManager.Core.Systems
         }
 
         /// <summary>
+        /// 冒険者の全装備枠を解除し、すべての個体をギルド保管庫へ回収する（2026年9月新設、→ §4.2.2「形見装備」）。
+        /// 回収した個体の一覧を返す（週報ログ・引退メッセージでの表示用。何も装備していなければ空）。
+        ///
+        /// 用途は**ギルドからの離脱**：満期引退・早期引退（→ AgingSystem.Retire）、決戦での強制除籍
+        /// （→ DungeonExpeditionSystem.ApplyForcedRetirements）、契約解除・退団
+        /// （→ SatisfactionSystem.Terminate）。離脱者が装備したまま記録リストへ移ると、
+        /// その個体は二度と手が届かない場所へ行く（＝実質的な消失）ため、離脱の直前に必ず通す。
+        ///
+        /// TryEquip/TryUnequip と違い**出撃中ガードを持たない**：決戦で強制除籍される冒険者は
+        /// 定義上まだ出撃中であり、そこで弾いてしまうと肝心の経路で装備を取りこぼす。
+        ///
+        /// 回収した個体には入手経路（→ EquipmentItem.AcquiredFrom）として、誰から返ってきたのかを
+        /// 書き込む。保管庫一覧（→ UI: InventoryPanel）で「第40週 ○○の形見」と辿れるようにするため。
+        /// </summary>
+        /// <param name="acquiredFrom">
+        /// 保管庫の在庫に記録する入手経路。省略時は「○○の形見」。引退・退団のように本人が健在な
+        /// 経路では、呼び出し側が実態に合う文言（「○○（引退）から返還」等）を渡す。
+        /// </param>
+        public static IReadOnlyList<EquipmentItem> UnequipAllToArmory(
+            GameState state, Adventurer adventurer, string? acquiredFrom = null)
+        {
+            var recovered = new List<EquipmentItem>();
+            string provenance = acquiredFrom ?? $"{adventurer.Name}の形見";
+
+            foreach (var slot in Adventurer.AllSlots)
+            {
+                var equipped = adventurer.GetEquipped(slot);
+                if (equipped == null)
+                    continue;
+
+                adventurer.SetEquipped(slot, null);
+                equipped.AcquiredAtWeek = state.WeekNumber;
+                equipped.AcquiredFrom = provenance;
+                state.Armory.Add(equipped);
+                recovered.Add(equipped);
+            }
+
+            // 装備が外れた分だけ最大HPが下がるため、既存の着脱と同じ整合性処理を通す
+            // （離脱者のHPは以後参照されないが、記録として矛盾した値を残さない）。
+            if (recovered.Count > 0)
+                ClampCurrentHp(adventurer);
+
+            return recovered;
+        }
+
+        /// <summary>
         /// 装備を変更できる状態か（→ TryEquip・TryUnequip の共通ガード）。
         /// 出撃中（IsDispatched）は不可。UI側（AdventurerPanel）も同じ条件でボタンを
         /// Disabledにしているが、可否の判定そのものはCore層で自己完結させる方針
