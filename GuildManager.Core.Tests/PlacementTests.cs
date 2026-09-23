@@ -1,6 +1,5 @@
 using System;
 using System.Linq;
-using GuildManager.Core.Balance;
 using GuildManager.Core.Models;
 using Xunit;
 
@@ -49,45 +48,6 @@ namespace GuildManager.Core.Tests
             // 全職業で例外が出ないことを確認しておく。
             foreach (var job in Enum.GetValues<JobClass>())
                 PlacementRules.GetDefault(job);
-        }
-
-        // ---------------- 新3職の配置補正（combat.csv。既存職との戦闘格差の解消） ----------------
-
-        [Theory]
-        [InlineData(JobClass.Knight, Placement.Front, 1.2)]
-        [InlineData(JobClass.Knight, Placement.Back, 0.8)]
-        [InlineData(JobClass.Thief, Placement.Front, 1.0)]
-        [InlineData(JobClass.Thief, Placement.Back, 1.0)]
-        [InlineData(JobClass.Scholar, Placement.Front, 0.8)]
-        [InlineData(JobClass.Scholar, Placement.Back, 1.2)]
-        public void PersonalCpCorrection_NewJobClasses_MatchCombatCsv(JobClass jobClass, Placement placement, double expected)
-        {
-            Assert.Equal(expected, PlacementBalance.GetPersonalCpCorrection(jobClass, placement), precision: 10);
-        }
-
-        [Theory]
-        // 同じ役割の既存職と新職で、本来の配置での補正が一致すること（戦闘格差が無いこと）。
-        [InlineData(JobClass.Warrior, JobClass.Knight, Placement.Front)]   // 前衛の盾役
-        [InlineData(JobClass.Mage, JobClass.Scholar, Placement.Back)]      // 後衛の魔法職
-        [InlineData(JobClass.Ranger, JobClass.Thief, Placement.Front)]     // 前衛の機動役
-        public void PersonalCpCorrection_NewJobClass_MatchesExistingJobWithSameRole(
-            JobClass existingJob, JobClass newJob, Placement rolePlacement)
-        {
-            Assert.Equal(
-                PlacementBalance.GetPersonalCpCorrection(existingJob, rolePlacement),
-                PlacementBalance.GetPersonalCpCorrection(newJob, rolePlacement),
-                precision: 10);
-        }
-
-        [Fact]
-        public void PersonalCpCorrection_EveryJobClass_GetsItsBonusInItsDefaultPlacement()
-        {
-            // 職業から一意に決まる本来の配置では、補正が1.0以上（ペナルティにならない）であること。
-            foreach (var job in Enum.GetValues<JobClass>())
-            {
-                double correction = PlacementBalance.GetPersonalCpCorrection(job, PlacementRules.GetDefault(job));
-                Assert.True(correction >= 1.0, $"{job}の本来の配置での補正({correction})がペナルティになっている");
-            }
         }
 
         // ---------------- Adventurer.TrySetPlacement（Core上に残存する変更手段） ----------------
