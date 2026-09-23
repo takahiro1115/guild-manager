@@ -29,7 +29,7 @@ size_flags_vertical = 3
 theme_override_constants/separation = 12
 
 [node name="ZoneA" type="PanelContainer" parent="Margin/MainHBox"]
-custom_minimum_size = Vector2(440, 0)
+custom_minimum_size = Vector2(400, 0)
 layout_mode = 2
 size_flags_horizontal = 0
 size_flags_vertical = 3
@@ -163,13 +163,13 @@ layout_mode = 2
 [node name="ZoneBMargin" type="MarginContainer" parent="Margin/MainHBox/RightColumn/ZoneB"]
 layout_mode = 2
 theme_override_constants/margin_left = 8
-theme_override_constants/margin_top = 6
+theme_override_constants/margin_top = 4
 theme_override_constants/margin_right = 8
-theme_override_constants/margin_bottom = 6
+theme_override_constants/margin_bottom = 4
 
 [node name="ZoneBVBox" type="VBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin"]
 layout_mode = 2
-theme_override_constants/separation = 4
+theme_override_constants/separation = 3
 
 [node name="ZoneBTitle" type="Label" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox"]
 layout_mode = 2
@@ -183,16 +183,17 @@ layout_mode = 2
 [node name="Margin" type="MarginContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard"]
 layout_mode = 2
 theme_override_constants/margin_left = 8
-theme_override_constants/margin_top = 4
+theme_override_constants/margin_top = 3
 theme_override_constants/margin_right = 8
-theme_override_constants/margin_bottom = 4
+theme_override_constants/margin_bottom = 3
 
 [node name="VBox" type="VBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin"]
 layout_mode = 2
-theme_override_constants/separation = 3
+theme_override_constants/separation = 2
 
 [node name="BossHeaderLabel" type="RichTextLabel" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(320, 0)
 layout_mode = 2
 bbcode_enabled = true
 fit_content = true
@@ -249,6 +250,7 @@ horizontal_alignment = 2
 
 [node name="IntelTierLabel" type="RichTextLabel" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(320, 0)
 layout_mode = 2
 bbcode_enabled = true
 fit_content = true
@@ -256,6 +258,7 @@ fit_content = true
 [node name="CompleteBadgeLabel" type="RichTextLabel" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox"]
 unique_name_in_owner = true
 visible = false
+custom_minimum_size = Vector2(320, 0)
 layout_mode = 2
 bbcode_enabled = true
 fit_content = true
@@ -315,6 +318,7 @@ theme_override_font_sizes/font_size = 11
 
 [node name="PouchCostLabel" type="RichTextLabel" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/PouchCard/Margin/VBox"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(320, 0)
 layout_mode = 2
 bbcode_enabled = true
 fit_content = true

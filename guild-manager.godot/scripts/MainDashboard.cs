@@ -47,8 +47,10 @@ public partial class MainDashboard : Control
 	/// <summary>同時出撃枠の使用状況（→ コアシステム刷新仕様「4. 進行管理」）。</summary>
 	private Label _squadSlotLabel = null!;
 
-	/// <summary>ヘッダー領域の素材保有数サマリー（→ 2026年9月UI整理）。</summary>
-	private Label _materialSummaryLabel = null!;
+	// ヘッダー右肩にあった素材保有数サマリー（%MaterialSummaryLabel）は2026年9月に撤去した。
+	// 全素材を1行に並べる折り返し無しのLabelだったため、ヘッダーの最小幅が画面幅を超え、
+	// ルートコンテナごと横へはみ出してセーブボタンや大迷宮画面の左端が見切れていた（→ 03 §9）。
+	// 素材の確認は「倉庫・遺物」画面の採取素材一覧（→ §4.7.4）へ集約済み。
 
 	private ItemList _adventurerList = null!;
 	private RichTextLabel _adventurerDetailLabel = null!;
@@ -129,7 +131,6 @@ public partial class MainDashboard : Control
 		_goldLabel = GetNode<Label>("%GoldLabel");
 		_rankLabel = GetNode<Label>("%RankLabel");
 		_squadSlotLabel = GetNode<Label>("%SquadSlotLabel");
-		_materialSummaryLabel = GetNode<Label>("%MaterialSummaryLabel");
 		_resultLog = GetNode<RichTextLabel>("%ResultLog");
 		_nextWeekButton = GetNode<Button>("%NextWeekButton");
 		_autoSkipButton = GetNode<Button>("%AutoSkipButton");
@@ -1005,7 +1006,6 @@ public partial class MainDashboard : Control
 		// 同時出撃枠の使用状況（→ コアシステム刷新仕様「4. 進行管理」）。
 		// 大迷宮へ出撃中の部隊の数で枠を消費する（→ DungeonExpeditionSystem.CanDispatch）。
 		_squadSlotLabel.Text = $"出撃枠: {_state.ActiveDungeonMissions.Count}/{_state.UnlockedSquadSlots}";
-		RefreshMaterialSummary();
 
 		_adventurerPanel.Refresh(_state);
 		_dungeonPanel.Refresh(_state);
@@ -1013,33 +1013,6 @@ public partial class MainDashboard : Control
 		_researchPanel.Refresh(_state);
 		_facilityPanel.Refresh(_state);
 		_inventoryPanel.Refresh(_state);
-	}
-
-	/// <summary>
-	/// ヘッダー領域に主要素材の保有数をコンパクトに表示する（→ 2026年9月UI整理）。
-	/// 開放済みフィールドの素材と、在庫が1以上ある素材のみを表示する。
-	/// </summary>
-	private void RefreshMaterialSummary()
-	{
-		var allMaterials = MaterialBalance.GetAll();
-		var unlockedFieldIds = _state.DungeonFields
-			.Where(f => f.IsUnlocked)
-			.Select(f => f.Id)
-			.ToHashSet();
-
-		var parts = allMaterials
-			.Where(m => unlockedFieldIds.Contains(m.FieldId) ||
-			            (_state.Materials.TryGetValue(m.Id, out int c) && c > 0))
-			.Select(m =>
-			{
-				int stock = _state.Materials.TryGetValue(m.Id, out int count) ? count : 0;
-				return $"{m.Name}:{stock}";
-			})
-			.ToList();
-
-		_materialSummaryLabel.Text = parts.Count > 0
-			? $"素材: {string.Join("  ", parts)}"
-			: "";
 	}
 
 

@@ -32,6 +32,11 @@ grow_vertical = 2
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="HeaderLeftMargin" type="Control" parent="Root/HeaderPanel"]
+custom_minimum_size = Vector2(4, 0)
+layout_mode = 2
 
 [node name="WeekLabel" type="Label" parent="Root/HeaderPanel" unique_id=942733365]
 unique_name_in_owner = true
@@ -49,16 +54,18 @@ layout_mode = 2
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="MaterialSummaryLabel" type="Label" parent="Root/HeaderPanel"]
-unique_name_in_owner = true
+[node name="HeaderSpacer" type="Control" parent="Root/HeaderPanel"]
 layout_mode = 2
 size_flags_horizontal = 3
-horizontal_alignment = 2
 
 [node name="SaveButton" type="Button" parent="Root/HeaderPanel" unique_id=765417514]
 unique_name_in_owner = true
 layout_mode = 2
 text = "セーブ"
+
+[node name="HeaderRightMargin" type="Control" parent="Root/HeaderPanel"]
+custom_minimum_size = Vector2(4, 0)
+layout_mode = 2
 
 [node name="NavigationBar" type="HBoxContainer" parent="Root" unique_id=450192831]
 unique_name_in_owner = true

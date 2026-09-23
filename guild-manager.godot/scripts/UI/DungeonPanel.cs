@@ -535,11 +535,13 @@ public partial class DungeonPanel : ScrollContainer
 		foreach (var type in MajorGimmickTypes)
 		{
 			string title = GimmickLabel(type);
+			// カードの高さはここで決め打ちする（→ 03 §9。Zone B 全体を約340px以内に収め、
+			// Zone C の出撃コマンドをスクロール無しで画面内に残すため）。
 			var card = new PanelContainer
 			{
 				SizeFlagsHorizontal = SizeFlags.ExpandFill,
 				SizeFlagsVertical = SizeFlags.ExpandFill,
-				CustomMinimumSize = new Vector2(140, 46),
+				CustomMinimumSize = new Vector2(160, 58),
 			};
 			var margin = new MarginContainer
 			{
@@ -552,11 +554,20 @@ public partial class DungeonPanel : ScrollContainer
 			margin.AddThemeConstantOverride("margin_bottom", 2);
 			card.AddChild(margin);
 
+			// FitContent は使わない（2026年9月のレイアウト適正化、→ 03 §9）。
+			// RichTextLabel の最小幅は0のため、FitContent=true だと Godot は「幅ほぼ0で折り返した
+			// 場合の高さ」を最小高さとして報告する。4枚のカードでこれが積み上がり、Zone B の
+			// 最小高さが 1100px を超えて Zone C（出撃コマンド）を画面外へ押し出していた。
+			// 代わりにカード側の固定高さ（下の CustomMinimumSize）に収め、はみ出す分は
+			// スクロールせずに切り詰める（ScrollActive=false）。
 			var label = new RichTextLabel
 			{
 				BbcodeEnabled = true,
-				FitContent = true,
+				FitContent = false,
+				ScrollActive = false,
+				CustomMinimumSize = new Vector2(150, 0),
 				SizeFlagsHorizontal = SizeFlags.ExpandFill,
+				SizeFlagsVertical = SizeFlags.ExpandFill,
 			};
 			label.AddThemeFontSizeOverride("normal_font_size", 11);
 
