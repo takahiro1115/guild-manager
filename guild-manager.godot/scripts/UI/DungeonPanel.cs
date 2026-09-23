@@ -301,9 +301,15 @@ public partial class DungeonPanel : ScrollContainer
 		string checkpointStr = defeatedCheckpoints.Count > 0 ? string.Join(" ", defeatedCheckpoints) : "なし";
 		sb.AppendLine($"[color=gray]制覇区間：{checkpointStr}[/color]");
 
-		// 電撃進軍倍率
-		double speed = DungeonTraversalResolver.IntelSpeedMultiplier(_selectedField.GetSegmentBoss(1));
-		sb.Append($"[bgcolor=#1e3f20][color=lime][b] ⚡ 進軍速度倍率：×{speed:F1} Speed [/b][/color][/bgcolor] [color=gray]（ボス解析度連動）[/color]");
+		// 電撃進軍倍率：潜行中は部隊の現在階層、待機中は出発階層（毎回1Fから潜る）の区間担当ボスで求める。
+		int speedFloor = activeMission?.CurrentFloor ?? 1;
+		var segmentBoss = _selectedField.GetSegmentBoss(speedFloor);
+		double speed = DungeonTraversalResolver.IntelSpeedMultiplier(segmentBoss);
+		string segmentText = segmentBoss == null
+			? "区間担当ボスなし"
+			: $"{speedFloor}F→{segmentBoss.Floor}F区間・「{segmentBoss.Name}」解析{segmentBoss.IntelRate * 100:F0}%";
+		sb.Append($"[bgcolor=#1e3f20][color=lime][b] ⚡ 進軍速度倍率：×{speed:F1} Speed [/b][/color][/bgcolor] " +
+			$"[color=gray]（{(activeMission != null ? "現在地" : "出発地")} {segmentText}：1.0＋解析率×{DungeonTraversalBalance.IntelSpeedBonusPerIntel:0.#}）[/color]");
 
 		_floorDisplay.AppendText(sb.ToString());
 	}
@@ -908,7 +914,8 @@ public partial class DungeonPanel : ScrollContainer
 			double requirement = DungeonTraversalResolver.FloorRequirement(1);
 			double ratio = requirement <= 0 ? double.MaxValue : score / requirement;
 			var rank = DungeonTraversalResolver.ClassifyRatio(ratio);
-			double speed = DungeonTraversalResolver.IntelSpeedMultiplier(_selectedField.GetSegmentBoss(1));
+			var (rankLossMin, rankLossMax) = DungeonTraversalResolver.RankHpLossRange(rank);
+			var segments = DungeonTraversalResolver.DescribeSegments(_selectedField, 1, boss.Floor, _selectedField.ReachedFloor);
 
 			string rankView = rank switch
 			{
@@ -918,10 +925,16 @@ public partial class DungeonPanel : ScrollContainer
 				_ => "[color=orange]手こずりながらも、少しは奥へ進めるだろう[/color]",
 			};
 
-			sb.AppendLine($"[b]🏃 大迷宮へ潜行（進軍）[/b]　走破力：[color=cyan]{score:F0}[/color] → 見立て：{rankView}");
-			sb.AppendLine($"[color=gray]目標：第{boss.Floor}層「{boss.Name}」扉前まで潜行（区間進軍倍率 ×{speed:F1}）[/color]");
+			// Zone C は縦スクロール不要の収容（→ 03 §0.18）を守るため、潜行の見立ては3行に収める。
+			sb.AppendLine($"[b]🏃 大迷宮へ潜行（進軍）[/b]→ 第{boss.Floor}層「{boss.Name}」扉前　見立て：{rankView}");
+			sb.AppendLine($"　部隊走破力: [color=cyan]{score:F0}[/color] pt（要求: {requirement:F0}〔1F×{DungeonTraversalBalance.RequirementPerFloor}〕／比率: {FormatRatio(ratio)}）" +
+				$"→ {TraversalRankLabel(rank)}：予算{DungeonTraversalResolver.FloorsAdvanced(rank)}階層／既踏の損耗{rankLossMin}〜{rankLossMax}%・未踏破の損耗{DungeonBalance.UnexploredHpLossPctMin}〜{DungeonBalance.UnexploredHpLossPctMax}%");
+			sb.AppendLine($"　実効速度（区間別）: {SegmentPreviewText(segments, MaxPreviewSegments)}");
 
 			_scoutingButton.TooltipText =
+				$"区間別の走破倍率：{SegmentPreviewText(segments)}\n" +
+				$"1階層ごとに 1÷区間倍率 の予算を消費して進む（区間倍率＝1.0＋区間担当ボスの解析率×{DungeonTraversalBalance.IntelSpeedBonusPerIntel:0.#}）。\n" +
+				$"損耗は階層ごとに積み上げる：その階層の基礎率（既踏／未踏破）÷歩いた階層数×区間の被ダメ倍率（完全解析区間は×{DungeonTraversalBalance.FullIntelDamageMultiplier:0.0#}）。\n" +
 				$"走破力の総合値（Σ(VIT×{DungeonTraversalBalance.WeightVit:0.#}＋MND×{DungeonTraversalBalance.WeightMnd:0.#})＋部隊長LDR補正）：{score:F0}\n" +
 				"道中進軍は低リスク：HPは減っても強制除籍にはならない。\n" +
 				"道中で拾った素材・ゴールドは、ギルドへ帰還した時点で格納される。";
@@ -932,8 +945,20 @@ public partial class DungeonPanel : ScrollContainer
 		{
 			var tier = ScoutingResolver.PreviewGuardTier(party, boss);
 			double guardPower = ScoutingResolver.CalculateGuardPower(party);
+			double reqGuard = ScoutingResolver.RequiredGuardPower(boss);
+			double guardRatio = reqGuard <= 0 ? double.MaxValue : guardPower / reqGuard;
+			var (carrier, carrierStat, carrierValue) = ScoutingResolver.FindGuardCarrier(party);
+			double stealth = ScoutingResolver.CalculateStealthScore(party);
+			double stealthReq = ScoutingResolver.StealthRequirement(boss);
+			double analysis = ScoutingResolver.CalculateAnalysisScore(party);
+			double analysisReq = ScoutingResolver.AnalysisRequirement(boss);
+			double analysisRatio = analysisReq <= 0 ? double.MaxValue : analysis / analysisReq;
 
-			sb.AppendLine($"[b]🔍 迷宮調査に出撃（解析）[/b]　護衛評価：[color={GuardTierColor(tier)}][b]{GuardTierLabel(tier)}[/b][/color]（護衛力 {guardPower:F0}） {GuardTierDescription(tier)}");
+			sb.AppendLine($"[b]🔍 迷宮調査に出撃（解析）[/b]　護衛評価：[color={GuardTierColor(tier)}][b]{GuardTierLabel(tier)}[/b][/color] {GuardTierDescription(tier)}");
+			sb.AppendLine($"　部隊護衛力: [color=cyan]{guardPower:F0}[/color]（{carrier?.Name}:{carrierStat}{carrierValue:F0}）／要求: {reqGuard:F1}〔{ScoutingBalance.BaseRequiredGuardPower}×{boss.Floor}F÷10〕" +
+				$"（比率: {FormatRatio(guardRatio)}）［{GuardTierLabel(tier)}: 解析×{ScoutingResolver.GuardIntelMultiplier(tier):0.0#} / HP損耗{ScoutingResolver.GuardHpLossPercent(tier)}%］");
+			sb.AppendLine($"　隠密: {stealth:F0} / 要求 {stealthReq:F0}（{(stealth >= stealthReq ? "成功見込み" : "発見され解析1段階低下")}）　" +
+				$"解析: {analysis:F0} / 要求 {analysisReq:F0}（比率: {FormatRatio(analysisRatio)} → {SurveyOutcomeLabel(ScoutingResolver.ClassifyAnalysis(analysisRatio))}）");
 
 			string tooltip =
 				$"護衛力（隊員の中で最も高いSTR・VIT・INT）：{guardPower:F0}\n" +
@@ -953,7 +978,23 @@ public partial class DungeonPanel : ScrollContainer
 		if (_selectedField != null)
 		{
 			double gatheringScore = GatheringResolver.CalculateGatheringScore(party);
-			sb.Append($"[b]🌿 探索出撃（素材採取）[/b]　部隊採取スコア：[color=lime]{gatheringScore:F0}[/color]");
+			var breakdown = GatheringResolver.BreakDownGatheringScore(party);
+			var eligible = MaterialBalance.GetEligibleMaterials(_selectedField.Id, _selectedField.ReachedFloor);
+			string baseYieldText = eligible.Count == 0
+				? "0（採れる素材なし）"
+				: eligible.Min(m => m.BaseYield) == eligible.Max(m => m.BaseYield)
+					? $"{eligible[0].BaseYield}"
+					: $"{eligible.Min(m => m.BaseYield)}〜{eligible.Max(m => m.BaseYield)}";
+			int scoreYield = GatheringResolver.ScoreYield(gatheringScore);
+			int floorYield = GatheringResolver.FloorYield(_selectedField);
+			int researchYield = GatheringResolver.ResearchYield(_state);
+			int relicPct = RelicBalance.GetGatheringDropPercent(gatheringScore, _selectedField.ReachedFloor);
+
+			sb.AppendLine("[b]🌿 探索出撃（素材採取）[/b]");
+			sb.AppendLine($"　部隊採取力: [color=lime]{gatheringScore:F0}[/color] pt（{GatheringBreakdownText(breakdown)}）");
+			sb.Append($"　基本枠: 素材基礎{baseYieldText}＋スコア枠{scoreYield}〔{gatheringScore:F0}÷{GatheringBalance.MaterialYieldDivisor}〕" +
+				$"＋階層枠{floorYield}〔{_selectedField.ReachedFloor}F÷{GatheringBalance.ReachedFloorDivisor}〕＋研究{researchYield}" +
+				$" ／ 遺物発見率: {relicPct}% ／ 換金: {Math.Round(gatheringScore * GatheringBalance.GoldPerScore):F0}G ／ HP損耗{GatheringBalance.HpLossPctMin}〜{GatheringBalance.HpLossPctMax}%");
 			_gatheringButton.TooltipText =
 				$"採取の総合値（AGI+DEX合計＋部隊長LDR補正、部隊のHP比率で減衰）：{gatheringScore:F0}\n" +
 				"探索は低リスク：HPは減っても強制除籍にはならない。";
@@ -1484,6 +1525,64 @@ public partial class DungeonPanel : ScrollContainer
 		JobClass.Scholar => "学者",
 		_ => job.ToString(),
 	};
+
+	// ---- 判定数値の開示用の書式（→ 03 §4.2.3「開発・バランス調整期間の特記事項」） ----
+
+	public static string FormatRatio(double ratio) => ratio == double.MaxValue ? "∞" : ratio.ToString("F2");
+
+	public static string TraversalRankLabel(TraversalRank rank) => rank switch
+	{
+		TraversalRank.Lightning => "電撃進軍",
+		TraversalRank.Swift => "迅速進軍",
+		TraversalRank.Normal => "通常進軍",
+		_ => "苦戦進軍",
+	};
+
+	public static string SurveyOutcomeLabel(SurveyOutcome outcome) => outcome switch
+	{
+		SurveyOutcome.GreatSuccess => "大成功",
+		SurveyOutcome.Success => "成功",
+		_ => "失敗",
+	};
+
+	/// <summary>Zone C の1行に並べる区間数の上限（超えた分はツールチップへ。縦スクロール不要の収容、→ 03 §0.18）。</summary>
+	private const int MaxPreviewSegments = 3;
+
+	/// <summary>
+	/// 出撃前の区間別倍率（例：1〜10F×3.0〔解析100%・既踏・被ダメ×0.3〕 → 10〜20F×1.0〔解析0%・未踏破〕）。
+	/// 倍率・被ダメ・踏破状況が同じ隣接区間は1つにまとめる。maxCount を超えた分は「ほかN区間」と省略する。
+	/// </summary>
+	private static string SegmentPreviewText(List<TraversalSegmentDetail> segments, int maxCount = int.MaxValue)
+	{
+		if (segments.Count == 0)
+			return "―";
+
+		var merged = new List<(int From, int To, double Speed, double Damage, bool Unexplored, string Intel)>();
+		foreach (var s in segments)
+		{
+			string intel = $"{s.IntelRate * 100:F0}%";
+			if (merged.Count > 0)
+			{
+				var last = merged[^1];
+				if (last.Speed == s.SpeedMultiplier && last.Damage == s.DamageMultiplier && last.Unexplored == s.IsUnexplored)
+				{
+					merged[^1] = (last.From, s.ToFloor, last.Speed, last.Damage, last.Unexplored, last.Intel);
+					continue;
+				}
+			}
+			merged.Add((s.FromFloor, s.ToFloor, s.SpeedMultiplier, s.DamageMultiplier, s.IsUnexplored, intel));
+		}
+
+		var shown = merged.Take(maxCount).Select(m =>
+			$"{m.From}〜{m.To}F×{m.Speed:F1}〔解析{m.Intel}・{(m.Unexplored ? "未踏破" : "既踏")}" +
+			$"{(m.Damage < 1.0 ? $"・被ダメ×{m.Damage:0.0#}" : "")}〕");
+		string text = string.Join(" → ", shown);
+		return merged.Count > maxCount ? $"{text} → …ほか{merged.Count - maxCount}区間（ボタンのツールチップに全区間）" : text;
+	}
+
+	/// <summary>採取スコアの内訳（例：AGI62＋DEX54＋LDR20＋職業10＝146×HP比率0.95）。</summary>
+	public static string GatheringBreakdownText(GatheringScoreBreakdown b) =>
+		$"AGI{b.AgiPart:F0}＋DEX{b.DexPart:F0}＋LDR{b.LdrPart:F0}＋職業{b.ClassBonus:F0}＝{b.RawScore:F0}×HP比率{b.HpRatio:F2}";
 
 	public static string GuardTierLabel(GuardTier tier) => tier switch
 	{

@@ -53,15 +53,20 @@ namespace GuildManager.Core.Systems
             if (party.Members.Count == 0)
                 throw new InvalidOperationException("空のパーティは調査に出せません。");
 
-            var result = new ScoutingResult();
+            var result = new ScoutingResult { IntelRateBefore = boss.IntelRate };
             var tierBefore = GetTier(boss.IntelRate);
 
             // ---- 判定1：隠密・生還（AGI+DEX ＋ 部隊長LDRによる事故防止） ----
-            result.StealthSucceeded = CalculateStealthScore(party) >= StealthRequirement(boss);
+            result.StealthScore = CalculateStealthScore(party);
+            result.StealthRequirement = StealthRequirement(boss);
+            result.StealthSucceeded = result.StealthScore >= result.StealthRequirement;
 
             // ---- 判定2：解析・情報収集（INT） ----
             double analysisRequirement = AnalysisRequirement(boss);
-            double analysisRatio = analysisRequirement <= 0 ? double.MaxValue : CalculateAnalysisScore(party) / analysisRequirement;
+            result.AnalysisScore = CalculateAnalysisScore(party);
+            result.AnalysisRequirement = analysisRequirement;
+            double analysisRatio = analysisRequirement <= 0 ? double.MaxValue : result.AnalysisScore / analysisRequirement;
+            result.AnalysisRatio = analysisRatio;
 
             var outcome = ClassifyAnalysis(analysisRatio);
 
@@ -94,9 +99,16 @@ namespace GuildManager.Core.Systems
 
             // ---- 判定3：護衛（段階ごとに解析成果へ倍率。不足なら成果0＝調査隊が潰走） ----
             double guardRequirement = RequiredGuardPower(boss);
-            result.GuardRatio = guardRequirement <= 0 ? double.MaxValue : CalculateGuardPower(party) / guardRequirement;
+            result.GuardPower = CalculateGuardPower(party);
+            result.GuardRequirement = guardRequirement;
+            var (carrier, carrierStat, _) = FindGuardCarrier(party);
+            result.GuardCarrierName = carrier?.Name ?? "";
+            result.GuardCarrierStat = carrierStat;
+            result.GuardRatio = guardRequirement <= 0 ? double.MaxValue : result.GuardPower / guardRequirement;
             result.GuardTier = ClassifyGuard(result.GuardRatio);
-            gain *= GuardIntelMultiplier(result.GuardTier);
+            result.GuardIntelMultiplier = GuardIntelMultiplier(result.GuardTier);
+            result.HpLossPercent = GuardHpLossPercent(result.GuardTier);
+            gain *= result.GuardIntelMultiplier;
 
             double before = boss.IntelRate;
             boss.IntelRate = Math.Min(ScoutingBalance.IntelTierComplete, boss.IntelRate + gain);
@@ -220,6 +232,26 @@ namespace GuildManager.Core.Systems
                 ? 0
                 : party.Members.Max(m => Math.Max(m.GetEffectiveStat("STR"),
                     Math.Max(m.GetEffectiveStat("VIT"), m.GetEffectiveStat("INT"))));
+
+        /// <summary>
+        /// 部隊護衛力を担う隊員（→ CalculateGuardPower の最大値を出した者）と、その能力名・値。
+        /// 同値ならSTR→VIT→INTの順、隊員は編成順で先の者を採る。空の部隊は (null, "", 0)。
+        /// 週報・プレビューで「誰の何が護衛力になったか」を開示するため。
+        /// </summary>
+        public static (Adventurer? Member, string Stat, double Value) FindGuardCarrier(Party party)
+        {
+            (Adventurer? Member, string Stat, double Value) best = (null, "", 0);
+            foreach (var m in party.Members)
+            {
+                foreach (var stat in new[] { "STR", "VIT", "INT" })
+                {
+                    double value = m.GetEffectiveStat(stat);
+                    if (best.Member == null || value > best.Value)
+                        best = (m, stat, value);
+                }
+            }
+            return best;
+        }
 
         /// <summary>要求護衛値＝BaseRequiredGuardPower（10F区間の基準）×ボス階層÷10。</summary>
         public static double RequiredGuardPower(FloorBoss boss) =>

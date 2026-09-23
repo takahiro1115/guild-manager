@@ -349,6 +349,115 @@ namespace GuildManager.Core.Tests
             Assert.False(member.IsRetired);
         }
 
+        // ---------------- 区間またぎ：階層ごとの損耗積み上げ（2026年9月改訂） ----------------
+
+        /// <summary>
+        /// 10Fボス（完全解析・撃破済み）＋20Fボス（解析0%）＋30Fボスのフィールド。
+        /// 最高到達階層は10F（11F以降が未踏破）。
+        /// </summary>
+        private static DungeonField MakeCrossingField(out FloorBoss boss10, out FloorBoss boss20)
+        {
+            var field = MakeField(reachedFloor: 10);
+            boss10 = new FloorBoss { Name = "10Fの主", Floor = 10, MaxHp = 1, IntelRate = 1.0, IsDefeated = true };
+            boss20 = new FloorBoss { Name = "20Fの主", Floor = 20, MaxHp = 1, IntelRate = 0.0 };
+            field.Bosses.Add(boss10);
+            field.Bosses.Add(boss20);
+            field.Bosses.Add(new FloorBoss { Name = "30Fの主", Floor = 30, MaxHp = 1, IntelRate = 0.0 });
+            return field;
+        }
+
+        [Fact]
+        public void Traversal_CrossingIntoUnanalyzedSegment_SeparatesDamagePerFloor()
+        {
+            // 7Fから電撃進軍（予算4）：7→10Fは完全解析区間（1/3ずつ、計1）、残り3で11〜13Fを等速で進む。
+            // 8〜10Fは既踏（電撃の率）×0.3、11〜13Fは未踏破（重損耗の率）×1.0 で階層ごとに積み上げる。
+            var member = MakeTraveler(vit: 300, mnd: 100, ldr: 100);
+            var field = MakeCrossingField(out var boss10, out var boss20);
+
+            var result = new DungeonTraversalResolver(new AlwaysMaxRng()).Resolve(PartyOf(member), field, currentFloor: 7);
+
+            Assert.Equal(TraversalRank.Lightning, result.Rank);
+            Assert.Equal(13, result.FloorAfter);
+            Assert.True(result.EnteredUnexplored);
+
+            Assert.Equal(2, result.Segments.Count);
+            var analyzed = result.Segments[0];
+            Assert.Same(boss10, analyzed.Boss);
+            Assert.Equal((7, 10, 3), (analyzed.FromFloor, analyzed.ToFloor, analyzed.Floors));
+            Assert.False(analyzed.IsUnexplored);
+            Assert.Equal(DungeonTraversalBalance.FullIntelDamageMultiplier, analyzed.DamageMultiplier, precision: 6);
+            Assert.Equal(DungeonTraversalBalance.HpLossPctMaxLightning, analyzed.BaseLossPct, precision: 6);
+
+            var unanalyzed = result.Segments[1];
+            Assert.Same(boss20, unanalyzed.Boss);
+            Assert.Equal((10, 13, 3), (unanalyzed.FromFloor, unanalyzed.ToFloor, unanalyzed.Floors));
+            Assert.True(unanalyzed.IsUnexplored);
+            Assert.Equal(1.0, unanalyzed.DamageMultiplier, precision: 6);
+            Assert.Equal(DungeonBalance.UnexploredHpLossPctMax, unanalyzed.BaseLossPct, precision: 6);
+
+            // 実効損耗率＝(3階層×電撃8%×0.3 ＋ 3階層×未踏破50%×1.0)÷6階層。
+            double expectedPct = (3 * DungeonTraversalBalance.HpLossPctMaxLightning * DungeonTraversalBalance.FullIntelDamageMultiplier
+                + 3 * DungeonBalance.UnexploredHpLossPctMax * 1.0) / 6;
+            Assert.Equal(expectedPct, result.EffectiveLossPct, precision: 6);
+            Assert.Equal((int)Math.Floor(member.MaxHP * expectedPct / 100.0 + 1e-9), result.HpLostByAdventurer[member.Id]);
+
+            // 旧方式（未踏破の基礎率50%×平均倍率0.65＝32.5%）より軽くも重くもなく、区間ごとに分離されている：
+            // 11〜13Fの重損耗は1.0倍のまま（完全解析区間の0.3倍が未解析区間へ漏れない）。
+            Assert.NotEqual(DungeonBalance.UnexploredHpLossPctMax * 0.65, result.EffectiveLossPct, precision: 3);
+        }
+
+        [Fact]
+        public void Traversal_CrossingIntoUnanalyzedSegment_RecordsWholeTripAverageSpeed()
+        {
+            // 実効平均速度は出発区間（×3.0）ではなく、歩いた6階層の倍率（3,3,3,1,1,1）の平均＝×2.0。
+            var field = MakeCrossingField(out _, out _);
+
+            var result = new DungeonTraversalResolver(new AlwaysMinRng())
+                .Resolve(PartyOf(MakeTraveler(vit: 300, mnd: 100, ldr: 100)), field, currentFloor: 7);
+
+            Assert.Equal(2.0, result.IntelSpeedMultiplier, precision: 6);
+            Assert.Equal((3 * DungeonTraversalBalance.FullIntelDamageMultiplier + 3 * 1.0) / 6, result.DamageTakenMultiplier, precision: 6);
+        }
+
+        [Fact]
+        public void Traversal_HpLoss_UsesFloatingPoint_WithoutIntermediateTruncation()
+        {
+            // 完全解析区間だけの未踏破進軍：失うHP＝floor(最大HP×30%×0.3)。旧式の
+            // (int)((最大HP×30/100)×0.3) では途中の切り捨てで1少なくなる場合がある。
+            // その差が出る最大HPになるVITを探して検証する（CSVの係数が変わってもテストが成立するように）。
+            int pct = DungeonBalance.UnexploredHpLossPctMin;
+            double mult = DungeonTraversalBalance.FullIntelDamageMultiplier;
+            Adventurer? member = null;
+            for (int vit = 100; vit <= 400; vit++)
+            {
+                var candidate = MakeTraveler(vit: vit, mnd: 100, ldr: 100);
+                int legacy = (int)(candidate.MaxHP * pct / 100 * mult);
+                int precise = (int)Math.Floor(candidate.MaxHP * pct / 100.0 * mult + 1e-9);
+                if (legacy != precise) { member = candidate; break; }
+            }
+            Assert.NotNull(member);
+
+            var result = new DungeonTraversalResolver(new AlwaysMinRng()).Resolve(PartyOf(member!), MakeUnexploredField(1.0), currentFloor: 1);
+
+            Assert.Equal((int)Math.Floor(member!.MaxHP * pct / 100.0 * mult + 1e-9), result.HpLostByAdventurer[member.Id]);
+            Assert.Equal(pct * mult, result.EffectiveLossPctByAdventurer[member.Id], precision: 6);
+        }
+
+        [Fact]
+        public void DescribeSegments_SplitsAtBossBoundary_ForPreview()
+        {
+            var field = MakeCrossingField(out var boss10, out var boss20);
+
+            var segments = DungeonTraversalResolver.DescribeSegments(field, fromFloor: 1, toFloor: 20, exploredRecord: 10);
+
+            Assert.Equal(2, segments.Count);
+            Assert.Same(boss10, segments[0].Boss);
+            Assert.Equal((1, 10, 9, 3.0), (segments[0].FromFloor, segments[0].ToFloor, segments[0].Floors, segments[0].SpeedMultiplier));
+            Assert.Same(boss20, segments[1].Boss);
+            Assert.Equal((10, 20, 10, 1.0), (segments[1].FromFloor, segments[1].ToFloor, segments[1].Floors, segments[1].SpeedMultiplier));
+            Assert.True(segments[1].IsUnexplored);
+        }
+
         [Fact]
         public void Resolve_EmptyParty_Throws()
         {

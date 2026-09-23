@@ -40,6 +40,44 @@ namespace GuildManager.Core.Systems
         /// <summary>支援した参謀の名前（週報表示用）。未任命・ボーナス0ならnull。</summary>
         public string? AdvisorName { get; set; }
 
+        // ---- 判定内訳の開示用（→ 03 §4.2.3「開発・バランス調整期間の特記事項」） ----
+
+        /// <summary>部隊護衛力（→ ScoutingResolver.CalculateGuardPower）。</summary>
+        public double GuardPower { get; set; }
+
+        /// <summary>要求護衛値（→ ScoutingResolver.RequiredGuardPower）。</summary>
+        public double GuardRequirement { get; set; }
+
+        /// <summary>護衛力を担った隊員の名前（→ ScoutingResolver.FindGuardCarrier）。</summary>
+        public string GuardCarrierName { get; set; } = "";
+
+        /// <summary>護衛力を担った隊員の能力名（STR/VIT/INT）。</summary>
+        public string GuardCarrierStat { get; set; } = "";
+
+        /// <summary>護衛段階による解析成果の倍率（→ ScoutingResolver.GuardIntelMultiplier）。</summary>
+        public double GuardIntelMultiplier { get; set; }
+
+        /// <summary>護衛段階による各員のHP消費率（%、→ ScoutingResolver.GuardHpLossPercent）。</summary>
+        public int HpLossPercent { get; set; }
+
+        /// <summary>隠密適性（→ ScoutingResolver.CalculateStealthScore）。</summary>
+        public double StealthScore { get; set; }
+
+        /// <summary>隠密の要求値（→ ScoutingResolver.StealthRequirement）。</summary>
+        public double StealthRequirement { get; set; }
+
+        /// <summary>解析スコア（→ ScoutingResolver.CalculateAnalysisScore）。</summary>
+        public double AnalysisScore { get; set; }
+
+        /// <summary>解析の要求値（→ ScoutingResolver.AnalysisRequirement）。</summary>
+        public double AnalysisRequirement { get; set; }
+
+        /// <summary>解析スコア÷解析の要求値。</summary>
+        public double AnalysisRatio { get; set; }
+
+        /// <summary>調査前の解析率。</summary>
+        public double IntelRateBefore { get; set; }
+
         /// <summary>冒険者IDごとの、今回の調査で失ったHP量。</summary>
         public Dictionary<Guid, int> HpLostByAdventurer { get; set; } = new();
     }

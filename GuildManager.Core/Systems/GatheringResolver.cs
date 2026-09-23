@@ -43,23 +43,27 @@ namespace GuildManager.Core.Systems
 
             var result = new GatheringResult();
             double score = CalculateGatheringScore(party);
+            result.Score = score;
+            result.ScoreBreakdown = BreakDownGatheringScore(party);
 
             string materialId = RollMaterial(field);
             int baseYield = MaterialBalance.Find(materialId)?.BaseYield ?? 0;
+            result.BaseYield = baseYield;
+            result.ScoreYield = ScoreYield(score);
+            result.FloorYield = FloorYield(field);
 
-            int materialCount = Math.Max(1, baseYield
-                + (int)(score / GatheringBalance.MaterialYieldDivisor)
-                + field.ReachedFloor / GatheringBalance.ReachedFloorDivisor);
+            int materialCount = Math.Max(1, baseYield + result.ScoreYield + result.FloorYield);
 
             // 研究バフ：GatheringYieldBonus種別の研究が完了済みなら、合計EffectValueを獲得数へ
             // 加算する（→ アルベールの研究室）。
-            if (state != null)
-                materialCount += (int)ResearchBalance.GetTotalEffectValue(state, ResearchEffectType.GatheringYieldBonus);
+            result.ResearchYield = ResearchYield(state);
+            materialCount += result.ResearchYield;
 
             result.MaterialId = materialId;
             result.MaterialCount = materialCount;
             result.GoldEarned = (int)Math.Round(score * GatheringBalance.GoldPerScore);
-            result.UnidentifiedItemFound = RollRelic(field, score);
+            result.RelicDropPercent = RelicBalance.GetGatheringDropPercent(score, field.ReachedFloor);
+            result.UnidentifiedItemFound = RollRelic(field, result.RelicDropPercent);
 
             ApplyHpLoss(result, party);
 
@@ -74,9 +78,8 @@ namespace GuildManager.Core.Systems
         /// ここではGameStateを書き換えず、結果（GatheringResult）に記録するだけに留める
         /// （素材・ゴールドと同じく、ギルドへの反映は週次解決側の責務。→ GatheringResolver冒頭の方針）。
         /// </summary>
-        private UnidentifiedItem? RollRelic(DungeonField field, double score)
+        private UnidentifiedItem? RollRelic(DungeonField field, int dropPct)
         {
-            int dropPct = RelicBalance.GetGatheringDropPercent(score, field.ReachedFloor);
             if (_rng.NextInt(1, 100) > dropPct)
                 return null;
 
@@ -105,6 +108,31 @@ namespace GuildManager.Core.Systems
 
             return (statSum + classBonus) * hpRatio;
         }
+
+        /// <summary>
+        /// 採取スコアの内訳（UIの出撃前プレビュー・週報の開示用）。合計は CalculateGatheringScore と同じ式。
+        /// </summary>
+        public static GatheringScoreBreakdown BreakDownGatheringScore(Party party)
+        {
+            if (party.IsEmpty) return new GatheringScoreBreakdown(0, 0, 0, 0, 1);
+
+            return new GatheringScoreBreakdown(
+                AgiPart: party.Members.Sum(m => m.GetEffectiveStat("AGI") * GatheringBalance.AgiCoefficient),
+                DexPart: party.Members.Sum(m => m.GetEffectiveStat("DEX") * GatheringBalance.DexCoefficient),
+                LdrPart: party.Members[0].GetEffectiveStat("LDR") * GatheringBalance.LeaderLdrCoefficient,
+                ClassBonus: party.Members.Count(m => m.JobClass is JobClass.Thief or JobClass.Ranger) * GatheringBalance.ThiefRangerScoreBonus,
+                HpRatio: party.Members.Average(m => (double)m.CurrentHP / m.MaxHP));
+        }
+
+        /// <summary>獲得数のうち採取スコア由来の枠＝(int)(採取スコア÷MaterialYieldDivisor)。</summary>
+        public static int ScoreYield(double score) => (int)(score / GatheringBalance.MaterialYieldDivisor);
+
+        /// <summary>獲得数のうち到達階層由来の枠＝到達階層÷ReachedFloorDivisor（切り捨て）。</summary>
+        public static int FloorYield(DungeonField field) => field.ReachedFloor / GatheringBalance.ReachedFloorDivisor;
+
+        /// <summary>獲得数のうち研究（GatheringYieldBonus）由来の枠。stateがnullなら0。</summary>
+        public static int ResearchYield(GameState? state) =>
+            state == null ? 0 : (int)ResearchBalance.GetTotalEffectValue(state, ResearchEffectType.GatheringYieldBonus);
 
         /// <summary>
         /// フィールド・到達階層で抽選対象になる素材（→ MaterialBalance.GetEligibleMaterials）から

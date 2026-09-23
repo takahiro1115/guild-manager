@@ -714,6 +714,11 @@ public partial class MainDashboard : Control
 			sb.AppendLine($"[b]第{weekNumber}週：大迷宮 探索（採取）任務[/b]");
 			sb.AppendLine($"[color=lime]【採取任務】{resolution.Field.Name}にて素材を回収（{materialName}×{gathering.MaterialCount}、" +
 				$"換金{gathering.GoldEarned}Gを獲得）。[/color]");
+			// 判定内訳の開示（→ 03 §4.2.3「開発・バランス調整期間の特記事項」）。
+			sb.AppendLine($"[color=gray]【探索採取】採取スコア{gathering.Score:F0}（{DungeonPanel.GatheringBreakdownText(gathering.ScoreBreakdown)}）" +
+				$" → 採取枠{gathering.MaterialCount}個（素材基礎{gathering.BaseYield}＋スコア枠{gathering.ScoreYield}〔÷{GatheringBalance.MaterialYieldDivisor}〕" +
+				$"＋階層枠{gathering.FloorYield}〔{resolution.Field.ReachedFloor}F÷{GatheringBalance.ReachedFloorDivisor}〕＋研究{gathering.ResearchYield}）" +
+				$" / 遺物発見率{gathering.RelicDropPercent}% / 換金{gathering.Score:F0}×{GatheringBalance.GoldPerScore:0.0#}={gathering.GoldEarned}G[/color]");
 			sb.AppendLine("[color=cyan]探索部隊は全員生還した。[/color]");
 			AppendRelicLines(sb, resolution);
 			AppendHpLossLines(sb, gathering.HpLostByAdventurer);
@@ -767,6 +772,13 @@ public partial class MainDashboard : Control
 			}
 			sb.AppendLine($"解析率 {resolution.IntelRateBefore * 100:F0}% → {scouting.IntelRateAfter * 100:F0}%" +
 				$"（+{scouting.IntelGained * 100:F0}%）");
+			// 判定内訳の開示（→ 03 §4.2.3「開発・バランス調整期間の特記事項」）。
+			sb.AppendLine($"[color=gray]【迷宮調査】護衛判定: 護衛力{scouting.GuardPower:F0}（{scouting.GuardCarrierName}:{scouting.GuardCarrierStat}{scouting.GuardPower:F0}）" +
+				$" / 要求値{scouting.GuardRequirement:F1}（{resolution.Field.Name}{boss.Floor}F基準）＝ 比率{DungeonPanel.FormatRatio(scouting.GuardRatio)}" +
+				$"［{DungeonPanel.GuardTierLabel(scouting.GuardTier)}］。損耗{scouting.HpLossPercent}% / 解析倍率×{scouting.GuardIntelMultiplier:0.0#}" +
+				$" / 解析進展+{scouting.IntelGained * 100:F1}%（{scouting.IntelRateBefore * 100:F0}%→{scouting.IntelRateAfter * 100:F0}%）[/color]");
+			sb.AppendLine($"[color=gray]　隠密 {scouting.StealthScore:F0} / 要求 {scouting.StealthRequirement:F0}（{(scouting.StealthSucceeded ? "成功" : "発見・解析1段階低下")}）" +
+				$"　解析 {scouting.AnalysisScore:F0} / 要求 {scouting.AnalysisRequirement:F0}（比率{DungeonPanel.FormatRatio(scouting.AnalysisRatio)} → {DungeonPanel.SurveyOutcomeLabel(scouting.AnalysisOutcome)}）[/color]");
 			if (scouting.TierAdvanced)
 				sb.AppendLine($"[color=gold][b]★ 新たな情報を掴んだ：解析段階が「{DungeonPanel.TierLabel(scouting.TierAfter)}」に到達！[/b][/color]");
 			sb.AppendLine(survey
@@ -792,7 +804,18 @@ public partial class MainDashboard : Control
 			sb.AppendLine($"現在階層 第{traversal.FloorBefore}層 → 第{traversal.FloorAfter}層" +
 				$"（+{traversal.FloorAfter - traversal.FloorBefore}階層）");
 			if (traversal.IntelSpeedMultiplier > 1.0)
-				sb.AppendLine($"[color=lime]◆ 解析済みの情報を活かし、走破速度 ×{traversal.IntelSpeedMultiplier:F1}で進んだ。[/color]");
+				sb.AppendLine($"[color=lime]◆ 解析済みの情報を活かし、実効平均 走破速度 ×{traversal.IntelSpeedMultiplier:F1}で進んだ。[/color]");
+			// 判定・損耗内訳の開示（→ 03 §4.2.3「開発・バランス調整期間の特記事項」）。
+			sb.AppendLine($"[color=gray]【大迷宮潜行】走破力{traversal.TraversalScore:F0} / 要求値{traversal.Requirement:F0}（{traversal.FloorBefore}F×{DungeonTraversalBalance.RequirementPerFloor}）" +
+				$"＝ 比率{DungeonPanel.FormatRatio(traversal.Ratio)}［{DungeonPanel.TraversalRankLabel(traversal.Rank)}: 予算{DungeonTraversalResolver.FloorsAdvanced(traversal.Rank)}階層］[/color]");
+			if (traversal.Segments.Count > 0)
+			{
+				string segments = string.Join(" + ", traversal.Segments.Select(s =>
+					$"{s.FromFloor}〜{s.ToFloor}F({(s.DamageMultiplier < 1.0 ? "解析済" : "未解析")}・{(s.IsUnexplored ? "未踏破" : "既踏")}: " +
+					$"損耗{s.BaseLossPct:0.#}%×{s.DamageMultiplier:0.0#}={s.EffectiveLossPct:F1}%, 速度×{s.SpeedMultiplier:F1})"));
+				sb.AppendLine($"[color=gray]　第{traversal.FloorBefore}F〜{traversal.FloorAfter}Fへ進軍。内訳: {segments}" +
+					$" → 実効平均速度×{traversal.IntelSpeedMultiplier:F1} / 実効損耗{traversal.EffectiveLossPct:F1}%（階層数で加重平均）[/color]");
+			}
 			// 参謀のルート指導（→ AdvisorSystem.GetAdvisorTraversalPowerBonus、§7.2）。任命されている週のみ。
 			if (traversal.AdvisorName != null)
 			{
@@ -816,7 +839,7 @@ public partial class MainDashboard : Control
 			{
 				sb.AppendLine("[color=cyan]部隊は次週さらに奥へ進軍する。[/color]");
 			}
-			AppendHpLossLines(sb, traversal.HpLostByAdventurer);
+			AppendHpLossLines(sb, traversal.HpLostByAdventurer, traversal.EffectiveLossPctByAdventurer);
 
 			AppendLog(sb.ToString());
 			return;
@@ -918,13 +941,18 @@ public partial class MainDashboard : Control
 	}
 
 	/// <summary>HP消費の内訳（現役ロースターに残っている者のみ。強制除籍者は別途報告する）。</summary>
-	private void AppendHpLossLines(StringBuilder sb, Dictionary<Guid, int> hpLostByAdventurer)
+	/// <param name="lossPctByAdventurer">省略可能。渡した場合、各員の実効損耗率（%）も併記する（道中進軍の内訳開示用）。</param>
+	private void AppendHpLossLines(StringBuilder sb, Dictionary<Guid, int> hpLostByAdventurer, Dictionary<Guid, double> lossPctByAdventurer = null)
 	{
 		foreach (var kv in hpLostByAdventurer)
 		{
 			var adv = _state.Adventurers.FirstOrDefault(a => a.Id == kv.Key);
-			if (adv != null)
-				sb.AppendLine($" - {adv.Name}: HP -{kv.Value}（残りHP {adv.CurrentHP}/{adv.MaxHP}）");
+			if (adv == null)
+				continue;
+			string pct = lossPctByAdventurer != null && lossPctByAdventurer.TryGetValue(kv.Key, out double p)
+				? $"〔最大HP{adv.MaxHP}×{p:F1}%〕"
+				: "";
+			sb.AppendLine($" - {adv.Name}: HP -{kv.Value}{pct}（残りHP {adv.CurrentHP}/{adv.MaxHP}）");
 		}
 	}
 
