@@ -86,6 +86,12 @@ public partial class AdventurerPanel : VBoxContainer
 	private Button _payBonusButton = null!;
 	private Button _retireButton = null!;
 	private Button _advisorButton = null!;
+	private Button _renameButton = null!;
+
+	// 改名ダイアログ（→ 03 §2.1、2026年9月新設。コードで組み立てる）
+	private ConfirmationDialog _renameDialog = null!;
+	private LineEdit _renameEdit = null!;
+	private Label _renameErrorLabel = null!;
 
 	/// <summary>ステータス詳細パネルに表示中の冒険者Id。週送り後もこの人物の表示を維持する。</summary>
 	private Guid? _detailAdventurerId;
@@ -101,6 +107,11 @@ public partial class AdventurerPanel : VBoxContainer
 
 	/// <summary>顧問管理ポップアップの開放を依頼する（MainDashboardがポップアップを所有するため）。</summary>
 	public event Action AdvisorRequested = delegate { };
+
+	/// <summary>
+	/// 冒険者が改名された（→ MainDashboard が画面全体を再描画し、左ペインの編成スロット・候補一覧・大迷宮画面の名前を即時同期する）。
+	/// </summary>
+	public event Action<Guid> AdventurerRenamed = delegate { };
 
 	/// <summary>顧問管理ボタンへの参照。</summary>
 	public Button AdvisorButton => _advisorButton;
@@ -168,6 +179,7 @@ public partial class AdventurerPanel : VBoxContainer
 		_payBonusButton = GetNode<Button>("%PayBonusButton");
 		_retireButton = GetNode<Button>("%RetireButton");
 		_advisorButton = GetNode<Button>("%AdvisorButton");
+		_renameButton = GetNode<Button>("%RenameButton");
 
 		// シグナル配線
 		_equipmentButton.Pressed += OnEquipmentButtonPressed;
@@ -175,6 +187,8 @@ public partial class AdventurerPanel : VBoxContainer
 		_payBonusButton.Pressed += OnPayBonusPressed;
 		_retireButton.Pressed += OnRetirePressed;
 		_advisorButton.Pressed += () => AdvisorRequested.Invoke();
+		_renameButton.Pressed += OnRenamePressed;
+		BuildRenameDialog();
 
 		// 初期状態は未選択
 		ShowNoAdventurerSelected();
@@ -338,6 +352,7 @@ public partial class AdventurerPanel : VBoxContainer
 		// ---- 操作ボタン群の個別ガード ----
 		_raiseWageButton.Disabled = false;
 		_payBonusButton.Disabled = false;
+		_renameButton.Disabled = false; // 改名は名前だけの変更のため、出撃中でも行える
 
 		// 出撃中は装備変更・引退をガード
 		_equipmentButton.Disabled = a.IsDispatched;
@@ -358,6 +373,89 @@ public partial class AdventurerPanel : VBoxContainer
 
 	// ==== 操作ボタン群 ====
 
+	// ==== 改名（→ 03 §2.1、2026年9月新設） ====
+
+	/// <summary>
+	/// 改名ダイアログ（入力欄＋エラー表示）を組み立てる。OKで閉じる既定動作を切り、入力が不正なら
+	/// ダイアログを開いたままエラーを表示する（→ OnRenameConfirmed）。
+	/// </summary>
+	private void BuildRenameDialog()
+	{
+		_renameDialog = new ConfirmationDialog
+		{
+			Title = "冒険者の改名",
+			OkButtonText = "改名する",
+			CancelButtonText = "やめる",
+			DialogHideOnOk = false,
+			Exclusive = true,
+		};
+
+		var box = new VBoxContainer();
+		box.AddThemeConstantOverride("separation", 6);
+		_renameEdit = new LineEdit
+		{
+			PlaceholderText = $"新しい名前を入力（1〜{Adventurer.MaxNameLength}文字）",
+			MaxLength = Adventurer.MaxNameLength,
+			CustomMinimumSize = new Vector2(320, 0),
+		};
+		_renameErrorLabel = new Label { Visible = false };
+		_renameErrorLabel.AddThemeColorOverride("font_color", new Color(1f, 0.45f, 0.35f));
+		box.AddChild(_renameEdit);
+		box.AddChild(_renameErrorLabel);
+		_renameDialog.AddChild(box);
+		_renameDialog.RegisterTextEnter(_renameEdit); // 入力欄でEnterを押してもOK扱い
+		_renameDialog.Confirmed += OnRenameConfirmed;
+		AddChild(_renameDialog);
+	}
+
+	/// <summary>「✏️」ボタン。現在の名前を入れて全選択・フォーカスした状態でダイアログを開く。</summary>
+	private void OnRenamePressed()
+	{
+		var target = CurrentDetailAdventurer();
+		if (target == null) return;
+
+		_renameEdit.Text = target.Name;
+		_renameErrorLabel.Visible = false;
+		_renameDialog.PopupCentered();
+		_renameEdit.GrabFocus();
+		_renameEdit.SelectAll();
+	}
+
+	/// <summary>
+	/// 改名の確定。トリム後1〜12文字なら Adventurer.Rename で反映し、氏名ラベルを即時更新して
+	/// AdventurerRenamed を発火する（→ 左ペインの編成スロット・候補一覧も同期）。不正ならダイアログを閉じずにエラー表示。
+	/// </summary>
+	private void OnRenameConfirmed()
+	{
+		var target = CurrentDetailAdventurer();
+		if (target == null)
+		{
+			_renameDialog.Hide();
+			return;
+		}
+
+		string oldName = target.Name;
+		try
+		{
+			target.Rename(_renameEdit.Text);
+		}
+		catch (ArgumentException ex)
+		{
+			_renameErrorLabel.Text = $"⚠ {ex.Message.Split(" (Parameter", 2)[0]}";
+			_renameErrorLabel.Visible = true;
+			_renameEdit.GrabFocus();
+			return;
+		}
+
+		_renameDialog.Hide();
+		_nameLabel.Text = target.Name;
+		if (target.Name != oldName)
+		{
+			LogRequested($"[color=cyan]✏️ {oldName} は「{target.Name}」と名乗ることになった。[/color]");
+			AdventurerRenamed(target.Id);
+		}
+	}
+
 	/// <summary>全操作ボタンの有効/無効を一括切り替え。</summary>
 	private void SetActionButtonsDisabled(bool disabled)
 	{
@@ -365,6 +463,7 @@ public partial class AdventurerPanel : VBoxContainer
 		_raiseWageButton.Disabled = disabled;
 		_payBonusButton.Disabled = disabled;
 		_retireButton.Disabled = disabled;
+		_renameButton.Disabled = disabled;
 	}
 
 	/// <summary>「装備変更」ボタン（→ 03 §4.2.2）。MainDashboardに装備ポップアップの開放を依頼する。</summary>

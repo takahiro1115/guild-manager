@@ -169,6 +169,8 @@ public partial class MainDashboard : Control
 		_adventurerPanel = GetNode<AdventurerPanel>("%AdventurerDetailTab");
 		_adventurerPanel.LogRequested += AppendLog;
 		_adventurerPanel.StateChanged += RefreshAll;
+		// 改名（→ 03 §2.1）：画面全体を再描画し、左ペインの編成スロット・候補一覧や大迷宮画面の名前を即時同期する。
+		_adventurerPanel.AdventurerRenamed += _ => RefreshAll();
 		_adventurerPanel.EquipmentRequested += OnAdventurerEquipmentRequested;
 		_adventurerPanel.AdvisorRequested += OnAdvisorButtonPressed;
 		_advisorButton = _adventurerPanel.AdvisorButton;

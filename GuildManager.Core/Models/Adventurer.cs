@@ -13,6 +13,24 @@ namespace GuildManager.Core.Models
     {
         public Guid Id { get; init; } = Guid.NewGuid();
         public string Name { get; set; } = "名無し";
+
+        /// <summary>プレイヤーが改名で付けられる名前の最大文字数（→ Rename。個人詳細・編成スロットの表示幅に収めるため）。</summary>
+        public const int MaxNameLength = 12;
+
+        /// <summary>
+        /// プレイヤーによる任意の改名（→ 03 §2.1、2026年9月新設。「部隊・冒険者」画面の個人詳細ペインの ✏️ ボタン）。
+        /// 前後の空白を取り除いたうえで、1〜MaxNameLength（12）文字（string.Length で数える＝全角・半角を区別しない）なら
+        /// Name を書き換える。null・空文字・空白のみ・13文字以上は ArgumentException。Id・セーブデータの構造は変えない。
+        /// </summary>
+        public void Rename(string? newName)
+        {
+            string trimmed = newName?.Trim() ?? "";
+            if (trimmed.Length == 0)
+                throw new ArgumentException("名前を入力してください（空白のみは不可）。", nameof(newName));
+            if (trimmed.Length > MaxNameLength)
+                throw new ArgumentException($"名前は{MaxNameLength}文字以内にしてください（{trimmed.Length}文字）。", nameof(newName));
+            Name = trimmed;
+        }
         public int Age { get; set; } = 18;
         public JobClass JobClass { get; set; }
 

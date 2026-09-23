@@ -122,6 +122,14 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 20
 text = "氏名"
 
+[node name="RenameButton" type="Button" parent="Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox/HeaderRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(32, 28)
+layout_mode = 2
+size_flags_vertical = 4
+tooltip_text = "冒険者の名前を変更する（1〜12文字）"
+text = "✏️"
+
 [node name="PlacementBadgeLabel" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox/HeaderRow"]
 unique_name_in_owner = true
 layout_mode = 2
