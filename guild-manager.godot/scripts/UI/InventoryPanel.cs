@@ -362,7 +362,7 @@ public partial class InventoryPanel : VBoxContainer
 	/// <summary>
 	/// ギルドが所持している装備品の一覧（→ GameState.Armory）。売却（→ 03 §4.8）の事故を防ぐため、
 	/// 2つのカテゴリに分けて表示する：
-	///  - **A. 汎用武具**：カタログ品（無銘）と銅・銀の鑑定品。同じカタログId・同じ希少度ごとに
+	///  - **A. 汎用武具**：カタログ品と銅・銀の鑑定品。同じカタログId・同じ希少度ごとに
 	///    まとめ、1個／全数／数量指定のまとめ売りができる。
 	///  - **B. 希少武具**：金・虹の鑑定品。誤って一括で売り飛ばさないようグルーピングせず
 	///    1点ずつ独立表示し、1個売却ボタンだけを置く。
@@ -374,7 +374,7 @@ public partial class InventoryPanel : VBoxContainer
 		var summary = new RichTextLabel { BbcodeEnabled = true, FitContent = true, SizeFlagsHorizontal = SizeFlags.ExpandFill };
 		summary.AppendText($"[b]ギルド保管庫[/b]：{_state.Armory.Count} 点　／　[b]所持金[/b]：{_state.Gold} G\n" +
 			"[color=gray]鑑定で掘り当てた武具や、冒険者から外した武具の在庫（＝誰も装備していない現物）。" +
-			"装備させるには「冒険者人事」タブで対象を選び、[装備変更]から換装すること（→ 03 §4.2.2）。" +
+			"装備させるには「部隊・冒険者」画面で対象を選び、[装備変更]から換装すること（→ 03 §4.2.2）。" +
 			"余剰分はここで換金できる（→ 03 §4.8）。[/color]");
 		_armoryListBox.AddChild(summary);
 		_armoryListBox.AddChild(new HSeparator());
@@ -450,7 +450,7 @@ public partial class InventoryPanel : VBoxContainer
 		return row;
 	}
 
-	/// <summary>保管庫の1行分の説明（名称・希少度・性能・入手履歴・売却単価）。</summary>
+	/// <summary>保管庫の1行分の説明（名称・希少度・性能・鑑定品のみ出土地／入手経路・売却単価）。</summary>
 	private RichTextLabel BuildArmoryInfoLabel(EquipmentItem sample, int count, int unitPrice)
 	{
 		var definition = sample.GetDefinition();
@@ -461,23 +461,50 @@ public partial class InventoryPanel : VBoxContainer
 			: $"{SlotLabel(definition.Slot)}／{EffectLabel(definition.EffectType)} +{definition.EffectValue}" +
 			  $"／{(definition.AllowedJobs.Count == 0 ? "全職業" : string.Join("・", definition.AllowedJobs.Select(JobLabel)))}";
 
+		// カタログ品（Rarity == null）は希少度タグも入手履歴も出さない（2026年9月、→ 03 §4.8.3）。
+		// 「［無銘］」「入手：第○週 カタログから購入」は全カタログ品で同じ文面になる情報ノイズだったため。
+		// 入手週・入手経路のデータ自体は Core（EquipmentItem.AcquiredAtWeek/AcquiredFrom）に保持したまま。
 		string rarityTag = sample.Rarity.HasValue
 			? $"　[color={RelicBalance.GetRarityColorName(sample.Rarity.Value)}]" +
 			  $"［{RelicBalance.GetRarityLabel(sample.Rarity.Value)}］[/color]"
-			: "　[color=gray]［無銘］[/color]";
+			: "";
 
-		var history = _state.Armory
-			.Where(e => e.ItemId == sample.ItemId && e.Rarity == sample.Rarity)
-			.Select(e => $"第{e.AcquiredAtWeek}週 {e.AcquiredFrom}")
-			.Take(3)
-			.ToList();
-
-		label.AppendText($"[font_size=16][b]{sample.Name}[/b][/font_size]{rarityTag} ×{count}" +
+		string text = $"[font_size=16][b]{sample.Name}[/b][/font_size]{rarityTag} ×{count}" +
 			$"　[color=yellow]{unitPrice}G/点[/color]\n" +
-			$"　[color=gray]{effect}[/color]\n" +
-			$"　[color=gray]入手：{string.Join("、", history)}{(count > history.Count ? " ほか" : "")}[/color]");
+			$"　[color=gray]{effect}[/color]";
 
+		// 鑑定品（迷宮から出土した武具）だけ、出土地・階層（冒険者から返還された個体はその経路）を表示する。
+		if (sample.Rarity.HasValue)
+		{
+			var origins = _state.Armory
+				.Where(e => e.ItemId == sample.ItemId && e.Rarity == sample.Rarity)
+				.Select(OriginText)
+				.Distinct()
+				.ToList();
+			var shown = origins.Take(3).ToList();
+			text += $"\n　[color=gray]{string.Join("、", shown)}{(origins.Count > shown.Count ? " ほか" : "")}[/color]";
+		}
+
+		label.AppendText(text);
 		return label;
+	}
+
+	/// <summary>
+	/// 鑑定品1点の由来の表示文。鑑定時の入手経路（→ AppraisalSystem：「{フィールドId} 第{n}層の遺物を鑑定」）は
+	/// 「出土：{フィールド名} {n}F」へ整形する。冒険者から返還された個体など、それ以外の経路は「入手：第○週 {経路}」のまま出す。
+	/// </summary>
+	private string OriginText(EquipmentItem item)
+	{
+		const string suffix = "層の遺物を鑑定";
+		string from = item.AcquiredFrom;
+		int floorMark = from.LastIndexOf(" 第", StringComparison.Ordinal);
+		if (from.EndsWith(suffix, StringComparison.Ordinal) && floorMark > 0)
+		{
+			string fieldId = from[..floorMark];
+			string floor = from[(floorMark + 2)..^suffix.Length];
+			return $"出土：{FieldName(fieldId)} {floor}F";
+		}
+		return $"入手：第{item.AcquiredAtWeek}週 {from}";
 	}
 
 	/// <summary>武具の売却実行（→ EquipmentSystem.TrySellEquipments）。</summary>
