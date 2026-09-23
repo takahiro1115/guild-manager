@@ -352,6 +352,64 @@ namespace GuildManager.Core.Tests
             Assert.Equal(ExpeditionStatus.AwaitingBossDecision, mission.Status);
         }
 
+        // ---------------- アルベールの激怒（強制除籍1名につき機嫌−20、2026年9月新設） ----------------
+
+        [Fact]
+        public void ProcessWeeklyMissions_ForcedRetirement_LowersMasterMood_ByTwentyPerMember()
+        {
+            var (state, a, b, boss) = MakeState(MakeDeadlyBoss());
+            state.MasterMood = 70;
+            var system = BuildSystem();
+            system.TryDispatch(state, PartyOf(a, b), boss, DungeonMissionType.BossAssault);
+
+            var resolution = Assert.Single(system.ProcessWeeklyMissions(state));
+
+            Assert.Equal(2, resolution.MasterFuryRetiredCount);
+            Assert.Equal(20, MasterMoodBalance.ForcedRetirementMoodLoss);
+            Assert.Equal(-2 * MasterMoodBalance.ForcedRetirementMoodLoss, resolution.MasterFuryMoodApplied);
+            Assert.Equal(70 - 2 * MasterMoodBalance.ForcedRetirementMoodLoss, state.MasterMood);
+        }
+
+        [Fact]
+        public void ProcessWeek_ForcedRetirement_CanTriggerDismissalByMaster_SameWeek()
+        {
+            // 機嫌30で2名が除籍：−40で下限0にクランプされ、その週の決算で副官解雇になる。
+            // 週報の機嫌内訳には、激怒（規定−40・実際−30）が載る。ボスは深い階層にして撤退させる
+            // （撃破すると+20が乗るため。勝敗は部隊火力と「階層×要求値」で決まり、全員除籍でも撃破は成立しうる）。
+            var deadly = MakeDeadlyBoss();
+            deadly.Floor = 99;
+            var (state, a, b, boss) = MakeState(deadly);
+            state.MasterMood = 30;
+            state.Gold = 100_000;
+            var expedition = BuildSystem();
+            expedition.TryDispatch(state, PartyOf(a, b), boss, DungeonMissionType.BossAssault);
+
+            var settlement = BuildWeekSystem(expedition).ProcessWeek(state);
+
+            Assert.Equal(0, state.MasterMood);
+            Assert.Equal(DefeatReason.DismissedByMaster, settlement.NewDefeatReason);
+            var fury = Assert.Single(settlement.MoodReport.Entries, e => e.Reason.StartsWith("アルベールの激怒"));
+            Assert.Equal(-40, fury.Delta);
+            Assert.Equal(-30, fury.Applied);
+            Assert.Equal(30, settlement.MoodReport.MoodBefore);
+        }
+
+        [Fact]
+        public void ProcessWeeklyMissions_NoForcedRetirement_DoesNotTouchMasterMood()
+        {
+            var boss = new FloorBoss { Name = "弱いボス", Floor = 5, MaxHp = 1, CurrentHp = 1 };
+            var field = new DungeonField { Id = "f1", Name = "テスト用フィールド", Order = 1, IsUnlocked = true, Bosses = { boss } };
+            var state = new GameState { MasterMood = 55, DungeonFields = { field } };
+            var system = BuildSystem();
+            system.TryDispatch(state, PartyOf(MakeAdventurer(JobClass.Warrior, 200), MakeAdventurer(JobClass.Cleric, 200)), boss, DungeonMissionType.BossAssault);
+
+            var resolution = Assert.Single(system.ProcessWeeklyMissions(state));
+
+            Assert.Equal(0, resolution.MasterFuryRetiredCount);
+            Assert.Equal(0, resolution.MasterFuryMoodApplied);
+            Assert.Equal(55, state.MasterMood); // 撃破の+20は週次決算（MasterMoodSystem）で加算されるため、ここではまだ動かない
+        }
+
         [Fact]
         public void ProcessWeeklyMissions_RecklessAssault_ForceRetiresMembersIntoFallenRecord()
         {

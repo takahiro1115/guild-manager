@@ -154,5 +154,72 @@ namespace GuildManager.Core.Tests.Systems
 
             Assert.Equal(900, state.Gold);
         }
+
+        // ---------------- アルベールの内職売上 × 内職強化研究（SideBusinessGoldBonus、2026年9月新設） ----------------
+
+        private static GameState SideJobWeekState(int mood, params string[] completedResearchIds)
+        {
+            var state = new GameState { WeekNumber = EconomyBalance.SideJobIntervalWeeks, MasterMood = mood, Gold = 0 };
+            foreach (var id in completedResearchIds)
+                state.CompletedResearchIds.Add(id);
+            return state;
+        }
+
+        [Fact]
+        public void SideJobIncome_WithoutResearch_BaseIs200()
+        {
+            var state = SideJobWeekState(mood: 60);
+
+            var income = new EconomySystem().ProcessWeeklySideJobIncome(state)!;
+
+            Assert.Equal(200, EconomyBalance.SideJobBaseAmount);
+            Assert.Equal(0, income.ResearchBonus);
+            Assert.Equal(200, income.BaseGold);
+            Assert.Equal(200, income.FinalGold);
+        }
+
+        [Theory]
+        [InlineData(ResearchIds.BeautyLotion, 150)]
+        [InlineData(ResearchIds.EnergyTonic, 250)]
+        [InlineData(ResearchIds.TradeRoute, 400)]
+        [InlineData(ResearchIds.VitalityElixir, 600)]
+        public void SideJobIncome_EachResearch_AddsItsBonusToBase(string researchId, int expectedBonus)
+        {
+            Assert.Equal(ResearchEffectType.SideBusinessGoldBonus, ResearchBalance.Find(researchId)!.EffectType);
+            var state = SideJobWeekState(60, researchId);
+
+            var income = new EconomySystem().ProcessWeeklySideJobIncome(state)!;
+
+            Assert.Equal(expectedBonus, income.ResearchBonus);
+            Assert.Equal(200 + expectedBonus, income.BaseGold);
+            Assert.Equal(200 + expectedBonus, income.FinalGold); // 平常×1.0
+        }
+
+        [Fact]
+        public void SideJobIncome_ResearchBonusesStack_AndMoodMultiplierApplies()
+        {
+            // 例（指示書）：基本 350G［初期200+研究150］×上機嫌1.5 ＝ 525G。
+            var single = SideJobWeekState(90, ResearchIds.BeautyLotion);
+            var incomeSingle = new EconomySystem().ProcessWeeklySideJobIncome(single)!;
+            Assert.Equal(350, incomeSingle.BaseGold);
+            Assert.Equal(1.5, incomeSingle.Multiplier, precision: 6);
+            Assert.Equal(525, incomeSingle.FinalGold);
+            Assert.Equal(525, single.Gold);
+
+            // 4段階すべて完了：200+150+250+400+600＝1600G。不機嫌×0.5で800G、危機×0.0で0G。
+            var all = new[] { ResearchIds.BeautyLotion, ResearchIds.EnergyTonic, ResearchIds.TradeRoute, ResearchIds.VitalityElixir };
+            Assert.Equal(1600, EconomySystem.GetSideJobBaseGold(SideJobWeekState(30, all)));
+            Assert.Equal(800, new EconomySystem().ProcessWeeklySideJobIncome(SideJobWeekState(30, all))!.FinalGold);
+            Assert.Equal(0, new EconomySystem().ProcessWeeklySideJobIncome(SideJobWeekState(10, all))!.FinalGold);
+        }
+
+        [Fact]
+        public void ResearchBalance_SideBusinessGoldBonus_TotalIsSumOfCompleted()
+        {
+            var state = SideJobWeekState(60, ResearchIds.EnergyTonic, ResearchIds.VitalityElixir);
+
+            Assert.Equal(850, ResearchBalance.GetTotalEffectValue(state, ResearchEffectType.SideBusinessGoldBonus), precision: 6);
+            Assert.Equal(4, ResearchBalance.GetAll().Count(r => r.EffectType == ResearchEffectType.SideBusinessGoldBonus));
+        }
     }
 }

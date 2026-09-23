@@ -20,7 +20,7 @@ namespace GuildManager.Core.Systems
 
         /// <summary>
         /// アルベールの市販薬・内職売上（→ 03 §8.1、旧・月次助成金の後継。2026年9月）。
-        /// SideJobIntervalWeeks週に1回（週番号がその倍数の週）、基本額×マスターの機嫌の売上倍率
+        /// SideJobIntervalWeeks週に1回（週番号がその倍数の週）、(初期基本額＋内職強化研究の加算)×マスターの機嫌の売上倍率
         /// （→ MasterMoodSystem.GetSideJobMultiplier：上機嫌1.5／平常1.0／不機嫌0.5／危機0.0）を入金する。
         /// 倍率は決算時点の機嫌で決める（呼び出し側は機嫌の週次変動を済ませてから呼ぶ）。
         /// 入金週でなければ null。
@@ -33,10 +33,23 @@ namespace GuildManager.Core.Systems
             int mood = state.MasterMood;
             var tier = MasterMoodSystem.GetTier(mood);
             double multiplier = MasterMoodSystem.GetSideJobMultiplier(tier);
-            int finalGold = (int)Math.Round(EconomyBalance.SideJobBaseAmount * multiplier);
+            int researchBonus = GetSideJobResearchBonus(state);
+            int baseGold = EconomyBalance.SideJobBaseAmount + researchBonus;
+            int finalGold = (int)Math.Round(baseGold * multiplier);
             state.Gold += finalGold;
-            return new SideJobIncome(EconomyBalance.SideJobBaseAmount, mood, tier, multiplier, finalGold);
+            return new SideJobIncome(EconomyBalance.SideJobBaseAmount, researchBonus, mood, tier, multiplier, finalGold);
         }
+
+        /// <summary>
+        /// 内職強化研究（→ ResearchEffectType.SideBusinessGoldBonus、2026年9月新設）による基本額への加算（G）。
+        /// 完了済みの研究の EffectValue をすべて合計する。UIのプレビューからも使う。
+        /// </summary>
+        public static int GetSideJobResearchBonus(GameState state) =>
+            (int)Math.Round(ResearchBalance.GetTotalEffectValue(state, ResearchEffectType.SideBusinessGoldBonus));
+
+        /// <summary>内職売上の基本額＝初期基本額（SideJobBaseAmount）＋研究による加算。倍率を掛ける前の値。</summary>
+        public static int GetSideJobBaseGold(GameState state) =>
+            EconomyBalance.SideJobBaseAmount + GetSideJobResearchBonus(state);
 
         /// <summary>クエスト報酬を所持金に加算する。</summary>
         public void ApplyReward(GameState state, int rewardGold)

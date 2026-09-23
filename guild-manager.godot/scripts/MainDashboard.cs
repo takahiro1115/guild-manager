@@ -488,8 +488,9 @@ public partial class MainDashboard : Control
 		if (settlement.SideJobIncome != null)
 		{
 			var income = settlement.SideJobIncome;
+			// 基本額＝初期基本額＋内職強化研究（→ ResearchEffectType.SideBusinessGoldBonus）。
 			AppendLog($"[color=lime]【アルベールの内職】市販薬売上: +{income.FinalGold}G " +
-				$"(基本 {income.BaseGold}G × 機嫌倍率 {income.Multiplier:F1}〔{MoodTierLabel(income.Tier)}・機嫌{income.Mood}〕)[/color]");
+				$"(基本 {income.BaseGold}G［初期{income.InitialBaseGold}+研究{income.ResearchBonus}］ × 機嫌倍率 {income.Multiplier:F1}［{MoodTierLabel(income.Tier)}］)[/color]");
 		}
 
 		LogGrowthEvents(settlement.TrainingGrowthEvents); // → 03 §3.1〜3.4：成長トリガー経路2（訓練場配置）
@@ -529,8 +530,9 @@ public partial class MainDashboard : Control
 			: string.Join("、", report.Entries.Select(e =>
 				e.Applied == e.Delta ? $"{e.Reason} {e.Delta:+0;-0;+0}" : $"{e.Reason} {e.Delta:+0;-0;+0}（上下限で{e.Applied:+0;-0;+0}）"));
 		string color = report.Delta > 0 ? "lime" : report.Delta < 0 ? "orange" : "gray";
+		var moodTier = MasterMoodSystem.GetTier(report.MoodAfter);
 		AppendLog($"[color={color}]【マスターの機嫌】現在: {report.MoodAfter}/100 (今週の変動: {report.Delta:+0;-0;+0} / {reasons})" +
-			$"［{MoodTierLabel(MasterMoodSystem.GetTier(report.MoodAfter))}］[/color]");
+			$"［{MoodTierLabel(moodTier)}］[/color] [color=cyan]アルベール{MasterMoodSystem.GetAlbertLine(moodTier)}[/color]");
 		if (report.Bored)
 		{
 			AppendLog($"[color=orange]大迷宮での成果がなく、アルベールは退屈して機嫌を損ねている (機嫌 -{MasterMoodBalance.BoredomMoodDecay})" +
@@ -909,6 +911,13 @@ public partial class MainDashboard : Control
 		foreach (var line in FallenAdventurerLines(
 			weekNumber, resolution.Party, assault.ForceRetiredAdventurerIds, resolution.RecoveredEquipment))
 			sb.AppendLine(line);
+		// 強制除籍（不死薬による現場からの永久離脱）へのアルベールの激怒（→ 03 §8.1、除籍1名につき機嫌−20）。
+		if (resolution.MasterFuryRetiredCount > 0)
+		{
+			sb.AppendLine($"[color=red][b]【アルベールの激怒】{MasterMoodSystem.FuryLine} " +
+				$"(機嫌 -{MasterMoodBalance.ForcedRetirementMoodLoss * resolution.MasterFuryRetiredCount}" +
+				$"{(resolution.MasterFuryRetiredCount > 1 ? $"〔除籍{resolution.MasterFuryRetiredCount}名×{MasterMoodBalance.ForcedRetirementMoodLoss}〕" : "")})[/b][/color]");
+		}
 		if (resolution.ReturnedHome)
 		{
 			bool wiped = resolution.Party.Members.All(m => !_state.Adventurers.Contains(m));

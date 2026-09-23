@@ -7,3 +7,7 @@ res_cave_ointment,硬化軟膏の調合,発光苔と黒鉱石から作る軟膏�
 res_ruins_tactics,古代戦術録の解読,遺物の欠片とルーン石から古代の戦術を読み解く。ボス調査の解析効率がさらに上がる。,mat_ruins_scrap:6;mat_ruins_rune:3,800,IntelRateBonus,0.25
 res_canyon_tread,耐熱踏破法,火山灰と紅玉鉱石で編み出す踏破法。道中進軍の走破力をさらに底上げする。,mat_canyon_ash:8;mat_canyon_gem:4,1200,TraversalBonus,20.0
 res_abyss_preservation,魂魄安定の霊香,虚空の粉塵と深淵の結晶から焚く霊香。事故のさなかでも魂の定着を助け、致命的な損耗を和らげる。,mat_abyss_dust:10;mat_abyss_crystal:5,2000,SurvivalThresholdBonus,5.0
+res_beauty_lotion,潤い美肌液の調合,森の薬草で作る貴族女性向け美容液。内職の基本売上+150G,mat_forest_herb:5;mat_forest_wood:3,100,SideBusinessGoldBonus,150
+res_energy_tonic,滋養強壮アンプル,洞窟の鉱物抽出液を用いた強壮トニック。内職の基本売上+250G,mat_cave_moss:5;mat_cave_ore:3,200,SideBusinessGoldBonus,250
+res_trade_route,古代香料の王都外販,古代芳香の再現による王都商館への販路拡大。内職の基本売上+400G,mat_ruins_scrap:6;mat_ruins_rune:3,300,SideBusinessGoldBonus,400
+res_vitality_elixir,不老長生薬の密売,峡谷の熱源を活かしたエルフの秘薬。内職の基本売上+600G,mat_canyon_ash:8;mat_canyon_gem:4,500,SideBusinessGoldBonus,600

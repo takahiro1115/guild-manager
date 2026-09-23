@@ -36,6 +36,12 @@ namespace GuildManager.Core.Balance
         /// <summary>未鑑定遺物1個の鑑定完了ごとの上昇量（→ AppraisalSystem.Appraise、即時）。</summary>
         public static readonly int AppraisalMoodGain = BalanceData.GetInt(FileName, "AppraisalMoodGain");
 
+        /// <summary>
+        /// 強制除籍（不死薬による現場からの永久離脱）1名ごとの機嫌低下（アルベールの激怒、正の値で持つ。
+        /// → MasterMoodSystem.ApplyForcedRetirementFury、2026年9月新設）。
+        /// </summary>
+        public static readonly int ForcedRetirementMoodLoss = BalanceData.GetInt(FileName, "ForcedRetirementMoodLoss");
+
         /// <summary>成果ゼロ週の退屈減衰量（正の値で持つ）。</summary>
         public static readonly int BoredomMoodDecay = BalanceData.GetInt(FileName, "BoredomMoodDecay");
 

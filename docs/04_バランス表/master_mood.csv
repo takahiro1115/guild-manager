@@ -14,3 +14,4 @@ SideJobMultiplier_Cheerful,1.5,倍,上機嫌時の内職売上倍率
 SideJobMultiplier_Normal,1.0,倍,平常時の内職売上倍率
 SideJobMultiplier_Grumpy,0.5,倍,不機嫌時の内職売上倍率
 SideJobMultiplier_Crisis,0.0,倍,危機時の内職売上倍率
+ForcedRetirementMoodLoss,20,pt,ボス討伐等で隊員がHP0となり不死薬で現場から永久離脱（強制除籍）した際の、除籍1名ごとの機嫌低下（アルベールの激怒）

@@ -89,6 +89,18 @@ namespace GuildManager.Core.Systems
         public List<GrowthEvent> GrowthEvents { get; set; } = new();
 
         /// <summary>
+        /// この解決で強制除籍（不死薬による現場からの永久離脱）された人数（→ アルベールの激怒、2026年9月新設）。
+        /// 週報の【アルベールの激怒】行と、機嫌の週次内訳（→ MasterMoodSystem.ProcessWeeklyMood）に使う。
+        /// </summary>
+        public int MasterFuryRetiredCount { get; set; }
+
+        /// <summary>
+        /// 激怒で実際に下がった機嫌（0以下。下限0でクランプ後の量、→ MasterMoodSystem.ApplyForcedRetirementFury）。
+        /// 解決の時点で GameState.MasterMood へ反映済み。
+        /// </summary>
+        public int MasterFuryMoodApplied { get; set; }
+
+        /// <summary>
         /// 調査結果用。扉前の偵察（潜行中＝Scouting）と迷宮調査（Survey）の両方で使うため、
         /// 種別を missionType で受け取る（省略時は Scouting）。
         /// </summary>

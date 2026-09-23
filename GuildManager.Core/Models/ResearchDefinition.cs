@@ -41,6 +41,13 @@ namespace GuildManager.Core.Models
         /// ダンジョン戦闘の設計上、生存"閾値"ではなく被ダメージそのものを削る形で実現する）。
         /// </summary>
         SurvivalThresholdBonus,
+
+        /// <summary>
+        /// アルベールの市販薬・内職売上の基本額への加算（G、→ Systems.EconomySystem.ProcessWeeklySideJobIncome、
+        /// 2026年9月新設）。EffectValue（例：150）を初期基本額（economy.csv SideJobBaseAmount）へそのまま加算し、
+        /// その合計にマスターの機嫌の売上倍率を掛ける。同種の研究は加算で重複できる。
+        /// </summary>
+        SideBusinessGoldBonus,
     }
 
     /// <summary>
@@ -99,5 +106,19 @@ namespace GuildManager.Core.Models
 
         /// <summary>魂魄安定の霊香：ボス討伐時のHP消費率を軽減（→ SurvivalThresholdBonus）。</summary>
         public const string AbyssPreservation = "res_abyss_preservation";
+
+        // ---- アルベールの内職強化（2026年9月新設、→ SideBusinessGoldBonus。4段階とも加算で重複可） ----
+
+        /// <summary>潤い美肌液の調合：内職の基本売上+150G（森の素材）。</summary>
+        public const string BeautyLotion = "res_beauty_lotion";
+
+        /// <summary>滋養強壮アンプル：内職の基本売上+250G（洞窟の素材）。</summary>
+        public const string EnergyTonic = "res_energy_tonic";
+
+        /// <summary>古代香料の王都外販：内職の基本売上+400G（廃墟の素材）。</summary>
+        public const string TradeRoute = "res_trade_route";
+
+        /// <summary>不老長生薬の密売：内職の基本売上+600G（峡谷の素材）。</summary>
+        public const string VitalityElixir = "res_vitality_elixir";
     }
 }

@@ -178,6 +178,32 @@ namespace GuildManager.Core.Tests
             Assert.Equal(0, state.Gold);
         }
 
+        // ---------------- 機嫌の段階ごとのアルベールの一言（2026年9月新設） ----------------
+
+        [Theory]
+        [InlineData(100, "「ふふ、いいデータが届いたわ。今夜は気分がいいから調合も捗るわね」")]
+        [InlineData(80, "「ふふ、いいデータが届いたわ。今夜は気分がいいから調合も捗るわね」")]
+        [InlineData(60, "「順調ね。次も期待しているわよ、副官」")]
+        [InlineData(50, "「順調ね。次も期待しているわよ、副官」")]
+        [InlineData(30, "「……はあ。退屈ね。薬の注文なんて放っておいて頂戴、気分じゃないの」")]
+        [InlineData(10, "「ねえ副官、あなた本当に私の役に立っているのかしら？ 次はないと思いなさい」")]
+        [InlineData(1, "「ねえ副官、あなた本当に私の役に立っているのかしら？ 次はないと思いなさい」")]
+        public void GetAlbertLine_ReturnsLineForMoodTier(int mood, string expected) =>
+            Assert.Equal(expected, MasterMoodSystem.GetAlbertLine(MasterMoodSystem.GetTier(mood)));
+
+        [Fact]
+        public void ApplyForcedRetirementFury_LowersTwentyPerMember_ClampedAtZero()
+        {
+            var state = new GameState { MasterMood = 70 };
+            Assert.Equal(-20, MasterMoodSystem.ApplyForcedRetirementFury(state, 1));
+            Assert.Equal(50, state.MasterMood);
+            Assert.Equal(-40, MasterMoodSystem.ApplyForcedRetirementFury(state, 2));
+            Assert.Equal(10, state.MasterMood);
+            Assert.Equal(-10, MasterMoodSystem.ApplyForcedRetirementFury(state, 3)); // 下限0
+            Assert.Equal(0, state.MasterMood);
+            Assert.Equal(0, MasterMoodSystem.ApplyForcedRetirementFury(new GameState { MasterMood = 50 }, 0));
+        }
+
         // ---------------- 副官解雇（機嫌0でゲームオーバー） ----------------
 
         [Fact]

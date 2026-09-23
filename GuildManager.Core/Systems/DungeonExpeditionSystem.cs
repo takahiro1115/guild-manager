@@ -502,6 +502,10 @@ namespace GuildManager.Core.Systems
             double intelBefore = boss.IntelRate;
             var assault = _dungeonResolver.Resolve(mission.Party, boss, state);
             var recoveredEquipment = ApplyForcedRetirements(state, mission.Party, assault.ForceRetiredAdventurerIds);
+            // 強制除籍（不死薬による現場からの永久離脱）へのアルベールの激怒：除籍1名につき機嫌−20（→ 03 §8.1）。
+            // 0に達すれば、この週の決算で副官解雇になる（→ DefeatSystem）。
+            int furyRetiredCount = assault.ForceRetiredAdventurerIds.Count;
+            int furyMoodApplied = MasterMoodSystem.ApplyForcedRetirementFury(state, furyRetiredCount);
 
             // 撃破成功時のみ、フィールドの進行（最高到達階層・次フィールド開放・報酬・
             // 節目ボスでの出撃枠拡張）を適用する（→ 大迷宮5フィールド拡張仕様）。
@@ -539,6 +543,8 @@ namespace GuildManager.Core.Systems
             if (relic != null)
                 resolution.RelicsFound.Add(relic);
             resolution.RecoveredEquipment = recoveredEquipment;
+            resolution.MasterFuryRetiredCount = furyRetiredCount;
+            resolution.MasterFuryMoodApplied = furyMoodApplied;
             // 出撃成長：撃破した場合のみ（全7能力・試行回数多）。撤退・全滅では成長しない。強制除籍者は対象外。
             resolution.GrowthEvents = _growthSystem.ApplyExpeditionGrowth(
                 state, mission.Party, DungeonMissionType.BossAssault, isBossVictory: assault.Outcome == DungeonOutcome.Victory);

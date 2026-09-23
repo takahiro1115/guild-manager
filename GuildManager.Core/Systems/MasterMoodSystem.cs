@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using GuildManager.Core.Balance;
 using GuildManager.Core.Models;
 
@@ -55,6 +56,28 @@ namespace GuildManager.Core.Systems
         public static int ApplyAppraisal(GameState state) => Adjust(state, MasterMoodBalance.AppraisalMoodGain);
 
         /// <summary>
+        /// 強制除籍（ボス討伐等でHP0→不死薬による現場からの永久離脱）へのアルベールの激怒
+        /// （→ DungeonExpeditionSystem、2026年9月新設）。除籍1名につき ForcedRetirementMoodLoss だけ
+        /// 機嫌を下げ（下限0）、実際に動いた量（0以下）を返す。0に達すれば週次決算で副官解雇になる（→ DefeatSystem）。
+        /// 週次決算の機嫌集計（→ ProcessWeeklyMood）が、解決結果（DungeonMissionResolution.MasterFuryMoodApplied）から
+        /// 週報の内訳に載せる。
+        /// </summary>
+        public static int ApplyForcedRetirementFury(GameState state, int retiredCount) =>
+            retiredCount <= 0 ? 0 : Adjust(state, -MasterMoodBalance.ForcedRetirementMoodLoss * retiredCount);
+
+        /// <summary>強制除籍時のアルベールの激怒の台詞（週報の【アルベールの激怒】行）。</summary>
+        public const string FuryLine = "「うちの子に何て無茶をさせたの！ あなた、自分が何をしたか分かっているの!?」";
+
+        /// <summary>機嫌の段階ごとのアルベールの一言（週報の【マスターの機嫌】行の末尾に付ける）。</summary>
+        public static string GetAlbertLine(MasterMoodTier tier) => tier switch
+        {
+            MasterMoodTier.Cheerful => "「ふふ、いいデータが届いたわ。今夜は気分がいいから調合も捗るわね」",
+            MasterMoodTier.Normal => "「順調ね。次も期待しているわよ、副官」",
+            MasterMoodTier.Grumpy => "「……はあ。退屈ね。薬の注文なんて放っておいて頂戴、気分じゃないの」",
+            _ => "「ねえ副官、あなた本当に私の役に立っているのかしら？ 次はないと思いなさい」",
+        };
+
+        /// <summary>
         /// 週次決算での機嫌の変動（→ WeekProcessingSystem.ProcessWeek、大迷宮の解決直後に1回だけ呼ぶ）。
         ///
         /// 大迷宮での成果ごとに機嫌を動かす：
@@ -69,10 +92,22 @@ namespace GuildManager.Core.Systems
         /// </summary>
         public MasterMoodReport ProcessWeeklyMood(GameState state, IEnumerable<DungeonMissionResolution> resolutions)
         {
-            var report = new MasterMoodReport { MoodBefore = state.MasterMood };
+            var list = resolutions.ToList();
+
+            // 強制除籍への激怒（→ ApplyForcedRetirementFury）は大迷宮の解決中に既に反映済みのため、
+            // 決算開始時点の機嫌へ戻して内訳に載せる（ここでは機嫌を二重に動かさない）。
+            int furyApplied = list.Sum(r => r.MasterFuryMoodApplied);
+            var report = new MasterMoodReport { MoodBefore = state.MasterMood - furyApplied };
+            foreach (var r in list.Where(r => r.MasterFuryRetiredCount > 0))
+            {
+                report.Entries.Add(new MasterMoodEntry(
+                    $"アルベールの激怒（除籍{r.MasterFuryRetiredCount}名×{MasterMoodBalance.ForcedRetirementMoodLoss}）",
+                    -MasterMoodBalance.ForcedRetirementMoodLoss * r.MasterFuryRetiredCount, r.MasterFuryMoodApplied));
+            }
+
             bool hadActivity = false;
 
-            foreach (var r in resolutions)
+            foreach (var r in list)
             {
                 if (r.DungeonResult != null && r.DungeonResult.Outcome == DungeonOutcome.Victory)
                 {
