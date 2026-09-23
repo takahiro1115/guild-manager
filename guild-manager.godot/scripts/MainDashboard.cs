@@ -61,7 +61,6 @@ public partial class MainDashboard : Control
 	private AdvisorPopup _advisorPopup = null!;
 	private Button _advisorButton = null!;
 	private EquipmentPopup _equipmentPopup = null!;
-	private Button _saveButton = null!;
 
 	// ---- メニューナビゲーションバー & ペイン制御 ----
 	private enum DashboardView
@@ -74,7 +73,10 @@ public partial class MainDashboard : Control
 		Facility = 3,
 
 		/// <summary>倉庫・遺物（未鑑定遺物の鑑定・採取素材・ギルド保管庫。→ 03 §4.7）。</summary>
-		Warehouse = 4
+		Warehouse = 4,
+
+		/// <summary>システム（セーブ・将来のロード／環境設定。ナビ行の最右端。→ 03 §9・§12）。</summary>
+		System = 5
 	}
 
 	private TabContainer _centerPanel = null!;
@@ -84,6 +86,7 @@ public partial class MainDashboard : Control
 	private Button _navResearchBtn = null!;
 	private Button _navFacilityBtn = null!;
 	private Button _navWarehouseBtn = null!;
+	private Button _navSystemBtn = null!;
 
 	// ---- 大迷宮（ダンジョン攻略システム：調査・討伐・採取。出撃の主画面） ----
 	private DungeonPanel _dungeonPanel = null!;
@@ -102,6 +105,9 @@ public partial class MainDashboard : Control
 	// ---- 倉庫・遺物（未鑑定遺物の鑑定・採取素材・ギルド保管庫。→ 03 §4.7） ----
 	private InventoryPanel _inventoryPanel = null!;
 	private AppraisalSystem _appraisalSystem = null!;
+
+	// ---- システム（旧ヘッダーのセーブボタンを移設。将来のロード・環境設定の受け皿。→ 03 §9） ----
+	private SystemPanel _systemPanel = null!;
 
 	/// <summary>大迷宮へ1部隊も出撃予定が無いまま週を進めようとした時の確認ダイアログ。</summary>
 	private ConfirmationDialog _noDungeonDispatchDialog = null!;
@@ -147,12 +153,14 @@ public partial class MainDashboard : Control
 		_navResearchBtn = GetNode<Button>("%NavResearchBtn");
 		_navFacilityBtn = GetNode<Button>("%NavFacilityBtn");
 		_navWarehouseBtn = GetNode<Button>("%NavWarehouseBtn");
+		_navSystemBtn = GetNode<Button>("%NavSystemBtn");
 
 		_navDungeonBtn.Pressed += () => SwitchView(DashboardView.Dungeon);
 		_navPartyBtn.Pressed += () => SwitchView(DashboardView.Party);
 		_navResearchBtn.Pressed += () => SwitchView(DashboardView.Research);
 		_navFacilityBtn.Pressed += () => SwitchView(DashboardView.Facility);
 		_navWarehouseBtn.Pressed += () => SwitchView(DashboardView.Warehouse);
+		_navSystemBtn.Pressed += () => SwitchView(DashboardView.System);
 
 		_dungeonPanel = GetNode<DungeonPanel>("%DungeonTab");
 		_dungeonPanel.LogRequested += AppendLog;
@@ -181,6 +189,9 @@ public partial class MainDashboard : Control
 		_inventoryPanel.LogRequested += AppendLog;
 		_inventoryPanel.StateChanged += RefreshAll;
 
+		_systemPanel = GetNode<SystemPanel>("%SystemTab");
+		_systemPanel.SaveRequested += SaveProgress;
+
 		SwitchView(DashboardView.Dungeon);
 
 		_noDungeonDispatchDialog = new ConfirmationDialog
@@ -200,8 +211,6 @@ public partial class MainDashboard : Control
 		_recruitmentPopup.Closed += OnRecruitmentPopupClosed;
 		_advisorPopup.Closed += OnAdvisorPopupClosed;
 		_equipmentPopup.Closed += OnEquipmentPopupClosed;
-		_saveButton = GetNode<Button>("%SaveButton");
-		_saveButton.Pressed += OnSaveButtonPressed;
 
 		// シード固定の乱数。同じシードなら毎回同じ結果になる（デバッグしやすくするため）。
 		// 戦闘用と加齢用で別インスタンス・別シードにし、互いの抽選回数が結果に影響しないようにする。
@@ -342,11 +351,24 @@ public partial class MainDashboard : Control
 		followUp();
 	}
 
-	/// <summary>「セーブ」ボタン（手動保存）。押すと即座にセーブし、完了を週報ログに通知する（→ 03 §12）。</summary>
-	private void OnSaveButtonPressed()
+	/// <summary>
+	/// システム画面「💾 進行状況を保存」（手動保存。旧ヘッダーのセーブボタンを移設、→ 03 §9・§12）。
+	/// 即座にセーブし、結果を週報ログにも残す。成否はシステム画面側のフィードバック表示に使う。
+	/// </summary>
+	private bool SaveProgress()
 	{
-		_saveLoadService.Save(_state);
-		AppendLog("[color=lime]セーブしました。[/color]");
+		try
+		{
+			_saveLoadService.Save(_state);
+		}
+		catch (Exception e)
+		{
+			GD.PushError($"セーブに失敗しました: {e.Message}");
+			AppendLog($"[color=red]セーブに失敗しました: {e.Message}[/color]");
+			return false;
+		}
+		AppendLog("[color=lime]進行状況を保存しました。[/color]");
+		return true;
 	}
 
 	public override void _UnhandledInput(InputEvent @event)
@@ -1046,7 +1068,7 @@ public partial class MainDashboard : Control
 
 	/// <summary>
 	/// メニューナビゲーションバーによるメインビューの切り替え。
-	/// 大迷宮画面のみ右ペイン（作戦週報）を表示し、内政画面（人事・編成・研究・施設・倉庫）では
+	/// 大迷宮画面のみ右ペイン（作戦週報）を表示し、内政画面（部隊・研究・施設・倉庫・システム）では
 	/// 週報ペインを非表示にして中央ペインを画面横幅の全領域（約1900px）へ拡張する。
 	/// </summary>
 	private void SwitchView(DashboardView view)
@@ -1068,7 +1090,8 @@ public partial class MainDashboard : Control
 			(DashboardView.Party, _navPartyBtn),
 			(DashboardView.Research, _navResearchBtn),
 			(DashboardView.Facility, _navFacilityBtn),
-			(DashboardView.Warehouse, _navWarehouseBtn)
+			(DashboardView.Warehouse, _navWarehouseBtn),
+			(DashboardView.System, _navSystemBtn)
 		};
 
 		foreach (var (view, btn) in buttons)
