@@ -14,6 +14,12 @@ namespace GuildManager.Core.Systems
         /// <summary>今回の進軍ランク（走破力Ratioから決まる）。</summary>
         public TraversalRank Rank { get; set; }
 
+        /// <summary>
+        /// 基礎進軍階層数（＝移動予算。→ DungeonTraversalResolver.CalculateBaseFloors：max(1, floor(Ratio×FloorsPerRatio))、
+        /// 上限なし。2026年9月、リニア進軍モデル）。実際に進んだ階層数は区間の解析倍率とストッパーで決まる（→ FloorAfter−FloorBefore）。
+        /// </summary>
+        public int BaseFloors { get; set; }
+
         /// <summary>進軍前の到達階層。</summary>
         public int FloorBefore { get; set; }
 

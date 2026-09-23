@@ -114,33 +114,147 @@ namespace GuildManager.Core.Tests
             Assert.Equal(3 * DungeonTraversalBalance.RequirementPerFloor, DungeonTraversalResolver.CurrentFloorRequirement(field), precision: 6);
         }
 
+        // ---------------- リニア進軍モデル（2026年9月：基礎進軍階層数＝max(1, floor(Ratio×2.0))、上限なし） ----------------
+
         [Theory]
-        [InlineData(2.0, TraversalRank.Lightning)]
-        [InlineData(1.8, TraversalRank.Lightning)]
-        [InlineData(1.79, TraversalRank.Swift)]
-        [InlineData(1.4, TraversalRank.Swift)]
-        [InlineData(1.39, TraversalRank.Normal)]
-        [InlineData(1.0, TraversalRank.Normal)]
+        [InlineData(0.0, 1)]    // 走破力ゼロでも必ず1階層
+        [InlineData(0.49, 1)]
+        [InlineData(0.99, 1)]   // Ratio＜1.0 → 苦戦（1階層）
+        [InlineData(1.0, 2)]    // Ratio 1.0〜1.4 → 通常（2階層）
+        [InlineData(1.4, 2)]
+        [InlineData(1.49, 2)]
+        [InlineData(1.5, 3)]
+        [InlineData(2.0, 4)]
+        [InlineData(2.5, 5)]    // 疾風
+        [InlineData(2.99, 5)]
+        [InlineData(3.0, 6)]    // 神速
+        [InlineData(5.0, 10)]
+        [InlineData(20.0, 40)]  // 上限なし（旧来の最大4階層を撤廃）
+        public void CalculateBaseFloors_IsLinearInRatio_WithoutUpperCap(double ratio, int expected)
+        {
+            Assert.Equal(2.0, DungeonTraversalBalance.FloorsPerRatio, precision: 6);
+            Assert.Equal(expected, DungeonTraversalResolver.CalculateBaseFloors(ratio));
+        }
+
+        [Fact]
+        public void CalculateBaseFloors_InfiniteRatio_IsClampedToMaxFloor()
+        {
+            // 要求値0（Ratio＝∞扱い）でも整数オーバーフローせず、最深部の階層数で頭打ちになる。
+            Assert.Equal(DungeonField.MaxFloor, DungeonTraversalResolver.CalculateBaseFloors(double.MaxValue));
+            Assert.Equal(1, DungeonTraversalResolver.CalculateBaseFloors(double.NaN));
+        }
+
+        [Theory]
+        [InlineData(1, TraversalRank.Struggling)]
+        [InlineData(2, TraversalRank.Normal)]
+        [InlineData(3, TraversalRank.Swift)]
+        [InlineData(4, TraversalRank.Lightning)]
+        [InlineData(5, TraversalRank.Gale)]
+        [InlineData(6, TraversalRank.Godspeed)]
+        [InlineData(40, TraversalRank.Godspeed)]
+        public void RankFromFloors_ReverseLooksUpRankName(int floors, TraversalRank expected) =>
+            Assert.Equal(expected, DungeonTraversalResolver.RankFromFloors(floors));
+
+        [Theory]
         [InlineData(0.99, TraversalRank.Struggling)]
-        [InlineData(0.0, TraversalRank.Struggling)]
-        public void ClassifyRatio_ReturnsExpectedRank(double ratio, TraversalRank expected) =>
+        [InlineData(1.0, TraversalRank.Normal)]
+        [InlineData(1.4, TraversalRank.Normal)]
+        [InlineData(2.0, TraversalRank.Lightning)]
+        [InlineData(2.5, TraversalRank.Gale)]
+        [InlineData(3.0, TraversalRank.Godspeed)]
+        [InlineData(8.0, TraversalRank.Godspeed)]
+        public void ClassifyRatio_UsesBaseFloorsReverseLookup(double ratio, TraversalRank expected) =>
             Assert.Equal(expected, DungeonTraversalResolver.ClassifyRatio(ratio));
 
         [Theory]
-        [InlineData(TraversalRank.Lightning, 4)]
-        [InlineData(TraversalRank.Swift, 3)]
-        [InlineData(TraversalRank.Normal, 2)]
-        [InlineData(TraversalRank.Struggling, 1)]
-        public void FloorsAdvanced_MatchesRankTable(TraversalRank rank, int expectedFloors) =>
-            Assert.Equal(expectedFloors, DungeonTraversalResolver.FloorsAdvanced(rank));
+        [InlineData(TraversalRank.Gale)]
+        [InlineData(TraversalRank.Godspeed)]
+        public void RankHpLossRange_GaleAndGodspeed_BottomOutAtLightning(TraversalRank rank)
+        {
+            // 既踏階層の損耗は電撃（5%〜）で底打ち：疾風・神速でもそれ以上は軽くならない。
+            Assert.Equal(DungeonTraversalResolver.RankHpLossRange(TraversalRank.Lightning), DungeonTraversalResolver.RankHpLossRange(rank));
+            Assert.Equal(5, DungeonTraversalResolver.RankHpLossRange(rank).Min);
+        }
 
         // ---------------- Resolve（進軍・ストッパー・HP消費） ----------------
 
         [Fact]
+        public void Resolve_GodspeedParty_AdvancesBeyondFourFloors_WithoutCap()
+        {
+            // 走破力＝VIT90（Ratio 6.0）→ 基礎12階層。旧来の最大4階層を超えて進む（遠くのボスまで障害なし）。
+            var member = MakeTraveler(vit: 90, mnd: 0);
+            var field = MakeField(reachedFloor: 100);
+
+            var result = new DungeonTraversalResolver(new AlwaysMinRng()).Resolve(PartyOf(member), field, currentFloor: 1);
+
+            Assert.Equal(TraversalRank.Godspeed, result.Rank);
+            Assert.Equal(12, result.BaseFloors);
+            Assert.Equal(13, result.FloorAfter); // 1 + 12
+        }
+
+        [Fact]
+        public void Resolve_GaleParty_AdvancesFiveFloors_WithLossFlooredAtLightning()
+        {
+            // 走破力37.5相当（VIT 30＋MND 10×0.8＝38 → Ratio 2.53）→ 基礎5階層（疾風）。
+            // 既踏階層だけを進むので損耗は電撃の率（AlwaysMin＝5%）で底打ち。
+            var member = MakeTraveler(vit: 30, mnd: 10);
+            var result = new DungeonTraversalResolver(new AlwaysMinRng()).Resolve(PartyOf(member), MakeField(reachedFloor: 100), currentFloor: 1);
+
+            Assert.Equal(TraversalRank.Gale, result.Rank);
+            Assert.Equal(5, result.FloorAfter - result.FloorBefore);
+            Assert.False(result.EnteredUnexplored);
+            Assert.Equal((int)Math.Floor(member.MaxHP * DungeonTraversalBalance.HpLossPctMinLightning / 100.0 + 1e-9),
+                result.HpLostByAdventurer[member.Id]);
+        }
+
+        [Fact]
+        public void Resolve_HugeSurplus_StillStopsAtUndefeatedBoss()
+        {
+            // 基礎進軍は100階層ぶん（Ratio＝∞に近い）余っていても、未撃破の10Fボスで必ず止まり越境しない。
+            var member = MakeTraveler(vit: 5000, mnd: 0);
+            var field = MakeField(reachedFloor: 1);
+            var boss10 = new FloorBoss { Name = "10Fの主", Floor = 10, MaxHp = 1 };
+            field.Bosses.Add(boss10);
+            field.Bosses.Add(new FloorBoss { Name = "20Fの主", Floor = 20, MaxHp = 1 });
+
+            var result = new DungeonTraversalResolver(new AlwaysMinRng()).Resolve(PartyOf(member), field, currentFloor: 1);
+
+            Assert.True(result.BaseFloors >= 50);
+            Assert.Equal(10, result.FloorAfter);
+            Assert.True(result.StopperTriggered);
+            Assert.Same(boss10, result.TargetBoss);
+        }
+
+        [Theory]
+        [InlineData(30, 0.0)]    // 基礎4階層・未解析
+        [InlineData(30, 1.0)]    // 基礎4階層・完全解析（3倍速）
+        [InlineData(40, 0.5)]    // 基礎5階層（疾風）・解析50%
+        [InlineData(5000, 1.0)]  // 予算が大きく余る → 未撃破の10Fボスで停止
+        public void PredictFloorAfter_MatchesActualResolve(int vit, double intel10)
+        {
+            // 出撃前プレビューの到達予測（→ DungeonPanel）が、実際の解決と同じ階層を指すこと。
+            DungeonField Build()
+            {
+                var f = MakeField(reachedFloor: 1);
+                f.Bosses.Add(new FloorBoss { Name = "10Fの主", Floor = 10, MaxHp = 1, IntelRate = intel10 });
+                f.Bosses.Add(new FloorBoss { Name = "20Fの主", Floor = 20, MaxHp = 1 });
+                return f;
+            }
+            var member = MakeTraveler(vit: vit, mnd: 0);
+            int baseFloors = DungeonTraversalResolver.CalculateBaseFloors(DungeonTraversalResolver.CalculateTraversalScore(PartyOf(member)) / DungeonTraversalResolver.FloorRequirement(1));
+
+            int predicted = DungeonTraversalResolver.PredictFloorAfter(Build(), 1, baseFloors);
+            var actual = new DungeonTraversalResolver(new AlwaysMinRng()).Resolve(PartyOf(member), Build(), currentFloor: 1);
+
+            Assert.Equal(actual.FloorAfter, predicted);
+            Assert.Equal(baseFloors, actual.BaseFloors);
+        }
+
+        [Fact]
         public void Resolve_StrongParty_AdvancesLightningRank_AndUpdatesReachedFloor()
         {
-            // 要求値=1×15=15。Σ(AGI+DEX)=2000で確実にRatio>=1.8（電撃進軍・+4階層）になる。
-            var party = PartyOf(MakeSpecialist(agiDex: 500, ldr: 100));
+            // 要求値=1×15=15。走破力30（VIT30）でRatio＝2.0＝基礎4階層（電撃進軍）ちょうどになる。
+            var party = PartyOf(MakeTraveler(vit: 30, mnd: 0));
             var field = MakeField(reachedFloor: 1);
             var nextBoss = new FloorBoss { Name = "遠くのボス", Floor = 100, MaxHp = 1 };
             var resolver = new DungeonTraversalResolver(new AlwaysMinRng());
@@ -221,8 +335,9 @@ namespace GuildManager.Core.Tests
         {
             // 同じ電撃進軍（+4階層相当の予算）でも、区間担当ボスが完全解析済みなら3倍の12階層進み、
             // HP損耗は70%軽減される。比較用に未調査の同条件も解決する。
-            var fullMember = MakeSpecialist(agiDex: 500, ldr: 100);
-            var noneMember = MakeSpecialist(agiDex: 500, ldr: 100);
+            // 走破力30（VIT30）＝1F出発でRatio 2.0＝基礎4階層。
+            var fullMember = MakeTraveler(vit: 30, mnd: 0);
+            var noneMember = MakeTraveler(vit: 30, mnd: 0);
             var fullField = MakeField();
             fullField.Bosses.Add(new FloorBoss { Name = "解析済みのボス", Floor = 50, MaxHp = 1, IntelRate = 1.0 });
             var noneField = MakeField();
@@ -275,10 +390,17 @@ namespace GuildManager.Core.Tests
             return field;
         }
 
+        /// <summary>MakeSturdySpecialist（走破力300）が基礎4階層（Ratio 2.0＝電撃）になる出発階層（要求値＝10×15＝150）。</summary>
+        private const int LightningStartFloor = 10;
+
+        /// <summary>電撃進軍（Ratio 2.0×FloorsPerRatio 2.0）の基礎進軍階層数。</summary>
+        private const int LightningBaseFloors = 4;
+
         private static Adventurer MakeSturdySpecialist()
         {
-            // MaxHPを大きくして、%消費の整数丸めの影響を小さくする。
-            var a = new Adventurer { STR = 10, AGI = 500, VIT = 300, MND = 10, DEX = 500, LDR = 100, INT = 10 };
+            // MaxHPを大きくして、%消費の整数丸めの影響を小さくする。走破力＝VIT300（MND・LDRは0）。
+            // 10Fから出発すると要求値150でRatio＝2.0＝基礎4階層（電撃）ちょうどになる（→ LightningStartFloor）。
+            var a = new Adventurer { STR = 10, AGI = 500, VIT = 300, MND = 0, DEX = 500, LDR = 0, INT = 10 };
             a.CurrentHP = a.MaxHP;
             return a;
         }
@@ -292,7 +414,7 @@ namespace GuildManager.Core.Tests
             var member = MakeSturdySpecialist();
             IRng rng = maxRoll ? new AlwaysMaxRng() : new AlwaysMinRng();
 
-            var result = new DungeonTraversalResolver(rng).Resolve(PartyOf(member), MakeUnexploredField(0.0), currentFloor: 1);
+            var result = new DungeonTraversalResolver(rng).Resolve(PartyOf(member), MakeUnexploredField(0.0), currentFloor: LightningStartFloor);
 
             int pct = maxRoll ? DungeonBalance.UnexploredHpLossPctMax : DungeonBalance.UnexploredHpLossPctMin;
             Assert.Equal(30, DungeonBalance.UnexploredHpLossPctMin);
@@ -300,7 +422,7 @@ namespace GuildManager.Core.Tests
             Assert.True(result.EnteredUnexplored);
             Assert.Equal(1.0, result.IntelSpeedMultiplier, precision: 6);
             Assert.Equal(1.0, result.DamageTakenMultiplier, precision: 6);
-            Assert.Equal(DungeonTraversalBalance.FloorsAdvancedLightning, result.FloorAfter - result.FloorBefore);
+            Assert.Equal(LightningBaseFloors, result.FloorAfter - result.FloorBefore);
             Assert.Equal(member.MaxHP * pct / 100, result.HpLostByAdventurer[member.Id]);
         }
 
@@ -310,11 +432,11 @@ namespace GuildManager.Core.Tests
             // 解析率100%：進む階層数が3倍（4→12）、未踏破の重損耗も70%カット（50%→15%）。
             var member = MakeSturdySpecialist();
 
-            var result = new DungeonTraversalResolver(new AlwaysMaxRng()).Resolve(PartyOf(member), MakeUnexploredField(1.0), currentFloor: 1);
+            var result = new DungeonTraversalResolver(new AlwaysMaxRng()).Resolve(PartyOf(member), MakeUnexploredField(1.0), currentFloor: LightningStartFloor);
 
             Assert.True(result.EnteredUnexplored);
             Assert.Equal(3.0, result.IntelSpeedMultiplier, precision: 6);
-            Assert.Equal(DungeonTraversalBalance.FloorsAdvancedLightning * 3, result.FloorAfter - result.FloorBefore);
+            Assert.Equal(LightningBaseFloors * 3, result.FloorAfter - result.FloorBefore);
             Assert.Equal(0.3, result.DamageTakenMultiplier, precision: 6);
             int baseLoss = member.MaxHP * DungeonBalance.UnexploredHpLossPctMax / 100;
             Assert.Equal((int)(baseLoss * 0.3), result.HpLostByAdventurer[member.Id]);
@@ -327,10 +449,10 @@ namespace GuildManager.Core.Tests
             // 仕組みを正本として維持するため、50%時点では軽減なし（未踏破の重損耗をそのまま受ける）。
             var member = MakeSturdySpecialist();
 
-            var result = new DungeonTraversalResolver(new AlwaysMaxRng()).Resolve(PartyOf(member), MakeUnexploredField(0.5), currentFloor: 1);
+            var result = new DungeonTraversalResolver(new AlwaysMaxRng()).Resolve(PartyOf(member), MakeUnexploredField(0.5), currentFloor: LightningStartFloor);
 
             Assert.Equal(2.0, result.IntelSpeedMultiplier, precision: 6);
-            Assert.Equal(DungeonTraversalBalance.FloorsAdvancedLightning * 2, result.FloorAfter - result.FloorBefore);
+            Assert.Equal(LightningBaseFloors * 2, result.FloorAfter - result.FloorBefore);
             Assert.Equal(1.0, result.DamageTakenMultiplier, precision: 6);
             Assert.Equal(member.MaxHP * DungeonBalance.UnexploredHpLossPctMax / 100, result.HpLostByAdventurer[member.Id]);
         }
@@ -371,7 +493,7 @@ namespace GuildManager.Core.Tests
         {
             // 7Fから電撃進軍（予算4）：7→10Fは完全解析区間（1/3ずつ、計1）、残り3で11〜13Fを等速で進む。
             // 8〜10Fは既踏（電撃の率）×0.3、11〜13Fは未踏破（重損耗の率）×1.0 で階層ごとに積み上げる。
-            var member = MakeTraveler(vit: 300, mnd: 100, ldr: 100);
+            var member = MakeTraveler(vit: 210, mnd: 0); // 7F出発：要求値105でRatio 2.0＝基礎4階層（電撃）
             var field = MakeCrossingField(out var boss10, out var boss20);
 
             var result = new DungeonTraversalResolver(new AlwaysMaxRng()).Resolve(PartyOf(member), field, currentFloor: 7);
@@ -413,7 +535,7 @@ namespace GuildManager.Core.Tests
             var field = MakeCrossingField(out _, out _);
 
             var result = new DungeonTraversalResolver(new AlwaysMinRng())
-                .Resolve(PartyOf(MakeTraveler(vit: 300, mnd: 100, ldr: 100)), field, currentFloor: 7);
+                .Resolve(PartyOf(MakeTraveler(vit: 210, mnd: 0)), field, currentFloor: 7);
 
             Assert.Equal(2.0, result.IntelSpeedMultiplier, precision: 6);
             Assert.Equal((3 * DungeonTraversalBalance.FullIntelDamageMultiplier + 3 * 1.0) / 6, result.DamageTakenMultiplier, precision: 6);
@@ -507,8 +629,8 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void Resolve_AdvisorBonus_RaisesEffectiveTraversalPower_AndIsReported()
         {
-            // 1Fの要求値15。部隊だけなら走破力12（Ratio0.8＝苦戦・+1階層）だが、
-            // 参謀の+10で22（Ratio1.47＝迅速・+3階層）まで押し上がる。
+            // 1Fの要求値15。部隊だけなら走破力12（Ratio0.8＝苦戦・基礎1階層）だが、
+            // 参謀の+10で22（Ratio1.47＝通常・基礎2階層）まで押し上がる（リニア進軍モデル：floor(1.47×2)＝2）。
             var field = MakeField(reachedFloor: 1);
             field.Bosses.Add(new FloorBoss { Name = "遠くのボス", Floor = 50, MaxHp = 1 });
             var resolver = new DungeonTraversalResolver(new AlwaysMinRng());
@@ -520,7 +642,7 @@ namespace GuildManager.Core.Tests
             Assert.Equal(0, withoutAdvisor.AdvisorTraversalBonus, precision: 6);
             Assert.Null(withoutAdvisor.AdvisorName);
 
-            Assert.Equal(TraversalRank.Swift, withAdvisor.Rank);
+            Assert.Equal(TraversalRank.Normal, withAdvisor.Rank);
             Assert.Equal(10, withAdvisor.AdvisorTraversalBonus, precision: 6);
             Assert.Equal("参謀ガレス", withAdvisor.AdvisorName);
             Assert.True(withAdvisor.FloorAfter - withAdvisor.FloorBefore > withoutAdvisor.FloorAfter - withoutAdvisor.FloorBefore,

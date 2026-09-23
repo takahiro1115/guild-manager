@@ -834,18 +834,20 @@ public partial class MainDashboard : Control
 			sb.AppendLine($"[b]第{weekNumber}週：大迷宮 第{traversal.FloorBefore}層〜 道中進軍[/b]");
 			sb.AppendLine(traversal.Rank switch
 			{
+				TraversalRank.Godspeed => "[color=gold]◆ 神速の踏破。道なき道を一気に駆け抜け、はるか奥まで進んだ。[/color]",
+				TraversalRank.Gale => "[color=lime]◆ 疾風のごとく魔物の群れを振り切り、一気に奥へ進んだ。[/color]",
 				TraversalRank.Lightning => "[color=lime]◆ 敵の気配を巧みにかわし、電撃的に奥へ進んだ。[/color]",
 				TraversalRank.Swift => "[color=cyan]◆ 淀みない足取りで、迅速に奥へ進んだ。[/color]",
 				TraversalRank.Normal => "[color=cyan]◆ 着実に一歩ずつ、奥へ進んだ。[/color]",
 				_ => "[color=orange]◆ 幾度も行く手を阻まれながら、なんとか奥へ進んだ。[/color]",
 			});
 			sb.AppendLine($"現在階層 第{traversal.FloorBefore}層 → 第{traversal.FloorAfter}層" +
-				$"（+{traversal.FloorAfter - traversal.FloorBefore}階層）");
+				$"（+{traversal.FloorAfter - traversal.FloorBefore}階層を走破／{DungeonPanel.TraversalRankLabel(traversal.Rank)}）");
 			if (traversal.IntelSpeedMultiplier > 1.0)
 				sb.AppendLine($"[color=lime]◆ 解析済みの情報を活かし、実効平均 走破速度 ×{traversal.IntelSpeedMultiplier:F1}で進んだ。[/color]");
 			// 判定・損耗内訳の開示（→ 03 §4.2.3「開発・バランス調整期間の特記事項」）。
 			sb.AppendLine($"[color=gray]【大迷宮潜行】走破力{traversal.TraversalScore:F0} / 要求値{traversal.Requirement:F0}（{traversal.FloorBefore}F×{DungeonTraversalBalance.RequirementPerFloor}）" +
-				$"＝ 比率{DungeonPanel.FormatRatio(traversal.Ratio)}［{DungeonPanel.TraversalRankLabel(traversal.Rank)}: 予算{DungeonTraversalResolver.FloorsAdvanced(traversal.Rank)}階層］[/color]");
+				$"＝ 比率{DungeonPanel.FormatRatio(traversal.Ratio)}［{DungeonPanel.TraversalRankLabel(traversal.Rank)}: 基礎{traversal.BaseFloors}階層＝floor(比率×{DungeonTraversalBalance.FloorsPerRatio:0.#})］[/color]");
 			if (traversal.Segments.Count > 0)
 			{
 				string segments = string.Join(" + ", traversal.Segments.Select(s =>

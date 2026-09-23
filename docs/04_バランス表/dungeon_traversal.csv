@@ -3,14 +3,8 @@ Traversal_Weight_Vit,1.0,倍,走破力算出における各員のVIT（体力・
 Traversal_Weight_Mnd,0.8,倍,走破力算出における各員のMND（精神力・気力の持久）への重み
 Traversal_Weight_Ldr,1.0,倍,部隊長LDR×この係数を走破力へ加算（指揮による道中効率化）
 RequirementPerFloor,15,pt,道中進軍の要求値＝現在到達階層（ReachedFloor）×この値
-RatioThreshold_Lightning,1.8,倍,電撃進軍（+4階層）となるRatioの下限
-RatioThreshold_Swift,1.4,倍,迅速進軍（+3階層）となるRatioの下限
-RatioThreshold_Normal,1.0,倍,通常進軍（+2階層）となるRatioの下限（これ未満は苦戦進軍・+1階層）
-FloorsAdvanced_Lightning,4,階,電撃進軍で進む階層数
-FloorsAdvanced_Swift,3,階,迅速進軍で進む階層数
-FloorsAdvanced_Normal,2,階,通常進軍で進む階層数
-FloorsAdvanced_Struggling,1,階,苦戦進軍で進む階層数（走破力が不足しても必ず1階層は進む＝完全な足止めにはしない）
-HpLossPctMin_Lightning,5,%,電撃進軍でのHP消費率下限（楽に踏破できた分、消耗も軽い）
+FloorsPerRatio,2.0,階/倍,道中進軍の基礎進軍階層数＝max(1, floor(走破力Ratio×この値))（リニア比例・上限なし。2026年9月：旧RatioThreshold_*／FloorsAdvanced_*の4段階・最大4階層を置き換え）。区間の解析倍率（1.0〜3.0）はこの基礎階層数（移動予算）に掛かる
+HpLossPctMin_Lightning,5,%,電撃進軍（基礎4階層）でのHP消費率下限（楽に踏破できた分、消耗も軽い）。疾風（5階層）・神速（6階層以上）も電撃と同じ率で底打ち（それ以上は軽くならない）
 HpLossPctMax_Lightning,8,%,電撃進軍でのHP消費率上限
 HpLossPctMin_Swift,8,%,迅速進軍でのHP消費率下限
 HpLossPctMax_Swift,12,%,迅速進軍でのHP消費率上限

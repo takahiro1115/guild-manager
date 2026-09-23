@@ -67,7 +67,7 @@ namespace GuildManager.Core.Systems
         }
 
         /// <summary>
-        /// 進軍の本体。1階層ずつ「移動予算」を消費して進む：進軍ランクの階層数（→ FloorsAdvanced）を
+        /// 進軍の本体。1階層ずつ「移動予算」を消費して進む：基礎進軍階層数（→ CalculateBaseFloors、Ratioにリニア比例・上限なし）を
         /// 予算とし、1階層進むごとに 1÷走破倍率（→ IntelSpeedMultiplier、その階層の区間担当ボスの
         /// 解析率で決まる）を消費する。完全解析済みの区間は1/3の予算で抜けられる＝同じ予算で3倍進む。
         /// HP損耗は歩いた階層ごとに「その階層の基礎損耗率×その区間の被ダメージ倍率」を積み上げる
@@ -89,8 +89,10 @@ namespace GuildManager.Core.Systems
             double requirement = FloorRequirement(startFloor);
             double ratio = requirement <= 0 ? double.MaxValue : score / requirement;
 
-            var rank = ClassifyRatio(ratio);
+            int baseFloors = CalculateBaseFloors(ratio);
+            var rank = RankFromFloors(baseFloors);
             result.Rank = rank;
+            result.BaseFloors = baseFloors;
             result.TraversalScore = score;
             result.Requirement = requirement;
             result.Ratio = ratio;
@@ -101,7 +103,7 @@ namespace GuildManager.Core.Systems
             // 未撃破のボスだけは必ず足止めになる）。
             int limit = stopper == null ? DungeonField.MaxFloor : Math.Min(DungeonField.MaxFloor, stopper.Floor);
 
-            double budget = FloorsAdvanced(rank);
+            double budget = baseFloors;
             int floor = startFloor;
             int exploredRecord = field.ReachedFloor; // 進軍前の最高到達階層（これより深い階層が未踏破）
             var steps = new List<TraversalStep>();
@@ -147,6 +149,28 @@ namespace GuildManager.Core.Systems
 
         /// <summary>浮動小数の誤差（1/3×3 等）で1階層取りこぼさないための許容幅。</summary>
         private const double BudgetEpsilon = 1e-9;
+
+        /// <summary>
+        /// 出撃前プレビュー用：startFloor から基礎 baseFloors 階層ぶんの予算で進んだ場合の到達階層の予測
+        /// （2026年9月、リニア進軍モデル）。Resolve と同じ規則で数える：1歩ごとに 1÷区間の解析倍率を消費し、
+        /// startFloor 以降で最初の未撃破ボスの階層・最深部で必ず止まる（越境しない）。乱数・状態の変更は無い。
+        /// </summary>
+        public static int PredictFloorAfter(DungeonField field, int startFloor, int baseFloors)
+        {
+            var stopper = field.GetNextUndefeatedBossFrom(startFloor);
+            int limit = stopper == null ? DungeonField.MaxFloor : Math.Min(DungeonField.MaxFloor, stopper.Floor);
+            double budget = baseFloors;
+            int floor = startFloor;
+            while (floor < limit)
+            {
+                double cost = 1.0 / IntelSpeedMultiplier(SegmentBoss(field, floor, stopper));
+                if (budget + BudgetEpsilon < cost)
+                    break;
+                budget -= cost;
+                floor++;
+            }
+            return floor;
+        }
 
         /// <summary>
         /// 出撃前プレビュー用：fromFloor から toFloor まで進むとした場合の区間内訳
@@ -296,23 +320,34 @@ namespace GuildManager.Core.Systems
         /// <summary>指定階層から進軍する際の要求値＝階層×係数（→ 潜行中の部隊は ActiveDungeonMission.CurrentFloor を渡す）。</summary>
         public static double FloorRequirement(int floor) => floor * DungeonTraversalBalance.RequirementPerFloor;
 
-        /// <summary>走破力Ratioから進軍ランクの4区分を求める。</summary>
-        public static TraversalRank ClassifyRatio(double ratio)
+        /// <summary>
+        /// 基礎進軍階層数（＝移動予算。2026年9月、リニア進軍モデル）＝max(1, floor(Ratio×FloorsPerRatio))。
+        /// 上限は持たない（旧来の最大4階層を撤廃）。ただし未撃破ボスの階層・最深部を超えて進むことはない
+        /// （→ ResolveFrom のストッパー）ため、実際の進軍はそこで打ち切られる。要求値0（Ratio＝∞）でも
+        /// 最深部の階層数で頭打ちにして整数へ変換する（オーバーフロー防止）。
+        /// </summary>
+        public static int CalculateBaseFloors(double ratio)
         {
-            if (ratio >= DungeonTraversalBalance.RatioThresholdLightning) return TraversalRank.Lightning;
-            if (ratio >= DungeonTraversalBalance.RatioThresholdSwift) return TraversalRank.Swift;
-            if (ratio >= DungeonTraversalBalance.RatioThresholdNormal) return TraversalRank.Normal;
-            return TraversalRank.Struggling;
+            double raw = Math.Floor(ratio * DungeonTraversalBalance.FloorsPerRatio);
+            if (double.IsNaN(raw)) return 1;
+            return (int)Math.Clamp(raw, 1, DungeonField.MaxFloor);
         }
 
-        /// <summary>進軍ランクごとの進軍階層数（→ DungeonTraversalBalance）。</summary>
-        public static int FloorsAdvanced(TraversalRank rank) => rank switch
+        /// <summary>
+        /// 基礎進軍階層数からの進軍ランクの逆引き：1＝苦戦／2＝通常／3＝迅速／4＝電撃／5＝疾風／6以上＝神速。
+        /// </summary>
+        public static TraversalRank RankFromFloors(int baseFloors) => baseFloors switch
         {
-            TraversalRank.Lightning => DungeonTraversalBalance.FloorsAdvancedLightning,
-            TraversalRank.Swift => DungeonTraversalBalance.FloorsAdvancedSwift,
-            TraversalRank.Normal => DungeonTraversalBalance.FloorsAdvancedNormal,
-            _ => DungeonTraversalBalance.FloorsAdvancedStruggling,
+            <= 1 => TraversalRank.Struggling,
+            2 => TraversalRank.Normal,
+            3 => TraversalRank.Swift,
+            4 => TraversalRank.Lightning,
+            5 => TraversalRank.Gale,
+            _ => TraversalRank.Godspeed,
         };
+
+        /// <summary>走破力Ratioから進軍ランクを求める（＝RankFromFloors(CalculateBaseFloors(ratio))）。</summary>
+        public static TraversalRank ClassifyRatio(double ratio) => RankFromFloors(CalculateBaseFloors(ratio));
 
         /// <summary>
         /// 道中進軍のHP消費（2026年9月改訂：階層ごとの個別積み上げ）。
@@ -368,10 +403,14 @@ namespace GuildManager.Core.Systems
         /// <summary>損耗率の合算で 15.0 が 14.999… になって1減る事故を防ぐ許容幅。</summary>
         private const double LossEpsilon = 1e-9;
 
-        /// <summary>進軍ランクごとの既踏階層のHP消費率（下限・上限、%）。</summary>
+        /// <summary>
+        /// 進軍ランクごとの既踏階層のHP消費率（下限・上限、%）。疾風（5階層）・神速（6階層以上）は
+        /// 電撃（4階層）と同じ率で底打ちする（2026年9月、リニア進軍モデル：速く進めても消耗はそれ以上軽くならない）。
+        /// </summary>
         public static (int Min, int Max) RankHpLossRange(TraversalRank rank) => rank switch
         {
-            TraversalRank.Lightning => (DungeonTraversalBalance.HpLossPctMinLightning, DungeonTraversalBalance.HpLossPctMaxLightning),
+            TraversalRank.Lightning or TraversalRank.Gale or TraversalRank.Godspeed =>
+                (DungeonTraversalBalance.HpLossPctMinLightning, DungeonTraversalBalance.HpLossPctMaxLightning),
             TraversalRank.Swift => (DungeonTraversalBalance.HpLossPctMinSwift, DungeonTraversalBalance.HpLossPctMaxSwift),
             TraversalRank.Normal => (DungeonTraversalBalance.HpLossPctMinNormal, DungeonTraversalBalance.HpLossPctMaxNormal),
             _ => (DungeonTraversalBalance.HpLossPctMinStruggling, DungeonTraversalBalance.HpLossPctMaxStruggling),

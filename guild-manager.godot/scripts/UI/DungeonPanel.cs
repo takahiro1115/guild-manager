@@ -913,12 +913,16 @@ public partial class DungeonPanel : ScrollContainer
 			double score = DungeonTraversalResolver.CalculateTraversalScore(party, _state);
 			double requirement = DungeonTraversalResolver.FloorRequirement(1);
 			double ratio = requirement <= 0 ? double.MaxValue : score / requirement;
-			var rank = DungeonTraversalResolver.ClassifyRatio(ratio);
+			int baseFloors = DungeonTraversalResolver.CalculateBaseFloors(ratio);
+			var rank = DungeonTraversalResolver.RankFromFloors(baseFloors);
+			int predictedReach = DungeonTraversalResolver.PredictFloorAfter(_selectedField, 1, baseFloors);
 			var (rankLossMin, rankLossMax) = DungeonTraversalResolver.RankHpLossRange(rank);
 			var segments = DungeonTraversalResolver.DescribeSegments(_selectedField, 1, boss.Floor, _selectedField.ReachedFloor);
 
 			string rankView = rank switch
 			{
+				TraversalRank.Godspeed => "[color=gold]神速で一気に奥まで駆け抜けられそうだ[/color]",
+				TraversalRank.Gale => "[color=lime]疾風のごとく奥まで進めそうだ[/color]",
 				TraversalRank.Lightning => "[color=lime]電撃的に奥まで進めそうだ[/color]",
 				TraversalRank.Swift => "[color=cyan]迅速に奥へ進めそうだ[/color]",
 				TraversalRank.Normal => "[color=cyan]着実に奥へ進めそうだ[/color]",
@@ -928,7 +932,7 @@ public partial class DungeonPanel : ScrollContainer
 			// Zone C は縦スクロール不要の収容（→ 03 §0.18）を守るため、潜行の見立ては3行に収める。
 			sb.AppendLine($"[b]🏃 大迷宮へ潜行（進軍）[/b]→ 第{boss.Floor}層「{boss.Name}」扉前　見立て：{rankView}");
 			sb.AppendLine($"　部隊走破力: [color=cyan]{score:F0}[/color] pt（要求: {requirement:F0}〔1F×{DungeonTraversalBalance.RequirementPerFloor}〕／比率: {FormatRatio(ratio)}）" +
-				$"→ {TraversalRankLabel(rank)}：予算{DungeonTraversalResolver.FloorsAdvanced(rank)}階層／既踏の損耗{rankLossMin}〜{rankLossMax}%・未踏破の損耗{DungeonBalance.UnexploredHpLossPctMin}〜{DungeonBalance.UnexploredHpLossPctMax}%");
+				$"→ {TraversalRankLabel(rank)}：基礎{baseFloors}階層→予測 第{predictedReach}層（+{predictedReach - 1}）／既踏の損耗{rankLossMin}〜{rankLossMax}%・未踏破の損耗{DungeonBalance.UnexploredHpLossPctMin}〜{DungeonBalance.UnexploredHpLossPctMax}%");
 			sb.AppendLine($"　実効速度（区間別）: {SegmentPreviewText(segments, MaxPreviewSegments)}");
 
 			_scoutingButton.TooltipText =
@@ -1532,6 +1536,8 @@ public partial class DungeonPanel : ScrollContainer
 
 	public static string TraversalRankLabel(TraversalRank rank) => rank switch
 	{
+		TraversalRank.Godspeed => "神速進軍",
+		TraversalRank.Gale => "疾風進軍",
 		TraversalRank.Lightning => "電撃進軍",
 		TraversalRank.Swift => "迅速進軍",
 		TraversalRank.Normal => "通常進軍",

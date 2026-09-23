@@ -270,10 +270,11 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void DungeonTraversal_HighAgilityParty_AdvancesMultipleFloors()
         {
-            // 高AGI/DEX部隊なら、道中調査1回で1階層だけでなく複数階層（電撃/迅速/通常進軍）を
-            // 一気に進めること。目標ボスは十分遠くに置き、ストッパーに引っかからないようにする。
+            // 走破力の高い部隊なら、道中調査1回で1階層だけでなく複数階層を一気に進めること
+            // （リニア進軍モデル：全能力値30の2名で走破力138＝1FでRatio 9.2＝基礎18階層）。
+            // 目標ボスは十分遠くに置き、ストッパーに引っかからないようにする。
             var (state, field, nextBoss) = MakeTraversalState(reachedFloor: 1, nextBossFloor: 100);
-            var party = PartyOf(MakeAdventurer(JobClass.Thief, 300), MakeAdventurer(JobClass.Ranger, 300));
+            var party = PartyOf(MakeAdventurer(JobClass.Thief, 30), MakeAdventurer(JobClass.Ranger, 30));
             var system = BuildSystem();
             system.TryDispatch(state, party, nextBoss, DungeonMissionType.Scouting);
 
@@ -283,7 +284,7 @@ namespace GuildManager.Core.Tests
             Assert.Null(resolution.ScoutingResult);
             Assert.Null(resolution.DungeonResult);
             Assert.True(resolution.TraversalResult!.FloorAfter - resolution.TraversalResult.FloorBefore >= 2,
-                "高AGI/DEX部隊なら1階層ではなく複数階層（+2〜+4）進むはず");
+                "走破力の高い部隊なら1階層ではなく複数階層進むはず");
             Assert.Equal(field.ReachedFloor, resolution.TraversalResult.FloorAfter);
             Assert.False(resolution.TraversalResult.StopperTriggered);
         }
@@ -693,7 +694,7 @@ namespace GuildManager.Core.Tests
             // 調査出撃は道中進軍として登録・解決され、部隊は（最高到達階層の記録に関係なく）
             // 1階層から潜り始めて前進すること（→ 毎回1Fリセット・複数週潜行型）。
             var (state, field, boss10F) = MakeTraversalState(reachedFloor: 9, nextBossFloor: 10);
-            var party = PartyOf(MakeAdventurer(JobClass.Thief, 60), MakeAdventurer(JobClass.Ranger, 60));
+            var party = PartyOf(MakeAdventurer(JobClass.Thief, 7), MakeAdventurer(JobClass.Ranger, 7)); // 走破力32.2：1Fから基礎4階層（1F→5F）。記録の9Fには届かない
             var system = BuildSystem();
 
             Assert.True(DungeonExpeditionSystem.CanDispatch(state));
@@ -926,23 +927,30 @@ namespace GuildManager.Core.Tests
 
         /// <summary>
         /// 素材定義のある「forest」フィールドに、指定階層の未撃破ボスを1体置いた状態。
-        /// 高AGI/DEXの2名を待機させる（→ 電撃進軍：1週あたり+4階層）。
+        /// 全能力値 stat の2名（盗賊・重戦士）を待機させる。既定の300は走破力が非常に高く、1週目から扉前まで一気に進む。
+        /// 数週にまたがる潜行を確かめたい場合は SlowDiverStat（1F→5F→6F）を渡す（→ リニア進軍モデル、2026年9月）。
         /// </summary>
         private static (GameState State, DungeonField Field, FloorBoss Boss, Adventurer A, Adventurer B) MakeDeepDiveState(
-            int bossFloor, int bossHp = 999_999)
+            int bossFloor, int bossHp = 999_999, int stat = 300)
         {
             var boss = new FloorBoss { Name = $"第{bossFloor}階層の主", Floor = bossFloor, MaxHp = bossHp, CurrentHp = bossHp };
             var field = new DungeonField { Id = "forest", Name = "翠緑の原生林", Order = 1, IsUnlocked = true, Bosses = { boss } };
-            var a = MakeAdventurer(JobClass.Thief, 300);
-            var b = MakeAdventurer(JobClass.Warrior, 300);
+            var a = MakeAdventurer(JobClass.Thief, stat);
+            var b = MakeAdventurer(JobClass.Warrior, stat);
             var state = new GameState { Adventurers = { a, b }, DungeonFields = { field }, Gold = 10_000 };
             return (state, field, boss, a, b);
         }
 
+        /// <summary>
+        /// 数週にまたがる潜行を確かめるための全能力値。2名で走破力＝7×1.8×2＋隊長LDR7＝32.2：
+        /// 1Fでは要求値15でRatio 2.15＝基礎4階層（1F→5F）、5Fでは要求値75でRatio 0.43＝基礎1階層（5F→6F）。
+        /// </summary>
+        private const int SlowDiverStat = 7;
+
         [Fact]
         public void Expedition_StopsAtBossFloor_AndSetsAwaitingDecision()
         {
-            var (state, field, boss, a, b) = MakeDeepDiveState(bossFloor: 9);
+            var (state, field, boss, a, b) = MakeDeepDiveState(bossFloor: 6, stat: SlowDiverStat);
             var system = BuildSystem();
             Assert.True(system.TryDispatch(state, PartyOf(a, b), boss, DungeonMissionType.Scouting));
             var mission = state.ActiveDungeonMissions[0];
@@ -953,12 +961,12 @@ namespace GuildManager.Core.Tests
             Assert.Equal(ExpeditionStatus.Advancing, mission.Status);
             Assert.Equal(5, mission.CurrentFloor);
 
-            // 2週目：5F→9F（未撃破ボス階層でストップし、判断待ちになる）。
+            // 2週目：5F→6F（未撃破ボス階層でストップし、判断待ちになる）。
             var week2 = Assert.Single(system.ProcessWeeklyMissions(state));
             Assert.True(week2.ArrivedAtBossDoor);
             Assert.Equal(ExpeditionStatus.AwaitingBossDecision, mission.Status);
             Assert.Equal(ExpeditionStatus.AwaitingBossDecision, week2.StatusAfter);
-            Assert.Equal(9, mission.CurrentFloor);
+            Assert.Equal(6, mission.CurrentFloor);
             Assert.Same(boss, mission.TargetedBoss);
             Assert.Null(week2.DungeonResult); // 自動では突入しない
             Assert.False(boss.IsDefeated);
@@ -968,20 +976,20 @@ namespace GuildManager.Core.Tests
             var week3 = Assert.Single(system.ProcessWeeklyMissions(state));
             Assert.Null(week3.DungeonResult);
             Assert.NotNull(week3.ScoutingResult);
-            Assert.Equal(9, mission.CurrentFloor);
+            Assert.Equal(6, mission.CurrentFloor);
             Assert.Equal(ExpeditionStatus.AwaitingBossDecision, mission.Status);
         }
 
         [Fact]
         public void Expedition_AutoSkip_StopsWhenAwaitingBossDecision()
         {
-            var (state, _, boss, a, b) = MakeDeepDiveState(bossFloor: 9);
+            var (state, _, boss, a, b) = MakeDeepDiveState(bossFloor: 6, stat: SlowDiverStat);
             var expedition = BuildSystem();
             Assert.True(expedition.TryDispatch(state, PartyOf(a, b), boss, DungeonMissionType.Scouting));
 
             var results = new AutoSkipService(BuildWeekSystem(expedition)).AutoSkip(state, maxWeeks: 50);
 
-            // 1週目（1F→5F）では止まらず、2週目（5F→9F、扉前到達）で止まる。
+            // 1週目（1F→5F）では止まらず、2週目（5F→6F、扉前到達）で止まる。
             Assert.Equal(2, results.Count);
             Assert.False(results[0].ShouldStopAutoSkip);
             Assert.True(results[1].BossDoorReached);
@@ -1191,8 +1199,8 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void DungeonExpedition_Advancing_AddsContributionScore_ToMembers()
         {
-            // 1Fから9Fボスの扉前まで：1週目 1F→5F（+4階層）、2週目 5F→9F（+4階層）。
-            var (state, _, boss, a, b) = MakeDeepDiveState(bossFloor: 9);
+            // 1Fから6Fボスの扉前まで：1週目 1F→5F（+4階層）、2週目 5F→6F（+1階層）。
+            var (state, _, boss, a, b) = MakeDeepDiveState(bossFloor: 6, stat: SlowDiverStat);
             var system = BuildSystem();
             system.TryDispatch(state, PartyOf(a, b), boss, DungeonMissionType.Scouting);
 
@@ -1203,12 +1211,12 @@ namespace GuildManager.Core.Tests
             Assert.Equal(floors1 * DungeonBalance.ContributionPerTraversedFloor, b.TotalContributionScore);
 
             system.ProcessWeeklyMissions(state);
-            Assert.Equal(8 * DungeonBalance.ContributionPerTraversedFloor, a.TotalContributionScore); // 進んだ階層数に比例して累積
-            Assert.Equal(8 * DungeonBalance.ContributionPerTraversedFloor, b.TotalContributionScore);
+            Assert.Equal(5 * DungeonBalance.ContributionPerTraversedFloor, a.TotalContributionScore); // 進んだ階層数に比例して累積
+            Assert.Equal(5 * DungeonBalance.ContributionPerTraversedFloor, b.TotalContributionScore);
 
             // 扉前での偵察（進軍なし）では功績は増えない。
             system.ProcessWeeklyMissions(state);
-            Assert.Equal(8 * DungeonBalance.ContributionPerTraversedFloor, a.TotalContributionScore);
+            Assert.Equal(5 * DungeonBalance.ContributionPerTraversedFloor, a.TotalContributionScore);
         }
 
         [Fact]
