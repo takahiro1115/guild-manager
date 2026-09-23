@@ -34,12 +34,11 @@ namespace GuildManager.Core.Models
         CompatibilityGainMultiplier,
 
         /// <summary>
-        /// クエスト種別限定の個人スコアボーナス（「田舎育ち」で使用。→ 03 §4.2.3、項目64）。
-        /// TargetStatには対象クエスト種別の名前（QuestTypeの列挙子名。"Exploration"等）を
-        /// 文字列で入れ、Valueをその種別の統一点数計算式（→ QuestResolver.MemberScore）への
-        /// 加算量として扱う。TargetStatにステータス名ではなくクエスト種別名が入る唯一の
-        /// 効果種別だが、Adventurer.SumTraitEffectのフィルタ（TargetStat一致）はそのまま使える。
+        /// 探索採取の採取スコアへの個人ボーナス率（「田舎育ち」で使用。→ 03 §5.3.2、GatheringResolver、
+        /// 2026年9月再設計）。保有者本人の採取寄与（AGI×係数＋DEX×係数）にValueを掛けた分を加算する
+        /// （0.20で+20%）。TargetStatは不要（""のまま）。
+        /// 旧 QuestTypeScoreBonus（探索クエストの個人スコア加算。旧クエストの撤去で参照先を失っていた）の置き換え。
         /// </summary>
-        QuestTypeScoreBonus,
+        GatheringScoreBonus,
     }
 }

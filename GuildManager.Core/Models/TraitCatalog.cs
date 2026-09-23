@@ -104,8 +104,10 @@ namespace GuildManager.Core.Models
         };
 
         /// <summary>
-        /// 田舎育ち（先天的）。新人採用時に低確率で付与される。探索（Exploration）クエストの
-        /// 個人スコアに固定加算する（→ 03 §4.2.3・BAL: 特性。項目64で新設）。
+        /// 田舎育ち（先天的）。新人採用時に低確率で付与される。野山で培った目利きで、探索採取の
+        /// 採取スコアに本人の採取寄与の+20%を上乗せする（→ GatheringResolver、03 §5.3.2・BAL: 特性。
+        /// 2026年9月再設計：旧・探索クエストの個人スコア加算は旧クエストの撤去で効果を失っていた）。
+        /// Id（"CountryBred"）はセーブ互換のため据え置く。
         /// </summary>
         public static readonly TraitDefinition CountryBred = new TraitDefinition
         {
@@ -117,11 +119,9 @@ namespace GuildManager.Core.Models
             {
                 new TraitEffect
                 {
-                    EffectType = TraitEffectType.QuestTypeScoreBonus,
-                    // この効果種別のTargetStatは旧クエスト種別名。旧通常クエストの撤去（2026年9月）以降、
-                    // この効果を参照する計算は無い（特性自体はセーブ互換・伝授のため残している）。
-                    TargetStat = "Exploration",
-                    Value = TraitBalance.CountryBredExplorationBonus,
+                    EffectType = TraitEffectType.GatheringScoreBonus,
+                    TargetStat = "",
+                    Value = TraitBalance.CountryBredGatheringBonusRate,
                 }
             }
         };

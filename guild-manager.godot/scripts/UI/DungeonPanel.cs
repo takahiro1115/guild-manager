@@ -991,7 +991,7 @@ public partial class DungeonPanel : ScrollContainer
 			int relicPct = RelicBalance.GetGatheringDropPercent(gatheringScore, _selectedField.ReachedFloor);
 
 			sb.AppendLine("[b]🌿 探索出撃（素材採取）[/b]");
-			sb.AppendLine($"　部隊採取力: [color=lime]{gatheringScore:F0}[/color] pt（{GatheringBreakdownText(breakdown)}）");
+			sb.AppendLine($"　部隊採取力: [color=lime]{gatheringScore:F0}[/color] pt (基礎: {breakdown.BaseTotal:F0} + 田舎育ち: +{breakdown.RuralTotal:F0}pt)〔{GatheringBreakdownText(breakdown)}〕");
 			sb.Append($"　基本枠: 素材基礎{baseYieldText}＋スコア枠{scoreYield}〔{gatheringScore:F0}÷{GatheringBalance.MaterialYieldDivisor}〕" +
 				$"＋階層枠{floorYield}〔{_selectedField.ReachedFloor}F÷{GatheringBalance.ReachedFloorDivisor}〕＋研究{researchYield}" +
 				$" ／ 遺物発見率: {relicPct}% ／ 換金: {Math.Round(gatheringScore * GatheringBalance.GoldPerScore):F0}G ／ HP損耗{GatheringBalance.HpLossPctMin}〜{GatheringBalance.HpLossPctMax}%");
@@ -1580,9 +1580,9 @@ public partial class DungeonPanel : ScrollContainer
 		return merged.Count > maxCount ? $"{text} → …ほか{merged.Count - maxCount}区間（ボタンのツールチップに全区間）" : text;
 	}
 
-	/// <summary>採取スコアの内訳（例：AGI62＋DEX54＋LDR20＋職業10＝146×HP比率0.95）。</summary>
+	/// <summary>採取スコアの内訳（例：AGI62＋DEX54＋LDR20＋職業10＋田舎育ち23＝169×HP比率0.95）。</summary>
 	public static string GatheringBreakdownText(GatheringScoreBreakdown b) =>
-		$"AGI{b.AgiPart:F0}＋DEX{b.DexPart:F0}＋LDR{b.LdrPart:F0}＋職業{b.ClassBonus:F0}＝{b.RawScore:F0}×HP比率{b.HpRatio:F2}";
+		$"AGI{b.AgiPart:F0}＋DEX{b.DexPart:F0}＋LDR{b.LdrPart:F0}＋職業{b.ClassBonus:F0}＋田舎育ち{b.RuralBonus:F0}＝{b.RawScore:F0}×HP比率{b.HpRatio:F2}";
 
 	public static string GuardTierLabel(GuardTier tier) => tier switch
 	{

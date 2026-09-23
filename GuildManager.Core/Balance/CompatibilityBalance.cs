@@ -18,14 +18,22 @@ namespace GuildManager.Core.Balance
         /// <summary>この値未満で「険悪」と判定する（→ 03 §5.1の満足度ペナルティに接続）。</summary>
         public static readonly int HostileThreshold = BalanceData.GetInt(FileName, "HostileThreshold");
 
-        /// <summary>同パーティでクエスト達成（完全勝利・辛勝）した時の上昇量。→ BAL: 相性</summary>
-        public static readonly int AchievementGain = BalanceData.GetInt(FileName, "AchievementGain");
+        // ---- 大迷宮の任務達成による相性上昇（2026年9月：旧クエストの AchievementGain/FailureLoss を置き換え） ----
 
-        /// <summary>同パーティで苦戦敗退・戦線崩壊した時の下降量。→ BAL: 相性</summary>
-        public static readonly int FailureLoss = BalanceData.GetInt(FileName, "FailureLoss");
+        /// <summary>同じ部隊で階層ボスを撃破して生還した時の上昇量（→ CompatibilitySystem.ApplyExpeditionOutcome）。</summary>
+        public static readonly int ExpeditionGainBossVictory = BalanceData.GetInt(FileName, "ExpeditionGain_BossVictory");
+
+        /// <summary>同じ部隊で道中潜行を1階層以上進軍した時の上昇量。</summary>
+        public static readonly int ExpeditionGainTraversal = BalanceData.GetInt(FileName, "ExpeditionGain_Traversal");
+
+        /// <summary>同じ部隊で迷宮調査から帰還した時（護衛「不足」＝潰走以外）の上昇量。</summary>
+        public static readonly int ExpeditionGainSurvey = BalanceData.GetInt(FileName, "ExpeditionGain_Survey");
+
+        /// <summary>同じ部隊で探索採取から素材を1個以上持ち帰った時の上昇量。</summary>
+        public static readonly int ExpeditionGainGathering = BalanceData.GetInt(FileName, "ExpeditionGain_Gathering");
 
         /// <summary>
-        /// 同パーティのメンバーが戦死した時、居合わせた生存者同士の下降量（FailureLossより大きい）。
+        /// 同パーティのメンバーが戦死した時、居合わせた生存者同士の下降量（任務達成の上昇量より大きい）。
         /// → BAL: 相性
         /// </summary>
         public static readonly int DeathWitnessLoss = BalanceData.GetInt(FileName, "DeathWitnessLoss");

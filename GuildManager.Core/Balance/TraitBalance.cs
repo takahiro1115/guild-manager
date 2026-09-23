@@ -31,11 +31,13 @@ namespace GuildManager.Core.Balance
         public static readonly double BeautifulCompatibilityGainMultiplier = BalanceData.GetDouble(FileName, "BeautifulCompatibilityGainMultiplier");
 
         /// <summary>
-        /// 田舎育ちが探索クエストの個人スコアに加算する量（→ 03 §4.2.3、項目64）。
+        /// 田舎育ちの採取スコアボーナス率（→ TraitEffectType.GatheringScoreBonus、GatheringResolver、2026年9月再設計）。
+        /// 保有者本人の採取寄与（AGI×係数＋DEX×係数）にこの率を掛けた分を採取スコアへ加算する（0.20で+20%）。
+        /// 旧・探索クエストの個人スコア加算（CountryBredExplorationBonus）の後継。
         /// 知識人（Scholar）には単独効果を持たせていない（ペア特性シナジー専用の特性。
         /// → PairSynergyBalance・TraitCatalog.Scholar）。
         /// </summary>
-        public static readonly double CountryBredExplorationBonus = BalanceData.GetDouble(FileName, "CountryBredExplorationBonus");
+        public static readonly double CountryBredGatheringBonusRate = BalanceData.GetDouble(FileName, "CountryBredGatheringBonusRate");
 
         // ---- 特性伝授（→ 特性伝授・スロット上限刷新仕様、TrainingSystem.ProcessWeeklyTraitTransmission） ----
 

@@ -751,12 +751,13 @@ public partial class MainDashboard : Control
 			sb.AppendLine($"[color=lime]【採取任務】{resolution.Field.Name}にて素材を回収（{materialName}×{gathering.MaterialCount}、" +
 				$"換金{gathering.GoldEarned}Gを獲得）。[/color]");
 			// 判定内訳の開示（→ 03 §4.2.3「開発・バランス調整期間の特記事項」）。
-			sb.AppendLine($"[color=gray]【探索採取】採取スコア{gathering.Score:F0}（{DungeonPanel.GatheringBreakdownText(gathering.ScoreBreakdown)}）" +
+			sb.AppendLine($"[color=gray]【探索採取】採取スコア{gathering.Score:F0}（{DungeonPanel.GatheringBreakdownText(gathering.ScoreBreakdown)}／うち田舎育ちボーナス+{gathering.ScoreBreakdown.RuralTotal:F0}）" +
 				$" → 採取枠{gathering.MaterialCount}個（素材基礎{gathering.BaseYield}＋スコア枠{gathering.ScoreYield}〔÷{GatheringBalance.MaterialYieldDivisor}〕" +
 				$"＋階層枠{gathering.FloorYield}〔{resolution.Field.ReachedFloor}F÷{GatheringBalance.ReachedFloorDivisor}〕＋研究{gathering.ResearchYield}）" +
 				$" / 遺物発見率{gathering.RelicDropPercent}% / 換金{gathering.Score:F0}×{GatheringBalance.GoldPerScore:0.0#}={gathering.GoldEarned}G[/color]");
 			sb.AppendLine("[color=cyan]探索部隊は全員生還した。[/color]");
 			AppendRelicLines(sb, resolution);
+			AppendBondLine(sb, resolution);
 			AppendHpLossLines(sb, gathering.HpLostByAdventurer);
 
 			AppendLog(sb.ToString());
@@ -820,6 +821,7 @@ public partial class MainDashboard : Control
 			sb.AppendLine(survey
 				? "[color=cyan]調査隊はギルドへ帰還した。[/color]"
 				: "[color=cyan]部隊は扉前に留まり、突入か撤退かの指令を待っている。[/color]");
+			AppendBondLine(sb, resolution);
 			AppendHpLossLines(sb, scouting.HpLostByAdventurer);
 
 			AppendLog(sb.ToString());
@@ -875,6 +877,7 @@ public partial class MainDashboard : Control
 			{
 				sb.AppendLine("[color=cyan]部隊は次週さらに奥へ進軍する。[/color]");
 			}
+			AppendBondLine(sb, resolution);
 			AppendHpLossLines(sb, traversal.HpLostByAdventurer, traversal.EffectiveLossPctByAdventurer);
 
 			AppendLog(sb.ToString());
@@ -907,6 +910,7 @@ public partial class MainDashboard : Control
 			AppendRelicLines(sb, resolution);
 		}
 
+		AppendBondLine(sb, resolution);
 		AppendHpLossLines(sb, assault.HpLostByAdventurer);
 		foreach (var line in FallenAdventurerLines(
 			weekNumber, resolution.Party, assault.ForceRetiredAdventurerIds, resolution.RecoveredEquipment))
@@ -981,6 +985,18 @@ public partial class MainDashboard : Control
 		var parts = new List<string> { $"{gold}G" };
 		parts.AddRange(materials.Select(kv => $"{MaterialBalance.GetName(kv.Key)}×{kv.Value}"));
 		return string.Join("、", parts);
+	}
+
+	/// <summary>
+	/// 任務達成による相性の上昇（→ CompatibilitySystem.ApplyExpeditionOutcome、03 §5.3.1、2026年9月再配線）。
+	/// 上昇が無かった（未達成・生還者が2人未満）場合は何も出さない。
+	/// </summary>
+	private static void AppendBondLine(StringBuilder sb, DungeonMissionResolution resolution)
+	{
+		if (resolution.CompatibilityGain <= 0)
+			return;
+		sb.AppendLine($"[color=pink]【部隊の結束】共闘により隊員間の相性値が向上 (+{resolution.CompatibilityGain})" +
+			"[/color][color=gray]〔生還者の全ペア。「容姿秀麗」が関与するペアは倍率あり〕[/color]");
 	}
 
 	/// <summary>HP消費の内訳（現役ロースターに残っている者のみ。強制除籍者は別途報告する）。</summary>

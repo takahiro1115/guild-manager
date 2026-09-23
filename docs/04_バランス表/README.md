@@ -64,6 +64,15 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 - `Advisor_TraversalPowerBonusCoeff`（0.2）… 同平均×この係数を、道中潜行の走破力スコアへ
   **直接加算**する（平均50で+10）。
 - `AdvisorBonusCoefficient` は旧クエスト用で加算先を失っており、休眠中のキー。
+- `ExpeditionGain_BossVictory`（3）／`_Traversal`（1）／`_Survey`（1）／`_Gathering`（1）… 大迷宮の任務を
+  達成して生還した部隊の、生還者同士の全ペアの相性上昇量（→ 03 §5.3.1・§0.22）。旧クエスト用の
+  `AchievementGain`・`FailureLoss` を置き換えたもの（未達成時の下降は廃止）。
+
+**`trait.csv`**
+
+- `CountryBredGatheringBonusRate`（0.20）… 田舎育ちの採取スコアボーナス率。保有者本人の採取寄与
+  （AGI×係数＋DEX×係数）の+20%を採取スコアへ上乗せする（→ 03 §5.3.2・§0.22）。旧・探索クエストの
+  個人スコア加算 `CountryBredExplorationBonus` を置き換えたもの。
 
 **`satisfaction.csv`**
 

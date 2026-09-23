@@ -362,8 +362,12 @@ namespace GuildManager.Core.Systems
 
                 resolution.GrowthEvents = _growthSystem.ApplyExpeditionGrowth(state, mission.Party, DungeonMissionType.Gathering, isBossVictory: false);
                 // 士気（→ SatisfactionSystem.ApplyExpeditionSatisfaction）：素材を持ち帰れた時のみ上がる。
+                bool gatheredAny = !string.IsNullOrEmpty(gathering.MaterialId) && gathering.MaterialCount > 0;
                 _satisfactionSystem.ApplyExpeditionSatisfaction(state, mission.Party, DungeonMissionType.Gathering,
-                    succeeded: !string.IsNullOrEmpty(gathering.MaterialId) && gathering.MaterialCount > 0);
+                    succeeded: gatheredAny);
+                // 相性（→ CompatibilitySystem.ApplyExpeditionOutcome）：素材を持ち帰れた時のみ全ペア+1。
+                resolution.CompatibilityGain = _compatibilitySystem.ApplyExpeditionOutcome(
+                    state, mission.Party, DungeonMissionType.Gathering, isSuccess: gatheredAny);
                 ReturnHome(state, mission, resolution);
                 return resolution;
             }
@@ -423,6 +427,9 @@ namespace GuildManager.Core.Systems
                 resolution.GrowthEvents = _growthSystem.ApplyExpeditionGrowth(state, mission.Party, DungeonMissionType.Scouting, isBossVictory: false);
                 // 士気：進軍して生還した週（道中はHP下限1のため、進軍した者は必ず生還している）。
                 _satisfactionSystem.ApplyExpeditionSatisfaction(state, mission.Party, DungeonMissionType.Scouting, succeeded: true);
+                // 相性：1階層以上進軍した週のみ全ペア+1（→ CompatibilitySystem.ApplyExpeditionOutcome）。
+                resolution.CompatibilityGain = _compatibilitySystem.ApplyExpeditionOutcome(
+                    state, mission.Party, DungeonMissionType.Scouting, isSuccess: true);
             }
 
             if (traversal.StopperTriggered && traversal.TargetBoss != null)
@@ -480,6 +487,9 @@ namespace GuildManager.Core.Systems
             // 士気：護衛段階に連動（余裕/十分で上昇、不足＝潰走で低下）。
             _satisfactionSystem.ApplyExpeditionSatisfaction(state, mission.Party, DungeonMissionType.Survey,
                 succeeded: scouting.GuardTier != GuardTier.Deficient, surveyGuardTier: scouting.GuardTier);
+            // 相性：護衛「不足」（潰走）以外で帰還した時のみ全ペア+1。
+            resolution.CompatibilityGain = _compatibilitySystem.ApplyExpeditionOutcome(
+                state, mission.Party, DungeonMissionType.Survey, isSuccess: scouting.GuardTier != GuardTier.Deficient);
             ReturnHome(state, mission, resolution);
             return resolution;
         }
@@ -552,6 +562,9 @@ namespace GuildManager.Core.Systems
             // ApplyForcedRetirements で既に適用済みで、これと加算で重なる）。
             _satisfactionSystem.ApplyExpeditionSatisfaction(state, mission.Party, DungeonMissionType.BossAssault,
                 succeeded: assault.Outcome == DungeonOutcome.Victory);
+            // 相性：撃破した時のみ、生還者（強制除籍者を除く）の全ペア+3。
+            resolution.CompatibilityGain = _compatibilitySystem.ApplyExpeditionOutcome(
+                state, mission.Party, DungeonMissionType.BossAssault, isSuccess: assault.Outcome == DungeonOutcome.Victory);
             ReturnHome(state, mission, resolution);
             return resolution;
         }

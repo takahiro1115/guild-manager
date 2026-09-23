@@ -101,6 +101,12 @@ namespace GuildManager.Core.Systems
         public int MasterFuryMoodApplied { get; set; }
 
         /// <summary>
+        /// この解決で生還者同士の相性に加算された規定の上昇量（→ CompatibilitySystem.ApplyExpeditionOutcome、
+        /// 2026年9月再配線。ボス撃破3・潜行/調査/採取1）。上昇が無ければ0。週報の【部隊の結束】行に使う。
+        /// </summary>
+        public int CompatibilityGain { get; set; }
+
+        /// <summary>
         /// 調査結果用。扉前の偵察（潜行中＝Scouting）と迷宮調査（Survey）の両方で使うため、
         /// 種別を missionType で受け取る（省略時は Scouting）。
         /// </summary>

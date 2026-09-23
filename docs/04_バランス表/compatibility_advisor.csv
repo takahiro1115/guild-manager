@@ -1,8 +1,10 @@
 key,value,unit,note
 InitialValue,50,pt,未登録ペアの相性初期値（中立）
 HostileThreshold,30,pt,これ未満で「険悪」と判定（満足度ペナルティに接続）
-AchievementGain,3,pt,同パーティでクエスト達成した時の相性上昇量
-FailureLoss,2,pt,同パーティで失敗した時の相性下降量
+ExpeditionGain_BossVictory,3,pt,同じ部隊で階層ボスを撃破して生還した時の相性上昇量（生還者の全ペア。旧AchievementGain）
+ExpeditionGain_Traversal,1,pt,同じ部隊で道中潜行を1階層以上進軍した時の相性上昇量
+ExpeditionGain_Survey,1,pt,同じ部隊で迷宮調査から帰還した時（護衛「不足」＝潰走以外）の相性上昇量
+ExpeditionGain_Gathering,1,pt,同じ部隊で探索採取から素材を1個以上持ち帰った時の相性上昇量
 DeathWitnessLoss,15,pt,同パーティの戦死に居合わせた生存者同士の相性下降量
 TraumaGrantChancePercent,30,%,戦死に居合わせた生存者へのトラウマ特性付与確率
 TrainerBonusCoefficient,0.005,倍,教官：対象ステータスの引退時の値（施設が扱う能力の平均）×この係数を成長ロール確率に加算

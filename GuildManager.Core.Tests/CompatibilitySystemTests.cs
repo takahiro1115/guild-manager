@@ -97,89 +97,107 @@ namespace GuildManager.Core.Tests
             Assert.False(CompatibilitySystem.IsHostile(state, a, b));
         }
 
-        // ---------------- ApplyQuestOutcome ----------------
+        // ---------------- ApplyExpeditionOutcome（大迷宮の任務達成による相性上昇、2026年9月再配線） ----------------
 
-        [Fact]
-        public void ApplyQuestOutcome_Achieved_IncreasesCompatibilityForAllPairs()
+        /// <summary>全員をロースターに載せた状態（生還者判定は GameState.Adventurers で行うため）。</summary>
+        private static GameState StateWith(params Adventurer[] members)
         {
             var state = new GameState();
-            var a = new Adventurer();
-            var b = new Adventurer();
-            var c = new Adventurer();
-            var party = PartyOf(a, b, c);
-            var system = new CompatibilitySystem(new AlwaysMaxRng());
+            state.Adventurers.AddRange(members);
+            return state;
+        }
 
-            system.ApplyQuestOutcome(state, party, achieved: true);
-
-            Assert.Equal(CompatibilityBalance.InitialValue + CompatibilityBalance.AchievementGain,
-                CompatibilitySystem.GetCompatibility(state, a.Id, b.Id));
-            Assert.Equal(CompatibilityBalance.InitialValue + CompatibilityBalance.AchievementGain,
-                CompatibilitySystem.GetCompatibility(state, a.Id, c.Id));
-            Assert.Equal(CompatibilityBalance.InitialValue + CompatibilityBalance.AchievementGain,
-                CompatibilitySystem.GetCompatibility(state, b.Id, c.Id));
+        private static void AssertAllPairs(GameState state, int expected, params Adventurer[] members)
+        {
+            for (int i = 0; i < members.Length; i++)
+                for (int j = i + 1; j < members.Length; j++)
+                    Assert.Equal(expected, CompatibilitySystem.GetCompatibility(state, members[i].Id, members[j].Id));
         }
 
         [Fact]
-        public void ApplyQuestOutcome_Failed_DecreasesCompatibility()
+        public void ApplyExpeditionOutcome_BossVictory_RaisesAllPairsByThree()
         {
-            var state = new GameState();
-            var a = new Adventurer();
-            var b = new Adventurer();
-            var party = PartyOf(a, b);
-            var system = new CompatibilitySystem(new AlwaysMaxRng());
+            var a = new Adventurer(); var b = new Adventurer(); var c = new Adventurer();
+            var state = StateWith(a, b, c);
 
-            system.ApplyQuestOutcome(state, party, achieved: false);
+            int gain = new CompatibilitySystem(new AlwaysMaxRng())
+                .ApplyExpeditionOutcome(state, PartyOf(a, b, c), DungeonMissionType.BossAssault, isSuccess: true);
 
-            Assert.Equal(CompatibilityBalance.InitialValue - CompatibilityBalance.FailureLoss,
-                CompatibilitySystem.GetCompatibility(state, a.Id, b.Id));
+            Assert.Equal(3, gain);
+            Assert.Equal(3, CompatibilityBalance.ExpeditionGainBossVictory);
+            AssertAllPairs(state, CompatibilityBalance.InitialValue + 3, a, b, c);
+        }
+
+        [Theory]
+        [InlineData(DungeonMissionType.Scouting)]
+        [InlineData(DungeonMissionType.Survey)]
+        [InlineData(DungeonMissionType.Gathering)]
+        public void ApplyExpeditionOutcome_TraversalSurveyGathering_RaiseAllPairsByOne(DungeonMissionType missionType)
+        {
+            var a = new Adventurer(); var b = new Adventurer(); var c = new Adventurer();
+            var state = StateWith(a, b, c);
+
+            int gain = new CompatibilitySystem(new AlwaysMaxRng())
+                .ApplyExpeditionOutcome(state, PartyOf(a, b, c), missionType, isSuccess: true);
+
+            Assert.Equal(1, gain);
+            AssertAllPairs(state, CompatibilityBalance.InitialValue + 1, a, b, c);
         }
 
         [Fact]
-        public void ApplyQuestOutcome_Achieved_AppliesBeautifulMultiplier_OnGainOnly()
+        public void ApplyExpeditionOutcome_NotSuccessful_DoesNotChangeCompatibility()
         {
-            var state = new GameState();
+            // 撤退・潰走・進軍なし・素材なし：上昇も下降もしない（旧クエストの「失敗で下降」は廃止）。
+            var a = new Adventurer(); var b = new Adventurer();
+            var state = StateWith(a, b);
+
+            int gain = new CompatibilitySystem(new AlwaysMaxRng())
+                .ApplyExpeditionOutcome(state, PartyOf(a, b), DungeonMissionType.Survey, isSuccess: false);
+
+            Assert.Equal(0, gain);
+            Assert.Empty(state.Compatibility);
+        }
+
+        [Fact]
+        public void ApplyExpeditionOutcome_ExcludesMembersNoLongerOnRoster()
+        {
+            // 強制除籍でロースターを離れた者（→ FallenAdventurers）とのペアは上がらない。
+            var survivorA = new Adventurer(); var survivorB = new Adventurer(); var retired = new Adventurer();
+            var state = StateWith(survivorA, survivorB);
+
+            new CompatibilitySystem(new AlwaysMaxRng())
+                .ApplyExpeditionOutcome(state, PartyOf(survivorA, survivorB, retired), DungeonMissionType.BossAssault, isSuccess: true);
+
+            Assert.Equal(CompatibilityBalance.InitialValue + 3, CompatibilitySystem.GetCompatibility(state, survivorA.Id, survivorB.Id));
+            Assert.Equal(CompatibilityBalance.InitialValue, CompatibilitySystem.GetCompatibility(state, survivorA.Id, retired.Id));
+        }
+
+        [Fact]
+        public void ApplyExpeditionOutcome_AppliesBeautifulMultiplier_OnGain()
+        {
             var beautiful = new Adventurer();
             beautiful.TryAddTrait(TraitCatalog.BeautifulId);
             var other = new Adventurer();
-            var party = PartyOf(beautiful, other);
-            var system = new CompatibilitySystem(new AlwaysMaxRng());
+            var state = StateWith(beautiful, other);
 
-            system.ApplyQuestOutcome(state, party, achieved: true);
+            new CompatibilitySystem(new AlwaysMaxRng())
+                .ApplyExpeditionOutcome(state, PartyOf(beautiful, other), DungeonMissionType.BossAssault, isSuccess: true);
 
             var beautifulEffect = TraitCatalog.Beautiful.Effects[0].Value; // 1.5倍
-            int expectedGain = (int)System.Math.Round(CompatibilityBalance.AchievementGain * beautifulEffect);
+            int expectedGain = (int)System.Math.Round(CompatibilityBalance.ExpeditionGainBossVictory * beautifulEffect);
             Assert.Equal(CompatibilityBalance.InitialValue + expectedGain,
                 CompatibilitySystem.GetCompatibility(state, beautiful.Id, other.Id));
         }
 
         [Fact]
-        public void ApplyQuestOutcome_Failed_BeautifulMultiplier_DoesNotAffectLoss()
+        public void ApplyExpeditionOutcome_ClampsAtMax100()
         {
-            var state = new GameState();
-            var beautiful = new Adventurer();
-            beautiful.TryAddTrait(TraitCatalog.BeautifulId);
-            var other = new Adventurer();
-            var party = PartyOf(beautiful, other);
-            var system = new CompatibilitySystem(new AlwaysMaxRng());
-
-            system.ApplyQuestOutcome(state, party, achieved: false);
-
-            // 失敗時は倍率無関係、通常のFailureLossがそのまま適用される
-            Assert.Equal(CompatibilityBalance.InitialValue - CompatibilityBalance.FailureLoss,
-                CompatibilitySystem.GetCompatibility(state, beautiful.Id, other.Id));
-        }
-
-        [Fact]
-        public void ApplyQuestOutcome_ClampsAtMax100()
-        {
-            var state = new GameState();
-            var a = new Adventurer();
-            var b = new Adventurer();
+            var a = new Adventurer(); var b = new Adventurer();
+            var state = StateWith(a, b);
             state.Compatibility[CompatibilitySystem.NormalizeKey(a.Id, b.Id)] = CompatibilityBalance.MaxValue;
-            var party = PartyOf(a, b);
-            var system = new CompatibilitySystem(new AlwaysMaxRng());
 
-            system.ApplyQuestOutcome(state, party, achieved: true);
+            new CompatibilitySystem(new AlwaysMaxRng())
+                .ApplyExpeditionOutcome(state, PartyOf(a, b), DungeonMissionType.BossAssault, isSuccess: true);
 
             Assert.Equal(CompatibilityBalance.MaxValue, CompatibilitySystem.GetCompatibility(state, a.Id, b.Id));
         }

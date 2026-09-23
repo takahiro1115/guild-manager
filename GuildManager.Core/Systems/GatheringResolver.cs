@@ -87,7 +87,8 @@ namespace GuildManager.Core.Systems
         }
 
         /// <summary>
-        /// 採取スコア＝(Σ(AGI×係数＋DEX×係数)＋部隊長LDR×係数＋盗賊・斥候ボーナス)×部隊の平均HP比率。
+        /// 採取スコア＝(Σ(AGI×係数＋DEX×係数)＋部隊長LDR×係数＋盗賊・斥候ボーナス＋田舎育ちボーナス)×部隊の平均HP比率。
+        /// 田舎育ちボーナス＝特性「田舎育ち」保有者本人の(AGI×係数＋DEX×係数)×ボーナス率（→ CalculateRuralBonus、+20%）。
         /// 空の部隊は0。public static にしてあるのは出撃前のプレビュー（UI）とテストから同じ式を
         /// 使うため（→ ScoutingResolver.CalculateStealthScoreと同じ考え方）。
         /// </summary>
@@ -106,7 +107,7 @@ namespace GuildManager.Core.Systems
 
             double hpRatio = party.Members.Average(m => (double)m.CurrentHP / m.MaxHP);
 
-            return (statSum + classBonus) * hpRatio;
+            return (statSum + classBonus + CalculateRuralBonus(party)) * hpRatio;
         }
 
         /// <summary>
@@ -114,15 +115,28 @@ namespace GuildManager.Core.Systems
         /// </summary>
         public static GatheringScoreBreakdown BreakDownGatheringScore(Party party)
         {
-            if (party.IsEmpty) return new GatheringScoreBreakdown(0, 0, 0, 0, 1);
+            if (party.IsEmpty) return new GatheringScoreBreakdown(0, 0, 0, 0, 0, 1);
 
             return new GatheringScoreBreakdown(
                 AgiPart: party.Members.Sum(m => m.GetEffectiveStat("AGI") * GatheringBalance.AgiCoefficient),
                 DexPart: party.Members.Sum(m => m.GetEffectiveStat("DEX") * GatheringBalance.DexCoefficient),
                 LdrPart: party.Members[0].GetEffectiveStat("LDR") * GatheringBalance.LeaderLdrCoefficient,
                 ClassBonus: party.Members.Count(m => m.JobClass is JobClass.Thief or JobClass.Ranger) * GatheringBalance.ThiefRangerScoreBonus,
+                RuralBonus: CalculateRuralBonus(party),
                 HpRatio: party.Members.Average(m => (double)m.CurrentHP / m.MaxHP));
         }
+
+        /// <summary>
+        /// 特性「田舎育ち」（→ TraitEffectType.GatheringScoreBonus、2026年9月再設計）による採取スコアの加算（HP比率を掛ける前）。
+        /// 保有者ごとに、本人の採取寄与（AGI×係数＋DEX×係数）×ボーナス率を合計する。保有者がいなければ0。
+        /// </summary>
+        public static double CalculateRuralBonus(Party party) =>
+            party.Members.Sum(m =>
+            {
+                double rate = m.SumTraitEffect(TraitEffectType.GatheringScoreBonus);
+                return rate == 0 ? 0 : (m.GetEffectiveStat("AGI") * GatheringBalance.AgiCoefficient
+                    + m.GetEffectiveStat("DEX") * GatheringBalance.DexCoefficient) * rate;
+            });
 
         /// <summary>獲得数のうち採取スコア由来の枠＝(int)(採取スコア÷MaterialYieldDivisor)。</summary>
         public static int ScoreYield(double score) => (int)(score / GatheringBalance.MaterialYieldDivisor);

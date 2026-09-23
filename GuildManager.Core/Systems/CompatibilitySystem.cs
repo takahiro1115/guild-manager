@@ -11,8 +11,8 @@ namespace GuildManager.Core.Systems
     /// 相性（Compatibility）の管理。仕様書 03 §5.3.1 参照。
     ///
     /// - 冒険者2人1組ごとに0〜100の相性値を持つ（未登録のペアは初期値50＝中立）。
-    /// - 同パーティでクエスト達成→小さく上昇、苦戦敗退・戦線崩壊→やや下降、
-    ///   戦死が発生した場合は居合わせた生存者同士が大きく下降する。
+    /// - 同じ部隊で大迷宮の任務を達成して生還→上昇（ボス撃破+3、潜行・調査・採取+1。2026年9月再配線）、
+    ///   強制除籍（戦死扱い）が発生した場合は居合わせた生存者同士が大きく下降する。
     /// - 「容姿秀麗」特性を持つ者が関与するペアは、上昇量のみ倍率がかかる
     ///   （下降には影響しない、→ TraitEffectType.CompatibilityGainMultiplier）。
     /// - 30未満で「険悪」と判定し、SatisfactionSystem側の満足度ペナルティに使われる。
@@ -41,21 +41,37 @@ namespace GuildManager.Core.Systems
             GetCompatibility(state, idA, idB) < CompatibilityBalance.HostileThreshold;
 
         /// <summary>
-        /// クエスト解決結果（達成/失敗）を、同パーティで出撃した全ペアの相性に反映する。
-        /// 達成時のみ「容姿秀麗」保持者が関与するペアの上昇量に倍率がかかる
-        /// （失敗時は下降のみのため倍率を適用しない）。
+        /// 大迷宮の任務結果を、同じ部隊で生還した全ペアの相性に反映する（2026年9月：旧 ApplyQuestOutcome を
+        /// 大迷宮へ再配線。→ DungeonExpeditionSystem の週次解決から呼ぶ）。
+        /// 任務を達成した時だけ、任務種別ごとの上昇量（→ GetExpeditionGain：ボス撃破+3、潜行・調査・採取+1）を
+        /// 加算する（上限100）。「容姿秀麗」保持者が関与するペアは上昇量に倍率がかかる。
+        /// 達成できなかった場合（撤退・潰走・進軍なし・素材なし）は何もしない。
+        /// 強制除籍でロースターを離れた者は対象外（生還者同士のペアのみ）。
         /// </summary>
-        public void ApplyQuestOutcome(GameState state, Party party, bool achieved)
+        /// <returns>規定の上昇量（倍率適用前）。上昇が起きなかった（未達成・生還者が2人未満）場合は0。</returns>
+        public int ApplyExpeditionOutcome(GameState state, Party party, DungeonMissionType missionType, bool isSuccess)
         {
-            ForEachPair(party.Members, (a, b) =>
-            {
-                int delta = achieved
-                    ? (int)Math.Round(CompatibilityBalance.AchievementGain * GetBeautifulMultiplier(a, b))
-                    : -CompatibilityBalance.FailureLoss;
+            if (!isSuccess)
+                return 0;
 
-                AdjustCompatibility(state, a.Id, b.Id, delta);
-            });
+            var survivors = party.Members.Where(m => state.Adventurers.Contains(m)).ToList();
+            if (survivors.Count < 2)
+                return 0;
+
+            int gain = GetExpeditionGain(missionType);
+            ForEachPair(survivors, (a, b) =>
+                AdjustCompatibility(state, a.Id, b.Id, (int)Math.Round(gain * GetBeautifulMultiplier(a, b))));
+            return gain;
         }
+
+        /// <summary>任務種別ごとの相性上昇量（→ compatibility_advisor.csv ExpeditionGain_*）。</summary>
+        public static int GetExpeditionGain(DungeonMissionType missionType) => missionType switch
+        {
+            DungeonMissionType.BossAssault => CompatibilityBalance.ExpeditionGainBossVictory,
+            DungeonMissionType.Survey => CompatibilityBalance.ExpeditionGainSurvey,
+            DungeonMissionType.Gathering => CompatibilityBalance.ExpeditionGainGathering,
+            _ => CompatibilityBalance.ExpeditionGainTraversal,
+        };
 
         /// <summary>
         /// 戦死が発生した時の余波。同パーティの生存者同士の相性を大きく下降させ、

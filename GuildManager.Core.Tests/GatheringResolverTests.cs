@@ -39,6 +39,46 @@ namespace GuildManager.Core.Tests
         private static DungeonField MakeField(string id = "forest", int reachedFloor = 1) =>
             new() { Id = id, Name = "テスト用フィールド", Order = 1, IsUnlocked = true, ReachedFloor = reachedFloor };
 
+        // ---------------- 特性「田舎育ち」の採取スコアボーナス（2026年9月再設計） ----------------
+
+        [Fact]
+        public void CalculateGatheringScore_RuralBorn_AddsTwentyPercentOfOwnContribution()
+        {
+            // 田舎育ち保有者本人の採取寄与（AGI×1.0＋DEX×1.2）の+20%が加算され、未所持より高くなる。
+            var plain = MakeAdventurer(agiDex: 50);
+            var rural = MakeAdventurer(agiDex: 50);
+            rural.TryAddTrait(TraitCatalog.CountryBredId);
+            var partner = MakeAdventurer(agiDex: 30, ldr: 20);
+
+            double without = GatheringResolver.CalculateGatheringScore(PartyOf(partner, plain));
+            double with = GatheringResolver.CalculateGatheringScore(PartyOf(partner, rural));
+
+            double ownContribution = 50 * GatheringBalance.AgiCoefficient + 50 * GatheringBalance.DexCoefficient;
+            Assert.Equal(0.20, TraitBalance.CountryBredGatheringBonusRate, precision: 6);
+            Assert.True(with > without, "田舎育ちを編成した方が採取スコアは高いはず");
+            Assert.Equal(ownContribution * TraitBalance.CountryBredGatheringBonusRate, with - without, precision: 6);
+        }
+
+        [Fact]
+        public void BreakDownGatheringScore_RuralBonus_IsDisclosed_AndMatchesTotal()
+        {
+            var rural = MakeAdventurer(agiDex: 40);
+            rural.TryAddTrait(TraitCatalog.CountryBredId);
+            var party = PartyOf(MakeAdventurer(agiDex: 30), rural);
+
+            var breakdown = GatheringResolver.BreakDownGatheringScore(party);
+
+            Assert.Equal((40 * GatheringBalance.AgiCoefficient + 40 * GatheringBalance.DexCoefficient) * 0.20, breakdown.RuralBonus, precision: 6);
+            Assert.Equal(GatheringResolver.CalculateGatheringScore(party), breakdown.Total, precision: 6);
+            Assert.Equal(breakdown.Total, breakdown.BaseTotal + breakdown.RuralTotal, precision: 6);
+        }
+
+        [Fact]
+        public void BreakDownGatheringScore_NoRuralBorn_HasZeroBonus()
+        {
+            Assert.Equal(0, GatheringResolver.BreakDownGatheringScore(PartyOf(MakeAdventurer(agiDex: 40))).RuralBonus);
+        }
+
         // ---------------- 採取スコアの式 ----------------
 
         [Fact]

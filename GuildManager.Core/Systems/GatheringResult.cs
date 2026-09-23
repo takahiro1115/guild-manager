@@ -32,7 +32,7 @@ namespace GuildManager.Core.Systems
         // ---- 判定内訳の開示用（→ 03 §4.2.3「開発・バランス調整期間の特記事項」） ----
 
         /// <summary>採取スコアの内訳（→ GatheringResolver.BreakDownGatheringScore）。</summary>
-        public GatheringScoreBreakdown ScoreBreakdown { get; set; } = new(0, 0, 0, 0, 1);
+        public GatheringScoreBreakdown ScoreBreakdown { get; set; } = new(0, 0, 0, 0, 0, 1);
 
         /// <summary>採取スコア（→ GatheringResolver.CalculateGatheringScore）。</summary>
         public double Score { get; set; }
