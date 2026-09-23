@@ -5,7 +5,7 @@
 [node name="EquipmentPopup" type="PopupPanel"]
 title = "装備"
 initial_position = 1
-size = Vector2i(620, 480)
+size = Vector2i(760, 780)
 script = ExtResource("1_script")
 
 [node name="VBox" type="VBoxContainer" parent="."]
@@ -19,51 +19,89 @@ offset_right = -8.0
 offset_bottom = -8.0
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_constants/separation = 6
 
 [node name="TitleLabel" type="Label" parent="VBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(600, 0)
+custom_minimum_size = Vector2(740, 0)
 layout_mode = 2
+theme_override_font_sizes/font_size = 16
 text = "装備"
 autowrap_mode = 2
 
-[node name="ItemList" type="ItemList" parent="VBox"]
+[node name="EquipmentStatusLabel" type="RichTextLabel" parent="VBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 260)
+custom_minimum_size = Vector2(740, 0)
 layout_mode = 2
-size_flags_vertical = 3
-
-[node name="EquipmentStatusLabel" type="Label" parent="VBox"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(600, 0)
-layout_mode = 2
-text = ""
-autowrap_mode = 2
-
-[node name="PurchaseButton" type="Button" parent="VBox"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "選択したアイテムを購入・装備する"
+bbcode_enabled = true
+fit_content = true
 
 [node name="UnequipRow" type="HBoxContainer" parent="VBox"]
 layout_mode = 2
+theme_override_constants/separation = 6
 
 [node name="UnequipWeaponButton" type="Button" parent="VBox/UnequipRow"]
 unique_name_in_owner = true
 layout_mode = 2
+size_flags_horizontal = 3
 text = "武器を外す"
 
 [node name="UnequipArmorButton" type="Button" parent="VBox/UnequipRow"]
 unique_name_in_owner = true
 layout_mode = 2
+size_flags_horizontal = 3
 text = "防具を外す"
 
 [node name="UnequipAccessory1Button" type="Button" parent="VBox/UnequipRow"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "アクセ1を外す"
+size_flags_horizontal = 3
+text = "装飾1を外す"
 
 [node name="UnequipAccessory2Button" type="Button" parent="VBox/UnequipRow"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "アクセ2を外す"
+size_flags_horizontal = 3
+text = "装飾2を外す"
+
+[node name="ArmorySeparator" type="HSeparator" parent="VBox"]
+layout_mode = 2
+
+[node name="ArmoryHeaderLabel" type="Label" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 15
+text = "📦 ギルド保管庫の在庫（装備する）"
+
+[node name="ArmoryList" type="ItemList" parent="VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 230)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="EquipButton" type="Button" parent="VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+text = "選択した武具を装備する"
+
+[node name="CatalogSeparator" type="HSeparator" parent="VBox"]
+layout_mode = 2
+
+[node name="CatalogHeaderLabel" type="Label" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 15
+text = "🛒 カタログから購入して装備"
+
+[node name="ItemList" type="ItemList" parent="VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 200)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="PurchaseButton" type="Button" parent="VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+text = "選択したアイテムを購入・装備する"

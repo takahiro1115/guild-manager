@@ -235,10 +235,13 @@ namespace GuildManager.Core.Tests
             system.TryPurchaseAndEquip(state, adventurer, ItemCatalog.IronSwordId);
             system.TryPurchaseAndEquip(state, adventurer, ItemCatalog.LeatherArmorId);
 
-            system.Unequip(adventurer, EquipmentSlot.Weapon);
+            // 2026年9月改訂：解除はギルド保管庫へ戻す形になったため、GameStateを受け取る
+            // TryUnequipへ置き換わった（→ EquipmentSystem・Systems/EquipmentSystemTests）。
+            Assert.True(system.TryUnequip(state, adventurer, EquipmentSlot.Weapon));
 
             Assert.Null(adventurer.EquippedWeaponId);
             Assert.Equal(ItemCatalog.LeatherArmorId, adventurer.EquippedArmorId); // 他スロットは影響なし
+            Assert.Equal(ItemCatalog.IronSwordId, Assert.Single(state.Armory).ItemId); // 外した武器は保管庫へ
         }
 
         // ---------------- 個人CP・最大HPへの効果反映（→ Adventurer.GetEquipmentBonus） ----------------

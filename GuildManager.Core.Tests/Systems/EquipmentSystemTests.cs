@@ -1,0 +1,351 @@
+using System.Linq;
+using GuildManager.Core.Balance;
+using GuildManager.Core.Models;
+using GuildManager.Core.Systems;
+using Xunit;
+
+namespace GuildManager.Core.Tests.Systems
+{
+    /// <summary>
+    /// ギルド保管庫（→ GameState.Armory）と冒険者の装備枠のあいだの着脱
+    /// （→ EquipmentSystem.TryEquip / TryUnequip、03 §4.2.2）の単体テスト。
+    /// 実行方法: このフォルダで `dotnet test --filter FullyQualifiedName~Equipment`
+    ///
+    /// カタログからの即時購入（TryPurchaseAndEquip）側の検証は、従来からある
+    /// GuildManager.Core.Tests.EquipmentSystemTests が担当している。
+    /// </summary>
+    public class EquipmentSystemTests
+    {
+        private static Adventurer MakeAdventurer(JobClass job = JobClass.Warrior, int vit = 40)
+        {
+            var a = new Adventurer
+            {
+                Name = job.ToString(), Age = 20, JobClass = job,
+                STR = 40, AGI = 40, VIT = vit, MND = 40, DEX = 40, LDR = 40, INT = 40,
+            };
+            a.CurrentHP = a.MaxHP;
+            return a;
+        }
+
+        /// <summary>保管庫に1点だけ在庫がある状態を作る。</summary>
+        private static (GameState State, Adventurer Adventurer, EquipmentItem Item) MakeStateWith(
+            Item catalogItem, JobClass job = JobClass.Warrior)
+        {
+            var adventurer = MakeAdventurer(job);
+            var item = EquipmentItem.FromCatalog(catalogItem, acquiredAtWeek: 5, acquiredFrom: "鑑定");
+            var state = new GameState { Adventurers = { adventurer }, Armory = { item } };
+            return (state, adventurer, item);
+        }
+
+        // ---------------- 装備（指示書指定テスト） ----------------
+
+        [Fact]
+        public void Equip_MovesItem_FromArmory_ToAdventurer()
+        {
+            var (state, adventurer, item) = MakeStateWith(ItemCatalog.IronSword);
+
+            Assert.True(new EquipmentSystem().TryEquip(state, adventurer, EquipmentSlot.Weapon, item));
+
+            // 保管庫から抜け、冒険者のスロットに同一個体が入る（個体は消えも増えもしない）。
+            Assert.Empty(state.Armory);
+            Assert.Same(item, adventurer.EquippedWeapon);
+            Assert.Same(item, adventurer.GetEquipped(EquipmentSlot.Weapon));
+            Assert.Equal(ItemCatalog.IronSwordId, adventurer.EquippedWeaponId);
+        }
+
+        [Fact]
+        public void Equip_SwapsOldEquipment_BackToArmory()
+        {
+            var (state, adventurer, oldSword) = MakeStateWith(ItemCatalog.IronSword);
+            var newSword = EquipmentItem.FromCatalog(ItemCatalog.GreatSword);
+            state.Armory.Add(newSword);
+            var system = new EquipmentSystem();
+
+            Assert.True(system.TryEquip(state, adventurer, EquipmentSlot.Weapon, oldSword));
+            Assert.True(system.TryEquip(state, adventurer, EquipmentSlot.Weapon, newSword));
+
+            Assert.Same(newSword, adventurer.EquippedWeapon);
+            Assert.Same(oldSword, Assert.Single(state.Armory)); // 旧装備が保管庫へ戻る
+        }
+
+        [Fact]
+        public void Equip_Fails_WhenJobRestricted()
+        {
+            // 大剣は重戦士・騎士専用（→ ItemCatalog.GreatSword.AllowedJobs）。魔導士には着せられない。
+            var (state, mage, greatSword) = MakeStateWith(ItemCatalog.GreatSword, JobClass.Mage);
+
+            Assert.False(new EquipmentSystem().TryEquip(state, mage, EquipmentSlot.Weapon, greatSword));
+
+            Assert.Null(mage.EquippedWeapon);
+            Assert.Same(greatSword, Assert.Single(state.Armory)); // 在庫は動かない
+        }
+
+        [Fact]
+        public void Equip_Fails_WhenAdventurerDispatched()
+        {
+            var (state, adventurer, item) = MakeStateWith(ItemCatalog.IronSword);
+            adventurer.IsDispatched = true;
+
+            Assert.False(EquipmentSystem.CanChangeEquipment(adventurer));
+            Assert.False(new EquipmentSystem().TryEquip(state, adventurer, EquipmentSlot.Weapon, item));
+
+            Assert.Null(adventurer.EquippedWeapon);
+            Assert.Single(state.Armory);
+        }
+
+        [Fact]
+        public void Equip_Fails_WhenSlotDoesNotMatch()
+        {
+            // 武器の個体を防具枠へ入れようとしても通らない。
+            var (state, adventurer, sword) = MakeStateWith(ItemCatalog.IronSword);
+
+            Assert.False(new EquipmentSystem().TryEquip(state, adventurer, EquipmentSlot.Armor, sword));
+
+            Assert.Null(adventurer.EquippedArmor);
+            Assert.Single(state.Armory);
+        }
+
+        [Fact]
+        public void Equip_Fails_WhenItemIsNotInArmory()
+        {
+            // 保管庫に無い個体（既に他の冒険者が装備中など）は装備できない。
+            var adventurer = MakeAdventurer();
+            var state = new GameState { Adventurers = { adventurer } };
+            var orphan = EquipmentItem.FromCatalog(ItemCatalog.IronSword);
+
+            Assert.False(new EquipmentSystem().TryEquip(state, adventurer, EquipmentSlot.Weapon, orphan));
+
+            Assert.Null(adventurer.EquippedWeapon);
+            Assert.Empty(state.Armory);
+        }
+
+        [Fact]
+        public void Equip_Fails_ForUnknownCatalogId()
+        {
+            // カタログから引けない個体（カタログから消えた武具の旧データ）は着せない。
+            var adventurer = MakeAdventurer();
+            var unknown = new EquipmentItem { ItemId = "NoSuchItem", Name = "謎の武具" };
+            var state = new GameState { Adventurers = { adventurer }, Armory = { unknown } };
+
+            Assert.False(new EquipmentSystem().TryEquip(state, adventurer, EquipmentSlot.Weapon, unknown));
+
+            Assert.Null(adventurer.EquippedWeapon);
+            Assert.Single(state.Armory);
+        }
+
+        [Fact]
+        public void Equip_AllFourSlots_AreIndependent()
+        {
+            var adventurer = MakeAdventurer();
+            var weapon = EquipmentItem.FromCatalog(ItemCatalog.IronSword);
+            var armor = EquipmentItem.FromCatalog(ItemCatalog.LeatherArmor);
+            var accessory1 = EquipmentItem.FromCatalog(ItemCatalog.PowerRing);
+            var accessory2 = EquipmentItem.FromCatalog(ItemCatalog.QuickBrooch);
+            var state = new GameState { Adventurers = { adventurer }, Armory = { weapon, armor, accessory1, accessory2 } };
+            var system = new EquipmentSystem();
+
+            Assert.True(system.TryEquip(state, adventurer, EquipmentSlot.Weapon, weapon));
+            Assert.True(system.TryEquip(state, adventurer, EquipmentSlot.Armor, armor));
+            Assert.True(system.TryEquip(state, adventurer, EquipmentSlot.Accessory1, accessory1));
+            Assert.True(system.TryEquip(state, adventurer, EquipmentSlot.Accessory2, accessory2));
+
+            Assert.Empty(state.Armory);
+            Assert.Same(weapon, adventurer.EquippedWeapon);
+            Assert.Same(armor, adventurer.EquippedArmor);
+            Assert.Same(accessory1, adventurer.EquippedAccessory1);
+            Assert.Same(accessory2, adventurer.EquippedAccessory2);
+        }
+
+        // ---------------- 解除（指示書指定テスト） ----------------
+
+        [Fact]
+        public void Unequip_ReturnsItem_ToArmory()
+        {
+            var (state, adventurer, item) = MakeStateWith(ItemCatalog.IronSword);
+            var system = new EquipmentSystem();
+            Assert.True(system.TryEquip(state, adventurer, EquipmentSlot.Weapon, item));
+
+            Assert.True(system.TryUnequip(state, adventurer, EquipmentSlot.Weapon));
+
+            Assert.Null(adventurer.EquippedWeapon);
+            Assert.Same(item, Assert.Single(state.Armory));
+        }
+
+        [Fact]
+        public void Unequip_DoesNothing_ForEmptySlot()
+        {
+            var adventurer = MakeAdventurer();
+            var state = new GameState { Adventurers = { adventurer } };
+
+            Assert.False(new EquipmentSystem().TryUnequip(state, adventurer, EquipmentSlot.Weapon));
+
+            Assert.Empty(state.Armory);
+        }
+
+        [Fact]
+        public void Unequip_Fails_WhenAdventurerDispatched()
+        {
+            var (state, adventurer, item) = MakeStateWith(ItemCatalog.IronSword);
+            var system = new EquipmentSystem();
+            Assert.True(system.TryEquip(state, adventurer, EquipmentSlot.Weapon, item));
+            adventurer.IsDispatched = true;
+
+            Assert.False(system.TryUnequip(state, adventurer, EquipmentSlot.Weapon));
+
+            Assert.Same(item, adventurer.EquippedWeapon); // 出撃中の部隊の戦力は変えられない
+            Assert.Empty(state.Armory);
+        }
+
+        // ---------------- 最大HP・個人CPへの反映（指示書指定テスト） ----------------
+
+        [Fact]
+        public void Equip_Updates_MaxHp_AndCp()
+        {
+            var (state, adventurer, armor) = MakeStateWith(ItemCatalog.LeatherArmor);
+            var sword = EquipmentItem.FromCatalog(ItemCatalog.IronSword);
+            state.Armory.Add(sword);
+            var system = new EquipmentSystem();
+
+            int baseMaxHp = adventurer.MaxHP;
+            Assert.Equal(0, adventurer.GetEquipmentBonus(EquipmentEffectType.MaxHpBonus));
+            Assert.Equal(0, adventurer.GetEquipmentBonus(EquipmentEffectType.PersonalCpBonus));
+
+            // 防具（最大HP加算）と武器（個人CP加算）をそれぞれ装備する。
+            Assert.True(system.TryEquip(state, adventurer, EquipmentSlot.Armor, armor));
+            Assert.True(system.TryEquip(state, adventurer, EquipmentSlot.Weapon, sword));
+
+            Assert.Equal(baseMaxHp + EquipmentBalance.LeatherArmorEffectValue, adventurer.MaxHP);
+            Assert.Equal(EquipmentBalance.LeatherArmorEffectValue, adventurer.GetEquipmentBonus(EquipmentEffectType.MaxHpBonus));
+            Assert.Equal(EquipmentBalance.IronSwordEffectValue, adventurer.GetEquipmentBonus(EquipmentEffectType.PersonalCpBonus));
+
+            // 外せば元の値に戻る。
+            Assert.True(system.TryUnequip(state, adventurer, EquipmentSlot.Armor));
+            Assert.Equal(baseMaxHp, adventurer.MaxHP);
+            Assert.Equal(0, adventurer.GetEquipmentBonus(EquipmentEffectType.MaxHpBonus));
+        }
+
+        [Fact]
+        public void Equip_KeepsCurrentHp_WhenMaxHpRises()
+        {
+            var (state, adventurer, armor) = MakeStateWith(ItemCatalog.LeatherArmor);
+            adventurer.CurrentHP = 30;
+
+            Assert.True(new EquipmentSystem().TryEquip(state, adventurer, EquipmentSlot.Armor, armor));
+
+            // 装備で最大HPが増えても現在HPは据え置き（装備で全回復してしまわない）。
+            Assert.Equal(30, adventurer.CurrentHP);
+        }
+
+        [Fact]
+        public void Unequip_ClampsCurrentHp_WhenMaxHpDrops()
+        {
+            var (state, adventurer, armor) = MakeStateWith(ItemCatalog.LeatherArmor);
+            var system = new EquipmentSystem();
+            Assert.True(system.TryEquip(state, adventurer, EquipmentSlot.Armor, armor));
+            adventurer.CurrentHP = adventurer.MaxHP; // 装備込みの満タン
+
+            Assert.True(system.TryUnequip(state, adventurer, EquipmentSlot.Armor));
+
+            // 最大HPが下がった分、現在HPも丸められる（現在HP＞最大HPの不整合を残さない）。
+            Assert.Equal(adventurer.MaxHP, adventurer.CurrentHP);
+            Assert.True(adventurer.CurrentHP > 0);
+        }
+
+        // ---------------- UI向けの候補抽出 ----------------
+
+        [Fact]
+        public void GetEquippableFromArmory_FiltersBySlotAndJob()
+        {
+            var mage = MakeAdventurer(JobClass.Mage);
+            var staff = EquipmentItem.FromCatalog(ItemCatalog.MageStaff);      // 魔法職専用・武器
+            var greatSword = EquipmentItem.FromCatalog(ItemCatalog.GreatSword); // 重戦士・騎士専用・武器
+            var robe = EquipmentItem.FromCatalog(ItemCatalog.Robe);            // 後衛職・防具
+            var state = new GameState { Adventurers = { mage }, Armory = { staff, greatSword, robe } };
+
+            var weapons = EquipmentSystem.GetEquippableFromArmory(state, mage, EquipmentSlot.Weapon);
+            var armors = EquipmentSystem.GetEquippableFromArmory(state, mage, EquipmentSlot.Armor);
+
+            Assert.Same(staff, Assert.Single(weapons)); // 大剣は職業制限で除外される
+            Assert.Same(robe, Assert.Single(armors));
+            Assert.Empty(EquipmentSystem.GetEquippableFromArmory(state, mage, EquipmentSlot.Accessory1));
+        }
+
+        [Fact]
+        public void GetEquippableFromArmory_ExcludesItemsAlreadyEquipped()
+        {
+            // 「保管庫にある＝誰も装備していない」という不変条件の確認。
+            var (state, adventurer, sword) = MakeStateWith(ItemCatalog.IronSword);
+            Assert.Single(EquipmentSystem.GetEquippableFromArmory(state, adventurer, EquipmentSlot.Weapon));
+
+            Assert.True(new EquipmentSystem().TryEquip(state, adventurer, EquipmentSlot.Weapon, sword));
+
+            Assert.Empty(EquipmentSystem.GetEquippableFromArmory(state, adventurer, EquipmentSlot.Weapon));
+        }
+
+        [Fact]
+        public void Equip_TransfersItem_BetweenAdventurers_ViaArmory()
+        {
+            // 付け替えは「外す→保管庫→別の冒険者へ装備」の2手で完結し、個体は1つのまま。
+            var first = MakeAdventurer();
+            var second = MakeAdventurer();
+            var sword = EquipmentItem.FromCatalog(ItemCatalog.IronSword);
+            var state = new GameState { Adventurers = { first, second }, Armory = { sword } };
+            var system = new EquipmentSystem();
+
+            Assert.True(system.TryEquip(state, first, EquipmentSlot.Weapon, sword));
+            Assert.False(system.TryEquip(state, second, EquipmentSlot.Weapon, sword)); // 保管庫に無いので不可
+            Assert.True(system.TryUnequip(state, first, EquipmentSlot.Weapon));
+            Assert.True(system.TryEquip(state, second, EquipmentSlot.Weapon, sword));
+
+            Assert.Null(first.EquippedWeapon);
+            Assert.Same(sword, second.EquippedWeapon);
+            Assert.Empty(state.Armory);
+        }
+
+        // ---------------- 購入経路との整合（個体を破棄しない） ----------------
+
+        [Fact]
+        public void TryPurchaseAndEquip_SendsDisplacedEquipment_ToArmory()
+        {
+            // 2026年9月改訂：購入で押し出された旧装備も保管庫へ戻る（以前は消滅していた）。
+            var adventurer = MakeAdventurer();
+            var state = new GameState { Gold = 10000, Adventurers = { adventurer } };
+            var system = new EquipmentSystem();
+
+            Assert.True(system.TryPurchaseAndEquip(state, adventurer, ItemCatalog.IronSwordId));
+            Assert.Empty(state.Armory);
+
+            Assert.True(system.TryPurchaseAndEquip(state, adventurer, ItemCatalog.GreatSwordId));
+
+            Assert.Equal(ItemCatalog.GreatSwordId, adventurer.EquippedWeaponId);
+            Assert.Equal(ItemCatalog.IronSwordId, Assert.Single(state.Armory).ItemId);
+        }
+
+        [Fact]
+        public void TryPurchaseAndEquip_Fails_WhenAdventurerDispatched()
+        {
+            var adventurer = MakeAdventurer();
+            adventurer.IsDispatched = true;
+            var state = new GameState { Gold = 10000, Adventurers = { adventurer } };
+
+            Assert.False(new EquipmentSystem().TryPurchaseAndEquip(state, adventurer, ItemCatalog.IronSwordId));
+
+            Assert.Equal(10000, state.Gold);
+            Assert.Null(adventurer.EquippedWeapon);
+        }
+
+        [Fact]
+        public void PurchasedEquipment_RecordsAcquisitionMetadata()
+        {
+            var adventurer = MakeAdventurer();
+            var state = new GameState { Gold = 10000, WeekNumber = 17, Adventurers = { adventurer } };
+
+            Assert.True(new EquipmentSystem().TryPurchaseAndEquip(state, adventurer, ItemCatalog.IronSwordId));
+
+            var equipped = adventurer.EquippedWeapon!;
+            Assert.Equal(17, equipped.AcquiredAtWeek);
+            Assert.Equal("カタログから購入", equipped.AcquiredFrom);
+            Assert.Equal("鉄の剣", equipped.Name);
+        }
+    }
+}

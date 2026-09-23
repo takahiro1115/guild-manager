@@ -10,8 +10,9 @@ namespace GuildManager.Core.Models
     /// 武具が出るようになったことで、ギルドが「まだ誰にも装備させていない現物」を複数抱える状態が
     /// 生まれるため、カタログIdを指す個体としてこのクラスを新設した。
     ///
-    /// 冒険者側は従来どおりカタログIdの文字列だけを持つ（→ Adventurer.EquippedWeaponId 等）ため、
-    /// 本クラスは「保管庫の在庫」専用であり、装備状態そのものは表現しない。
+    /// 2026年9月改訂（保管庫からの着脱、→ §4.2.2）以降は、冒険者の装備枠が持つのも本クラスの
+    /// 個体になった（→ Adventurer.EquippedWeapon 等）。「保管庫にある＝誰も装備していない」
+    /// という不変条件を EquipmentSystem が保ち、同じ個体が保管庫と冒険者の両方に現れることはない。
     /// セーブはプリミティブのみで構成されているためそのままJSON化できる（→ SaveData.Armory）。
     /// </summary>
     public class EquipmentItem
@@ -43,6 +44,18 @@ namespace GuildManager.Core.Models
         /// セーブデータへ書き出してしまうのを避けるため（→ SaveData）。
         /// </summary>
         public Item? GetDefinition() => ItemCatalog.FindById(ItemId);
+
+        /// <summary>
+        /// この武具が入る装備枠（→ Item.Slot）。カタログから引けない個体（旧データ）はnull。
+        /// GetDefinition()と同じ理由でメソッドにしてある。
+        /// </summary>
+        public EquipmentSlot? GetSlot() => GetDefinition()?.Slot;
+
+        /// <summary>
+        /// 指定した職業が装備できるか（→ Item.IsAllowedFor）。カタログから引けない個体は
+        /// 装備不可として扱う（防御的：正体不明の物を着せない）。
+        /// </summary>
+        public bool IsAllowedFor(JobClass jobClass) => GetDefinition()?.IsAllowedFor(jobClass) ?? false;
 
         /// <summary>カタログ定義から保管庫の個体を作る。</summary>
         public static EquipmentItem FromCatalog(Item item, int acquiredAtWeek = 0, string acquiredFrom = "") => new()

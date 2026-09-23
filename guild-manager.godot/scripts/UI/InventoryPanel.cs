@@ -292,15 +292,16 @@ public partial class InventoryPanel : VBoxContainer
 
 		var summary = new RichTextLabel { BbcodeEnabled = true, FitContent = true, SizeFlagsHorizontal = SizeFlags.ExpandFill };
 		summary.AppendText($"[b]ギルド保管庫[/b]：{_state.Armory.Count} 点\n" +
-			"[color=gray]鑑定で掘り当てた武具の在庫。冒険者への装備付け替えUIは未接続のため、現時点では在庫の確認のみ" +
-			"（→ 03 §4.2.2「入手」・§11）。[/color]");
+			"[color=gray]鑑定で掘り当てた武具や、冒険者から外した武具の在庫（＝誰も装備していない現物）。" +
+			"装備させるには「冒険者人事」タブで対象を選び、[装備変更]から換装すること（→ 03 §4.2.2）。[/color]");
 		_armoryListBox.AddChild(summary);
 		_armoryListBox.AddChild(new HSeparator());
 
 		if (_state.Armory.Count == 0)
 		{
 			var empty = new RichTextLabel { BbcodeEnabled = true, FitContent = true, SizeFlagsHorizontal = SizeFlags.ExpandFill };
-			empty.AppendText("[color=gray]保管庫は空だ。遺物を鑑定すれば武具が出ることがある。[/color]");
+			empty.AppendText("[color=gray]保管庫は空だ。遺物を鑑定すれば武具が出ることがある" +
+				"（冒険者から外した武具もここへ戻る）。[/color]");
 			_armoryListBox.AddChild(empty);
 			return;
 		}

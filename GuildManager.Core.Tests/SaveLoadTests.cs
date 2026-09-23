@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using GuildManager.Core.Balance;
 using GuildManager.Core.Data;
 using GuildManager.Core.Models;
 using GuildManager.Core.Systems;
@@ -664,6 +665,129 @@ namespace GuildManager.Core.Tests
                 Assert.Empty(restored.Armory);
             }
             finally { Directory.Delete(dir, recursive: true); }
+        }
+
+        // ---------------- 冒険者の装備状態（→ 03 §4.2.2、2026年9月改訂：個体保持化） ----------------
+
+        [Fact]
+        public void RoundTrip_PreservesAdventurerEquipment_AndArmoryStock()
+        {
+            var adventurer = new Adventurer { Name = "甲", JobClass = JobClass.Warrior, VIT = 40 };
+            adventurer.CurrentHP = adventurer.MaxHP;
+            var state = new GameState { Adventurers = { adventurer } };
+            var system = new EquipmentSystem();
+
+            // 保管庫の在庫から3枠へ装備し、1点を在庫に残す。
+            var weapon = EquipmentItem.FromCatalog(ItemCatalog.IronSword, acquiredAtWeek: 3, acquiredFrom: "鑑定");
+            var armor = EquipmentItem.FromCatalog(ItemCatalog.LeatherArmor, acquiredAtWeek: 4, acquiredFrom: "鑑定");
+            var accessory = EquipmentItem.FromCatalog(ItemCatalog.PowerRing, acquiredAtWeek: 5, acquiredFrom: "鑑定");
+            var spare = EquipmentItem.FromCatalog(ItemCatalog.GuardCharm, acquiredAtWeek: 6, acquiredFrom: "鑑定");
+            state.Armory.AddRange(new[] { weapon, armor, accessory, spare });
+            Assert.True(system.TryEquip(state, adventurer, EquipmentSlot.Weapon, weapon));
+            Assert.True(system.TryEquip(state, adventurer, EquipmentSlot.Armor, armor));
+            Assert.True(system.TryEquip(state, adventurer, EquipmentSlot.Accessory1, accessory));
+
+            int maxHpBefore = adventurer.MaxHP;
+            int cpBonusBefore = adventurer.GetEquipmentBonus(EquipmentEffectType.PersonalCpBonus);
+
+            var json = JsonSerializer.Serialize(state.ToSaveData());
+            var restored = GameState.FromSaveData(JsonSerializer.Deserialize<SaveData>(json)!);
+
+            var loaded = Assert.Single(restored.Adventurers);
+            Assert.Equal(ItemCatalog.IronSwordId, loaded.EquippedWeaponId);
+            Assert.Equal(ItemCatalog.LeatherArmorId, loaded.EquippedArmorId);
+            Assert.Equal(ItemCatalog.PowerRingId, loaded.EquippedAccessory1Id);
+            Assert.Null(loaded.EquippedAccessory2Id);
+
+            // 個体の識別子・入手履歴まで保たれる（→ EquipmentItem）。
+            Assert.Equal(weapon.Id, loaded.EquippedWeapon!.Id);
+            Assert.Equal(3, loaded.EquippedWeapon.AcquiredAtWeek);
+            Assert.Equal("鑑定", loaded.EquippedWeapon.AcquiredFrom);
+
+            // 装備補正も復元後に同じ値になる。
+            Assert.Equal(maxHpBefore, loaded.MaxHP);
+            Assert.Equal(cpBonusBefore, loaded.GetEquipmentBonus(EquipmentEffectType.PersonalCpBonus));
+
+            // 保管庫に残した在庫はそのまま1点。装備中の3点が保管庫に二重計上されていないこと。
+            var stock = Assert.Single(restored.Armory);
+            Assert.Equal(ItemCatalog.GuardCharmId, stock.ItemId);
+        }
+
+        [Fact]
+        public void RoundTrip_EquipmentStaysNull_WhenNothingEquipped()
+        {
+            var state = new GameState { Adventurers = { new Adventurer { Name = "乙" } } };
+
+            var restored = GameState.FromSaveData(state.ToSaveData());
+
+            var loaded = Assert.Single(restored.Adventurers);
+            foreach (var slot in Adventurer.AllSlots)
+                Assert.Null(loaded.GetEquipped(slot));
+        }
+
+        [Fact]
+        public void LegacySave_WithEquippedItemIdStrings_RestoresEquipmentInstances()
+        {
+            // 2026年9月の個体保持化より前のセーブは、各スロットをカタログId文字列
+            // （"EquippedWeaponId":"IronSword"）で持っている。Adventurer側のセット専用
+            // プロパティ（Legacy*）がカタログから個体を復元すること（→ 03 §12）。
+            var data = new GameState { Adventurers = { new Adventurer { JobClass = JobClass.Warrior, VIT = 40 } } }
+                .ToSaveData();
+            var json = JsonSerializer.Serialize(data);
+
+            // 旧形式を再現：新形式の個体キーを、旧形式のId文字列キーへ置き換える
+            // （アンカーにする文字列はASCIIに限る：System.Text.Jsonは既定で非ASCIIを
+            // \uXXXX へエスケープするため、日本語の値では一致しない）。
+            json = json
+                .Replace("\"EquippedWeapon\":null", "\"EquippedWeaponId\":\"IronSword\"")
+                .Replace("\"EquippedArmor\":null", "\"EquippedArmorId\":\"LeatherArmor\"")
+                .Replace("\"EquippedAccessory1\":null", "\"EquippedAccessory1Id\":\"PowerRing\"")
+                .Replace("\"EquippedAccessory2\":null", "\"EquippedAccessory2Id\":null");
+            Assert.Contains("\"EquippedWeaponId\":\"IronSword\"", json);
+            Assert.DoesNotContain("\"EquippedWeapon\":", json);
+
+            var restored = GameState.FromSaveData(JsonSerializer.Deserialize<SaveData>(json)!);
+
+            var loaded = Assert.Single(restored.Adventurers);
+            Assert.Equal(ItemCatalog.IronSwordId, loaded.EquippedWeaponId);
+            Assert.Equal(ItemCatalog.LeatherArmorId, loaded.EquippedArmorId);
+            Assert.Equal(ItemCatalog.PowerRingId, loaded.EquippedAccessory1Id);
+            Assert.Null(loaded.EquippedAccessory2Id);
+            Assert.Equal("鉄の剣", loaded.EquippedWeapon!.Name);
+            // 装備補正も旧セーブどおりに効く。
+            Assert.Equal(EquipmentBalance.LeatherArmorEffectValue, loaded.GetEquipmentBonus(EquipmentEffectType.MaxHpBonus));
+        }
+
+        [Fact]
+        public void NewSave_DoesNotWriteLegacyEquippedIdKeys()
+        {
+            // 正本は個体（EquippedWeapon）であり、派生値であるIdはセーブへ書き出さない
+            // （二重管理を避けるため。→ Adventurer の JsonIgnore）。
+            var adventurer = new Adventurer { Name = "丁", JobClass = JobClass.Warrior, VIT = 40 };
+            var state = new GameState { Gold = 10000, Adventurers = { adventurer } };
+            Assert.True(new EquipmentSystem().TryPurchaseAndEquip(state, adventurer, ItemCatalog.IronSwordId));
+
+            var json = JsonSerializer.Serialize(state.ToSaveData());
+
+            Assert.DoesNotContain("EquippedWeaponId", json);
+            Assert.Contains("EquippedWeapon", json); // 個体そのものは書き出される
+        }
+
+        [Fact]
+        public void LegacySave_WithUnknownEquippedItemId_LoadsWithEmptySlot()
+        {
+            // カタログから消えたアイテムIdを持つ旧セーブは、当該スロットを未装備として復元する
+            // （ロード自体は失敗させない。→ 03 §12「既存セーブを保護する」）。
+            var data = new GameState { Adventurers = { new Adventurer() } }.ToSaveData();
+            var json = JsonSerializer.Serialize(data)
+                .Replace("\"EquippedWeapon\":null", "\"EquippedWeaponId\":\"RemovedLegendarySword\"");
+            Assert.Contains("RemovedLegendarySword", json);
+
+            var restored = GameState.FromSaveData(JsonSerializer.Deserialize<SaveData>(json)!);
+
+            var loaded = Assert.Single(restored.Adventurers);
+            Assert.Null(loaded.EquippedWeapon);
+            Assert.Null(loaded.EquippedWeaponId);
         }
 
         [Fact]

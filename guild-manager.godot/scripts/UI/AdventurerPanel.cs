@@ -372,11 +372,11 @@ public partial class AdventurerPanel : VBoxContainer
 			}
 		}
 
-		// ---- 装備スロット ----
-		_weaponLabel.Text = $"武器: {EquipmentItemName(a.EquippedWeaponId)}";
-		_armorLabel.Text = $"防具: {EquipmentItemName(a.EquippedArmorId)}";
-		_accessory1Label.Text = $"装飾1: {EquipmentItemName(a.EquippedAccessory1Id)}";
-		_accessory2Label.Text = $"装飾2: {EquipmentItemName(a.EquippedAccessory2Id)}";
+		// ---- 装備スロット（→ 03 §4.2.2。2026年9月改訂：個体（EquipmentItem）を表示する） ----
+		_weaponLabel.Text = $"武器: {EquipmentSlotText(a.EquippedWeapon)}";
+		_armorLabel.Text = $"防具: {EquipmentSlotText(a.EquippedArmor)}";
+		_accessory1Label.Text = $"装飾1: {EquipmentSlotText(a.EquippedAccessory1)}";
+		_accessory2Label.Text = $"装飾2: {EquipmentSlotText(a.EquippedAccessory2)}";
 
 		// ---- 操作ボタン群の個別ガード ----
 		_raiseWageButton.Disabled = false;
@@ -496,12 +496,21 @@ public partial class AdventurerPanel : VBoxContainer
 		return GD.Load<Texture2D>("res://assets/portraits/unknown_silhouette.png");
 	}
 
-	/// <summary>装備スロット表示用のラベル（未装備ならその旨を表示する。→ 03 §4.2.2）。</summary>
-	private static string EquipmentItemName(string? itemId)
+	/// <summary>
+	/// 装備スロット表示用のラベル（→ 03 §4.2.2）。未装備ならその旨を、装備中なら名称と
+	/// 効果量（個人CP／最大HPへの加算）を表示する。カタログ定義が引けない旧データは「（不明）」。
+	/// </summary>
+	private static string EquipmentSlotText(EquipmentItem? equipped)
 	{
-		if (itemId == null) return "なし";
-		var item = ItemCatalog.FindById(itemId);
-		return item?.Name ?? "（不明）";
+		if (equipped == null) return "なし";
+
+		var definition = equipped.GetDefinition();
+		if (definition == null) return $"{equipped.Name}（不明）";
+
+		string effect = definition.EffectType == EquipmentEffectType.PersonalCpBonus
+			? $"個人CP+{definition.EffectValue}"
+			: $"最大HP+{definition.EffectValue}";
+		return $"{definition.Name}（{effect}）";
 	}
 
 	/// <summary>職業の日本語表示名。DungeonPanel.JobLabel と同じマッピング。</summary>

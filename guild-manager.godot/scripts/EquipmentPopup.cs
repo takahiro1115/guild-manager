@@ -1,3 +1,4 @@
+#nullable enable
 using Godot;
 using System;
 using System.Collections.Generic;
@@ -6,18 +7,27 @@ using GuildManager.Core.Models;
 using GuildManager.Core.Systems;
 
 /// <summary>
-/// 装備の購入・着脱ポップアップ（仕様書 03 §4.2.2）。
+/// 装備の換装・購入ポップアップ（仕様書 03 §4.2.2）。
 ///
 /// FacilityPopupと同様、意思決定を強制しない（いつでも自由に開いたり閉じたりできる）。
-/// 対象は常に「ステータス詳細パネルに表示中の冒険者」（MainDashboard.CurrentDetailAdventurer）。
-/// カタログ全アイテムを一覧表示し、職業制限に反するものは選択できないようグレーアウトする。
+/// 対象は常に「冒険者人事パネルに表示中の冒険者」（→ AdventurerPanel.EquipmentRequested）。
+///
+/// 2026年9月改訂（ギルド保管庫からの着脱、→ §4.2.2・§4.7）：
+///  - 上段：現在の装備4枠と「外す」ボタン。外した武具はギルド保管庫（GameState.Armory）へ戻る。
+///  - 中段：**ギルド保管庫の在庫**一覧。遺物の鑑定や押し出しで溜まった現物をここから装備する。
+///  - 下段：従来のカタログ購入（即時購入して装備。押し出された旧装備は保管庫へ戻る）。
+/// 職業制限に反するものはどちらの一覧でも選択できないようグレーアウトする。
+/// 出撃中の冒険者は着脱不可（→ EquipmentSystem.CanChangeEquipment。AdventurerPanel側でも
+/// ボタンをDisabledにしているが、こちらでも独立してガードする）。
 /// </summary>
 public partial class EquipmentPopup : PopupPanel
 {
 	private Label _titleLabel = null!;
 	private ItemList _itemList = null!;
-	private Label _statusLabel = null!;
+	private ItemList _armoryList = null!;
+	private RichTextLabel _statusLabel = null!;
 	private Button _purchaseButton = null!;
+	private Button _equipButton = null!;
 	private Button _unequipWeaponButton = null!;
 	private Button _unequipArmorButton = null!;
 	private Button _unequipAccessory1Button = null!;
@@ -26,7 +36,15 @@ public partial class EquipmentPopup : PopupPanel
 	private GameState _state = null!;
 	private Adventurer _adventurer = null!;
 	private EquipmentSystem _equipmentSystem = null!;
+
+	/// <summary>カタログ一覧の行番号 → カタログ定義。</summary>
 	private List<Item> _catalogOrder = new();
+
+	/// <summary>保管庫一覧の行番号 → 在庫の個体（→ GameState.Armory）。</summary>
+	private List<EquipmentItem> _armoryOrder = new();
+
+	/// <summary>直近の操作結果メッセージ（再描画をまたいで表示を保つ）。</summary>
+	private string _message = "";
 
 	/// <summary>ポップアップが閉じたことを通知する（所持金・装備の変化をUI側に反映させるため）。</summary>
 	public event Action Closed = delegate { };
@@ -35,14 +53,17 @@ public partial class EquipmentPopup : PopupPanel
 	{
 		_titleLabel = GetNode<Label>("%TitleLabel");
 		_itemList = GetNode<ItemList>("%ItemList");
-		_statusLabel = GetNode<Label>("%EquipmentStatusLabel");
+		_armoryList = GetNode<ItemList>("%ArmoryList");
+		_statusLabel = GetNode<RichTextLabel>("%EquipmentStatusLabel");
 		_purchaseButton = GetNode<Button>("%PurchaseButton");
+		_equipButton = GetNode<Button>("%EquipButton");
 		_unequipWeaponButton = GetNode<Button>("%UnequipWeaponButton");
 		_unequipArmorButton = GetNode<Button>("%UnequipArmorButton");
 		_unequipAccessory1Button = GetNode<Button>("%UnequipAccessory1Button");
 		_unequipAccessory2Button = GetNode<Button>("%UnequipAccessory2Button");
 
 		_purchaseButton.Pressed += OnPurchasePressed;
+		_equipButton.Pressed += OnEquipPressed;
 		_unequipWeaponButton.Pressed += () => OnUnequipPressed(EquipmentSlot.Weapon);
 		_unequipArmorButton.Pressed += () => OnUnequipPressed(EquipmentSlot.Armor);
 		_unequipAccessory1Button.Pressed += () => OnUnequipPressed(EquipmentSlot.Accessory1);
@@ -55,89 +76,226 @@ public partial class EquipmentPopup : PopupPanel
 		_state = state;
 		_adventurer = adventurer;
 		_equipmentSystem = equipmentSystem;
+		_message = "";
 
-		_titleLabel.Text = $"{adventurer.Name}（{adventurer.JobClass}）の装備";
-		RefreshList();
+		_titleLabel.Text = $"{adventurer.Name}（{AdventurerPanel.JobLabel(adventurer.JobClass)}）の装備";
+		RefreshAll();
 		PopupCentered();
 	}
 
-	private void RefreshList()
+	private void RefreshAll()
+	{
+		RefreshArmoryList();
+		RefreshCatalogList();
+		RefreshStatus();
+		RefreshButtonGuards();
+	}
+
+	/// <summary>
+	/// ギルド保管庫の在庫一覧（→ GameState.Armory）。装備枠ごとに並べ、職業制限に反するものは
+	/// グレーアウトする（所持していること自体は見えるようにしたいため、非表示にはしない）。
+	/// </summary>
+	private void RefreshArmoryList()
+	{
+		_armoryList.Clear();
+		_armoryOrder = new List<EquipmentItem>();
+
+		// カタログから引けない個体（カタログから消えた武具の旧データ）は末尾にまとめる。
+		var ordered = _state.Armory
+			.OrderBy(e => e.GetSlot().HasValue ? (int)e.GetSlot()!.Value : int.MaxValue)
+			.ThenBy(e => e.Name, StringComparer.Ordinal)
+			.ToList();
+
+		if (ordered.Count == 0)
+		{
+			int emptyIndex = _armoryList.AddItem("保管庫は空。遺物の鑑定（倉庫・遺物タブ）や装備の付け替えで在庫が溜まる。");
+			_armoryList.SetItemDisabled(emptyIndex, true);
+			return;
+		}
+
+		foreach (var entry in ordered)
+		{
+			var definition = entry.GetDefinition();
+			_armoryOrder.Add(entry);
+			int index = _armoryList.ItemCount;
+
+			if (definition == null)
+			{
+				_armoryList.AddItem($"[不明] {entry.Name}（カタログ定義が見つからない旧データ）");
+				_armoryList.SetItemDisabled(index, true);
+				continue;
+			}
+
+			string acquired = entry.AcquiredAtWeek > 0 ? $"　第{entry.AcquiredAtWeek}週 {entry.AcquiredFrom}" : "";
+			_armoryList.AddItem($"[{SlotLabel(definition.Slot)}] {definition.Name}　{EffectText(definition)}{acquired}");
+
+			if (!definition.IsAllowedFor(_adventurer.JobClass))
+			{
+				_armoryList.SetItemDisabled(index, true);
+				_armoryList.SetItemTooltip(index, $"{AdventurerPanel.JobLabel(_adventurer.JobClass)}は装備できません。");
+			}
+		}
+	}
+
+	private void RefreshCatalogList()
 	{
 		_itemList.Clear();
 		_catalogOrder = new List<Item>();
 
-		foreach (var slot in new[] { EquipmentSlot.Weapon, EquipmentSlot.Armor, EquipmentSlot.Accessory1, EquipmentSlot.Accessory2 })
+		foreach (var slot in Adventurer.AllSlots)
 		{
 			foreach (var item in ItemCatalog.GetBySlot(slot))
 			{
 				_catalogOrder.Add(item);
-				bool allowed = item.IsAllowedFor(_adventurer.JobClass);
-				string effect = item.EffectType == EquipmentEffectType.PersonalCpBonus
-					? $"個人CP+{item.EffectValue}"
-					: $"最大HP+{item.EffectValue}";
-				string equippedMark = _adventurer.GetEquippedId(slot) == item.Id ? "【装備中】" : "";
-
 				int index = _itemList.ItemCount;
-				_itemList.AddItem($"[{SlotLabel(slot)}] {item.Name}　{effect}　{item.Price}G {equippedMark}");
-				if (!allowed)
+				string equippedMark = _adventurer.GetEquippedId(slot) == item.Id ? "　【装備中】" : "";
+				_itemList.AddItem($"[{SlotLabel(slot)}] {item.Name}　{EffectText(item)}　{item.Price}G{equippedMark}");
+
+				if (!item.IsAllowedFor(_adventurer.JobClass))
 				{
 					_itemList.SetItemDisabled(index, true);
-					_itemList.SetItemTooltip(index, $"{_adventurer.JobClass}は装備できません。");
+					_itemList.SetItemTooltip(index, $"{AdventurerPanel.JobLabel(_adventurer.JobClass)}は装備できません。");
+				}
+				else if (_state.Gold < item.Price)
+				{
+					_itemList.SetItemTooltip(index, $"資金不足（必要 {item.Price}G、所持 {_state.Gold}G）。");
 				}
 			}
 		}
-
-		RefreshStatus();
 	}
 
 	private void RefreshStatus()
 	{
-		_statusLabel.Text = $"所持金: {_state.Gold} G　　現在の装備 " +
-			$"武器:{EquipmentName(_adventurer.EquippedWeaponId)} " +
-			$"防具:{EquipmentName(_adventurer.EquippedArmorId)} " +
-			$"アクセ1:{EquipmentName(_adventurer.EquippedAccessory1Id)} " +
-			$"アクセ2:{EquipmentName(_adventurer.EquippedAccessory2Id)}";
+		_statusLabel.Clear();
+		_statusLabel.AppendText($"[b]所持金[/b]：{_state.Gold} G　／　[b]最大HP[/b]：{_adventurer.CurrentHP}/{_adventurer.MaxHP}" +
+			$"　／　[b]装備補正[/b]：個人CP +{_adventurer.GetEquipmentBonus(EquipmentEffectType.PersonalCpBonus)}" +
+			$"、最大HP +{_adventurer.GetEquipmentBonus(EquipmentEffectType.MaxHpBonus)}\n");
+
+		var parts = Adventurer.AllSlots.Select(slot =>
+		{
+			var equipped = _adventurer.GetEquipped(slot);
+			return $"{SlotLabel(slot)}:{(equipped == null ? "[color=gray]なし[/color]" : equipped.Name)}";
+		});
+		_statusLabel.AppendText($"[b]現在の装備[/b]　{string.Join("　", parts)}");
+
+		if (!string.IsNullOrEmpty(_message))
+			_statusLabel.AppendText($"\n{_message}");
+	}
+
+	/// <summary>出撃中は着脱不可、空きスロットは「外す」不可（→ EquipmentSystem.CanChangeEquipment）。</summary>
+	private void RefreshButtonGuards()
+	{
+		bool changeable = EquipmentSystem.CanChangeEquipment(_adventurer);
+
+		_equipButton.Disabled = !changeable || _armoryOrder.Count == 0;
+		_purchaseButton.Disabled = !changeable;
+		_unequipWeaponButton.Disabled = !changeable || _adventurer.EquippedWeapon == null;
+		_unequipArmorButton.Disabled = !changeable || _adventurer.EquippedArmor == null;
+		_unequipAccessory1Button.Disabled = !changeable || _adventurer.EquippedAccessory1 == null;
+		_unequipAccessory2Button.Disabled = !changeable || _adventurer.EquippedAccessory2 == null;
+
+		if (!changeable)
+			_message = "[color=orange]出撃中は装備を変更できません。帰還を待つこと。[/color]";
+	}
+
+	/// <summary>保管庫の在庫を、その武具が入る枠へ装備する（→ EquipmentSystem.TryEquip）。</summary>
+	private void OnEquipPressed()
+	{
+		var selected = _armoryList.GetSelectedItems();
+		if (selected.Length == 0 || selected[0] >= _armoryOrder.Count)
+		{
+			_message = "[color=orange]装備する武具を保管庫の一覧から選んでください。[/color]";
+			RefreshStatus();
+			return;
+		}
+
+		var entry = _armoryOrder[selected[0]];
+		var slot = entry.GetSlot();
+		if (slot == null)
+		{
+			_message = $"[color=orange]「{entry.Name}」はカタログ定義が見つからないため装備できません。[/color]";
+			RefreshStatus();
+			return;
+		}
+
+		var previous = _adventurer.GetEquipped(slot.Value);
+		if (!_equipmentSystem.TryEquip(_state, _adventurer, slot.Value, entry))
+		{
+			_message = $"[color=orange]「{entry.Name}」は装備できません" +
+				$"（{AdventurerPanel.JobLabel(_adventurer.JobClass)}の職業制限、または出撃中）。[/color]";
+			RefreshStatus();
+			return;
+		}
+
+		_message = $"[color=lime]{SlotLabel(slot.Value)}に「{entry.Name}」を装備した。[/color]" +
+			(previous == null ? "" : $"[color=gray]（「{previous.Name}」は保管庫へ戻した）[/color]");
+		RefreshAll();
 	}
 
 	private void OnPurchasePressed()
 	{
 		var selected = _itemList.GetSelectedItems();
-		if (selected.Length == 0)
+		if (selected.Length == 0 || selected[0] >= _catalogOrder.Count)
 		{
-			_statusLabel.Text = "購入・装備するアイテムを選択してください。";
+			_message = "[color=orange]購入・装備するアイテムを選択してください。[/color]";
+			RefreshStatus();
 			return;
 		}
 
 		var item = _catalogOrder[selected[0]];
 		if (!item.IsAllowedFor(_adventurer.JobClass))
 		{
-			_statusLabel.Text = $"{_adventurer.JobClass}は「{item.Name}」を装備できません。";
+			_message = $"[color=orange]{AdventurerPanel.JobLabel(_adventurer.JobClass)}は「{item.Name}」を装備できません。[/color]";
+			RefreshStatus();
 			return;
 		}
 		if (_state.Gold < item.Price)
 		{
-			_statusLabel.Text = $"資金が足りません（必要 {item.Price}G、所持 {_state.Gold}G）。";
+			_message = $"[color=orange]資金が足りません（必要 {item.Price}G、所持 {_state.Gold}G）。[/color]";
+			RefreshStatus();
 			return;
 		}
 
-		_equipmentSystem.TryPurchaseAndEquip(_state, _adventurer, item.Id);
-		RefreshList();
+		var previous = _adventurer.GetEquipped(item.Slot);
+		if (!_equipmentSystem.TryPurchaseAndEquip(_state, _adventurer, item.Id))
+		{
+			_message = $"[color=orange]「{item.Name}」を購入・装備できませんでした。[/color]";
+			RefreshStatus();
+			return;
+		}
+
+		_message = $"[color=lime]「{item.Name}」を{item.Price}Gで購入し、{SlotLabel(item.Slot)}に装備した。[/color]" +
+			(previous == null ? "" : $"[color=gray]（「{previous.Name}」は保管庫へ戻した）[/color]");
+		RefreshAll();
 	}
 
+	/// <summary>装備を外してギルド保管庫へ戻す（→ EquipmentSystem.TryUnequip）。</summary>
 	private void OnUnequipPressed(EquipmentSlot slot)
 	{
-		_equipmentSystem.Unequip(_adventurer, slot);
-		RefreshList();
+		var current = _adventurer.GetEquipped(slot);
+		if (!_equipmentSystem.TryUnequip(_state, _adventurer, slot))
+		{
+			_message = current == null
+				? $"[color=gray]{SlotLabel(slot)}には何も装備していません。[/color]"
+				: "[color=orange]出撃中は装備を外せません。[/color]";
+			RefreshStatus();
+			return;
+		}
+
+		_message = $"[color=cyan]{SlotLabel(slot)}の「{current!.Name}」を外し、保管庫へ戻した。[/color]";
+		RefreshAll();
 	}
 
-	private static string EquipmentName(string itemId) => itemId == null ? "なし" : (ItemCatalog.FindById(itemId)?.Name ?? "（不明）");
+	private static string EffectText(Item item) => item.EffectType == EquipmentEffectType.PersonalCpBonus
+		? $"個人CP+{item.EffectValue}"
+		: $"最大HP+{item.EffectValue}";
 
 	private static string SlotLabel(EquipmentSlot slot) => slot switch
 	{
 		EquipmentSlot.Weapon => "武器",
 		EquipmentSlot.Armor => "防具",
-		EquipmentSlot.Accessory1 => "アクセ1",
-		EquipmentSlot.Accessory2 => "アクセ2",
+		EquipmentSlot.Accessory1 => "装飾1",
+		EquipmentSlot.Accessory2 => "装飾2",
 		_ => slot.ToString()
 	};
 }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 using GuildManager.Core.Balance;
 
 namespace GuildManager.Core.Models
@@ -227,42 +228,108 @@ namespace GuildManager.Core.Models
         public int MaxHP => (int)(GetEffectiveStat("VIT") * CombatBalance.MaxHpVitCoefficient) + CombatBalance.MaxHpBase + GetEquipmentBonus(EquipmentEffectType.MaxHpBonus);
 
         // ---- 装備（Weapon/Armor/Accessory1/Accessory2）。仕様書 03 §4.2.2 参照。 ----
+        //
+        // 2026年9月改訂（ギルド保管庫からの着脱、→ §4.2.2・§4.7）：スロットが持つのは
+        // カタログIdの文字列ではなく「個体」（EquipmentItem）になった。理由は、装備を外した
+        // ときに**どの個体**を保管庫（GameState.Armory）へ戻すのかを一意に決める必要があるため
+        // （同じ鉄の剣を2本持てる。→ Models.EquipmentItem）。
+        // 旧セーブ（Id文字列を持つ）との互換は下の Legacy* プロパティで吸収する。
 
-        /// <summary>装備中の武器のId。null＝未装備。</summary>
-        public string? EquippedWeaponId { get; set; }
+        /// <summary>装備中の武器の個体。null＝未装備。</summary>
+        public EquipmentItem? EquippedWeapon { get; set; }
 
-        /// <summary>装備中の防具のId。null＝未装備。</summary>
-        public string? EquippedArmorId { get; set; }
+        /// <summary>装備中の防具の個体。null＝未装備。</summary>
+        public EquipmentItem? EquippedArmor { get; set; }
 
-        /// <summary>装備中のアクセサリー1のId。null＝未装備。</summary>
-        public string? EquippedAccessory1Id { get; set; }
+        /// <summary>装備中のアクセサリー1の個体。null＝未装備。</summary>
+        public EquipmentItem? EquippedAccessory1 { get; set; }
 
-        /// <summary>装備中のアクセサリー2のId。null＝未装備。</summary>
-        public string? EquippedAccessory2Id { get; set; }
+        /// <summary>装備中のアクセサリー2の個体。null＝未装備。</summary>
+        public EquipmentItem? EquippedAccessory2 { get; set; }
 
         /// <summary>
-        /// 指定したスロットの現在の装備Idを返す（スロット横断の汎用アクセサ。
+        /// 指定したスロットの装備個体を返す（スロット横断の汎用アクセサ。
         /// EquipmentSystem・UI側の装備状況表示の両方から使う）。
         /// </summary>
-        public string? GetEquippedId(EquipmentSlot slot) => slot switch
+        public EquipmentItem? GetEquipped(EquipmentSlot slot) => slot switch
         {
-            EquipmentSlot.Weapon => EquippedWeaponId,
-            EquipmentSlot.Armor => EquippedArmorId,
-            EquipmentSlot.Accessory1 => EquippedAccessory1Id,
-            EquipmentSlot.Accessory2 => EquippedAccessory2Id,
+            EquipmentSlot.Weapon => EquippedWeapon,
+            EquipmentSlot.Armor => EquippedArmor,
+            EquipmentSlot.Accessory1 => EquippedAccessory1,
+            EquipmentSlot.Accessory2 => EquippedAccessory2,
             _ => null,
         };
 
-        /// <summary>指定したスロットへ装備Idを設定する（スロット横断の汎用アクセサ。EquipmentSystem用）。</summary>
-        public void SetEquippedId(EquipmentSlot slot, string? itemId)
+        /// <summary>指定したスロットへ装備個体を設定する（null＝解除）。保管庫との受け渡しは EquipmentSystem の責務。</summary>
+        public void SetEquipped(EquipmentSlot slot, EquipmentItem? item)
         {
             switch (slot)
             {
-                case EquipmentSlot.Weapon: EquippedWeaponId = itemId; break;
-                case EquipmentSlot.Armor: EquippedArmorId = itemId; break;
-                case EquipmentSlot.Accessory1: EquippedAccessory1Id = itemId; break;
-                case EquipmentSlot.Accessory2: EquippedAccessory2Id = itemId; break;
+                case EquipmentSlot.Weapon: EquippedWeapon = item; break;
+                case EquipmentSlot.Armor: EquippedArmor = item; break;
+                case EquipmentSlot.Accessory1: EquippedAccessory1 = item; break;
+                case EquipmentSlot.Accessory2: EquippedAccessory2 = item; break;
             }
+        }
+
+        /// <summary>全4スロットを浅い順に列挙する（UI・EquipmentSystem・保管庫への一括返却で使う）。</summary>
+        public static readonly EquipmentSlot[] AllSlots =
+        {
+            EquipmentSlot.Weapon, EquipmentSlot.Armor, EquipmentSlot.Accessory1, EquipmentSlot.Accessory2,
+        };
+
+        /// <summary>
+        /// 指定したスロットの装備のカタログId（未装備ならnull）。個体（EquippedWeapon等）から
+        /// 導出される読み取り専用の値で、セーブデータには書き出さない（→ LegacyEquippedWeaponId）。
+        /// </summary>
+        public string? GetEquippedId(EquipmentSlot slot) => GetEquipped(slot)?.ItemId;
+
+        // 装備中のカタログId（旧APIと同じ名前・同じ意味）。個体から導出される読み取り専用の値で、
+        // 正本は EquippedWeapon 等の個体。JsonIgnoreにしてあるのは、セーブデータへ二重に
+        // 書き出さないため（旧キー名の受け皿は下の Legacy* が担う）。
+        [JsonIgnore] public string? EquippedWeaponId => EquippedWeapon?.ItemId;
+        [JsonIgnore] public string? EquippedArmorId => EquippedArmor?.ItemId;
+        [JsonIgnore] public string? EquippedAccessory1Id => EquippedAccessory1?.ItemId;
+        [JsonIgnore] public string? EquippedAccessory2Id => EquippedAccessory2?.ItemId;
+
+        /// <summary>
+        /// 指定したスロットへカタログIdで装備を設定する（null＝解除）。カタログ定義から**新しい個体**を
+        /// 作って差し込むため、保管庫の在庫を消費しない購入経路（→ EquipmentSystem.TryPurchaseAndEquip）
+        /// 専用。保管庫の現物を着ける場合は EquipmentSystem.TryEquip を使う。
+        /// 未知のIdを渡した場合は解除として扱う（防御的）。
+        /// </summary>
+        public void SetEquippedId(EquipmentSlot slot, string? itemId)
+        {
+            var definition = ItemCatalog.FindById(itemId);
+            SetEquipped(slot, definition == null ? null : EquipmentItem.FromCatalog(definition));
+        }
+
+        // ---- 旧セーブ互換（→ 03 §12） ----
+        //
+        // 2026年9月改訂前のセーブは、各スロットを "EquippedWeaponId":"IronSword" のような
+        // カタログId文字列で持っている。下の4つは**セット専用**（getterを持たない＝新しい
+        // セーブには書き出されない）のプロパティで、JSON側の旧キー名をそのまま受け取り、
+        // カタログ定義から個体を復元する。個体（EquippedWeapon等）が既に入っている場合は
+        // 何もしない（新形式が正本）。
+
+        [JsonPropertyName("EquippedWeaponId")]
+        public string? LegacyEquippedWeaponId { set => RestoreLegacyEquipment(EquipmentSlot.Weapon, value); }
+
+        [JsonPropertyName("EquippedArmorId")]
+        public string? LegacyEquippedArmorId { set => RestoreLegacyEquipment(EquipmentSlot.Armor, value); }
+
+        [JsonPropertyName("EquippedAccessory1Id")]
+        public string? LegacyEquippedAccessory1Id { set => RestoreLegacyEquipment(EquipmentSlot.Accessory1, value); }
+
+        [JsonPropertyName("EquippedAccessory2Id")]
+        public string? LegacyEquippedAccessory2Id { set => RestoreLegacyEquipment(EquipmentSlot.Accessory2, value); }
+
+        private void RestoreLegacyEquipment(EquipmentSlot slot, string? itemId)
+        {
+            if (itemId == null || GetEquipped(slot) != null)
+                return;
+
+            SetEquippedId(slot, itemId);
         }
 
         /// <summary>
@@ -272,9 +339,9 @@ namespace GuildManager.Core.Models
         public int GetEquipmentBonus(EquipmentEffectType effectType)
         {
             int total = 0;
-            foreach (var slot in new[] { EquipmentSlot.Weapon, EquipmentSlot.Armor, EquipmentSlot.Accessory1, EquipmentSlot.Accessory2 })
+            foreach (var slot in AllSlots)
             {
-                var item = ItemCatalog.FindById(GetEquippedId(slot));
+                var item = GetEquipped(slot)?.GetDefinition();
                 if (item != null && item.EffectType == effectType)
                     total += item.EffectValue;
             }
