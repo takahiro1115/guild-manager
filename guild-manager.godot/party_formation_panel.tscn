@@ -148,7 +148,7 @@ layout_mode = 2
 layout_mode = 2
 theme_override_colors/font_color = Color(0.7, 0.8, 0.9, 1)
 theme_override_font_sizes/font_size = 11
-text = "走破力予測（道中進軍）"
+text = "走破力予測（道中進軍・VIT/MND）"
 
 [node name="TraversalScoreLabel" type="Label" parent="SummaryPanel/Margin/SummaryHBox/TraversalCard/Margin/VBox"]
 unique_name_in_owner = true
@@ -156,6 +156,14 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0.4, 0.9, 1, 1)
 theme_override_font_sizes/font_size = 14
 text = "0 pt"
+
+[node name="TraversalDetailLabel" type="Label" parent="SummaryPanel/Margin/SummaryHBox/TraversalCard/Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.65, 0.7, 1)
+theme_override_font_sizes/font_size = 10
+text = ""
+autowrap_mode = 2
 
 [node name="StealthCard" type="PanelContainer" parent="SummaryPanel/Margin/SummaryHBox"]
 layout_mode = 2
@@ -175,7 +183,7 @@ layout_mode = 2
 layout_mode = 2
 theme_override_colors/font_color = Color(0.7, 0.8, 0.9, 1)
 theme_override_font_sizes/font_size = 11
-text = "隠密適性（遭遇回避）"
+text = "隠密適性（遭遇回避・AGI/DEX）"
 
 [node name="StealthScoreLabel" type="Label" parent="SummaryPanel/Margin/SummaryHBox/StealthCard/Margin/VBox"]
 unique_name_in_owner = true
@@ -183,6 +191,14 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0.5, 1, 0.5, 1)
 theme_override_font_sizes/font_size = 14
 text = "0 pt"
+
+[node name="StealthDetailLabel" type="Label" parent="SummaryPanel/Margin/SummaryHBox/StealthCard/Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.65, 0.7, 1)
+theme_override_font_sizes/font_size = 10
+text = ""
+autowrap_mode = 2
 
 [node name="AnalysisCard" type="PanelContainer" parent="SummaryPanel/Margin/SummaryHBox"]
 layout_mode = 2

@@ -11,9 +11,10 @@ namespace GuildManager.Core.Models
     /// 選択操作を削除」）であり、実プレイ上の配置はここで決まる初期値がそのまま使われる。
     /// なお Adventurer.TrySetPlacement はCore上に残っている（テスト・将来拡張用）。
     ///
-    /// 配置による個人CP補正（→ Balance/PlacementBalance・combat.csv）は、新3職にも既存職と
-    /// 同じ考え方で設定している（騎士＝前衛1.2、学者＝後衛1.2、盗賊＝前後とも1.0）。
-    /// ここで決まる本来の配置と組み合わさることで、同じ役割の職業間に戦闘格差が出ないようにしている。
+    /// ここで決まる配置は UI 上の役割表示（前衛／後衛バッジ）にのみ使う。職業×配置の個人CP補正
+    /// （旧 PlacementBalance.GetPersonalCpCorrection・combat.csv の PlacementCorrection_*）は、配置が職業で
+    /// 一意に決まる以上「職業ごとの固定倍率」に過ぎず形骸化していたため、2026年9月に撤廃した
+    /// （→ DungeonPowerCalculator、03 §4.2・§0.23）。
     /// </summary>
     public static class PlacementRules
     {

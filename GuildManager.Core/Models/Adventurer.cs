@@ -40,7 +40,8 @@ namespace GuildManager.Core.Models
         /// 職業に応じた初期値を設定する想定（→ SampleData・RecruitmentSystem）。
         /// 配置は職業で固定されない。どの職業でも自由に前衛/後衛を選べる
         /// （ユーザー決定：「魔法使いや僧侶も前衛になることができる。職業で固定になることはない」）。
-        /// 役割から外れた配置のペナルティは個人CP補正（→ Balance/PlacementBalance）で表現する。
+        /// 配置は火力に影響しない（職業×配置の個人CP補正は2026年9月に撤廃、→ DungeonPowerCalculator）。
+        /// 実プレイでは職業から一意に決まる値（→ PlacementRules）がUIの前衛／後衛表示に使われる。
         /// </summary>
         public Placement Placement { get; set; } = Placement.Front;
 

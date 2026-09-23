@@ -67,19 +67,19 @@ public partial class MainDashboard : Control
 	private enum DashboardView
 	{
 		Dungeon = 0,
-		Adventurer = 1,
-		Party = 2,
-		Research = 3,
-		Facility = 4,
+
+		/// <summary>部隊・冒険者（部隊編成と個人詳細の2ペイン。2026年9月に旧「冒険者人事」を統合、→ 03 §9）。</summary>
+		Party = 1,
+		Research = 2,
+		Facility = 3,
 
 		/// <summary>倉庫・遺物（未鑑定遺物の鑑定・採取素材・ギルド保管庫。→ 03 §4.7）。</summary>
-		Warehouse = 5
+		Warehouse = 4
 	}
 
 	private TabContainer _centerPanel = null!;
 	private Control _rightPanel = null!;
 	private Button _navDungeonBtn = null!;
-	private Button _navAdventurerBtn = null!;
 	private Button _navPartyBtn = null!;
 	private Button _navResearchBtn = null!;
 	private Button _navFacilityBtn = null!;
@@ -143,14 +143,12 @@ public partial class MainDashboard : Control
 		_rightPanel = GetNode<Control>("%RightPanel");
 
 		_navDungeonBtn = GetNode<Button>("%NavDungeonBtn");
-		_navAdventurerBtn = GetNode<Button>("%NavAdventurerBtn");
 		_navPartyBtn = GetNode<Button>("%NavPartyBtn");
 		_navResearchBtn = GetNode<Button>("%NavResearchBtn");
 		_navFacilityBtn = GetNode<Button>("%NavFacilityBtn");
 		_navWarehouseBtn = GetNode<Button>("%NavWarehouseBtn");
 
 		_navDungeonBtn.Pressed += () => SwitchView(DashboardView.Dungeon);
-		_navAdventurerBtn.Pressed += () => SwitchView(DashboardView.Adventurer);
 		_navPartyBtn.Pressed += () => SwitchView(DashboardView.Party);
 		_navResearchBtn.Pressed += () => SwitchView(DashboardView.Research);
 		_navFacilityBtn.Pressed += () => SwitchView(DashboardView.Facility);
@@ -169,6 +167,8 @@ public partial class MainDashboard : Control
 
 		_partyFormationPanel = GetNode<PartyFormationPanel>("%PartyFormationTab");
 		_partyFormationPanel.StateChanged += RefreshAll;
+		// 部隊・冒険者画面（→ 03 §9）：編成スロット・候補行のクリックで右ペインの個人詳細を切り替える。
+		_partyFormationPanel.AdventurerSelected += id => _adventurerPanel.ShowAdventurer(id);
 
 		_researchPanel = GetNode<ResearchPanel>("%ResearchTab");
 		_researchPanel.LogRequested += AppendLog;
@@ -1063,7 +1063,6 @@ public partial class MainDashboard : Control
 		var buttons = new (DashboardView View, Button Btn)[]
 		{
 			(DashboardView.Dungeon, _navDungeonBtn),
-			(DashboardView.Adventurer, _navAdventurerBtn),
 			(DashboardView.Party, _navPartyBtn),
 			(DashboardView.Research, _navResearchBtn),
 			(DashboardView.Facility, _navFacilityBtn),

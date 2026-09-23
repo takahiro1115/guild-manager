@@ -14,6 +14,9 @@ using GuildManager.Core.Systems;
 /// 4枠メンバーカード（前後衛自動決定バッジ表示・除名・出撃中ガード）、
 /// 待機冒険者のアサインUI（重複配属防止・ステータスバッジ）、
 /// および部隊総合力サマリー（走破力予測・隠密解析・健全度・相性）を提供する。
+///
+/// 2026年9月（→ 03 §9「部隊・冒険者」画面）：個人詳細ペイン（AdventurerPanel）と左右に並べて常設する。
+/// 編成スロット・候補行のクリックで AdventurerSelected を発し、選択中の行・スロットを枠線で強調する。
 /// </summary>
 public partial class PartyFormationPanel : VBoxContainer
 {
@@ -47,12 +50,22 @@ public partial class PartyFormationPanel : VBoxContainer
 	// 候補冒険者リスト
 	private VBoxContainer _candidateListContainer = null!;
 
+	// 個人詳細ペインとの選択連動（→ 03 §9「部隊・冒険者」画面、2026年9月統合）
+	private readonly Control[] _slotPanels = new Control[4];
+	private readonly Dictionary<Guid, PanelContainer> _candidateRows = new();
+	private Guid? _selectedAdventurerId;
+
 	private GameState? _state;
 	private PartyFormationSystem _partyFormationSystem = null!;
 	private int _selectedSquadIndex = 0;
 
 	/// <summary>編成の変更でゲーム状態が変わったことを通知する。</summary>
 	public event Action StateChanged = delegate { };
+
+	/// <summary>
+	/// 編成スロットまたは候補行がクリックされ、個人詳細ペインに表示する冒険者が選ばれた（→ MainDashboard が AdventurerPanel.ShowAdventurer へ中継）。
+	/// </summary>
+	public event Action<Guid> AdventurerSelected = delegate { };
 
 	public override void _Ready()
 	{
@@ -91,6 +104,12 @@ public partial class PartyFormationPanel : VBoxContainer
 
 			int slotIndex = i;
 			_slotRemoveButtons[i].Pressed += () => OnRemoveMemberClicked(slotIndex);
+
+			// スロットのクリックで個人詳細ペインへ表示（解除ボタン以外の子はクリックを素通しさせる）。
+			_slotPanels[i] = GetNode<Control>($"MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot{i}");
+			IgnoreMouseExceptButtons(_slotPanels[i]);
+			_slotPanels[i].MouseDefaultCursorShape = CursorShape.PointingHand;
+			_slotPanels[i].GuiInput += e => OnSlotGuiInput(e, slotIndex);
 		}
 
 		_candidateListContainer = GetNode<VBoxContainer>("%CandidateListContainer");
@@ -114,9 +133,14 @@ public partial class PartyFormationPanel : VBoxContainer
 			_selectedSquadIndex = 0;
 		}
 
+		// 選択中の冒険者がロースターを離れた（引退・除籍・退団）場合は選択を解く（暗黙の再選択はしない）。
+		if (_selectedAdventurerId.HasValue && !_state.Adventurers.Any(a => a.Id == _selectedAdventurerId.Value))
+			_selectedAdventurerId = null;
+
 		RefreshSquadButtons();
 		RefreshSelectedSquadView();
 		RefreshCandidateList();
+		ApplySelectionHighlight();
 	}
 
 	/// <summary>
@@ -142,6 +166,7 @@ public partial class PartyFormationPanel : VBoxContainer
 		RefreshSquadButtons();
 		RefreshSelectedSquadView();
 		RefreshCandidateList();
+		ApplySelectionHighlight();
 	}
 
 	private void RefreshSquadButtons()
@@ -349,6 +374,7 @@ public partial class PartyFormationPanel : VBoxContainer
 		{
 			child.QueueFree();
 		}
+		_candidateRows.Clear();
 
 		var currentParty = GetCurrentParty();
 		bool isCurrentPartyDispatched = currentParty != null && IsPartyDispatched(currentParty);
@@ -477,7 +503,89 @@ public partial class PartyFormationPanel : VBoxContainer
 		assignButton.Pressed += () => OnAssignAdventurerClicked(a);
 		hbox.AddChild(assignButton);
 
+		// 行のクリックで個人詳細ペインへ表示（配属ボタン以外の子はクリックを素通しさせる）。
+		IgnoreMouseExceptButtons(panel);
+		panel.MouseDefaultCursorShape = CursorShape.PointingHand;
+		panel.GuiInput += e =>
+		{
+			if (IsLeftClick(e))
+				SelectAdventurer(a.Id);
+		};
+		_candidateRows[a.Id] = panel;
+
 		return panel;
+	}
+
+	// ==== 個人詳細ペインとの選択連動（→ 03 §9「部隊・冒険者」画面、2026年9月統合） ====
+
+	private static bool IsLeftClick(InputEvent e) =>
+		e is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left };
+
+	/// <summary>編成スロットのクリック。空き枠は何もしない。</summary>
+	private void OnSlotGuiInput(InputEvent e, int slotIndex)
+	{
+		if (!IsLeftClick(e)) return;
+		var currentParty = GetCurrentParty();
+		if (currentParty == null || slotIndex >= currentParty.MemberIds.Count) return;
+		SelectAdventurer(currentParty.MemberIds[slotIndex]);
+	}
+
+	/// <summary>冒険者を選択し、個人詳細ペインへの表示を依頼する。</summary>
+	private void SelectAdventurer(Guid id)
+	{
+		_selectedAdventurerId = id;
+		ApplySelectionHighlight();
+		AdventurerSelected.Invoke(id);
+	}
+
+	/// <summary>選択中の冒険者の編成スロット・候補行を枠線で強調する（未選択なら強調なし）。</summary>
+	private void ApplySelectionHighlight()
+	{
+		var currentParty = GetCurrentParty();
+		for (int i = 0; i < 4; i++)
+		{
+			bool selected = _selectedAdventurerId.HasValue && currentParty != null
+				&& i < currentParty.MemberIds.Count && currentParty.MemberIds[i] == _selectedAdventurerId.Value;
+			SetHighlighted(_slotPanels[i], selected);
+		}
+
+		foreach (var (id, row) in _candidateRows)
+		{
+			if (IsInstanceValid(row))
+				SetHighlighted(row, _selectedAdventurerId == id);
+		}
+	}
+
+	private static readonly StyleBoxFlat SelectedStyle = new()
+	{
+		BgColor = new Color(0.16f, 0.26f, 0.38f, 0.95f),
+		BorderColor = new Color(0.45f, 0.8f, 1.0f),
+		BorderWidthLeft = 2, BorderWidthTop = 2, BorderWidthRight = 2, BorderWidthBottom = 2,
+		CornerRadiusTopLeft = 4, CornerRadiusTopRight = 4, CornerRadiusBottomLeft = 4, CornerRadiusBottomRight = 4,
+	};
+
+	private static void SetHighlighted(Control panel, bool selected)
+	{
+		if (selected)
+			panel.AddThemeStyleboxOverride("panel", SelectedStyle);
+		else
+			panel.RemoveThemeStyleboxOverride("panel");
+	}
+
+	/// <summary>
+	/// パネル配下のボタン以外の子孫をクリック不感（Ignore）にし、クリックをパネル自身へ届かせる。
+	/// ボタン（解除・配属）は従来どおり押せる。
+	/// </summary>
+	private static void IgnoreMouseExceptButtons(Node root)
+	{
+		foreach (var child in root.GetChildren())
+		{
+			if (child is BaseButton)
+				continue;
+			if (child is Control c)
+				c.MouseFilter = MouseFilterEnum.Ignore;
+			IgnoreMouseExceptButtons(child);
+		}
 	}
 
 	private void OnAssignAdventurerClicked(Adventurer a)

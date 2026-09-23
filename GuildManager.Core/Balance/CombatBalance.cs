@@ -7,7 +7,7 @@ namespace GuildManager.Core.Balance
     ///
     /// 事前調査メモ（項目58）：これらの数値はQuestResolver.cs・Adventurer.cs（MaxHP算出）に
     /// 直書きされていた（05技術メモ§3の方針違反）。今回新設したこのクラスへ集約した。
-    /// 配置補正（PlacementBalance）は既存のBalanceクラスの公開シグネチャを変えないため、
+    /// 配置関連（PlacementBalance。個人CPの配置補正は2026年9月に撤廃し、現在は不意打ちの被弾ウェイトのみ）は
     /// combat.csv内の該当キーもそちら側で読む（このクラスには持たない）。
     ///
     /// 項目63改訂：個人CP重み（旧WeightSTR〜WeightLDR）は、クエスト種別ごとの統一点数

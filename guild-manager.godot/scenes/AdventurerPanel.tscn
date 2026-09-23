@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://d3qap4adventurer"]
 
 [ext_resource type="Script" path="res://scripts/UI/AdventurerPanel.cs" id="1_script"]
+[ext_resource type="Script" path="res://scripts/UI/TripleStatBar.cs" id="2_triplebar"]
 
 [node name="AdventurerPanel" type="VBoxContainer"]
 anchors_preset = 15
@@ -31,7 +32,7 @@ theme_override_constants/separation = 12
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 15
-text = "冒険者名簿・個人詳細"
+text = "個人詳細"
 
 [node name="AdvisorButton" type="Button" parent="HeaderPanel/Margin/HeaderHBox"]
 unique_name_in_owner = true
@@ -40,92 +41,65 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 13
 text = "👔 顧問管理"
 
-[node name="HSplit" type="HSplitContainer" parent="."]
-layout_mode = 2
-size_flags_horizontal = 3
-size_flags_vertical = 3
-split_offset = 380
-
-[node name="LeftPane" type="VBoxContainer" parent="HSplit"]
+[node name="Body" type="MarginContainer" parent="."]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 
-[node name="ListHeaderPanel" type="PanelContainer" parent="HSplit/LeftPane"]
-layout_mode = 2
-
-[node name="Margin" type="MarginContainer" parent="HSplit/LeftPane/ListHeaderPanel"]
-layout_mode = 2
-theme_override_constants/margin_left = 8
-theme_override_constants/margin_top = 6
-theme_override_constants/margin_right = 8
-theme_override_constants/margin_bottom = 6
-
-[node name="ListHeader" type="Label" parent="HSplit/LeftPane/ListHeaderPanel/Margin"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 15
-text = "冒険者一覧（クリックで詳細表示）"
-
-[node name="AdventurerList" type="ItemList" parent="HSplit/LeftPane"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_vertical = 3
-theme_override_font_sizes/font_size = 13
-
-[node name="RightPane" type="ScrollContainer" parent="HSplit"]
+[node name="RightPane" type="ScrollContainer" parent="Body"]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
 
-[node name="DetailVBox" type="VBoxContainer" parent="HSplit/RightPane"]
+[node name="DetailVBox" type="VBoxContainer" parent="Body/RightPane"]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 theme_override_constants/separation = 10
 
-[node name="NoSelectionPanel" type="PanelContainer" parent="HSplit/RightPane/DetailVBox"]
+[node name="NoSelectionPanel" type="PanelContainer" parent="Body/RightPane/DetailVBox"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="Margin" type="MarginContainer" parent="HSplit/RightPane/DetailVBox/NoSelectionPanel"]
+[node name="Margin" type="MarginContainer" parent="Body/RightPane/DetailVBox/NoSelectionPanel"]
 layout_mode = 2
 theme_override_constants/margin_left = 20
 theme_override_constants/margin_top = 40
 theme_override_constants/margin_right = 20
 theme_override_constants/margin_bottom = 40
 
-[node name="NoSelectionLabel" type="Label" parent="HSplit/RightPane/DetailVBox/NoSelectionPanel/Margin"]
+[node name="NoSelectionLabel" type="Label" parent="Body/RightPane/DetailVBox/NoSelectionPanel/Margin"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
 theme_override_font_sizes/font_size = 16
-text = "← 左の一覧から冒険者を選択してください。"
+text = "← 編成スロットまたは候補一覧から冒険者を選択してください。"
 horizontal_alignment = 1
 
-[node name="DetailContainer" type="VBoxContainer" parent="HSplit/RightPane/DetailVBox"]
+[node name="DetailContainer" type="VBoxContainer" parent="Body/RightPane/DetailVBox"]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 10
 
-[node name="BasicInfoCard" type="PanelContainer" parent="HSplit/RightPane/DetailVBox/DetailContainer"]
+[node name="BasicInfoCard" type="PanelContainer" parent="Body/RightPane/DetailVBox/DetailContainer"]
 layout_mode = 2
 
-[node name="Margin" type="MarginContainer" parent="HSplit/RightPane/DetailVBox/DetailContainer/BasicInfoCard"]
+[node name="Margin" type="MarginContainer" parent="Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard"]
 layout_mode = 2
 theme_override_constants/margin_left = 12
 theme_override_constants/margin_top = 10
 theme_override_constants/margin_right = 12
 theme_override_constants/margin_bottom = 10
 
-[node name="BasicInfoHBox" type="HBoxContainer" parent="HSplit/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin"]
+[node name="BasicInfoHBox" type="HBoxContainer" parent="Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin"]
 layout_mode = 2
 theme_override_constants/separation = 16
 
-[node name="PortraitTextureRect" type="TextureRect" parent="HSplit/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox"]
+[node name="PortraitTextureRect" type="TextureRect" parent="Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(120, 160)
 layout_mode = 2
@@ -133,46 +107,46 @@ size_flags_vertical = 0
 expand_mode = 1
 stretch_mode = 5
 
-[node name="BasicInfoVBox" type="VBoxContainer" parent="HSplit/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox"]
+[node name="BasicInfoVBox" type="VBoxContainer" parent="Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox"]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 6
 
-[node name="HeaderRow" type="HBoxContainer" parent="HSplit/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox"]
+[node name="HeaderRow" type="HBoxContainer" parent="Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox"]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="NameLabel" type="Label" parent="HSplit/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox/HeaderRow"]
+[node name="NameLabel" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox/HeaderRow"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 20
 text = "氏名"
 
-[node name="PlacementBadgeLabel" type="Label" parent="HSplit/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox/HeaderRow"]
+[node name="PlacementBadgeLabel" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox/HeaderRow"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.4, 0.8, 1, 1)
 theme_override_font_sizes/font_size = 14
 text = "【前衛】"
 
-[node name="JobBadgeLabel" type="Label" parent="HSplit/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox/HeaderRow"]
+[node name="JobBadgeLabel" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox/HeaderRow"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.85, 0.4, 1)
 theme_override_font_sizes/font_size = 14
 text = "職業"
 
-[node name="AgeLabel" type="Label" parent="HSplit/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox/HeaderRow"]
+[node name="AgeLabel" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox/HeaderRow"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 14
 text = "21歳 (全盛期)"
 
-[node name="StatusRow" type="HBoxContainer" parent="HSplit/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox"]
+[node name="StatusRow" type="HBoxContainer" parent="Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox"]
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="StatusLabel" type="RichTextLabel" parent="HSplit/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox/StatusRow"]
+[node name="StatusLabel" type="RichTextLabel" parent="Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox/StatusRow"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
@@ -180,13 +154,13 @@ bbcode_enabled = true
 fit_content = true
 scroll_active = false
 
-[node name="WageLabel" type="Label" parent="HSplit/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox/StatusRow"]
+[node name="WageLabel" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox/StatusRow"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.85, 0.4, 1)
 text = "週給: 150 G"
 
-[node name="NegotiationWarning" type="Label" parent="HSplit/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox"]
+[node name="NegotiationWarning" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox"]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
@@ -194,391 +168,398 @@ theme_override_colors/font_color = Color(1, 0.4, 0.2, 1)
 theme_override_font_sizes/font_size = 13
 text = "⚠ 契約交渉中（あとX週で対応しないと退団）"
 
-[node name="ConditionGrid" type="GridContainer" parent="HSplit/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox"]
+[node name="ConditionGrid" type="GridContainer" parent="Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox"]
 layout_mode = 2
 theme_override_constants/h_separation = 16
 theme_override_constants/v_separation = 4
 columns = 2
 
-[node name="HpLabel" type="Label" parent="HSplit/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox/ConditionGrid"]
+[node name="HpLabel" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox/ConditionGrid"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 13
 text = "HP: 100/100"
 
-[node name="SatisfactionLabel" type="Label" parent="HSplit/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox/ConditionGrid"]
+[node name="SatisfactionLabel" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox/ConditionGrid"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 13
 text = "満足度: 80/100"
 
-[node name="HpBar" type="ProgressBar" parent="HSplit/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox/ConditionGrid"]
+[node name="HpBar" type="ProgressBar" parent="Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox/ConditionGrid"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 14)
 layout_mode = 2
 size_flags_horizontal = 3
 show_percentage = false
 
-[node name="SatisfactionBar" type="ProgressBar" parent="HSplit/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox/ConditionGrid"]
+[node name="SatisfactionBar" type="ProgressBar" parent="Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox/ConditionGrid"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 14)
 layout_mode = 2
 size_flags_horizontal = 3
 show_percentage = false
 
-[node name="StatsCard" type="PanelContainer" parent="HSplit/RightPane/DetailVBox/DetailContainer"]
+[node name="StatsCard" type="PanelContainer" parent="Body/RightPane/DetailVBox/DetailContainer"]
 layout_mode = 2
 
-[node name="Margin" type="MarginContainer" parent="HSplit/RightPane/DetailVBox/DetailContainer/StatsCard"]
+[node name="Margin" type="MarginContainer" parent="Body/RightPane/DetailVBox/DetailContainer/StatsCard"]
 layout_mode = 2
 theme_override_constants/margin_left = 12
 theme_override_constants/margin_top = 8
 theme_override_constants/margin_right = 12
 theme_override_constants/margin_bottom = 8
 
-[node name="VBox" type="VBoxContainer" parent="HSplit/RightPane/DetailVBox/DetailContainer/StatsCard/Margin"]
+[node name="VBox" type="VBoxContainer" parent="Body/RightPane/DetailVBox/DetailContainer/StatsCard/Margin"]
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="StatsHeader" type="Label" parent="HSplit/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox"]
+[node name="StatsHeader" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 15
-text = "7大能力値（現在実効値 / 潜在上限 PA）"
+text = "7大能力値（白＝現在値／灰＝PA／黒＝上限100）"
 
-[node name="StatsGrid" type="GridContainer" parent="HSplit/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox"]
+[node name="StatsGrid" type="GridContainer" parent="Body/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/h_separation = 12
 theme_override_constants/v_separation = 6
 columns = 3
 
-[node name="Lbl_STR" type="Label" parent="HSplit/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox/StatsGrid"]
+[node name="Lbl_STR" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox/StatsGrid"]
 custom_minimum_size = Vector2(40, 0)
 layout_mode = 2
 text = "STR"
 
-[node name="Bar_STR" type="ProgressBar" parent="HSplit/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox/StatsGrid"]
+[node name="Bar_STR" type="Control" parent="Body/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox/StatsGrid"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(180, 18)
 layout_mode = 2
 size_flags_horizontal = 3
-show_percentage = false
+script = ExtResource("2_triplebar")
 
-[node name="Val_STR" type="Label" parent="HSplit/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox/StatsGrid"]
+[node name="Val_STR" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox/StatsGrid"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(70, 0)
 layout_mode = 2
 text = "0 / 0"
+horizontal_alignment = 2
 
-[node name="Lbl_VIT" type="Label" parent="HSplit/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox/StatsGrid"]
+[node name="Lbl_VIT" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox/StatsGrid"]
 custom_minimum_size = Vector2(40, 0)
 layout_mode = 2
 text = "VIT"
 
-[node name="Bar_VIT" type="ProgressBar" parent="HSplit/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox/StatsGrid"]
+[node name="Bar_VIT" type="Control" parent="Body/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox/StatsGrid"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(180, 18)
 layout_mode = 2
 size_flags_horizontal = 3
-show_percentage = false
+script = ExtResource("2_triplebar")
 
-[node name="Val_VIT" type="Label" parent="HSplit/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox/StatsGrid"]
+[node name="Val_VIT" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox/StatsGrid"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(70, 0)
 layout_mode = 2
 text = "0 / 0"
+horizontal_alignment = 2
 
-[node name="Lbl_AGI" type="Label" parent="HSplit/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox/StatsGrid"]
+[node name="Lbl_AGI" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox/StatsGrid"]
 custom_minimum_size = Vector2(40, 0)
 layout_mode = 2
 text = "AGI"
 
-[node name="Bar_AGI" type="ProgressBar" parent="HSplit/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox/StatsGrid"]
+[node name="Bar_AGI" type="Control" parent="Body/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox/StatsGrid"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(180, 18)
 layout_mode = 2
 size_flags_horizontal = 3
-show_percentage = false
+script = ExtResource("2_triplebar")
 
-[node name="Val_AGI" type="Label" parent="HSplit/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox/StatsGrid"]
+[node name="Val_AGI" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox/StatsGrid"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(70, 0)
 layout_mode = 2
 text = "0 / 0"
+horizontal_alignment = 2
 
-[node name="Lbl_DEX" type="Label" parent="HSplit/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox/StatsGrid"]
+[node name="Lbl_DEX" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox/StatsGrid"]
 custom_minimum_size = Vector2(40, 0)
 layout_mode = 2
 text = "DEX"
 
-[node name="Bar_DEX" type="ProgressBar" parent="HSplit/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox/StatsGrid"]
+[node name="Bar_DEX" type="Control" parent="Body/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox/StatsGrid"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(180, 18)
 layout_mode = 2
 size_flags_horizontal = 3
-show_percentage = false
+script = ExtResource("2_triplebar")
 
-[node name="Val_DEX" type="Label" parent="HSplit/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox/StatsGrid"]
+[node name="Val_DEX" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox/StatsGrid"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(70, 0)
 layout_mode = 2
 text = "0 / 0"
+horizontal_alignment = 2
 
-[node name="Lbl_INT" type="Label" parent="HSplit/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox/StatsGrid"]
+[node name="Lbl_INT" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox/StatsGrid"]
 custom_minimum_size = Vector2(40, 0)
 layout_mode = 2
 text = "INT"
 
-[node name="Bar_INT" type="ProgressBar" parent="HSplit/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox/StatsGrid"]
+[node name="Bar_INT" type="Control" parent="Body/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox/StatsGrid"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(180, 18)
 layout_mode = 2
 size_flags_horizontal = 3
-show_percentage = false
+script = ExtResource("2_triplebar")
 
-[node name="Val_INT" type="Label" parent="HSplit/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox/StatsGrid"]
+[node name="Val_INT" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox/StatsGrid"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(70, 0)
 layout_mode = 2
 text = "0 / 0"
+horizontal_alignment = 2
 
-[node name="Lbl_MND" type="Label" parent="HSplit/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox/StatsGrid"]
+[node name="Lbl_MND" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox/StatsGrid"]
 custom_minimum_size = Vector2(40, 0)
 layout_mode = 2
 text = "MND"
 
-[node name="Bar_MND" type="ProgressBar" parent="HSplit/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox/StatsGrid"]
+[node name="Bar_MND" type="Control" parent="Body/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox/StatsGrid"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(180, 18)
 layout_mode = 2
 size_flags_horizontal = 3
-show_percentage = false
+script = ExtResource("2_triplebar")
 
-[node name="Val_MND" type="Label" parent="HSplit/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox/StatsGrid"]
+[node name="Val_MND" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox/StatsGrid"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(70, 0)
 layout_mode = 2
 text = "0 / 0"
+horizontal_alignment = 2
 
-[node name="Lbl_LDR" type="Label" parent="HSplit/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox/StatsGrid"]
+[node name="Lbl_LDR" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox/StatsGrid"]
 custom_minimum_size = Vector2(40, 0)
 layout_mode = 2
 text = "LDR"
 
-[node name="Bar_LDR" type="ProgressBar" parent="HSplit/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox/StatsGrid"]
+[node name="Bar_LDR" type="Control" parent="Body/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox/StatsGrid"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(180, 18)
 layout_mode = 2
 size_flags_horizontal = 3
-show_percentage = false
+script = ExtResource("2_triplebar")
 
-[node name="Val_LDR" type="Label" parent="HSplit/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox/StatsGrid"]
+[node name="Val_LDR" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox/StatsGrid"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(70, 0)
 layout_mode = 2
 text = "0 / 0"
+horizontal_alignment = 2
 
-[node name="LifecycleCard" type="PanelContainer" parent="HSplit/RightPane/DetailVBox/DetailContainer"]
+[node name="LifecycleCard" type="PanelContainer" parent="Body/RightPane/DetailVBox/DetailContainer"]
 layout_mode = 2
 
-[node name="Margin" type="MarginContainer" parent="HSplit/RightPane/DetailVBox/DetailContainer/LifecycleCard"]
+[node name="Margin" type="MarginContainer" parent="Body/RightPane/DetailVBox/DetailContainer/LifecycleCard"]
 layout_mode = 2
 theme_override_constants/margin_left = 12
 theme_override_constants/margin_top = 8
 theme_override_constants/margin_right = 12
 theme_override_constants/margin_bottom = 8
 
-[node name="VBox" type="VBoxContainer" parent="HSplit/RightPane/DetailVBox/DetailContainer/LifecycleCard/Margin"]
+[node name="VBox" type="VBoxContainer" parent="Body/RightPane/DetailVBox/DetailContainer/LifecycleCard/Margin"]
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="LifecycleHeader" type="Label" parent="HSplit/RightPane/DetailVBox/DetailContainer/LifecycleCard/Margin/VBox"]
+[node name="LifecycleHeader" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/LifecycleCard/Margin/VBox"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 15
 text = "8年稼働タイムライン（18歳加入〜26歳満期引退・最大384週）"
 
-[node name="TimelineBar" type="ProgressBar" parent="HSplit/RightPane/DetailVBox/DetailContainer/LifecycleCard/Margin/VBox"]
+[node name="TimelineBar" type="ProgressBar" parent="Body/RightPane/DetailVBox/DetailContainer/LifecycleCard/Margin/VBox"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 22)
 layout_mode = 2
 max_value = 384.0
 show_percentage = false
 
-[node name="TimelineDetailGrid" type="GridContainer" parent="HSplit/RightPane/DetailVBox/DetailContainer/LifecycleCard/Margin/VBox"]
+[node name="TimelineDetailGrid" type="GridContainer" parent="Body/RightPane/DetailVBox/DetailContainer/LifecycleCard/Margin/VBox"]
 layout_mode = 2
 theme_override_constants/h_separation = 16
 theme_override_constants/v_separation = 4
 columns = 2
 
-[node name="ActiveWeeksLabel" type="Label" parent="HSplit/RightPane/DetailVBox/DetailContainer/LifecycleCard/Margin/VBox/TimelineDetailGrid"]
+[node name="ActiveWeeksLabel" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/LifecycleCard/Margin/VBox/TimelineDetailGrid"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 13
 text = "稼働期間: 0 / 384週"
 
-[node name="RemainingWeeksLabel" type="Label" parent="HSplit/RightPane/DetailVBox/DetailContainer/LifecycleCard/Margin/VBox/TimelineDetailGrid"]
+[node name="RemainingWeeksLabel" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/LifecycleCard/Margin/VBox/TimelineDetailGrid"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 13
 text = "引退まで: 残り 384週"
 
-[node name="ContributionScoreLabel" type="Label" parent="HSplit/RightPane/DetailVBox/DetailContainer/LifecycleCard/Margin/VBox/TimelineDetailGrid"]
+[node name="ContributionScoreLabel" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/LifecycleCard/Margin/VBox/TimelineDetailGrid"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 13
 text = "累積功績スコア: 0 pt"
 
-[node name="SeveranceEstimateLabel" type="Label" parent="HSplit/RightPane/DetailVBox/DetailContainer/LifecycleCard/Margin/VBox/TimelineDetailGrid"]
+[node name="SeveranceEstimateLabel" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/LifecycleCard/Margin/VBox/TimelineDetailGrid"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.85, 0.4, 1)
 theme_override_font_sizes/font_size = 13
 text = "退職金見込額: 0 G"
 
-[node name="SubSectionHBox" type="HBoxContainer" parent="HSplit/RightPane/DetailVBox/DetailContainer"]
+[node name="SubSectionHBox" type="HBoxContainer" parent="Body/RightPane/DetailVBox/DetailContainer"]
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="TraitCard" type="PanelContainer" parent="HSplit/RightPane/DetailVBox/DetailContainer/SubSectionHBox"]
+[node name="TraitCard" type="PanelContainer" parent="Body/RightPane/DetailVBox/DetailContainer/SubSectionHBox"]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Margin" type="MarginContainer" parent="HSplit/RightPane/DetailVBox/DetailContainer/SubSectionHBox/TraitCard"]
+[node name="Margin" type="MarginContainer" parent="Body/RightPane/DetailVBox/DetailContainer/SubSectionHBox/TraitCard"]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 8
 theme_override_constants/margin_right = 10
 theme_override_constants/margin_bottom = 8
 
-[node name="VBox" type="VBoxContainer" parent="HSplit/RightPane/DetailVBox/DetailContainer/SubSectionHBox/TraitCard/Margin"]
+[node name="VBox" type="VBoxContainer" parent="Body/RightPane/DetailVBox/DetailContainer/SubSectionHBox/TraitCard/Margin"]
 layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="TraitHeader" type="Label" parent="HSplit/RightPane/DetailVBox/DetailContainer/SubSectionHBox/TraitCard/Margin/VBox"]
+[node name="TraitHeader" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/SubSectionHBox/TraitCard/Margin/VBox"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 14
 text = "特性スロット（最大5枠）"
 
-[node name="TraitSlotContainer" type="VBoxContainer" parent="HSplit/RightPane/DetailVBox/DetailContainer/SubSectionHBox/TraitCard/Margin/VBox"]
+[node name="TraitSlotContainer" type="VBoxContainer" parent="Body/RightPane/DetailVBox/DetailContainer/SubSectionHBox/TraitCard/Margin/VBox"]
 layout_mode = 2
 theme_override_constants/separation = 2
 
-[node name="TraitSlot1" type="Label" parent="HSplit/RightPane/DetailVBox/DetailContainer/SubSectionHBox/TraitCard/Margin/VBox/TraitSlotContainer"]
+[node name="TraitSlot1" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/SubSectionHBox/TraitCard/Margin/VBox/TraitSlotContainer"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
 text = "1: 空きスロット"
 
-[node name="TraitSlot2" type="Label" parent="HSplit/RightPane/DetailVBox/DetailContainer/SubSectionHBox/TraitCard/Margin/VBox/TraitSlotContainer"]
+[node name="TraitSlot2" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/SubSectionHBox/TraitCard/Margin/VBox/TraitSlotContainer"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
 text = "2: 空きスロット"
 
-[node name="TraitSlot3" type="Label" parent="HSplit/RightPane/DetailVBox/DetailContainer/SubSectionHBox/TraitCard/Margin/VBox/TraitSlotContainer"]
+[node name="TraitSlot3" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/SubSectionHBox/TraitCard/Margin/VBox/TraitSlotContainer"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
 text = "3: 空きスロット"
 
-[node name="TraitSlot4" type="Label" parent="HSplit/RightPane/DetailVBox/DetailContainer/SubSectionHBox/TraitCard/Margin/VBox/TraitSlotContainer"]
+[node name="TraitSlot4" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/SubSectionHBox/TraitCard/Margin/VBox/TraitSlotContainer"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
 text = "4: 空きスロット"
 
-[node name="TraitSlot5" type="Label" parent="HSplit/RightPane/DetailVBox/DetailContainer/SubSectionHBox/TraitCard/Margin/VBox/TraitSlotContainer"]
+[node name="TraitSlot5" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/SubSectionHBox/TraitCard/Margin/VBox/TraitSlotContainer"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
 text = "5: 空きスロット"
 
-[node name="EquipCard" type="PanelContainer" parent="HSplit/RightPane/DetailVBox/DetailContainer/SubSectionHBox"]
+[node name="EquipCard" type="PanelContainer" parent="Body/RightPane/DetailVBox/DetailContainer/SubSectionHBox"]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Margin" type="MarginContainer" parent="HSplit/RightPane/DetailVBox/DetailContainer/SubSectionHBox/EquipCard"]
+[node name="Margin" type="MarginContainer" parent="Body/RightPane/DetailVBox/DetailContainer/SubSectionHBox/EquipCard"]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 8
 theme_override_constants/margin_right = 10
 theme_override_constants/margin_bottom = 8
 
-[node name="VBox" type="VBoxContainer" parent="HSplit/RightPane/DetailVBox/DetailContainer/SubSectionHBox/EquipCard/Margin"]
+[node name="VBox" type="VBoxContainer" parent="Body/RightPane/DetailVBox/DetailContainer/SubSectionHBox/EquipCard/Margin"]
 layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="EquipHeader" type="Label" parent="HSplit/RightPane/DetailVBox/DetailContainer/SubSectionHBox/EquipCard/Margin/VBox"]
+[node name="EquipHeader" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/SubSectionHBox/EquipCard/Margin/VBox"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 14
 text = "装備スロット"
 
-[node name="EquipGrid" type="GridContainer" parent="HSplit/RightPane/DetailVBox/DetailContainer/SubSectionHBox/EquipCard/Margin/VBox"]
+[node name="EquipGrid" type="GridContainer" parent="Body/RightPane/DetailVBox/DetailContainer/SubSectionHBox/EquipCard/Margin/VBox"]
 layout_mode = 2
 theme_override_constants/h_separation = 8
 theme_override_constants/v_separation = 4
 columns = 2
 
-[node name="WeaponLabel" type="Label" parent="HSplit/RightPane/DetailVBox/DetailContainer/SubSectionHBox/EquipCard/Margin/VBox/EquipGrid"]
+[node name="WeaponLabel" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/SubSectionHBox/EquipCard/Margin/VBox/EquipGrid"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
 text = "武器: なし"
 
-[node name="ArmorLabel" type="Label" parent="HSplit/RightPane/DetailVBox/DetailContainer/SubSectionHBox/EquipCard/Margin/VBox/EquipGrid"]
+[node name="ArmorLabel" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/SubSectionHBox/EquipCard/Margin/VBox/EquipGrid"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
 text = "防具: なし"
 
-[node name="Accessory1Label" type="Label" parent="HSplit/RightPane/DetailVBox/DetailContainer/SubSectionHBox/EquipCard/Margin/VBox/EquipGrid"]
+[node name="Accessory1Label" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/SubSectionHBox/EquipCard/Margin/VBox/EquipGrid"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
 text = "装飾1: なし"
 
-[node name="Accessory2Label" type="Label" parent="HSplit/RightPane/DetailVBox/DetailContainer/SubSectionHBox/EquipCard/Margin/VBox/EquipGrid"]
+[node name="Accessory2Label" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/SubSectionHBox/EquipCard/Margin/VBox/EquipGrid"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
 text = "装飾2: なし"
 
-[node name="ActionButtonsCard" type="PanelContainer" parent="HSplit/RightPane/DetailVBox/DetailContainer"]
+[node name="ActionButtonsCard" type="PanelContainer" parent="Body/RightPane/DetailVBox/DetailContainer"]
 layout_mode = 2
 
-[node name="Margin" type="MarginContainer" parent="HSplit/RightPane/DetailVBox/DetailContainer/ActionButtonsCard"]
+[node name="Margin" type="MarginContainer" parent="Body/RightPane/DetailVBox/DetailContainer/ActionButtonsCard"]
 layout_mode = 2
 theme_override_constants/margin_left = 8
 theme_override_constants/margin_top = 8
 theme_override_constants/margin_right = 8
 theme_override_constants/margin_bottom = 8
 
-[node name="ActionButtons" type="HBoxContainer" parent="HSplit/RightPane/DetailVBox/DetailContainer/ActionButtonsCard/Margin"]
+[node name="ActionButtons" type="HBoxContainer" parent="Body/RightPane/DetailVBox/DetailContainer/ActionButtonsCard/Margin"]
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="EquipmentButton" type="Button" parent="HSplit/RightPane/DetailVBox/DetailContainer/ActionButtonsCard/Margin/ActionButtons"]
+[node name="EquipmentButton" type="Button" parent="Body/RightPane/DetailVBox/DetailContainer/ActionButtonsCard/Margin/ActionButtons"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 disabled = true
 text = "装備変更"
 
-[node name="RaiseWageButton" type="Button" parent="HSplit/RightPane/DetailVBox/DetailContainer/ActionButtonsCard/Margin/ActionButtons"]
+[node name="RaiseWageButton" type="Button" parent="Body/RightPane/DetailVBox/DetailContainer/ActionButtonsCard/Margin/ActionButtons"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 disabled = true
 text = "昇給 (x1.5)"
 
-[node name="PayBonusButton" type="Button" parent="HSplit/RightPane/DetailVBox/DetailContainer/ActionButtonsCard/Margin/ActionButtons"]
+[node name="PayBonusButton" type="Button" parent="Body/RightPane/DetailVBox/DetailContainer/ActionButtonsCard/Margin/ActionButtons"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 disabled = true
 text = "ボーナス支給"
 
-[node name="RetireButton" type="Button" parent="HSplit/RightPane/DetailVBox/DetailContainer/ActionButtonsCard/Margin/ActionButtons"]
+[node name="RetireButton" type="Button" parent="Body/RightPane/DetailVBox/DetailContainer/ActionButtonsCard/Margin/ActionButtons"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3

@@ -80,19 +80,12 @@ layout_mode = 2
 toggle_mode = true
 text = "🏰 大迷宮"
 
-[node name="NavAdventurerBtn" type="Button" parent="Root/NavigationBar" unique_id=450192833]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(130, 36)
-layout_mode = 2
-toggle_mode = true
-text = "👥 冒険者人事"
-
 [node name="NavPartyBtn" type="Button" parent="Root/NavigationBar" unique_id=450192834]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(130, 36)
+custom_minimum_size = Vector2(150, 36)
 layout_mode = 2
 toggle_mode = true
-text = "📋 部隊編成"
+text = "📋 部隊・冒険者"
 
 [node name="NavResearchBtn" type="Button" parent="Root/NavigationBar" unique_id=450192835]
 unique_name_in_owner = true
@@ -132,44 +125,50 @@ unique_name_in_owner = true
 layout_mode = 2
 metadata/_tab_index = 0
 
-[node name="AdventurerDetailTab" parent="Root/MainContentArea/CenterPanel" instance=ExtResource("10_adventurer")]
+[node name="PartyAdventurerTab" type="HBoxContainer" parent="Root/MainContentArea/CenterPanel"]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
+theme_override_constants/separation = 8
 metadata/_tab_index = 1
 
-[node name="PartyFormationScroll" type="ScrollContainer" parent="Root/MainContentArea/CenterPanel"]
+[node name="PartyFormationScroll" type="ScrollContainer" parent="Root/MainContentArea/CenterPanel/PartyAdventurerTab"]
 unique_name_in_owner = true
-visible = false
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
-metadata/_tab_index = 2
 
-[node name="PartyFormationTab" parent="Root/MainContentArea/CenterPanel/PartyFormationScroll" unique_id=176574644 instance=ExtResource("6_partyformation")]
+[node name="PartyFormationTab" parent="Root/MainContentArea/CenterPanel/PartyAdventurerTab/PartyFormationScroll" unique_id=176574644 instance=ExtResource("6_partyformation")]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="AdventurerDetailTab" parent="Root/MainContentArea/CenterPanel/PartyAdventurerTab" instance=ExtResource("10_adventurer")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(780, 0)
+layout_mode = 2
+size_flags_horizontal = 0
 size_flags_vertical = 3
 
 [node name="ResearchTab" parent="Root/MainContentArea/CenterPanel" unique_id=176574643 instance=ExtResource("9_research")]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
-metadata/_tab_index = 3
+metadata/_tab_index = 2
 
 [node name="FacilityTab" parent="Root/MainContentArea/CenterPanel" unique_id=176574645 instance=ExtResource("3_facility")]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
-metadata/_tab_index = 4
+metadata/_tab_index = 3
 
 [node name="InventoryTab" parent="Root/MainContentArea/CenterPanel" unique_id=176574646 instance=ExtResource("11_inventory")]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
-metadata/_tab_index = 5
+metadata/_tab_index = 4
 
 [node name="RightPanel" type="VBoxContainer" parent="Root/MainContentArea" unique_id=763252257]
 unique_name_in_owner = true

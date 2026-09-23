@@ -7,11 +7,11 @@ using GuildManager.Core.Models;
 using GuildManager.Core.Systems;
 
 /// <summary>
-/// 中央ペイン「冒険者・人事」タブのサブタブ「冒険者」パネル（→ 2026年9月高視認性UI刷新）。
+/// 「部隊・冒険者」画面の右ペイン＝個人詳細パネル（→ 03 §9、2026年9月に冒険者人事と部隊編成を統合）。
 ///
-/// 左ペイン：冒険者一覧リスト（職業・配置・氏名・年齢・状態・週給を整列表示）
-/// 右ペイン：個人ステータス詳細（基本情報、7大能力値プログレスバー、8年稼働タイムライン、
-///           特性スロット最大5枠、装備欄、操作ボタン群）
+/// 個人ステータス詳細（基本情報、7大能力値の3層バー〈→ TripleStatBar〉、8年稼働タイムライン、
+/// 特性スロット最大5枠、装備欄、操作ボタン群）を表示する。表示対象は部隊編成パネルの
+/// 編成スロット・候補行のクリックで選ぶ（→ ShowAdventurer。旧・自前の冒険者一覧は廃止）。
 ///
 /// 厳格ルール準拠：
 /// 1. Core層の完全独立維持（Core変更ゼロ、描画と入力変換のみに徹する）
@@ -24,9 +24,6 @@ public partial class AdventurerPanel : VBoxContainer
 	private GameState _state = null!;
 	private SatisfactionSystem _satisfactionSystem = null!;
 	private AgingSystem _agingSystem = null!;
-
-	// ---- 左ペイン：冒険者一覧 ----
-	private ItemList _adventurerList = null!;
 
 	// ---- 右ペイン：未選択 / 詳細表示切り替え ----
 	private PanelContainer _noSelectionPanel = null!;
@@ -47,19 +44,19 @@ public partial class AdventurerPanel : VBoxContainer
 	private ProgressBar _satisfactionBar = null!;
 
 	// ---- 7大能力値 ----
-	private ProgressBar _barSTR = null!;
+	private TripleStatBar _barSTR = null!;
 	private Label _valSTR = null!;
-	private ProgressBar _barVIT = null!;
+	private TripleStatBar _barVIT = null!;
 	private Label _valVIT = null!;
-	private ProgressBar _barAGI = null!;
+	private TripleStatBar _barAGI = null!;
 	private Label _valAGI = null!;
-	private ProgressBar _barDEX = null!;
+	private TripleStatBar _barDEX = null!;
 	private Label _valDEX = null!;
-	private ProgressBar _barINT = null!;
+	private TripleStatBar _barINT = null!;
 	private Label _valINT = null!;
-	private ProgressBar _barMND = null!;
+	private TripleStatBar _barMND = null!;
 	private Label _valMND = null!;
-	private ProgressBar _barLDR = null!;
+	private TripleStatBar _barLDR = null!;
 	private Label _valLDR = null!;
 
 	// ---- 8年稼働タイムライン ----
@@ -110,9 +107,6 @@ public partial class AdventurerPanel : VBoxContainer
 
 	public override void _Ready()
 	{
-		// 左ペイン
-		_adventurerList = GetNode<ItemList>("%AdventurerList");
-
 		// 右ペイン切り替え
 		_noSelectionPanel = GetNode<PanelContainer>("%NoSelectionPanel");
 		_detailContainer = GetNode<VBoxContainer>("%DetailContainer");
@@ -132,19 +126,19 @@ public partial class AdventurerPanel : VBoxContainer
 		_satisfactionBar = GetNode<ProgressBar>("%SatisfactionBar");
 
 		// 7大能力値
-		_barSTR = GetNode<ProgressBar>("%Bar_STR");
+		_barSTR = GetNode<TripleStatBar>("%Bar_STR");
 		_valSTR = GetNode<Label>("%Val_STR");
-		_barVIT = GetNode<ProgressBar>("%Bar_VIT");
+		_barVIT = GetNode<TripleStatBar>("%Bar_VIT");
 		_valVIT = GetNode<Label>("%Val_VIT");
-		_barAGI = GetNode<ProgressBar>("%Bar_AGI");
+		_barAGI = GetNode<TripleStatBar>("%Bar_AGI");
 		_valAGI = GetNode<Label>("%Val_AGI");
-		_barDEX = GetNode<ProgressBar>("%Bar_DEX");
+		_barDEX = GetNode<TripleStatBar>("%Bar_DEX");
 		_valDEX = GetNode<Label>("%Val_DEX");
-		_barINT = GetNode<ProgressBar>("%Bar_INT");
+		_barINT = GetNode<TripleStatBar>("%Bar_INT");
 		_valINT = GetNode<Label>("%Val_INT");
-		_barMND = GetNode<ProgressBar>("%Bar_MND");
+		_barMND = GetNode<TripleStatBar>("%Bar_MND");
 		_valMND = GetNode<Label>("%Val_MND");
-		_barLDR = GetNode<ProgressBar>("%Bar_LDR");
+		_barLDR = GetNode<TripleStatBar>("%Bar_LDR");
 		_valLDR = GetNode<Label>("%Val_LDR");
 
 		// 8年稼働タイムライン
@@ -176,7 +170,6 @@ public partial class AdventurerPanel : VBoxContainer
 		_advisorButton = GetNode<Button>("%AdvisorButton");
 
 		// シグナル配線
-		_adventurerList.ItemClicked += OnAdventurerItemClicked;
 		_equipmentButton.Pressed += OnEquipmentButtonPressed;
 		_raiseWageButton.Pressed += OnRaiseWagePressed;
 		_payBonusButton.Pressed += OnPayBonusPressed;
@@ -198,60 +191,25 @@ public partial class AdventurerPanel : VBoxContainer
 	public void Refresh(GameState state)
 	{
 		_state = state;
-		RefreshAdventurerList();
 		RefreshAdventurerDetail();
 	}
 
-	// ==== 左ペイン：冒険者一覧 ====
-
 	/// <summary>
-	/// 冒険者一覧を更新する。各行に職業・配置区分・氏名・年齢・状態・週給を整列表示する。
-	/// 未選択状態の厳守：自動で先頭を選択せず、以前選択していた対象が存在する場合のみ選択を維持する。
+	/// 表示対象の冒険者を切り替える（→ 部隊編成パネルの編成スロット・候補行のクリック。MainDashboardが中継する）。
+	/// 2026年9月の「部隊・冒険者」画面統合で、旧・自前の冒険者一覧（ItemList）を廃止し、選択元を部隊編成パネルへ一本化した。
+	/// 現役ロースターに居ない冒険者（引退・除籍済み）が渡された場合は未選択状態にする。
 	/// </summary>
-	private void RefreshAdventurerList()
+	public void ShowAdventurer(Guid adventurerId)
 	{
-		_adventurerList.Clear();
-		int selectedIndex = -1;
-
-		for (int i = 0; i < _state.Adventurers.Count; i++)
-		{
-			var a = _state.Adventurers[i];
-			string placement = PlacementRules.GetDefault(a.JobClass) == Placement.Front ? "前衛" : "後衛";
-			string jobName = JobLabel(a.JobClass);
-			string status = a.Injury == InjurySeverity.Severe
-				? "【重傷】"
-				: a.Injury == InjurySeverity.Light
-					? "【軽傷】"
-					: a.IsDispatched
-						? "【出撃中】"
-						: "【待機】";
-
-			_adventurerList.AddItem($"[{placement}] {jobName}　{a.Name} ({a.Age}歳)　{status}　{a.WeeklyWage}G/週");
-
-			if (_detailAdventurerId.HasValue && a.Id == _detailAdventurerId.Value)
-				selectedIndex = i;
-		}
-
-		if (selectedIndex >= 0)
-		{
-			_adventurerList.Select(selectedIndex);
-		}
-		else
-		{
-			_adventurerList.DeselectAll();
-		}
+		_detailAdventurerId = adventurerId;
+		if (_state != null)
+			RefreshAdventurerDetail();
 	}
 
-	/// <summary>
-	/// 冒険者一覧のクリックでステータス詳細パネルを更新する。
-	/// </summary>
-	private void OnAdventurerItemClicked(long index, Vector2 atPosition, long mouseButtonIndex)
-	{
-		if (index >= 0 && index < _state.Adventurers.Count)
-			ShowAdventurerDetail(_state.Adventurers[(int)index]);
-	}
+	/// <summary>現在表示中の冒険者Id（未選択ならnull）。部隊編成パネルの選択強調に使う。</summary>
+	public Guid? SelectedAdventurerId => _detailAdventurerId;
 
-	// ==== 右ペイン：詳細表示 ====
+	// ==== 詳細表示 ====
 
 	/// <summary>
 	/// ステータス詳細パネルを、直近にクリックされた冒険者の最新の値で再描画する。
@@ -274,7 +232,6 @@ public partial class AdventurerPanel : VBoxContainer
 		_detailAdventurerId = null;
 		_noSelectionPanel.Visible = true;
 		_detailContainer.Visible = false;
-		_adventurerList.DeselectAll();
 		SetActionButtonsDisabled(true);
 	}
 
@@ -333,13 +290,13 @@ public partial class AdventurerPanel : VBoxContainer
 		_portraitTextureRect.Texture = LoadPortraitTexture(a.PortraitId);
 
 		// ---- 7大能力値 ----
-		BindStatRow(_barSTR, _valSTR, a.STR, a.PA_STR);
-		BindStatRow(_barVIT, _valVIT, a.VIT, a.PA_VIT);
-		BindStatRow(_barAGI, _valAGI, a.AGI, a.PA_AGI);
-		BindStatRow(_barDEX, _valDEX, a.DEX, a.PA_DEX);
-		BindStatRow(_barINT, _valINT, a.INT, a.PA_INT);
-		BindStatRow(_barMND, _valMND, a.MND, a.PA_MND);
-		BindStatRow(_barLDR, _valLDR, a.LDR, a.PA_LDR);
+		BindStatRow(_barSTR, _valSTR, a, "STR", a.PA_STR);
+		BindStatRow(_barVIT, _valVIT, a, "VIT", a.PA_VIT);
+		BindStatRow(_barAGI, _valAGI, a, "AGI", a.PA_AGI);
+		BindStatRow(_barDEX, _valDEX, a, "DEX", a.PA_DEX);
+		BindStatRow(_barINT, _valINT, a, "INT", a.PA_INT);
+		BindStatRow(_barMND, _valMND, a, "MND", a.PA_MND);
+		BindStatRow(_barLDR, _valLDR, a, "LDR", a.PA_LDR);
 
 		// ---- 8年稼働タイムライン ----
 		int maxWeeks = AgingSystem.MaxActiveWeeks;
@@ -387,13 +344,16 @@ public partial class AdventurerPanel : VBoxContainer
 		_retireButton.Disabled = a.IsDispatched;
 	}
 
-	/// <summary>7大能力値の各行へ実効値と潜在上限PAを反映する。</summary>
-	private static void BindStatRow(ProgressBar bar, Label valLabel, int value, int pa)
+	/// <summary>
+	/// 7大能力値の各行へ現在の実効値（白）と潜在能力PA（灰）を反映する。バー全幅は常に上限100
+	/// （→ TripleStatBar。2026年9月、PAを最大値にする相対表示から100固定の3層表示へ刷新）。
+	/// 実効値は特性・装備込み（→ Adventurer.GetEffectiveStat）で、行の右端に「現在値 / PA」を併記する。
+	/// </summary>
+	private static void BindStatRow(TripleStatBar bar, Label valLabel, Adventurer a, string stat, int pa)
 	{
-		valLabel.Text = $"{value} / {pa}";
-		bar.MinValue = 0;
-		bar.MaxValue = pa > 0 ? pa : 100;
-		bar.Value = Math.Clamp(value, 0, (int)bar.MaxValue);
+		int current = (int)Math.Round(a.GetEffectiveStat(stat));
+		valLabel.Text = $"{current} / {pa}";
+		bar.SetValues(current, pa);
 	}
 
 	// ==== 操作ボタン群 ====
