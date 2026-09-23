@@ -185,8 +185,15 @@ namespace GuildManager.Core.Systems
         }
 
         /// <summary>
-        /// 走破力＝Σ(AGI+DEX)×係数 ＋ 部隊長LDR×係数（＋研究ボーナス＋参謀のルート指導ボーナス）。空の部隊は0
+        /// 走破力＝Σ(VIT×WeightVit ＋ MND×WeightMnd) ＋ 部隊長LDR×WeightLdr
+        /// （＋研究ボーナス＋参謀のルート指導ボーナス）。空の部隊は0
         /// （stateの有無・研究の完了状況に関わらず、部隊が空ならボーナスも乗らない）。
+        ///
+        /// 2026年9月改訂（→ 03 §4.5.3）：旧モデルは AGI+DEX 合算で、隠密適性
+        /// （→ ScoutingResolver.CalculateStealthScore）とまったく同じ式だったため、UIの
+        /// 「走破力予測」と「隠密適性」が常に同値になっていた。走破力は**悪路を踏み越える体力（VIT）と、
+        /// 長い潜行に耐える気力（MND）**の指標へ切り分けてある。
+        ///
         /// public static にしてあるのは出撃前のプレビュー（UI）とテストから同じ式を使うため
         /// （→ ScoutingResolver.CalculateStealthScoreと同じ考え方）。
         /// </summary>
@@ -202,9 +209,10 @@ namespace GuildManager.Core.Systems
         {
             if (party.IsEmpty) return 0;
 
-            double score = party.Members.Sum(m => m.GetEffectiveStat("AGI") + m.GetEffectiveStat("DEX"))
-                * DungeonTraversalBalance.StatCoefficient
-                + party.Members[0].GetEffectiveStat("LDR") * DungeonTraversalBalance.LeaderCoefficient;
+            double score = party.Members.Sum(m =>
+                    m.GetEffectiveStat("VIT") * DungeonTraversalBalance.WeightVit
+                    + m.GetEffectiveStat("MND") * DungeonTraversalBalance.WeightMnd)
+                + party.Members[0].GetEffectiveStat("LDR") * DungeonTraversalBalance.WeightLdr;
 
             if (state != null)
             {

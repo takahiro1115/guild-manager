@@ -23,9 +23,24 @@ namespace GuildManager.Core.Tests
             public int NextInt(int min, int max) => max;
         }
 
+        /// <summary>
+        /// 隠密型の冒険者（AGI/DEXが高い）。2026年9月の走破力改訂（VIT/MND化、→ 03 §4.5.3）以降、
+        /// このパラメータは走破力に影響しない＝「素早いだけでは道中を進めない」ことの確認に使う。
+        /// </summary>
         private static Adventurer MakeSpecialist(int agiDex, int ldr = 0)
         {
             var a = new Adventurer { STR = 10, AGI = agiDex, VIT = 30, MND = 10, DEX = agiDex, LDR = ldr, INT = 10 };
+            a.CurrentHP = a.MaxHP;
+            return a;
+        }
+
+        /// <summary>
+        /// 走破型の冒険者（VIT/MNDを明示する）。走破力＝Σ(VIT×1.0＋MND×0.8)＋部隊長LDR×1.0
+        /// （→ dungeon_traversal.csv の Traversal_Weight_*）。
+        /// </summary>
+        private static Adventurer MakeTraveler(int vit, int mnd, int ldr = 0)
+        {
+            var a = new Adventurer { STR = 10, AGI = 10, VIT = vit, MND = mnd, DEX = 10, LDR = ldr, INT = 10 };
             a.CurrentHP = a.MaxHP;
             return a;
         }
@@ -45,11 +60,51 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void CalculateTraversalScore_MatchesFormula()
         {
-            var party = PartyOf(MakeSpecialist(agiDex: 40, ldr: 20), MakeSpecialist(agiDex: 30));
+            var party = PartyOf(MakeTraveler(vit: 40, mnd: 20, ldr: 10), MakeTraveler(vit: 30, mnd: 10));
 
-            // Σ(AGI+DEX)=(40+40)+(30+30)=140 ×1.0 ＋ 部隊長LDR20×0.5 ＝ 150（→ dungeon_traversal.csv）
-            Assert.Equal(150, DungeonTraversalResolver.CalculateTraversalScore(party), precision: 6);
+            // Σ(VIT×1.0＋MND×0.8)=(40+16)+(30+8)=94 ＋ 部隊長LDR10×1.0 ＝ 104（→ dungeon_traversal.csv）
+            Assert.Equal(104, DungeonTraversalResolver.CalculateTraversalScore(party), precision: 6);
             Assert.Equal(0, DungeonTraversalResolver.CalculateTraversalScore(new Party()));
+        }
+
+        [Fact]
+        public void CalculateTraversalScore_ConsidersVitAndMnd()
+        {
+            // VITを上げれば走破力は上がる（重み1.0）。
+            double lowVit = DungeonTraversalResolver.CalculateTraversalScore(PartyOf(MakeTraveler(vit: 20, mnd: 20)));
+            double highVit = DungeonTraversalResolver.CalculateTraversalScore(PartyOf(MakeTraveler(vit: 60, mnd: 20)));
+            Assert.Equal(40 * DungeonTraversalBalance.WeightVit, highVit - lowVit, precision: 6);
+
+            // MNDを上げても上がる（重み0.8）。
+            double lowMnd = DungeonTraversalResolver.CalculateTraversalScore(PartyOf(MakeTraveler(vit: 20, mnd: 10)));
+            double highMnd = DungeonTraversalResolver.CalculateTraversalScore(PartyOf(MakeTraveler(vit: 20, mnd: 50)));
+            Assert.Equal(40 * DungeonTraversalBalance.WeightMnd, highMnd - lowMnd, precision: 6);
+        }
+
+        [Fact]
+        public void CalculateTraversalScore_IgnoresAgiAndDex()
+        {
+            // 2026年9月改訂の眼目（→ 03 §4.5.3）：AGI/DEXをいくら盛っても走破力は動かない。
+            // 旧モデルはAGI+DEX合算で、隠密適性とまったく同じ値になっていた。
+            var nimble = PartyOf(MakeSpecialist(agiDex: 90, ldr: 0));
+            var clumsy = PartyOf(MakeSpecialist(agiDex: 5, ldr: 0));
+
+            Assert.Equal(
+                DungeonTraversalResolver.CalculateTraversalScore(clumsy),
+                DungeonTraversalResolver.CalculateTraversalScore(nimble),
+                precision: 6);
+        }
+
+        [Fact]
+        public void CalculateTraversalScore_IncludesLeaderLdr()
+        {
+            // 部隊長（先頭メンバー）のLDRのみが加算される（2人目以降のLDRは効かない）。
+            double withoutLeaderLdr = DungeonTraversalResolver.CalculateTraversalScore(
+                PartyOf(MakeTraveler(vit: 30, mnd: 10, ldr: 0), MakeTraveler(vit: 30, mnd: 10, ldr: 40)));
+            double withLeaderLdr = DungeonTraversalResolver.CalculateTraversalScore(
+                PartyOf(MakeTraveler(vit: 30, mnd: 10, ldr: 40), MakeTraveler(vit: 30, mnd: 10, ldr: 0)));
+
+            Assert.Equal(40 * DungeonTraversalBalance.WeightLdr, withLeaderLdr - withoutLeaderLdr, precision: 6);
         }
 
         [Fact]
@@ -320,24 +375,24 @@ namespace GuildManager.Core.Tests
         public void CalculateTraversalScore_AddsAdvisorBonus_WhenAdvisorIsAssigned()
         {
             // 7能力平均50 × Advisor_TraversalPowerBonusCoeff(0.2) ＝ +10。
-            var party = PartyOf(MakeSpecialist(agiDex: 40, ldr: 20)); // Σ(AGI+DEX)=80 ＋ LDR20×0.5 ＝ 90
+            var party = PartyOf(MakeTraveler(vit: 40, mnd: 20, ldr: 20)); // (40+16) ＋ LDR20×1.0 ＝ 76
             double withoutState = DungeonTraversalResolver.CalculateTraversalScore(party);
 
             double withAdvisor = DungeonTraversalResolver.CalculateTraversalScore(party, StateWithAdvisor(statAverage: 50));
 
-            Assert.Equal(90, withoutState, precision: 6);
-            Assert.Equal(90 + 10, withAdvisor, precision: 6);
+            Assert.Equal(76, withoutState, precision: 6);
+            Assert.Equal(76 + 10, withAdvisor, precision: 6);
             Assert.Equal(0.2, AdvisorBalance.TraversalPowerBonusCoefficient, precision: 6);
         }
 
         [Fact]
         public void CalculateTraversalScore_NoAdvisorBonus_WhenUnassigned()
         {
-            var party = PartyOf(MakeSpecialist(agiDex: 40, ldr: 20));
+            var party = PartyOf(MakeTraveler(vit: 40, mnd: 20, ldr: 20));
 
             double withoutAdvisor = DungeonTraversalResolver.CalculateTraversalScore(party, new GameState());
 
-            Assert.Equal(90, withoutAdvisor, precision: 6);
+            Assert.Equal(76, withoutAdvisor, precision: 6);
         }
 
         [Fact]
@@ -349,8 +404,8 @@ namespace GuildManager.Core.Tests
             field.Bosses.Add(new FloorBoss { Name = "遠くのボス", Floor = 50, MaxHp = 1 });
             var resolver = new DungeonTraversalResolver(new AlwaysMinRng());
 
-            var withoutAdvisor = resolver.Resolve(PartyOf(MakeSpecialist(agiDex: 6)), MakeField(reachedFloor: 1), currentFloor: 1);
-            var withAdvisor = resolver.Resolve(PartyOf(MakeSpecialist(agiDex: 6)), field, currentFloor: 1, state: StateWithAdvisor(statAverage: 50));
+            var withoutAdvisor = resolver.Resolve(PartyOf(MakeTraveler(vit: 8, mnd: 5)), MakeField(reachedFloor: 1), currentFloor: 1);
+            var withAdvisor = resolver.Resolve(PartyOf(MakeTraveler(vit: 8, mnd: 5)), field, currentFloor: 1, state: StateWithAdvisor(statAverage: 50));
 
             Assert.Equal(TraversalRank.Struggling, withoutAdvisor.Rank);
             Assert.Equal(0, withoutAdvisor.AdvisorTraversalBonus, precision: 6);

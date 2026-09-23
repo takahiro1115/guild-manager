@@ -112,17 +112,61 @@ namespace GuildManager.Core.Systems
         }
 
         /// <summary>
-        /// 隠密スコア＝Σ(AGI+DEX)×係数 ＋ 部隊長LDR×係数。空の部隊は0。
+        /// 隠密適性（実効値）＝ max(0, floor(基礎隠密 × 人数倍率) − 重装ペナルティ合計)。
+        /// 基礎隠密＝Σ(AGI×WeightAgi ＋ DEX×WeightDex) ＋ 部隊長LDR×WeightLdr ＋ 専門職ボーナス合計。
+        /// 空の部隊は0。
+        ///
+        /// 2026年9月改訂（→ 03 §4.5.3）：旧モデルは走破力（→ DungeonTraversalResolver.
+        /// CalculateTraversalScore）とまったく同じ AGI+DEX 合算の式で、UIの2指標が常に同値に
+        /// なっていた。隠密側には「**誰が**潜るか（斥候・盗賊の専門職ボーナス）」「**何人で**潜るか
+        /// （人数倍率）」「**何を着て**潜るか（重装ペナルティ）」を足し、編成の巧拙が出る指標にした。
+        ///
+        /// 人数倍率は乗算、重装ペナルティは倍率適用**後**の直接減算。順序を固定するのは、
+        /// 「大人数の重装部隊」で二重に効いて極端な値にならないようにするため。
         /// public static にしてあるのは出撃前のプレビュー（UI）とテストから同じ式を使うため。
         /// </summary>
         public static double CalculateStealthScore(Party party)
         {
             if (party.IsEmpty) return 0;
 
-            return party.Members.Sum(m => m.GetEffectiveStat("AGI") + m.GetEffectiveStat("DEX"))
-                * ScoutingBalance.StealthStatCoefficient
-                + party.Members[0].GetEffectiveStat("LDR") * ScoutingBalance.LeaderPanicPreventionCoefficient;
+            double baseScore = CalculateBaseStealthScore(party);
+            double scaled = Math.Floor(baseScore * ScoutingBalance.GetStealthPartySizeMultiplier(party.Members.Count));
+
+            return Math.Max(0, scaled - CalculateHeavyArmorPenalty(party));
         }
+
+        /// <summary>
+        /// 基礎隠密＝Σ(AGI×係数＋DEX×係数) ＋ 部隊長LDR×係数 ＋ 専門職ボーナス合計。
+        /// 人数倍率・重装ペナルティを掛ける前の素点（UIの内訳表示・テストから使う）。
+        /// </summary>
+        public static double CalculateBaseStealthScore(Party party)
+        {
+            if (party.IsEmpty) return 0;
+
+            return party.Members.Sum(m =>
+                    m.GetEffectiveStat("AGI") * ScoutingBalance.StealthWeightAgi
+                    + m.GetEffectiveStat("DEX") * ScoutingBalance.StealthWeightDex)
+                + party.Members[0].GetEffectiveStat("LDR") * ScoutingBalance.StealthWeightLdr
+                + CountStealthSpecialists(party) * ScoutingBalance.StealthBonusRangerThief;
+        }
+
+        /// <summary>隠密の専門職（斥候＝Ranger・盗賊＝Thief）の人数。</summary>
+        public static int CountStealthSpecialists(Party party) =>
+            party.Members.Count(m => m.JobClass is JobClass.Ranger or JobClass.Thief);
+
+        /// <summary>
+        /// 重装者の人数（→ CalculateHeavyArmorPenalty）。重装鎧を装備している者、または
+        /// 職業が重戦士（Warrior）・騎士（Knight）の者。両方に該当しても1名として数える
+        /// （「重い甲冑をまとって歩く者が何人いるか」の数え上げであり、二重取りはしない）。
+        /// </summary>
+        public static int CountHeavyMembers(Party party) =>
+            party.Members.Count(m =>
+                m.JobClass is JobClass.Warrior or JobClass.Knight
+                || m.GetEquippedId(EquipmentSlot.Armor) == ItemCatalog.HeavyArmorId);
+
+        /// <summary>重装ペナルティ合計＝重装者の人数×固定ペナルティ（倍率適用後に直接減算する）。</summary>
+        public static double CalculateHeavyArmorPenalty(Party party) =>
+            CountHeavyMembers(party) * ScoutingBalance.StealthHeavyArmorPenalty;
 
         /// <summary>解析スコア＝Σ(INT)×係数。空の部隊は0。</summary>
         public static double CalculateAnalysisScore(Party party) =>

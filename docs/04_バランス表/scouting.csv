@@ -1,7 +1,14 @@
 key,value,unit,note
-StealthStatCoefficient,1.0,倍,隠密・生還判定に使うAGI+DEX合算への係数
+Stealth_Weight_Agi,1.0,倍,隠密適性における各員のAGI（身のこなし）への重み
+Stealth_Weight_Dex,1.0,倍,隠密適性における各員のDEX（手先の精度・足音の殺し方）への重み
+Stealth_Weight_Ldr,0.5,倍,部隊長LDR×この係数を隠密適性へ加算（パニック・事故防止）
+Stealth_Bonus_RangerThief,30,pt,斥候（Ranger）・盗賊（Thief）1名につき隠密適性へ加算する専門職ボーナス
+Stealth_PartySize_Mult_1,1.10,倍,1名編成の人数倍率（単独行動は最も隠れやすい）
+Stealth_PartySize_Mult_2,1.00,倍,2名編成の人数倍率（基準）
+Stealth_PartySize_Mult_3,0.85,倍,3名編成の人数倍率
+Stealth_PartySize_Mult_4,0.70,倍,4名編成の人数倍率（大所帯ほど気配を消しにくい）
+Stealth_HeavyArmor_Penalty,30,pt,重装者1名につき隠密適性から直接減算（重装鎧の装備者、またはJobClassがWarrior/Knightのメンバー）
 AnalysisStatCoefficient,1.0,倍,解析・情報収集判定に使うINT合算への係数
-LeaderPanicPreventionCoefficient,0.5,倍,部隊長LDR×この係数を隠密判定へ加算（パニック・事故防止）
 StealthRequirementPerFloor,18,pt,隠密の要求値＝階層×この値（深い階層ほど見つかりやすい）
 AnalysisRequirementPerFloor,14,pt,解析の要求値＝階層×この値
 IntelGainGreatSuccess,0.50,率,解析Ratioが大成功閾値以上のときの解析率上昇量

@@ -25,7 +25,9 @@ public partial class PartyFormationPanel : VBoxContainer
 
 	// 部隊総合力サマリー
 	private Label _traversalScoreLabel = null!;
+	private Label _traversalDetailLabel = null!;
 	private Label _stealthScoreLabel = null!;
+	private Label _stealthDetailLabel = null!;
 	private Label _analysisScoreLabel = null!;
 	private Label _averageHpLabel = null!;
 	private ProgressBar _averageHpBar = null!;
@@ -67,7 +69,9 @@ public partial class PartyFormationPanel : VBoxContainer
 		_statusLabel = GetNode<Label>("%StatusLabel");
 
 		_traversalScoreLabel = GetNode<Label>("%TraversalScoreLabel");
+		_traversalDetailLabel = GetNode<Label>("%TraversalDetailLabel");
 		_stealthScoreLabel = GetNode<Label>("%StealthScoreLabel");
+		_stealthDetailLabel = GetNode<Label>("%StealthDetailLabel");
 		_analysisScoreLabel = GetNode<Label>("%AnalysisScoreLabel");
 		_averageHpLabel = GetNode<Label>("%AverageHpLabel");
 		_averageHpBar = GetNode<ProgressBar>("%AverageHpBar");
@@ -254,20 +258,23 @@ public partial class PartyFormationPanel : VBoxContainer
 
 		var party = PartyFormationSystem.BuildDispatchParty(_state, currentParty.MemberIds);
 
-		// 走破力予測（DungeonTraversalResolver）
-		double traversalScore = DungeonTraversalResolver.CalculateTraversalScore(party, _state);
-		_traversalScoreLabel.Text = $"{traversalScore:F0} pt";
+		// 指標はCore側で一元的に算出する（→ PartyFormationSystem.CalculateMetrics、03 §4.5.3）。
+		// 以前はここで隠密の式を独自に書き直しており、Core側の式を変えてもUIが追随しない
+		// 二重管理になっていた（かつ走破力とまったく同じ式で、常に同値が表示されていた）。
+		var metrics = PartyFormationSystem.CalculateMetrics(party, _state);
 
-		// 隠密適性
-		double stealthScore = party.IsEmpty ? 0 :
-			party.Members.Sum(m => m.GetEffectiveStat("AGI") + m.GetEffectiveStat("DEX")) * ScoutingBalance.StealthStatCoefficient
-			+ party.Members[0].GetEffectiveStat("LDR") * ScoutingBalance.LeaderPanicPreventionCoefficient;
-		_stealthScoreLabel.Text = $"{stealthScore:F0} pt";
+		// 走破力予測（VIT・MND・部隊長LDR＋研究/参謀ボーナス）
+		_traversalScoreLabel.Text = $"{metrics.TraversalPower:F0} pt";
+		_traversalDetailLabel.Text = party.IsEmpty
+			? ""
+			: $"VIT×{DungeonTraversalBalance.WeightVit:0.#} ＋ MND×{DungeonTraversalBalance.WeightMnd:0.#} ＋ 隊長LDR";
+
+		// 隠密適性（AGI・DEX・隊長LDR＋斥候/盗賊ボーナス − 人数減衰・重装ペナルティ）
+		_stealthScoreLabel.Text = $"{metrics.StealthScore:F0} pt";
+		_stealthDetailLabel.Text = party.IsEmpty ? "" : BuildStealthDetail(metrics, party.Members.Count);
 
 		// 解析適性
-		double analysisScore = party.IsEmpty ? 0 :
-			party.Members.Sum(m => m.GetEffectiveStat("INT")) * ScoutingBalance.AnalysisStatCoefficient;
-		_analysisScoreLabel.Text = $"{analysisScore:F0} pt";
+		_analysisScoreLabel.Text = $"{metrics.AnalysisScore:F0} pt";
 
 		// 平均HP割合
 		if (party.IsEmpty)
@@ -286,6 +293,25 @@ public partial class PartyFormationPanel : VBoxContainer
 
 		// 相性警告
 		RefreshCompatibilityWarnings(currentParty);
+	}
+
+	/// <summary>
+	/// 隠密適性の内訳（素点→人数倍率→重装ペナルティ）を1行で示す（→ 03 §4.5.3）。
+	/// 「なぜこの数字なのか」「何を直せば上がるのか」が編成画面で分かるようにするため。
+	/// </summary>
+	private static string BuildStealthDetail(SquadMetrics metrics, int memberCount)
+	{
+		var parts = new List<string> { $"素点{metrics.BaseStealthScore:F0}" };
+
+		if (metrics.StealthSpecialistCount > 0)
+			parts.Add($"斥候/盗賊{metrics.StealthSpecialistCount}名込");
+
+		parts.Add($"{memberCount}名×{metrics.StealthPartySizeMultiplier:0.00}");
+
+		if (metrics.HeavyMemberCount > 0)
+			parts.Add($"重装{metrics.HeavyMemberCount}名 −{metrics.HeavyMemberCount * ScoutingBalance.StealthHeavyArmorPenalty:F0}");
+
+		return string.Join(" / ", parts);
 	}
 
 	private void RefreshCompatibilityWarnings(SavedParty currentParty)

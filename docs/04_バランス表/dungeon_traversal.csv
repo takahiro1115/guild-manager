@@ -1,6 +1,7 @@
 key,value,unit,note
-StatCoefficient,1.0,倍,走破力算出に使うAGI+DEX合算への係数
-LeaderCoefficient,0.5,倍,部隊長LDR×この係数を走破力へ加算（指揮による効率化）
+Traversal_Weight_Vit,1.0,倍,走破力算出における各員のVIT（体力・悪路踏破）への重み
+Traversal_Weight_Mnd,0.8,倍,走破力算出における各員のMND（精神力・気力の持久）への重み
+Traversal_Weight_Ldr,1.0,倍,部隊長LDR×この係数を走破力へ加算（指揮による道中効率化）
 RequirementPerFloor,15,pt,道中進軍の要求値＝現在到達階層（ReachedFloor）×この値
 RatioThreshold_Lightning,1.8,倍,電撃進軍（+4階層）となるRatioの下限
 RatioThreshold_Swift,1.4,倍,迅速進軍（+3階層）となるRatioの下限

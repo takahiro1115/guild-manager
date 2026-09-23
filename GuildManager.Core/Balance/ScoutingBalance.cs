@@ -14,11 +14,45 @@ namespace GuildManager.Core.Balance
     {
         private const string FileName = "scouting.csv";
 
-        public static readonly double StealthStatCoefficient = BalanceData.GetDouble(FileName, "StealthStatCoefficient");
-        public static readonly double AnalysisStatCoefficient = BalanceData.GetDouble(FileName, "AnalysisStatCoefficient");
+        // ---- 隠密適性の重み・補正（2026年9月改訂、→ 03 §4.5.3） ----
+        // 旧モデルは「Σ(AGI+DEX)×係数 ＋ 部隊長LDR×係数」だけで、走破力（→ DungeonTraversalBalance）と
+        // まったく同じ式を参照していたため、UIの2指標が常に同値になっていた。隠密側は
+        // 「専門職ボーナス・人数倍率・重装ペナルティ」を足し、潜伏の精度を測る指標として切り分けた。
 
-        /// <summary>部隊長LDR×この係数を隠密判定へ加算する（パニック・事故防止）。</summary>
-        public static readonly double LeaderPanicPreventionCoefficient = BalanceData.GetDouble(FileName, "LeaderPanicPreventionCoefficient");
+        /// <summary>各員のAGI（身のこなし）への重み。</summary>
+        public static readonly double StealthWeightAgi = BalanceData.GetDouble(FileName, "Stealth_Weight_Agi");
+
+        /// <summary>各員のDEX（手先の精度・足音の殺し方）への重み。</summary>
+        public static readonly double StealthWeightDex = BalanceData.GetDouble(FileName, "Stealth_Weight_Dex");
+
+        /// <summary>部隊長LDR×この係数を隠密適性へ加算する（パニック・事故防止）。</summary>
+        public static readonly double StealthWeightLdr = BalanceData.GetDouble(FileName, "Stealth_Weight_Ldr");
+
+        /// <summary>斥候（Ranger）・盗賊（Thief）1名につき加算する専門職ボーナス。</summary>
+        public static readonly double StealthBonusRangerThief = BalanceData.GetDouble(FileName, "Stealth_Bonus_RangerThief");
+
+        /// <summary>
+        /// 重装者1名につき隠密適性から**直接減算**する固定ペナルティ（倍率ではない）。
+        /// 対象は「重装鎧の装備者」または「JobClassがWarrior/Knightのメンバー」（どちらか一方でも該当すれば1名分）。
+        /// </summary>
+        public static readonly double StealthHeavyArmorPenalty = BalanceData.GetDouble(FileName, "Stealth_HeavyArmor_Penalty");
+
+        private static readonly double[] StealthPartySizeMultipliers =
+        {
+            BalanceData.GetDouble(FileName, "Stealth_PartySize_Mult_1"),
+            BalanceData.GetDouble(FileName, "Stealth_PartySize_Mult_2"),
+            BalanceData.GetDouble(FileName, "Stealth_PartySize_Mult_3"),
+            BalanceData.GetDouble(FileName, "Stealth_PartySize_Mult_4"),
+        };
+
+        /// <summary>
+        /// 人数倍率（大所帯ほど気配を消しにくい）。1〜4名に対応し、範囲外は近い端へ丸める
+        /// （0名は1名分、5名以上は4名分。→ Models.Party.MaxSlots は4）。
+        /// </summary>
+        public static double GetStealthPartySizeMultiplier(int memberCount) =>
+            StealthPartySizeMultipliers[System.Math.Clamp(memberCount, 1, StealthPartySizeMultipliers.Length) - 1];
+
+        public static readonly double AnalysisStatCoefficient = BalanceData.GetDouble(FileName, "AnalysisStatCoefficient");
 
         public static readonly double StealthRequirementPerFloor = BalanceData.GetDouble(FileName, "StealthRequirementPerFloor");
         public static readonly double AnalysisRequirementPerFloor = BalanceData.GetDouble(FileName, "AnalysisRequirementPerFloor");

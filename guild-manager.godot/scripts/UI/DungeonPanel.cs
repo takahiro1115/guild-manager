@@ -911,7 +911,7 @@ public partial class DungeonPanel : ScrollContainer
 			sb.AppendLine($"[color=gray]目標：第{boss.Floor}層「{boss.Name}」扉前まで潜行（区間進軍倍率 ×{speed:F1}）[/color]");
 
 			_scoutingButton.TooltipText =
-				$"走破力の総合値（AGI+DEX合計＋部隊長LDR補正）：{score:F0}\n" +
+				$"走破力の総合値（Σ(VIT×{DungeonTraversalBalance.WeightVit:0.#}＋MND×{DungeonTraversalBalance.WeightMnd:0.#})＋部隊長LDR補正）：{score:F0}\n" +
 				"道中進軍は低リスク：HPは減っても強制除籍にはならない。\n" +
 				"道中で拾った素材・ゴールドは、ギルドへ帰還した時点で格納される。";
 		}

@@ -13,10 +13,19 @@ namespace GuildManager.Core.Balance
     {
         private const string FileName = "dungeon_traversal.csv";
 
-        public static readonly double StatCoefficient = BalanceData.GetDouble(FileName, "StatCoefficient");
+        // ---- 走破力の重み（2026年9月改訂、→ 03 §4.5.3） ----
+        // 旧モデルは AGI+DEX 合算（StatCoefficient）で、隠密適性（→ ScoutingBalance）とまったく同じ
+        // 式を参照しており、UIの「走破力予測」と「隠密適性」が常に同値になっていた。
+        // 走破力は「悪路を踏み越える体力（VIT）と、長い潜行に耐える気力（MND）」の指標へ切り分けた。
 
-        /// <summary>部隊長LDR×この係数を走破力へ加算する（指揮による効率化）。</summary>
-        public static readonly double LeaderCoefficient = BalanceData.GetDouble(FileName, "LeaderCoefficient");
+        /// <summary>各員のVIT（体力・悪路踏破）への重み。</summary>
+        public static readonly double WeightVit = BalanceData.GetDouble(FileName, "Traversal_Weight_Vit");
+
+        /// <summary>各員のMND（精神力・気力の持久）への重み。</summary>
+        public static readonly double WeightMnd = BalanceData.GetDouble(FileName, "Traversal_Weight_Mnd");
+
+        /// <summary>部隊長LDR×この係数を走破力へ加算する（指揮による道中効率化）。</summary>
+        public static readonly double WeightLdr = BalanceData.GetDouble(FileName, "Traversal_Weight_Ldr");
 
         /// <summary>道中進軍の要求値＝現在到達階層（ReachedFloor）×この値。</summary>
         public static readonly double RequirementPerFloor = BalanceData.GetDouble(FileName, "RequirementPerFloor");

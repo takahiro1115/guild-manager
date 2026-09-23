@@ -132,8 +132,55 @@ namespace GuildManager.Core.Systems
             }
             return pairs;
         }
+
+        /// <summary>
+        /// 部隊の各指標をまとめて算出する（→ 03 §4.5.3、2026年9月新設）。
+        ///
+        /// **算出の一元化：** 編成画面（PartyFormationPanel）・出撃画面（DungeonPanel）のプレビューと、
+        /// 任務解決時（DungeonTraversalResolver・ScoutingResolver）がまったく同じ値を見るように、
+        /// UI側で式を書き直さず必ずこのメソッド（が呼ぶ各Resolverのstatic式）を経由させる。
+        /// 以前はPartyFormationPanelが隠密の式を独自に持っており、Core側の式を変えても
+        /// UIの表示が追随しないという二重管理になっていた。
+        /// </summary>
+        /// <param name="state">
+        /// 省略可能。渡した場合、走破力に研究ボーナス・参謀のルート指導ボーナスが乗る
+        /// （→ DungeonTraversalResolver.CalculateTraversalScore）。
+        /// </param>
+        public static SquadMetrics CalculateMetrics(Party party, GameState? state = null) => new(
+            TraversalPower: DungeonTraversalResolver.CalculateTraversalScore(party, state),
+            StealthScore: ScoutingResolver.CalculateStealthScore(party),
+            BaseStealthScore: ScoutingResolver.CalculateBaseStealthScore(party),
+            StealthPartySizeMultiplier: party.IsEmpty
+                ? 0
+                : Balance.ScoutingBalance.GetStealthPartySizeMultiplier(party.Members.Count),
+            StealthSpecialistCount: ScoutingResolver.CountStealthSpecialists(party),
+            HeavyMemberCount: ScoutingResolver.CountHeavyMembers(party),
+            AnalysisScore: ScoutingResolver.CalculateAnalysisScore(party),
+            GuardPower: ScoutingResolver.CalculateGuardPower(party));
     }
 
     /// <summary>編成画面での相性表示用の1ペア分の結果（→ PartyFormationSystem.GetCompatibilityPairs）。</summary>
     public record PartyCompatibilityPair(Guid IdA, Guid IdB, int Value, bool IsHostile);
+
+    /// <summary>
+    /// 部隊1つ分の指標一式（→ PartyFormationSystem.CalculateMetrics、03 §4.5.3）。
+    /// UIはこれを表示するだけで、式そのものは持たない。
+    /// </summary>
+    /// <param name="TraversalPower">走破力（VIT・MND・部隊長LDR＋研究/参謀ボーナス）。</param>
+    /// <param name="StealthScore">隠密適性の実効値（人数倍率・重装ペナルティ適用後）。</param>
+    /// <param name="BaseStealthScore">隠密適性の素点（人数倍率・重装ペナルティ適用前）。内訳表示用。</param>
+    /// <param name="StealthPartySizeMultiplier">人数倍率。空の部隊は0。</param>
+    /// <param name="StealthSpecialistCount">隠密の専門職（斥候・盗賊）の人数。</param>
+    /// <param name="HeavyMemberCount">重装者の人数（重装鎧の装備者、または重戦士・騎士）。</param>
+    /// <param name="AnalysisScore">解析適性（Σ INT）。</param>
+    /// <param name="GuardPower">護衛力（隊員中の最大 max(STR, VIT, INT)）。</param>
+    public record SquadMetrics(
+        double TraversalPower,
+        double StealthScore,
+        double BaseStealthScore,
+        double StealthPartySizeMultiplier,
+        int StealthSpecialistCount,
+        int HeavyMemberCount,
+        double AnalysisScore,
+        double GuardPower);
 }

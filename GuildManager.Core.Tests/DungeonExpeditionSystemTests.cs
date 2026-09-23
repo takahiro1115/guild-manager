@@ -1629,10 +1629,18 @@ namespace GuildManager.Core.Tests
         {
             var party = PartyOf(MakeAdventurer(JobClass.Thief, 30), MakeAdventurer(JobClass.Scholar, 20));
 
-            // Σ(AGI+DEX)=100 ×1.0 ＋ 部隊長LDR30×0.5 ＝ 115、Σ(INT)=50（→ scouting.csv）
-            Assert.Equal(115, ScoutingResolver.CalculateStealthScore(party), precision: 6);
+            // 隠密（2026年9月改訂、→ 03 §4.5.3・scouting.csv）：
+            //   基礎＝Σ(AGI×1.0＋DEX×1.0)=100 ＋ 部隊長LDR30×0.5=15 ＋ 盗賊1名の専門職ボーナス30 ＝ 145
+            //   2名編成の人数倍率1.00 → 145、重装者0名 → 145
+            Assert.Equal(145, ScoutingResolver.CalculateStealthScore(party), precision: 6);
             Assert.Equal(50, ScoutingResolver.CalculateAnalysisScore(party), precision: 6);
             Assert.Equal(0, ScoutingResolver.CalculateStealthScore(new Party()));
+
+            // 走破力は別系統（VIT・MND）になったため、同じ部隊でも隠密とは一致しない
+            // （旧モデルは両方ともAGI+DEX合算で、UIの2指標が常に同値になっていた）。
+            Assert.NotEqual(
+                ScoutingResolver.CalculateStealthScore(party),
+                DungeonTraversalResolver.CalculateTraversalScore(party));
         }
     }
 }
