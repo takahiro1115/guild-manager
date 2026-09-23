@@ -185,6 +185,41 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 - `Stealth_HeavyArmor_Penalty`（30）… 重装者1名につき**倍率適用後に直接減算**
   （重装鎧の装備者、または職業が重戦士・騎士。両方該当でも1名分）。結果は0未満にならない。
 
+## 道中損耗・機嫌・内職・相性で追加／変更されたキー（2026年9月、→ 03 §0.19〜§0.22）
+
+**`dungeon_traversal.csv` ／ `dungeon.csv`（§0.19）** … キーの追加・変更なし。`FullIntelDamageMultiplier`（0.3）と
+`UnexploredHpLossPctMin/Max`（30〜50%）の**適用方法**だけが変わった：損耗は階層ごとに「その階層の基礎率
+（既踏＝進軍ランクの `HpLossPct*`／未踏破＝`UnexploredHpLossPct*`）÷歩いた階層数×その区間の被ダメージ倍率」を
+合算する（旧：進軍全体の基礎率×歩いた階層の平均倍率）。
+
+**`master_mood.csv`（§0.20・§0.21で新設。`guild_rank.csv`・`guild_rank_params.csv` は削除）**
+
+| キー | 値 | 意味 |
+|---|---|---|
+| `InitialMood` | 50 | マスターの機嫌の初期値（旧セーブの読み込み時もこの値） |
+| `BossDefeatMoodGain` | 20 | 階層ボス撃破1体ごとの上昇 |
+| `PioneerMoodPerFloor` | 2 | 道中潜行で進んだ未踏破階層1階層ごとの上昇 |
+| `SurveySuccessMoodGain` ／ `SurveyRoutedMoodLoss` | 3 ／ 3 | 迷宮調査：護衛「余裕」「十分」で帰還時+3／「不足」（潰走）で−3 |
+| `GatheringMoodGain` | 2 | 探索採取で素材を1個以上持ち帰った時の上昇 |
+| `AppraisalMoodGain` | 1 | 未鑑定遺物1個の鑑定ごとの上昇（即時） |
+| `BoredomMoodDecay` | 5 | 大迷宮での成果ゼロの週の退屈減衰 |
+| `ForcedRetirementMoodLoss` | 20 | 強制除籍1名ごとの低下（アルベールの激怒、§0.21） |
+| `TierThreshold_Cheerful` ／ `_Normal` ／ `_Grumpy` | 80 ／ 50 ／ 20 | 段階の下限（未満は危機。0で副官解雇） |
+| `SideJobMultiplier_Cheerful` ／ `_Normal` ／ `_Grumpy` ／ `_Crisis` | 1.5 ／ 1.0 ／ 0.5 ／ 0.0 | 段階ごとの内職売上倍率 |
+
+**`economy.csv`（§0.20）** … `SideJobIntervalWeeks`（4週）・`SideJobBaseAmount`（200G）＝アルベールの市販薬・
+内職売上の入金間隔と初期基本額（旧 `SubsidyWeeksPerMonth`・`SubsidyBaseAmount_G〜S` を置き換え）。
+`SeveranceShortfallMoodPenalty`（15）＝退職金不足時の機嫌低下（旧 `SeveranceShortfallReputationPenalty`）。
+
+**`research.csv`（§0.21）** … 効果種別 `SideBusinessGoldBonus` の4研究を追加（`res_beauty_lotion`+150G・
+`res_energy_tonic`+250G・`res_trade_route`+400G・`res_vitality_elixir`+600G）。内職売上＝(基本200G＋研究加算)×機嫌倍率。
+
+**`compatibility_advisor.csv`（§0.22）** … `ExpeditionGain_BossVictory`（3）／`_Traversal`／`_Survey`／`_Gathering`（各1）。
+（旧 `AchievementGain`・`FailureLoss` を置き換え。詳細は上記「大迷宮への再配線で追加された主なキー」の節）
+
+**`trait.csv`（§0.22）** … `CountryBredGatheringBonusRate`（0.20）＝田舎育ちの採取スコアボーナス率
+（旧 `CountryBredExplorationBonus` を置き換え）。
+
 ## 凡例
 
 - `key` … コード側の定数名に対応する識別子。**変更しないこと**（読み込み時のキーになる）。
