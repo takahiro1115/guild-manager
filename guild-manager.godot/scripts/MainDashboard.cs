@@ -274,13 +274,14 @@ public partial class MainDashboard : Control
 
 		RefreshAll();
 
-		if (_recruitmentSystem.IsTutorialRecruitmentWeek(_state.WeekNumber))
+		if (_recruitmentSystem.IsInitialDraftWeek(_state.WeekNumber))
 		{
-			// 第1週チュートリアル採用試験（→ 初期編成改訂仕様）。初期固定メンバー3名に加え、
-			// ここで3名を即時提示し選抜契約することで計6名体制になる。通常の新春採用試験
-			// （418行目付近）と同様、意思決定（採用する/見送る）が済むまで次週へ進めさせない。
+			// 第1週の新春ドラフト（→ 03 §2.4、2026年9月）。初期固定メンバー3名に欠けている4職
+			// （魔導士・学者・騎士・盗賊）を含む候補から2名を契約金0Gで採用し、職業ごとの初期装備を
+			// 着た状態で加入させて計5名体制（4人出撃＋1人待機お手伝い）にする。
+			// 2名の採用が済むまでポップアップは閉じず、次週へも進めさせない。
 			DisableWeekAdvancement();
-			_recruitmentPopup.Open(_state, _recruitmentSystem, RecruitmentBalance.TutorialCandidateCount);
+			_recruitmentPopup.OpenDraft(_state, _recruitmentSystem);
 		}
 	}
 

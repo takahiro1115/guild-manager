@@ -22,6 +22,7 @@ grow_horizontal = 2
 grow_vertical = 2
 
 [node name="TitleLabel" type="Label" parent="VBox"]
+unique_name_in_owner = true
 layout_mode = 2
 text = "新春採用試験：応募者を選んで採用してください（複数可・空き枠まで）"
 

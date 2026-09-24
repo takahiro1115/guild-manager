@@ -49,22 +49,23 @@ namespace GuildManager.Core.Tests
             Assert.Equal(expected, system.IsRecruitmentWeek(weekNumber));
         }
 
-        // ---------------- 第1週チュートリアル採用試験（→ 初期編成改訂仕様） ----------------
+        // ---------------- 第1週の新春ドラフト（→ 03 §2.4。詳細は RecruitmentDraftTests） ----------------
 
         [Fact]
-        public void Recruitment_WeekOne_ShouldTriggerRecruitment()
+        public void Recruitment_WeekOne_ShouldTriggerInitialDraft()
         {
             var system = new RecruitmentSystem(new AlwaysMinRng());
 
-            // 第1週のみチュートリアル採用試験が発生する（通常の新春採用試験＝IsRecruitmentWeekとは
+            // 第1週のみ新春ドラフトが発生する（通常の新春採用試験＝IsRecruitmentWeekとは
             // 別枠のイベント。IsRecruitmentWeekは1年目を丸ごと対象外にしている）。
-            Assert.True(system.IsTutorialRecruitmentWeek(1));
-            Assert.False(system.IsTutorialRecruitmentWeek(2));
+            Assert.True(system.IsInitialDraftWeek(1));
+            Assert.False(system.IsInitialDraftWeek(2));
             Assert.False(system.IsRecruitmentWeek(1));
 
-            var offers = system.GenerateCandidates(new GameState(), candidateCount: RecruitmentBalance.TutorialCandidateCount);
+            var draft = system.StartInitialDraft(new GameState());
 
-            Assert.Equal(3, offers.Count);
+            Assert.Equal(RecruitmentBalance.DraftCandidateCount, draft.Offers.Count);
+            Assert.Equal(RecruitmentBalance.DraftHireCount, draft.HiresRemaining);
         }
 
         // ---------------- 応募者生成（§2.4「契約年齢」「PA天井は年齢非依存」） ----------------

@@ -2,6 +2,8 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using GuildManager.Core.Balance;
+using GuildManager.Core.Data;
 using GuildManager.Core.Models;
 using GuildManager.Core.Systems;
 
@@ -15,6 +17,9 @@ using GuildManager.Core.Systems;
 ///
 /// 「採用する」は選択中の1名を雇用してポップアップを開いたままにする（複数採用可、→ 03 §2.4）。
 /// 「見送る」は残り全員を見送ってポップアップを閉じる。
+///
+/// 第1週の新春ドラフト（→ OpenDraft、03 §2.4、2026年9月）も同じポップアップで行う：契約金0G・
+/// 規定人数（2名）を採用し終えた時点で自動的に閉じる。「見送る」は出さない。
 /// </summary>
 public partial class RecruitmentPopup : PopupPanel
 {
@@ -22,11 +27,16 @@ public partial class RecruitmentPopup : PopupPanel
 	private Button _hireButton = null!;
 	private Button _declineButton = null!;
 	private Label _statusLabel = null!;
+	private Label _titleLabel = null!;
+	private string _defaultTitle = "";
 
 	private GameState _state = null!;
 	private RecruitmentSystem _recruitmentSystem = null!;
 	private List<RecruitmentOffer> _candidates = new();
 	private bool _decided;
+
+	/// <summary>新春ドラフト中（→ OpenDraft）なら非null。通常の新春採用試験ではnull。</summary>
+	private RecruitmentDraft _draft;
 
 	/// <summary>採用処理が完了してポップアップが閉じた（＝次週へ進めてよい）ことを通知する。</summary>
 	public event Action Closed = delegate { };
@@ -37,10 +47,39 @@ public partial class RecruitmentPopup : PopupPanel
 		_hireButton = GetNode<Button>("%HireButton");
 		_declineButton = GetNode<Button>("%DeclineButton");
 		_statusLabel = GetNode<Label>("%StatusLabel");
+		_titleLabel = GetNode<Label>("%TitleLabel");
+		_defaultTitle = _titleLabel.Text;
 
 		_hireButton.Pressed += OnHirePressed;
 		_declineButton.Pressed += OnDeclinePressed;
 		PopupHide += OnPopupHide;
+	}
+
+	/// <summary>
+	/// 第1週の新春ドラフト（→ 03 §2.4、RecruitmentSystem.StartInitialDraft）を開始する。契約金は無料、
+	/// 規定人数（RecruitmentBalance.DraftHireCount）を採用し終えるまで閉じられない（「見送る」も出さない）。
+	/// 採用した新人は職業ごとの初期装備を着て加入する（→ RecruitmentSystem.TryDraftHire）。
+	/// </summary>
+	public void OpenDraft(GameState state, RecruitmentSystem recruitmentSystem)
+	{
+		_state = state;
+		_recruitmentSystem = recruitmentSystem;
+		_draft = recruitmentSystem.StartInitialDraft(state, GetScoutMasterBonus());
+		_candidates = _draft.Offers;
+		_decided = false;
+		ApplyMode();
+
+		RefreshList();
+		PopupCentered();
+	}
+
+	/// <summary>ドラフト中は見出しを差し替え、「見送る」を隠す。通常の採用試験では元に戻す。</summary>
+	private void ApplyMode()
+	{
+		_declineButton.Visible = _draft == null;
+		Title = _draft == null ? "新春採用試験" : "新春ドラフト";
+		if (_draft == null)
+			_titleLabel.Text = _defaultTitle;
 	}
 
 	/// <summary>
@@ -49,8 +88,7 @@ public partial class RecruitmentPopup : PopupPanel
 	/// <param name="candidateCount">
 	/// 提示する候補者数。省略時（null）は通常の新春採用試験と同じ人数
 	/// （RecruitmentSystem.GenerateCandidatesの既定＝RecruitmentBalance.CandidateCount）。
-	/// 第1週チュートリアル採用試験ではRecruitmentBalance.TutorialCandidateCountを渡す
-	/// （→ MainDashboard.StartNewGame）。
+	/// 第1週の新春ドラフトはこちらではなく OpenDraft を使う（→ MainDashboard.StartNewGame）。
 	/// </param>
 	public void Open(GameState state, RecruitmentSystem recruitmentSystem, int? candidateCount = null)
 	{
@@ -58,6 +96,8 @@ public partial class RecruitmentPopup : PopupPanel
 		_recruitmentSystem = recruitmentSystem;
 		_candidates = recruitmentSystem.GenerateCandidates(state, GetScoutMasterBonus(), candidateCount);
 		_decided = false;
+		_draft = null;
+		ApplyMode();
 
 		RefreshList();
 		PopupCentered();
@@ -76,6 +116,8 @@ public partial class RecruitmentPopup : PopupPanel
 		_recruitmentSystem = recruitmentSystem;
 		_candidates = new List<RecruitmentOffer>(offers);
 		_decided = false;
+		_draft = null;
+		ApplyMode();
 
 		RefreshList();
 		PopupCentered();
@@ -102,9 +144,21 @@ public partial class RecruitmentPopup : PopupPanel
 		foreach (var offer in _candidates)
 		{
 			var c = offer.Candidate;
+			if (_draft != null)
+			{
+				// ドラフトは契約金0G。加入時に着る初期装備（→ StarterEquipment）も添えて選びやすくする。
+				var (weaponId, armorId) = StarterEquipment.GetLoadout(c.JobClass);
+				_candidateList.AddItem(
+					$"{c.Name}（{c.JobClass}）{c.Age}歳 総合PA{c.TotalPA:F0} 契約金 0 G 週給{c.WeeklyWage}G " +
+					$"初期装備: {ItemCatalog.FindById(weaponId)?.Name}＋{ItemCatalog.FindById(armorId)?.Name}");
+				continue;
+			}
 			_candidateList.AddItem(
 				$"{c.Name}（{c.JobClass}）{c.Age}歳 総合PA{c.TotalPA:F0} 契約金{offer.SigningBonus}G 週給{c.WeeklyWage}G");
 		}
+
+		if (_draft != null)
+			_titleLabel.Text = $"【新春ドラフト】契約金無料：新人を{RecruitmentBalance.DraftHireCount}名採用してください（残り{_draft.HiresRemaining}名）";
 
 		_statusLabel.Text = $"現役枠の空き: {_recruitmentSystem.GetOpenSlotCount(_state)}　所持金: {_state.Gold} G";
 	}
@@ -123,8 +177,20 @@ public partial class RecruitmentPopup : PopupPanel
 		if (_recruitmentSystem.GetOpenSlotCount(_state) <= 0)
 		{
 			_statusLabel.Text = "現役枠がいっぱいで採用できません（→ 03 §6：施設拡張は未実装）。";
+			if (_draft != null)
+				FinishAndClose(); // ドラフト中に枠が尽きたら、それ以上は選びようがないので締める（閉じられなくなるのを防ぐ）
 			return;
 		}
+		if (_draft != null)
+		{
+			// ドラフトは契約金0G：所持金は見ない（資金不足で採用できない状態を作らない）。
+			_recruitmentSystem.TryDraftHire(_state, _draft, offer);
+			RefreshList();
+			if (_draft.IsComplete)
+				FinishAndClose();
+			return;
+		}
+
 		if (_state.Gold < offer.SigningBonus)
 		{
 			_statusLabel.Text = $"契約金 {offer.SigningBonus}G が足りません（所持金 {_state.Gold}G）。";

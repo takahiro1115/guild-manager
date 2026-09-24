@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using GuildManager.Core.Balance;
+using GuildManager.Core.Data;
 using GuildManager.Core.Models;
 using GuildManager.Core.Rng;
 
@@ -59,15 +60,61 @@ namespace GuildManager.Core.Systems
         }
 
         /// <summary>
-        /// 第1週（ゲーム開始週）限定のチュートリアル採用試験かどうか（→ 初期編成改訂仕様）。
-        /// IsRecruitmentWeekが1年目を丸ごと対象外にしているのとは別枠の、開始週だけの
-        /// 一度きりのイベント：初期固定メンバー3名（→ SampleData）に加え、開始直後に
-        /// RecruitmentBalance.TutorialCandidateCount（3名）を即時採用試験として提示し、
-        /// 選抜採用することで計6名体制になる。呼び出し側（新規ゲーム開始フロー）が
-        /// この判定を見て GenerateCandidates(state, candidateCount: RecruitmentBalance.
-        /// TutorialCandidateCount) を呼ぶ想定。
+        /// 第1週（ゲーム開始週）限定の「新春ドラフト」の週かどうか（→ 03 §2.4、2026年9月に旧チュートリアル
+        /// 採用試験を置き換え）。IsRecruitmentWeekが1年目を丸ごと対象外にしているのとは別枠の、開始週だけの
+        /// 一度きりのイベント。呼び出し側（新規ゲーム開始フロー）がこの判定を見て StartInitialDraft を呼ぶ。
         /// </summary>
-        public bool IsTutorialRecruitmentWeek(int weekNumber) => weekNumber == 1;
+        public bool IsInitialDraftWeek(int weekNumber) => weekNumber == 1;
+
+        /// <summary>
+        /// 新春ドラフトで必ず1名ずつ候補に含める職業（初期3名＝重戦士・斥候・神官に欠けている職）。
+        /// 並びは候補一覧の表示順。構造値のためCSV化しない。
+        /// </summary>
+        public static readonly JobClass[] DraftGuaranteedJobs =
+        {
+            JobClass.Mage, JobClass.Scholar, JobClass.Knight, JobClass.Thief,
+        };
+
+        /// <summary>
+        /// 新春ドラフトを開始する（→ 03 §2.4）。候補は DraftGuaranteedJobs の4職を1名ずつ、残り
+        /// （DraftCandidateCount − 4 名）は全職業から通常抽選。全員が応募年齢の下限（18歳＝新鋭期）で、
+        /// 契約金は0G。採用上限は DraftHireCount 名（→ TryDraftHire）。
+        /// </summary>
+        public RecruitmentDraft StartInitialDraft(GameState state, double scoutMasterBonus = 0)
+        {
+            double highPotentialChance = HighPotentialBaseChance + scoutMasterBonus;
+            int count = Math.Max(DraftGuaranteedJobs.Length, RecruitmentBalance.DraftCandidateCount);
+            var existingNames = new HashSet<string>(state.Adventurers.Select(a => a.Name));
+
+            var offers = new List<RecruitmentOffer>();
+            for (int i = 0; i < count; i++)
+            {
+                JobClass? job = i < DraftGuaranteedJobs.Length ? DraftGuaranteedJobs[i] : null;
+                var generated = GenerateOne(i, highPotentialChance, existingNames, job, RecruitmentBalance.MinCandidateAge);
+                existingNames.Add(generated.Candidate.Name);
+                offers.Add(new RecruitmentOffer(generated.Candidate, 0)); // ドラフトは契約金無料
+            }
+
+            return new RecruitmentDraft(offers, RecruitmentBalance.DraftHireCount);
+        }
+
+        /// <summary>
+        /// 新春ドラフトの候補を1名採用する。契約金は取らず（所持金は減らない）、職業ごとの初期装備
+        /// （→ Data.StarterEquipment）を着せて、装備補正込みの最大HPでHP満タンにしてから名簿へ加える。
+        /// ドラフト終了済み・候補外・空き枠なしの場合は何もせず false。
+        /// </summary>
+        public bool TryDraftHire(GameState state, RecruitmentDraft draft, RecruitmentOffer offer)
+        {
+            if (draft.IsComplete) return false;
+            if (!draft.Offers.Contains(offer)) return false;
+            if (GetOpenSlotCount(state) <= 0) return false;
+
+            StarterEquipment.Equip(offer.Candidate);
+            state.Adventurers.Add(offer.Candidate);
+            draft.Offers.Remove(offer);
+            draft.HiresRemaining--;
+            return true;
+        }
 
         /// <summary>現役枠の上限（→ 03 §2.4「雇用枠」）。宿舎（Dormitory）の現在Lvに連動する。</summary>
         public int GetActiveSlotCap(GameState state) =>
@@ -98,8 +145,7 @@ namespace GuildManager.Core.Systems
         /// </param>
         /// <param name="candidateCount">
         /// 提示する応募者数。省略時は通常の新春採用試験と同じ RecruitmentBalance.CandidateCount。
-        /// 第1週のチュートリアル採用試験（→ IsTutorialRecruitmentWeek）では、呼び出し側が
-        /// RecruitmentBalance.TutorialCandidateCount を渡す想定。
+        /// 第1週の新春ドラフトはこのメソッドではなく StartInitialDraft を使う。
         /// </param>
         public List<RecruitmentOffer> GenerateCandidates(GameState state, double scoutMasterBonus = 0, int? candidateCount = null)
         {
@@ -133,9 +179,10 @@ namespace GuildManager.Core.Systems
             return true;
         }
 
-        private RecruitmentOffer GenerateOne(int index, double highPotentialChance, HashSet<string> existingNames)
+        private RecruitmentOffer GenerateOne(int index, double highPotentialChance, HashSet<string> existingNames,
+            JobClass? fixedJob = null, int? fixedAge = null)
         {
-            int age = _rng.NextInt(RecruitmentBalance.MinCandidateAge, RecruitmentBalance.MaxCandidateAge);
+            int age = fixedAge ?? _rng.NextInt(RecruitmentBalance.MinCandidateAge, RecruitmentBalance.MaxCandidateAge);
 
             // ageT: 0（年齢レンジの下限＝伸びしろ最大）〜 1（上限＝即戦力寄り）。
             // 8年稼働モデル（→ 03 §3.7）では加入年齢を18歳に統一したためレンジ幅が0になる。
@@ -152,7 +199,8 @@ namespace GuildManager.Core.Systems
             // 旧実装は NextInt(0, 3) と4職固定の数値で書かれており、職業を増やしても採用で
             // 一切出現しない状態になっていた。列挙型の要素数から範囲を導出し、
             // 今後職業を増減しても抽選範囲の更新漏れが起きないようにしている。
-            var jobClass = (JobClass)_rng.NextInt(0, AllJobClassCount - 1);
+            // 新春ドラフトの保証枠（→ StartInitialDraft）は職業を固定し、抽選しない。
+            var jobClass = fixedJob ?? (JobClass)_rng.NextInt(0, AllJobClassCount - 1);
 
             // 氏名ジェネレーター（→ 03 §2.4・NameGenerator）：文化圏（洋名80%/和名20%）を
             // ランダムに決定し、対応する名前プールから現役ロースターと重複しない

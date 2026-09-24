@@ -15,10 +15,11 @@ namespace GuildManager.Core.Data
     /// PAは「新人はステータス実効値 &lt; PA」（仕様書03 §2.2）に沿って現在値より少し高めに設定してある。
     ///
     /// 初期編成改訂（→ 初期編成改訂仕様）：固定初期メンバーを旧4名から3名（前衛の重戦士・斥候、
-    /// 後衛の神官）に絞り、開始直後の第1週チュートリアル採用試験（→ RecruitmentSystem.
-    /// IsTutorialRecruitmentWeek）でプレイヤー自身が3名を選抜契約することで計6名体制になる。
-    /// 魔導士（旧エルシャ）はあえて初期メンバーから外し、「魔導士は自分で選んで採用する」
-    /// 最初の意思決定をチュートリアルに組み込んでいる。
+    /// 後衛の神官）に絞り、開始直後の第1週「新春ドラフト」（→ RecruitmentSystem.StartInitialDraft、
+    /// 2026年9月に旧チュートリアル採用試験を置き換え）でプレイヤー自身が2名を無料で選抜契約することで
+    /// 計5名体制（4人出撃＋1人待機お手伝い）になる。
+    /// 魔導士（旧エルシャ）はあえて初期メンバーから外し、ドラフト候補に必ず含まれる4職
+    /// （魔導士・学者・騎士・盗賊）から「誰を足すか」を選ぶ最初の意思決定にしている。
     ///
     /// 世界観設定改訂（→ 女性限定ギルド仕様）：本ギルドは女性限定のため、初期メンバー・
     /// 新規採用候補（→ RecruitmentSystem・recruitment.csv MaleGenderChancePercent=0）とも
@@ -64,30 +65,18 @@ namespace GuildManager.Core.Data
                 },
             };
 
-            // 初期装備（2026年9月、武具の7大能力値補正）：初期メンバーは基本装備を着た状態で加入する。
-            // 購入経路と同じくカタログから新しい個体を作って差し込む（→ Adventurer.SetEquippedId）。
-            // 防具のHP加算・VIT補正がMaxHPに乗るので、下のCurrentHP初期化より前に行う。
-            EquipStarter(list[0], ItemCatalog.IronSwordId, ItemCatalog.LeatherArmorId); // クラウディア（重戦士）
-            EquipStarter(list[1], ItemCatalog.DaggerId, ItemCatalog.LeatherArmorId);    // リナ（斥候）
-            EquipStarter(list[2], ItemCatalog.MaceId, ItemCatalog.RobeId);              // フィオナ（神官）
-
             foreach (var a in list)
             {
-                // 開始時はHPを満タンにしておく（MaxHPはVITから計算されるため、
-                // ステータス設定後にここで初期化する）。
-                a.CurrentHP = a.MaxHP;
+                // 初期装備（2026年9月、武具の7大能力値補正）：職業ごとの基本装備を着た状態で加入する
+                // （→ StarterEquipment。新春ドラフトの新人と同じ表：クラウディア＝鉄の剣＋革鎧、
+                // リナ＝短剣＋革鎧、フィオナ＝メイス＋ローブ）。装備補正込みの最大HPでHPも満タンにする。
+                StarterEquipment.Equip(a);
 
                 // 配置（Placement）の初期値は職業から自動決定する（→ 03 §4.2）。
                 a.Placement = PlacementRules.GetDefault(a.JobClass);
             }
 
             return list;
-        }
-
-        private static void EquipStarter(Adventurer a, string weaponId, string armorId)
-        {
-            a.SetEquippedId(EquipmentSlot.Weapon, weaponId);
-            a.SetEquippedId(EquipmentSlot.Armor, armorId);
         }
 
         /// <summary>

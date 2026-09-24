@@ -51,10 +51,13 @@ namespace GuildManager.Core.Balance
         public static readonly int InnateTraitChancePercent = BalanceData.GetInt(FileName, "InnateTraitChancePercent");
 
         /// <summary>
-        /// 第1週（ゲーム開始週）の新春採用試験改訂：初期固定メンバー（→ SampleData、3名）に
-        /// 加え、開始直後にこの人数を即時採用試験として提示する（計6名体制へ。
-        /// → 初期編成改訂仕様）。→ BAL: 採用/第1週採用人数。
+        /// 第1週の新春ドラフト（→ RecruitmentSystem.StartInitialDraft、03 §2.4、2026年9月）で提示する候補者数。
+        /// 保証職（魔導士・学者・騎士・盗賊）の4名を下回る値でも保証職は全員出す（4名が下限）。
+        /// 5名目以降は全職業から通常抽選。旧 TutorialCandidateCount（3名・有料）の置き換え。
         /// </summary>
-        public static readonly int TutorialCandidateCount = BalanceData.GetInt(FileName, "TutorialCandidateCount");
+        public static readonly int DraftCandidateCount = BalanceData.GetInt(FileName, "DraftCandidateCount");
+
+        /// <summary>新春ドラフトで採用する人数（初期3名＋この人数＝開始時の在籍数）。</summary>
+        public static readonly int DraftHireCount = BalanceData.GetInt(FileName, "DraftHireCount");
     }
 }

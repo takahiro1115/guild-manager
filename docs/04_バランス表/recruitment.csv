@@ -13,4 +13,5 @@ OldestGrowthRatio,0.7,倍,"年齢レンジ上限側の初期実効値/PA比率�
 InnateTraitChancePercent,5,%,先天特性（豪胆・注意深い・容姿秀麗）各々の付与確率
 WesternCultureChancePercent,80,%,氏名生成における洋名の出現率（残りは和名）
 UniqueNameRetryLimit,50,回,氏名重複回避のリトライ上限
-TutorialCandidateCount,3,名,第1週(ゲーム開始週)のチュートリアル採用試験で提示する応募者数（→ 初期編成改訂仕様）
+DraftCandidateCount,5,名,第1週(ゲーム開始週)の新春ドラフトで提示する候補者数（魔導士・学者・騎士・盗賊の4名は必ず含む＝4が下限。5名目以降は全職業から通常抽選）
+DraftHireCount,2,名,新春ドラフトで採用する人数（契約金0G。初期3名＋2名＝5名体制で開始）
