@@ -105,6 +105,10 @@ namespace GuildManager.Core.Systems
             // 内職売上の倍率は「決算時点の機嫌」で決まるため、内職売上より先に済ませる。
             result.MoodReport = _masterMoodSystem.ProcessWeeklyMood(state, result.DungeonMissionResolutions);
 
+            // 待機お手伝い（→ 03 §8.1）：出撃せず残った健康な冒険者がアルベールの内職を手伝う（1名ごとに少額G＋機嫌）。
+            // HP判定は訓練・静養でHPが動く前の時点で行う。機嫌が内職売上の倍率に効くよう、内職売上より先に済ませる。
+            result.IdleHelpEntries.AddRange(MasterMoodSystem.ProcessIdleHelp(state, dispatchedIds, result.MoodReport));
+
             // 出撃の有無にかかわらず、時間は必ず進む。
             _economySystem.ApplyWeeklyWages(state);
 

@@ -508,6 +508,10 @@ public partial class MainDashboard : Control
 
 		LogMasterMood(settlement.MoodReport); // → 03 §8.1・§8.1.1：マスターの機嫌の変動内訳
 
+		// 待機お手伝い（→ 03 §8.1）：出撃せず残った健康な冒険者ごとに1行。
+		foreach (var help in settlement.IdleHelpEntries)
+			AppendLog($"[color=lime]☕ {help.Name} はギルドでアルベールの内職を手伝い、{help.Gold} G とマスターの機嫌（+{help.Mood}）に貢献した。[/color]");
+
 		// アルベールの市販薬・内職売上（→ 03 §8.1。4週に1回、機嫌に応じた倍率。旧・月次助成金）。
 		if (settlement.SideJobIncome != null)
 		{

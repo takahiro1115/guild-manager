@@ -15,3 +15,5 @@ SideJobMultiplier_Normal,1.0,倍,平常時の内職売上倍率
 SideJobMultiplier_Grumpy,0.5,倍,不機嫌時の内職売上倍率
 SideJobMultiplier_Crisis,0.0,倍,危機時の内職売上倍率
 ForcedRetirementMoodLoss,20,pt,ボス討伐等で隊員がHP0となり不死薬で現場から永久離脱（強制除籍）した際の、除籍1名ごとの機嫌低下（アルベールの激怒）
+IdleAdventurerHelp_Gold,15,G,出撃せずギルドに残った健康な冒険者（出撃なし・HP満タン・負傷なし）1名ごとの週次お手伝い収入（アルベールの内職の手伝い）
+IdleAdventurerHelp_Mood,1,pt,同上の待機お手伝い1名ごとの機嫌上昇（上限100でクランプ）

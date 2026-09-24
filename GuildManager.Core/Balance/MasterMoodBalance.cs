@@ -45,6 +45,15 @@ namespace GuildManager.Core.Balance
         /// <summary>成果ゼロ週の退屈減衰量（正の値で持つ）。</summary>
         public static readonly int BoredomMoodDecay = BalanceData.GetInt(FileName, "BoredomMoodDecay");
 
+        /// <summary>
+        /// 待機お手伝い（→ MasterMoodSystem.ProcessIdleHelp、03 §8.1、2026年9月新設）：出撃せずギルドに残った
+        /// 健康な冒険者1名ごとの週次収入（G）。
+        /// </summary>
+        public static readonly int IdleAdventurerHelpGold = BalanceData.GetInt(FileName, "IdleAdventurerHelp_Gold");
+
+        /// <summary>待機お手伝い1名ごとの機嫌上昇（上限でクランプ）。</summary>
+        public static readonly int IdleAdventurerHelpMood = BalanceData.GetInt(FileName, "IdleAdventurerHelp_Mood");
+
         public static readonly int TierThresholdCheerful = BalanceData.GetInt(FileName, "TierThreshold_Cheerful");
         public static readonly int TierThresholdNormal = BalanceData.GetInt(FileName, "TierThreshold_Normal");
         public static readonly int TierThresholdGrumpy = BalanceData.GetInt(FileName, "TierThreshold_Grumpy");

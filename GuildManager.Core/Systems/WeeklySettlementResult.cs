@@ -44,6 +44,9 @@ namespace GuildManager.Core.Systems
         /// <summary>今週のマスターの機嫌の変動（→ MasterMoodSystem.ProcessWeeklyMood）。</summary>
         public MasterMoodReport MoodReport { get; set; } = new();
 
+        /// <summary>今週の待機お手伝い（→ MasterMoodSystem.ProcessIdleHelp、03 §8.1）。対象0名なら空。</summary>
+        public List<IdleHelpEntry> IdleHelpEntries { get; } = new();
+
         /// <summary>今週完成した施設（無ければnull）。</summary>
         public Facility? CompletedFacility { get; set; }
 
