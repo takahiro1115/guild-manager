@@ -167,14 +167,15 @@ namespace GuildManager.Core.Systems
             party.Members.Count(m => m.JobClass is JobClass.Ranger or JobClass.Thief);
 
         /// <summary>
-        /// 重装者の人数（→ CalculateHeavyArmorPenalty）。重装鎧を装備している者、または
+        /// 重装者の人数（→ CalculateHeavyArmorPenalty）。重装防具（Item.IsHeavyArmor：重装鎧・
+        /// 全身板金鎧。鎖帷子は対象外）を装備している者、または
         /// 職業が重戦士（Warrior）・騎士（Knight）の者。両方に該当しても1名として数える
         /// （「重い甲冑をまとって歩く者が何人いるか」の数え上げであり、二重取りはしない）。
         /// </summary>
         public static int CountHeavyMembers(Party party) =>
             party.Members.Count(m =>
                 m.JobClass is JobClass.Warrior or JobClass.Knight
-                || m.GetEquippedId(EquipmentSlot.Armor) == ItemCatalog.HeavyArmorId);
+                || m.GetEquipped(EquipmentSlot.Armor)?.GetDefinition()?.IsHeavyArmor == true);
 
         /// <summary>重装ペナルティ合計＝重装者の人数×固定ペナルティ（倍率適用後に直接減算する）。</summary>
         public static double CalculateHeavyArmorPenalty(Party party) =>

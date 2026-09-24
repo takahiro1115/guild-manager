@@ -24,6 +24,22 @@ namespace GuildManager.Core.Models
         public int Price { get; set; }
 
         /// <summary>
+        /// 7大能力値への固定加算（→ 03 §4.2.2、2026年9月新設）。キーは "STR","VIT","AGI","DEX","INT","MND","LDR"
+        /// （→ Adventurer.GetEffectiveStat）。値は equipment.csv の Bonus* 列由来（→ EquipmentBalance）。
+        /// 空＝補正なし。
+        /// </summary>
+        public IReadOnlyDictionary<string, int> StatBonuses { get; set; } = new Dictionary<string, int>();
+
+        /// <summary>
+        /// 重装防具か（→ ScoutingResolver.CountHeavyMembers：隠密の重装ペナルティ対象）。
+        /// 重装鎧・全身板金鎧のみtrue。鎖帷子はfalse（中装扱い）。
+        /// </summary>
+        public bool IsHeavyArmor { get; set; }
+
+        /// <summary>指定した能力値への補正値（未設定なら0）。</summary>
+        public int GetStatBonus(string statName) => StatBonuses.TryGetValue(statName, out int v) ? v : 0;
+
+        /// <summary>
         /// 見た目切替用の識別子（→ 03 §4.2.2「見た目との連動」）。武器・防具・アクセサリー1のみ使用。
         /// 立ち絵システム（AdventurerVisualData）との連携は、本リポジトリに当該システムが
         /// まだ存在しないため未接続（→ §11。データとしてのみ保持する）。

@@ -155,7 +155,7 @@ namespace GuildManager.Core.Systems
         /// <summary>
         /// 保管庫の武具1点あたりの売却額（→ 03 §4.8）。2系統ある：
         ///  - **カタログ品（無銘、`EquipmentItem.Rarity` が null）**：カタログ定価の50%（端数切り捨て、
-        ///    → BAL: equipment.csv の *_Price）。買い直せる物なので目減りする。
+        ///    → BAL: equipment.csv の Price 列）。買い直せる物なので目減りする。
         ///  - **鑑定で出土した個体（Rarity あり）**：希少度ごとの基準額（→ BAL: relic.csv の SellPrice*）。
         ///    定価とは無関係に希少度だけで決まる（「掘り出し物」としての価値）。
         ///

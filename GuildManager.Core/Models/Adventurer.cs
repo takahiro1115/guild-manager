@@ -135,8 +135,10 @@ namespace GuildManager.Core.Models
         }
 
         /// <summary>
-        /// 特性による効果（StatPercentReduction）を反映した実効値を返す
-        /// （→ 03 §4.3・§5.3）。個人CP計算・最大HP計算の両方から使う共通ヘルパー。
+        /// 特性による効果（StatPercentReduction）を反映した実効値に、装備の能力値補正
+        /// （→ GetEquipmentStatBonus、03 §4.2.2）を加えた値を返す（→ 03 §4.3・§5.3）。
+        /// 個人CP計算・最大HP計算・大迷宮の各部隊指標（走破・隠密・解析・護衛・討伐CP）の共通ヘルパー。
+        /// 特性の割合減は素の能力値にだけ掛かり、装備補正は減らない（古傷を負っても剣の重みは変わらない）。
         /// </summary>
         public double GetEffectiveStat(string statName)
         {
@@ -156,7 +158,7 @@ namespace GuildManager.Core.Models
 
             // 減少しすぎて0以下にならないよう下限をクランプ（暫定：最大80%減まで）
             double multiplier = Math.Max(1.0 + totalReduction, 0.2);
-            return baseValue * multiplier;
+            return baseValue * multiplier + GetEquipmentStatBonus(statName);
         }
 
         /// <summary>
@@ -363,6 +365,22 @@ namespace GuildManager.Core.Models
                 var item = GetEquipped(slot)?.GetDefinition();
                 if (item != null && item.EffectType == effectType)
                     total += item.EffectValue;
+            }
+            return total;
+        }
+
+        /// <summary>
+        /// 装備中の4枠すべての、指定能力値への補正の合計（→ Item.StatBonuses、03 §4.2.2）。
+        /// GetEffectiveStat が加算する。カタログから引けない個体（旧データ）は0として扱う。
+        /// </summary>
+        public int GetEquipmentStatBonus(string statName)
+        {
+            int total = 0;
+            foreach (var slot in AllSlots)
+            {
+                var item = GetEquipped(slot)?.GetDefinition();
+                if (item != null)
+                    total += item.GetStatBonus(statName);
             }
             return total;
         }

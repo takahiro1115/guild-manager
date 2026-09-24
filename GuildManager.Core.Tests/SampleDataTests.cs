@@ -67,5 +67,30 @@ namespace GuildManager.Core.Tests
             var distinctMaterials = field.Bosses.Select(b => b.RewardMaterialId).Distinct().ToList();
             Assert.Equal(3, distinctMaterials.Count);
         }
+
+        [Theory]
+        [InlineData("クラウディア", ItemCatalog.IronSwordId, ItemCatalog.LeatherArmorId)]
+        [InlineData("リナ", ItemCatalog.DaggerId, ItemCatalog.LeatherArmorId)]
+        [InlineData("フィオナ", ItemCatalog.MaceId, ItemCatalog.RobeId)]
+        public void StarterAdventurers_BeginWithBasicEquipment(string name, string weaponId, string armorId)
+        {
+            // 武具の7大能力値補正（2026年9月）：初期メンバーは基本装備を着た状態で加入する。
+            var a = SampleData.CreateStarterAdventurers().Single(x => x.Name == name);
+
+            Assert.Equal(weaponId, a.EquippedWeaponId);
+            Assert.Equal(armorId, a.EquippedArmorId);
+            Assert.Null(a.EquippedAccessory1);
+            Assert.Null(a.EquippedAccessory2);
+            Assert.True(a.EquippedWeapon!.IsAllowedFor(a.JobClass));
+            Assert.True(a.EquippedArmor!.IsAllowedFor(a.JobClass));
+            Assert.Null(a.EquippedWeapon.Rarity); // カタログ品（無銘）
+        }
+
+        [Fact]
+        public void StarterAdventurers_StartAtFullHp_IncludingEquipmentBonuses()
+        {
+            // 防具のHP加算・VIT補正が乗った後の最大HPで満タンになっていること。
+            Assert.All(SampleData.CreateStarterAdventurers(), a => Assert.Equal(a.MaxHP, a.CurrentHP));
+        }
     }
 }

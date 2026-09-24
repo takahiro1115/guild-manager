@@ -64,6 +64,13 @@ namespace GuildManager.Core.Data
                 },
             };
 
+            // 初期装備（2026年9月、武具の7大能力値補正）：初期メンバーは基本装備を着た状態で加入する。
+            // 購入経路と同じくカタログから新しい個体を作って差し込む（→ Adventurer.SetEquippedId）。
+            // 防具のHP加算・VIT補正がMaxHPに乗るので、下のCurrentHP初期化より前に行う。
+            EquipStarter(list[0], ItemCatalog.IronSwordId, ItemCatalog.LeatherArmorId); // クラウディア（重戦士）
+            EquipStarter(list[1], ItemCatalog.DaggerId, ItemCatalog.LeatherArmorId);    // リナ（斥候）
+            EquipStarter(list[2], ItemCatalog.MaceId, ItemCatalog.RobeId);              // フィオナ（神官）
+
             foreach (var a in list)
             {
                 // 開始時はHPを満タンにしておく（MaxHPはVITから計算されるため、
@@ -75,6 +82,12 @@ namespace GuildManager.Core.Data
             }
 
             return list;
+        }
+
+        private static void EquipStarter(Adventurer a, string weaponId, string armorId)
+        {
+            a.SetEquippedId(EquipmentSlot.Weapon, weaponId);
+            a.SetEquippedId(EquipmentSlot.Armor, armorId);
         }
 
         /// <summary>

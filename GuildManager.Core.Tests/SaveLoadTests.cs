@@ -796,7 +796,7 @@ namespace GuildManager.Core.Tests
             Assert.Null(loaded.EquippedAccessory2Id);
             Assert.Equal("鉄の剣", loaded.EquippedWeapon!.Name);
             // 装備補正も旧セーブどおりに効く。
-            Assert.Equal(EquipmentBalance.LeatherArmorEffectValue, loaded.GetEquipmentBonus(EquipmentEffectType.MaxHpBonus));
+            Assert.Equal(ItemCatalog.LeatherArmor.EffectValue, loaded.GetEquipmentBonus(EquipmentEffectType.MaxHpBonus));
         }
 
         [Fact]

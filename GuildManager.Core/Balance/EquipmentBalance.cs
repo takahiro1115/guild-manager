@@ -1,48 +1,97 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+
 namespace GuildManager.Core.Balance
 {
     /// <summary>
-    /// 装備アイテム（→ ItemCatalog）の価格・効果量に関するバランス値。仕様書 03 §4.2.2 参照。
-    /// 値は docs/04_バランス表/equipment.csv から読み込む（→ 03 §10.1、項目58フォローアップ）。
+    /// 装備アイテム1種分の数値（→ EquipmentBalance.Get）。
+    /// StatBonuses は7大能力値（STR/VIT/AGI/DEX/INT/MND/LDR）→ 補正値。0の能力値も含めて全7キーを持つ。
+    /// </summary>
+    public sealed record EquipmentStats(int Price, int EffectValue, IReadOnlyDictionary<string, int> StatBonuses);
+
+    /// <summary>
+    /// 装備アイテム（→ ItemCatalog）の価格・効果量・能力値補正に関するバランス値。仕様書 03 §4.2.2 参照。
+    /// 値は docs/04_バランス表/equipment.csv（テーブル形式）から読み込む（→ 03 §10.1）。
     ///
-    /// 事前調査メモ（項目58）：ItemCatalog.csの各Itemが持つPrice・EffectValueは、クラス
-    /// doc コメントに「値はすべて仮値（→ BAL: 装備）」と明記された状態で直書きされていた
-    /// （項目58時点では対応CSVが無かったため対象外とし、本クラスを新設してフォローアップ
-    /// した）。アイテムの構造（Id・Name・Slot・EffectType・AllowedJobs・VisualPartId）は
-    /// 引き続きItemCatalog.cs側に残す（→ README「CSV化していない値」の方針と同じ：
-    /// 構造を定義する値ではなく、調整対象の数値のみをCSV化する）。
+    /// 列の意味：Id,Price,EffectValue,BonusStr,BonusVit,BonusAgi,BonusDex,BonusInt,BonusMnd,BonusLdr,note
+    /// （EffectValue は武器・CP系アクセサリーなら個人CP加算量、防具・HP系アクセサリーなら最大HP加算量）。
+    ///
+    /// 2026年9月改訂（武具の7大能力値補正）：旧 key,value 形式（IronSword_Price 等）から
+    /// テーブル形式へ移行した。アイテムごとに10個近い数値を持つようになり、key,value 形式では
+    /// 行が膨れて一覧性が失われるため。アイテムの構造（Id・Name・Slot・EffectType・AllowedJobs・
+    /// VisualPartId・重装区分）は引き続き ItemCatalog.cs 側に残す（→ README「CSV化していない値」）。
+    ///
+    /// 列はヘッダー名で引く（列順の入れ替えに強くするため）。必須列の欠損・数値のパース失敗・
+    /// Idの重複・カタログが要求するIdの欠損はいずれも BalanceDataException（フォールバックしない）。
     /// </summary>
     public static class EquipmentBalance
     {
         private const string FileName = "equipment.csv";
 
-        public static readonly int IronSwordPrice = BalanceData.GetInt(FileName, "IronSword_Price");
-        public static readonly int IronSwordEffectValue = BalanceData.GetInt(FileName, "IronSword_EffectValue");
+        /// <summary>能力値名 → CSV列名。能力値名は Adventurer.GetEffectiveStat の引数と同じ表記。</summary>
+        private static readonly (string Stat, string Column)[] BonusColumns =
+        {
+            ("STR", "BonusStr"),
+            ("VIT", "BonusVit"),
+            ("AGI", "BonusAgi"),
+            ("DEX", "BonusDex"),
+            ("INT", "BonusInt"),
+            ("MND", "BonusMnd"),
+            ("LDR", "BonusLdr"),
+        };
 
-        public static readonly int GreatSwordPrice = BalanceData.GetInt(FileName, "GreatSword_Price");
-        public static readonly int GreatSwordEffectValue = BalanceData.GetInt(FileName, "GreatSword_EffectValue");
+        private static readonly Dictionary<string, EquipmentStats> Definitions = BuildDefinitions();
 
-        public static readonly int MageStaffPrice = BalanceData.GetInt(FileName, "MageStaff_Price");
-        public static readonly int MageStaffEffectValue = BalanceData.GetInt(FileName, "MageStaff_EffectValue");
+        private static Dictionary<string, EquipmentStats> BuildDefinitions()
+        {
+            var (header, rows) = BalanceData.GetTable(FileName);
 
-        public static readonly int LeatherArmorPrice = BalanceData.GetInt(FileName, "LeatherArmor_Price");
-        public static readonly int LeatherArmorEffectValue = BalanceData.GetInt(FileName, "LeatherArmor_EffectValue");
+            int idCol = RequireColumn(header, "Id");
+            int priceCol = RequireColumn(header, "Price");
+            int effectCol = RequireColumn(header, "EffectValue");
+            var bonusCols = BonusColumns.Select(b => (b.Stat, Index: RequireColumn(header, b.Column), b.Column)).ToArray();
 
-        public static readonly int HeavyArmorPrice = BalanceData.GetInt(FileName, "HeavyArmor_Price");
-        public static readonly int HeavyArmorEffectValue = BalanceData.GetInt(FileName, "HeavyArmor_EffectValue");
+            var result = new Dictionary<string, EquipmentStats>();
+            for (int i = 0; i < rows.Count; i++)
+            {
+                var row = rows[i];
+                string id = row[idCol];
+                if (result.ContainsKey(id))
+                    throw new BalanceDataException($"{FileName} のId「{id}」が重複しています（{i + 2}行目）。");
 
-        public static readonly int RobePrice = BalanceData.GetInt(FileName, "Robe_Price");
-        public static readonly int RobeEffectValue = BalanceData.GetInt(FileName, "Robe_EffectValue");
+                var bonuses = bonusCols.ToDictionary(b => b.Stat, b => ParseInt(row[b.Index], i, b.Column));
+                result[id] = new EquipmentStats(
+                    ParseInt(row[priceCol], i, "Price"),
+                    ParseInt(row[effectCol], i, "EffectValue"),
+                    bonuses);
+            }
 
-        public static readonly int PowerRingPrice = BalanceData.GetInt(FileName, "PowerRing_Price");
-        public static readonly int PowerRingEffectValue = BalanceData.GetInt(FileName, "PowerRing_EffectValue");
+            return result;
+        }
 
-        public static readonly int LifeAmuletPrice = BalanceData.GetInt(FileName, "LifeAmulet_Price");
-        public static readonly int LifeAmuletEffectValue = BalanceData.GetInt(FileName, "LifeAmulet_EffectValue");
+        private static int RequireColumn(string[] header, string name)
+        {
+            int index = Array.IndexOf(header, name);
+            if (index < 0)
+                throw new BalanceDataException($"{FileName} に必須列「{name}」がありません。");
+            return index;
+        }
 
-        public static readonly int QuickBroochPrice = BalanceData.GetInt(FileName, "QuickBrooch_Price");
-        public static readonly int QuickBroochEffectValue = BalanceData.GetInt(FileName, "QuickBrooch_EffectValue");
+        private static int ParseInt(string raw, int rowIndex, string columnName)
+        {
+            if (int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out int value))
+                return value;
+            throw new BalanceDataException($"{FileName} の{rowIndex + 2}行目の{columnName}「{raw}」を整数として解釈できません。");
+        }
 
-        public static readonly int GuardCharmPrice = BalanceData.GetInt(FileName, "GuardCharm_Price");
-        public static readonly int GuardCharmEffectValue = BalanceData.GetInt(FileName, "GuardCharm_EffectValue");
+        /// <summary>指定Idの数値。CSVに行が無ければ BalanceDataException（カタログとCSVの不一致は起動失敗にする）。</summary>
+        public static EquipmentStats Get(string id)
+        {
+            if (Definitions.TryGetValue(id, out var stats))
+                return stats;
+            throw new BalanceDataException($"{FileName} にアイテムId「{id}」の行がありません。");
+        }
     }
 }

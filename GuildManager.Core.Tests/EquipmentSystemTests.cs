@@ -252,12 +252,12 @@ namespace GuildManager.Core.Tests
             var adventurer = new Adventurer { JobClass = JobClass.Warrior };
             var state = new GameState { Gold = 10000 };
             var system = new EquipmentSystem();
-            system.TryPurchaseAndEquip(state, adventurer, ItemCatalog.IronSwordId); // CP+10
+            system.TryPurchaseAndEquip(state, adventurer, ItemCatalog.IronSwordId); // CP+8
             system.TryPurchaseAndEquip(state, adventurer, ItemCatalog.PowerRingId); // CP+8
             system.TryPurchaseAndEquip(state, adventurer, ItemCatalog.QuickBroochId); // CP+8
             system.TryPurchaseAndEquip(state, adventurer, ItemCatalog.LeatherArmorId); // HP側なのでCPには寄与しない
 
-            Assert.Equal(26, adventurer.GetEquipmentBonus(EquipmentEffectType.PersonalCpBonus));
+            Assert.Equal(24, adventurer.GetEquipmentBonus(EquipmentEffectType.PersonalCpBonus));
         }
 
         [Fact]
@@ -267,20 +267,20 @@ namespace GuildManager.Core.Tests
             int maxHpBefore = adventurer.MaxHP; // 20*2+50=90
 
             var state = new GameState { Gold = 10000 };
-            new EquipmentSystem().TryPurchaseAndEquip(state, adventurer, ItemCatalog.LeatherArmorId); // HP+20
+            new EquipmentSystem().TryPurchaseAndEquip(state, adventurer, ItemCatalog.LeatherArmorId); // HP+15（革鎧のAGI+2はHPに影響しない）
 
             Assert.Equal(90, maxHpBefore);
-            Assert.Equal(110, adventurer.MaxHP);
+            Assert.Equal(105, adventurer.MaxHP);
         }
 
         [Fact]
-        public void MaxHP_UnaffectedByEquippedWeapon_OnlyArmorAndHpAccessoriesCount()
+        public void MaxHP_WeaponCpBonusDoesNotCount_ButItsVitBonusDoes()
         {
             var adventurer = new Adventurer { VIT = 20, JobClass = JobClass.Warrior };
             var state = new GameState { Gold = 10000 };
-            new EquipmentSystem().TryPurchaseAndEquip(state, adventurer, ItemCatalog.IronSwordId); // CP側
+            new EquipmentSystem().TryPurchaseAndEquip(state, adventurer, ItemCatalog.IronSwordId); // CP+8（HPには寄与しない）・VIT+1
 
-            Assert.Equal(90, adventurer.MaxHP); // 20*2+50、武器のCP加算はHPに影響しない
+            Assert.Equal(92, adventurer.MaxHP); // (20+1)*2+50。武器のCP加算はHPに影響せず、VIT補正だけが乗る
         }
 
         [Fact]

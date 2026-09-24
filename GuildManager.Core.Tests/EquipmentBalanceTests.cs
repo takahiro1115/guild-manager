@@ -1,3 +1,4 @@
+using System.Linq;
 using GuildManager.Core.Balance;
 using GuildManager.Core.Models;
 using Xunit;
@@ -5,71 +6,73 @@ using Xunit;
 namespace GuildManager.Core.Tests
 {
     /// <summary>
-    /// EquipmentBalance（→ docs/04_バランス表/equipment.csv、項目58フォローアップ）のテスト。
-    /// CSV由来の値が旧・直書き値と一致すること、およびItemCatalog側のItemへ正しく
-    /// 反映されていることを確認する。
+    /// EquipmentBalance（→ docs/04_バランス表/equipment.csv、テーブル形式）のテスト。
+    /// CSV由来の値（2026年9月、武具の7大能力値補正の仮値）がItemCatalog側のItemへ
+    /// 正しく反映されていることを確認する。
     /// </summary>
     public class EquipmentBalanceTests
     {
-        [Fact]
-        public void AllCatalogItems_MatchFormerHardcodedValues()
+        [Theory]
+        //           Id                          Price CP/HP STR VIT AGI DEX INT MND LDR
+        [InlineData(ItemCatalog.IronSwordId,     100,  8,  2,  1,  0,  0,  0,  0,  0)]
+        [InlineData(ItemCatalog.DaggerId,         80,  6,  0,  0,  2,  5,  0,  0,  0)]
+        [InlineData(ItemCatalog.HuntingBowId,    140,  9,  0,  0,  4,  2,  0,  0,  0)]
+        [InlineData(ItemCatalog.SpearId,         180, 11,  3,  3,  0,  0,  0,  0,  0)]
+        [InlineData(ItemCatalog.GreatSwordId,    200, 14,  6,  2,  0,  0,  0,  0,  0)]
+        [InlineData(ItemCatalog.MaceId,          150,  7,  2,  0,  0,  0,  0,  5,  0)]
+        [InlineData(ItemCatalog.WarhammerId,     210, 12,  4,  0,  0,  0,  0,  3,  0)]
+        [InlineData(ItemCatalog.MageStaffId,     160,  9,  0,  0,  0,  0,  6,  0,  0)]
+        [InlineData(ItemCatalog.GrimoireId,      220, 11,  0,  0,  0,  0,  4,  4,  0)]
+        [InlineData(ItemCatalog.LeatherArmorId,   80, 15,  0,  0,  2,  0,  0,  0,  0)]
+        [InlineData(ItemCatalog.ScholarCoatId,   130, 15,  0,  0,  0,  2,  3,  0,  0)]
+        [InlineData(ItemCatalog.RobeId,          100, 10,  0,  0,  0,  0,  3,  3,  0)]
+        [InlineData(ItemCatalog.ChainmailId,     160, 25,  0,  3,  0,  0,  0,  0,  0)]
+        [InlineData(ItemCatalog.HeavyArmorId,    200, 35,  1,  6,  0,  0,  0,  0,  0)]
+        [InlineData(ItemCatalog.PlateArmorId,    300, 50,  2, 10,  0,  0,  0,  0,  0)]
+        [InlineData(ItemCatalog.PowerRingId,     300,  8,  0,  0,  0,  0,  0,  0,  0)]
+        [InlineData(ItemCatalog.LifeAmuletId,    300, 15,  0,  0,  0,  0,  0,  0,  0)]
+        [InlineData(ItemCatalog.QuickBroochId,   300,  8,  0,  0,  0,  0,  0,  0,  0)]
+        [InlineData(ItemCatalog.GuardCharmId,    300, 15,  0,  0,  0,  0,  0,  0,  0)]
+        public void CatalogItems_MatchCsvValues(string id, int price, int effect,
+            int str, int vit, int agi, int dex, int intel, int mnd, int ldr)
         {
-            Assert.Equal(200, ItemCatalog.IronSword.Price);
-            Assert.Equal(10, ItemCatalog.IronSword.EffectValue);
+            var item = ItemCatalog.FindById(id)!;
 
-            Assert.Equal(500, ItemCatalog.GreatSword.Price);
-            Assert.Equal(20, ItemCatalog.GreatSword.EffectValue);
-
-            Assert.Equal(400, ItemCatalog.MageStaff.Price);
-            Assert.Equal(15, ItemCatalog.MageStaff.EffectValue);
-
-            Assert.Equal(200, ItemCatalog.LeatherArmor.Price);
-            Assert.Equal(20, ItemCatalog.LeatherArmor.EffectValue);
-
-            Assert.Equal(600, ItemCatalog.HeavyArmor.Price);
-            Assert.Equal(40, ItemCatalog.HeavyArmor.EffectValue);
-
-            Assert.Equal(250, ItemCatalog.Robe.Price);
-            Assert.Equal(15, ItemCatalog.Robe.EffectValue);
-
-            Assert.Equal(300, ItemCatalog.PowerRing.Price);
-            Assert.Equal(8, ItemCatalog.PowerRing.EffectValue);
-
-            Assert.Equal(300, ItemCatalog.LifeAmulet.Price);
-            Assert.Equal(15, ItemCatalog.LifeAmulet.EffectValue);
-
-            Assert.Equal(300, ItemCatalog.QuickBrooch.Price);
-            Assert.Equal(8, ItemCatalog.QuickBrooch.EffectValue);
-
-            Assert.Equal(300, ItemCatalog.GuardCharm.Price);
-            Assert.Equal(15, ItemCatalog.GuardCharm.EffectValue);
+            Assert.Equal(price, item.Price);
+            Assert.Equal(effect, item.EffectValue);
+            Assert.Equal(str, item.GetStatBonus("STR"));
+            Assert.Equal(vit, item.GetStatBonus("VIT"));
+            Assert.Equal(agi, item.GetStatBonus("AGI"));
+            Assert.Equal(dex, item.GetStatBonus("DEX"));
+            Assert.Equal(intel, item.GetStatBonus("INT"));
+            Assert.Equal(mnd, item.GetStatBonus("MND"));
+            Assert.Equal(ldr, item.GetStatBonus("LDR"));
         }
 
         [Fact]
-        public void EquipmentBalanceFields_MatchItemCatalog()
+        public void EveryCatalogItem_IsWiredToItsOwnCsvRow()
         {
-            // EquipmentBalanceの各フィールドがItemCatalogの対応するItemへ正しく
-            // 配線されていること（キー名の取り違え防止）。
-            Assert.Equal(EquipmentBalance.IronSwordPrice, ItemCatalog.IronSword.Price);
-            Assert.Equal(EquipmentBalance.IronSwordEffectValue, ItemCatalog.IronSword.EffectValue);
-            Assert.Equal(EquipmentBalance.GreatSwordPrice, ItemCatalog.GreatSword.Price);
-            Assert.Equal(EquipmentBalance.GreatSwordEffectValue, ItemCatalog.GreatSword.EffectValue);
-            Assert.Equal(EquipmentBalance.MageStaffPrice, ItemCatalog.MageStaff.Price);
-            Assert.Equal(EquipmentBalance.MageStaffEffectValue, ItemCatalog.MageStaff.EffectValue);
-            Assert.Equal(EquipmentBalance.LeatherArmorPrice, ItemCatalog.LeatherArmor.Price);
-            Assert.Equal(EquipmentBalance.LeatherArmorEffectValue, ItemCatalog.LeatherArmor.EffectValue);
-            Assert.Equal(EquipmentBalance.HeavyArmorPrice, ItemCatalog.HeavyArmor.Price);
-            Assert.Equal(EquipmentBalance.HeavyArmorEffectValue, ItemCatalog.HeavyArmor.EffectValue);
-            Assert.Equal(EquipmentBalance.RobePrice, ItemCatalog.Robe.Price);
-            Assert.Equal(EquipmentBalance.RobeEffectValue, ItemCatalog.Robe.EffectValue);
-            Assert.Equal(EquipmentBalance.PowerRingPrice, ItemCatalog.PowerRing.Price);
-            Assert.Equal(EquipmentBalance.PowerRingEffectValue, ItemCatalog.PowerRing.EffectValue);
-            Assert.Equal(EquipmentBalance.LifeAmuletPrice, ItemCatalog.LifeAmulet.Price);
-            Assert.Equal(EquipmentBalance.LifeAmuletEffectValue, ItemCatalog.LifeAmulet.EffectValue);
-            Assert.Equal(EquipmentBalance.QuickBroochPrice, ItemCatalog.QuickBrooch.Price);
-            Assert.Equal(EquipmentBalance.QuickBroochEffectValue, ItemCatalog.QuickBrooch.EffectValue);
-            Assert.Equal(EquipmentBalance.GuardCharmPrice, ItemCatalog.GuardCharm.Price);
-            Assert.Equal(EquipmentBalance.GuardCharmEffectValue, ItemCatalog.GuardCharm.EffectValue);
+            // ItemCatalogの各Itemが、自分のIdの行の値を持っていること（行の取り違え防止）。
+            foreach (var item in ItemCatalog.GetAll())
+            {
+                var stats = EquipmentBalance.Get(item.Id);
+                Assert.Equal(stats.Price, item.Price);
+                Assert.Equal(stats.EffectValue, item.EffectValue);
+                Assert.Same(stats.StatBonuses, item.StatBonuses);
+            }
+        }
+
+        [Fact]
+        public void Get_UnknownId_Throws()
+        {
+            Assert.Throws<BalanceDataException>(() => EquipmentBalance.Get("__NoSuchItem__"));
+        }
+
+        [Fact]
+        public void OnlyHeavyArmorAndPlateArmor_AreHeavy()
+        {
+            var heavy = ItemCatalog.GetAll().Where(i => i.IsHeavyArmor).Select(i => i.Id).OrderBy(i => i);
+            Assert.Equal(new[] { ItemCatalog.HeavyArmorId, ItemCatalog.PlateArmorId }.OrderBy(i => i), heavy);
         }
     }
 }

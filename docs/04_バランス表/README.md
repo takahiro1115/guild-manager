@@ -25,7 +25,7 @@
 | `compatibility_advisor.csv` | 03 §5.3・§7 | CompatibilityBalance, AdvisorBalance（教官成長補正、参謀の大迷宮調査解析ボーナス・道中潜行走破力ボーナス、スカウト有望新人率） |
 | `training.csv` | 03 §3.1〜3.4・§3.5改 | TrainingBalance |
 | `trait.csv` | 03 §4.3・§5.3.2・§4.2.3 | TraitBalance（→ TraitCatalog）、ペアシナジーの隊長LDR緩和係数 |
-| `equipment.csv` | 03 §4.2.2 | EquipmentBalance（→ ItemCatalog） |
+| `equipment.csv` | 03 §4.2.2 | EquipmentBalance（→ ItemCatalog）。**テーブル形式**（`Id,Price,EffectValue,BonusStr〜BonusLdr,note`、2026年9月に key,value 形式から移行） |
 | `consumables.csv` | 03 §4.5.4 | ConsumableBalance（→ ConsumableCatalog。大迷宮ボスギミック対策4種の価格） |
 | `progression.csv` | 03 §4.5.1 | ProgressionBalance（初期の同時出撃枠） |
 | `dungeon.csv` | 03 §4.5.1・§4.5.4 | DungeonBalance（ボス能力重み・未踏破重損耗・ボス間隔・撃破実績点・出撃成長回数） |
@@ -160,7 +160,7 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 深淵の結晶70G）。研究レシピ（`research.csv`）で使う素材を売り払うか貯めておくかが、
 素材経済のトレードオフになる。
 
-> **カタログ品の武具の売却額は新しいキーを作らない。** `equipment.csv` の `*_Price`（定価）の
+> **カタログ品の武具の売却額は新しいキーを作らない。** `equipment.csv` の `Price` 列（定価）の
 > 50%（端数切り捨て）を導出して使う（→ 03 §4.8.2・`EquipmentSystem.GetSellPrice`）。
 > 定価と売却額を二重に持たないため。
 
