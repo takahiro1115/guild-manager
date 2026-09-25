@@ -360,16 +360,30 @@ public partial class AdventurerPanel : VBoxContainer
 	}
 
 	/// <summary>
-	/// 7大能力値の各行へ現在の実効値（白）と潜在能力PA（灰）を反映する。バー全幅は常に上限100
-	/// （→ TripleStatBar。2026年9月、PAを最大値にする相対表示から100固定の3層表示へ刷新）。
-	/// 実効値は特性・装備込み（→ Adventurer.GetEffectiveStat）で、行の右端に「現在値 / PA」を併記する。
+	/// 7大能力値の各行へ素の値（白）・実効値（水色の右端）・潜在能力PA（灰）を反映する。バー全幅は常に上限100
+	/// （→ TripleStatBar。§0.30で4層表示へ拡張）。実効値は特性・装備込み（→ Adventurer.GetEffectiveStat）。
+	/// 行の右端は補正なしなら「素の値 / PA」、補正ありなら「実効値 (+補正) / PA」（→ TripleStatBar.FormatLabel）。
 	/// </summary>
 	private static void BindStatRow(TripleStatBar bar, Label valLabel, Adventurer a, string stat, int pa)
 	{
-		int current = (int)Math.Round(a.GetEffectiveStat(stat));
-		valLabel.Text = $"{current} / {pa}";
-		bar.SetValues(current, pa);
+		int raw = AdventurerStatRaw(a, stat);
+		int effective = (int)Math.Round(a.GetEffectiveStat(stat));
+		valLabel.Text = TripleStatBar.FormatLabel(raw, effective, pa);
+		bar.SetValues(raw, effective, pa);
 	}
+
+	/// <summary>素の能力値（成長・訓練が読み書きする値。特性・装備の補正を含まない）。</summary>
+	private static int AdventurerStatRaw(Adventurer a, string stat) => stat switch
+	{
+		"STR" => a.STR,
+		"VIT" => a.VIT,
+		"AGI" => a.AGI,
+		"DEX" => a.DEX,
+		"INT" => a.INT,
+		"MND" => a.MND,
+		"LDR" => a.LDR,
+		_ => throw new ArgumentException($"未知のステータス: {stat}"),
+	};
 
 	// ==== 操作ボタン群 ====
 
