@@ -9,3 +9,39 @@ PairSynergyLdrMitigationCoefficient,0.01,倍,"ペア特性シナジーの合計�
 TraitTransmissionBaseRatePercent,2.0,%,教官による特性伝授の週次基礎確率（→ 特性伝授刷新仕様。仮値）
 TraitTransmissionPeakStatBonusMaxPercent,2.0,%,教官の対象ステータスの引退時平均(100で頭打ち)に比例して加算される最大ボーナス（仮値）
 TraitTransmissionMentorBonusPercent,3.0,%,教官が師匠肌(Mentor)を持つ場合に加算される固定ボーナス（仮値）
+OldWound_DisplayName,古傷,名称,特性の表示名（→ 03 §5.3）
+OldWound_Description,STR・VIT・AGI・DEXが恒久的に低下する障害。忘却・上書きできない,説明,特性の説明文（UIのツールチップ等）
+OldWound_IsCurseOrInjury,true,真偽,障害・呪い特性か（true＝特性スロットを恒久占有し、忘却・上書き不可。→ 03 §5.3）
+Trauma_DisplayName,トラウマ,名称,特性の表示名
+Trauma_Description,MNDが恒久的に低下する心の傷。忘却・上書きできない,説明,特性の説明文
+Trauma_IsCurseOrInjury,true,真偽,障害・呪い特性か
+Brave_DisplayName,豪胆,名称,特性の表示名
+Brave_Description,致死判定で踏みとどまりやすくなる（生存閾値にボーナス）,説明,特性の説明文
+Brave_IsCurseOrInjury,false,真偽,障害・呪い特性か
+Attentive_DisplayName,注意深い,名称,特性の表示名
+Attentive_Description,索敵・偵察でDEXの寄与が高まる,説明,特性の説明文
+Attentive_IsCurseOrInjury,false,真偽,障害・呪い特性か
+Beautiful_DisplayName,容姿秀麗,名称,特性の表示名
+Beautiful_Description,この冒険者が関わる相性の上昇量が増える（下降量は変わらない）,説明,特性の説明文
+Beautiful_IsCurseOrInjury,false,真偽,障害・呪い特性か
+CountryBred_DisplayName,田舎育ち,名称,特性の表示名
+CountryBred_Description,探索採取で本人の採取寄与に上乗せがつく,説明,特性の説明文
+CountryBred_IsCurseOrInjury,false,真偽,障害・呪い特性か
+Scholar_DisplayName,知識人,名称,特性の表示名
+Scholar_Description,単独の効果は持たない（豪胆と同じ部隊にいると負のペアシナジー）,説明,特性の説明文
+Scholar_IsCurseOrInjury,false,真偽,障害・呪い特性か
+Mentor_DisplayName,師匠肌,名称,特性の表示名
+Mentor_Description,教官として訓練施設に配置されると、特性伝授の確率が上がる,説明,特性の説明文
+Mentor_IsCurseOrInjury,false,真偽,障害・呪い特性か
+ResistPoison_DisplayName,耐毒体質,名称,特性の表示名（2026年9月新設・大迷宮ギミック対策系。効果の数値接続は次段）
+ResistPoison_Description,猛毒・瘴気フロアでの被弾損耗を大幅に軽減する,説明,特性の説明文
+ResistPoison_IsCurseOrInjury,false,真偽,障害・呪い特性か
+NightVision_DisplayName,夜目,名称,特性の表示名（2026年9月新設・大迷宮ギミック対策系。効果の数値接続は次段）
+NightVision_Description,暗黒・濃霧フロアの踏破時、未踏破区間の進行損耗を抑制する,説明,特性の説明文
+NightVision_IsCurseOrInjury,false,真偽,障害・呪い特性か
+GiantHunter_DisplayName,巨獣狩り,名称,特性の表示名（2026年9月新設・大迷宮ギミック対策系。効果の数値接続は次段）
+GiantHunter_Description,大型ボスに対する討伐能力を高める,説明,特性の説明文
+GiantHunter_IsCurseOrInjury,false,真偽,障害・呪い特性か
+Diligent_DisplayName,勤勉,名称,特性の表示名（2026年9月新設・訓練系。効果の数値接続は次段）
+Diligent_Description,訓練場に配置された際の能力成長判定確率が上昇する,説明,特性の説明文
+Diligent_IsCurseOrInjury,false,真偽,障害・呪い特性か

@@ -11,8 +11,18 @@ namespace GuildManager.Core.Models
         /// <summary>一意識別子。例："OldWound"。</summary>
         public string Id { get; set; } = "";
 
-        /// <summary>表示名。例："古傷"。</summary>
+        /// <summary>表示名。例："古傷"。trait.csv の `{Id}_DisplayName` 由来（→ TraitBalance.GetDefinitionText）。</summary>
         public string DisplayName { get; set; } = "";
+
+        /// <summary>説明文（UIのツールチップ等）。trait.csv の `{Id}_Description` 由来。</summary>
+        public string Description { get; set; } = "";
+
+        /// <summary>
+        /// 障害・呪い特性か（→ 03 §5.3、2026年9月新設）。true の特性（古傷・トラウマ）は特性スロットを恒久的に
+        /// 占有し、忘却・上書き（→ Adventurer.CanRemoveTrait・TryReplaceTrait）できない。
+        /// trait.csv の `{Id}_IsCurseOrInjury` 由来。
+        /// </summary>
+        public bool IsCurseOrInjury { get; set; }
 
         public List<TraitEffect> Effects { get; set; } = new();
 

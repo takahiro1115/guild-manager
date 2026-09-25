@@ -114,6 +114,10 @@ namespace GuildManager.Core.Models
         /// ProcessWeeklyTraitTransmission）のいずれも新規の特性を追加できない
         /// （TryAddTraitがfalseを返す。既存の呼び出し側は元々戻り値を無視できる設計のため、
         /// 満杯時に静かに失敗しても既存の処理は壊れない）。
+        ///
+        /// 2026年9月（特性スロット自由枠、→ 03 §5.3）：5枠は先天・修練・障害の内訳を持たない**自由枠**で、
+        /// 1本のリスト（TraitIds）で管理する。障害・呪い特性（TraitDefinition.IsCurseOrInjury：古傷・トラウマ）は
+        /// 忘却・上書きできず、枠を恒久的に占有する（→ CanRemoveTrait）。
         /// </summary>
         public const int MaxTraitCount = 5;
 
@@ -122,15 +126,43 @@ namespace GuildManager.Core.Models
 
         public bool HasTrait(string traitId) => TraitIds.Contains(traitId);
 
+        /// <summary>特性を追加できるか：未所持で、かつ所持数が上限（MaxTraitCount）未満。</summary>
+        public bool CanAddTrait(string traitId) => !TraitIds.Contains(traitId) && TraitIds.Count < MaxTraitCount;
+
         /// <summary>
         /// 特性を付与する。既に持っている、またはスロットが満杯（→ MaxTraitCount）の場合は
         /// 何もせずfalseを返す。
         /// </summary>
         public bool TryAddTrait(string traitId)
         {
-            if (TraitIds.Contains(traitId)) return false;
-            if (TraitIds.Count >= MaxTraitCount) return false;
+            if (!CanAddTrait(traitId)) return false;
             TraitIds.Add(traitId);
+            return true;
+        }
+
+        /// <summary>
+        /// 特性を外せる（忘却・上書きの削除側にできる）か：所持しており、障害・呪い特性
+        /// （TraitDefinition.IsCurseOrInjury）でないこと。障害特性は枠を恒久的に占有する。
+        /// カタログから引けない特性（旧データ）は障害扱いにせず、外せるものとして扱う。
+        /// </summary>
+        public bool CanRemoveTrait(string traitId) =>
+            TraitIds.Contains(traitId) && TraitCatalog.FindById(traitId)?.IsCurseOrInjury != true;
+
+        /// <summary>特性を忘却する。CanRemoveTrait を満たさなければ何もせず false。</summary>
+        public bool TryRemoveTrait(string traitId) => CanRemoveTrait(traitId) && TraitIds.Remove(traitId);
+
+        /// <summary>
+        /// 特性を差し替える（oldTraitId の枠を newTraitId で上書きする）。旧特性が外せて（→ CanRemoveTrait）、
+        /// 新特性を未所持なら成功する。枠数は入替の前後で変わらないため、満杯（5枠）でも入替はできる。
+        /// 並び順（何枠目か）は保つ。条件を満たさなければ何もせず false。
+        /// </summary>
+        public bool TryReplaceTrait(string oldTraitId, string newTraitId)
+        {
+            if (oldTraitId == newTraitId) return false;
+            if (!CanRemoveTrait(oldTraitId)) return false;
+            if (TraitIds.Contains(newTraitId)) return false;
+
+            TraitIds[TraitIds.IndexOf(oldTraitId)] = newTraitId;
             return true;
         }
 

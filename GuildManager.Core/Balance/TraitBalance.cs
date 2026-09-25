@@ -7,13 +7,42 @@ namespace GuildManager.Core.Balance
     /// 事前調査メモ（項目58）：これらの数値は TraitCatalog.cs の各TraitDefinitionへ
     /// 「→ BAL: ...」という外部化予定コメント付きで直書きされていた（項目58時点では
     /// 対応CSVが無かったため対象外とし、本クラスを新設してフォローアップした）。
-    /// 特性の構造（Id・DisplayName・EffectType・TargetStat・BlocksDeployment）は
-    /// 引き続きTraitCatalog.cs側に残す（→ README「CSV化していない値」の方針と同じ：
-    /// 構造を定義する値ではなく、調整対象の数値のみをCSV化する）。
+    /// 特性の構造（Id・EffectType・TargetStat・BlocksDeployment・IsTransmittable）は
+    /// 引き続きTraitCatalog.cs側に残す（→ README「CSV化していない値」の方針と同じ）。
+    /// ただし表示名・説明・障害フラグは、2026年9月（新規特性4種の追加）でCSVを正本にした
+    /// （→ GetDefinitionText）。
     /// </summary>
     public static class TraitBalance
     {
         private const string FileName = "trait.csv";
+
+        /// <summary>
+        /// 特性1種分の定義テキストと障害フラグ（→ GetDefinitionText）。2026年9月（特性スロット自由枠・新規特性4種）で
+        /// 表示名・説明・障害フラグを trait.csv の `{Id}_DisplayName`・`{Id}_Description`・`{Id}_IsCurseOrInjury` 行へ
+        /// 移した（新規特性の定義をCSV正本で管理するため。効果の種別・対象ステータスは引き続き TraitCatalog.cs 側）。
+        /// </summary>
+        public readonly record struct TraitDefinitionText(string DisplayName, string Description, bool IsCurseOrInjury);
+
+        /// <summary>
+        /// 指定Idの特性の表示名・説明・障害フラグを trait.csv から読む。いずれかの行が欠けている、
+        /// または IsCurseOrInjury が true/false でなければ BalanceDataException（フォールバックしない）。
+        /// </summary>
+        public static TraitDefinitionText GetDefinitionText(string traitId)
+        {
+            string flagKey = $"{traitId}_IsCurseOrInjury";
+            string rawFlag = BalanceData.GetString(FileName, flagKey).Trim();
+            bool isCurse = rawFlag.ToLowerInvariant() switch
+            {
+                "true" => true,
+                "false" => false,
+                _ => throw new BalanceDataException($"{FileName} のキー「{flagKey}」の値「{rawFlag}」は true/false のいずれかにしてください。"),
+            };
+
+            return new TraitDefinitionText(
+                BalanceData.GetString(FileName, $"{traitId}_DisplayName"),
+                BalanceData.GetString(FileName, $"{traitId}_Description"),
+                isCurse);
+        }
 
         /// <summary>古傷がSTR/VIT/AGI/DEXそれぞれに与える恒久的な減少率（例：-0.15で15%低下）。</summary>
         public static readonly double OldWoundStatReduction = BalanceData.GetDouble(FileName, "OldWoundStatReduction");
