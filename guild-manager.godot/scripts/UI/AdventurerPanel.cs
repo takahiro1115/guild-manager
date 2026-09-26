@@ -382,16 +382,19 @@ public partial class AdventurerPanel : VBoxContainer
 	}
 
 	/// <summary>
-	/// 7大能力値の各行へ素の値（白）・実効値（水色の右端）・潜在能力PA（灰）を反映する。バー全幅は常に上限100
-	/// （→ TripleStatBar。§0.30で4層表示へ拡張）。実効値は特性・装備込み（→ Adventurer.GetEffectiveStat）。
-	/// 行の右端は補正なしなら「素の値 / PA」、補正ありなら「実効値 (+補正) / PA」（→ TripleStatBar.FormatLabel）。
+	/// 7大能力値の各行へ素の値（白）・特性補正後（緑／赤）・実効値（水色の右端）・潜在能力PA（灰）を反映する。
+	/// バー全幅は常に上限100（→ TripleStatBar。§0.30で4層、§0.36で特性補正を分離）。実効値は特性・装備込み
+	/// （→ Adventurer.GetEffectiveStat）で、特性補正後＝実効値 − 装備の能力値補正。行の右端の書式は TripleStatBar.FormatLabel。
 	/// </summary>
 	private static void BindStatRow(TripleStatBar bar, Label valLabel, Adventurer a, string stat, int pa)
 	{
 		int raw = AdventurerStatRaw(a, stat);
-		int effective = (int)Math.Round(a.GetEffectiveStat(stat));
-		valLabel.Text = TripleStatBar.FormatLabel(raw, effective, pa);
-		bar.SetValues(raw, effective, pa);
+		double effectiveExact = a.GetEffectiveStat(stat);
+		int effective = (int)Math.Round(effectiveExact);
+		// 特性補正後＝実効値 − 装備の能力値補正（→ Adventurer.GetEffectiveStat の内訳。§0.36で特性と装備を分けて表示）
+		int traitAdjusted = (int)Math.Round(effectiveExact - a.GetEquipmentStatBonus(stat));
+		valLabel.Text = TripleStatBar.FormatLabel(raw, traitAdjusted, effective, pa);
+		bar.SetValues(raw, traitAdjusted, effective, pa);
 	}
 
 	/// <summary>素の能力値（成長・訓練が読み書きする値。特性・装備の補正を含まない）。</summary>

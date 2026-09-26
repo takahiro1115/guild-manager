@@ -225,7 +225,7 @@ theme_override_constants/separation = 6
 [node name="StatsHeader" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 15
-text = "7大能力値（白＝現在値／灰＝PA／黒＝上限100）"
+text = "7大能力値（白＝素の値・緑/赤＝特性・水色＝装備・灰＝PA・黒＝上限100）"
 
 [node name="StatsGrid" type="GridContainer" parent="Body/RightPane/DetailVBox/DetailContainer/StatsCard/Margin/VBox"]
 unique_name_in_owner = true
