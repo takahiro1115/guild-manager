@@ -12,7 +12,7 @@ namespace GuildManager.Core.Models
     /// なお Adventurer.TrySetPlacement はCore上に残っている（テスト・将来拡張用）。
     ///
     /// ここで決まる配置は UI 上の役割表示（前衛／後衛バッジ）にのみ使う。職業×配置の個人CP補正
-    /// （旧 PlacementBalance.GetPersonalCpCorrection・combat.csv の PlacementCorrection_*）は、配置が職業で
+    /// （旧 PlacementBalance.GetPersonalCpCorrection・combat.csv の PlacementCorrection_*。PlacementBalance クラス自体も削除済み）は、配置が職業で
     /// 一意に決まる以上「職業ごとの固定倍率」に過ぎず形骸化していたため、2026年9月に撤廃した
     /// （→ DungeonPowerCalculator、03 §4.2・§0.23）。
     /// </summary>
