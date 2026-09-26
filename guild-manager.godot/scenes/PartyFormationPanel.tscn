@@ -108,7 +108,8 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(160, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
-placeholder_text = "部隊名"
+placeholder_text = "部隊名（12文字まで）"
+max_length = 12
 
 [node name="SquadRenameButton" type="Button" parent="HeaderPanel/Margin/HeaderVBox/SelectorRow"]
 unique_name_in_owner = true
@@ -126,139 +127,152 @@ theme_override_constants/margin_top = 4
 theme_override_constants/margin_right = 10
 theme_override_constants/margin_bottom = 4
 
-[node name="SummaryHBox" type="HBoxContainer" parent="SummaryPanel/Margin"]
+[node name="SummaryVBox" type="VBoxContainer" parent="SummaryPanel/Margin"]
 layout_mode = 2
-theme_override_constants/separation = 10
+theme_override_constants/separation = 3
 
-[node name="TraversalCard" type="PanelContainer" parent="SummaryPanel/Margin/SummaryHBox"]
-layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="Margin" type="MarginContainer" parent="SummaryPanel/Margin/SummaryHBox/TraversalCard"]
-layout_mode = 2
-theme_override_constants/margin_left = 6
-theme_override_constants/margin_top = 3
-theme_override_constants/margin_right = 6
-theme_override_constants/margin_bottom = 3
-
-[node name="VBox" type="VBoxContainer" parent="SummaryPanel/Margin/SummaryHBox/TraversalCard/Margin"]
-layout_mode = 2
-
-[node name="Title" type="Label" parent="SummaryPanel/Margin/SummaryHBox/TraversalCard/Margin/VBox"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.7, 0.8, 0.9, 1)
-theme_override_font_sizes/font_size = 11
-text = "走破力予測（道中進軍・VIT/MND）"
-
-[node name="TraversalScoreLabel" type="Label" parent="SummaryPanel/Margin/SummaryHBox/TraversalCard/Margin/VBox"]
+[node name="PreviewLabel" type="RichTextLabel" parent="SummaryPanel/Margin/SummaryVBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(0.4, 0.9, 1, 1)
-theme_override_font_sizes/font_size = 14
-text = "0 pt"
-
-[node name="TraversalDetailLabel" type="Label" parent="SummaryPanel/Margin/SummaryHBox/TraversalCard/Margin/VBox"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_colors/font_color = Color(0.6, 0.65, 0.7, 1)
-theme_override_font_sizes/font_size = 10
+bbcode_enabled = true
+fit_content = true
+scroll_active = false
+theme_override_font_sizes/normal_font_size = 11
+theme_override_font_sizes/bold_font_size = 11
 text = ""
-autowrap_mode = 2
 
-[node name="StealthCard" type="PanelContainer" parent="SummaryPanel/Margin/SummaryHBox"]
+[node name="SummaryHBox" type="HBoxContainer" parent="SummaryPanel/Margin/SummaryVBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="TraversalCard" type="PanelContainer" parent="SummaryPanel/Margin/SummaryVBox/SummaryHBox"]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Margin" type="MarginContainer" parent="SummaryPanel/Margin/SummaryHBox/StealthCard"]
+[node name="Margin" type="MarginContainer" parent="SummaryPanel/Margin/SummaryVBox/SummaryHBox/TraversalCard"]
 layout_mode = 2
 theme_override_constants/margin_left = 6
 theme_override_constants/margin_top = 3
 theme_override_constants/margin_right = 6
 theme_override_constants/margin_bottom = 3
 
-[node name="VBox" type="VBoxContainer" parent="SummaryPanel/Margin/SummaryHBox/StealthCard/Margin"]
+[node name="VBox" type="VBoxContainer" parent="SummaryPanel/Margin/SummaryVBox/SummaryHBox/TraversalCard/Margin"]
 layout_mode = 2
+theme_override_constants/separation = 1
 
-[node name="Title" type="Label" parent="SummaryPanel/Margin/SummaryHBox/StealthCard/Margin/VBox"]
+[node name="Title" type="Label" parent="SummaryPanel/Margin/SummaryVBox/SummaryHBox/TraversalCard/Margin/VBox"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.7, 0.8, 0.9, 1)
 theme_override_font_sizes/font_size = 11
-text = "隠密適性（遭遇回避・AGI/DEX）"
+text = "🏃 進軍 → ⚔️ 討伐"
 
-[node name="StealthScoreLabel" type="Label" parent="SummaryPanel/Margin/SummaryHBox/StealthCard/Margin/VBox"]
+[node name="TraversalBody" type="RichTextLabel" parent="SummaryPanel/Margin/SummaryVBox/SummaryHBox/TraversalCard/Margin/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(0.5, 1, 0.5, 1)
-theme_override_font_sizes/font_size = 14
-text = "0 pt"
+bbcode_enabled = true
+fit_content = true
+scroll_active = false
+theme_override_font_sizes/normal_font_size = 11
+theme_override_font_sizes/bold_font_size = 13
 
-[node name="StealthDetailLabel" type="Label" parent="SummaryPanel/Margin/SummaryHBox/StealthCard/Margin/VBox"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_colors/font_color = Color(0.6, 0.65, 0.7, 1)
-theme_override_font_sizes/font_size = 10
-text = ""
-autowrap_mode = 2
-
-[node name="AnalysisCard" type="PanelContainer" parent="SummaryPanel/Margin/SummaryHBox"]
+[node name="SurveyCard" type="PanelContainer" parent="SummaryPanel/Margin/SummaryVBox/SummaryHBox"]
 layout_mode = 2
 size_flags_horizontal = 3
+size_flags_stretch_ratio = 1.4
 
-[node name="Margin" type="MarginContainer" parent="SummaryPanel/Margin/SummaryHBox/AnalysisCard"]
+[node name="Margin" type="MarginContainer" parent="SummaryPanel/Margin/SummaryVBox/SummaryHBox/SurveyCard"]
 layout_mode = 2
 theme_override_constants/margin_left = 6
 theme_override_constants/margin_top = 3
 theme_override_constants/margin_right = 6
 theme_override_constants/margin_bottom = 3
 
-[node name="VBox" type="VBoxContainer" parent="SummaryPanel/Margin/SummaryHBox/AnalysisCard/Margin"]
+[node name="VBox" type="VBoxContainer" parent="SummaryPanel/Margin/SummaryVBox/SummaryHBox/SurveyCard/Margin"]
 layout_mode = 2
+theme_override_constants/separation = 1
 
-[node name="Title" type="Label" parent="SummaryPanel/Margin/SummaryHBox/AnalysisCard/Margin/VBox"]
+[node name="Title" type="Label" parent="SummaryPanel/Margin/SummaryVBox/SummaryHBox/SurveyCard/Margin/VBox"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.7, 0.8, 0.9, 1)
 theme_override_font_sizes/font_size = 11
-text = "解析適性（情報収集）"
+text = "🔍 解析（迷宮調査）"
 
-[node name="AnalysisScoreLabel" type="Label" parent="SummaryPanel/Margin/SummaryHBox/AnalysisCard/Margin/VBox"]
+[node name="SurveyBody" type="RichTextLabel" parent="SummaryPanel/Margin/SummaryVBox/SummaryHBox/SurveyCard/Margin/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(0.8, 0.6, 1, 1)
-theme_override_font_sizes/font_size = 14
-text = "0 pt"
+bbcode_enabled = true
+fit_content = true
+scroll_active = false
+theme_override_font_sizes/normal_font_size = 11
+theme_override_font_sizes/bold_font_size = 13
 
-[node name="HpHealthCard" type="PanelContainer" parent="SummaryPanel/Margin/SummaryHBox"]
+[node name="GatheringCard" type="PanelContainer" parent="SummaryPanel/Margin/SummaryVBox/SummaryHBox"]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Margin" type="MarginContainer" parent="SummaryPanel/Margin/SummaryHBox/HpHealthCard"]
+[node name="Margin" type="MarginContainer" parent="SummaryPanel/Margin/SummaryVBox/SummaryHBox/GatheringCard"]
 layout_mode = 2
 theme_override_constants/margin_left = 6
 theme_override_constants/margin_top = 3
 theme_override_constants/margin_right = 6
 theme_override_constants/margin_bottom = 3
 
-[node name="VBox" type="VBoxContainer" parent="SummaryPanel/Margin/SummaryHBox/HpHealthCard/Margin"]
+[node name="VBox" type="VBoxContainer" parent="SummaryPanel/Margin/SummaryVBox/SummaryHBox/GatheringCard/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 1
+
+[node name="Title" type="Label" parent="SummaryPanel/Margin/SummaryVBox/SummaryHBox/GatheringCard/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.8, 0.9, 1)
+theme_override_font_sizes/font_size = 11
+text = "🌿 採取"
+
+[node name="GatheringBody" type="RichTextLabel" parent="SummaryPanel/Margin/SummaryVBox/SummaryHBox/GatheringCard/Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+bbcode_enabled = true
+fit_content = true
+scroll_active = false
+theme_override_font_sizes/normal_font_size = 11
+theme_override_font_sizes/bold_font_size = 13
+
+[node name="StatusColumn" type="VBoxContainer" parent="SummaryPanel/Margin/SummaryVBox/SummaryHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 0.8
+theme_override_constants/separation = 4
+
+[node name="HpHealthCard" type="PanelContainer" parent="SummaryPanel/Margin/SummaryVBox/SummaryHBox/StatusColumn"]
 layout_mode = 2
 
-[node name="HpHeaderHBox" type="HBoxContainer" parent="SummaryPanel/Margin/SummaryHBox/HpHealthCard/Margin/VBox"]
+[node name="Margin" type="MarginContainer" parent="SummaryPanel/Margin/SummaryVBox/SummaryHBox/StatusColumn/HpHealthCard"]
+layout_mode = 2
+theme_override_constants/margin_left = 6
+theme_override_constants/margin_top = 3
+theme_override_constants/margin_right = 6
+theme_override_constants/margin_bottom = 3
+
+[node name="VBox" type="VBoxContainer" parent="SummaryPanel/Margin/SummaryVBox/SummaryHBox/StatusColumn/HpHealthCard/Margin"]
 layout_mode = 2
 
-[node name="Title" type="Label" parent="SummaryPanel/Margin/SummaryHBox/HpHealthCard/Margin/VBox/HpHeaderHBox"]
+[node name="HpHeaderHBox" type="HBoxContainer" parent="SummaryPanel/Margin/SummaryVBox/SummaryHBox/StatusColumn/HpHealthCard/Margin/VBox"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="SummaryPanel/Margin/SummaryVBox/SummaryHBox/StatusColumn/HpHealthCard/Margin/VBox/HpHeaderHBox"]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.7, 0.8, 0.9, 1)
 theme_override_font_sizes/font_size = 11
 text = "部隊健全度"
 
-[node name="AverageHpLabel" type="Label" parent="SummaryPanel/Margin/SummaryHBox/HpHealthCard/Margin/VBox/HpHeaderHBox"]
+[node name="AverageHpLabel" type="Label" parent="SummaryPanel/Margin/SummaryVBox/SummaryHBox/StatusColumn/HpHealthCard/Margin/VBox/HpHeaderHBox"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.9, 0.5, 1)
 theme_override_font_sizes/font_size = 11
 text = "0%"
 
-[node name="AverageHpBar" type="ProgressBar" parent="SummaryPanel/Margin/SummaryHBox/HpHealthCard/Margin/VBox"]
+[node name="AverageHpBar" type="ProgressBar" parent="SummaryPanel/Margin/SummaryVBox/SummaryHBox/StatusColumn/HpHealthCard/Margin/VBox"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 8)
 layout_mode = 2
@@ -266,27 +280,26 @@ step = 1.0
 value = 100.0
 show_percentage = false
 
-[node name="CompatibilityCard" type="PanelContainer" parent="SummaryPanel/Margin/SummaryHBox"]
+[node name="CompatibilityCard" type="PanelContainer" parent="SummaryPanel/Margin/SummaryVBox/SummaryHBox/StatusColumn"]
 layout_mode = 2
-size_flags_horizontal = 3
 
-[node name="Margin" type="MarginContainer" parent="SummaryPanel/Margin/SummaryHBox/CompatibilityCard"]
+[node name="Margin" type="MarginContainer" parent="SummaryPanel/Margin/SummaryVBox/SummaryHBox/StatusColumn/CompatibilityCard"]
 layout_mode = 2
 theme_override_constants/margin_left = 6
 theme_override_constants/margin_top = 3
 theme_override_constants/margin_right = 6
 theme_override_constants/margin_bottom = 3
 
-[node name="VBox" type="VBoxContainer" parent="SummaryPanel/Margin/SummaryHBox/CompatibilityCard/Margin"]
+[node name="VBox" type="VBoxContainer" parent="SummaryPanel/Margin/SummaryVBox/SummaryHBox/StatusColumn/CompatibilityCard/Margin"]
 layout_mode = 2
 
-[node name="Title" type="Label" parent="SummaryPanel/Margin/SummaryHBox/CompatibilityCard/Margin/VBox"]
+[node name="Title" type="Label" parent="SummaryPanel/Margin/SummaryVBox/SummaryHBox/StatusColumn/CompatibilityCard/Margin/VBox"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.7, 0.8, 0.9, 1)
 theme_override_font_sizes/font_size = 11
 text = "部隊内相性"
 
-[node name="CompatibilityWarningLabel" type="RichTextLabel" parent="SummaryPanel/Margin/SummaryHBox/CompatibilityCard/Margin/VBox"]
+[node name="CompatibilityWarningLabel" type="RichTextLabel" parent="SummaryPanel/Margin/SummaryVBox/SummaryHBox/StatusColumn/CompatibilityCard/Margin/VBox"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 20)
 layout_mode = 2
@@ -312,7 +325,7 @@ theme_override_constants/separation = 4
 [node name="SlotsHeader" type="Label" parent="MemberSlotsPanel/Margin/VBox"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
-text = "編成メンバー（最大4名・スロット1が部隊長）"
+text = "編成メンバー（最大4名・一番左が👑リーダー＝部隊長。リーダーのLDRが走破・隠密・採取に効く）"
 
 [node name="MemberSlotsContainer" type="HBoxContainer" parent="MemberSlotsPanel/Margin/VBox"]
 layout_mode = 2
@@ -764,13 +777,15 @@ text = "編成候補（待機冒険者一覧）"
 layout_mode = 2
 theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
 theme_override_font_sizes/font_size = 11
-text = "※待機中の冒険者を「配属」ボタンで現在部隊の空き枠へ追加できます"
+text = "※見出しクリックで並べ替え（能力値は装備・特性込みの実効値）。行にマウスを重ねると配属後の指標を上に表示"
 
 [node name="CandidateScroll" type="ScrollContainer" parent="CandidatePanel/Margin/VBox"]
+unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 260)
 layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
+vertical_scroll_mode = 2
 
 [node name="CandidateListContainer" type="VBoxContainer" parent="CandidatePanel/Margin/VBox/CandidateScroll"]
 unique_name_in_owner = true

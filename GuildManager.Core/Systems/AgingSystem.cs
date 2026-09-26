@@ -29,8 +29,6 @@ namespace GuildManager.Core.Systems
     /// </summary>
     public class AgingSystem
     {
-        private const int WeeksPerYear = 48; // 仕様書 03 §1.2（構造値）
-
         private static readonly int RetirementAge = BalanceData.GetInt("aging.csv", "RetirementAge"); // 仕様書 03 §3.7
 
         /// <summary>満期稼働週数（8年＝384週）。退職金の算定・UI表示に使う（引退判定は年齢で行う）。</summary>
@@ -52,8 +50,7 @@ namespace GuildManager.Core.Systems
 
         public void ProcessWeeklyAging(GameState state)
         {
-            int weekOfYear = ((state.WeekNumber - 1) % WeeksPerYear) + 1;
-            bool isYearEnd = weekOfYear == WeeksPerYear;
+            bool isYearEnd = GameCalendar.IsLastWeekOfYear(state.WeekNumber);
 
             // ToList()でスナップショットを取る：年度末の引退処理でstate.Adventurersから
             // 要素を取り除く（RetiredAdventurersへ移す）ため、foreach対象の生のリストを

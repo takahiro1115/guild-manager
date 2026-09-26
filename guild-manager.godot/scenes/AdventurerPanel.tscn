@@ -34,13 +34,6 @@ size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 15
 text = "個人詳細"
 
-[node name="AdvisorButton" type="Button" parent="HeaderPanel/Margin/HeaderHBox"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(110, 32)
-layout_mode = 2
-theme_override_font_sizes/font_size = 13
-text = "👔 顧問管理"
-
 [node name="Body" type="MarginContainer" parent="."]
 layout_mode = 2
 size_flags_horizontal = 3

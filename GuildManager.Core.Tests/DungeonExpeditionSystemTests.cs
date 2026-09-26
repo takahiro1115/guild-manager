@@ -1766,9 +1766,9 @@ namespace GuildManager.Core.Tests
             var party = PartyOf(MakeAdventurer(JobClass.Thief, 30), MakeAdventurer(JobClass.Scholar, 20));
 
             // 隠密（2026年9月改訂、→ 03 §4.5.3・scouting.csv）：
-            //   基礎＝Σ(AGI×1.0＋DEX×1.0)=100 ＋ 部隊長LDR30×0.5=15 ＋ 盗賊1名の専門職ボーナス30 ＝ 145
-            //   2名編成の人数倍率1.00 → 145、重装者0名 → 145
-            Assert.Equal(145, ScoutingResolver.CalculateStealthScore(party), precision: 6);
+            //   平均素点＝((30+30)+(20+20))÷2=50（§0.41で合計→平均）×2名倍率1.00＝50
+            //   ＋ 部隊長LDR30×0.25=7.5 ＋ 盗賊1名の専門職ボーナス15 ＝ 72.5、重装者0名 → 72.5
+            Assert.Equal(72.5, ScoutingResolver.CalculateStealthScore(party), precision: 6);
             Assert.Equal(50, ScoutingResolver.CalculateAnalysisScore(party), precision: 6);
             Assert.Equal(0, ScoutingResolver.CalculateStealthScore(new Party()));
 

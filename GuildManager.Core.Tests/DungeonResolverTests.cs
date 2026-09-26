@@ -64,6 +64,30 @@ namespace GuildManager.Core.Tests
             return boss;
         }
 
+        // ---------------- 討伐の見立て用ヘルパー（→ 03 §0.43、大迷宮画面の出撃前の表示と共通） ----------------
+
+        [Fact]
+        public void RequiredPower_IsFloorTimesPerFloor()
+        {
+            Assert.Equal(30 * DungeonBalance.PartyPowerRequirementPerFloor, DungeonResolver.RequiredPower(MakeBoss(floor: 30)), precision: 6);
+        }
+
+        [Fact]
+        public void CalculateBossPower_AddsFullIntelBonus_AndMatchesResolve()
+        {
+            var party = PartyOf(MakeRanger(), MakeCleric());
+            double basePower = DungeonPowerCalculator.PartyPower(party.Members);
+
+            Assert.Equal(basePower, DungeonResolver.CalculateBossPower(party, MakeBoss(floor: 1, intelRate: 0.75)), precision: 6);
+            var analyzed = MakeBoss(floor: 1, intelRate: 1.0);
+            double withBonus = DungeonResolver.CalculateBossPower(party, analyzed);
+            Assert.Equal(basePower * (1.0 + DungeonBalance.FullIntelDamageBonus), withBonus, precision: 6);
+
+            var result = new DungeonResolver(new AlwaysMinRng()).Resolve(party, MakeBoss(floor: 1, intelRate: 1.0));
+            Assert.Equal(withBonus, result.PartyPower, precision: 6);
+            Assert.Equal(DungeonResolver.RequiredPower(analyzed), result.RequiredPower, precision: 6);
+        }
+
         // ---------------- ギミック対策の判定（OR条件） ----------------
 
         [Fact]

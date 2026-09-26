@@ -5,7 +5,7 @@ namespace GuildManager.Core.Balance
     /// 値は docs/04_バランス表/scouting.csv から読み込む（→ 03 §10.1、フォールバックなし）。
     ///
     /// 調査は2つの判定で構成される：
-    ///  - 隠密・生還判定：AGI+DEX合算（＋部隊長LDRによる事故防止）vs 階層の要求値。
+    ///  - 隠密・生還判定：AGI+DEXの隊員平均×人数倍率（＋部隊長LDR・専門職・重装の補正）vs 階層の要求値。
     ///    失敗しても死にはしないが、見つかって手傷を負い、解析も伸びにくい。
     ///  - 解析・情報収集判定：INT合算 vs 階層の要求値。成果に応じて解析率が上昇する。
     /// さらに護衛判定（2026年9月新設）が、解析率上昇量の倍率とHP消費率を決める。
@@ -18,6 +18,8 @@ namespace GuildManager.Core.Balance
         // 旧モデルは「Σ(AGI+DEX)×係数 ＋ 部隊長LDR×係数」だけで、走破力（→ DungeonTraversalBalance）と
         // まったく同じ式を参照していたため、UIの2指標が常に同値になっていた。隠密側は
         // 「専門職ボーナス・人数倍率・重装ペナルティ」を足し、潜伏の精度を測る指標として切り分けた。
+        // §0.41：素点を隊員の合計から「平均」へ改め、人数倍率が本当に効く（大所帯ほど下がる）ようにした。
+        // 素点の尺度がおおよそ人数分の1になったため、LDRの重み・専門職ボーナス・重装ペナルティ・要求値も縮めてある。
 
         /// <summary>各員のAGI（身のこなし）への重み。</summary>
         public static readonly double StealthWeightAgi = BalanceData.GetDouble(FileName, "Stealth_Weight_Agi");
@@ -74,7 +76,7 @@ namespace GuildManager.Core.Balance
         public static readonly double IntelTierComplete = BalanceData.GetDouble(FileName, "IntelTier_Complete");
 
         // ---- 護衛判定（2026年9月新設、→ Systems.GuardTier） ----
-        // 調査隊の護衛力（メンバー中の最大の max(STR,VIT,INT)）÷ 要求護衛値 の比率で4段階に分け、
+        // 調査隊の護衛力（主護衛の max(STR,VIT,INT) ＋ 他の隊員の支援分。§0.41）÷ 要求護衛値 の比率で4段階に分け、
         // 段階ごとに解析率上昇量の倍率とHP消費率を決める（HP消費は護衛判定のみで決まる。
         // 調査は低リスク経路：HP下限1、致死・除籍判定には接続しない）。
 
@@ -94,5 +96,11 @@ namespace GuildManager.Core.Balance
 
         /// <summary>要求護衛値の基準（10F区間）。要求護衛値＝この値×ボス階層÷10。</summary>
         public static readonly double BaseRequiredGuardPower = BalanceData.GetDouble(FileName, "BaseRequiredGuardPower");
+
+        /// <summary>
+        /// 護衛力の支援係数（§0.41）。護衛力＝主護衛（隊員中で最大の max(STR,VIT,INT)）＋ 他の隊員の max(STR,VIT,INT) の合計×この値。
+        /// 強い護衛役が主役であることは保ちつつ、頭数が多いほど守りが固くなる（隠密は逆に人数で下がる）。
+        /// </summary>
+        public static readonly double GuardSupportRatio = BalanceData.GetDouble(FileName, "Guard_Support_Ratio");
     }
 }

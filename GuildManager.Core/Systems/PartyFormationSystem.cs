@@ -57,6 +57,41 @@ namespace GuildManager.Core.Systems
         public void RemoveMember(SavedParty party, Guid adventurerId) => party.MemberIds.Remove(adventurerId);
 
         /// <summary>
+        /// 隊員をリーダー（部隊長＝先頭の枠）に選出する（2026年9月・§0.42）。選んだ隊員を先頭へ移し、
+        /// 他の隊員は元の順番を保ったまま1つずつ右へずれる（→ WithLeader）。
+        /// リーダーのLDRは走破・隠密・採取の各指標に効くため（→ 03 §4.5.3）、全員を外して組み直さずに変えられるようにした。
+        /// 部隊に居ない・既にリーダー・部隊が出撃中（隊員のだれかが IsDispatched）なら何もせず false。
+        /// </summary>
+        public bool TryPromoteToLeader(GameState state, SavedParty party, Guid adventurerId)
+        {
+            int index = party.MemberIds.IndexOf(adventurerId);
+            if (index <= 0) return false;
+            if (state.Adventurers.Any(a => a.IsDispatched && party.MemberIds.Contains(a.Id))) return false;
+
+            party.MemberIds = WithLeader(party.MemberIds, adventurerId);
+            return true;
+        }
+
+        /// <summary>
+        /// 指定の隊員を先頭へ移したId一覧（元の一覧は変更しない）。一覧に居なければそのままの写しを返す。
+        /// TryPromoteToLeader と、編成画面の「リーダーにしたら」の増減プレビューが共通で使う。
+        /// </summary>
+        public static List<Guid> WithLeader(IReadOnlyList<Guid> memberIds, Guid leaderId)
+        {
+            var result = memberIds.ToList();
+            if (result.Remove(leaderId))
+                result.Insert(0, leaderId);
+            return result;
+        }
+
+        /// <summary>
+        /// 仮の編成（Id一覧）での部隊指標（→ CalculateMetrics。BuildDispatchParty と同じく出撃できない隊員は除く）。
+        /// 編成画面の増減プレビュー（候補を入れたら・入れ替えたら・リーダーにしたら）に使う。保存された編成は変更しない。
+        /// </summary>
+        public static SquadMetrics PreviewMetrics(GameState state, IEnumerable<Guid> memberIds) =>
+            CalculateMetrics(BuildDispatchParty(state, memberIds), state);
+
+        /// <summary>
         /// どのパーティーにも属さない現役冒険者（＝「未編成」）を返す。専用データ構造は
         /// 持たず、現役ロースターをSavedParties全体のMemberIdsでフィルタして都度導出する。
         /// </summary>
@@ -146,17 +181,30 @@ namespace GuildManager.Core.Systems
         /// 省略可能。渡した場合、走破力に研究ボーナス・参謀のルート指導ボーナスが乗る
         /// （→ DungeonTraversalResolver.CalculateTraversalScore）。
         /// </param>
-        public static SquadMetrics CalculateMetrics(Party party, GameState? state = null) => new(
-            TraversalPower: DungeonTraversalResolver.CalculateTraversalScore(party, state),
-            StealthScore: ScoutingResolver.CalculateStealthScore(party),
-            BaseStealthScore: ScoutingResolver.CalculateBaseStealthScore(party),
-            StealthPartySizeMultiplier: party.IsEmpty
-                ? 0
-                : Balance.ScoutingBalance.GetStealthPartySizeMultiplier(party.Members.Count),
-            StealthSpecialistCount: ScoutingResolver.CountStealthSpecialists(party),
-            HeavyMemberCount: ScoutingResolver.CountHeavyMembers(party),
-            AnalysisScore: ScoutingResolver.CalculateAnalysisScore(party),
-            GuardPower: ScoutingResolver.CalculateGuardPower(party));
+        public static SquadMetrics CalculateMetrics(Party party, GameState? state = null)
+        {
+            var carrier = ScoutingResolver.FindGuardCarrier(party);
+            return new(
+                TraversalPower: DungeonTraversalResolver.CalculateTraversalScore(party, state),
+                StealthScore: ScoutingResolver.CalculateStealthScore(party),
+                BaseStealthScore: ScoutingResolver.CalculateBaseStealthScore(party),
+                StealthPartySizeMultiplier: party.IsEmpty
+                    ? 0
+                    : Balance.ScoutingBalance.GetStealthPartySizeMultiplier(party.Members.Count),
+                StealthSpecialistCount: ScoutingResolver.CountStealthSpecialists(party),
+                HeavyMemberCount: ScoutingResolver.CountHeavyMembers(party),
+                AnalysisScore: ScoutingResolver.CalculateAnalysisScore(party),
+                GuardPower: ScoutingResolver.CalculateGuardPower(party),
+                GuardSupportPower: ScoutingResolver.CalculateGuardSupportPower(party),
+                GuardCarrierName: carrier.Member?.Name ?? "",
+                GuardCarrierStat: carrier.Stat,
+                GuardCarrierValue: carrier.Value,
+                StealthLeaderBonus: ScoutingResolver.CalculateStealthLeaderBonus(party),
+                StealthSpecialistBonus: ScoutingResolver.CalculateStealthSpecialistBonus(party),
+                StealthHeavyPenalty: ScoutingResolver.CalculateHeavyArmorPenalty(party),
+                BossPower: DungeonPowerCalculator.PartyPower(party.Members),
+                GatheringScore: GatheringResolver.CalculateGatheringScore(party));
+        }
     }
 
     /// <summary>編成画面での相性表示用の1ペア分の結果（→ PartyFormationSystem.GetCompatibilityPairs）。</summary>
@@ -168,12 +216,21 @@ namespace GuildManager.Core.Systems
     /// </summary>
     /// <param name="TraversalPower">走破力（VIT・MND・部隊長LDR＋研究/参謀ボーナス）。</param>
     /// <param name="StealthScore">隠密適性の実効値（人数倍率・重装ペナルティ適用後）。</param>
-    /// <param name="BaseStealthScore">隠密適性の素点（人数倍率・重装ペナルティ適用前）。内訳表示用。</param>
+    /// <param name="BaseStealthScore">隠密の平均素点（隊員の AGI+DEX の平均。人数倍率・各補正の適用前。§0.41）。内訳表示用。</param>
     /// <param name="StealthPartySizeMultiplier">人数倍率。空の部隊は0。</param>
     /// <param name="StealthSpecialistCount">隠密の専門職（斥候・盗賊）の人数。</param>
     /// <param name="HeavyMemberCount">重装者の人数（重装鎧の装備者、または重戦士・騎士）。</param>
     /// <param name="AnalysisScore">解析適性（Σ INT）。</param>
-    /// <param name="GuardPower">護衛力（隊員中の最大 max(STR, VIT, INT)）。</param>
+    /// <param name="GuardPower">護衛力（主護衛の護衛値＋支援分。§0.41）。</param>
+    /// <param name="GuardSupportPower">護衛力のうち主護衛以外の隊員による支援分。</param>
+    /// <param name="GuardCarrierName">主護衛の名前（空の部隊は空文字）。</param>
+    /// <param name="GuardCarrierStat">主護衛の護衛値を出した能力（STR/VIT/INT）。</param>
+    /// <param name="GuardCarrierValue">主護衛の護衛値。</param>
+    /// <param name="StealthLeaderBonus">隠密の部隊長LDR補正。</param>
+    /// <param name="StealthSpecialistBonus">隠密の専門職ボーナス合計。</param>
+    /// <param name="StealthHeavyPenalty">隠密の重装ペナルティ合計。</param>
+    /// <param name="BossPower">討伐火力（→ DungeonPowerCalculator.PartyPower。ボスを特定しない試算＝巨獣狩り・完全解析の上乗せなし）。</param>
+    /// <param name="GatheringScore">採取スコア（→ GatheringResolver.CalculateGatheringScore。HP比率込み）。</param>
     public record SquadMetrics(
         double TraversalPower,
         double StealthScore,
@@ -182,5 +239,14 @@ namespace GuildManager.Core.Systems
         int StealthSpecialistCount,
         int HeavyMemberCount,
         double AnalysisScore,
-        double GuardPower);
+        double GuardPower,
+        double GuardSupportPower,
+        string GuardCarrierName,
+        string GuardCarrierStat,
+        double GuardCarrierValue,
+        double StealthLeaderBonus,
+        double StealthSpecialistBonus,
+        double StealthHeavyPenalty,
+        double BossPower,
+        double GatheringScore);
 }

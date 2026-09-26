@@ -96,9 +96,7 @@ namespace GuildManager.Core.Systems
         {
             if (party.IsEmpty) return 0;
 
-            double statSum = party.Members.Sum(m =>
-                    m.GetEffectiveStat("AGI") * GatheringBalance.AgiCoefficient
-                    + m.GetEffectiveStat("DEX") * GatheringBalance.DexCoefficient)
+            double statSum = party.Members.Sum(GetMemberGatheringValue)
                 + party.Members[0].GetEffectiveStat("LDR") * GatheringBalance.LeaderLdrCoefficient;
 
             // 盗賊・斥候ボーナス：地形の見極め・目利きに長けた職業が1名いるごとに固定ボーナスを加算する。
@@ -109,6 +107,14 @@ namespace GuildManager.Core.Systems
 
             return (statSum + classBonus + CalculateRuralBonus(party)) * hpRatio;
         }
+
+        /// <summary>
+        /// 隊員1名の採取素点＝AGI×AgiCoefficient ＋ DEX×DexCoefficient（部隊長LDR・職業ボーナス・HP比率は含まない）。
+        /// 採取スコア・田舎育ちボーナスの計算と、編成画面の「採取」貢献列（→ PartyFormationPanel）が共通で使う。
+        /// </summary>
+        public static double GetMemberGatheringValue(Adventurer member) =>
+            member.GetEffectiveStat("AGI") * GatheringBalance.AgiCoefficient
+            + member.GetEffectiveStat("DEX") * GatheringBalance.DexCoefficient;
 
         /// <summary>
         /// 採取スコアの内訳（UIの出撃前プレビュー・週報の開示用）。合計は CalculateGatheringScore と同じ式。
@@ -134,8 +140,7 @@ namespace GuildManager.Core.Systems
             party.Members.Sum(m =>
             {
                 double rate = m.SumTraitEffect(TraitEffectType.GatheringScoreBonus);
-                return rate == 0 ? 0 : (m.GetEffectiveStat("AGI") * GatheringBalance.AgiCoefficient
-                    + m.GetEffectiveStat("DEX") * GatheringBalance.DexCoefficient) * rate;
+                return rate == 0 ? 0 : GetMemberGatheringValue(m) * rate;
             });
 
         /// <summary>獲得数のうち採取スコア由来の枠＝(int)(採取スコア÷MaterialYieldDivisor)。</summary>

@@ -11,8 +11,8 @@ namespace GuildManager.Core.Tests.Balance
     /// それを使う隠密計算（→ ScoutingResolver.CalculateStealthScore）のテスト。
     /// 実行方法: このフォルダで `dotnet test --filter FullyQualifiedName~Scouting`
     ///
-    /// 実効隠密＝max(0, floor(基礎隠密 × 人数倍率) − 重装ペナルティ合計)。
-    /// 基礎隠密＝Σ(AGI×1.0＋DEX×1.0) ＋ 部隊長LDR×0.5 ＋ 専門職ボーナス合計。
+    /// 実効隠密＝max(0, floor(平均素点 × 人数倍率) ＋ 部隊長LDR×0.25 ＋ 専門職ボーナス合計 − 重装ペナルティ合計)。
+    /// 平均素点＝隊員の (AGI×1.0＋DEX×1.0) の平均（§0.41で合計から平均へ）。
     /// </summary>
     public class ScoutingBalanceTests
     {
@@ -44,9 +44,10 @@ namespace GuildManager.Core.Tests.Balance
         {
             Assert.Equal(1.0, ScoutingBalance.StealthWeightAgi, precision: 6);
             Assert.Equal(1.0, ScoutingBalance.StealthWeightDex, precision: 6);
-            Assert.Equal(0.5, ScoutingBalance.StealthWeightLdr, precision: 6);
-            Assert.Equal(30, ScoutingBalance.StealthBonusRangerThief, precision: 6);
-            Assert.Equal(30, ScoutingBalance.StealthHeavyArmorPenalty, precision: 6);
+            Assert.Equal(0.25, ScoutingBalance.StealthWeightLdr, precision: 6);
+            Assert.Equal(15, ScoutingBalance.StealthBonusRangerThief, precision: 6);
+            Assert.Equal(15, ScoutingBalance.StealthHeavyArmorPenalty, precision: 6);
+            Assert.Equal(7, ScoutingBalance.StealthRequirementPerFloor, precision: 6);
         }
 
         [Theory]
@@ -65,19 +66,22 @@ namespace GuildManager.Core.Tests.Balance
             Assert.Equal(ScoutingBalance.GetStealthPartySizeMultiplier(4), ScoutingBalance.GetStealthPartySizeMultiplier(9), precision: 6);
         }
 
-        // ---------------- 基礎隠密 ----------------
+        // ---------------- 平均素点（§0.41で合計→平均） ----------------
 
         [Fact]
         public void CalculateStealthScore_MatchesFormula()
         {
-            // 基礎＝(30+30)+(20+20)=100 ＋ 部隊長LDR20×0.5=10 ＝ 110、2名倍率1.00、重装0名 → 110
+            // 平均素点＝((30+30)+(20+20))÷2＝50、2名倍率1.00 → 50 ＋ 部隊長LDR20×0.25＝5 ＝ 55（重装0名）
             var party = PartyOf(MakeLight(agiDex: 30, ldr: 20), MakeLight(agiDex: 20));
 
-            Assert.Equal(110, ScoutingResolver.CalculateBaseStealthScore(party), precision: 6);
-            Assert.Equal(110, ScoutingResolver.CalculateStealthScore(party), precision: 6);
+            Assert.Equal(50, ScoutingResolver.CalculateBaseStealthScore(party), precision: 6);
+            Assert.Equal(5, ScoutingResolver.CalculateStealthLeaderBonus(party), precision: 6);
+            Assert.Equal(55, ScoutingResolver.CalculateStealthScore(party), precision: 6);
             Assert.Equal(0, ScoutingResolver.CalculateStealthScore(new Party()));
             Assert.Equal(0, ScoutingResolver.CalculateBaseStealthScore(new Party()));
+            Assert.Equal(0, ScoutingResolver.CalculateStealthLeaderBonus(new Party()));
         }
+
 
         [Fact]
         public void CalculateStealthScore_DoesNotChangeWithVitOrMnd()
@@ -131,30 +135,26 @@ namespace GuildManager.Core.Tests.Balance
         [Fact]
         public void CalculateStealthScore_AppliesPartySizePenalty()
         {
-            // 同じ能力の隊員を1人ずつ増やし、人数倍率がそのまま乗ることを確認する。
+            // 同じ能力の隊員を1人ずつ増やすと、平均素点は変わらず人数倍率だけが下がる＝隠密は人数で下がる（§0.41）。
             var members = Enumerable.Range(0, 4).Select(_ => MakeLight(agiDex: 25)).ToArray();
 
-            var solo = PartyOf(members[0]);
-            // 単独：基礎＝25+25＝50（部隊長LDR0）→ ×1.10 ＝ floor(55) ＝ 55
-            Assert.Equal(55, ScoutingResolver.CalculateStealthScore(solo), precision: 6);
+            var scores = Enumerable.Range(1, 4)
+                .Select(n => ScoutingResolver.CalculateStealthScore(PartyOf(members.Take(n).ToArray())))
+                .ToArray();
 
-            var four = PartyOf(members);
-            // 4名：基礎＝50×4＝200 → ×0.70 ＝ floor(140) ＝ 140
-            Assert.Equal(200, ScoutingResolver.CalculateBaseStealthScore(four), precision: 6);
-            Assert.Equal(140, ScoutingResolver.CalculateStealthScore(four), precision: 6);
-
-            // 1名あたりの素点は同じなのに、4人になると「1人分×4×0.7」まで目減りする。
-            Assert.True(ScoutingResolver.CalculateStealthScore(four) < 4 * ScoutingResolver.CalculateStealthScore(solo));
+            // 平均素点50：1名 ×1.10＝55、2名 ×1.00＝50、3名 ×0.85＝42.5→42、4名 ×0.70＝35
+            Assert.Equal(new double[] { 55, 50, 42, 35 }, scores);
+            Assert.Equal(50, ScoutingResolver.CalculateBaseStealthScore(PartyOf(members)), precision: 6);
         }
 
         [Fact]
-        public void CalculateStealthScore_FloorsAfterPartySizeMultiplier()
+        public void CalculateStealthScore_FloorsAfterPartySizeMultiplier_ThenAddsBonuses()
         {
-            // 倍率を掛けた時点で切り捨てる（→ 03 §4.5.3の式）。
-            // 基礎＝(25+25)×3 ＋ 部隊長LDR2×0.5 ＝ 151 → ×0.85 ＝ 128.35 → 128
-            var party = PartyOf(MakeLight(agiDex: 25, ldr: 2), MakeLight(agiDex: 25), MakeLight(agiDex: 25));
-            Assert.Equal(151, ScoutingResolver.CalculateBaseStealthScore(party), precision: 6);
-            Assert.Equal(128, ScoutingResolver.CalculateStealthScore(party), precision: 6);
+            // 倍率を掛けた時点で切り捨て、その後に隊長LDR補正を足す（→ 03 §4.5.3の式）。
+            // 3名の平均素点＝(50+52+50)÷3＝50.666… → ×0.85＝43.06… → 43、＋部隊長LDR10×0.25＝2.5 → 45.5
+            var party = PartyOf(MakeLight(agiDex: 25, ldr: 10), MakeLight(agiDex: 26), MakeLight(agiDex: 25));
+            Assert.Equal(152.0 / 3, ScoutingResolver.CalculateBaseStealthScore(party), precision: 6);
+            Assert.Equal(45.5, ScoutingResolver.CalculateStealthScore(party), precision: 6);
         }
 
         // ---------------- 重装ペナルティ（指示書指定テスト） ----------------

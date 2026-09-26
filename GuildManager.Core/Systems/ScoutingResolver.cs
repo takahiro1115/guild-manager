@@ -14,10 +14,10 @@ namespace GuildManager.Core.Systems
     /// 報酬ではなく **FloorBoss.IntelRate の上昇**（＝次の討伐が安全になる）である。
     ///
     /// 判定は2つ：
-    ///  1. 隠密・生還：Σ(AGI+DEX) ＋ 部隊長LDR×係数 vs 階層×要求値。
+    ///  1. 隠密・生還：平均(AGI+DEX)×人数倍率 ＋ 部隊長LDR・専門職・重装の補正 vs 階層×要求値（§0.41で合計→平均）。
     ///     失敗すると見つかり、HP消費が重くなり、解析の成果も1段階下がる。
     ///  2. 解析・情報収集：Σ(INT) vs 階層×要求値。Ratioに応じて大成功／成功／失敗。
-    ///  3. 護衛（2026年9月新設）：部隊護衛力（→ CalculateGuardPower）÷要求護衛値の比率で
+    ///  3. 護衛（2026年9月新設）：部隊護衛力（→ CalculateGuardPower。§0.41で主護衛＋支援分）÷要求護衛値の比率で
     ///     4段階（余裕／十分／充足／不足、→ GuardTier）。解析率上昇量に段階ごとの倍率を掛け、
     ///     各員のHP消費（最大HP×段階ごとの%）もこの段階だけで決まる。
     ///
@@ -56,7 +56,7 @@ namespace GuildManager.Core.Systems
             var result = new ScoutingResult { IntelRateBefore = boss.IntelRate };
             var tierBefore = GetTier(boss.IntelRate);
 
-            // ---- 判定1：隠密・生還（AGI+DEX ＋ 部隊長LDRによる事故防止） ----
+            // ---- 判定1：隠密・生還（AGI+DEXの隊員平均×人数倍率 ＋ 部隊長LDR・専門職・重装の補正） ----
             result.StealthScore = CalculateStealthScore(party);
             result.StealthRequirement = StealthRequirement(boss);
             result.StealthSucceeded = result.StealthScore >= result.StealthRequirement;
@@ -101,9 +101,11 @@ namespace GuildManager.Core.Systems
             double guardRequirement = RequiredGuardPower(boss);
             result.GuardPower = CalculateGuardPower(party);
             result.GuardRequirement = guardRequirement;
-            var (carrier, carrierStat, _) = FindGuardCarrier(party);
+            var (carrier, carrierStat, carrierValue) = FindGuardCarrier(party);
             result.GuardCarrierName = carrier?.Name ?? "";
             result.GuardCarrierStat = carrierStat;
+            result.GuardCarrierValue = carrierValue;
+            result.GuardSupportPower = CalculateGuardSupportPower(party);
             result.GuardRatio = guardRequirement <= 0 ? double.MaxValue : result.GuardPower / guardRequirement;
             result.GuardTier = ClassifyGuard(result.GuardRatio);
             result.GuardIntelMultiplier = GuardIntelMultiplier(result.GuardTier);
@@ -124,43 +126,50 @@ namespace GuildManager.Core.Systems
         }
 
         /// <summary>
-        /// 隠密適性（実効値）＝ max(0, floor(基礎隠密 × 人数倍率) − 重装ペナルティ合計)。
-        /// 基礎隠密＝Σ(AGI×WeightAgi ＋ DEX×WeightDex) ＋ 部隊長LDR×WeightLdr ＋ 専門職ボーナス合計。
-        /// 空の部隊は0。
+        /// 隠密適性（実効値）＝ max(0, floor(平均素点 × 人数倍率) ＋ 部隊長LDR補正 ＋ 専門職ボーナス合計 − 重装ペナルティ合計)。
+        /// 平均素点＝隊員の (AGI×WeightAgi ＋ DEX×WeightDex) の平均（→ CalculateBaseStealthScore）。空の部隊は0。
         ///
         /// 2026年9月改訂（→ 03 §4.5.3）：旧モデルは走破力（→ DungeonTraversalResolver.
         /// CalculateTraversalScore）とまったく同じ AGI+DEX 合算の式で、UIの2指標が常に同値に
         /// なっていた。隠密側には「**誰が**潜るか（斥候・盗賊の専門職ボーナス）」「**何人で**潜るか
         /// （人数倍率）」「**何を着て**潜るか（重装ペナルティ）」を足し、編成の巧拙が出る指標にした。
         ///
-        /// 人数倍率は乗算、重装ペナルティは倍率適用**後**の直接減算。順序を固定するのは、
-        /// 「大人数の重装部隊」で二重に効いて極端な値にならないようにするため。
+        /// §0.41：素点を隊員の「合計」から「平均」へ改めた。合計のままだと人数倍率（1名1.10〜4名0.70）を掛けても
+        /// 人数が増えるほど値が上がり、「大所帯ほど見つかりやすい」が式の上で成り立っていなかった。平均にしたことで
+        /// 同じ能力の隊員を足すと隠密は下がり、人数で上がる護衛力（→ CalculateGuardPower）との駆け引きになる。
+        /// 人数倍率は平均素点にだけ掛け、隊長・専門職・重装の補正は人数によらない固定の加減算とする。
         /// public static にしてあるのは出撃前のプレビュー（UI）とテストから同じ式を使うため。
         /// </summary>
         public static double CalculateStealthScore(Party party)
         {
             if (party.IsEmpty) return 0;
-
-            double baseScore = CalculateBaseStealthScore(party);
-            double scaled = Math.Floor(baseScore * ScoutingBalance.GetStealthPartySizeMultiplier(party.Members.Count));
-
-            return Math.Max(0, scaled - CalculateHeavyArmorPenalty(party));
+            double scaled = Math.Floor(CalculateBaseStealthScore(party) * ScoutingBalance.GetStealthPartySizeMultiplier(party.Members.Count));
+            return Math.Max(0, scaled + CalculateStealthLeaderBonus(party) + CalculateStealthSpecialistBonus(party)
+                - CalculateHeavyArmorPenalty(party));
         }
 
         /// <summary>
-        /// 基礎隠密＝Σ(AGI×係数＋DEX×係数) ＋ 部隊長LDR×係数 ＋ 専門職ボーナス合計。
-        /// 人数倍率・重装ペナルティを掛ける前の素点（UIの内訳表示・テストから使う）。
+        /// 平均素点＝隊員の (AGI×WeightAgi ＋ DEX×WeightDex) の平均。
+        /// 人数倍率・各補正を加える前の値（UIの内訳表示・テストから使う）。空の部隊は0。
         /// </summary>
-        public static double CalculateBaseStealthScore(Party party)
-        {
-            if (party.IsEmpty) return 0;
+        public static double CalculateBaseStealthScore(Party party) =>
+            party.IsEmpty ? 0 : party.Members.Average(GetStealthValue);
 
-            return party.Members.Sum(m =>
-                    m.GetEffectiveStat("AGI") * ScoutingBalance.StealthWeightAgi
-                    + m.GetEffectiveStat("DEX") * ScoutingBalance.StealthWeightDex)
-                + party.Members[0].GetEffectiveStat("LDR") * ScoutingBalance.StealthWeightLdr
-                + CountStealthSpecialists(party) * ScoutingBalance.StealthBonusRangerThief;
-        }
+        /// <summary>
+        /// 隊員1名の隠密素点＝AGI×WeightAgi ＋ DEX×WeightDex（→ CalculateBaseStealthScore はこの平均）。
+        /// 編成画面の「隠密」貢献列（→ PartyFormationPanel）も同じ値を使う。
+        /// </summary>
+        public static double GetStealthValue(Adventurer member) =>
+            member.GetEffectiveStat("AGI") * ScoutingBalance.StealthWeightAgi
+            + member.GetEffectiveStat("DEX") * ScoutingBalance.StealthWeightDex;
+
+        /// <summary>部隊長LDR補正＝先頭の隊員のLDR×WeightLdr（パニック・事故の防止）。空の部隊は0。</summary>
+        public static double CalculateStealthLeaderBonus(Party party) =>
+            party.IsEmpty ? 0 : party.Members[0].GetEffectiveStat("LDR") * ScoutingBalance.StealthWeightLdr;
+
+        /// <summary>専門職ボーナス合計＝斥候・盗賊の人数×StealthBonusRangerThief。</summary>
+        public static double CalculateStealthSpecialistBonus(Party party) =>
+            CountStealthSpecialists(party) * ScoutingBalance.StealthBonusRangerThief;
 
         /// <summary>隠密の専門職（斥候＝Ranger・盗賊＝Thief）の人数。</summary>
         public static int CountStealthSpecialists(Party party) =>
@@ -181,9 +190,12 @@ namespace GuildManager.Core.Systems
         public static double CalculateHeavyArmorPenalty(Party party) =>
             CountHeavyMembers(party) * ScoutingBalance.StealthHeavyArmorPenalty;
 
-        /// <summary>解析スコア＝Σ(INT)×係数。空の部隊は0。</summary>
-        public static double CalculateAnalysisScore(Party party) =>
-            party.Members.Sum(m => m.GetEffectiveStat("INT")) * ScoutingBalance.AnalysisStatCoefficient;
+        /// <summary>解析スコア＝Σ(INT)×係数（→ GetAnalysisValue の合計）。空の部隊は0。</summary>
+        public static double CalculateAnalysisScore(Party party) => party.Members.Sum(GetAnalysisValue);
+
+        /// <summary>隊員1名の解析への寄与＝INT×AnalysisStatCoefficient（編成画面の「解析」貢献列も同じ値）。</summary>
+        public static double GetAnalysisValue(Adventurer member) =>
+            member.GetEffectiveStat("INT") * ScoutingBalance.AnalysisStatCoefficient;
 
         /// <summary>隠密の要求値＝階層×係数（深い階層ほど見つかりやすい）。</summary>
         public static double StealthRequirement(FloorBoss boss) => boss.Floor * ScoutingBalance.StealthRequirementPerFloor;
@@ -223,21 +235,35 @@ namespace GuildManager.Core.Systems
         // ==================== 護衛判定（2026年9月新設） ====================
 
         /// <summary>
-        /// 部隊護衛力＝出撃メンバー全員の中で最大の max(STR, VIT, INT)（装備補正込みの実効値）。
-        /// 腕っぷし（STR）・頑健さ（VIT）・魔導（INT）のいずれかで魔物の残党を退けられる
-        /// 護衛役が1人いれば足りる、という考え方。空の部隊は0。
-        /// public static にしてあるのは出撃前のプレビュー（UI）とテストから同じ式を使うため。
+        /// 部隊護衛力＝主護衛の護衛値 ＋ 他の隊員の護衛値の合計 × GuardSupportRatio（2026年9月・§0.41）。
+        /// 護衛値＝その隊員の max(STR, VIT, INT)（装備補正込みの実効値、→ GetGuardValue）、主護衛＝護衛値が最大の隊員
+        /// （→ FindGuardCarrier）。腕っぷし（STR）・頑健さ（VIT）・魔導（INT）のいずれかで魔物の残党を退ける護衛役が主役で、
+        /// 残りの隊員も頭数として守りを固める（旧式は主護衛1名分だけで、人数を増やしても上がらなかった）。
+        /// 隠密（→ CalculateStealthScore）は人数で下がるため、調査の編成は「少数で潜むか、大勢で守るか」の駆け引きになる。
+        /// 空の部隊は0。public static にしてあるのは出撃前のプレビュー（UI）とテストから同じ式を使うため。
         /// </summary>
         public static double CalculateGuardPower(Party party) =>
-            party.IsEmpty
-                ? 0
-                : party.Members.Max(m => Math.Max(m.GetEffectiveStat("STR"),
-                    Math.Max(m.GetEffectiveStat("VIT"), m.GetEffectiveStat("INT"))));
+            party.IsEmpty ? 0 : FindGuardCarrier(party).Value + CalculateGuardSupportPower(party);
+
+        /// <summary>隊員1名の護衛値＝max(STR, VIT, INT)（装備補正込みの実効値）。</summary>
+        public static double GetGuardValue(Adventurer member) =>
+            Math.Max(member.GetEffectiveStat("STR"), Math.Max(member.GetEffectiveStat("VIT"), member.GetEffectiveStat("INT")));
 
         /// <summary>
-        /// 部隊護衛力を担う隊員（→ CalculateGuardPower の最大値を出した者）と、その能力名・値。
+        /// 支援分＝主護衛以外の隊員の護衛値の合計 × GuardSupportRatio（→ CalculateGuardPower の内訳）。
+        /// 主護衛が1名だけの部隊（単独行）は0。
+        /// </summary>
+        public static double CalculateGuardSupportPower(Party party)
+        {
+            var carrier = FindGuardCarrier(party).Member;
+            if (carrier == null) return 0;
+            return party.Members.Where(m => !ReferenceEquals(m, carrier)).Sum(GetGuardValue) * ScoutingBalance.GuardSupportRatio;
+        }
+
+        /// <summary>
+        /// 主護衛（→ CalculateGuardPower）＝護衛値が最大の隊員と、その能力名・値。
         /// 同値ならSTR→VIT→INTの順、隊員は編成順で先の者を採る。空の部隊は (null, "", 0)。
-        /// 週報・プレビューで「誰の何が護衛力になったか」を開示するため。
+        /// 週報・プレビューで「誰の何が護衛力の柱になったか」を開示するため。
         /// </summary>
         public static (Adventurer? Member, string Stat, double Value) FindGuardCarrier(Party party)
         {

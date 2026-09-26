@@ -1,0 +1,14 @@
+[gd_resource type="Theme" format=3]
+
+[resource]
+default_font_size = 13
+Button/font_sizes/font_size = 13
+CheckBox/font_sizes/font_size = 13
+ItemList/font_sizes/font_size = 13
+Label/font_sizes/font_size = 13
+LineEdit/font_sizes/font_size = 13
+OptionButton/font_sizes/font_size = 13
+PopupMenu/font_sizes/font_size = 13
+RichTextLabel/font_sizes/bold_font_size = 13
+RichTextLabel/font_sizes/normal_font_size = 13
+TooltipLabel/font_sizes/font_size = 13

@@ -62,17 +62,14 @@ namespace GuildManager.Core.Systems
 
             // ---- 火力判定（ボスのHPを削り切れるか） ----
             // 重装甲ボスなら巨獣狩りの保有者の火力に上乗せが効く（→ DungeonPowerCalculator.MemberPower）。
-            double partyPower = DungeonPowerCalculator.PartyPower(party.Members, boss);
+            // 完全解析なら弱点を突ける（→ ScoutingResolver で解析率を1.0まで上げた場合）。
+            double partyPower = CalculateBossPower(party, boss);
             result.GiantHunterAdventurerIds.AddRange(
                 party.Members.Where(m => DungeonPowerCalculator.GiantHunterApplies(m, boss)).Select(m => m.Id));
-
-            // 完全解析なら弱点を突ける（→ ScoutingResolver で解析率を1.0まで上げた場合）。
             result.FullIntelBonusApplied = ScoutingResolver.GetTier(boss.IntelRate) == IntelTier.Complete;
-            if (result.FullIntelBonusApplied)
-                partyPower *= 1.0 + DungeonBalance.FullIntelDamageBonus;
 
             result.PartyPower = partyPower;
-            result.RequiredPower = boss.Floor * DungeonBalance.PartyPowerRequirementPerFloor;
+            result.RequiredPower = RequiredPower(boss);
             result.Outcome = partyPower >= result.RequiredPower ? DungeonOutcome.Victory : DungeonOutcome.Retreat;
 
             if (result.Outcome == DungeonOutcome.Victory)
@@ -91,6 +88,24 @@ namespace GuildManager.Core.Systems
             party.ConsumableItemIds.Clear();
 
             return result;
+        }
+
+        /// <summary>
+        /// ボス討伐の要求火力＝ボス階層×PartyPowerRequirementPerFloor（→ BAL: dungeon.csv）。
+        /// Resolve と、大迷宮画面の出撃前の見立て（→ DungeonPanel）が共通で使う。
+        /// </summary>
+        public static double RequiredPower(FloorBoss boss) => boss.Floor * DungeonBalance.PartyPowerRequirementPerFloor;
+
+        /// <summary>
+        /// そのボスに挑んだ場合の部隊火力（巨獣狩りの上乗せ・完全解析の弱点ボーナス込み）。
+        /// Resolve の火力判定と、大迷宮画面の出撃前の見立てが共通で使う。
+        /// </summary>
+        public static double CalculateBossPower(Party party, FloorBoss boss)
+        {
+            double power = DungeonPowerCalculator.PartyPower(party.Members, boss);
+            if (ScoutingResolver.GetTier(boss.IntelRate) == IntelTier.Complete)
+                power *= 1.0 + DungeonBalance.FullIntelDamageBonus;
+            return power;
         }
 
         /// <summary>

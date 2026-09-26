@@ -54,6 +54,12 @@ namespace GuildManager.Core.Systems
         /// <summary>護衛力を担った隊員の能力名（STR/VIT/INT）。</summary>
         public string GuardCarrierStat { get; set; } = "";
 
+        /// <summary>主護衛の護衛値（→ ScoutingResolver.FindGuardCarrier の値。§0.41）。</summary>
+        public double GuardCarrierValue { get; set; }
+
+        /// <summary>主護衛以外の隊員による支援分（→ ScoutingResolver.CalculateGuardSupportPower。§0.41）。</summary>
+        public double GuardSupportPower { get; set; }
+
         /// <summary>護衛段階による解析成果の倍率（→ ScoutingResolver.GuardIntelMultiplier）。</summary>
         public double GuardIntelMultiplier { get; set; }
 

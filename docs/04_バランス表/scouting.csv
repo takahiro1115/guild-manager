@@ -1,15 +1,15 @@
 key,value,unit,note
 Stealth_Weight_Agi,1.0,倍,隠密適性における各員のAGI（身のこなし）への重み
 Stealth_Weight_Dex,1.0,倍,隠密適性における各員のDEX（手先の精度・足音の殺し方）への重み
-Stealth_Weight_Ldr,0.5,倍,部隊長LDR×この係数を隠密適性へ加算（パニック・事故防止）
-Stealth_Bonus_RangerThief,30,pt,斥候（Ranger）・盗賊（Thief）1名につき隠密適性へ加算する専門職ボーナス
-Stealth_PartySize_Mult_1,1.10,倍,1名編成の人数倍率（単独行動は最も隠れやすい）
+Stealth_Weight_Ldr,0.25,倍,部隊長LDR×この係数を隠密適性へ加算（パニック・事故防止）。§0.41で平均基準へ移行したため0.5→0.25
+Stealth_Bonus_RangerThief,15,pt,斥候（Ranger）・盗賊（Thief）1名につき隠密適性へ加算する専門職ボーナス。§0.41で平均基準へ移行したため30→15
+Stealth_PartySize_Mult_1,1.10,倍,1名編成の人数倍率（単独行動は最も隠れやすい）。§0.41以降は隊員のAGI・DEXの「平均」に掛ける
 Stealth_PartySize_Mult_2,1.00,倍,2名編成の人数倍率（基準）
 Stealth_PartySize_Mult_3,0.85,倍,3名編成の人数倍率
 Stealth_PartySize_Mult_4,0.70,倍,4名編成の人数倍率（大所帯ほど気配を消しにくい）
-Stealth_HeavyArmor_Penalty,30,pt,重装者1名につき隠密適性から直接減算（重装鎧の装備者、またはJobClassがWarrior/Knightのメンバー）
+Stealth_HeavyArmor_Penalty,15,pt,重装者1名につき隠密適性から直接減算（重装鎧の装備者、またはJobClassがWarrior/Knightのメンバー）。§0.41で平均基準へ移行したため30→15
 AnalysisStatCoefficient,1.0,倍,解析・情報収集判定に使うINT合算への係数
-StealthRequirementPerFloor,18,pt,隠密の要求値＝階層×この値（深い階層ほど見つかりやすい）
+StealthRequirementPerFloor,7,pt,隠密の要求値＝階層×この値（深い階層ほど見つかりやすい）。§0.41で隠密を平均基準へ移行したため18→7
 AnalysisRequirementPerFloor,14,pt,解析の要求値＝階層×この値
 IntelGainGreatSuccess,0.50,率,解析Ratioが大成功閾値以上のときの解析率上昇量
 IntelGainSuccess,0.25,率,解析Ratioが成功閾値以上のときの解析率上昇量
@@ -31,4 +31,5 @@ GuardEffect_HpLossPercent_Abundant,0,%,護衛「余裕」時の各員のHP消費
 GuardEffect_HpLossPercent_Sufficient,8,%,護衛「十分」時の各員のHP消費率
 GuardEffect_HpLossPercent_Marginal,20,%,護衛「充足」時の各員のHP消費率
 GuardEffect_HpLossPercent_Deficient,40,%,護衛「不足」時の各員のHP消費率（HP下限1、致死・除籍判定には非接続）
-BaseRequiredGuardPower,35,pt,要求護衛値の基準（10F区間）。要求護衛値＝この値×ボス階層÷10
+BaseRequiredGuardPower,50,pt,要求護衛値の基準（10F区間）。要求護衛値＝この値×ボス階層÷10。§0.41で護衛力に支援分を加えたため35→50
+Guard_Support_Ratio,0.3,倍,護衛力の支援係数（§0.41）。護衛力＝主護衛（隊員中で最大の max(STR,VIT,INT)）＋ 他の隊員の max(STR,VIT,INT) の合計×この係数

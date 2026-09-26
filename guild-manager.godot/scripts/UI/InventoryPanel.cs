@@ -523,7 +523,7 @@ public partial class InventoryPanel : VBoxContainer
 			string floor = from[(floorMark + 2)..^suffix.Length];
 			return $"出土：{FieldName(fieldId)} {floor}F";
 		}
-		return $"入手：第{item.AcquiredAtWeek}週 {from}";
+		return $"入手：{GameCalendar.Format(item.AcquiredAtWeek)} {from}";
 	}
 
 	/// <summary>武具の売却実行（→ EquipmentSystem.TrySellEquipments）。</summary>

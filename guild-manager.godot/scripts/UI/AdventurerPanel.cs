@@ -92,7 +92,6 @@ public partial class AdventurerPanel : VBoxContainer
 	private Button _raiseWageButton = null!;
 	private Button _payBonusButton = null!;
 	private Button _retireButton = null!;
-	private Button _advisorButton = null!;
 	private Button _renameButton = null!;
 
 	// 改名ダイアログ（→ 03 §2.1、2026年9月新設。コードで組み立てる）
@@ -112,16 +111,10 @@ public partial class AdventurerPanel : VBoxContainer
 	/// <summary>装備ポップアップの開放を依頼する（MainDashboardがポップアップを所有するため）。</summary>
 	public event Action<Adventurer> EquipmentRequested = delegate { };
 
-	/// <summary>顧問管理ポップアップの開放を依頼する（MainDashboardがポップアップを所有するため）。</summary>
-	public event Action AdvisorRequested = delegate { };
-
 	/// <summary>
 	/// 冒険者が改名された（→ MainDashboard が画面全体を再描画し、左ペインの編成スロット・候補一覧・大迷宮画面の名前を即時同期する）。
 	/// </summary>
 	public event Action<Guid> AdventurerRenamed = delegate { };
-
-	/// <summary>顧問管理ボタンへの参照。</summary>
-	public Button AdvisorButton => _advisorButton;
 
 	public override void _Ready()
 	{
@@ -186,7 +179,6 @@ public partial class AdventurerPanel : VBoxContainer
 		_raiseWageButton = GetNode<Button>("%RaiseWageButton");
 		_payBonusButton = GetNode<Button>("%PayBonusButton");
 		_retireButton = GetNode<Button>("%RetireButton");
-		_advisorButton = GetNode<Button>("%AdvisorButton");
 		_renameButton = GetNode<Button>("%RenameButton");
 
 		// シグナル配線
@@ -194,7 +186,6 @@ public partial class AdventurerPanel : VBoxContainer
 		_raiseWageButton.Pressed += OnRaiseWagePressed;
 		_payBonusButton.Pressed += OnPayBonusPressed;
 		_retireButton.Pressed += OnRetirePressed;
-		_advisorButton.Pressed += () => AdvisorRequested.Invoke();
 		_renameButton.Pressed += OnRenamePressed;
 		BuildRenameDialog();
 
@@ -234,7 +225,7 @@ public partial class AdventurerPanel : VBoxContainer
 	/// <summary>
 	/// ギルド未加入の志願者を表示する（→ 採用画面 RecruitmentPopup の右ペイン、03 §2.4・§9、§0.37）。
 	/// 名簿に居ない人物を直接受け取り、同じ基本情報・7大能力値バー・特性・装備欄で描く。
-	/// 人事業務（装備変更・昇給・ボーナス・引退勧告・顧問管理・改名・特性の忘却）と、在籍前提の
+	/// 人事業務（装備変更・昇給・ボーナス・引退勧告・改名・特性の忘却）と、在籍前提の
 	/// 満足度・8年稼働タイムラインは出さない。以後この Panel は志願者表示専用として使う
 	/// （部隊・冒険者画面の Panel とは別インスタンス。Refresh は呼ばれない）。
 	/// </summary>

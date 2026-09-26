@@ -152,9 +152,10 @@ namespace GuildManager.Core.Tests
             var boss2 = MakeBoss(floor: 2);
             var resolver = new ScoutingResolver(new AlwaysMinRng());
 
-            // 要求値＝2×18=36。AGI+DEX=17+17=34 では僅かに届かないが、LDR60×0.5=30 を足せば超える。
-            var withoutLeader = resolver.Resolve(PartyOf(MakeSpecialist(agiDex: 17, intel: 50, ldr: 0)), boss1);
-            var withLeader = resolver.Resolve(PartyOf(MakeSpecialist(agiDex: 17, intel: 50, ldr: 60)), boss2);
+            // 要求値＝2×7=14。単独の平均素点(12+12)×1.10＝26.4→26、重戦士（既定の職）の重装ペナルティ−15で11と届かないが、
+            // 部隊長LDR60×0.25=15 を足せば26で超える（§0.41の値）。
+            var withoutLeader = resolver.Resolve(PartyOf(MakeSpecialist(agiDex: 12, intel: 50, ldr: 0)), boss1);
+            var withLeader = resolver.Resolve(PartyOf(MakeSpecialist(agiDex: 12, intel: 50, ldr: 60)), boss2);
 
             Assert.False(withoutLeader.StealthSucceeded);
             Assert.True(withLeader.StealthSucceeded);
@@ -203,14 +204,53 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
-        public void Scouting_GuardPower_UsesMaxOfStrVitInt()
+        public void Scouting_GuardPower_IsCarrierPlusSupport()
         {
-            // 部隊内の各員の max(STR,VIT,INT) のうち最大のもの（合計ではない）。
+            // §0.41：護衛力＝主護衛の max(STR,VIT,INT) ＋ 他の隊員の max(STR,VIT,INT) の合計×支援係数0.3。
+            // 各員の護衛値は 40（STR）・55（INT）・48（VIT）→ 主護衛55 ＋ (40+48)×0.3＝26.4 ＝ 81.4
             var party = PartyOf(MakeGuard(str: 40, vit: 20, intel: 10), MakeGuard(str: 5, vit: 30, intel: 55), MakeGuard(str: 12, vit: 48, intel: 3));
 
-            Assert.Equal(55, ScoutingResolver.CalculateGuardPower(party), precision: 6);
+            Assert.Equal(0.3, ScoutingBalance.GuardSupportRatio, precision: 6);
+            Assert.Equal(81.4, ScoutingResolver.CalculateGuardPower(party), precision: 6);
+            Assert.Equal(26.4, ScoutingResolver.CalculateGuardSupportPower(party), precision: 6);
+            // 単独行は主護衛の値そのもの（旧式と同じ）
             Assert.Equal(40, ScoutingResolver.CalculateGuardPower(PartyOf(MakeGuard(str: 40, vit: 20, intel: 10))), precision: 6);
+            Assert.Equal(0, ScoutingResolver.CalculateGuardSupportPower(PartyOf(MakeGuard(str: 40, vit: 20, intel: 10))), precision: 6);
             Assert.Equal(0, ScoutingResolver.CalculateGuardPower(new Party()), precision: 6);
+        }
+
+        [Fact]
+        public void Scouting_GuardPower_GrowsWithPartySize_WhileStealthShrinks()
+        {
+            // 同じ能力の隊員を足していくと、護衛力は上がり隠密は下がる（§0.41：調査編成の駆け引き）。
+            var members = Enumerable.Range(0, 4).Select(_ => MakeSpecialist(agiDex: 40, intel: 40)).ToArray();
+            var guards = new List<double>();
+            var stealths = new List<double>();
+            for (int n = 1; n <= 4; n++)
+            {
+                var party = PartyOf(members.Take(n).ToArray());
+                guards.Add(ScoutingResolver.CalculateGuardPower(party));
+                stealths.Add(ScoutingResolver.CalculateStealthScore(party));
+            }
+
+            for (int i = 1; i < 4; i++)
+            {
+                Assert.True(guards[i] > guards[i - 1], $"護衛力が{i + 1}名で上がっていない: {string.Join(",", guards)}");
+                Assert.True(stealths[i] < stealths[i - 1], $"隠密が{i + 1}名で下がっていない: {string.Join(",", stealths)}");
+            }
+        }
+
+        [Fact]
+        public void Resolve_RecordsGuardCarrierValueAndSupport()
+        {
+            var party = PartyOf(MakeGuard(str: 40, vit: 20, intel: 10), MakeGuard(str: 5, vit: 30, intel: 55));
+
+            var result = new ScoutingResolver(new AlwaysMinRng()).Resolve(party, MakeBoss(floor: 10));
+
+            Assert.Equal(55, result.GuardCarrierValue, precision: 6);
+            Assert.Equal("INT", result.GuardCarrierStat);
+            Assert.Equal(12, result.GuardSupportPower, precision: 6);
+            Assert.Equal(67, result.GuardPower, precision: 6);
         }
 
         [Theory]

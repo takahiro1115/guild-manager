@@ -299,9 +299,7 @@ namespace GuildManager.Core.Systems
         {
             if (party.IsEmpty) return 0;
 
-            double score = party.Members.Sum(m =>
-                    m.GetEffectiveStat("VIT") * DungeonTraversalBalance.WeightVit
-                    + m.GetEffectiveStat("MND") * DungeonTraversalBalance.WeightMnd)
+            double score = party.Members.Sum(GetMemberTraversalValue)
                 + party.Members[0].GetEffectiveStat("LDR") * DungeonTraversalBalance.WeightLdr;
 
             if (state != null)
@@ -313,6 +311,14 @@ namespace GuildManager.Core.Systems
 
             return score;
         }
+
+        /// <summary>
+        /// 隊員1名の走破力への寄与＝VIT×WeightVit ＋ MND×WeightMnd（部隊長LDR・研究・参謀の加算は含まない）。
+        /// CalculateTraversalScore が合計し、編成画面の「走破貢献」列（→ PartyFormationPanel）も同じ値を使う。
+        /// </summary>
+        public static double GetMemberTraversalValue(Adventurer member) =>
+            member.GetEffectiveStat("VIT") * DungeonTraversalBalance.WeightVit
+            + member.GetEffectiveStat("MND") * DungeonTraversalBalance.WeightMnd;
 
         /// <summary>道中進軍の要求値＝現在到達階層×係数（深く潜るほど道中も険しくなる）。</summary>
         public static double CurrentFloorRequirement(DungeonField field) => FloorRequirement(field.ReachedFloor);

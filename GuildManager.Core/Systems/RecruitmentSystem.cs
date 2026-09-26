@@ -31,7 +31,7 @@ namespace GuildManager.Core.Systems
     /// </summary>
     public class RecruitmentSystem
     {
-        private const int WeeksPerYear = 48; // 仕様書 03 §1.2（構造値）
+        private const int WeeksPerYear = GameCalendar.WeeksPerYear; // 仕様書 03 §1.2（構造値、→ Models.GameCalendar）
 
         /// <summary>採用で抽選する職業の数（＝JobClass列挙型の全要素数）。</summary>
         private static readonly int AllJobClassCount = Enum.GetValues<JobClass>().Length;
@@ -56,7 +56,7 @@ namespace GuildManager.Core.Systems
         public bool IsRecruitmentWeek(int weekNumber)
         {
             if (weekNumber <= WeeksPerYear) return false; // 1年目は対象外
-            return ((weekNumber - 1) % WeeksPerYear) + 1 == 1;
+            return GameCalendar.IsFirstWeekOfYear(weekNumber);
         }
 
         /// <summary>

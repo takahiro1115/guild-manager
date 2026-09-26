@@ -130,7 +130,7 @@ public partial class EquipmentPopup : PopupPanel
 				continue;
 			}
 
-			string acquired = entry.AcquiredAtWeek > 0 ? $"　第{entry.AcquiredAtWeek}週 {entry.AcquiredFrom}" : "";
+			string acquired = entry.AcquiredAtWeek > 0 ? $"　{GameCalendar.Format(entry.AcquiredAtWeek)} {entry.AcquiredFrom}" : "";
 			_armoryList.AddItem($"[{SlotLabel(definition.Slot)}] {entry.DisplayName}　{entry.DescribeEffects()}{acquired}");
 			_armoryList.SetItemCustomFgColor(index, ItemColorHelper.GetItemColor(entry));
 			string detail = $"{entry.DisplayName}\n{entry.DescribeEffects()}";

@@ -59,7 +59,6 @@ public partial class MainDashboard : Control
 	private Button _autoSkipButton = null!;
 	private RecruitmentPopup _recruitmentPopup = null!;
 	private AdvisorPopup _advisorPopup = null!;
-	private Button _advisorButton = null!;
 	private EquipmentPopup _equipmentPopup = null!;
 
 	// ---- メニューナビゲーションバー & ペイン制御 ----
@@ -172,8 +171,6 @@ public partial class MainDashboard : Control
 		// 改名（→ 03 §2.1）：画面全体を再描画し、左ペインの編成スロット・候補一覧や大迷宮画面の名前を即時同期する。
 		_adventurerPanel.AdventurerRenamed += _ => RefreshAll();
 		_adventurerPanel.EquipmentRequested += OnAdventurerEquipmentRequested;
-		_adventurerPanel.AdvisorRequested += OnAdvisorButtonPressed;
-		_advisorButton = _adventurerPanel.AdvisorButton;
 
 		_partyFormationPanel = GetNode<PartyFormationPanel>("%PartyFormationTab");
 		_partyFormationPanel.StateChanged += RefreshAll;
@@ -186,6 +183,7 @@ public partial class MainDashboard : Control
 
 		_facilityPanel = GetNode<FacilityPanel>("%FacilityTab");
 		_facilityPanel.StateChanged += RefreshAll;
+		_facilityPanel.AdvisorRequested += OnAdvisorButtonPressed;
 
 		_inventoryPanel = GetNode<InventoryPanel>("%InventoryTab");
 		_inventoryPanel.LogRequested += AppendLog;
@@ -319,7 +317,7 @@ public partial class MainDashboard : Control
 		if (_state.DungeonFields.Count == 0)
 			_state.DungeonFields = SampleData.CreateDefaultFields();
 		RefreshAll();
-		AppendLog($"[color=cyan]セーブデータから再開しました（第{_state.WeekNumber}週）。[/color]");
+		AppendLog($"[color=cyan]セーブデータから再開しました（{GameCalendar.Format(_state.WeekNumber)}）。[/color]");
 	}
 
 	private void OnNewGameChosen(ConfirmationDialog dialog) => CloseDialogThenRun(dialog, StartNewGame);
@@ -440,7 +438,7 @@ public partial class MainDashboard : Control
 		int thisWeek = _state.WeekNumber;
 
 		if (_state.ActiveDungeonMissions.Count == 0)
-			AppendLog($"[color=gray]第{thisWeek}週：今週は誰も出撃せず、静養に努めた。[/color]");
+			AppendLog($"[color=gray]{GameCalendar.Format(thisWeek)}：今週は誰も出撃せず、静養に努めた。[/color]");
 
 		// 出撃操作以外の週次決算処理は、WeekProcessingSystemに集約されている
 		// （→ 03 §1.3。手動の「次週へ」・自動スキップの両方がこの同じ実装を経由することで、
@@ -616,7 +614,7 @@ public partial class MainDashboard : Control
 		int startWeek = _state.WeekNumber;
 		var results = _autoSkipService.AutoSkip(_state);
 
-		AppendLog($"[color=cyan][b]≫≫ 自動スキップ：第{startWeek}週から{results.Count}週分を処理した。[/b][/color]");
+		AppendLog($"[color=cyan][b]≫≫ 自動スキップ：{GameCalendar.Format(startWeek)}から{results.Count}週分を処理した。[/b][/color]");
 
 		int facilityCount = results.Count(r => r.FacilityConstructionCompleted);
 		int deathCount = results.Count(r => r.DeathOrPermanentInjuryOccurred);
@@ -652,7 +650,7 @@ public partial class MainDashboard : Control
 		}
 	}
 
-	/// <summary>「顧問管理」ボタン。顧問役職割り当てポップアップを開く（いつでも自由に開閉できる）。</summary>
+	/// <summary>施設管理画面の「👔 顧問を任命」ボタン。顧問役職割り当てポップアップを開く（いつでも自由に開閉できる）。</summary>
 	private void OnAdvisorButtonPressed()
 	{
 		if (_state == null) return;
@@ -759,7 +757,7 @@ public partial class MainDashboard : Control
 			if (fallen == null)
 				continue;
 
-			yield return $"[color=red][b]✖ {fallen.Name} が致命傷を負った（第{weekNumber}週）。[/b][/color]";
+			yield return $"[color=red][b]✖ {fallen.Name} が致命傷を負った（{GameCalendar.Format(weekNumber)}）。[/b][/color]";
 			yield return $"[color=orange]アルベールの秘薬で一命は取り留めたが、「危ないじゃないか！」と激怒したマスターにより" +
 				$"{fallen.Name}のギルド登録は強制抹消された。二度と戻らない。[/color]";
 
@@ -785,7 +783,7 @@ public partial class MainDashboard : Control
 		{
 			var gathering = resolution.GatheringResult;
 			string materialName = MaterialBalance.GetName(gathering.MaterialId);
-			sb.AppendLine($"[b]第{weekNumber}週：大迷宮 探索（採取）任務[/b]");
+			sb.AppendLine($"[b]{GameCalendar.Format(weekNumber)}：大迷宮 探索（採取）任務[/b]");
 			sb.AppendLine($"[color=lime]【採取任務】{resolution.Field.Name}にて素材を回収（{materialName}×{gathering.MaterialCount}、" +
 				$"換金{gathering.GoldEarned}Gを獲得）。[/color]");
 			// 判定内訳の開示（→ 03 §4.2.3「開発・バランス調整期間の特記事項」）。
@@ -805,7 +803,7 @@ public partial class MainDashboard : Control
 		if (resolution.ScoutingResult == null && resolution.TraversalResult == null && resolution.DungeonResult == null)
 		{
 			// 判定を伴わない帰還（討伐に向かったボスが既に倒されていた等）。
-			sb.AppendLine($"[b]第{weekNumber}週：大迷宮 {resolution.Field.Name}からの帰還[/b]");
+			sb.AppendLine($"[b]{GameCalendar.Format(weekNumber)}：大迷宮 {resolution.Field.Name}からの帰還[/b]");
 			sb.AppendLine("[color=gray]目標のボスは既に討たれていたため、部隊は戦わずにギルドへ帰還した。[/color]");
 			AppendDepositLine(sb, resolution);
 			AppendLog(sb.ToString());
@@ -817,8 +815,8 @@ public partial class MainDashboard : Control
 			var scouting = resolution.ScoutingResult;
 			bool survey = resolution.MissionType == DungeonMissionType.Survey;
 			sb.AppendLine(survey
-				? $"[b]第{weekNumber}週：大迷宮 第{boss.Floor}層「{boss.Name}」迷宮調査[/b]"
-				: $"[b]第{weekNumber}週：大迷宮 第{boss.Floor}層「{boss.Name}」扉前での偵察[/b]");
+				? $"[b]{GameCalendar.Format(weekNumber)}：大迷宮 第{boss.Floor}層「{boss.Name}」迷宮調査[/b]"
+				: $"[b]{GameCalendar.Format(weekNumber)}：大迷宮 第{boss.Floor}層「{boss.Name}」扉前での偵察[/b]");
 			// 護衛評価（→ GuardTier、2026年9月新設）：解析成果の倍率とHP消費を決める。
 			sb.AppendLine($"護衛評価：{DungeonPanel.GuardTierLabel(scouting.GuardTier)}　" + scouting.GuardTier switch
 			{
@@ -848,7 +846,7 @@ public partial class MainDashboard : Control
 			sb.AppendLine($"解析率 {resolution.IntelRateBefore * 100:F0}% → {scouting.IntelRateAfter * 100:F0}%" +
 				$"（+{scouting.IntelGained * 100:F0}%）");
 			// 判定内訳の開示（→ 03 §4.2.3「開発・バランス調整期間の特記事項」）。
-			sb.AppendLine($"[color=gray]【迷宮調査】護衛判定: 護衛力{scouting.GuardPower:F0}（{scouting.GuardCarrierName}:{scouting.GuardCarrierStat}{scouting.GuardPower:F0}）" +
+			sb.AppendLine($"[color=gray]【迷宮調査】護衛判定: 護衛力{scouting.GuardPower:F0}（{scouting.GuardCarrierName}:{scouting.GuardCarrierStat}{scouting.GuardCarrierValue:F0}{(scouting.GuardSupportPower > 0 ? $" ＋支援{scouting.GuardSupportPower:F0}" : "")}）" +
 				$" / 要求値{scouting.GuardRequirement:F1}（{resolution.Field.Name}{boss.Floor}F基準）＝ 比率{DungeonPanel.FormatRatio(scouting.GuardRatio)}" +
 				$"［{DungeonPanel.GuardTierLabel(scouting.GuardTier)}］。損耗{scouting.HpLossPercent}% / 解析倍率×{scouting.GuardIntelMultiplier:0.0#}" +
 				$" / 解析進展+{scouting.IntelGained * 100:F1}%（{scouting.IntelRateBefore * 100:F0}%→{scouting.IntelRateAfter * 100:F0}%）[/color]");
@@ -869,7 +867,7 @@ public partial class MainDashboard : Control
 		if (resolution.TraversalResult != null)
 		{
 			var traversal = resolution.TraversalResult;
-			sb.AppendLine($"[b]第{weekNumber}週：大迷宮 第{traversal.FloorBefore}層〜 道中進軍[/b]");
+			sb.AppendLine($"[b]{GameCalendar.Format(weekNumber)}：大迷宮 第{traversal.FloorBefore}層〜 道中進軍[/b]");
 			sb.AppendLine(traversal.Rank switch
 			{
 				TraversalRank.Godspeed => "[color=gold]◆ 神速の踏破。道なき道を一気に駆け抜け、はるか奥まで進んだ。[/color]",
@@ -931,7 +929,7 @@ public partial class MainDashboard : Control
 		if (assault == null)
 			return;
 
-		sb.AppendLine($"[color=gold][b]⚔ 第{weekNumber}週：大迷宮 第{boss.Floor}層「{boss.Name}」討伐戦[/b][/color]");
+		sb.AppendLine($"[color=gold][b]⚔ {GameCalendar.Format(weekNumber)}：大迷宮 第{boss.Floor}層「{boss.Name}」討伐戦[/b][/color]");
 		foreach (var type in assault.CounteredGimmicks)
 			sb.AppendLine($"[color=lime]✔ {DungeonPanel.GimmickLabel(type)}への備えが機能した。[/color]");
 		foreach (var type in assault.UncounteredGimmicks)
@@ -1137,9 +1135,33 @@ public partial class MainDashboard : Control
 		}
 	}
 
+	/// <summary>季節のアイコン（ヘッダーの暦表示用）。</summary>
+	private static string SeasonIcon(Season season) => season switch
+	{
+		Season.Spring => "🌸",
+		Season.Summer => "☀️",
+		Season.Autumn => "🍁",
+		_ => "❄️",
+	};
+
+	/// <summary>季節の文字色（ヘッダーの暦表示用）。</summary>
+	private static Color SeasonColor(Season season) => season switch
+	{
+		Season.Spring => new Color("#f9a8d4"),
+		Season.Summer => new Color("#fcd34d"),
+		Season.Autumn => new Color("#fb923c"),
+		_ => new Color("#93c5fd"),
+	};
+
 	private void RefreshAll()
 	{
-		_weekLabel.Text = $"週: {_state.WeekNumber}";
+		// 暦の表記「1年目 🌸春 第3週」（→ Core の GameCalendar。1年48週＝4季節×12週、第1週＝春の第1週）。
+		var season = GameCalendar.SeasonOf(_state.WeekNumber);
+		_weekLabel.Text = $"{GameCalendar.YearOf(_state.WeekNumber)}年目 {SeasonIcon(season)}{GameCalendar.SeasonLabel(season)} 第{GameCalendar.WeekOfSeason(_state.WeekNumber)}週";
+		_weekLabel.AddThemeColorOverride("font_color", SeasonColor(season));
+		_weekLabel.MouseFilter = Control.MouseFilterEnum.Pass;
+		_weekLabel.TooltipText = $"通算 第{_state.WeekNumber}週（その年の第{GameCalendar.WeekOfYear(_state.WeekNumber)}週）\n" +
+			$"1年＝{GameCalendar.WeeksPerYear}週＝春夏秋冬×{GameCalendar.WeeksPerSeason}週。毎年 春の第1週に新春採用試験（2年目から）。";
 		_goldLabel.Text = $"所持金: {_state.Gold} G";
 		// マスターの機嫌（→ 03 §8.1。旧・ギルド格付け／名声の表示枠を流用）。
 		var moodTier = MasterMoodSystem.GetTier(_state.MasterMood);

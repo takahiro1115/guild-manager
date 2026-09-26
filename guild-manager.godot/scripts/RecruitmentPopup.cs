@@ -61,6 +61,9 @@ public partial class RecruitmentPopup : PopupPanel
 	/// <summary>候補者Id → カード（枠のハイライト・背景の切り替え用）。</summary>
 	private readonly Dictionary<Guid, PanelContainer> _cardsById = new();
 
+	/// <summary>候補者Id → 採用チェックボックス（Space／Enterでの切り替え用）。</summary>
+	private readonly Dictionary<Guid, CheckBox> _checksById = new();
+
 	/// <summary>採用処理が完了してポップアップが閉じた（＝次週へ進めてよい）ことを通知する。</summary>
 	public event Action Closed = delegate { };
 
@@ -182,6 +185,7 @@ public partial class RecruitmentPopup : PopupPanel
 			child.QueueFree();
 		}
 		_cardsById.Clear();
+		_checksById.Clear();
 
 		foreach (var offer in _candidates)
 		{
@@ -201,11 +205,37 @@ public partial class RecruitmentPopup : PopupPanel
 		var c = offer.Candidate;
 		var id = c.Id;
 
-		var card = new PanelContainer { MouseFilter = Control.MouseFilterEnum.Stop, TooltipText = "クリックで右に詳細を表示" };
+		// カードはキーボードのフォーカスを受ける（↑↓で候補を移動、Space／Enterでチェックを切り替え）。
+		// 旧来の ItemList では↑↓で候補を選べたが、カード化（§0.37）で効かなくなっていたのを戻した（2026年9月）。
+		var card = new PanelContainer
+		{
+			MouseFilter = Control.MouseFilterEnum.Stop,
+			FocusMode = Control.FocusModeEnum.All,
+			TooltipText = "クリックで右に詳細を表示（↑↓で移動、Space／Enterでチェック）",
+		};
 		card.GuiInput += e =>
 		{
 			if (e is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true })
+			{
 				FocusCandidate(id);
+				card.GrabFocus();
+			}
+			else if (e.IsActionPressed("ui_down", allowEcho: true))
+			{
+				MoveFocus(id, +1);
+				card.AcceptEvent();
+			}
+			else if (e.IsActionPressed("ui_up", allowEcho: true))
+			{
+				MoveFocus(id, -1);
+				card.AcceptEvent();
+			}
+			else if (e.IsActionPressed("ui_accept"))
+			{
+				if (_checksById.TryGetValue(id, out var box))
+					box.ButtonPressed = !box.ButtonPressed;
+				card.AcceptEvent();
+			}
 		};
 
 		var margin = new MarginContainer { MouseFilter = Control.MouseFilterEnum.Pass };
@@ -219,9 +249,11 @@ public partial class RecruitmentPopup : PopupPanel
 		row.AddThemeConstantOverride("separation", 10);
 		margin.AddChild(row);
 
-		var check = new CheckBox { TooltipText = "チェックで採用候補に加える" };
+		// チェックボックスはフォーカスを取らない（クリックしてもキーボードの操作対象はカードのまま）。
+		var check = new CheckBox { TooltipText = "チェックで採用候補に加える", FocusMode = Control.FocusModeEnum.None };
 		check.Toggled += pressed => OnCandidateToggled(id, pressed);
 		row.AddChild(check);
+		_checksById[id] = check;
 
 		var info = new VBoxContainer { MouseFilter = Control.MouseFilterEnum.Pass, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
 		info.AddThemeConstantOverride("separation", 2);
@@ -295,6 +327,35 @@ public partial class RecruitmentPopup : PopupPanel
 		_focusedCandidateId = id;
 		ShowFocusedCandidate();
 		RefreshCardStyles();
+	}
+
+	/// <summary>
+	/// 表示中はキーボードのフォーカスを常に候補カードのどれかに置く（↑↓・Space／Enter が効くように）。
+	/// 開いた直後はポップアップ自身がフォーカスを取るため、その後でカードへ渡す必要があり、また余白のクリック等でフォーカスが外れた場合も
+	/// 表示中の候補のカードへ戻す。フォーカスの持ち主がいる間（ボタン等）は触らない。
+	/// </summary>
+	public override void _Process(double delta)
+	{
+		if (!Visible || GuiGetFocusOwner() != null) return;
+		if (_focusedCandidateId is Guid focused && _cardsById.TryGetValue(focused, out var card) && card.IsVisibleInTree())
+			card.GrabFocus();
+	}
+
+	/// <summary>↑↓キー：表示中の候補から前後の候補へ移り、カードにフォーカスを移して一覧を追従スクロールする（端では止まる）。</summary>
+	private void MoveFocus(Guid fromId, int delta)
+	{
+		int index = _candidates.FindIndex(o => o.Candidate.Id == fromId);
+		if (index < 0) return;
+		int next = Math.Clamp(index + delta, 0, _candidates.Count - 1);
+		if (next == index) return;
+
+		var nextId = _candidates[next].Candidate.Id;
+		FocusCandidate(nextId);
+		if (_cardsById.TryGetValue(nextId, out var card))
+		{
+			card.GrabFocus();
+			_candidateCards.GetParent<ScrollContainer>().EnsureControlVisible(card);
+		}
 	}
 
 	private void ShowFocusedCandidate()

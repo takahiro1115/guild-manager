@@ -35,6 +35,12 @@ public partial class FacilityPanel : VBoxContainer
 	/// <summary>着工でゲーム状態（所持金・建設キュー）が変わったことを通知する。</summary>
 	public event Action StateChanged = delegate { };
 
+	/// <summary>
+	/// 顧問（教官・参謀・スカウト）の任命ポップアップの開放を依頼する（MainDashboard がポップアップを所有するため）。
+	/// 2026年9月：任命の入口を「部隊・冒険者」画面の個人詳細の右肩から、顧問の配属先である施設の画面へ移した。
+	/// </summary>
+	public event Action AdvisorRequested = delegate { };
+
 	private class FacilityCardBinding
 	{
 		public FacilityType Type { get; set; }
@@ -68,6 +74,34 @@ public partial class FacilityPanel : VBoxContainer
 		BindCard(FacilityType.ScoutPost, "%Card_ScoutPost");
 		BindCard(FacilityType.WarRoom, "%Card_WarRoom");
 		BindCard(FacilityType.RecruitmentOffice, "%Card_RecruitmentOffice");
+
+		BuildAdvisorRow();
+	}
+
+	/// <summary>
+	/// 画面の先頭に「👔 顧問を任命」の行を置く（→ AdvisorRequested）。教官（4訓練所）・参謀（作戦資料室）・スカウト（冒険者支援室）は
+	/// いずれも施設に紐づく役職のため、各カードの顧問欄と同じ画面から任命できるようにする（2026年9月、個人詳細の右肩から移設）。
+	/// </summary>
+	private void BuildAdvisorRow()
+	{
+		var row = new HBoxContainer();
+		row.AddThemeConstantOverride("separation", 12);
+
+		var note = new Label
+		{
+			Text = "引退した冒険者を、教官（4訓練所）・参謀（作戦資料室）・スカウト（冒険者支援室）に任命できる。",
+			SizeFlagsHorizontal = SizeFlags.ExpandFill,
+			VerticalAlignment = VerticalAlignment.Center,
+		};
+		note.AddThemeColorOverride("font_color", new Color(0.7f, 0.72f, 0.78f));
+		row.AddChild(note);
+
+		var button = new Button { Text = "👔 顧問を任命", CustomMinimumSize = new Vector2(140, 32) };
+		button.Pressed += () => AdvisorRequested.Invoke();
+		row.AddChild(button);
+
+		AddChild(row);
+		MoveChild(row, 0);
 	}
 
 	private void BindCard(FacilityType type, string cardUniqueName)
@@ -370,7 +404,7 @@ public partial class FacilityPanel : VBoxContainer
 				}
 			}
 
-			return "[color=gray]教官：未任命（顧問室で任命可能）[/color]";
+			return "[color=gray]教官：未任命（上の「👔 顧問を任命」から任命できる）[/color]";
 		}
 
 		// 作戦資料室（参謀）
@@ -391,7 +425,7 @@ public partial class FacilityPanel : VBoxContainer
 				}
 			}
 
-			return "[color=gray]参謀：未任命（顧問室で任命可能）[/color]";
+			return "[color=gray]参謀：未任命（上の「👔 顧問を任命」から任命できる）[/color]";
 		}
 
 		// 冒険者支援室（スカウト）
@@ -411,7 +445,7 @@ public partial class FacilityPanel : VBoxContainer
 				}
 			}
 
-			return "[color=gray]スカウト：未任命（顧問室で任命可能）[/color]";
+			return "[color=gray]スカウト：未任命（上の「👔 顧問を任命」から任命できる）[/color]";
 		}
 
 		return "";

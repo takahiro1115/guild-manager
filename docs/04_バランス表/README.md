@@ -183,11 +183,18 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 
 **`scouting.csv`**
 
-- `Stealth_Weight_Agi`（1.0）／`Stealth_Weight_Dex`（1.0）／`Stealth_Weight_Ldr`（0.5）… 基礎隠密の重み。
-- `Stealth_Bonus_RangerThief`（30）… 斥候（Ranger）・盗賊（Thief）1名につき加算。
-- `Stealth_PartySize_Mult_1`〜`_4`（1.10／1.00／0.85／0.70）… 人数倍率（**乗算**）。
-- `Stealth_HeavyArmor_Penalty`（30）… 重装者1名につき**倍率適用後に直接減算**
+- `Stealth_Weight_Agi`（1.0）／`Stealth_Weight_Dex`（1.0）… 隠密の素点の重み。素点は隊員の平均（§0.41で合計→平均）。
+- `Stealth_Weight_Ldr`（0.25、§0.41で0.5→0.25）… 部隊長LDR×この値を倍率適用後に加算。
+- `Stealth_Bonus_RangerThief`（15、§0.41で30→15）… 斥候（Ranger）・盗賊（Thief）1名につき倍率適用後に加算。
+- `Stealth_PartySize_Mult_1`〜`_4`（1.10／1.00／0.85／0.70）… 人数倍率（平均素点にだけ**乗算**）。
+- `Stealth_HeavyArmor_Penalty`（15、§0.41で30→15）… 重装者1名につき**倍率適用後に直接減算**
   （重装鎧の装備者、または職業が重戦士・騎士。両方該当でも1名分）。結果は0未満にならない。
+- `StealthRequirementPerFloor`（7、§0.41で18→7）… 隠密の要求値＝ボス階層×この値。
+
+**`scouting.csv` の護衛（§0.41）**
+
+- `Guard_Support_Ratio`（0.3、新設）… 護衛力＝主護衛の max(STR,VIT,INT) ＋ 他の隊員の max(STR,VIT,INT) の合計×この値。
+- `BaseRequiredGuardPower`（50、35→50）… 要求護衛値＝この値×ボス階層÷10。支援分の加算に合わせて引き上げた。
 
 ## 道中損耗・機嫌・内職・相性で追加／変更されたキー（2026年9月、→ 03 §0.19〜§0.22）
 
