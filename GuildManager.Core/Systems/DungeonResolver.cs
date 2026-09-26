@@ -85,6 +85,7 @@ namespace GuildManager.Core.Systems
                 ? ResearchBalance.GetTotalEffectValue(state, ResearchEffectType.SurvivalThresholdBonus)
                 : 0;
             ApplyHpLoss(result, party, survivalBonus);
+            RollGiantHunterAwakening(result, party, boss);
 
             // 携行アイテムは使い切り（→ QuestResolver.Resolve と同じ扱い）。
             party.ConsumableItemIds.Clear();
@@ -145,6 +146,30 @@ namespace GuildManager.Core.Systems
             }
 
             return multiplier;
+        }
+
+        /// <summary>
+        /// 巨獣狩りの後天開眼（→ 03 §4.5.4・§5.3.2、2026年9月・§0.35）。「重装甲」ギミックを持つボスを**撃破**したときだけ、
+        /// 生存した隊員（HP1以上＝強制除籍されていない）ごとに GiantHunterAwakeningChance でロールする。
+        /// 既に巨獣狩りを持つ隊員・特性5枠満杯の隊員はロールしない（通常特性なので侵食はしない）。
+        /// 乱数は対象の隊員ごとに NextInt(1, 100) を1回引き、round(確率×100) 以下で当選。
+        /// </summary>
+        private void RollGiantHunterAwakening(DungeonResult result, Party party, FloorBoss boss)
+        {
+            if (result.Outcome != DungeonOutcome.Victory) return;
+            if (!boss.Gimmicks.Any(g => g.Type == BossGimmickType.HeavyArmor)) return;
+
+            int threshold = (int)Math.Round(CombatBalance.GiantHunterAwakeningChance * 100);
+            foreach (var member in party.Members)
+            {
+                if (member.CurrentHP <= 0) continue;
+                if (!member.CanAddTrait(TraitCatalog.GiantHunterId)) continue; // 所持済み・5枠満杯
+                if (_rng.NextInt(1, 100) > threshold) continue;
+
+                if (member.TryAddTrait(TraitCatalog.GiantHunterId))
+                    result.TraitGrantEvents.Add(new TraitGrantEvent(
+                        member.Id, member.Name, TraitCatalog.GiantHunterId, null, TraitGrantCause.Awakening));
+            }
         }
 
         /// <summary>

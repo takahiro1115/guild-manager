@@ -89,5 +89,11 @@ namespace GuildManager.Core.Balance
         /// HP≤1条件ではほぼ発生しなかった（2026年9月・§0.34で緩和）。
         /// </summary>
         public static readonly double OldWoundRetreatHpThresholdPct = BalanceData.GetDouble(FileName, "OldWoundRetreatHpThresholdPct");
+
+        /// <summary>
+        /// 巨獣狩りの後天開眼（→ DungeonResolver、03 §4.5.4・§5.3.2、2026年9月・§0.35）：「重装甲」ギミックを持つ
+        /// 階層ボスを撃破したとき、生存した隊員ごとに巨獣狩りを得る確率（0〜1）。
+        /// </summary>
+        public static readonly double GiantHunterAwakeningChance = BalanceData.GetDouble(FileName, "GiantHunterAwakeningChance");
     }
 }

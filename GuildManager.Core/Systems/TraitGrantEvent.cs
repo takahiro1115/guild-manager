@@ -3,7 +3,7 @@ using GuildManager.Core.Models;
 
 namespace GuildManager.Core.Systems
 {
-    /// <summary>障害特性が付いた原因（→ TraitGrantEvent）。週報の文面を分ける。</summary>
+    /// <summary>特性が後天的に付いた原因（→ TraitGrantEvent）。週報の文面を分ける。</summary>
     public enum TraitGrantCause
     {
         /// <summary>重傷（HP1）での生還による後遺症（古傷。→ CriticalInjury.RollOldWound）。</summary>
@@ -11,10 +11,14 @@ namespace GuildManager.Core.Systems
 
         /// <summary>同じ部隊の仲間の強制除籍を目の当たりにした衝撃（トラウマ。→ CompatibilitySystem.ApplyDeathAftermath）。</summary>
         ComradeRetired,
+
+        /// <summary>重装甲ボスの撃破を経た後天開眼（巨獣狩り。→ DungeonResolver、2026年9月・§0.35）。障害特性ではない。</summary>
+        Awakening,
     }
 
     /// <summary>
-    /// 障害特性（古傷・トラウマ）が付いた出来事1件（→ 03 §5.3.2「週報での開示」、2026年9月・§0.33）。
+    /// 後天的に特性が付いた出来事1件：障害特性（古傷・トラウマ、→ 03 §5.3.2「週報での開示」、2026年9月・§0.33）と
+    /// 巨獣狩りの後天開眼（→ §4.5.4、§0.35）。
     /// 5枠満杯で通常特性を侵食した場合は ErodedTraitId に消えた特性のIdが入る（→ Adventurer.TryAddCurseTrait）。
     /// 週報の文面（→ ToLogText）は Core 側で組み立て、テストで検証できるようにしている。
     /// </summary>
@@ -30,6 +34,7 @@ namespace GuildManager.Core.Systems
             string text = Cause switch
             {
                 TraitGrantCause.CriticalInjury => $"【不可逆障害】{AdventurerName} は重傷の後遺症により『{traitName}』を負った",
+                TraitGrantCause.Awakening => $"【実績開眼】{AdventurerName} は強敵との死闘を経て特性『{traitName}』を開眼した！",
                 _ => $"【精神的打撃】{AdventurerName} は仲間除籍の衝撃により『{traitName}』を負った",
             };
             return ErodedTraitId == null ? text : $"{text}（特性枠満杯のため『{DisplayName(ErodedTraitId)}』を忘却）";

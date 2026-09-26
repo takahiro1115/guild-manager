@@ -153,11 +153,8 @@ namespace GuildManager.Core.Systems
                 if (trainer == null)
                     continue;
 
-                string? teachableTraitId = trainer.TraitIds
-                    .Select(TraitCatalog.FindById)
-                    .Where(def => def != null && !def.IsCurseOrInjury && def.IsTransmittable && !adventurer.HasTrait(def.Id))
-                    .Select(def => def!.Id)
-                    .FirstOrDefault();
+                string? teachableTraitId = GetTransmittableTraitIds(trainer)
+                    .FirstOrDefault(id => !adventurer.HasTrait(id));
 
                 if (teachableTraitId == null)
                     continue; // 教官が伝授可能な特性を（生徒が未所持な形で）持っていない
@@ -172,6 +169,18 @@ namespace GuildManager.Core.Systems
 
             return events;
         }
+
+        /// <summary>
+        /// 教官が伝授しうる特性のId（教官の特性枠の並び順）：障害特性でなく（IsCurseOrInjury == false）、
+        /// 伝授可能（IsTransmittable）なもの。生徒ごとの「未所持」の絞り込みは呼び出し側で行う。
+        /// 伝授ロール（→ ProcessWeeklyTraitTransmission）と施設画面の「伝授可能：…」表示（→ FacilityPanel、§0.35）が共通で使う。
+        /// </summary>
+        public static IReadOnlyList<string> GetTransmittableTraitIds(Adventurer trainer) =>
+            trainer.TraitIds
+                .Select(TraitCatalog.FindById)
+                .Where(def => def != null && !def.IsCurseOrInjury && def.IsTransmittable)
+                .Select(def => def!.Id)
+                .ToList();
 
         /// <summary>
         /// 教官1人あたりの伝授確率（0〜1）＝基礎確率＋師匠肌ボーナス（→ TrainingBalance、03 §7.1）。

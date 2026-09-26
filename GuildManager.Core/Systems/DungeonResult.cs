@@ -46,7 +46,10 @@ namespace GuildManager.Core.Systems
         /// <summary>重装甲ボスに対して巨獣狩り（→ TraitCatalog.GiantHunter）の上乗せが効いた冒険者ID（週報の開示用）。</summary>
         public List<Guid> GiantHunterAdventurerIds { get; set; } = new();
 
-        /// <summary>撤退でHP1のまま生還した隊員に付いた古傷（→ CriticalInjury.RollOldWound、週報の開示用）。</summary>
+        /// <summary>
+        /// この戦闘で後天的に付いた特性（週報の開示用）：撤退時の重傷生還による古傷（→ CriticalInjury.RollOldWound）と、
+        /// 重装甲ボス撃破時の巨獣狩りの開眼（→ DungeonResolver.RollGiantHunterAwakening、§0.35）。
+        /// </summary>
         public List<TraitGrantEvent> TraitGrantEvents { get; set; } = new();
 
         /// <summary>冒険者IDごとの、今回の戦闘で失ったHP量。</summary>

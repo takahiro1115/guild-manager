@@ -506,8 +506,11 @@ public partial class MainDashboard : Control
 			LogDungeonMission(weekNumber, dungeonResolution);
 			LogGrowthEvents(dungeonResolution.GrowthEvents);
 			// 障害特性（古傷・トラウマ）の付与と、それに伴う通常特性の侵食（→ 03 §5.3.2・§0.33 完全開示）。
+			// 巨獣狩りの後天開眼（→ 03 §4.5.4・§0.35）は良い出来事なので金色・✨で分ける。
 			foreach (var grant in dungeonResolution.TraitGrantEvents)
-				AppendLog($"[color=orange]⚠ {grant.ToLogText()}[/color]");
+				AppendLog(grant.Cause == TraitGrantCause.Awakening
+					? $"[color=gold]✨ {grant.ToLogText()}[/color]"
+					: $"[color=orange]⚠ {grant.ToLogText()}[/color]");
 		}
 
 		LogMasterMood(settlement.MoodReport); // → 03 §8.1・§8.1.1：マスターの機嫌の変動内訳
@@ -526,6 +529,9 @@ public partial class MainDashboard : Control
 		}
 
 		LogGrowthEvents(settlement.TrainingGrowthEvents); // → 03 §3.1〜3.4：成長トリガー経路2（訓練場配置）
+		// 教官からの特性伝授（奥義継承、→ 03 §7.1・§0.34）。
+		foreach (var transmission in settlement.TraitTransmissionEvents)
+			AppendLog($"[color=gold]📜 {transmission.ToLogText()}[/color]");
 		LogNegotiationStatus(settlement.NegotiationTerminated); // → 03 §5.2：契約交渉・退団
 
 		if (settlement.CompletedFacility != null)

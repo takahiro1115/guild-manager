@@ -357,8 +357,16 @@ public partial class FacilityPanel : VBoxContainer
 					double bonus = AdvisorSystem.GetTrainerBonus(trainer, type);
 					var stats = FacilityBalance.GetTrainingTargetStats(type);
 					string statsStr = string.Join("・", stats);
+					// 教官から生徒へ受け継がれうる特性（→ TrainingSystem.GetTransmittableTraitIds、03 §7.1・§0.35）。
+					var transmittable = TrainingSystem.GetTransmittableTraitIds(trainer)
+						.Select(id => TraitCatalog.FindById(id)?.DisplayName ?? id)
+						.ToList();
+					string traitLine = transmittable.Count > 0
+						? $"伝授可能: [color=cyan]{string.Join(", ", transmittable)}[/color]"
+						: "[color=gray]伝授可能特性なし[/color]";
 					return $"[color=gold]🎖️ 教官：{trainer.Name}（元{trainer.JobClass}）[/color]\n" +
-					       $"伝授：[color=lime]{statsStr}成長率 +{bonus * 100:F1}%[/color]";
+					       $"伝授：[color=lime]{statsStr}成長率 +{bonus * 100:F1}%[/color]\n" +
+					       traitLine;
 				}
 			}
 
