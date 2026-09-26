@@ -36,5 +36,14 @@ namespace GuildManager.Core.Balance
         /// （→ GrowthSystem.ProcessTrainingGrowth。+0.10＝+10%ポイント、施設倍率・教官ボーナスはこの後に掛かる）。
         /// </summary>
         public static readonly double DiligentGrowthRateBonus = BalanceData.GetDouble(FileName, "DiligentGrowthRateBonus");
+
+        /// <summary>
+        /// 教官からの特性伝授（奥義継承）の週次基礎確率（0〜1、→ TrainingSystem.ProcessWeeklyTraitTransmission、03 §7.1）。
+        /// 2026年9月（教官深化 Step 1）で trait.csv の TraitTransmission* 3キーから移設・置き換え。
+        /// </summary>
+        public static readonly double TraitInheritanceBaseChance = BalanceData.GetDouble(FileName, "TraitInheritanceBaseChance");
+
+        /// <summary>教官が師匠肌（Mentor）を持つときに伝授確率へ加算する値（0〜1）。</summary>
+        public static readonly double MentorTraitInheritanceBonus = BalanceData.GetDouble(FileName, "MentorTraitInheritanceBonus");
     }
 }

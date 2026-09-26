@@ -82,5 +82,12 @@ namespace GuildManager.Core.Balance
         /// 道中進軍でHPが下限1まで落ちた隊員、階層ボス討伐の撤退でHP1で生還した隊員が対象。
         /// </summary>
         public static readonly double OldWoundCriticalChance = BalanceData.GetDouble(FileName, "OldWoundCriticalChance");
+
+        /// <summary>
+        /// 階層ボス討伐の撤退で古傷ロールの対象になるHPの上限（最大HPに対する比率、→ DungeonResolver、03 §4.3.2）。
+        /// 上限HP＝max(1, floor(最大HP×この値))。ボス戦はHP下限0のためHPちょうど1が残ることが稀で、
+        /// HP≤1条件ではほぼ発生しなかった（2026年9月・§0.34で緩和）。
+        /// </summary>
+        public static readonly double OldWoundRetreatHpThresholdPct = BalanceData.GetDouble(FileName, "OldWoundRetreatHpThresholdPct");
     }
 }

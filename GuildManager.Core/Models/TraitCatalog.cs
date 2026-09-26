@@ -134,6 +134,7 @@ namespace GuildManager.Core.Models
         public static readonly TraitDefinition Scholar = Define(new TraitDefinition
         {
             Id = ScholarId,
+            IsTransmittable = true, // 教官深化 Step 1（§0.34）：障害特性と容姿秀麗以外はすべて伝授対象
             BlocksDeployment = false,
             Effects = new List<TraitEffect>(),
         });
@@ -142,7 +143,7 @@ namespace GuildManager.Core.Models
         /// 師匠肌（先天的。→ 特性伝授刷新仕様で新設）。単独の戦闘効果は持たない
         /// （知識人と同じ、他システム専用のマーカー特性）。この特性を持つ引退済み冒険者が
         /// 訓練施設の教官として配置されていると、週次の特性伝授ロールに追加ボーナスが乗る
-        /// （→ TrainingBalance.TraitTransmissionMentorBonusPercent・TrainingSystem.
+        /// （→ TrainingBalance.MentorTraitInheritanceBonus・TrainingSystem.
         /// ProcessWeeklyTraitTransmission）。自身も伝授対象（教え上手は教え上手から学べる）。
         /// </summary>
         public static readonly TraitDefinition Mentor = Define(new TraitDefinition
@@ -162,6 +163,7 @@ namespace GuildManager.Core.Models
         public static readonly TraitDefinition ResistPoison = Define(new TraitDefinition
         {
             Id = ResistPoisonId,
+            IsTransmittable = true, // 教官深化 Step 1（§0.34）：障害特性と容姿秀麗以外はすべて伝授対象
             Effects = new List<TraitEffect>(),
         });
 
@@ -169,6 +171,7 @@ namespace GuildManager.Core.Models
         public static readonly TraitDefinition NightVision = Define(new TraitDefinition
         {
             Id = NightVisionId,
+            IsTransmittable = true, // 教官深化 Step 1（§0.34）：障害特性と容姿秀麗以外はすべて伝授対象
             Effects = new List<TraitEffect>(),
         });
 
@@ -176,6 +179,7 @@ namespace GuildManager.Core.Models
         public static readonly TraitDefinition GiantHunter = Define(new TraitDefinition
         {
             Id = GiantHunterId,
+            IsTransmittable = true, // 教官深化 Step 1（§0.34）：障害特性と容姿秀麗以外はすべて伝授対象
             Effects = new List<TraitEffect>(),
         });
 
@@ -183,6 +187,7 @@ namespace GuildManager.Core.Models
         public static readonly TraitDefinition Diligent = Define(new TraitDefinition
         {
             Id = DiligentId,
+            IsTransmittable = true, // 教官深化 Step 1（§0.34）：障害特性と容姿秀麗以外はすべて伝授対象
             Effects = new List<TraitEffect>(),
         });
 

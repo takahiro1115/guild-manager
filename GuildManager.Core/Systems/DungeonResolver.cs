@@ -191,8 +191,10 @@ namespace GuildManager.Core.Systems
 
                 if (newHp == 0)
                     result.ForceRetiredAdventurerIds.Add(member.Id);
-                // 重傷生還の古傷（→ 03 §4.3）：撤退でHP1のまま生還した隊員だけロールする（撃破時は対象外）。
-                else if (result.Outcome == DungeonOutcome.Retreat && CriticalInjury.RollOldWound(member, _rng) is { } grant)
+                // 重傷生還の古傷（→ 03 §4.3.2）：撤退で最大HPの10%以下（最低でもHP1、→ CriticalInjury.RetreatHpThreshold）
+                // で生還した隊員だけロールする（撃破時は対象外）。
+                else if (result.Outcome == DungeonOutcome.Retreat
+                         && CriticalInjury.RollOldWound(member, _rng, CriticalInjury.RetreatHpThreshold(member)) is { } grant)
                     result.TraitGrantEvents.Add(grant);
             }
         }

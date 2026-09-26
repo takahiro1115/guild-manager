@@ -4,3 +4,5 @@ WeeklyHpCost,5,HP,訓練した週のHP消費量
 MinHp,1,HP,訓練によるHP減少の下限（訓練では死なない）
 RestRecoveryRatio,0.15,倍,待機週のHP自然回復量＝最大HP×この比率（医務室倍率を乗算）
 DiligentGrowthRateBonus,0.10,確率,勤勉：訓練施設での週次成長ロールの基礎確率（年齢帯別、aging.csv GrowthProbability_*）に加算する値（+0.10＝+10%ポイント。教官ボーナス等の倍率はこの後に掛かる。→ 03 §5.3.2・§6.2）
+TraitInheritanceBaseChance,0.05,確率,教官からの特性伝授（奥義継承）の週次基礎確率：訓練施設に配置された生徒1人あたり、配置先施設の教官が伝授候補を持つとき（→ 03 §7.1・TrainingSystem.ProcessWeeklyTraitTransmission。旧 trait.csv TraitTransmissionBaseRatePercent の置き換え）
+MentorTraitInheritanceBonus,0.15,確率,教官が師匠肌(Mentor)を持つときに伝授確率へ加算する値（→ 03 §7.1。旧 trait.csv TraitTransmissionMentorBonusPercent の置き換え）

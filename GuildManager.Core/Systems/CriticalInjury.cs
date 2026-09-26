@@ -16,13 +16,20 @@ namespace GuildManager.Core.Systems
         public const int CriticalHp = 1;
 
         /// <summary>
-        /// 古傷のロール。HPが CriticalHp より上、既に古傷持ち、のいずれかならロールせず null。
+        /// 階層ボス討伐の撤退で古傷ロールの対象になるHPの上限＝max(1, floor(最大HP×OldWoundRetreatHpThresholdPct))
+        /// （→ 03 §4.3.2、2026年9月・§0.34で緩和）。
+        /// </summary>
+        public static int RetreatHpThreshold(Adventurer adventurer) =>
+            System.Math.Max(CriticalHp, (int)System.Math.Floor(adventurer.MaxHP * CombatBalance.OldWoundRetreatHpThresholdPct));
+
+        /// <summary>
+        /// 古傷のロール。HPが hpThreshold（既定＝CriticalHp＝1）より上、既に古傷持ち、のいずれかならロールせず null。
         /// 当選すれば古傷を付け（5枠満杯なら通常特性を侵食、→ Adventurer.TryAddCurseTrait）、その出来事を返す。
         /// 乱数は NextInt(1, 100) を1回だけ引き、round(OldWoundCriticalChance×100) 以下で当選。
         /// </summary>
-        public static TraitGrantEvent? RollOldWound(Adventurer adventurer, IRng rng)
+        public static TraitGrantEvent? RollOldWound(Adventurer adventurer, IRng rng, int hpThreshold = CriticalHp)
         {
-            if (adventurer.CurrentHP > CriticalHp) return null;
+            if (adventurer.CurrentHP > hpThreshold) return null;
             if (adventurer.HasTrait(TraitCatalog.OldWoundId)) return null;
 
             int threshold = (int)System.Math.Round(CombatBalance.OldWoundCriticalChance * 100);

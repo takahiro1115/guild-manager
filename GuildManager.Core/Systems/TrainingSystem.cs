@@ -119,15 +119,16 @@ namespace GuildManager.Core.Systems
         private const int TraitTransmissionMaxAge = 27;
 
         /// <summary>
-        /// 教官からの週次特性伝授ロール（→ 特性伝授・スロット上限刷新仕様）。
+        /// 教官からの週次特性伝授ロール（奥義継承。→ 03 §7.1、2026年9月・§0.34で教官深化 Step 1 として再調整）。
         /// 訓練施設に配置され、かつ配置先施設に教官（引退済み冒険者。→ GameState.
-        /// AssignedTrainers）が就いている15〜27歳の冒険者ごとに、教官が持つ「伝授可能」
-        /// （→ TraitDefinition.IsTransmittable）かつ生徒が未所持の特性を1つ選び、
-        /// 低確率（→ TraitBalance）で伝授する（ポロッと覚える形式：狙って伝授先を選べない）。
+        /// AssignedTrainers）が就いている15〜27歳の冒険者ごとに、教官の特性のうち
+        /// 障害特性でなく（→ TraitDefinition.IsCurseOrInjury）・伝授可能（→ TraitDefinition.IsTransmittable）で・
+        /// 生徒が未所持のものを伝授候補とし、候補があれば1回ロールする（ポロッと覚える形式：狙って伝授先を選べない）。
         ///
-        /// 教官が伝授可能な特性を複数持つ場合はTraitCatalogの定義順で最初の1つを対象にする
-        /// （複数同時伝授はしない：1週1件まで）。特性スロットが満杯（→ Adventurer.MaxTraitCount）の
-        /// 生徒はそもそも対象から外す。
+        /// 伝授確率＝TrainingBalance.TraitInheritanceBaseChance（5%）＋教官が師匠肌なら MentorTraitInheritanceBonus（+15%）。
+        /// 候補が複数あれば教官の特性枠の並び順で最初の1つ（1週1件まで）。
+        /// 特性スロットが満杯（→ Adventurer.MaxTraitCount）の生徒はロールしない（伝授は通常特性の侵食をしない。
+        /// 手動忘却で枠を空けてもらう、→ 03 §5.3.2）。
         /// </summary>
         public List<TraitTransmissionEvent> ProcessWeeklyTraitTransmission(GameState state)
         {
@@ -154,19 +155,15 @@ namespace GuildManager.Core.Systems
 
                 string? teachableTraitId = trainer.TraitIds
                     .Select(TraitCatalog.FindById)
-                    .Where(def => def != null && def.IsTransmittable && !adventurer.HasTrait(def.Id))
+                    .Where(def => def != null && !def.IsCurseOrInjury && def.IsTransmittable && !adventurer.HasTrait(def.Id))
                     .Select(def => def!.Id)
                     .FirstOrDefault();
 
                 if (teachableTraitId == null)
                     continue; // 教官が伝授可能な特性を（生徒が未所持な形で）持っていない
 
-                double chance = TraitBalance.TraitTransmissionBaseRatePercent
-                    + GetTargetStatBonus(trainer, facility)
-                    + (trainer.HasTrait(TraitCatalog.MentorId) ? TraitBalance.TraitTransmissionMentorBonusPercent : 0);
-
                 int roll = _rng.NextInt(1, 100);
-                if (roll > chance)
+                if (roll > (int)Math.Round(GetInheritanceChance(trainer) * 100))
                     continue;
 
                 if (adventurer.TryAddTrait(teachableTraitId))
@@ -177,17 +174,11 @@ namespace GuildManager.Core.Systems
         }
 
         /// <summary>
-        /// 教官の対象ステータス（配置先施設が扱うもの）の実効値平均に比例したボーナス（%）。
-        /// GrowthSystem.GetTrainerBonusと同じ「対象ステータス平均」を使うが、こちらは
-        /// TraitBalance.TraitTransmissionPeakStatBonusMaxPercentを満額（平均100）とする
-        /// 別スケールのため、AdvisorSystem.GetTrainerBonusは流用しない。
-        /// （CSVキー名の「Peak」は生涯ピーク値撤廃前の名残。値の意味は「対象ステータス平均100での満額」）
+        /// 教官1人あたりの伝授確率（0〜1）＝基礎確率＋師匠肌ボーナス（→ TrainingBalance、03 §7.1）。
+        /// 2026年9月・§0.34：旧式にあった「教官の対象ステータス平均に比例した加算（最大+2%）」は廃止した。
         /// </summary>
-        private static double GetTargetStatBonus(Adventurer trainer, FacilityType facility)
-        {
-            var targetStats = FacilityBalance.GetTrainingTargetStats(facility);
-            double average = targetStats.Average(stat => AdventurerStatAccessor.GetStat(trainer, stat));
-            return (average / 100.0) * TraitBalance.TraitTransmissionPeakStatBonusMaxPercent;
-        }
+        public static double GetInheritanceChance(Adventurer trainer) =>
+            TrainingBalance.TraitInheritanceBaseChance
+            + (trainer.HasTrait(TraitCatalog.MentorId) ? TrainingBalance.MentorTraitInheritanceBonus : 0);
     }
 }

@@ -291,8 +291,8 @@ namespace GuildManager.Core.Tests
             state.Adventurers.Add(student);
             state.TrainingAssignments[student.Id] = FacilityType.WarriorHall;
 
-            // AlwaysMinRngはNextInt(1,100)=1を返す。基礎確率2.0%（+ピークボーナス）を
-            // 1<=chanceで必ず下回るため、伝授ロールは必ず成功する。
+            // AlwaysMinRngはNextInt(1,100)=1を返す。基礎確率5%（→ training.csv TraitInheritanceBaseChance）の
+            // 閾値5以下なので、伝授ロールは必ず成功する。
             var system = new TrainingSystem(new AlwaysMinRng());
 
             var events = system.ProcessWeeklyTraitTransmission(state);
