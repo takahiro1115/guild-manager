@@ -94,6 +94,9 @@ public partial class EquipmentPopup : PopupPanel
 	/// <summary>
 	/// ギルド保管庫の在庫一覧（→ GameState.Armory）。装備枠ごとに並べ、職業制限に反するものは
 	/// グレーアウトする（所持していること自体は見えるようにしたいため、非表示にはしない）。
+	/// §0.40：同じ「鉄の剣」が複数あってもどの個体か見分けられるよう、行はアフィックス込みの表示名と
+	/// 内訳込みの性能（→ EquipmentItem.DisplayName・DescribeEffects）で書き、文字色をアフィックスの付与数で変える
+	/// （→ ItemColorHelper。1枠＝水色・2枠＝黄緑）。同じ枠の中ではアフィックスの多い個体を上に並べる。
 	/// </summary>
 	private void RefreshArmoryList()
 	{
@@ -103,7 +106,8 @@ public partial class EquipmentPopup : PopupPanel
 		// カタログから引けない個体（カタログから消えた武具の旧データ）は末尾にまとめる。
 		var ordered = _state.Armory
 			.OrderBy(e => e.GetSlot().HasValue ? (int)e.GetSlot()!.Value : int.MaxValue)
-			.ThenBy(e => e.Name, StringComparer.Ordinal)
+			.ThenByDescending(e => ItemColorHelper.GetTier(e))
+			.ThenBy(e => e.DisplayName, StringComparer.Ordinal)
 			.ToList();
 
 		if (ordered.Count == 0)
@@ -127,12 +131,18 @@ public partial class EquipmentPopup : PopupPanel
 			}
 
 			string acquired = entry.AcquiredAtWeek > 0 ? $"　第{entry.AcquiredAtWeek}週 {entry.AcquiredFrom}" : "";
-			_armoryList.AddItem($"[{SlotLabel(definition.Slot)}] {definition.Name}　{EffectText(definition)}{acquired}");
+			_armoryList.AddItem($"[{SlotLabel(definition.Slot)}] {entry.DisplayName}　{entry.DescribeEffects()}{acquired}");
+			_armoryList.SetItemCustomFgColor(index, ItemColorHelper.GetItemColor(entry));
+			string detail = $"{entry.DisplayName}\n{entry.DescribeEffects()}";
 
 			if (!definition.IsAllowedFor(_adventurer.JobClass))
 			{
 				_armoryList.SetItemDisabled(index, true);
-				_armoryList.SetItemTooltip(index, $"{AdventurerPanel.JobLabel(_adventurer.JobClass)}は装備できません。");
+				_armoryList.SetItemTooltip(index, $"{AdventurerPanel.JobLabel(_adventurer.JobClass)}は装備できません。\n{detail}");
+			}
+			else
+			{
+				_armoryList.SetItemTooltip(index, detail);
 			}
 		}
 	}
@@ -173,7 +183,7 @@ public partial class EquipmentPopup : PopupPanel
 		var parts = Adventurer.AllSlots.Select(slot =>
 		{
 			var equipped = _adventurer.GetEquipped(slot);
-			return $"{SlotLabel(slot)}:{(equipped == null ? "[color=gray]なし[/color]" : equipped.Name)}";
+			return $"{SlotLabel(slot)}:{(equipped == null ? "[color=gray]なし[/color]" : ItemColorHelper.GetColoredBBCode(equipped))}";
 		});
 		_statusLabel.AppendText($"[b]現在の装備[/b]　{string.Join("　", parts)}");
 
@@ -212,7 +222,7 @@ public partial class EquipmentPopup : PopupPanel
 		var slot = entry.GetSlot();
 		if (slot == null)
 		{
-			_message = $"[color=orange]「{entry.Name}」はカタログ定義が見つからないため装備できません。[/color]";
+			_message = $"[color=orange]「{ItemColorHelper.GetColoredBBCode(entry)}」はカタログ定義が見つからないため装備できません。[/color]";
 			RefreshStatus();
 			return;
 		}
@@ -220,14 +230,14 @@ public partial class EquipmentPopup : PopupPanel
 		var previous = _adventurer.GetEquipped(slot.Value);
 		if (!_equipmentSystem.TryEquip(_state, _adventurer, slot.Value, entry))
 		{
-			_message = $"[color=orange]「{entry.Name}」は装備できません" +
+			_message = $"[color=orange]「{ItemColorHelper.GetColoredBBCode(entry)}」は装備できません" +
 				$"（{AdventurerPanel.JobLabel(_adventurer.JobClass)}の職業制限、または出撃中）。[/color]";
 			RefreshStatus();
 			return;
 		}
 
-		_message = $"[color=lime]{SlotLabel(slot.Value)}に「{entry.Name}」を装備した。[/color]" +
-			(previous == null ? "" : $"[color=gray]（「{previous.Name}」は保管庫へ戻した）[/color]");
+		_message = $"[color=lime]{SlotLabel(slot.Value)}に「{ItemColorHelper.GetColoredBBCode(entry)}」を装備した。[/color]" +
+			(previous == null ? "" : $"[color=gray]（「{ItemColorHelper.GetColoredBBCode(previous)}」は保管庫へ戻した）[/color]");
 		RefreshAll();
 	}
 
@@ -264,7 +274,7 @@ public partial class EquipmentPopup : PopupPanel
 		}
 
 		_message = $"[color=lime]「{item.Name}」を{item.Price}Gで購入し、{SlotLabel(item.Slot)}に装備した。[/color]" +
-			(previous == null ? "" : $"[color=gray]（「{previous.Name}」は保管庫へ戻した）[/color]");
+			(previous == null ? "" : $"[color=gray]（「{ItemColorHelper.GetColoredBBCode(previous)}」は保管庫へ戻した）[/color]");
 		RefreshAll();
 	}
 
@@ -281,7 +291,7 @@ public partial class EquipmentPopup : PopupPanel
 			return;
 		}
 
-		_message = $"[color=cyan]{SlotLabel(slot)}の「{current!.Name}」を外し、保管庫へ戻した。[/color]";
+		_message = $"[color=cyan]{SlotLabel(slot)}の「{ItemColorHelper.GetColoredBBCode(current)}」を外し、保管庫へ戻した。[/color]";
 		RefreshAll();
 	}
 

@@ -221,18 +221,27 @@ public partial class InventoryPanel : VBoxContainer
 		StateChanged.Invoke();
 	}
 
-	/// <summary>鑑定結果の演出テキスト（アルベールのコメント欄に出すBBCode）。</summary>
+	/// <summary>
+	/// 鑑定結果の演出テキスト（アルベールのコメント欄に出すBBCode）。武具が出た場合は、個体の表示名
+	/// （アフィックス込み、→ EquipmentItem.DisplayName）をアフィックスの付与数で色分けし（→ ItemColorHelper）、
+	/// 性能の内訳（→ DescribeEffects）を添える（2026年9月・§0.40）。
+	/// </summary>
 	private static string BuildAppraisalText(AppraisalResult result, string relicName, RelicBalance.RarityProfile profile)
 	{
+		var equipment = result.Type == AppraisalResultType.Equipment ? result.ResultEquipment : null;
 		string gain = result.Type switch
 		{
+			AppraisalResultType.Equipment when equipment != null =>
+				$"⚔️ {ItemColorHelper.GetColoredBBCode(equipment)} を獲得！ ギルド保管庫へ納めた。",
 			AppraisalResultType.Equipment => $"⚔️ {result.ItemName} を獲得！ ギルド保管庫へ納めた。",
 			AppraisalResultType.Material => $"🌿 {result.ItemName} ×{result.ResultMaterialCount} を獲得！ 研究室へ回した。",
 			_ => $"💰 {result.ItemName} を換金し、{result.ResultGold} G を得た。",
 		};
+		string effect = equipment == null ? "" : $"性能：{AffixEffectText(equipment)}\n";
 
 		return $"[font_size=17][b]{relicName} の封を解いた……[/b][/font_size]\n" +
 			$"[color={profile.ColorName}][font_size=18][b]{gain}[/b][/font_size][/color]\n" +
+			effect +
 			$"[color=gray]（鑑定費用 -{result.AppraisalCost} G）[/color]\n\n" +
 			$"[color=cyan]アルベール『{result.FlavorText}』[/color]";
 	}
@@ -361,11 +370,12 @@ public partial class InventoryPanel : VBoxContainer
 
 	/// <summary>
 	/// ギルドが所持している装備品の一覧（→ GameState.Armory）。売却（→ 03 §4.8）の事故を防ぐため、
-	/// 2つのカテゴリに分けて表示する：
-	///  - **A. 汎用武具**：カタログ品と銅・銀の鑑定品。同じカタログId・同じ希少度ごとに
+	/// 2つのカテゴリに分けて表示する（振り分けは Core の EquipmentSystem.IsBulkSellable）：
+	///  - **A. 汎用武具**：アフィックスの無いカタログ品と銅・銀の鑑定品。同じカタログId・同じ希少度ごとに
 	///    まとめ、1個／全数／数量指定のまとめ売りができる。
-	///  - **B. 希少武具**：金・虹の鑑定品。誤って一括で売り飛ばさないようグルーピングせず
-	///    1点ずつ独立表示し、1個売却ボタンだけを置く。
+	///  - **B. 特殊・希少武具**：アフィックス付きの個体（銅・銀でも）と金・虹の鑑定品。誤って一括で売り飛ばさないよう
+	///    グルーピングせず1点ずつ独立表示し、1個売却ボタンだけを置く（2026年9月・§0.40でアフィックス付きを追加）。
+	/// 名称はアフィックスの付与数で色分けする（→ ItemColorHelper）。
 	/// </summary>
 	private void RefreshArmoryTab()
 	{
@@ -388,9 +398,8 @@ public partial class InventoryPanel : VBoxContainer
 			return;
 		}
 
-		var groups = EquipmentSystem.GroupArmoryForSale(_state);
-		var common = groups.Where(g => !IsPrecious(g.Key.Rarity)).ToList();
-		var precious = groups.Where(g => IsPrecious(g.Key.Rarity)).SelectMany(g => g).ToList();
+		var common = EquipmentSystem.GroupArmoryForSale(_state);
+		var precious = EquipmentSystem.GetIndividuallySoldArmory(_state);
 
 		if (common.Count > 0)
 		{
@@ -402,15 +411,12 @@ public partial class InventoryPanel : VBoxContainer
 		if (precious.Count > 0)
 		{
 			_armoryListBox.AddChild(new HSeparator());
-			_armoryListBox.AddChild(SectionHeader("💎 希少武具（1点ずつ。誤売却防止のためまとめ売り不可）"));
-			foreach (var item in precious.OrderByDescending(e => e.Rarity).ThenBy(e => e.Name, StringComparer.Ordinal))
+			_armoryListBox.AddChild(SectionHeader(
+				"💎 特殊・希少武具（1点ずつ。アフィックス付き・金・虹は誤売却防止のためまとめ売り不可）"));
+			foreach (var item in precious)
 				_armoryListBox.AddChild(BuildPreciousArmoryRow(item));
 		}
 	}
-
-	/// <summary>まとめ売りの対象外にする希少度（金・虹）。null＝カタログ品は常に汎用扱い。</summary>
-	private static bool IsPrecious(ItemRarity? rarity) =>
-		rarity is ItemRarity.Epic or ItemRarity.Legendary;
 
 	private static Control SectionHeader(string text)
 	{
@@ -419,14 +425,13 @@ public partial class InventoryPanel : VBoxContainer
 		return label;
 	}
 
-	/// <summary>汎用武具1群（同じカタログId・同じ希少度）の行。まとめ売りの操作部つき。</summary>
+	/// <summary>汎用武具1群（同じカタログId・同じ希少度、アフィックスなし）の行。まとめ売りの操作部つき。</summary>
 	private Control BuildBulkArmoryRow(List<EquipmentItem> stock)
 	{
-		var sample = stock[0];
-		int unitPrice = EquipmentSystem.GetSellPrice(sample);
+		int unitPrice = EquipmentSystem.GetSellPrice(stock[0]);
 
 		var row = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-		row.AddChild(BuildArmoryInfoLabel(sample, stock.Count, unitPrice));
+		row.AddChild(BuildArmoryInfoLabel(stock, unitPrice));
 		row.AddChild(BuildSellControls(
 			stock.Count,
 			unitPrice,
@@ -435,13 +440,13 @@ public partial class InventoryPanel : VBoxContainer
 		return row;
 	}
 
-	/// <summary>希少武具1点の行。誤売却を防ぐため、1個売却ボタンのみを置く。</summary>
+	/// <summary>特殊・希少武具1点の行。誤売却を防ぐため、1個売却ボタンのみを置く。</summary>
 	private Control BuildPreciousArmoryRow(EquipmentItem item)
 	{
 		int price = EquipmentSystem.GetSellPrice(item);
 
 		var row = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-		row.AddChild(BuildArmoryInfoLabel(item, count: 1, unitPrice: price));
+		row.AddChild(BuildArmoryInfoLabel(new List<EquipmentItem> { item }, price));
 
 		var button = new Button { Text = $"💰 売却（{price}G）" };
 		button.Pressed += () => SellEquipments(new List<EquipmentItem> { item });
@@ -450,16 +455,21 @@ public partial class InventoryPanel : VBoxContainer
 		return row;
 	}
 
-	/// <summary>保管庫の1行分の説明（名称・希少度・性能・鑑定品のみ出土地／入手経路・売却単価）。</summary>
-	private RichTextLabel BuildArmoryInfoLabel(EquipmentItem sample, int count, int unitPrice)
+	/// <summary>
+	/// 保管庫の1行分の説明（名称・希少度・性能・鑑定品のみ出土地／入手経路・売却単価）。stock は同じ行にまとめた個体
+	/// （汎用武具の群、または特殊・希少武具の1点）。名称はアフィックスの付与数で色分けし（→ ItemColorHelper）、
+	/// 性能はアフィックスの内訳込みで出す（→ EquipmentItem.DescribeEffects。例：`STR+2・VIT+1 [剛力: STR+3]`）。
+	/// </summary>
+	private RichTextLabel BuildArmoryInfoLabel(List<EquipmentItem> stock, int unitPrice)
 	{
+		var sample = stock[0];
 		var definition = sample.GetDefinition();
 		var label = new RichTextLabel { BbcodeEnabled = true, FitContent = true, SizeFlagsHorizontal = SizeFlags.ExpandFill };
 
 		string effect = definition == null
 			? "[color=gray]（カタログ定義が見つからない旧データ）[/color]"
-			: $"{SlotLabel(definition.Slot)}／{definition.DescribeEffects()}" +
-			  $"／{(definition.AllowedJobs.Count == 0 ? "全職業" : string.Join("・", definition.AllowedJobs.Select(JobLabel)))}";
+			: $"[color=gray]{SlotLabel(definition.Slot)}／[/color]{AffixEffectText(sample)}" +
+			  $"[color=gray]／{(definition.AllowedJobs.Count == 0 ? "全職業" : string.Join("・", definition.AllowedJobs.Select(JobLabel)))}[/color]";
 
 		// カタログ品（Rarity == null）は希少度タグも入手履歴も出さない（2026年9月、→ 03 §4.8.3）。
 		// 「［無銘］」「入手：第○週 カタログから購入」は全カタログ品で同じ文面になる情報ノイズだったため。
@@ -469,24 +479,33 @@ public partial class InventoryPanel : VBoxContainer
 			  $"［{RelicBalance.GetRarityLabel(sample.Rarity.Value)}］[/color]"
 			: "";
 
-		string text = $"[font_size=16][b]{sample.Name}[/b][/font_size]{rarityTag} ×{count}" +
+		string text = $"[font_size=16][b]{ItemColorHelper.GetColoredBBCode(sample)}[/b][/font_size]{rarityTag} ×{stock.Count}" +
 			$"　[color=yellow]{unitPrice}G/点[/color]\n" +
-			$"　[color=gray]{effect}[/color]";
+			$"　{effect}";
 
 		// 鑑定品（迷宮から出土した武具）だけ、出土地・階層（冒険者から返還された個体はその経路）を表示する。
 		if (sample.Rarity.HasValue)
 		{
-			var origins = _state.Armory
-				.Where(e => e.ItemId == sample.ItemId && e.Rarity == sample.Rarity)
-				.Select(OriginText)
-				.Distinct()
-				.ToList();
+			var origins = stock.Select(OriginText).Distinct().ToList();
 			var shown = origins.Take(3).ToList();
 			text += $"\n　[color=gray]{string.Join("、", shown)}{(origins.Count > shown.Count ? " ほか" : "")}[/color]";
 		}
 
 		label.AppendText(text);
 		return label;
+	}
+
+	/// <summary>
+	/// 性能の説明（→ EquipmentItem.DescribeEffects）。カタログ性能は灰色のまま、アフィックスの内訳
+	/// （「 [剛力: STR+3]」の部分）だけ個体の色で強調する。
+	/// </summary>
+	private static string AffixEffectText(EquipmentItem item)
+	{
+		string catalog = item.GetDefinition()?.DescribeEffects() ?? "";
+		string full = item.DescribeEffects();
+		if (!item.HasAffix || !full.StartsWith(catalog, StringComparison.Ordinal))
+			return $"[color=gray]{full}[/color]";
+		return $"[color=gray]{catalog}[/color]{ItemColorHelper.GetColoredBBCode(item, full[catalog.Length..])}";
 	}
 
 	/// <summary>
@@ -513,7 +532,7 @@ public partial class InventoryPanel : VBoxContainer
 		if (items.Count == 0)
 			return;
 
-		string name = items[0].Name;
+		string name = ItemColorHelper.GetColoredBBCode(items[0]);
 		if (!EquipmentSystem.TrySellEquipments(_state, items.Select(e => e.Id.ToString()), out int gold))
 			return;
 

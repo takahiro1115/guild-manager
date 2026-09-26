@@ -502,16 +502,122 @@ namespace GuildManager.Core.Tests.Systems
         public void GroupArmoryForSale_SeparatesCatalogItemsFromRelics()
         {
             // 同じカタログIdでも、カタログ品と鑑定品は売却額の系統が違うため別グループになる。
+            // 金・虹の鑑定品はまとめ売りの対象外（→ IsBulkSellable、§0.40でUIからCoreへ移した判定）。
             var plain1 = EquipmentItem.FromCatalog(ItemCatalog.IronSword);
             var plain2 = EquipmentItem.FromCatalog(ItemCatalog.IronSword);
+            var rare = EquipmentItem.FromCatalog(ItemCatalog.IronSword, rarity: ItemRarity.Rare);
             var epic = EquipmentItem.FromCatalog(ItemCatalog.IronSword, rarity: ItemRarity.Epic);
-            var state = new GameState { Armory = { plain1, plain2, epic } };
+            var state = new GameState { Armory = { plain1, plain2, rare, epic } };
 
             var groups = EquipmentSystem.GroupArmoryForSale(state);
 
             Assert.Equal(2, groups.Count);
             Assert.Equal(2, groups.Single(g => g.Key.Rarity == null).Count());
-            Assert.Single(groups.Single(g => g.Key.Rarity == ItemRarity.Epic));
+            Assert.Same(rare, Assert.Single(groups.Single(g => g.Key.Rarity == ItemRarity.Rare)));
+            Assert.Same(epic, Assert.Single(EquipmentSystem.GetIndividuallySoldArmory(state)));
+        }
+
+        // ---------------- アフィックス付き武具の売却（→ 03 §4.8.2・§4.8.3、2026年9月・§0.40） ----------------
+
+        private static EquipmentItem WithAffixes(Item catalog, ItemRarity? rarity, params (string Id, int Value)[] affixes)
+        {
+            var item = EquipmentItem.FromCatalog(catalog, rarity: rarity);
+            foreach (var (id, value) in affixes)
+                item.ApplyAffix(AffixBalance.FindById(id)!, value);
+            return item;
+        }
+
+        [Fact]
+        public void AffixSellBonuses_AreLoadedFromRelicCsv()
+        {
+            Assert.Equal(25, RelicBalance.GetAffixSellBonus(1));
+            Assert.Equal(60, RelicBalance.GetAffixSellBonus(2));
+            Assert.Equal(150, RelicBalance.GetAffixSellBonus(3));
+            Assert.Throws<System.ArgumentOutOfRangeException>(() => RelicBalance.GetAffixSellBonus(4));
+        }
+
+        [Fact]
+        public void GetSellPrice_CommonRelicWithTier1Prefix_AddsTier1Bonus()
+        {
+            var sword = WithAffixes(ItemCatalog.IronSword, ItemRarity.Common, ("PrefixMightT1", 2));
+
+            Assert.Equal(50, RelicBalance.GetSellPrice(ItemRarity.Common));
+            Assert.Equal(50 + 25, EquipmentSystem.GetSellPrice(sword));
+        }
+
+        [Fact]
+        public void GetSellPrice_Tier2PrefixAndSuffix_AddsBothBonuses()
+        {
+            var armor = WithAffixes(ItemCatalog.HeavyArmor, ItemRarity.Rare, ("PrefixSturdyT2", 3), ("SuffixColossusT2", 20));
+
+            Assert.Equal(RelicBalance.GetSellPrice(ItemRarity.Rare) + 120, EquipmentSystem.GetSellPrice(armor));
+        }
+
+        [Fact]
+        public void GetSellPrice_LegendaryWithTwoTier3Affixes_AddsBothBonuses()
+        {
+            var sword = WithAffixes(ItemCatalog.GreatSword, ItemRarity.Legendary, ("PrefixMightT3", 6), ("SuffixTitanT3", 40));
+
+            Assert.Equal(600 + 150 + 150, EquipmentSystem.GetSellPrice(sword));
+        }
+
+        [Fact]
+        public void GetSellPrice_WithoutAffix_IsUnchanged()
+        {
+            var plain = EquipmentItem.FromCatalog(ItemCatalog.IronSword);
+            var relic = EquipmentItem.FromCatalog(ItemCatalog.IronSword, rarity: ItemRarity.Epic);
+
+            Assert.Equal(ItemCatalog.IronSword.Price / 2, EquipmentSystem.GetSellPrice(plain));
+            Assert.Equal(RelicBalance.GetSellPrice(ItemRarity.Epic), EquipmentSystem.GetSellPrice(relic));
+        }
+
+        [Fact]
+        public void GetSellPrice_UnknownAffixId_AddsNothing()
+        {
+            // affixes.csv から消えたアフィックス（Tier不明）は加算しない。補正そのものは個体に残る。
+            var sword = EquipmentItem.FromCatalog(ItemCatalog.IronSword, rarity: ItemRarity.Common);
+            sword.PrefixId = "RemovedAffix";
+            sword.PrefixValue = 2;
+
+            Assert.Equal(50, EquipmentSystem.GetSellPrice(sword));
+        }
+
+        [Fact]
+        public void TrySellEquipments_AffixedItem_PaysBonusIncludedPrice()
+        {
+            var sword = WithAffixes(ItemCatalog.IronSword, ItemRarity.Common, ("PrefixMightT1", 1));
+            var state = new GameState { Gold = 0, Armory = { sword } };
+
+            Assert.True(EquipmentSystem.TrySellEquipments(state, new[] { sword.Id.ToString() }, out int gold));
+            Assert.Equal(75, gold);
+            Assert.Equal(75, state.Gold);
+        }
+
+        [Fact]
+        public void AffixedItems_AreExcludedFromBulkSale_EvenWhenCommonOrRare()
+        {
+            var plain1 = EquipmentItem.FromCatalog(ItemCatalog.IronSword, rarity: ItemRarity.Common);
+            var plain2 = EquipmentItem.FromCatalog(ItemCatalog.IronSword, rarity: ItemRarity.Common);
+            var oneAffix = WithAffixes(ItemCatalog.IronSword, ItemRarity.Common, ("PrefixMightT1", 1));
+            var twoAffix = WithAffixes(ItemCatalog.IronSword, ItemRarity.Rare, ("PrefixMightT2", 3), ("SuffixLionT1", 1));
+            var catalog = EquipmentItem.FromCatalog(ItemCatalog.IronSword);
+            var legendary = EquipmentItem.FromCatalog(ItemCatalog.GreatSword, rarity: ItemRarity.Legendary);
+            var state = new GameState { Armory = { plain1, oneAffix, plain2, twoAffix, catalog, legendary } };
+
+            Assert.True(EquipmentSystem.IsBulkSellable(plain1));
+            Assert.True(EquipmentSystem.IsBulkSellable(catalog));
+            Assert.False(EquipmentSystem.IsBulkSellable(oneAffix));
+            Assert.False(EquipmentSystem.IsBulkSellable(twoAffix));
+            Assert.False(EquipmentSystem.IsBulkSellable(legendary));
+
+            // まとめ売りの群：銅の無印2本・カタログ品1本のみ（アフィックス付きは混ざらない＝群の単価が一様）
+            var groups = EquipmentSystem.GroupArmoryForSale(state);
+            Assert.Equal(new[] { plain1, plain2 }, groups.Single(g => g.Key.Rarity == ItemRarity.Common).ToArray());
+            Assert.Same(catalog, Assert.Single(groups.Single(g => g.Key.Rarity == null)));
+            Assert.All(groups, g => Assert.Single(g.Select(EquipmentSystem.GetSellPrice).Distinct()));
+
+            // 個別売却：希少度の高い順 → アフィックスの多い順
+            Assert.Equal(new[] { legendary, twoAffix, oneAffix }, EquipmentSystem.GetIndividuallySoldArmory(state).ToArray());
         }
 
         // ---------------- 購入経路との整合（個体を破棄しない） ----------------

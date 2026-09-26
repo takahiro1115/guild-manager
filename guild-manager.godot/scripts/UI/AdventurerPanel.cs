@@ -396,10 +396,12 @@ public partial class AdventurerPanel : VBoxContainer
 		}
 
 		// ---- 装備スロット（→ 03 §4.2.2。2026年9月改訂：個体（EquipmentItem）を表示する） ----
-		_weaponLabel.Text = $"武器: {EquipmentSlotText(a.EquippedWeapon)}";
-		_armorLabel.Text = $"防具: {EquipmentSlotText(a.EquippedArmor)}";
-		_accessory1Label.Text = $"装飾1: {EquipmentSlotText(a.EquippedAccessory1)}";
-		_accessory2Label.Text = $"装飾2: {EquipmentSlotText(a.EquippedAccessory2)}";
+		// §0.40：名前はアフィックス込みの表示名で、付与数に応じて色分けする（→ ItemColorHelper）。
+		// 性能の内訳（アフィックス分を含む）はツールチップに出す。
+		BindEquipmentSlot(_weaponLabel, "武器", a.EquippedWeapon);
+		BindEquipmentSlot(_armorLabel, "防具", a.EquippedArmor);
+		BindEquipmentSlot(_accessory1Label, "装飾1", a.EquippedAccessory1);
+		BindEquipmentSlot(_accessory2Label, "装飾2", a.EquippedAccessory2);
 
 		// ---- 操作ボタン群の個別ガード ----
 		_raiseWageButton.Disabled = false;
@@ -697,17 +699,28 @@ public partial class AdventurerPanel : VBoxContainer
 	}
 
 	/// <summary>
-	/// 装備スロット表示用のラベル（→ 03 §4.2.2）。未装備ならその旨を、装備中なら名称と
-	/// 効果（最大HP加算・能力値補正、→ Item.DescribeEffects）を表示する。カタログ定義が引けない旧データは「（不明）」。
+	/// 装備スロット1枠のラベル（→ 03 §4.2.2）。未装備なら「なし」、装備中なら表示名（アフィックス込み、
+	/// → EquipmentItem.DisplayName）とカタログの効果（→ Item.DescribeEffects）を出す。カタログ定義が引けない旧データは「（不明）」。
+	/// §0.40：文字色をアフィックスの付与数で変え（→ ItemColorHelper。1枠＝水色・2枠＝黄緑）、
+	/// アフィックスの内訳込みの効果（→ EquipmentItem.DescribeEffects。例：`STR+2・VIT+1 [剛力: STR+3]`）をツールチップに出す。
+	/// 行が長くなりすぎないよう、ラベル本文のカッコ内はカタログの効果だけにしている（アフィックスは名前と色、能力値バーの水色で分かる）。
 	/// </summary>
-	private static string EquipmentSlotText(EquipmentItem? equipped)
+	private static void BindEquipmentSlot(Label label, string slotName, EquipmentItem? equipped)
 	{
-		if (equipped == null) return "なし";
+		label.MouseFilter = MouseFilterEnum.Pass; // Label の既定（Ignore）のままだとツールチップが出ない
+		label.AddThemeColorOverride("font_color", ItemColorHelper.GetItemColor(equipped));
+		if (equipped == null)
+		{
+			label.Text = $"{slotName}: なし";
+			label.TooltipText = "";
+			return;
+		}
 
 		var definition = equipped.GetDefinition();
-		if (definition == null) return $"{equipped.Name}（不明）";
-
-		return $"{definition.Name}（{definition.DescribeEffects()}）";
+		label.Text = definition == null
+			? $"{slotName}: {equipped.DisplayName}（不明）"
+			: $"{slotName}: {equipped.DisplayName}（{definition.DescribeEffects()}）";
+		label.TooltipText = $"{equipped.DisplayName}\n{equipped.DescribeEffects()}";
 	}
 
 	/// <summary>職業の日本語表示名。DungeonPanel.JobLabel と同じマッピング。</summary>

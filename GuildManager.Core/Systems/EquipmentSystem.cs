@@ -161,15 +161,43 @@ namespace GuildManager.Core.Systems
         ///
         /// カタログから引けない個体（カタログから消えた武具の旧データ）は0を返す＝売っても1Gにならない。
         /// 武具の解体（素材への還元）は実装しない（→ 03 §4.8。世界観上、武具は打ち直せない）。
+        ///
+        /// 2026年9月・§0.40：上記の基本額に、付いているアフィックス（接頭辞・接尾辞）1枠ごとに
+        /// そのTierの加算額（→ BAL: relic.csv の AffixSellBonusTier*、Tier1＝25／Tier2＝60／Tier3＝150G）を足す。
+        /// affixes.csv から消えたアフィックス（Tierが分からない）は加算しない。
         /// </summary>
         public static int GetSellPrice(EquipmentItem item)
         {
+            int basePrice;
             if (item.Rarity.HasValue)
-                return RelicBalance.GetSellPrice(item.Rarity.Value);
+            {
+                basePrice = RelicBalance.GetSellPrice(item.Rarity.Value);
+            }
+            else
+            {
+                var definition = item.GetDefinition();
+                if (definition == null) return 0;
+                basePrice = definition.Price / 2;
+            }
 
-            var definition = item.GetDefinition();
-            return definition == null ? 0 : definition.Price / 2;
+            return basePrice + GetAffixSellBonus(item.PrefixId) + GetAffixSellBonus(item.SuffixId);
         }
+
+        /// <summary>アフィックス1枠の売却加算額（無し・定義不明なら0）。</summary>
+        private static int GetAffixSellBonus(string? affixId)
+        {
+            var affix = AffixBalance.FindById(affixId);
+            return affix == null ? 0 : RelicBalance.GetAffixSellBonus(affix.Tier);
+        }
+
+        /// <summary>
+        /// まとめ売り（同種の在庫を束ねて数量指定で売る）の対象にしてよい個体か（→ 03 §4.8.3）。
+        /// **アフィックスの付いた個体**（希少度が銅・銀でも）と、**金・虹の鑑定品**は対象外＝1点ずつの個別売却だけにする。
+        /// 同じ「鉄の剣」でも当たり個体は一点物で、束に紛れて誤って売られるのを構造的に防ぐため（2026年9月・§0.40で
+        /// アフィックス付きを追加。金・虹の除外はそれまで UI 側〈InventoryPanel〉の判定だったのをここへ移した）。
+        /// </summary>
+        public static bool IsBulkSellable(EquipmentItem item) =>
+            !item.HasAffix && item.Rarity is not (ItemRarity.Epic or ItemRarity.Legendary);
 
         /// <summary>
         /// 保管庫の武具をまとめて売却する（→ 03 §4.8）。itemIds は個体Id（→ EquipmentItem.Id）の
@@ -229,15 +257,30 @@ namespace GuildManager.Core.Systems
                     || a.GetEquipped(slot)?.Id == item.Id));
 
         /// <summary>
-        /// 保管庫の武具のうち、同じカタログId・同じ希少度の個体をまとめた在庫単位（→ UI: InventoryPanel）。
-        /// 単価が群の中で一様になるよう希少度も鍵に含める（カタログ品と鑑定品では売却額の系統が違う）。
+        /// 保管庫の武具のうち、まとめ売りできる個体（→ IsBulkSellable）を、同じカタログId・同じ希少度でまとめた在庫単位
+        /// （→ UI: InventoryPanel の「汎用武具」）。単価が群の中で一様になるよう希少度も鍵に含める
+        /// （カタログ品と鑑定品では売却額の系統が違う）。アフィックス付き・金・虹の個体はどの群にも入らない
+        /// （→ GetIndividuallySoldArmory）。
         /// </summary>
         public static IReadOnlyList<IGrouping<(string ItemId, ItemRarity? Rarity), EquipmentItem>> GroupArmoryForSale(
             GameState state) =>
             state.Armory
+                .Where(IsBulkSellable)
                 .GroupBy(e => (e.ItemId, e.Rarity))
                 .OrderBy(g => g.Key.ItemId, StringComparer.Ordinal)
                 .ThenBy(g => g.Key.Rarity ?? ItemRarity.Common)
+                .ToList();
+
+        /// <summary>
+        /// 保管庫の武具のうち、まとめ売りの対象外で1点ずつ個別に売る個体（→ UI: InventoryPanel の「特殊・希少武具」）。
+        /// 希少度の高い順 → アフィックスの多い順 → 表示名の順に並べる。
+        /// </summary>
+        public static IReadOnlyList<EquipmentItem> GetIndividuallySoldArmory(GameState state) =>
+            state.Armory
+                .Where(e => !IsBulkSellable(e))
+                .OrderByDescending(e => e.Rarity ?? ItemRarity.Common)
+                .ThenByDescending(e => (e.PrefixId != null ? 1 : 0) + (e.SuffixId != null ? 1 : 0))
+                .ThenBy(e => e.DisplayName, StringComparer.Ordinal)
                 .ToList();
 
         /// <summary>

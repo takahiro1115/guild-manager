@@ -182,6 +182,34 @@ namespace GuildManager.Core.Balance
         /// <summary>鑑定で出土した武具1点の売却額（→ Systems.EquipmentSystem.GetSellPrice、03 §4.8）。</summary>
         public static int GetSellPrice(ItemRarity rarity) => Profiles[rarity].SellPrice;
 
+        // ---- アフィックスによる売却加算（→ Systems.EquipmentSystem.GetSellPrice、03 §4.8.2、2026年9月・§0.40） ----
+
+        /// <summary>Tier（1〜3）→ そのTierのアフィックス1枠あたりの売却加算額（G）。キーは AffixSellBonusTier{n}。</summary>
+        private static readonly Dictionary<int, int> AffixSellBonuses = BuildAffixSellBonuses();
+
+        private static Dictionary<int, int> BuildAffixSellBonuses()
+        {
+            var result = new Dictionary<int, int>();
+            for (int tier = AffixBalance.MinTier; tier <= AffixBalance.MaxTier; tier++)
+            {
+                string key = $"AffixSellBonusTier{tier}";
+                int bonus = BalanceData.GetInt(FileName, key);
+                if (bonus < 0)
+                    throw new BalanceDataException($"{FileName} の {key}（{bonus}）は0以上にしてください。");
+                result[tier] = bonus;
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// 指定Tierのアフィックス1枠あたりの売却加算額（→ relic.csv の AffixSellBonusTier*）。
+        /// Tierが1〜3の外なら ArgumentOutOfRangeException（affixes.csv の読み込み時に1〜3へ限定済みのため、通常は起きない）。
+        /// </summary>
+        public static int GetAffixSellBonus(int tier) =>
+            AffixSellBonuses.TryGetValue(tier, out int bonus)
+                ? bonus
+                : throw new ArgumentOutOfRangeException(nameof(tier), tier, "アフィックスのTierは1〜3");
+
         /// <summary>表示上の通称（銅・銀・金・虹）。</summary>
         public static string GetRarityLabel(ItemRarity rarity) => Profiles[rarity].Label;
 

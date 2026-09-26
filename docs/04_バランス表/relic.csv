@@ -65,3 +65,6 @@ AffixPrefixRateLegendary,100,%,虹：接頭辞が付く確率
 AffixSuffixRateLegendary,100,%,虹：接尾辞が付く確率
 AffixMinTierLegendary,3,Tier,虹：Tier下限
 AffixMaxTierLegendary,3,Tier,虹：Tier上限
+AffixSellBonusTier1,25,G,鑑定品の武具の売却額へ、付いているTier1アフィックス1枠につき加算する額（→ 03 §4.8.2、2026年9月・§0.40）
+AffixSellBonusTier2,60,G,同上：Tier2アフィックス1枠につき
+AffixSellBonusTier3,150,G,同上：Tier3アフィックス1枠につき
