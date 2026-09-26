@@ -117,8 +117,10 @@ namespace GuildManager.Core.Tests.Systems
             Assert.NotNull(result.ResultEquipment);
 
             var stored = Assert.Single(state.Armory);
+            // 鑑定結果の名前はアフィックス込みの表示名（金は接頭辞・接尾辞が確定。→ 03 §0.39）。Name はカタログ名のスナップショット。
+            Assert.Equal(result.ItemName, stored.DisplayName);
             Assert.Same(result.ResultEquipment, stored);
-            Assert.Equal(result.ItemName, stored.Name);
+            Assert.Equal(stored.GetDefinition()!.Name, stored.Name);
             Assert.Equal(31, stored.AcquiredAtWeek);
 
             // 保管庫の個体はカタログ定義へ解決できる（→ EquipmentItem.GetDefinition）。

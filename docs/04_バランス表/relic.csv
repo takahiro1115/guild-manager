@@ -49,3 +49,19 @@ SellPriceCommon,50,G,銅：鑑定で出土した武具を保管庫から売却�
 SellPriceRare,125,G,銀：同上
 SellPriceEpic,250,G,金：同上
 SellPriceLegendary,600,G,虹：同上
+AffixPrefixRateCommon,20,%,銅：鑑定で武具が出た場合に接頭辞（Prefix）が付く確率（→ 03 §4.7・affixes.csv）
+AffixSuffixRateCommon,0,%,銅：同上の接尾辞（Suffix）が付く確率
+AffixMinTierCommon,1,Tier,銅：抽選するアフィックスのTier下限
+AffixMaxTierCommon,1,Tier,銅：同上の上限
+AffixPrefixRateRare,100,%,銀：接頭辞が付く確率
+AffixSuffixRateRare,30,%,銀：接尾辞が付く確率
+AffixMinTierRare,1,Tier,銀：Tier下限
+AffixMaxTierRare,2,Tier,銀：Tier上限
+AffixPrefixRateEpic,100,%,金：接頭辞が付く確率
+AffixSuffixRateEpic,100,%,金：接尾辞が付く確率
+AffixMinTierEpic,2,Tier,金：Tier下限
+AffixMaxTierEpic,3,Tier,金：Tier上限
+AffixPrefixRateLegendary,100,%,虹：接頭辞が付く確率
+AffixSuffixRateLegendary,100,%,虹：接尾辞が付く確率
+AffixMinTierLegendary,3,Tier,虹：Tier下限
+AffixMaxTierLegendary,3,Tier,虹：Tier上限

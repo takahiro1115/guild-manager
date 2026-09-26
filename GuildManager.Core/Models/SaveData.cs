@@ -191,6 +191,12 @@ namespace GuildManager.Core.Models
         /// ギルド保管庫の装備在庫（→ GameState.Armory、03 §4.7）。EquipmentItemはカタログIdと
         /// 表示名のみを持つためそのままJSON化できる（カタログ定義そのものはコード側にあり保存不要、
         /// → 本ファイル末尾の注記と同じ考え方）。UnidentifiedItemsと同じく旧セーブでは空で復元される。
+        ///
+        /// 2026年9月・§0.39：鑑定品のランダムアフィックス（EquipmentItem.PrefixId／PrefixValue／SuffixId／SuffixValue／
+        /// AffixStatBonuses／AffixHpBonus）も、文字列・整数・文字列キーの辞書だけなので変換用Recordなしで直接JSON化する
+        /// （冒険者が装備中の個体も Adventurer.EquippedWeapon 等として同じ形で保存される）。表示名 DisplayName と HasAffix は
+        /// 導出値のため JsonIgnore。これらのキーを持たない旧セーブの個体は、System.Text.Json が未知・欠落キーを
+        /// 初期化子の値（null・0・空の辞書）のまま残すため「アフィックスなし」として復元される。
         /// </summary>
         public List<EquipmentItem> Armory { get; set; } = new();
 

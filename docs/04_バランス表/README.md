@@ -33,8 +33,9 @@
 | `scouting.csv` | 03 §4.5.3 | ScoutingBalance（**隠密適性の重み・専門職ボーナス・人数倍率・重装ペナルティ**、迷宮調査の4段階護衛判定・解析成果倍率・護衛HP損耗） |
 | `gathering.csv` | 03 §4.5.5 | GatheringBalance（採取スコア係数・職業ボーナス・報酬ゴールド） |
 | `materials.csv` | 03 §4.5.5・**§4.8.1** | MaterialBalance（全5フィールドの採取素材定義・MinFloor・基準獲得数・**売却額 `SellPrice`**） |
+| `affixes.csv` | 03 §4.7.3・§4.2.2 | AffixBalance（鑑定品のランダムアフィックス＝接頭辞・接尾辞の一覧。**テーブル形式** `Id,Type,Name,TargetStat,MinValue,MaxValue,Tier,AllowedSlots,Weight`、2026年9月・§0.39） |
 | `research.csv` | 03 §4.6 | ResearchBalance（アルベール研究室の12プロジェクト（うち内職強化 SideBusinessGoldBonus 4種）・必要素材・ゴールド・効果種別・効果値） |
-| `relic.csv` | 03 §4.7・§4.8.2 | RelicBalance（未鑑定遺物の希少度4段階＝鑑定費用・鑑定結果比率・換金額と獲得個数の幅・武具の抽選プール・**売却額**、採取ドロップ確率、希少度ロール閾値、ボス撃破ドロップの補正） |
+| `relic.csv` | 03 §4.7・§4.8.2 | RelicBalance（未鑑定遺物の希少度4段階＝鑑定費用・鑑定結果比率・換金額と獲得個数の幅・武具の抽選プール・**売却額**、採取ドロップ確率、希少度ロール閾値、ボス撃破ドロップの補正）。**アフィックスの付与率・Tier範囲**（`Affix*`、→ AffixBalance） |
 
 `trait.csv`・`equipment.csv` は項目58（バランス値のCSV外部化）の時点では対応CSVが
 存在せず対象外だったため、フォローアップとして追加した（値はTraitCatalog.cs・
@@ -138,6 +139,8 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 | `MaterialCountMin*` / `MaterialCountMax*` | 素材だった場合の獲得個数の幅（Min>Maxなら例外） |
 | `EquipmentPool*` | 武具だった場合の抽選プール（`ItemCatalog` のIdを「;」区切り。空・未登録Idなら例外） |
 | `SellPrice*` | 鑑定で出土した武具を保管庫から売却する際の1点あたりの額（銅50／銀125／金250／虹600G、→ §4.8.2） |
+| `AffixPrefixRate*` / `AffixSuffixRate*` | 鑑定で武具が出たときに接頭辞・接尾辞が付く確率（%、0〜100。銅20/0・銀100/30・金100/100・虹100/100、2026年9月・§0.39、→ affixes.csv） |
+| `AffixMinTier*` / `AffixMaxTier*` | 抽選するアフィックスのTier範囲（銅1〜1・銀1〜2・金2〜3・虹3〜3。1〜3の外・Min>Maxなら例外） |
 
 希少度に紐づかないキー：
 

@@ -1,4 +1,7 @@
 using System;
+using System.Collections.Generic;
+using System.Text.Json.Serialization;
+using GuildManager.Core.Balance;
 
 namespace GuildManager.Core.Models
 {
@@ -48,6 +51,102 @@ namespace GuildManager.Core.Models
         /// 装備効果そのものには影響しない（効果はカタログ定義が持つ。→ GetDefinition）。
         /// </summary>
         public ItemRarity? Rarity { get; set; }
+
+        // ---- ランダムアフィックス（→ 03 §4.7・§4.2.2、2026年9月・§0.39） ----
+        // 鑑定で出土した個体にだけ付く（カタログ品・旧セーブの個体はすべて null / 0 / 空のまま）。
+        // 補正の正本は AffixStatBonuses・AffixHpBonus（付与した時点の値を個体に焼き付ける）。
+        // affixes.csv の TargetStat や範囲を後から直しても、既に掘り出した個体の強さは変わらない。
+        // Id と PrefixValue／SuffixValue は名前と効果説明の表示用（→ DisplayName・DescribeEffects）。
+        // 旧セーブにはキー自体が無いが、System.Text.Json は初期化子の値のまま復元する（→ 03 §12）。
+
+        /// <summary>接頭辞のアフィックスId（→ affixes.csv）。null＝接頭辞なし。</summary>
+        public string? PrefixId { get; set; }
+
+        /// <summary>接頭辞でロールされた補正値（表示用。効果は AffixStatBonuses／AffixHpBonus に合算済み）。</summary>
+        public int PrefixValue { get; set; }
+
+        /// <summary>接尾辞のアフィックスId（→ affixes.csv）。null＝接尾辞なし。</summary>
+        public string? SuffixId { get; set; }
+
+        /// <summary>接尾辞でロールされた補正値（表示用）。</summary>
+        public int SuffixValue { get; set; }
+
+        /// <summary>
+        /// アフィックスによる7大能力値への補正の合計（キーは "STR"〜"LDR"、→ Item.StatBonuses と同じ表記）。
+        /// 接頭辞と接尾辞が同じ能力値なら合算される。Adventurer.GetEquipmentStatBonus が加算する。
+        /// </summary>
+        public Dictionary<string, int> AffixStatBonuses { get; set; } = new();
+
+        /// <summary>アフィックスによる最大HPへの加算の合計（→ Adventurer.GetEquipmentHpBonus）。</summary>
+        public int AffixHpBonus { get; set; }
+
+        /// <summary>接頭辞・接尾辞のいずれかを持つか。</summary>
+        [JsonIgnore]
+        public bool HasAffix => !string.IsNullOrEmpty(PrefixId) || !string.IsNullOrEmpty(SuffixId);
+
+        /// <summary>
+        /// アフィックス込みの表示名：「{接頭辞}{カタログ名}{接尾辞}」（例：剛力の鉄の剣［巨躯］・剛力の鉄の剣・鉄の剣［巨躯］）。
+        /// アフィックスが無ければカタログ名（カタログから引けない旧データはスナップショットの Name）。
+        /// affixes.csv から消えたアフィックスは名前を出さない（効果は個体に焼き付いたまま）。
+        /// </summary>
+        [JsonIgnore]
+        public string DisplayName
+        {
+            get
+            {
+                string baseName = GetDefinition()?.Name ?? Name;
+                if (!HasAffix) return baseName;
+                return $"{AffixBalance.FindById(PrefixId)?.Name}{baseName}{AffixBalance.FindById(SuffixId)?.Name}";
+            }
+        }
+
+        /// <summary>指定した能力値へのアフィックス補正（無ければ0）。</summary>
+        public int GetAffixStatBonus(string statName) => AffixStatBonuses.TryGetValue(statName, out int v) ? v : 0;
+
+        /// <summary>
+        /// アフィックスを1つ付ける（鑑定の抽選 → AppraisalSystem）。位置（接頭辞／接尾辞）の Id と値を記録し、
+        /// 補正を AffixStatBonuses／AffixHpBonus へ加算する。同じ位置に既に付いていれば例外（上書きで合計が狂うのを防ぐ）。
+        /// </summary>
+        public void ApplyAffix(AffixDefinition affix, int value)
+        {
+            if (affix.Type == AffixType.Prefix)
+            {
+                if (PrefixId != null) throw new InvalidOperationException($"接頭辞は既に付いています: {PrefixId}");
+                PrefixId = affix.Id;
+                PrefixValue = value;
+            }
+            else
+            {
+                if (SuffixId != null) throw new InvalidOperationException($"接尾辞は既に付いています: {SuffixId}");
+                SuffixId = affix.Id;
+                SuffixValue = value;
+            }
+
+            if (affix.IsHpBonus)
+                AffixHpBonus += value;
+            else
+                AffixStatBonuses[affix.TargetStat] = GetAffixStatBonus(affix.TargetStat) + value;
+        }
+
+        /// <summary>
+        /// 効果の短い説明：カタログの基本性能（→ Item.DescribeEffects）に、アフィックスの補正を位置ごとに添える。
+        /// 例：「STR+2・VIT+1 [剛力: STR+3] [巨躯: 最大HP+15]」。アフィックスが無ければカタログの説明のまま。
+        /// カタログから引けない個体の基本性能は「（不明）」。
+        /// </summary>
+        public string DescribeEffects()
+        {
+            string text = GetDefinition()?.DescribeEffects() ?? "（不明）";
+            text += DescribeAffix(PrefixId, PrefixValue);
+            text += DescribeAffix(SuffixId, SuffixValue);
+            return text;
+        }
+
+        private static string DescribeAffix(string? id, int value)
+        {
+            if (string.IsNullOrEmpty(id)) return "";
+            var def = AffixBalance.FindById(id);
+            return def == null ? $" [{id}: {value:+0;-0}]" : $" [{def.ShortLabel}: {def.DescribeValue(value)}]";
+        }
 
         /// <summary>
         /// カタログ定義を引く。未知のId（カタログから削除された等）ならnull。

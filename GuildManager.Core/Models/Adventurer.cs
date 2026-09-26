@@ -426,35 +426,37 @@ namespace GuildManager.Core.Models
         /// <summary>
         /// 装備中の4枠（武器・防具・アクセサリー1・アクセサリー2）の最大HP加算の合計（→ Item.MaxHpBonus、03 §4.2.2）。
         /// 2026年9月・§0.37：旧 GetEquipmentBonus(効果種別) は個人CPの撤廃に伴い最大HP専用のこのメソッドへ置き換えた。
+        /// §0.39：鑑定品のアフィックスによる加算（→ EquipmentItem.AffixHpBonus）も全枠ぶん足す。
         /// </summary>
         public int GetEquipmentHpBonus()
         {
             int total = 0;
             foreach (var slot in AllSlots)
             {
-                var item = GetEquipped(slot)?.GetDefinition();
-                if (item != null)
-                    total += item.MaxHpBonus;
+                var equipped = GetEquipped(slot);
+                if (equipped == null) continue;
+                total += (equipped.GetDefinition()?.MaxHpBonus ?? 0) + equipped.AffixHpBonus;
             }
             return total;
         }
 
         /// <summary>
         /// 装備中の4枠すべての、指定能力値への補正の合計（→ Item.StatBonuses、03 §4.2.2）。
-        /// GetEffectiveStat が加算する。カタログから引けない個体（旧データ）は0として扱う。
+        /// §0.39：鑑定品のアフィックスによる補正（→ EquipmentItem.AffixStatBonuses）も含む。
+        /// GetEffectiveStat が加算するため、部隊指標・最大HP・UIの装備補正（水色）へそのまま連動する。
+        /// カタログから引けない個体（旧データ）のカタログ分は0として扱う（個体に焼き付いたアフィックス分は数える）。
         /// </summary>
         public int GetEquipmentStatBonus(string statName)
         {
             int total = 0;
             foreach (var slot in AllSlots)
             {
-                var item = GetEquipped(slot)?.GetDefinition();
-                if (item != null)
-                    total += item.GetStatBonus(statName);
+                var equipped = GetEquipped(slot);
+                if (equipped == null) continue;
+                total += (equipped.GetDefinition()?.GetStatBonus(statName) ?? 0) + equipped.GetAffixStatBonus(statName);
             }
             return total;
         }
-
         public int CurrentHP { get; set; }
         public int Satisfaction { get; set; } = 70;
         public InjurySeverity Injury { get; set; } = InjurySeverity.None;
