@@ -15,7 +15,7 @@
 | ファイル | 対応する仕様書セクション | 対応する実装 |
 |---|---|---|
 | `economy.csv` | 03 §8.1・§5.2・§8.3 | EconomyBalance（初期資金・週給/契約金/退職金係数・退職金不足の機嫌低下・内職売上の基本額と間隔・破産判定週数）, SatisfactionBalance(賃金), RecruitmentSystem(契約金) |
-| `combat.csv` | 03 §4.2・§4.3 | PlacementBalance（不意打ちの被弾ウェイトのみ。配置補正 `PlacementCorrection_*` は2026年9月に削除、→ 03 §0.23）, CombatBalance（旧討伐フロー用の値の多くは旧クエスト撤去で休眠中。耐毒体質 `ResistPoisonDamageReductionRate`・巨獣狩り `GiantHunterDamageBonusRate` は現役、→ 03 §0.32） |
+| `combat.csv` | 03 §4.2・§4.3 | PlacementBalance（不意打ちの被弾ウェイトのみ。配置補正 `PlacementCorrection_*` は2026年9月に削除、→ 03 §0.23）, CombatBalance（旧討伐フロー用の値の多くは旧クエスト撤去で休眠中。耐毒体質 `ResistPoisonDamageReductionRate`・巨獣狩り `GiantHunterDamageBonusRate`・重傷生還の古傷 `OldWoundCriticalChance` は現役、→ 03 §0.32・§0.33） |
 | `aging.csv` | 03 §3.0〜3.7 | GrowthBalance（年齢帯別成長ロール基礎確率＝新鋭/成長/全盛の3区分・難易度係数・成長量幅）, AgingSystem（満期引退年齢・稼働週数） |
 | `growth_job_weights.csv` | 03 §3.1〜3.4 | GrowthBalance.JobStatWeights |
 | `satisfaction.csv` | 03 §5.1・§5.2 | SatisfactionBalance |

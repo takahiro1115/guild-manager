@@ -57,6 +57,9 @@ namespace GuildManager.Core.Systems
         /// </summary>
         public bool NightVisionApplied { get; set; }
 
+        /// <summary>今回の進軍でHP1まで落ちた隊員に付いた古傷（→ CriticalInjury.RollOldWound、週報の開示用）。</summary>
+        public List<TraitGrantEvent> TraitGrantEvents { get; set; } = new();
+
         /// <summary>
         /// 今回の進軍で踏み入れた未踏破階層の数（＝新階層開拓。→ MasterMoodSystem の機嫌上昇、2026年9月新設）。
         /// </summary>

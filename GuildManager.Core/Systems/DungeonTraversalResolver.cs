@@ -393,7 +393,13 @@ namespace GuildManager.Core.Systems
 
                 result.EffectiveLossPctByAdventurer[member.Id] = effectivePct;
                 result.HpLostByAdventurer[member.Id] = member.CurrentHP - newHp;
+                bool fellToCritical = member.CurrentHP > CriticalInjury.CriticalHp && newHp <= CriticalInjury.CriticalHp;
                 member.CurrentHP = newHp;
+
+                // 重傷生還の古傷（→ 03 §4.3）：今回の進軍でHPが下限1まで落ちた隊員だけロールする
+                // （既にHP1のまま潜行を続けている隊員を毎週ロールし直さない）。
+                if (fellToCritical && CriticalInjury.RollOldWound(member, _rng) is { } grant)
+                    result.TraitGrantEvents.Add(grant);
             }
 
             int n = party.Members.Count;

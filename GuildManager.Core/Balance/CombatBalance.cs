@@ -76,5 +76,11 @@ namespace GuildManager.Core.Balance
         /// 上乗せする率（→ DungeonPowerCalculator.MemberPower）。
         /// </summary>
         public static readonly double GiantHunterDamageBonusRate = BalanceData.GetDouble(FileName, "GiantHunterDamageBonusRate");
+
+        /// <summary>
+        /// 重傷生還時に古傷を負う確率（0〜1、→ Systems.CriticalInjury.RollOldWound、03 §4.3）。
+        /// 道中進軍でHPが下限1まで落ちた隊員、階層ボス討伐の撤退でHP1で生還した隊員が対象。
+        /// </summary>
+        public static readonly double OldWoundCriticalChance = BalanceData.GetDouble(FileName, "OldWoundCriticalChance");
     }
 }

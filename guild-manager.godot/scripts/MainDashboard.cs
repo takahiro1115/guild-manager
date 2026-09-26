@@ -505,6 +505,9 @@ public partial class MainDashboard : Control
 		{
 			LogDungeonMission(weekNumber, dungeonResolution);
 			LogGrowthEvents(dungeonResolution.GrowthEvents);
+			// 障害特性（古傷・トラウマ）の付与と、それに伴う通常特性の侵食（→ 03 §5.3.2・§0.33 完全開示）。
+			foreach (var grant in dungeonResolution.TraitGrantEvents)
+				AppendLog($"[color=orange]⚠ {grant.ToLogText()}[/color]");
 		}
 
 		LogMasterMood(settlement.MoodReport); // → 03 §8.1・§8.1.1：マスターの機嫌の変動内訳

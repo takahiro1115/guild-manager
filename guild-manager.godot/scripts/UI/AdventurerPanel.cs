@@ -74,6 +74,13 @@ public partial class AdventurerPanel : VBoxContainer
 	private Label _traitSlot5 = null!;
 	private Label[] _traitSlotLabels = null!;
 
+	// 特性の忘却ボタン（→ 03 §5.3.2、2026年9月・§0.33）。シーンを触らず、各スロットのラベルの右にコードで並べる。
+	private readonly Button[] _forgetButtons = new Button[Adventurer.MaxTraitCount];
+	private ConfirmationDialog _forgetDialog = null!;
+
+	/// <summary>忘却ダイアログで確認中の特性Id。</summary>
+	private string? _pendingForgetTraitId;
+
 	// ---- 装備スロット ----
 	private Label _weaponLabel = null!;
 	private Label _armorLabel = null!;
@@ -166,6 +173,7 @@ public partial class AdventurerPanel : VBoxContainer
 		_traitSlot4 = GetNode<Label>("%TraitSlot4");
 		_traitSlot5 = GetNode<Label>("%TraitSlot5");
 		_traitSlotLabels = new[] { _traitSlot1, _traitSlot2, _traitSlot3, _traitSlot4, _traitSlot5 };
+		BuildForgetButtons();
 
 		// 装備スロット
 		_weaponLabel = GetNode<Label>("%WeaponLabel");
@@ -333,13 +341,27 @@ public partial class AdventurerPanel : VBoxContainer
 				string traitId = a.TraitIds[i];
 				var def = TraitCatalog.FindById(traitId);
 				string traitName = def?.DisplayName ?? traitId;
-				_traitSlotLabels[i].Text = $"{i + 1}: 【{traitName}】";
-				_traitSlotLabels[i].AddThemeColorOverride("font_color", new Color(0.9f, 0.9f, 0.4f)); // 習得済み: 明るい黄色
+				bool isCurse = def?.IsCurseOrInjury == true;
+				_traitSlotLabels[i].Text = isCurse ? $"{i + 1}: 【{traitName}】🔒" : $"{i + 1}: 【{traitName}】";
+				_traitSlotLabels[i].TooltipText = def?.Description ?? "";
+				_traitSlotLabels[i].AddThemeColorOverride("font_color", isCurse
+					? new Color(1.0f, 0.55f, 0.45f)  // 障害特性: 赤みのある橙
+					: new Color(0.9f, 0.9f, 0.4f));  // 習得済み: 明るい黄色
+
+				// 忘却ボタン：障害特性と出撃中は押せない（→ Adventurer.CanRemoveTrait、03 §5.3.2）。
+				var forget = _forgetButtons[i];
+				forget.Visible = true;
+				forget.Disabled = isCurse || a.IsDispatched || !a.CanRemoveTrait(traitId);
+				forget.TooltipText = isCurse ? "不可逆障害のため忘却不可"
+					: a.IsDispatched ? "出撃中は忘却できない"
+					: $"『{traitName}』を忘却して枠を空ける（取り消し不可）";
 			}
 			else
 			{
 				_traitSlotLabels[i].Text = $"{i + 1}: （空きスロット）";
+				_traitSlotLabels[i].TooltipText = "";
 				_traitSlotLabels[i].AddThemeColorOverride("font_color", new Color(0.5f, 0.5f, 0.5f)); // 空き: グレー
+				_forgetButtons[i].Visible = false;
 			}
 		}
 
@@ -544,6 +566,72 @@ public partial class AdventurerPanel : VBoxContainer
 			LogRequested($"[color=cyan]📦 装備していた武具がギルド備品としてギルド保管庫へ返還された" +
 				$"（{string.Join("、", recovered.Select(e => e.Name))}）。[/color]");
 		}
+		StateChanged();
+	}
+
+	// ==== 特性の忘却（→ 03 §5.3.2、2026年9月・§0.33） ====
+
+	/// <summary>
+	/// 各特性スロットのラベルを HBox に入れ直し、右に「忘却」ボタンを並べる。あわせて確認ダイアログを組み立てる。
+	/// シーン（scenes/AdventurerPanel.tscn とルート直下の複製）を手で編集せずに済むよう、コードで構築する。
+	/// </summary>
+	private void BuildForgetButtons()
+	{
+		for (int i = 0; i < _traitSlotLabels.Length; i++)
+		{
+			var label = _traitSlotLabels[i];
+			var parent = label.GetParent();
+			int index = label.GetIndex();
+
+			var row = new HBoxContainer();
+			parent.AddChild(row);
+			parent.MoveChild(row, index);
+			label.Reparent(row);
+			label.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+			label.MouseFilter = MouseFilterEnum.Pass; // ツールチップ（説明文）を出すため
+
+			int slot = i;
+			var button = new Button { Text = "忘却", Visible = false, FocusMode = FocusModeEnum.None };
+			button.Pressed += () => OnForgetPressed(slot);
+			row.AddChild(button);
+			_forgetButtons[i] = button;
+		}
+
+		_forgetDialog = new ConfirmationDialog { Title = "特性の忘却", OkButtonText = "忘却する", CancelButtonText = "やめる" };
+		_forgetDialog.Confirmed += OnForgetConfirmed;
+		AddChild(_forgetDialog);
+	}
+
+	private void OnForgetPressed(int slot)
+	{
+		var target = CurrentDetailAdventurer();
+		if (target == null || slot >= target.TraitIds.Count) return;
+
+		string traitId = target.TraitIds[slot];
+		if (!target.CanRemoveTrait(traitId) || target.IsDispatched) return;
+
+		_pendingForgetTraitId = traitId;
+		string traitName = TraitCatalog.FindById(traitId)?.DisplayName ?? traitId;
+		_forgetDialog.DialogText = $"{target.Name} の特性『{traitName}』を忘却し、枠を空けますか？\nこの操作は取り消せません。";
+		_forgetDialog.PopupCentered();
+	}
+
+	private void OnForgetConfirmed()
+	{
+		var target = CurrentDetailAdventurer();
+		string? traitId = _pendingForgetTraitId;
+		_pendingForgetTraitId = null;
+		if (target == null || traitId == null || target.IsDispatched) return;
+
+		string traitName = TraitCatalog.FindById(traitId)?.DisplayName ?? traitId;
+		if (!target.TryRemoveTrait(traitId))
+		{
+			LogRequested($"[color=gray]『{traitName}』は忘却できない。[/color]");
+			return;
+		}
+
+		LogRequested($"[color=cyan]🕯 {target.Name} は特性『{traitName}』を忘却し、特性枠を1つ空けた。[/color]");
+		ShowAdventurerDetail(target);
 		StateChanged();
 	}
 

@@ -421,6 +421,7 @@ namespace GuildManager.Core.Systems
 
             var boss = traversal.TargetBoss ?? mission.Boss;
             var resolution = new DungeonMissionResolution(mission.Party, boss, field, boss?.IntelRate ?? 0, traversal);
+            resolution.TraitGrantEvents.AddRange(traversal.TraitGrantEvents); // 重傷生還の古傷（→ 03 §4.3）
             // 出撃成長（→ GrowthSystem.ApplyExpeditionGrowth）：実際に1階層以上進軍した週のみ。
             if (traversal.FloorAfter > traversal.FloorBefore)
             {
@@ -511,7 +512,7 @@ namespace GuildManager.Core.Systems
 
             double intelBefore = boss.IntelRate;
             var assault = _dungeonResolver.Resolve(mission.Party, boss, state);
-            var recoveredEquipment = ApplyForcedRetirements(state, mission.Party, assault.ForceRetiredAdventurerIds);
+            var recoveredEquipment = ApplyForcedRetirements(state, mission.Party, assault.ForceRetiredAdventurerIds, out var traumaGrants);
             // 強制除籍（不死薬による現場からの永久離脱）へのアルベールの激怒：除籍1名につき機嫌−20（→ 03 §8.1）。
             // 0に達すれば、この週の決算で副官解雇になる（→ DefeatSystem）。
             int furyRetiredCount = assault.ForceRetiredAdventurerIds.Count;
@@ -553,6 +554,9 @@ namespace GuildManager.Core.Systems
             if (relic != null)
                 resolution.RelicsFound.Add(relic);
             resolution.RecoveredEquipment = recoveredEquipment;
+            // 障害特性の開示（→ 03 §5.3.2）：撤退時の重傷生還による古傷と、仲間除籍の衝撃によるトラウマ。
+            resolution.TraitGrantEvents.AddRange(assault.TraitGrantEvents);
+            resolution.TraitGrantEvents.AddRange(traumaGrants);
             resolution.MasterFuryRetiredCount = furyRetiredCount;
             resolution.MasterFuryMoodApplied = furyMoodApplied;
             // 出撃成長：撃破した場合のみ（全7能力・試行回数多）。撤退・全滅では成長しない。強制除籍者は対象外。
@@ -637,14 +641,16 @@ namespace GuildManager.Core.Systems
         /// （冒険者Id → 装備一覧）を返し、週報ログで報告できるようにする。
         /// </summary>
         private Dictionary<Guid, List<EquipmentItem>> ApplyForcedRetirements(
-            GameState state, Party party, IEnumerable<Guid> retiredIds)
+            GameState state, Party party, IEnumerable<Guid> retiredIds, out List<TraitGrantEvent> traumaGrants)
         {
             var recovered = new Dictionary<Guid, List<EquipmentItem>>();
+            traumaGrants = new List<TraitGrantEvent>();
+            var retiredSet = retiredIds.ToHashSet();
 
             foreach (var retiredId in retiredIds)
             {
                 _satisfactionSystem.ApplyPartyLossPenalty(party, retiredId);
-                _compatibilitySystem.ApplyDeathAftermath(state, party, retiredId);
+                traumaGrants.AddRange(_compatibilitySystem.ApplyDeathAftermath(state, party, retiredId, retiredSet));
 
                 var retired = party.Members.FirstOrDefault(m => m.Id == retiredId);
                 if (retired == null)

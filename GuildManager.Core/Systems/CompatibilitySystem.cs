@@ -76,19 +76,27 @@ namespace GuildManager.Core.Systems
         /// <summary>
         /// 戦死が発生した時の余波。同パーティの生存者同士の相性を大きく下降させ、
         /// 各生存者に確率で「トラウマ」特性を付与する（→ 03 §5.1・§5.3.1）。
+        /// トラウマは障害特性のため、5枠満杯なら通常特性を侵食して付く（→ Adventurer.TryAddCurseTrait）。
+        /// 実際に付いたトラウマを返す（週報の開示用、→ TraitGrantEvent。2026年9月・§0.33）。
+        /// 同じ戦闘で自身も除籍される隊員（alsoRetiredIds）にはトラウマを付けない（相性の低下は従来どおり全生存者に掛かる）。
         /// </summary>
-        public void ApplyDeathAftermath(GameState state, Party party, Guid fallenId)
+        public List<TraitGrantEvent> ApplyDeathAftermath(GameState state, Party party, Guid fallenId, IReadOnlyCollection<Guid>? alsoRetiredIds = null)
         {
             var survivors = party.Members.Where(m => m.Id != fallenId).ToList();
+            var grants = new List<TraitGrantEvent>();
 
             ForEachPair(survivors, (a, b) =>
                 AdjustCompatibility(state, a.Id, b.Id, -CompatibilityBalance.DeathWitnessLoss));
 
-            foreach (var survivor in survivors)
+            foreach (var survivor in survivors.Where(s => alsoRetiredIds == null || !alsoRetiredIds.Contains(s.Id)))
             {
-                if (_rng.NextInt(1, 100) <= CompatibilityBalance.TraumaGrantChancePercent)
-                    survivor.TryAddTrait(TraitCatalog.TraumaId);
+                if (_rng.NextInt(1, 100) > CompatibilityBalance.TraumaGrantChancePercent)
+                    continue;
+                if (survivor.TryAddCurseTrait(TraitCatalog.TraumaId, out var eroded))
+                    grants.Add(new TraitGrantEvent(survivor.Id, survivor.Name, TraitCatalog.TraumaId, eroded, TraitGrantCause.ComradeRetired));
             }
+
+            return grants;
         }
 
         /// <summary>

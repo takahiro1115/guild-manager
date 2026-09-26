@@ -89,6 +89,12 @@ namespace GuildManager.Core.Systems
         public List<GrowthEvent> GrowthEvents { get; set; } = new();
 
         /// <summary>
+        /// この解決で付いた障害特性（重傷生還の古傷、仲間除籍の衝撃によるトラウマ）と、それに伴う通常特性の侵食
+        /// （→ TraitGrantEvent・03 §5.3.2、2026年9月・§0.33）。週報に1件1行で開示する（→ TraitGrantEvent.ToLogText）。
+        /// </summary>
+        public List<TraitGrantEvent> TraitGrantEvents { get; set; } = new();
+
+        /// <summary>
         /// この解決で強制除籍（不死薬による現場からの永久離脱）された人数（→ アルベールの激怒、2026年9月新設）。
         /// 週報の【アルベールの激怒】行と、機嫌の週次内訳（→ MasterMoodSystem.ProcessWeeklyMood）に使う。
         /// </summary>
