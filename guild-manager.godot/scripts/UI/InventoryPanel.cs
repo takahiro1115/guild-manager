@@ -458,7 +458,7 @@ public partial class InventoryPanel : VBoxContainer
 
 		string effect = definition == null
 			? "[color=gray]（カタログ定義が見つからない旧データ）[/color]"
-			: $"{SlotLabel(definition.Slot)}／{EffectLabel(definition.EffectType)} +{definition.EffectValue}" +
+			: $"{SlotLabel(definition.Slot)}／{definition.DescribeEffects()}" +
 			  $"／{(definition.AllowedJobs.Count == 0 ? "全職業" : string.Join("・", definition.AllowedJobs.Select(JobLabel)))}";
 
 		// カタログ品（Rarity == null）は希少度タグも入手履歴も出さない（2026年9月、→ 03 §4.8.3）。
@@ -552,13 +552,6 @@ public partial class InventoryPanel : VBoxContainer
 		EquipmentSlot.Accessory1 => "装飾1",
 		EquipmentSlot.Accessory2 => "装飾2",
 		_ => slot.ToString(),
-	};
-
-	private static string EffectLabel(EquipmentEffectType effectType) => effectType switch
-	{
-		EquipmentEffectType.PersonalCpBonus => "個人CP",
-		EquipmentEffectType.MaxHpBonus => "最大HP",
-		_ => effectType.ToString(),
 	};
 
 	private static string JobLabel(JobClass job) => job switch

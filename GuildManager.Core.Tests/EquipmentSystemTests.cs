@@ -244,20 +244,24 @@ namespace GuildManager.Core.Tests
             Assert.Equal(ItemCatalog.IronSwordId, Assert.Single(state.Armory).ItemId); // 外した武器は保管庫へ
         }
 
-        // ---------------- 個人CP・最大HPへの効果反映（→ Adventurer.GetEquipmentBonus） ----------------
+        // ---------------- 能力値・最大HPへの効果反映（→ Adventurer.GetEquipmentStatBonus・GetEquipmentHpBonus） ----------------
 
         [Fact]
-        public void GetEquipmentBonus_SumsPersonalCpBonus_AcrossWeaponAndAccessories()
+        public void StatBonuses_SumAcrossWeaponAndAccessories()
         {
+            // §0.37：個人CPは撤廃。武器・アクセサリーの強さは能力値補正として実効ステータスに合算される。
             var adventurer = new Adventurer { JobClass = JobClass.Warrior };
             var state = new GameState { Gold = 10000 };
             var system = new EquipmentSystem();
-            system.TryPurchaseAndEquip(state, adventurer, ItemCatalog.IronSwordId); // CP+8
-            system.TryPurchaseAndEquip(state, adventurer, ItemCatalog.PowerRingId); // CP+8
-            system.TryPurchaseAndEquip(state, adventurer, ItemCatalog.QuickBroochId); // CP+8
-            system.TryPurchaseAndEquip(state, adventurer, ItemCatalog.LeatherArmorId); // HP側なのでCPには寄与しない
+            system.TryPurchaseAndEquip(state, adventurer, ItemCatalog.IronSwordId);    // STR+2・VIT+1
+            system.TryPurchaseAndEquip(state, adventurer, ItemCatalog.PowerRingId);    // STR+5
+            system.TryPurchaseAndEquip(state, adventurer, ItemCatalog.QuickBroochId);  // AGI+5
+            system.TryPurchaseAndEquip(state, adventurer, ItemCatalog.LeatherArmorId); // 最大HP+15・AGI+2
 
-            Assert.Equal(24, adventurer.GetEquipmentBonus(EquipmentEffectType.PersonalCpBonus));
+            Assert.Equal(7, adventurer.GetEquipmentStatBonus("STR"));
+            Assert.Equal(7, adventurer.GetEquipmentStatBonus("AGI"));
+            Assert.Equal(1, adventurer.GetEquipmentStatBonus("VIT"));
+            Assert.Equal(15, adventurer.GetEquipmentHpBonus()); // 最大HP加算は防具だけ
         }
 
         [Fact]
@@ -274,22 +278,22 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
-        public void MaxHP_WeaponCpBonusDoesNotCount_ButItsVitBonusDoes()
+        public void MaxHP_WeaponAddsNoHp_ButItsVitBonusDoes()
         {
             var adventurer = new Adventurer { VIT = 20, JobClass = JobClass.Warrior };
             var state = new GameState { Gold = 10000 };
-            new EquipmentSystem().TryPurchaseAndEquip(state, adventurer, ItemCatalog.IronSwordId); // CP+8（HPには寄与しない）・VIT+1
+            new EquipmentSystem().TryPurchaseAndEquip(state, adventurer, ItemCatalog.IronSwordId); // 最大HP加算なし・VIT+1
 
-            Assert.Equal(92, adventurer.MaxHP); // (20+1)*2+50。武器のCP加算はHPに影響せず、VIT補正だけが乗る
+            Assert.Equal(92, adventurer.MaxHP); // (20+1)*2+50。武器は最大HPを直接足さず、VIT補正だけが乗る
         }
 
         [Fact]
-        public void GetEquipmentBonus_ZeroByDefault_WhenNothingEquipped()
+        public void EquipmentBonuses_ZeroByDefault_WhenNothingEquipped()
         {
             var adventurer = new Adventurer();
 
-            Assert.Equal(0, adventurer.GetEquipmentBonus(EquipmentEffectType.PersonalCpBonus));
-            Assert.Equal(0, adventurer.GetEquipmentBonus(EquipmentEffectType.MaxHpBonus));
+            Assert.Equal(0, adventurer.GetEquipmentHpBonus());
+            Assert.Equal(0, adventurer.GetEquipmentStatBonus("STR"));
         }
 
         // ---------------- ItemCatalog ----------------

@@ -729,7 +729,7 @@ namespace GuildManager.Core.Tests
             Assert.True(system.TryEquip(state, adventurer, EquipmentSlot.Accessory1, accessory));
 
             int maxHpBefore = adventurer.MaxHP;
-            int cpBonusBefore = adventurer.GetEquipmentBonus(EquipmentEffectType.PersonalCpBonus);
+            int strBonusBefore = adventurer.GetEquipmentStatBonus("STR");
 
             var json = JsonSerializer.Serialize(state.ToSaveData());
             var restored = GameState.FromSaveData(JsonSerializer.Deserialize<SaveData>(json)!);
@@ -747,7 +747,7 @@ namespace GuildManager.Core.Tests
 
             // 装備補正も復元後に同じ値になる。
             Assert.Equal(maxHpBefore, loaded.MaxHP);
-            Assert.Equal(cpBonusBefore, loaded.GetEquipmentBonus(EquipmentEffectType.PersonalCpBonus));
+            Assert.Equal(strBonusBefore, loaded.GetEquipmentStatBonus("STR"));
 
             // 保管庫に残した在庫はそのまま1点。装備中の3点が保管庫に二重計上されていないこと。
             var stock = Assert.Single(restored.Armory);
@@ -796,7 +796,7 @@ namespace GuildManager.Core.Tests
             Assert.Null(loaded.EquippedAccessory2Id);
             Assert.Equal("鉄の剣", loaded.EquippedWeapon!.Name);
             // 装備補正も旧セーブどおりに効く。
-            Assert.Equal(ItemCatalog.LeatherArmor.EffectValue, loaded.GetEquipmentBonus(EquipmentEffectType.MaxHpBonus));
+            Assert.Equal(ItemCatalog.LeatherArmor.MaxHpBonus, loaded.GetEquipmentHpBonus());
         }
 
         [Fact]

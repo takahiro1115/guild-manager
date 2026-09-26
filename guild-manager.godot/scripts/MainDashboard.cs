@@ -945,7 +945,7 @@ public partial class MainDashboard : Control
 		{
 			var hunter = _state.Adventurers.FirstOrDefault(a => a.Id == hunterId);
 			if (hunter != null)
-				sb.AppendLine($"[color=cyan]🗡 {hunter.Name}の巨獣狩りの技が重装甲を穿った（個人CP +{CombatBalance.GiantHunterDamageBonusRate * 100:0}%）。[/color]");
+				sb.AppendLine($"[color=cyan]🗡 {hunter.Name}の巨獣狩りの技が重装甲を穿った（火力 +{CombatBalance.GiantHunterDamageBonusRate * 100:0}%）。[/color]");
 		}
 
 		sb.AppendLine(assault.Outcome == DungeonOutcome.Victory

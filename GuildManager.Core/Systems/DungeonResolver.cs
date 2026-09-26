@@ -61,7 +61,7 @@ namespace GuildManager.Core.Systems
             result.DamageMultiplier = CalculateDamageMultiplier(boss, result, party);
 
             // ---- 火力判定（ボスのHPを削り切れるか） ----
-            // 重装甲ボスなら巨獣狩りの保有者の個人CPに上乗せが効く（→ DungeonPowerCalculator.MemberPower）。
+            // 重装甲ボスなら巨獣狩りの保有者の火力に上乗せが効く（→ DungeonPowerCalculator.MemberPower）。
             double partyPower = DungeonPowerCalculator.PartyPower(party.Members, boss);
             result.GiantHunterAdventurerIds.AddRange(
                 party.Members.Where(m => DungeonPowerCalculator.GiantHunterApplies(m, boss)).Select(m => m.Id));

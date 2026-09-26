@@ -106,5 +106,58 @@ namespace GuildManager.Core.Tests
             Assert.Equal(expectBonus, result.FullIntelBonusApplied);
             Assert.Equal(expectBonus ? sum * (1.0 + DungeonBalance.FullIntelDamageBonus) : sum, result.PartyPower, precision: 10);
         }
+
+        // ---------------- §0.37：個人CPの撤廃（火力＝実効ステータス×重み×HP比率） ----------------
+
+        private static double W(string stat) => DungeonBalance.BossPowerWeights.First(w => w.Stat == stat).Weight;
+
+        [Fact]
+        public void MemberPower_EqualsEffectiveStatsTimesWeightsTimesHpRatio_WithEquipmentAndTraits()
+        {
+            // 素の値＋特性補正（古傷：STR/VIT/AGI/DEX −15%）＋装備補正（大剣 STR+6・VIT+2、力の指輪 STR+5）を
+            // すべて含んだ実効ステータスに重みを掛けた合計×HP比率。装備の固定加算（旧・個人CP）は入らない。
+            var a = Make(JobClass.Warrior, Placement.Front, stat: 40);
+            a.TryAddTrait(TraitCatalog.OldWoundId);
+            a.SetEquippedId(EquipmentSlot.Weapon, ItemCatalog.GreatSwordId);
+            a.SetEquippedId(EquipmentSlot.Accessory1, ItemCatalog.PowerRingId);
+            a.CurrentHP = a.MaxHP / 2;
+
+            double expected = DungeonBalance.BossPowerWeights.Sum(w => a.GetEffectiveStat(w.Stat) * w.Weight)
+                              * ((double)a.CurrentHP / a.MaxHP);
+            Assert.Equal(expected, DungeonPowerCalculator.MemberPower(a), precision: 10);
+
+            // 実効値の中身も確かめる：STR＝40×0.85＋6＋5、VIT＝40×0.85＋2、MND＝40（古傷の対象外）。
+            Assert.Equal(40 * 0.85 + 11, a.GetEffectiveStat("STR"), precision: 10);
+            Assert.Equal(40 * 0.85 + 2, a.GetEffectiveStat("VIT"), precision: 10);
+            Assert.Equal(40, a.GetEffectiveStat("MND"), precision: 10);
+        }
+
+        [Fact]
+        public void EquipAndUnequip_ChangePower_ByExactlyTheWeightedStatBonus()
+        {
+            var a = Make(JobClass.Warrior, Placement.Front, stat: 40);
+            double bare = DungeonPowerCalculator.MemberPower(a);
+
+            a.SetEquippedId(EquipmentSlot.Weapon, ItemCatalog.WarhammerId); // STR+4・MND+3
+            a.CurrentHP = a.MaxHP; // 武器はVIT補正なしなので最大HPは変わらないが念のため満タン
+
+            Assert.Equal(bare + 4 * W("STR") + 3 * W("MND"), DungeonPowerCalculator.MemberPower(a), precision: 10);
+
+            a.SetEquipped(EquipmentSlot.Weapon, null);
+            Assert.Equal(bare, DungeonPowerCalculator.MemberPower(a), precision: 10);
+        }
+
+        [Fact]
+        public void HpOnlyAccessory_DoesNotChangePower_AtFullHp()
+        {
+            // 最大HP加算だけの装備（生命のお守り）は、満タン同士の比較なら火力を変えない（旧・個人CPのような固定加算は無い）。
+            var a = Make(JobClass.Cleric, Placement.Back, stat: 40);
+            double bare = DungeonPowerCalculator.MemberPower(a);
+
+            a.SetEquippedId(EquipmentSlot.Accessory1, ItemCatalog.LifeAmuletId);
+            a.CurrentHP = a.MaxHP;
+
+            Assert.Equal(bare, DungeonPowerCalculator.MemberPower(a), precision: 10);
+        }
     }
 }

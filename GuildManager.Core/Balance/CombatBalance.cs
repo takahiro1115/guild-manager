@@ -72,7 +72,7 @@ namespace GuildManager.Core.Balance
         public static readonly double ResistPoisonDamageReductionRate = BalanceData.GetDouble(FileName, "ResistPoisonDamageReductionRate");
 
         /// <summary>
-        /// 巨獣狩り（→ TraitCatalog.GiantHunter）：ボスが「重装甲」ギミックを持つとき、保有者本人の個人CPに
+        /// 巨獣狩り（→ TraitCatalog.GiantHunter）：ボスが「重装甲」ギミックを持つとき、保有者本人の討伐火力に
         /// 上乗せする率（→ DungeonPowerCalculator.MemberPower）。
         /// </summary>
         public static readonly double GiantHunterDamageBonusRate = BalanceData.GetDouble(FileName, "GiantHunterDamageBonusRate");

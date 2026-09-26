@@ -9,14 +9,15 @@ namespace GuildManager.Core.Balance
     /// 装備アイテム1種分の数値（→ EquipmentBalance.Get）。
     /// StatBonuses は7大能力値（STR/VIT/AGI/DEX/INT/MND/LDR）→ 補正値。0の能力値も含めて全7キーを持つ。
     /// </summary>
-    public sealed record EquipmentStats(int Price, int EffectValue, IReadOnlyDictionary<string, int> StatBonuses);
+    public sealed record EquipmentStats(int Price, int HpBonus, IReadOnlyDictionary<string, int> StatBonuses);
 
     /// <summary>
     /// 装備アイテム（→ ItemCatalog）の価格・効果量・能力値補正に関するバランス値。仕様書 03 §4.2.2 参照。
     /// 値は docs/04_バランス表/equipment.csv（テーブル形式）から読み込む（→ 03 §10.1）。
     ///
-    /// 列の意味：Id,Price,EffectValue,BonusStr,BonusVit,BonusAgi,BonusDex,BonusInt,BonusMnd,BonusLdr,note
-    /// （EffectValue は武器・CP系アクセサリーなら個人CP加算量、防具・HP系アクセサリーなら最大HP加算量）。
+    /// 列の意味：Id,Price,HpBonus,BonusStr,BonusVit,BonusAgi,BonusDex,BonusInt,BonusMnd,BonusLdr,note
+    /// （HpBonus＝最大HPへの固定加算。武器は0。2026年9月・§0.37で旧 EffectValue 列（武器・一部アクセサリーでは
+    /// 個人CP加算量を兼ねていた）を個人CPの撤廃に伴い HpBonus へ改名し、武具の強さは能力値補正に一本化した）。
     ///
     /// 2026年9月改訂（武具の7大能力値補正）：旧 key,value 形式（IronSword_Price 等）から
     /// テーブル形式へ移行した。アイテムごとに10個近い数値を持つようになり、key,value 形式では
@@ -50,7 +51,7 @@ namespace GuildManager.Core.Balance
 
             int idCol = RequireColumn(header, "Id");
             int priceCol = RequireColumn(header, "Price");
-            int effectCol = RequireColumn(header, "EffectValue");
+            int hpCol = RequireColumn(header, "HpBonus");
             var bonusCols = BonusColumns.Select(b => (b.Stat, Index: RequireColumn(header, b.Column), b.Column)).ToArray();
 
             var result = new Dictionary<string, EquipmentStats>();
@@ -64,7 +65,7 @@ namespace GuildManager.Core.Balance
                 var bonuses = bonusCols.ToDictionary(b => b.Stat, b => ParseInt(row[b.Index], i, b.Column));
                 result[id] = new EquipmentStats(
                     ParseInt(row[priceCol], i, "Price"),
-                    ParseInt(row[effectCol], i, "EffectValue"),
+                    ParseInt(row[hpCol], i, "HpBonus"),
                     bonuses);
             }
 

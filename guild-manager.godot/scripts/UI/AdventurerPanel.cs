@@ -668,7 +668,7 @@ public partial class AdventurerPanel : VBoxContainer
 
 	/// <summary>
 	/// 装備スロット表示用のラベル（→ 03 §4.2.2）。未装備ならその旨を、装備中なら名称と
-	/// 効果量（個人CP／最大HPへの加算）を表示する。カタログ定義が引けない旧データは「（不明）」。
+	/// 効果（最大HP加算・能力値補正、→ Item.DescribeEffects）を表示する。カタログ定義が引けない旧データは「（不明）」。
 	/// </summary>
 	private static string EquipmentSlotText(EquipmentItem? equipped)
 	{
@@ -677,10 +677,7 @@ public partial class AdventurerPanel : VBoxContainer
 		var definition = equipped.GetDefinition();
 		if (definition == null) return $"{equipped.Name}（不明）";
 
-		string effect = definition.EffectType == EquipmentEffectType.PersonalCpBonus
-			? $"個人CP+{definition.EffectValue}"
-			: $"最大HP+{definition.EffectValue}";
-		return $"{definition.Name}（{effect}）";
+		return $"{definition.Name}（{definition.DescribeEffects()}）";
 	}
 
 	/// <summary>職業の日本語表示名。DungeonPanel.JobLabel と同じマッピング。</summary>

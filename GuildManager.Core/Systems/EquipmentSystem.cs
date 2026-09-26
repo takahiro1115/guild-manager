@@ -17,7 +17,7 @@ namespace GuildManager.Core.Systems
     ///   装着すれば保管庫から抜け、外せば保管庫へ戻る（＝個体が消えたり増えたりしない）。
     /// - 職業制限に反する装備は不可（→ Item.IsAllowedFor）。出撃中の冒険者は着脱不可
     ///   （→ Adventurer.IsDispatched。出撃中の部隊の戦力が決算直前に変わるのを防ぐ）。
-    /// - 個人CP・最大HPへの効果反映は、Adventurer.GetEquipmentBonus経由で
+    /// - 最大HP・能力値への効果反映は、Adventurer.GetEquipmentHpBonus・GetEffectiveStat経由で
     ///   DungeonPowerCalculator・Adventurer.MaxHPからそれぞれ参照される（このクラスは
     ///   スロットの状態管理と、最大HPが下がった場合の現在HPのクランプのみを担当する）。
     /// </summary>

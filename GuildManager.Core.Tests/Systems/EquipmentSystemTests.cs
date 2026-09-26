@@ -199,7 +199,7 @@ namespace GuildManager.Core.Tests.Systems
         // ---------------- 最大HP・個人CPへの反映（指示書指定テスト） ----------------
 
         [Fact]
-        public void Equip_Updates_MaxHp_AndCp()
+        public void Equip_Updates_MaxHp_AndStats()
         {
             var (state, adventurer, armor) = MakeStateWith(ItemCatalog.LeatherArmor);
             var sword = EquipmentItem.FromCatalog(ItemCatalog.IronSword);
@@ -207,25 +207,25 @@ namespace GuildManager.Core.Tests.Systems
             var system = new EquipmentSystem();
 
             int baseMaxHp = adventurer.MaxHP;
-            Assert.Equal(0, adventurer.GetEquipmentBonus(EquipmentEffectType.MaxHpBonus));
-            Assert.Equal(0, adventurer.GetEquipmentBonus(EquipmentEffectType.PersonalCpBonus));
+            Assert.Equal(0, adventurer.GetEquipmentHpBonus());
+            Assert.Equal(0, adventurer.GetEquipmentStatBonus("STR"));
 
-            // 防具（最大HP加算）と武器（個人CP加算）をそれぞれ装備する。
+            // 防具（最大HP加算）と武器（能力値補正）をそれぞれ装備する。
             Assert.True(system.TryEquip(state, adventurer, EquipmentSlot.Armor, armor));
             Assert.True(system.TryEquip(state, adventurer, EquipmentSlot.Weapon, sword));
 
             // 鉄の剣のVIT補正も最大HPに乗る（→ Adventurer.GetEffectiveStat）。
             int swordVitHp = (int)((adventurer.VIT + ItemCatalog.IronSword.GetStatBonus("VIT")) * CombatBalance.MaxHpVitCoefficient)
                 - (int)(adventurer.VIT * CombatBalance.MaxHpVitCoefficient);
-            Assert.Equal(baseMaxHp + ItemCatalog.LeatherArmor.EffectValue + swordVitHp, adventurer.MaxHP);
-            Assert.Equal(ItemCatalog.LeatherArmor.EffectValue, adventurer.GetEquipmentBonus(EquipmentEffectType.MaxHpBonus));
-            Assert.Equal(ItemCatalog.IronSword.EffectValue, adventurer.GetEquipmentBonus(EquipmentEffectType.PersonalCpBonus));
+            Assert.Equal(baseMaxHp + ItemCatalog.LeatherArmor.MaxHpBonus + swordVitHp, adventurer.MaxHP);
+            Assert.Equal(ItemCatalog.LeatherArmor.MaxHpBonus, adventurer.GetEquipmentHpBonus());
+            Assert.Equal(ItemCatalog.IronSword.GetStatBonus("STR"), adventurer.GetEquipmentStatBonus("STR"));
 
             // 外せば元の値に戻る（武器も外す）。
             Assert.True(system.TryUnequip(state, adventurer, EquipmentSlot.Weapon));
             Assert.True(system.TryUnequip(state, adventurer, EquipmentSlot.Armor));
             Assert.Equal(baseMaxHp, adventurer.MaxHP);
-            Assert.Equal(0, adventurer.GetEquipmentBonus(EquipmentEffectType.MaxHpBonus));
+            Assert.Equal(0, adventurer.GetEquipmentHpBonus());
         }
 
         [Fact]

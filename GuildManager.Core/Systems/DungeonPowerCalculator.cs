@@ -10,9 +10,11 @@ namespace GuildManager.Core.Systems
     /// （QuestScoreCalculator.MemberScore の「討伐」種別）を、旧クエスト撤去（2026年9月）に伴い
     /// 大迷宮側へ同じ式・同じ数値のまま移設したもの。
     ///
-    /// メンバー1名分の火力（個人CP）＝(Σ 実効ステータス×重み ＋ 装備の個人CPボーナス) × 現在HP/最大HP。
-    /// 部隊火力＝全員の個人CPの単純合算（完全解析なら DungeonResolver が+20%を上乗せする）。
-    /// 2026年9月：職業×配置の個人CP補正（前衛職の前衛1.2倍等）を撤廃した。配置は職業で一意に決まるため、
+    /// 隊員1名分の火力＝(Σ 実効ステータス×重み) × 現在HP/最大HP（巨獣狩りの上乗せは下記）。
+    /// 実効ステータスは素の値×特性補正＋装備の能力値補正（→ Adventurer.GetEffectiveStat）なので、武具は能力値補正を
+    /// 通してのみ火力に効く。部隊火力＝全員の火力の単純合算（完全解析なら DungeonResolver が+20%を上乗せする）。
+    /// 2026年9月・§0.37：旧「個人CP」の中間概念と、武具の「個人CPボーナス」（重みを経ずに火力へ直接足していた固定値）を撤廃した。
+    /// 2026年9月・§0.23：職業×配置の補正（前衛職の前衛1.2倍等）を撤廃した。配置は職業で一意に決まるため、
     /// 実質「職業ごとの固定倍率」になっていた（→ 03 §4.2・§4.5.4・§0.23）。前衛／後衛は火力に影響しない。
     /// 重みは dungeon.csv の BossPowerWeight_*（→ DungeonBalance.BossPowerWeights）。
     /// public static にしてあるのは、出撃前のプレビュー（UI）とテストから同じ式を使うため。
@@ -22,7 +24,7 @@ namespace GuildManager.Core.Systems
         /// <summary>
         /// メンバー1名分の火力。負傷（HP減少）に比例して効率が落ちる。
         /// boss を渡し、そのボスが「重装甲」ギミックを持つ場合、巨獣狩り（→ TraitCatalog.GiantHunter）の保有者は
-        /// 個人CPが GiantHunterDamageBonusRate だけ上乗せされる（→ 03 §4.5.4・§5.3.2。HP比率の前に掛ける）。
+        /// 火力が GiantHunterDamageBonusRate だけ上乗せされる（→ 03 §4.5.4・§5.3.2。HP比率の前に掛ける）。
         /// boss を省略した場合（ボスを特定しない試算）は上乗せしない。
         /// </summary>
         public static double MemberPower(Adventurer a, FloorBoss? boss = null)
@@ -33,10 +35,9 @@ namespace GuildManager.Core.Systems
             foreach (var (stat, weight) in DungeonBalance.BossPowerWeights)
                 statSum += a.GetEffectiveStat(stat) * weight;
 
-            double baseScore = statSum + a.GetEquipmentBonus(EquipmentEffectType.PersonalCpBonus);
             if (GiantHunterApplies(a, boss))
-                baseScore *= 1.0 + CombatBalance.GiantHunterDamageBonusRate;
-            return baseScore * hpRatio;
+                statSum *= 1.0 + CombatBalance.GiantHunterDamageBonusRate;
+            return statSum * hpRatio;
         }
 
         /// <summary>巨獣狩りの上乗せが効くか：本人が保有し、かつボスが「重装甲」ギミックを持つ。</summary>

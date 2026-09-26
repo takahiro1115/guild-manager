@@ -168,8 +168,7 @@ public partial class EquipmentPopup : PopupPanel
 	{
 		_statusLabel.Clear();
 		_statusLabel.AppendText($"[b]所持金[/b]：{_state.Gold} G　／　[b]最大HP[/b]：{_adventurer.CurrentHP}/{_adventurer.MaxHP}" +
-			$"　／　[b]装備補正[/b]：個人CP +{_adventurer.GetEquipmentBonus(EquipmentEffectType.PersonalCpBonus)}" +
-			$"、最大HP +{_adventurer.GetEquipmentBonus(EquipmentEffectType.MaxHpBonus)}\n");
+			$"　／　[b]装備補正[/b]：最大HP +{_adventurer.GetEquipmentHpBonus()}、能力値 {EquippedStatText()}\n");
 
 		var parts = Adventurer.AllSlots.Select(slot =>
 		{
@@ -286,9 +285,18 @@ public partial class EquipmentPopup : PopupPanel
 		RefreshAll();
 	}
 
-	private static string EffectText(Item item) => item.EffectType == EquipmentEffectType.PersonalCpBonus
-		? $"個人CP+{item.EffectValue}"
-		: $"最大HP+{item.EffectValue}";
+	private static string EffectText(Item item) => item.DescribeEffects();
+
+	/// <summary>装備中の全枠の能力値補正の合計（例：「STR+7・AGI+2」、無ければ「なし」）。§0.37で個人CPの表示を置き換え。</summary>
+	private string EquippedStatText()
+	{
+		var parts = new[] { "STR", "VIT", "AGI", "DEX", "INT", "MND", "LDR" }
+			.Select(stat => (stat, bonus: _adventurer.GetEquipmentStatBonus(stat)))
+			.Where(p => p.bonus != 0)
+			.Select(p => $"{p.stat}{(p.bonus > 0 ? "+" : "")}{p.bonus}");
+		string text = string.Join("・", parts);
+		return text.Length == 0 ? "なし" : text;
+	}
 
 	private static string SlotLabel(EquipmentSlot slot) => slot switch
 	{

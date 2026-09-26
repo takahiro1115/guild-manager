@@ -82,16 +82,19 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
-        public void StatBonus_RaisesBossPower_BeyondFlatCpBonus()
+        public void StatBonus_RaisesBossPower_ByWeightedBonus()
         {
-            // 討伐CP＝Σ実効ステータス×重み＋装備CP。能力値補正の分だけ、CP加算量単体より多く伸びる。
+            // §0.37：討伐火力＝Σ実効ステータス×重み×HP比率（個人CPの固定加算は撤廃）。
+            // 大剣（STR+6・VIT+2）の寄与はちょうど 6×STR重み＋2×VIT重み。
             var warrior = MakeAdventurer(JobClass.Warrior);
             double before = DungeonPowerCalculator.MemberPower(warrior);
 
             warrior.SetEquippedId(EquipmentSlot.Weapon, ItemCatalog.GreatSwordId);
             warrior.CurrentHP = warrior.MaxHP; // VIT補正で最大HPが伸びた分を満タンに戻す
 
-            Assert.True(DungeonPowerCalculator.MemberPower(warrior) > before + ItemCatalog.GreatSword.EffectValue);
+            double W(string stat) => DungeonBalance.BossPowerWeights.First(w => w.Stat == stat).Weight;
+            double expectedGain = 6 * W("STR") + 2 * W("VIT");
+            Assert.Equal(before + expectedGain, DungeonPowerCalculator.MemberPower(warrior), precision: 6);
         }
 
         [Theory]

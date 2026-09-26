@@ -207,7 +207,7 @@ namespace GuildManager.Core.Models
         /// <summary>
         /// 特性による効果（StatPercentReduction）を反映した実効値に、装備の能力値補正
         /// （→ GetEquipmentStatBonus、03 §4.2.2）を加えた値を返す（→ 03 §4.3・§5.3）。
-        /// 個人CP計算・最大HP計算・大迷宮の各部隊指標（走破・隠密・解析・護衛・討伐CP）の共通ヘルパー。
+        /// 討伐火力・最大HP計算・大迷宮の各部隊指標（走破・隠密・解析・護衛）の共通ヘルパー。
         /// 特性の割合減は素の能力値にだけ掛かり、装備補正は減らない（古傷を負っても剣の重みは変わらない）。
         /// </summary>
         public double GetEffectiveStat(string statName)
@@ -316,7 +316,7 @@ namespace GuildManager.Core.Models
         /// （05技術メモ§3の方針違反。他のSystemクラスへの直書きと同様の問題）。
         /// CombatBalance（combat.csv）へ集約した。
         /// </summary>
-        public int MaxHP => (int)(GetEffectiveStat("VIT") * CombatBalance.MaxHpVitCoefficient) + CombatBalance.MaxHpBase + GetEquipmentBonus(EquipmentEffectType.MaxHpBonus);
+        public int MaxHP => (int)(GetEffectiveStat("VIT") * CombatBalance.MaxHpVitCoefficient) + CombatBalance.MaxHpBase + GetEquipmentHpBonus();
 
         // ---- 装備（Weapon/Armor/Accessory1/Accessory2）。仕様書 03 §4.2.2 参照。 ----
         //
@@ -424,17 +424,17 @@ namespace GuildManager.Core.Models
         }
 
         /// <summary>
-        /// 装備中の4枠（武器・防具・アクセサリー1・アクセサリー2）のうち、指定した効果種別を
-        /// 持つものの効果量合計を返す（→ 03 §4.2.2）。個人CP計算・最大HP計算の両方から使う。
+        /// 装備中の4枠（武器・防具・アクセサリー1・アクセサリー2）の最大HP加算の合計（→ Item.MaxHpBonus、03 §4.2.2）。
+        /// 2026年9月・§0.37：旧 GetEquipmentBonus(効果種別) は個人CPの撤廃に伴い最大HP専用のこのメソッドへ置き換えた。
         /// </summary>
-        public int GetEquipmentBonus(EquipmentEffectType effectType)
+        public int GetEquipmentHpBonus()
         {
             int total = 0;
             foreach (var slot in AllSlots)
             {
                 var item = GetEquipped(slot)?.GetDefinition();
-                if (item != null && item.EffectType == effectType)
-                    total += item.EffectValue;
+                if (item != null)
+                    total += item.MaxHpBonus;
             }
             return total;
         }

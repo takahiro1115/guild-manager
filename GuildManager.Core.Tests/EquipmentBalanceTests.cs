@@ -13,33 +13,33 @@ namespace GuildManager.Core.Tests
     public class EquipmentBalanceTests
     {
         [Theory]
-        //           Id                          Price CP/HP STR VIT AGI DEX INT MND LDR
-        [InlineData(ItemCatalog.IronSwordId,     100,  8,  2,  1,  0,  0,  0,  0,  0)]
-        [InlineData(ItemCatalog.DaggerId,         80,  6,  0,  0,  2,  5,  0,  0,  0)]
-        [InlineData(ItemCatalog.HuntingBowId,    140,  9,  0,  0,  4,  2,  0,  0,  0)]
-        [InlineData(ItemCatalog.SpearId,         180, 11,  3,  3,  0,  0,  0,  0,  0)]
-        [InlineData(ItemCatalog.GreatSwordId,    200, 14,  6,  2,  0,  0,  0,  0,  0)]
-        [InlineData(ItemCatalog.MaceId,          150,  7,  2,  0,  0,  0,  0,  5,  0)]
-        [InlineData(ItemCatalog.WarhammerId,     210, 12,  4,  0,  0,  0,  0,  3,  0)]
-        [InlineData(ItemCatalog.MageStaffId,     160,  9,  0,  0,  0,  0,  6,  0,  0)]
-        [InlineData(ItemCatalog.GrimoireId,      220, 11,  0,  0,  0,  0,  4,  4,  0)]
+        //           Id                          Price HP  STR VIT AGI DEX INT MND LDR（§0.37：武器のHP列は0＝旧・個人CPは撤廃）
+        [InlineData(ItemCatalog.IronSwordId,     100,  0,  2,  1,  0,  0,  0,  0,  0)]
+        [InlineData(ItemCatalog.DaggerId,         80,  0,  0,  0,  2,  5,  0,  0,  0)]
+        [InlineData(ItemCatalog.HuntingBowId,    140,  0,  0,  0,  4,  2,  0,  0,  0)]
+        [InlineData(ItemCatalog.SpearId,         180,  0,  3,  3,  0,  0,  0,  0,  0)]
+        [InlineData(ItemCatalog.GreatSwordId,    200,  0,  6,  2,  0,  0,  0,  0,  0)]
+        [InlineData(ItemCatalog.MaceId,          150,  0,  2,  0,  0,  0,  0,  5,  0)]
+        [InlineData(ItemCatalog.WarhammerId,     210,  0,  4,  0,  0,  0,  0,  3,  0)]
+        [InlineData(ItemCatalog.MageStaffId,     160,  0,  0,  0,  0,  0,  6,  0,  0)]
+        [InlineData(ItemCatalog.GrimoireId,      220,  0,  0,  0,  0,  0,  4,  4,  0)]
         [InlineData(ItemCatalog.LeatherArmorId,   80, 15,  0,  0,  2,  0,  0,  0,  0)]
         [InlineData(ItemCatalog.ScholarCoatId,   130, 15,  0,  0,  0,  2,  3,  0,  0)]
         [InlineData(ItemCatalog.RobeId,          100, 10,  0,  0,  0,  0,  3,  3,  0)]
         [InlineData(ItemCatalog.ChainmailId,     160, 25,  0,  3,  0,  0,  0,  0,  0)]
         [InlineData(ItemCatalog.HeavyArmorId,    200, 35,  1,  6,  0,  0,  0,  0,  0)]
         [InlineData(ItemCatalog.PlateArmorId,    300, 50,  2, 10,  0,  0,  0,  0,  0)]
-        [InlineData(ItemCatalog.PowerRingId,     300,  8,  0,  0,  0,  0,  0,  0,  0)]
+        [InlineData(ItemCatalog.PowerRingId,     300,  0,  5,  0,  0,  0,  0,  0,  0)]
         [InlineData(ItemCatalog.LifeAmuletId,    300, 15,  0,  0,  0,  0,  0,  0,  0)]
-        [InlineData(ItemCatalog.QuickBroochId,   300,  8,  0,  0,  0,  0,  0,  0,  0)]
+        [InlineData(ItemCatalog.QuickBroochId,   300,  0,  0,  0,  5,  0,  0,  0,  0)]
         [InlineData(ItemCatalog.GuardCharmId,    300, 15,  0,  0,  0,  0,  0,  0,  0)]
-        public void CatalogItems_MatchCsvValues(string id, int price, int effect,
+        public void CatalogItems_MatchCsvValues(string id, int price, int hp,
             int str, int vit, int agi, int dex, int intel, int mnd, int ldr)
         {
             var item = ItemCatalog.FindById(id)!;
 
             Assert.Equal(price, item.Price);
-            Assert.Equal(effect, item.EffectValue);
+            Assert.Equal(hp, item.MaxHpBonus);
             Assert.Equal(str, item.GetStatBonus("STR"));
             Assert.Equal(vit, item.GetStatBonus("VIT"));
             Assert.Equal(agi, item.GetStatBonus("AGI"));
@@ -57,7 +57,7 @@ namespace GuildManager.Core.Tests
             {
                 var stats = EquipmentBalance.Get(item.Id);
                 Assert.Equal(stats.Price, item.Price);
-                Assert.Equal(stats.EffectValue, item.EffectValue);
+                Assert.Equal(stats.HpBonus, item.MaxHpBonus);
                 Assert.Same(stats.StatBonuses, item.StatBonuses);
             }
         }

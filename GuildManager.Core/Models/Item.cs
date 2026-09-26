@@ -13,10 +13,13 @@ namespace GuildManager.Core.Models
         public string Id { get; set; } = "";
         public string Name { get; set; } = "";
         public EquipmentSlot Slot { get; set; }
-        public EquipmentEffectType EffectType { get; set; }
 
-        /// <summary>固定加算量（→ BAL: 装備）。武器・防具は常にこの値がそれぞれ個人CP・最大HPに加算される。</summary>
-        public int EffectValue { get; set; }
+        /// <summary>
+        /// 最大HPへの固定加算（→ BAL: equipment.csv `HpBonus`、Adventurer.MaxHP）。防具・HP系アクセサリーのみ正、武器は0。
+        /// 2026年9月・§0.37：旧 EffectType（個人CP／最大HPの二択）・EffectValue は個人CPの撤廃に伴い廃止し、
+        /// 武具の強さは最大HP加算と能力値補正（StatBonuses）の2つだけになった。
+        /// </summary>
+        public int MaxHpBonus { get; set; }
 
         /// <summary>装備可能な職業の一覧。空リスト＝全職業装備可（職業制限なし）。</summary>
         public List<JobClass> AllowedJobs { get; set; } = new();
@@ -38,6 +41,25 @@ namespace GuildManager.Core.Models
 
         /// <summary>指定した能力値への補正値（未設定なら0）。</summary>
         public int GetStatBonus(string statName) => StatBonuses.TryGetValue(statName, out int v) ? v : 0;
+
+        /// <summary>能力値補正を表示する順序（→ DescribeEffects）。</summary>
+        private static readonly string[] StatDisplayOrder = { "STR", "VIT", "AGI", "DEX", "INT", "MND", "LDR" };
+
+        /// <summary>
+        /// 効果の短い説明（UIの装備欄・保管庫・装備ダイアログ共通）。例：「最大HP+15・AGI+2」「STR+6・VIT+2」。
+        /// 補正が1つも無ければ「効果なし」。
+        /// </summary>
+        public string DescribeEffects()
+        {
+            var parts = new List<string>();
+            if (MaxHpBonus != 0) parts.Add($"最大HP{(MaxHpBonus > 0 ? "+" : "")}{MaxHpBonus}");
+            foreach (var stat in StatDisplayOrder)
+            {
+                int bonus = GetStatBonus(stat);
+                if (bonus != 0) parts.Add($"{stat}{(bonus > 0 ? "+" : "")}{bonus}");
+            }
+            return parts.Count == 0 ? "効果なし" : string.Join("・", parts);
+        }
 
         /// <summary>
         /// 見た目切替用の識別子（→ 03 §4.2.2「見た目との連動」）。武器・防具・アクセサリー1のみ使用。
