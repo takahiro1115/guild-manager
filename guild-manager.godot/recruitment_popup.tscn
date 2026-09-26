@@ -1,52 +1,140 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" path="res://scripts/RecruitmentPopup.cs" id="1_script"]
+[ext_resource type="PackedScene" uid="uid://d3qap4adventurer" path="res://scenes/AdventurerPanel.tscn" id="2_detail"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_popup"]
+bg_color = Color(0.1, 0.1, 0.12, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.35, 0.35, 0.42, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
 
 [node name="RecruitmentPopup" type="PopupPanel"]
 title = "新春採用試験"
 initial_position = 1
-size = Vector2i(560, 420)
+size = Vector2i(1560, 880)
+min_size = Vector2i(1560, 880)
 exclusive = true
 script = ExtResource("1_script")
+theme_override_styles/panel = SubResource("StyleBoxFlat_popup")
 
-[node name="VBox" type="VBoxContainer" parent="."]
+[node name="Margin" type="MarginContainer" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 8.0
-offset_top = 8.0
-offset_right = -8.0
-offset_bottom = -8.0
+offset_left = 4.0
+offset_top = 4.0
+offset_right = -4.0
+offset_bottom = -4.0
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 10
 
-[node name="TitleLabel" type="Label" parent="VBox"]
+[node name="VBox" type="VBoxContainer" parent="Margin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="HeaderPanel" type="PanelContainer" parent="Margin/VBox"]
+layout_mode = 2
+
+[node name="Margin" type="MarginContainer" parent="Margin/VBox/HeaderPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 6
+
+[node name="HeaderHBox" type="HBoxContainer" parent="Margin/VBox/HeaderPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="TitleLabel" type="Label" parent="Margin/VBox/HeaderPanel/Margin/HeaderHBox"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "新春採用試験：応募者を選んで採用してください（複数可・空き枠まで）"
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 20
+text = "【新春採用試験】候補者一覧"
 
-[node name="CandidateList" type="ItemList" parent="VBox"]
+[node name="SummaryLabel" type="Label" parent="Margin/VBox/HeaderPanel/Margin/HeaderHBox"]
 unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.85, 0.4, 1)
+theme_override_font_sizes/font_size = 15
+text = "選択中: 0名　合計契約金: 0 G　宿舎空き枠: 0　所持金: 0 G"
+horizontal_alignment = 2
+
+[node name="Body" type="HBoxContainer" parent="Margin/VBox"]
 layout_mode = 2
 size_flags_vertical = 3
+theme_override_constants/separation = 12
 
-[node name="StatusLabel" type="Label" parent="VBox"]
+[node name="LeftPane" type="VBoxContainer" parent="Margin/VBox/Body"]
+custom_minimum_size = Vector2(680, 0)
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="GuideLabel" type="Label" parent="Margin/VBox/Body/LeftPane"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(660, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.75, 0.9, 1, 1)
+theme_override_font_sizes/font_size = 14
+text = "採用する志願者にチェックを入れてください。"
+autowrap_mode = 3
+
+[node name="CandidateScroll" type="ScrollContainer" parent="Margin/VBox/Body/LeftPane"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="CandidateCards" type="VBoxContainer" parent="Margin/VBox/Body/LeftPane/CandidateScroll"]
 unique_name_in_owner = true
 layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="DetailPanel" parent="Margin/VBox/Body" instance=ExtResource("2_detail")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(780, 0)
+layout_mode = 2
+
+[node name="StatusLabel" type="Label" parent="Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.45, 0.4, 1)
+theme_override_font_sizes/font_size = 14
 text = ""
 
-[node name="ButtonRow" type="HBoxContainer" parent="VBox"]
+[node name="FooterRow" type="HBoxContainer" parent="Margin/VBox"]
 layout_mode = 2
+theme_override_constants/separation = 12
 
-[node name="HireButton" type="Button" parent="VBox/ButtonRow"]
+[node name="DeclineButton" type="Button" parent="Margin/VBox/FooterRow"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(220, 44)
+layout_mode = 2
+theme_override_font_sizes/font_size = 15
+text = "今回は見送る"
+
+[node name="Spacer" type="Control" parent="Margin/VBox/FooterRow"]
 layout_mode = 2
 size_flags_horizontal = 3
-text = "選択した候補者を採用する"
+mouse_filter = 2
 
-[node name="DeclineButton" type="Button" parent="VBox/ButtonRow"]
+[node name="HireButton" type="Button" parent="Margin/VBox/FooterRow"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(480, 44)
 layout_mode = 2
-size_flags_horizontal = 3
-text = "見送る（採用試験を終了）"
+theme_override_font_sizes/font_size = 16
+disabled = true
+text = "【 選択した冒険者を採用する 】"

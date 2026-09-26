@@ -231,6 +231,36 @@ public partial class AdventurerPanel : VBoxContainer
 	/// <summary>現在表示中の冒険者Id（未選択ならnull）。部隊編成パネルの選択強調に使う。</summary>
 	public Guid? SelectedAdventurerId => _detailAdventurerId;
 
+	/// <summary>
+	/// ギルド未加入の志願者を表示する（→ 採用画面 RecruitmentPopup の右ペイン、03 §2.4・§9、§0.37）。
+	/// 名簿に居ない人物を直接受け取り、同じ基本情報・7大能力値バー・特性・装備欄で描く。
+	/// 人事業務（装備変更・昇給・ボーナス・引退勧告・顧問管理・改名・特性の忘却）と、在籍前提の
+	/// 満足度・8年稼働タイムラインは出さない。以後この Panel は志願者表示専用として使う
+	/// （部隊・冒険者画面の Panel とは別インスタンス。Refresh は呼ばれない）。
+	/// </summary>
+	public void ShowCandidatePreview(Adventurer candidate)
+	{
+		ShowAdventurerDetail(candidate);
+
+		GetNode<Control>("HeaderPanel").Visible = false;
+		GetNode<Control>("Body/RightPane/DetailVBox/DetailContainer/LifecycleCard").Visible = false;
+		GetNode<Control>("Body/RightPane/DetailVBox/DetailContainer/ActionButtonsCard").Visible = false;
+		_renameButton.Visible = false;
+		_negotiationWarning.Visible = false;
+		_satisfactionLabel.Visible = false;
+		_satisfactionBar.Visible = false;
+		foreach (var forget in _forgetButtons)
+			forget.Visible = false;
+
+		_statusLabel.Clear();
+		_statusLabel.AppendText("[color=yellow]志願者（ギルド未加入）[/color]");
+		_wageLabel.Text = $"加入想定週給: {candidate.WeeklyWage} G";
+		if (candidate.EquippedWeapon == null)
+			_weaponLabel.Text = "武器: なし（平服）";
+		if (candidate.EquippedArmor == null)
+			_armorLabel.Text = "防具: なし（平服）";
+	}
+
 	// ==== 詳細表示 ====
 
 	/// <summary>
