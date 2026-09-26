@@ -80,7 +80,9 @@ namespace GuildManager.Core.Systems
                 var targetStats = FacilityBalance.GetTrainingTargetStats(facility);
                 double multiplier = GrowthBalance.TrainingFacilityMultiplier + GetTrainerBonus(state, facility);
 
-                var growthEvent = TryGrowOne(adventurer, multiplier, _ => targetStats[_rng.NextInt(0, targetStats.Length - 1)]);
+                // 勤勉（→ TraitCatalog.Diligent、03 §5.3.2・§6.2）：基礎確率に DiligentGrowthRateBonus を加算してから倍率を掛ける。
+                double baseBonus = adventurer.HasTrait(TraitCatalog.DiligentId) ? TrainingBalance.DiligentGrowthRateBonus : 0;
+                var growthEvent = TryGrowOne(adventurer, multiplier, _ => targetStats[_rng.NextInt(0, targetStats.Length - 1)], baseBonus);
                 if (growthEvent != null)
                     events.Add(growthEvent);
             }
@@ -163,9 +165,10 @@ namespace GuildManager.Core.Systems
             };
         }
 
-        private GrowthEvent? TryGrowOne(Adventurer adventurer, double multiplier, Func<Adventurer, string> pickStat)
+        /// <param name="baseProbabilityBonus">年齢帯別の基礎確率に加算する値（勤勉の訓練経路のみ。倍率はこの後に掛かる）。</param>
+        private GrowthEvent? TryGrowOne(Adventurer adventurer, double multiplier, Func<Adventurer, string> pickStat, double baseProbabilityBonus = 0)
         {
-            double probability = GrowthBalance.GetBaseProbability(adventurer.AgeBand) * multiplier;
+            double probability = (GrowthBalance.GetBaseProbability(adventurer.AgeBand) + baseProbabilityBonus) * multiplier;
             int roll = _rng.NextInt(1, 100);
             if (roll > (int)Math.Round(probability * 100))
                 return null;

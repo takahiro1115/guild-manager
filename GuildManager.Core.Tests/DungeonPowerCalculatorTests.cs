@@ -83,7 +83,7 @@ namespace GuildManager.Core.Tests
             };
             members[1].CurrentHP = members[1].MaxHP / 3;
 
-            double expected = members.Sum(DungeonPowerCalculator.MemberPower);
+            double expected = members.Sum(m => DungeonPowerCalculator.MemberPower(m));
 
             Assert.Equal(expected, DungeonPowerCalculator.PartyPower(members), precision: 10);
             Assert.Equal(WeightedSum(50) + WeightedSum(20) + WeightedSum(30) * ((double)members[1].CurrentHP / members[1].MaxHP),
@@ -99,7 +99,7 @@ namespace GuildManager.Core.Tests
             var party = new Party();
             foreach (var m in members) party.TryAdd(m);
             var boss = new FloorBoss { Name = "検証用の主", Floor = 10, MaxHp = 1, CurrentHp = 1, IntelRate = intelRate };
-            double sum = members.Sum(DungeonPowerCalculator.MemberPower);
+            double sum = members.Sum(m => DungeonPowerCalculator.MemberPower(m));
 
             var result = new DungeonResolver(new AlwaysMinRng()).Resolve(party, boss);
 

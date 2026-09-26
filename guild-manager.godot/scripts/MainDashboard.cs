@@ -885,6 +885,9 @@ public partial class MainDashboard : Control
 				sb.AppendLine($"[color=gray]　第{traversal.FloorBefore}F〜{traversal.FloorAfter}Fへ進軍。内訳: {segments}" +
 					$" → 実効平均速度×{traversal.IntelSpeedMultiplier:F1} / 実効損耗{traversal.EffectiveLossPct:F1}%（階層数で加重平均）[/color]");
 			}
+			// 夜目（→ 03 §4.5.3・§5.3.2）：未踏破階層の基礎損耗を一律で軽減した週のみ。
+			if (traversal.NightVisionApplied)
+				sb.AppendLine($"[color=cyan]🌙 夜目の利く隊員が暗がりを先導し、未踏破区間の損耗を{DungeonTraversalBalance.NightVisionUnexploredDamageReductionRate * 100:0}%抑えた。[/color]");
 			// 参謀のルート指導（→ AdvisorSystem.GetAdvisorTraversalPowerBonus、§7.2）。任命されている週のみ。
 			if (traversal.AdvisorName != null)
 			{
@@ -926,6 +929,15 @@ public partial class MainDashboard : Control
 			sb.AppendLine($"[color=red]✖ {DungeonPanel.GimmickLabel(type)}に対抗できず、部隊が大きな損害を受けた。[/color]");
 		if (assault.FullIntelBonusApplied)
 			sb.AppendLine("[color=gold]◆ 完全解析の成果：弱点を正確に突いた。[/color]");
+		// 耐毒体質・巨獣狩り（→ 03 §4.5.4・§5.3.2）：効いた戦闘のみ開示する。
+		if (assault.ResistPoisonApplied)
+			sb.AppendLine($"[color=cyan]🧪 耐毒体質の隊員が毒に耐え、猛毒による被害の上乗せを{CombatBalance.ResistPoisonDamageReductionRate * 100:0}%抑えた。[/color]");
+		foreach (var hunterId in assault.GiantHunterAdventurerIds)
+		{
+			var hunter = _state.Adventurers.FirstOrDefault(a => a.Id == hunterId);
+			if (hunter != null)
+				sb.AppendLine($"[color=cyan]🗡 {hunter.Name}の巨獣狩りの技が重装甲を穿った（個人CP +{CombatBalance.GiantHunterDamageBonusRate * 100:0}%）。[/color]");
+		}
 
 		sb.AppendLine(assault.Outcome == DungeonOutcome.Victory
 			? $"[color=gold][font_size=20][b]🏆 【階層ボス撃破】部隊は見事に「{boss.Name}」を討伐した！ 第{boss.Floor}層を踏破！[/b][/font_size][/color]"

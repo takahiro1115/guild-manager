@@ -917,6 +917,11 @@ public partial class DungeonPanel : ScrollContainer
 			var rank = DungeonTraversalResolver.RankFromFloors(baseFloors);
 			int predictedReach = DungeonTraversalResolver.PredictFloorAfter(_selectedField, 1, baseFloors);
 			var (rankLossMin, rankLossMax) = DungeonTraversalResolver.RankHpLossRange(rank);
+			// 夜目（→ 03 §4.5.3）の保有者がいれば、未踏破の損耗レンジを実際の解決と同じ倍率で縮めて見せる。
+			double unexploredMul = DungeonTraversalResolver.UnexploredLossMultiplier(party);
+			string unexploredLoss = unexploredMul < 1.0
+				? $"{DungeonBalance.UnexploredHpLossPctMin * unexploredMul:0.#}〜{DungeonBalance.UnexploredHpLossPctMax * unexploredMul:0.#}%（夜目）"
+				: $"{DungeonBalance.UnexploredHpLossPctMin}〜{DungeonBalance.UnexploredHpLossPctMax}%";
 			var segments = DungeonTraversalResolver.DescribeSegments(_selectedField, 1, boss.Floor, _selectedField.ReachedFloor);
 
 			string rankView = rank switch
@@ -932,7 +937,7 @@ public partial class DungeonPanel : ScrollContainer
 			// Zone C は縦スクロール不要の収容（→ 03 §0.18）を守るため、潜行の見立ては3行に収める。
 			sb.AppendLine($"[b]🏃 大迷宮へ潜行（進軍）[/b]→ 第{boss.Floor}層「{boss.Name}」扉前　見立て：{rankView}");
 			sb.AppendLine($"　部隊走破力: [color=cyan]{score:F0}[/color] pt（要求: {requirement:F0}〔1F×{DungeonTraversalBalance.RequirementPerFloor}〕／比率: {FormatRatio(ratio)}）" +
-				$"→ {TraversalRankLabel(rank)}：基礎{baseFloors}階層→予測 第{predictedReach}層（+{predictedReach - 1}）／既踏の損耗{rankLossMin}〜{rankLossMax}%・未踏破の損耗{DungeonBalance.UnexploredHpLossPctMin}〜{DungeonBalance.UnexploredHpLossPctMax}%");
+				$"→ {TraversalRankLabel(rank)}：基礎{baseFloors}階層→予測 第{predictedReach}層（+{predictedReach - 1}）／既踏の損耗{rankLossMin}〜{rankLossMax}%・未踏破の損耗{unexploredLoss}");
 			sb.AppendLine($"　実効速度（区間別）: {SegmentPreviewText(segments, MaxPreviewSegments)}");
 
 			_scoutingButton.TooltipText =

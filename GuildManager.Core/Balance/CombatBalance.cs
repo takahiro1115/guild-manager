@@ -64,5 +64,17 @@ namespace GuildManager.Core.Balance
         /// <summary>重傷の全治週数レンジ。→ 03 §2.3「重傷: 全治3〜8週」</summary>
         public static readonly int SevereInjuryWeeksMin = BalanceData.GetInt(FileName, "SevereInjuryWeeksMin");
         public static readonly int SevereInjuryWeeksMax = BalanceData.GetInt(FileName, "SevereInjuryWeeksMax");
+
+        /// <summary>
+        /// 耐毒体質（→ TraitCatalog.ResistPoison、03 §5.3.2）：未対策の「猛毒」ギミックが被ダメージ倍率に足す分
+        /// （危険度×UncounteredDamageMultiplierPerDangerLevel）を、部隊に保有者がいればこの率だけ減らす（→ DungeonResolver）。
+        /// </summary>
+        public static readonly double ResistPoisonDamageReductionRate = BalanceData.GetDouble(FileName, "ResistPoisonDamageReductionRate");
+
+        /// <summary>
+        /// 巨獣狩り（→ TraitCatalog.GiantHunter）：ボスが「重装甲」ギミックを持つとき、保有者本人の個人CPに
+        /// 上乗せする率（→ DungeonPowerCalculator.MemberPower）。
+        /// </summary>
+        public static readonly double GiantHunterDamageBonusRate = BalanceData.GetDouble(FileName, "GiantHunterDamageBonusRate");
     }
 }

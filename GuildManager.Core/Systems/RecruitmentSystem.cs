@@ -116,6 +116,19 @@ namespace GuildManager.Core.Systems
             return true;
         }
 
+        /// <summary>
+        /// 採用時（新春ドラフト・新春採用試験の両方）の先天特性プール（→ 03 §5.3.2）。この順に独立判定する。
+        /// 項目64で田舎育ち・知識人、2026年9月（特性深化 Step 2）で耐毒体質・夜目・勤勉・師匠肌を追加
+        /// （師匠肌は教官からの伝授しか経路が無く、最初の保有者が生まれなかったため）。
+        /// 巨獣狩りは決戦・後天向けの特性として先天プールに含めない。構造値のためCSV化しない。
+        /// </summary>
+        public static readonly string[] InnateTraitPool =
+        {
+            TraitCatalog.BraveId, TraitCatalog.AttentiveId, TraitCatalog.BeautifulId,
+            TraitCatalog.CountryBredId, TraitCatalog.ScholarId,
+            TraitCatalog.ResistPoisonId, TraitCatalog.NightVisionId, TraitCatalog.DiligentId, TraitCatalog.MentorId,
+        };
+
         /// <summary>現役枠の上限（→ 03 §2.4「雇用枠」）。宿舎（Dormitory）の現在Lvに連動する。</summary>
         public int GetActiveSlotCap(GameState state) =>
             FacilityBalance.GetDormitoryCapacity(state.GetFacilityLevel(FacilityType.Dormitory));
@@ -236,19 +249,14 @@ namespace GuildManager.Core.Systems
             candidate.CurrentHP = candidate.MaxHP;
             candidate.WeeklyWage = Math.Max(1, (int)(candidate.TotalPA * EconomyBalance.WeeklyWageCoefficient));
 
-            // 先天特性の付与判定（→ 03 §5.3.2）。いずれも独立判定（1人が複数持つこともありうる）。
-            // 項目64で田舎育ち・知識人を追加。付与確率は既存3種と同じ定数を再利用している
-            // （特性ごとに出現率を変える必要が出た時点で、recruitment.csv側にキーを分ければよい）。
-            if (_rng.NextInt(1, 100) <= RecruitmentBalance.InnateTraitChancePercent)
-                candidate.TryAddTrait(TraitCatalog.BraveId);
-            if (_rng.NextInt(1, 100) <= RecruitmentBalance.InnateTraitChancePercent)
-                candidate.TryAddTrait(TraitCatalog.AttentiveId);
-            if (_rng.NextInt(1, 100) <= RecruitmentBalance.InnateTraitChancePercent)
-                candidate.TryAddTrait(TraitCatalog.BeautifulId);
-            if (_rng.NextInt(1, 100) <= RecruitmentBalance.InnateTraitChancePercent)
-                candidate.TryAddTrait(TraitCatalog.CountryBredId);
-            if (_rng.NextInt(1, 100) <= RecruitmentBalance.InnateTraitChancePercent)
-                candidate.TryAddTrait(TraitCatalog.ScholarId);
+            // 先天特性の付与判定（→ 03 §5.3.2）。プールの各特性を独立判定（1人が複数持つこともありうる。
+            // 5枠を超える分は付かない）。付与確率は全特性で共通の定数（特性ごとに出現率を変える必要が出た時点で、
+            // recruitment.csv側にキーを分ければよい）。
+            foreach (var traitId in InnateTraitPool)
+            {
+                if (_rng.NextInt(1, 100) <= RecruitmentBalance.InnateTraitChancePercent)
+                    candidate.TryAddTrait(traitId);
+            }
 
             int signingBonus = (int)(candidate.TotalPA * candidate.Age * EconomyBalance.SigningBonusCoefficient);
 

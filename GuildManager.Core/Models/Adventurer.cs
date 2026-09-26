@@ -132,12 +132,50 @@ namespace GuildManager.Core.Models
         /// <summary>
         /// 特性を付与する。既に持っている、またはスロットが満杯（→ MaxTraitCount）の場合は
         /// 何もせずfalseを返す。
+        /// ただし障害・呪い特性（古傷・トラウマ）は満杯でも通常特性を侵食して必ず付く（→ TryAddCurseTrait）。
+        /// 「5枠を埋めておけば障害を受けない」という抜け道を作らないため（2026年9月、→ 03 §5.3.2）。
         /// </summary>
-        public bool TryAddTrait(string traitId)
+        public bool TryAddTrait(string traitId) =>
+            TraitCatalog.FindById(traitId)?.IsCurseOrInjury == true
+                ? TryAddCurseTrait(traitId, out _)
+                : TryAddNormalTrait(traitId);
+
+        private bool TryAddNormalTrait(string traitId)
         {
             if (!CanAddTrait(traitId)) return false;
             TraitIds.Add(traitId);
             return true;
+        }
+
+        /// <summary>
+        /// 障害・呪い特性を付与する（→ 03 §5.3.2「障害特性の侵食」）。
+        /// 空き枠があれば末尾に追加する。5枠満杯なら、所持している**通常特性（障害でないもの）のうち最も後ろの枠**を
+        /// 強制的に忘却させ、その枠を障害特性で上書きする（erodedTraitId に消えた特性のId）。
+        /// 5枠すべてが障害特性で埋まっている場合、または既に同じ特性を持っている場合は何もせず false。
+        /// 障害特性でない特性を渡した場合は侵食せず、通常の追加（空き枠がある時だけ）として扱う。
+        /// </summary>
+        public bool TryAddCurseTrait(string traitId, out string? erodedTraitId)
+        {
+            erodedTraitId = null;
+            if (TraitCatalog.FindById(traitId)?.IsCurseOrInjury != true)
+                return TryAddNormalTrait(traitId);
+            if (TraitIds.Contains(traitId)) return false;
+
+            if (TraitIds.Count < MaxTraitCount)
+            {
+                TraitIds.Add(traitId);
+                return true;
+            }
+
+            for (int i = TraitIds.Count - 1; i >= 0; i--)
+            {
+                if (!CanRemoveTrait(TraitIds[i])) continue;
+                erodedTraitId = TraitIds[i];
+                TraitIds[i] = traitId;
+                return true;
+            }
+
+            return false; // 5枠すべてが障害特性
         }
 
         /// <summary>

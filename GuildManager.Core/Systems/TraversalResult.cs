@@ -52,6 +52,12 @@ namespace GuildManager.Core.Systems
         public bool EnteredUnexplored { get; set; }
 
         /// <summary>
+        /// 夜目（→ TraitCatalog.NightVision）で未踏破階層の損耗が軽減されたか（未踏破に踏み込み、かつ部隊に保有者がいた）。
+        /// 週報の開示用（→ 03 §4.5.3）。
+        /// </summary>
+        public bool NightVisionApplied { get; set; }
+
+        /// <summary>
         /// 今回の進軍で踏み入れた未踏破階層の数（＝新階層開拓。→ MasterMoodSystem の機嫌上昇、2026年9月新設）。
         /// </summary>
         public int UnexploredFloorsAdvanced { get; set; }

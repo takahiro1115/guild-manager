@@ -58,10 +58,13 @@ namespace GuildManager.Core.Systems
                     result.UncounteredGimmicks.Add(gimmick.Type);
             }
 
-            result.DamageMultiplier = CalculateDamageMultiplier(boss, result);
+            result.DamageMultiplier = CalculateDamageMultiplier(boss, result, party);
 
             // ---- 火力判定（ボスのHPを削り切れるか） ----
-            double partyPower = DungeonPowerCalculator.PartyPower(party.Members);
+            // 重装甲ボスなら巨獣狩りの保有者の個人CPに上乗せが効く（→ DungeonPowerCalculator.MemberPower）。
+            double partyPower = DungeonPowerCalculator.PartyPower(party.Members, boss);
+            result.GiantHunterAdventurerIds.AddRange(
+                party.Members.Where(m => DungeonPowerCalculator.GiantHunterApplies(m, boss)).Select(m => m.Id));
 
             // 完全解析なら弱点を突ける（→ ScoutingResolver で解析率を1.0まで上げた場合）。
             result.FullIntelBonusApplied = ScoutingResolver.GetTier(boss.IntelRate) == IntelTier.Complete;
@@ -118,17 +121,27 @@ namespace GuildManager.Core.Systems
         /// <summary>
         /// 未対策ギミックによる被ダメージ倍率。未対策1件につき危険度に比例して積み上がる。
         /// すべて対策済みなら1.0（＝通常の討伐並みの損害で済む）。
+        /// 未対策の「猛毒」については、部隊に耐毒体質（→ TraitCatalog.ResistPoison）の保有者が1人でもいれば、
+        /// その猛毒分の加算を ResistPoisonDamageReductionRate だけ減らす（→ 03 §4.5.4・§5.3.2）。
+        /// 猛毒が対策済みなら猛毒分の加算はもともと無いため、耐毒体質は効かない。
         /// </summary>
-        private static double CalculateDamageMultiplier(FloorBoss boss, DungeonResult result)
+        private static double CalculateDamageMultiplier(FloorBoss boss, DungeonResult result, Party party)
         {
             double multiplier = 1.0;
+            bool resistPoison = party.Members.Any(m => m.HasTrait(TraitCatalog.ResistPoisonId));
 
             foreach (var gimmick in boss.Gimmicks)
             {
                 if (result.CounteredGimmicks.Contains(gimmick.Type))
                     continue;
 
-                multiplier += gimmick.DangerLevel * DungeonBalance.UncounteredDamageMultiplierPerDangerLevel;
+                double term = gimmick.DangerLevel * DungeonBalance.UncounteredDamageMultiplierPerDangerLevel;
+                if (gimmick.Type == BossGimmickType.Poison && resistPoison)
+                {
+                    term *= 1.0 - CombatBalance.ResistPoisonDamageReductionRate;
+                    result.ResistPoisonApplied = true;
+                }
+                multiplier += term;
             }
 
             return multiplier;

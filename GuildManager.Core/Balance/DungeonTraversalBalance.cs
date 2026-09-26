@@ -62,5 +62,11 @@ namespace GuildManager.Core.Balance
 
         /// <summary>この階層数を進むごとに素材を1個拾う。</summary>
         public static readonly int LootFloorsPerMaterial = BalanceData.GetInt(FileName, "LootFloorsPerMaterial");
+
+        /// <summary>
+        /// 夜目（→ TraitCatalog.NightVision、03 §4.5.3・§5.3.2）：部隊に保有者が1人でもいれば、未踏破階層の
+        /// 基礎損耗率（→ DungeonBalance.UnexploredHpLossPct*）をこの率だけ減らす（→ DungeonTraversalResolver.ApplyHpLoss）。
+        /// </summary>
+        public static readonly double NightVisionUnexploredDamageReductionRate = BalanceData.GetDouble(FileName, "NightVisionUnexploredDamageReductionRate");
     }
 }

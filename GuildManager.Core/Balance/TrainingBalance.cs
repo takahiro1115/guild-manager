@@ -30,5 +30,11 @@ namespace GuildManager.Core.Balance
         /// を乗算する。→ BAL: 静養/待機回復。
         /// </summary>
         public static readonly double RestRecoveryRatio = BalanceData.GetDouble(FileName, "RestRecoveryRatio");
+
+        /// <summary>
+        /// 勤勉（→ TraitCatalog.Diligent、03 §5.3.2・§6.2）：訓練施設での週次成長ロールの基礎確率に加算する値
+        /// （→ GrowthSystem.ProcessTrainingGrowth。+0.10＝+10%ポイント、施設倍率・教官ボーナスはこの後に掛かる）。
+        /// </summary>
+        public static readonly double DiligentGrowthRateBonus = BalanceData.GetDouble(FileName, "DiligentGrowthRateBonus");
     }
 }

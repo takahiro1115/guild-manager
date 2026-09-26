@@ -369,13 +369,17 @@ namespace GuildManager.Core.Systems
             bool needRank = steps.Count == 0 || steps.Any(s => !s.Unexplored);
             bool needUnexplored = steps.Any(s => s.Unexplored);
 
+            // 夜目（→ 03 §4.5.3・§5.3.2）：部隊に保有者が1人でもいれば、未踏破階層の基礎損耗率を一律で軽減する。
+            double unexploredMultiplier = UnexploredLossMultiplier(party);
+            result.NightVisionApplied = needUnexplored && unexploredMultiplier < 1.0;
+
             double rankPctSum = 0, unexploredPctSum = 0;
             foreach (var member in party.Members)
             {
                 // 必要な種類だけ乱数を引く（既踏のみ・未踏破のみの進軍は従来どおり1人1回）。
                 int rankPct = needRank ? _rng.NextInt(rankMin, rankMax) : 0;
-                int unexploredPct = needUnexplored
-                    ? _rng.NextInt(DungeonBalance.UnexploredHpLossPctMin, DungeonBalance.UnexploredHpLossPctMax)
+                double unexploredPct = needUnexplored
+                    ? _rng.NextInt(DungeonBalance.UnexploredHpLossPctMin, DungeonBalance.UnexploredHpLossPctMax) * unexploredMultiplier
                     : 0;
                 rankPctSum += rankPct;
                 unexploredPctSum += unexploredPct;
@@ -399,6 +403,15 @@ namespace GuildManager.Core.Systems
             result.Segments = BuildSegments(steps, result.FloorBefore,
                 unexplored => unexplored ? result.UnexploredLossPct : result.RankLossPct);
         }
+
+        /// <summary>
+        /// 未踏破階層の基礎損耗率に掛かる倍率。部隊に夜目（→ TraitCatalog.NightVision）の保有者がいれば
+        /// 1 − NightVisionUnexploredDamageReductionRate、いなければ1.0（出撃前プレビューも同じ値を使う）。
+        /// </summary>
+        public static double UnexploredLossMultiplier(Party party) =>
+            party.Members.Any(m => m.HasTrait(TraitCatalog.NightVisionId))
+                ? 1.0 - DungeonTraversalBalance.NightVisionUnexploredDamageReductionRate
+                : 1.0;
 
         /// <summary>損耗率の合算で 15.0 が 14.999… になって1減る事故を防ぐ許容幅。</summary>
         private const double LossEpsilon = 1e-9;

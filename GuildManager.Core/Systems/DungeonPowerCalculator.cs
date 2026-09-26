@@ -19,8 +19,13 @@ namespace GuildManager.Core.Systems
     /// </summary>
     public static class DungeonPowerCalculator
     {
-        /// <summary>メンバー1名分の火力。負傷（HP減少）に比例して効率が落ちる。</summary>
-        public static double MemberPower(Adventurer a)
+        /// <summary>
+        /// メンバー1名分の火力。負傷（HP減少）に比例して効率が落ちる。
+        /// boss を渡し、そのボスが「重装甲」ギミックを持つ場合、巨獣狩り（→ TraitCatalog.GiantHunter）の保有者は
+        /// 個人CPが GiantHunterDamageBonusRate だけ上乗せされる（→ 03 §4.5.4・§5.3.2。HP比率の前に掛ける）。
+        /// boss を省略した場合（ボスを特定しない試算）は上乗せしない。
+        /// </summary>
+        public static double MemberPower(Adventurer a, FloorBoss? boss = null)
         {
             double hpRatio = (double)a.CurrentHP / a.MaxHP;
 
@@ -29,10 +34,22 @@ namespace GuildManager.Core.Systems
                 statSum += a.GetEffectiveStat(stat) * weight;
 
             double baseScore = statSum + a.GetEquipmentBonus(EquipmentEffectType.PersonalCpBonus);
+            if (GiantHunterApplies(a, boss))
+                baseScore *= 1.0 + CombatBalance.GiantHunterDamageBonusRate;
             return baseScore * hpRatio;
         }
 
-        /// <summary>部隊全員分の火力合計（完全解析ボーナスは含まない。→ DungeonResolver が上乗せする）。</summary>
-        public static double PartyPower(IEnumerable<Adventurer> members) => members.Sum(MemberPower);
+        /// <summary>巨獣狩りの上乗せが効くか：本人が保有し、かつボスが「重装甲」ギミックを持つ。</summary>
+        public static bool GiantHunterApplies(Adventurer a, FloorBoss? boss) =>
+            boss != null
+            && a.HasTrait(TraitCatalog.GiantHunterId)
+            && boss.Gimmicks.Any(g => g.Type == BossGimmickType.HeavyArmor);
+
+        /// <summary>
+        /// 部隊全員分の火力合計（完全解析ボーナスは含まない。→ DungeonResolver が上乗せする）。
+        /// boss を渡すと巨獣狩りの上乗せ（→ MemberPower）が効く。
+        /// </summary>
+        public static double PartyPower(IEnumerable<Adventurer> members, FloorBoss? boss = null) =>
+            members.Sum(m => MemberPower(m, boss));
     }
 }

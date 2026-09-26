@@ -16,3 +16,4 @@ IntelSpeedBonusPerIntel,2.0,倍,調査度連動の走破加速：区間担当ボ
 FullIntelDamageMultiplier,0.3,倍,区間担当ボスが完全解析済みの階層を進む際の被ダメージ倍率（HP損耗を70%軽減）
 LootGoldPerFloor,5,G,道中で1階層進むごとに拾い集めるゴールド（帰還時にギルドへ格納）
 LootFloorsPerMaterial,2,階,この階層数を進むごとに、その階層で採れる素材を1個拾う（帰還時にギルドへ格納）
+NightVisionUnexploredDamageReductionRate,0.10,倍,夜目：道中進軍で部隊に保有者が1人でもいれば、未踏破階層の基礎損耗率（dungeon.csv UnexploredHpLossPct*）をこの率だけ減らす（→ 03 §4.5.3・§5.3.2）

@@ -40,6 +40,12 @@ namespace GuildManager.Core.Systems
         /// <summary>未対策ギミックによる被ダメージ倍率（1.0＝すべて対策済み）。</summary>
         public double DamageMultiplier { get; set; } = 1.0;
 
+        /// <summary>耐毒体質（→ TraitCatalog.ResistPoison）で未対策の猛毒の被ダメージ加算を軽減したか（週報の開示用）。</summary>
+        public bool ResistPoisonApplied { get; set; }
+
+        /// <summary>重装甲ボスに対して巨獣狩り（→ TraitCatalog.GiantHunter）の上乗せが効いた冒険者ID（週報の開示用）。</summary>
+        public List<Guid> GiantHunterAdventurerIds { get; set; } = new();
+
         /// <summary>冒険者IDごとの、今回の戦闘で失ったHP量。</summary>
         public Dictionary<Guid, int> HpLostByAdventurer { get; set; } = new();
 
