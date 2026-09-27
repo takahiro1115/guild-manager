@@ -172,7 +172,7 @@ details summary { cursor: pointer; font-size: 12px; color: var(--muted); }
       <div class="eyebrow">Guild Manager · portraits</div>
       <h1>冒険者肖像工房</h1>
     </div>
-    <p>立ち絵の背景を抜き、髪と瞳の範囲を決めて色違いをまとめて作る。書き出した PNG は <code>assets/portraits/</code> へ、CSV の行は <code>portraits.csv</code> へ。画像はこのブラウザの中だけで処理し、どこにも送らない。</p>
+    <p>立ち絵の背景を抜き（マゼンタや緑の背景で生成した画像はクロマキーで自動的にきれいに抜ける）、髪と瞳の範囲を決めて色違いをまとめて作る。書き出した PNG は <code>assets/portraits/</code> へ、CSV の行は <code>portraits.csv</code> へ。画像はこのブラウザの中だけで処理し、どこにも送らない。</p>
   </header>
 
   <div class="strip" id="strip">
@@ -218,6 +218,14 @@ details summary { cursor: pointer; font-size: 12px; color: var(--muted); }
         <div class="slider"><label for="tol">色の許容値</label><input type="range" id="tol" min="4" max="160" value="24"><output id="tolOut">24</output></div>
         <div class="slider"><label for="size">ブラシ径</label><input type="range" id="size" min="2" max="120" value="24"><output id="sizeOut">24</output></div>
         <div class="slider"><label for="zoom">拡大</label><input type="range" id="zoom" min="1" max="6" step="0.5" value="1"><output id="zoomOut">1×</output></div>
+        <div id="bgMode" class="field" style="gap:6px">
+          <span>背景の抜き方</span>
+          <div class="seg" role="group" aria-label="背景の抜き方">
+            <button type="button" data-bgmode="flood" aria-pressed="true">端から塗りつぶし</button>
+            <button type="button" data-bgmode="chroma" aria-pressed="false">クロマキー</button>
+          </div>
+          <div class="row"><label class="check" for="keyColor">背景色</label><input type="color" id="keyColor" value="#ffffff" style="width:40px;height:26px;border:1px solid var(--line);border-radius:4px;padding:0;background:none"><span class="note" id="keyNote"></span></div>
+        </div>
         <div class="row" id="bgActions">
           <button type="button" class="btn primary" id="autoBg">背景を自動で抜く</button>
           <button type="button" class="btn" id="resetBg">手直しを取り消す</button>
@@ -333,6 +341,8 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
       w: imageData.width, h: imageData.height,
       src: imageData.data,
       autoBg: new Uint8Array(n),      // 1 = 自動判定の背景
+      keyAlpha: new Uint8Array(n),    // クロマキー時の不透明度（0＝背景〜255＝人物）
+      bgMode: "flood",                // "flood" = 端から塗りつぶし / "chroma" = 指定色を全体から抜く
       bgEdit: new Int8Array(n),       // 1 = 手で消した / -1 = 手で残した / 0 = 自動のまま
       hair: new Uint8Array(n),
       eye: new Uint8Array(n),
@@ -351,21 +361,64 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
     return Math.sqrt(dr * dr + dg * dg + db * db);
   };
 
+  // 端の画素の色を 16 段階に丸めて最も多い組を背景色とみなす（人物が端に接していても引きずられない）。
   function estimateBgColor(img) {
     const { w, h, src } = img;
-    const rs = [], gs = [], bs = [];
-    const push = (x, y) => { const i = (y * w + x) * 4; rs.push(src[i]); gs.push(src[i + 1]); bs.push(src[i + 2]); };
-    for (let x = 0; x < w; x += 4) { push(x, 0); push(x, h - 1); }
-    for (let y = 0; y < h; y += 4) { push(0, y); push(w - 1, y); }
-    const med = (a) => a.sort((p, q) => p - q)[a.length >> 1];
-    return [med(rs), med(gs), med(bs)];
+    const bins = new Map();
+    const push = (x, y) => {
+      const i = (y * w + x) * 4;
+      const k = ((src[i] >> 4) << 8) | ((src[i + 1] >> 4) << 4) | (src[i + 2] >> 4);
+      let b = bins.get(k);
+      if (!b) bins.set(k, b = []);
+      b.push(i);
+    };
+    for (let x = 0; x < w; x += 2) { push(x, 0); push(x, h - 1); }
+    for (let y = 0; y < h; y += 2) { push(0, y); push(w - 1, y); }
+    let best = null;
+    for (const b of bins.values()) if (!best || b.length > best.length) best = b;
+    const med = (c) => best.map((i) => src[i + c]).sort((p, q) => p - q)[best.length >> 1];
+    return [med(0), med(1), med(2)];
+  }
+
+  // クロマキー用の「背景色らしさ」：背景色で強い成分の最小値 − 弱い成分の最大値（マゼンタなら min(R,B) − G）。
+  function keyChannels(key) {
+    const hi = [0, 1, 2].filter((c) => key[c] >= 128);
+    const lo = [0, 1, 2].filter((c) => key[c] < 128);
+    return { hi, lo };
+  }
+  function spillOf(d, i, ch) {
+    let mn = 255, mx = 0;
+    for (const c of ch.hi) mn = Math.min(mn, d[i + c]);
+    for (const c of ch.lo) mx = Math.max(mx, d[i + c]);
+    return mn - mx;
+  }
+  const isChromaColor = (key) => { const ch = keyChannels(key); return ch.hi.length > 0 && ch.lo.length > 0 && spillOf(key, 0, ch) >= 120; };
+  const chromaDefaultTol = (key) => Math.round(spillOf(key, 0, keyChannels(key)) * 0.35);
+
+  // クロマキー：つながりに関係なく、背景色らしさに応じて画像全体の不透明度を決める。
+  function chromaKey(img) {
+    const { w, h, src } = img;
+    const key = img.bgColor, ch = keyChannels(key);
+    const sK = spillOf(key, 0, ch);
+    const lo = img.tol.bg, top = Math.max(lo + 20, sK * 0.85);
+    for (let p = 0, n = w * h; p < n; p++) {
+      const t = (spillOf(src, p * 4, ch) - lo) / (top - lo);
+      const a = t <= 0 ? 255 : t >= 1 ? 0 : Math.round((1 - t) * 255);
+      img.keyAlpha[p] = a;
+      img.autoBg[p] = a < 128 ? 1 : 0;
+    }
+    invalidate(img);
+  }
+
+  function runBackground(img) {
+    if (img.bgMode === "chroma") chromaKey(img); else autoBackground(img);
   }
 
   // 端から背景色と近い画素を塗りつぶして背景とみなす（グラデーションにも追従する）。
   function autoBackground(img) {
     const { w, h, src } = img;
     const tol = img.tol.bg;
-    const [br, bgc, bb] = img.bgColor = estimateBgColor(img);
+    const [br, bgc, bb] = img.bgColor;
     const mask = img.autoBg; mask.fill(0);
     const stack = new Int32Array(w * h);
     let sp = 0;
@@ -427,6 +480,7 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
   // 背景を抜いた画像（縁の1画素は半透明にし、背景色のにじみを取り除く）。
   function baseRGBA(img) {
     if (img.baseCache) return img.baseCache;
+    if (img.bgMode === "chroma") return (img.baseCache = chromaRGBA(img));
     const { w, h, src } = img;
     const out = new Uint8ClampedArray(src);
     const [br, bgc, bb] = img.bgColor;
@@ -446,6 +500,46 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
       out[i + 2] = (src[i + 2] - (1 - a) * bb) / a;
     }
     img.baseCache = out;
+    return out;
+  }
+
+  // クロマキーの仕上げ：半透明の縁は背景色を差し引いて元の色を取り出し（アンミックス）、縁から2画素以内の色かぶりを取る。
+  function chromaRGBA(img) {
+    const { w, h, src } = img;
+    const n = w * h;
+    const out = new Uint8ClampedArray(src);
+    const key = img.bgColor, ch = keyChannels(key);
+    const alpha = new Uint8Array(n);
+    for (let p = 0; p < n; p++) {
+      const e = img.bgEdit[p];
+      alpha[p] = e === 1 ? 0 : e === -1 ? 255 : img.keyAlpha[p];
+    }
+    // 縁（透明・半透明の画素から2画素以内）
+    let near = new Uint8Array(n);
+    for (let p = 0; p < n; p++) near[p] = alpha[p] < 255 ? 1 : 0;
+    for (let pass = 0; pass < 2; pass++) {
+      const next = near.slice();
+      for (let p = 0; p < n; p++) {
+        if (near[p]) continue;
+        const x = p % w, y = (p / w) | 0;
+        if ((x > 0 && near[p - 1]) || (x < w - 1 && near[p + 1]) || (y > 0 && near[p - w]) || (y < h - 1 && near[p + w])) next[p] = 1;
+      }
+      near = next;
+    }
+    for (let p = 0; p < n; p++) {
+      const i = p * 4;
+      const a255 = alpha[p];
+      out[i + 3] = a255;
+      if (a255 === 0 || img.bgEdit[p] === -1) continue;
+      if (a255 < 255) {
+        const a = a255 / 255;
+        for (let c = 0; c < 3; c++) out[i + c] = (src[i + c] - (1 - a) * key[c]) / a;
+      }
+      if (near[p]) {
+        const excess = spillOf(out, i, ch);
+        if (excess > 0) for (const c of ch.hi) out[i + c] = out[i + c] - excess;
+      }
+    }
     return out;
   }
 
@@ -728,7 +822,7 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
   // ---------- 画面の同期 ----------
   const HINTS = {
     bg: {
-      wand: "クリックした所から、似た色のつながった範囲を背景として消す（腕と胴の隙間など、囲まれた背景に）。",
+      wand: "クリックした所から、似た色のつながった範囲を背景として消す（端からの塗りつぶしで残った、囲まれた背景に）。",
       range: "なぞった所のうち、なぞり始めの色に近い画素だけを消す。",
       brush: "なぞった所を背景として消す。",
       erase: "なぞった所を必ず残す（肌や銀髪が消えすぎたときに）。",
@@ -748,6 +842,15 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
     document.querySelectorAll("[data-target]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.target === target)));
     document.querySelectorAll("[data-tool]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.tool === tool)));
     $("bgActions").hidden = target !== "bg";
+    $("bgMode").hidden = target !== "bg";
+    if (current) {
+      document.querySelectorAll("[data-bgmode]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.bgmode === current.bgMode)));
+      const [r, g, b] = current.bgColor;
+      $("keyColor").value = "#" + [r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("");
+      $("keyNote").textContent = current.bgMode === "chroma"
+        ? "この色らしさで全体から抜く（囲まれた隙間も抜ける）"
+        : "端から、この色に近い範囲をたどって抜く";
+    }
     $("maskActions").hidden = target === "bg";
     $("clearBox").hidden = !(current && target !== "bg" && current.box[target]);
     if (current) { $("tol").value = current.tol[target]; $("tolOut").value = current.tol[target]; }
@@ -926,7 +1029,9 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
     let stem = file.name.replace(/\.[^.]+$/, "");
     if (!/^[A-Za-z0-9_-]+$/.test(stem)) stem = `adv_new_${images.length + 1}`;
     const img = makeImage(stem, cx.getImageData(0, 0, w, h));
-    autoBackground(img);
+    img.bgColor = estimateBgColor(img);
+    if (isChromaColor(img.bgColor)) { img.bgMode = "chroma"; img.tol.bg = chromaDefaultTol(img.bgColor); }
+    runBackground(img);
     images.push(img); addThumb(img);
     return img;
   }
@@ -954,12 +1059,27 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
     $("viewport").className = "viewport " + b.dataset.bgview;
   }));
   $("tol").addEventListener("input", (e) => { $("tolOut").value = e.target.value; if (current) current.tol[target] = +e.target.value; });
-  $("tol").addEventListener("change", () => { if (current && target === "bg") { autoBackground(current); redraw(); scheduleVariants(); } });
+  $("tol").addEventListener("change", () => { if (current && target === "bg") { runBackground(current); redraw(); scheduleVariants(); } });
   $("size").addEventListener("input", (e) => { $("sizeOut").value = e.target.value; drawOverlay(); });
   $("zoom").addEventListener("input", (e) => { zoom = +e.target.value; $("zoomOut").value = zoom + "×"; layoutCanvas(); });
   $("contrast").addEventListener("input", (e) => { contrast = +e.target.value; $("contrastOut").value = contrast.toFixed(2); scheduleVariants(); });
   $("showMask").addEventListener("change", redraw);
-  $("autoBg").addEventListener("click", () => { if (!current) return; autoBackground(current); redraw(); scheduleVariants(); });
+  $("autoBg").addEventListener("click", () => { if (!current) return; runBackground(current); redraw(); scheduleVariants(); });
+  document.querySelectorAll("[data-bgmode]").forEach((b) => b.addEventListener("click", () => {
+    if (!current || current.bgMode === b.dataset.bgmode) return;
+    current.bgMode = b.dataset.bgmode;
+    current.tol.bg = current.bgMode === "chroma" ? chromaDefaultTol(current.bgColor) : 24;
+    runBackground(current); syncTargetUi(); redraw(); scheduleVariants();
+  }));
+  $("keyColor").addEventListener("change", (e) => {
+    if (!current) return;
+    current.bgColor = hexToRgb(e.target.value);
+    if (current.bgMode === "chroma") {
+      if (!isChromaColor(current.bgColor)) { setHint("クロマキーには鮮やかな色（マゼンタ・緑・青など）を指定する。"); return; }
+      current.tol.bg = chromaDefaultTol(current.bgColor);
+    }
+    runBackground(current); syncTargetUi(); redraw(); scheduleVariants();
+  });
   $("resetBg").addEventListener("click", () => { if (!current) return; pushUndo(current); current.bgEdit.fill(0); invalidate(current); redraw(); scheduleVariants(); });
   $("grow").addEventListener("click", () => { if (!current) return; pushUndo(current); morph(current, target, true); redraw(); scheduleVariants(); });
   $("shrink").addEventListener("click", () => { if (!current) return; pushUndo(current); morph(current, target, false); redraw(); scheduleVariants(); });
