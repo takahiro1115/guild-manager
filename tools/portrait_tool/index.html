@@ -197,6 +197,17 @@ details summary { cursor: pointer; font-size: 12px; color: var(--muted); }
 .pcard .lbl { font-size: 11px; color: var(--muted); letter-spacing: 0.04em; }
 .pcard .warn { font-size: 12px; color: var(--warn); margin: 0; }
 .pcard .csvline { font: 400 11px var(--mono); color: var(--muted); overflow-x: auto; white-space: nowrap; }
+/* ゲームに送る */
+.send { display: grid; gap: 8px; border-top: 1px solid var(--line); padding-top: 12px; }
+.send h3 { margin: 0; font-size: 13px; font-weight: 600; }
+.batches { display: grid; gap: 6px; }
+.batch { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; font-size: 12px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); }
+.batch .when { font-family: var(--mono); color: var(--muted); }
+.batch .ids { font-family: var(--mono); color: var(--muted); flex: 1 1 240px; overflow-wrap: anywhere; }
+.state { font-size: 11px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); }
+.state.pending { border-color: var(--accent); color: var(--accent); }
+.state.imported { border-color: #2f9e5a; color: #2f9e5a; }
+.state.cleaned { color: var(--muted); }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 
@@ -359,6 +370,16 @@ details summary { cursor: pointer; font-size: 12px; color: var(--muted); }
       <button type="button" class="btn primary" id="exportOne">この画像を書き出す（zip）</button>
       <button type="button" class="btn" id="exportAll">全画像を書き出す（zip）</button>
       <span class="status" id="exportStatus"></span>
+    </div>
+    <div class="send" id="sendBox">
+      <h3>ゲームに送る</h3>
+      <p class="note">PNG と portraits.csv の行をこのページに預ける。あとで Claude Code に「送った肖像を取り込んで」と言えば、ゲームへの配置・CSV への追加・コミットまで行う（zip の保存と添付が要らない）。</p>
+      <div class="row">
+        <button type="button" class="btn primary" id="sendOne">この画像を送る</button>
+        <button type="button" class="btn" id="sendAll">全画像を送る</button>
+        <span class="status" id="sendStatus"></span>
+      </div>
+      <div class="batches" id="batches"></div>
     </div>
     <details>
       <summary>portraits.csv に貼る行（書き出しにも含まれる）</summary>
@@ -1041,13 +1062,19 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
   }
 
   const csvCell = (s) => (/[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
+  // portraits.csv の1行分（Id・Jobs・HairColor・EyeColor・note）。書き出しの CSV と「ゲームに送る」で共通。
+  function rowObjects(img) {
+    return combos().map((c) => ({
+      combo: c,
+      id: fileStem(img, c),
+      jobs: img.jobs || "All",
+      hair: c.hair.key === "orig" ? img.hairLabel : c.hair.name,
+      eye: c.eye.key === "orig" ? img.eyeLabel : c.eye.name,
+      note: c.hair.key === "orig" && c.eye.key === "orig" ? "背景透過" : `${img.id} の色違い（背景透過）`,
+    }));
+  }
   function csvRows(img) {
-    return combos().map((c) => {
-      const hair = c.hair.key === "orig" ? img.hairLabel : c.hair.name;
-      const eye = c.eye.key === "orig" ? img.eyeLabel : c.eye.name;
-      const note = c.hair.key === "orig" && c.eye.key === "orig" ? "背景透過" : `${img.id} の色違い（背景透過）`;
-      return [fileStem(img, c), img.jobs || "All", hair, eye, note].map(csvCell).join(",");
-    });
+    return rowObjects(img).map((r) => [r.id, r.jobs, r.hair, r.eye, r.note].map(csvCell).join(","));
   }
 
   let variantTimer = 0;
@@ -1263,6 +1290,91 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
   buildChips();
   syncTargetUi();
   loadSample().catch(() => setHint("見本を読み込めなかった。「＋ 画像を追加」から画像を選ぶ。"));
+
+  // ---------- ゲームに送る（assets＋db） ----------
+  let assetsNs = null, dbNs = null;
+  const BATCHES = "portrait_batches";
+  const STATE_LABEL = { pending: "取り込み待ち", imported: "取り込み済み", cleaned: "片付け済み" };
+
+  async function sendImages(list) {
+    const status = $("sendStatus");
+    status.className = "status";
+    const cs = combos();
+    if (!cs.length) { status.className = "status warn"; status.textContent = "髪色と瞳色を1つ以上選ぶ。"; return; }
+    const bad = list.filter((img) => !/^[A-Za-z0-9_-]+$/.test(img.id));
+    if (bad.length) { status.className = "status warn"; status.textContent = `画像Id「${bad[0].id}」は半角英数字・_・- だけにする。`; return; }
+    $("sendOne").disabled = $("sendAll").disabled = true;
+    const items = [];
+    try {
+      const rows = list.flatMap((img) => rowObjects(img).map((r) => ({ img, r })));
+      let n = 0;
+      for (const { img, r } of rows) {
+        status.textContent = `送信中… ${++n} / ${rows.length}`;
+        await new Promise((res) => setTimeout(res, 0));
+        const blob = await canvasBlob(renderVariant(img, r.combo.hair.key, r.combo.eye.key));
+        const up = await assetsNs.upload(blob, { type: "image/png" });
+        items.push({ id: r.id, jobs: r.jobs, hair: r.hair, eye: r.eye, note: r.note, assetId: up.id, sizeBytes: up.sizeBytes });
+      }
+      const now = new Date();
+      const batchId = "b" + now.toISOString().replace(/[-:.TZ]/g, "").slice(0, 14) + Math.random().toString(36).slice(2, 6);
+      await dbNs.collection(BATCHES).doc(batchId).set({ createdAt: now.toISOString(), status: "pending", count: items.length, items });
+      status.textContent = `${items.length} 枚を送った。Claude Code に「送った肖像を取り込んで」と伝える。`;
+    } catch (err) {
+      status.className = "status warn";
+      const code = err && err.code;
+      status.textContent = code === "quota_or_state" ? "このページの保存容量がいっぱい。取り込み済みの送信を「片付ける」で消してから送り直す。" :
+        code === "rate_limited" || code === "resource_exhausted" ? "送信が続きすぎた。少し待ってから送り直す。" :
+        `送れなかった${err && err.message ? `（${err.message}）` : ""}。` + (items.length ? `画像 ${items.length} 枚はアップロード済みだが、送信の記録は残っていない。` : "");
+    } finally {
+      $("sendOne").disabled = $("sendAll").disabled = false;
+    }
+  }
+
+  function renderBatches(snap) {
+    const host = $("batches");
+    host.textContent = "";
+    if (snap.empty) { const p = document.createElement("p"); p.className = "note"; p.textContent = "まだ送っていない。"; host.append(p); return; }
+    for (const d of snap.docs) {
+      const b = d.data();
+      const row = document.createElement("div"); row.className = "batch";
+      const when = document.createElement("span"); when.className = "when";
+      when.textContent = new Date(b.createdAt).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+      const st = document.createElement("span"); st.className = "state " + b.status; st.textContent = STATE_LABEL[b.status] || b.status;
+      const ids = document.createElement("span"); ids.className = "ids";
+      ids.textContent = `PNG ${b.count} 枚：` + (b.items || []).map((it) => it.id).join("、") + (b.commit ? `（コミット ${String(b.commit).slice(0, 7)}）` : "");
+      row.append(when, st, ids);
+      if (b.status === "imported") {
+        const clean = document.createElement("button"); clean.type = "button"; clean.className = "btn"; clean.textContent = "片付ける";
+        clean.title = "取り込み済みの画像をこのページの保存領域から消す（ゲーム側の画像は消えない）";
+        clean.addEventListener("click", async () => {
+          clean.disabled = true;
+          try {
+            for (const it of b.items || []) await assetsNs.delete(it.assetId);
+            await dbNs.collection(BATCHES).doc(d.id).update({ status: "cleaned" });
+          } catch (e) { clean.disabled = false; $("sendStatus").className = "status warn"; $("sendStatus").textContent = "片付けられなかった。少し待ってからもう一度。"; }
+        });
+        row.append(clean);
+      }
+      host.append(row);
+    }
+  }
+
+  $("sendOne").addEventListener("click", () => current && sendImages([current]));
+  $("sendAll").addEventListener("click", () => images.length && sendImages(images));
+
+  (async () => {
+    const use = (name) => (window.claude && typeof window.claude.use === "function" ? window.claude.use(name) : Promise.resolve(null));
+    try { [assetsNs, dbNs] = await Promise.all([use("assets"), use("db")]); } catch (e) { assetsNs = dbNs = null; }
+    if (!assetsNs || !dbNs) {
+      $("sendOne").disabled = $("sendAll").disabled = true;
+      $("sendStatus").className = "status warn";
+      $("sendStatus").textContent = "この表示では送れない（claude.ai で、編集できる人が開くと使える）。zip の書き出しは使える。";
+      return;
+    }
+    dbNs.collection(BATCHES).orderBy("createdAt", "desc").limit(10).onSnapshot(renderBatches, () => {
+      $("batches").textContent = "送信の記録を読めなかった。ページを開き直す。";
+    });
+  })();
 
   (async () => {
     try { downloads = window.claude && typeof window.claude.use === "function" ? await window.claude.use("downloads") : null; } catch (e) { downloads = null; }

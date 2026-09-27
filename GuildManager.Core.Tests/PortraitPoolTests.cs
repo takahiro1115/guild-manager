@@ -28,7 +28,10 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void PortraitsCsv_LoadsPool()
         {
-            Assert.Equal(5, PortraitBalance.All.Count);
+            // 取り込みで増えていく前提（→ tools/portrait_tool/import_portraits.py）。初期の5枚が残っていることだけを確かめる。
+            Assert.True(PortraitBalance.All.Count >= 5);
+            foreach (var id in new[] { "adv_001", "adv_002", "adv_003", "adv_004", "adv_005" })
+                Assert.NotNull(PortraitBalance.FindById(id));
             var mage = PortraitBalance.FindById("adv_003")!;
             Assert.True(mage.Suits(JobClass.Mage));
             Assert.False(mage.Suits(JobClass.Warrior));
@@ -79,7 +82,7 @@ namespace GuildManager.Core.Tests
 
             var ids = offers.Select(o => o.Candidate.PortraitId).ToList();
             Assert.All(ids, Assert.NotNull);
-            Assert.Equal(5, ids.Distinct().Count()); // プール5枚・応募者5名なら全員違う顔
+            Assert.Equal(5, ids.Distinct().Count()); // プールが5枚以上なら、応募者5名は全員違う顔
             Assert.All(offers, o => Assert.NotNull(PortraitBalance.FindById(o.Candidate.PortraitId)));
         }
 
@@ -116,10 +119,12 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void GenerateCandidates_ReusesPortraits_WhenPoolIsExhausted()
         {
-            var offers = new RecruitmentSystem(new SeededRng(5), new SeededRng(6)).GenerateCandidates(new GameState(), candidateCount: 8);
+            int poolSize = PortraitBalance.All.Count;
+            var offers = new RecruitmentSystem(new SeededRng(5), new SeededRng(6))
+                .GenerateCandidates(new GameState(), candidateCount: poolSize + 3);
 
             Assert.All(offers, o => Assert.NotNull(o.Candidate.PortraitId));
-            Assert.Equal(5, offers.Select(o => o.Candidate.PortraitId).Distinct().Count());
+            Assert.Equal(poolSize, offers.Select(o => o.Candidate.PortraitId).Distinct().Count());
         }
 
         [Fact]
