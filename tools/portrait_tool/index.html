@@ -221,6 +221,11 @@ details summary { cursor: pointer; font-size: 12px; color: var(--muted); }
       <div class="pick"><label class="field">髪型<select id="pStyle"></select></label><button type="button" class="btn" data-dice="pStyle" title="この項目だけ振り直す">🎲</button></div>
       <div class="pick"><label class="field">髪色<select id="pHair"></select></label><button type="button" class="btn" data-dice="pHair" title="この項目だけ振り直す">🎲</button></div>
       <div class="pick"><label class="field">瞳色<select id="pEye"></select></label><button type="button" class="btn" data-dice="pEye" title="この項目だけ振り直す">🎲</button></div>
+      <label class="field">髪色の指定<select id="pHairMode">
+        <option value="natural">自然：選んだ髪色で生成する</option>
+        <option value="work">加工用：赤銅で生成し、②で選んだ色に変える</option>
+      </select></label>
+      <p class="note" id="pHairModeNote"></p>
       <h2 style="margin-top:4px">出力</h2>
       <label class="field">背景<select id="pBg">
         <option value="auto">自動（マゼンタ／緑から、配色と重ならない方）</option>
@@ -1352,6 +1357,12 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
     { key: "violet", name: "紫", text: "soft violet", avoid: ["magenta"] },
   ];
   const SOURCES = { pJob: JOBS, pStyle: STYLES, pHair: HAIRS, pEye: EYES };
+  // 加工用の作業色：中くらいの明るさで色味がはっきりあり、マゼンタ・緑の背景とも、紺・黒・革・鋼の服とも重ならない。
+  const WORK_HAIR = { key: "copper", name: "赤銅", text: "medium copper-auburn" };
+  const HAIR_MODE_NOTE = {
+    natural: "選んだ髪色でそのまま生成する。その色ならではの描き方（黒髪のツヤ、銀髪の白いハイライト）が出る。1枚をそのまま使うキャラ向け。",
+    work: "髪は赤銅で生成し、瞳ははっきり描かせる。②の加工で髪を塗りつぶし1〜2回で選べるので、色違いを何色も作るキャラ向け。上の「髪色」は変換先の目安として CSV に残る。",
+  };
   const pick = (list) => list[Math.floor(Math.random() * list.length)];
 
   for (const [id, list] of Object.entries(SOURCES)) {
@@ -1373,8 +1384,10 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
     return choice;
   }
 
-  function build(sel, bg, ar, format) {
-    const { job, style, hair, eye } = sel;
+  function build(sel, bg, ar, format, hairMode) {
+    const { job, style, eye } = sel;
+    const hair = hairMode === "work" ? WORK_HAIR : sel.hair;
+    const eyeDetail = hairMode === "work" ? ", large clearly defined irises with a visible pupil and highlight" : "";
     const chroma = bg === "magenta" || bg === "green";
     const bgText = bg === "magenta"
       ? "solid flat pure magenta (#FF00FF) chroma key background, no gradient, no shadow, no background texture"
@@ -1386,7 +1399,7 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
       : "soft directional rim lighting";
     const positive = [
       STYLE, bgText, POSE(job.expr),
-      `${job.who} in her early 20s, ${job.face} facial features, ${eye.text} eyes with sharp focused gaze, ${hair.text} ${style.text}, ${job.outfit}`,
+      `${job.who} in her early 20s, ${job.face} facial features, ${eye.text} eyes with sharp focused gaze${eyeDetail}, ${hair.text} ${style.text}${hairMode === "work" ? ", evenly colored hair without streaks or dyed tips" : ""}, ${job.outfit}`,
       light, "8k resolution",
     ].join(", ");
     // クロマキー背景では「flat solid colors」を除く（背景の単色指定と打ち消し合うため）。
@@ -1409,13 +1422,20 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
     rows = [];
     for (let k = 0; k < count; k++) {
       const sel = { job: resolve("pJob"), style: resolve("pStyle"), hair: resolve("pHair"), eye: resolve("pEye") };
-      const parts = [sel.job, sel.hair, sel.eye];
+      const hairMode = $("pHairMode").value;
+      const work = hairMode === "work";
+      // 加工用では生成される髪は赤銅なので、背景色との重なりは赤銅で判定する。
+      const parts = [sel.job, work ? WORK_HAIR : sel.hair, sel.eye];
       const bg = chooseBackground($("pBg").value, parts);
-      const out = build(sel, bg, $("pAr").value, $("pFormat").value);
+      const out = build(sel, bg, $("pAr").value, $("pFormat").value, hairMode);
       const id = "adv_" + String(start + k).padStart(3, "0");
-      const csv = [id, sel.job.jobs, sel.hair.name, sel.eye.name, `${sel.job.name}・${sel.style.name}（生成プロンプト・${bg === "gray" ? "灰背景" : bg === "magenta" ? "マゼンタ背景" : "緑背景"}）`].join(",");
+      const bgLabel = bg === "gray" ? "灰背景" : bg === "magenta" ? "マゼンタ背景" : "緑背景";
+      const note = work
+        ? `${sel.job.name}・${sel.style.name}（生成プロンプト・${bgLabel}・加工用の赤銅髪→${sel.hair.name}に変換予定）`
+        : `${sel.job.name}・${sel.style.name}（生成プロンプト・${bgLabel}）`;
+      const csv = [id, sel.job.jobs, work ? WORK_HAIR.name : sel.hair.name, sel.eye.name, note].join(",");
       rows.push(csv);
-      host.append(card(id, sel, bg, out, csv, parts));
+      host.append(card(id, sel, bg, out, csv, parts, work));
     }
     $("pStatus").textContent = `${count} 件作った。`;
   }
@@ -1432,12 +1452,14 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
     }
   }
 
-  function card(id, sel, bg, out, csv, parts) {
+  function card(id, sel, bg, out, csv, parts, work) {
     const el = document.createElement("article"); el.className = "pcard";
     const head = document.createElement("div"); head.className = "pcard-head";
     const idEl = document.createElement("span"); idEl.className = "id"; idEl.textContent = id;
     const desc = document.createElement("span"); desc.className = "desc";
-    desc.textContent = `${sel.job.name}　${sel.hair.name}の${sel.style.name}　${sel.eye.name}の瞳`;
+    desc.textContent = work
+      ? `${sel.job.name}　赤銅の${sel.style.name}（→ ${sel.hair.name} に変換）　${sel.eye.name}の瞳`
+      : `${sel.job.name}　${sel.hair.name}の${sel.style.name}　${sel.eye.name}の瞳`;
     const pill = document.createElement("span");
     pill.className = "pill" + (bg === "gray" ? "" : " key-" + bg);
     pill.textContent = bg === "magenta" ? "背景：マゼンタ" : bg === "green" ? "背景：緑" : "背景：灰";
@@ -1466,6 +1488,13 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
   $("pMake").addEventListener("click", make);
   $("pCopyCsv").addEventListener("click", (e) => { if (rows.length) copyText(rows.join("\n"), e.currentTarget); });
   for (const id of ["pBg", "pAr", "pFormat"]) $(id).addEventListener("change", make);
+  const syncHairMode = () => {
+    const work = $("pHairMode").value === "work";
+    $("pHairModeNote").textContent = HAIR_MODE_NOTE[work ? "work" : "natural"];
+    $("pHair").closest("label").firstChild.textContent = work ? "変換先の髪色" : "髪色";
+  };
+  $("pHairMode").addEventListener("change", () => { syncHairMode(); make(); });
+  syncHairMode();
 
   make();
   let saved = null;
