@@ -368,7 +368,7 @@ details summary { cursor: pointer; font-size: 12px; color: var(--muted); }
     <div class="grid" id="grid"></div>
     <div class="export">
       <button type="button" class="btn primary" id="exportOne">この画像を書き出す（zip）</button>
-      <button type="button" class="btn" id="exportAll">全画像を書き出す（zip）</button>
+      <button type="button" class="btn" id="exportAll" title="見本の adv_004 は含まない">全画像を書き出す（zip）</button>
       <span class="status" id="exportStatus"></span>
     </div>
     <div class="send" id="sendBox">
@@ -376,7 +376,7 @@ details summary { cursor: pointer; font-size: 12px; color: var(--muted); }
       <p class="note">PNG と portraits.csv の行をこのページに預ける。あとで Claude Code に「送った肖像を取り込んで」と言えば、ゲームへの配置・CSV への追加・コミットまで行う（zip の保存と添付が要らない）。</p>
       <div class="row">
         <button type="button" class="btn primary" id="sendOne">この画像を送る</button>
-        <button type="button" class="btn" id="sendAll">全画像を送る</button>
+        <button type="button" class="btn" id="sendAll" title="見本の adv_004 は含まない">全画像を送る</button>
         <span class="status" id="sendStatus"></span>
       </div>
       <div class="batches" id="batches"></div>
@@ -1115,7 +1115,7 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
   }
 
   function updateCsv() {
-    const rows = images.flatMap(csvRows);
+    const rows = images.filter((img) => !img.isSample).flatMap(csvRows);
     $("csvPreview").textContent = rows.length ? rows.join("\n") : "（まだ行がない）";
   }
 
@@ -1244,7 +1244,7 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
   const bindText = (id, prop) => $(id).addEventListener("input", (e) => {
     if (!current) return;
     current[prop] = e.target.value.trim();
-    if (prop === "id") { current.thumbLabel.textContent = current.id; syncInfoHeader(); scheduleVariants(); }
+    if (prop === "id") { current.thumbLabel.textContent = current.isSample ? "見本" : current.id; syncInfoHeader(); scheduleVariants(); }
     else updateCsv();
   });
   function syncInfoHeader() { $("imgInfo").textContent = `${current.id}　${current.w}×${current.h}px`; }
@@ -1264,7 +1264,13 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
   }));
 
   $("exportOne").addEventListener("click", () => current && exportImages([current]));
-  $("exportAll").addEventListener("click", () => images.length && exportImages(images));
+  // 見本を除いた、自分で読み込んだ画像。
+  const userImages = () => images.filter((img) => !img.isSample);
+  const needOwnImage = (statusId) => {
+    $(statusId).className = "status warn";
+    $(statusId).textContent = "自分の画像がまだ無い。「＋ 画像を追加」から読み込む（見本の adv_004 は対象外）。";
+  };
+  $("exportAll").addEventListener("click", () => (userImages().length ? exportImages(userImages()) : needOwnImage("exportStatus")));
   window.addEventListener("resize", layoutCanvas);
   window.__portraitRelayout = () => { layoutCanvas(); redraw(); };
 
@@ -1276,6 +1282,9 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
     const blob = new Blob([bytes], { type: "image/jpeg" });
     const img = await loadFile(new File([blob], "adv_004.jpg", { type: "image/jpeg" }));
     img.jobs = "Ranger|Warrior|Knight"; img.hairLabel = "暗褐"; img.eyeLabel = "琥珀";
+    // 見本はゲームに登録済みの adv_004。「全画像」の書き出し・送信と CSV の行からは外し、送ることもできない。
+    img.isSample = true;
+    img.thumbLabel.textContent = "見本";
     img.tol.hair = 95; img.tol.eye = 90; img.hueMode.hair = false;
     const notBg = (q) => !isBg(img, q);
     img.box.hair = { x0: 330, y0: 40, x1: 740, y1: 430 };
@@ -1359,8 +1368,16 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
     }
   }
 
-  $("sendOne").addEventListener("click", () => current && sendImages([current]));
-  $("sendAll").addEventListener("click", () => images.length && sendImages(images));
+  $("sendOne").addEventListener("click", () => {
+    if (!current) return;
+    if (current.isSample) {
+      $("sendStatus").className = "status warn";
+      $("sendStatus").textContent = "見本の adv_004 はゲームに登録済みなので送れない。自分の画像を選んで送る。";
+      return;
+    }
+    sendImages([current]);
+  });
+  $("sendAll").addEventListener("click", () => (userImages().length ? sendImages(userImages()) : needOwnImage("sendStatus")));
 
   (async () => {
     const use = (name) => (window.claude && typeof window.claude.use === "function" ? window.claude.use(name) : Promise.resolve(null));
