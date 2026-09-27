@@ -721,7 +721,7 @@ public partial class DungeonPanel : ScrollContainer
 		_gimmickContainer.AddChild(card);
 	}
 
-	private static List<string> CounterRoutes(BossGimmick gimmick)
+	private List<string> CounterRoutes(BossGimmick gimmick)
 	{
 		var routes = new List<string>();
 		if (gimmick.RequiredCounterRole.HasValue)
@@ -730,6 +730,9 @@ public partial class DungeonPanel : ScrollContainer
 			routes.Add($"部隊全体の{gimmick.RequiredCounterStat}が十分に高いこと");
 		if (!string.IsNullOrEmpty(gimmick.RequiredItemId))
 			routes.Add($"「{ConsumableCatalog.FindById(gimmick.RequiredItemId)?.Name ?? gimmick.RequiredItemId}」の携行");
+		// 伝説級の固有武具（→ 03 §4.7.5、§0.45）：入手済みのものだけ名前を出す（未入手の伝説はネタばらししない）。
+		foreach (var unique in UniqueBalance.All.Where(u => u.CounterGimmick == gimmick.Type && _state.ObtainedUniqueIds.Contains(u.Id)))
+			routes.Add($"伝説級「{unique.Name}」の装備");
 		return routes;
 	}
 

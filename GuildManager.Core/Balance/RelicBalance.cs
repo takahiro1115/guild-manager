@@ -52,6 +52,12 @@ namespace GuildManager.Core.Balance
             /// </summary>
             public int SellPrice { get; init; }
 
+            /// <summary>
+            /// 鑑定で武具が出た場合に、まだ入手していない固定アーティファクト（紫、→ UniqueBalance・uniques.csv）へ
+            /// 化ける確率（%、0〜100）。0なら判定の乱数も引かない（→ AppraisalSystem、03 §4.7.3、2026年9月・§0.45）。
+            /// </summary>
+            public int ArtifactRate { get; init; }
+
             public int GoldRewardMin { get; init; }
             public int GoldRewardMax { get; init; }
             public int MaterialCountMin { get; init; }
@@ -124,6 +130,10 @@ namespace GuildManager.Core.Balance
             if (countMin > countMax)
                 throw new BalanceDataException($"{FileName} の MaterialCountMin{suffix}（{countMin}）が MaterialCountMax{suffix}（{countMax}）を超えています。");
 
+            int artifactRate = BalanceData.GetInt(FileName, "ArtifactRate" + suffix);
+            if (artifactRate is < 0 or > 100)
+                throw new BalanceDataException($"{FileName} の ArtifactRate{suffix}（{artifactRate}）は0〜100にしてください。");
+
             return new RarityProfile
             {
                 Rarity = rarity,
@@ -131,6 +141,7 @@ namespace GuildManager.Core.Balance
                 ColorName = colorName,
                 AppraisalCost = BalanceData.GetInt(FileName, "AppraisalCost" + suffix),
                 SellPrice = BalanceData.GetInt(FileName, "SellPrice" + suffix),
+                ArtifactRate = artifactRate,
                 EquipmentRate = equipmentRate,
                 MaterialRate = materialRate,
                 GoldRate = goldRate,

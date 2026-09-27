@@ -34,6 +34,7 @@
 | `gathering.csv` | 03 §4.5.5 | GatheringBalance（採取スコア係数・職業ボーナス・報酬ゴールド） |
 | `materials.csv` | 03 §4.5.5・**§4.8.1** | MaterialBalance（全5フィールドの採取素材定義・MinFloor・基準獲得数・**売却額 `SellPrice`**） |
 | `affixes.csv` | 03 §4.7.3・§4.2.2 | AffixBalance（鑑定品のランダムアフィックス＝接頭辞・接尾辞の一覧。**テーブル形式** `Id,Type,Name,TargetStat,MinValue,MaxValue,Tier,AllowedSlots,Weight`、2026年9月・§0.39） |
+| `uniques.csv` | 03 §4.7.5 | UniqueBalance（固有武具＝固定アーティファクト〈紫〉・伝説級〈金〉の一覧。**テーブル形式** `Id,Grade,Name,BaseItemId,HpBonus,BonusStr〜BonusLdr,CounterGimmick,DropFieldId,DropFloor,SellPrice`。伝説級は入手元のボス〈フィールドId・階層〉と対策ギミック、売値0＝売却不可。2026年9月・§0.45） |
 | `research.csv` | 03 §4.6 | ResearchBalance（アルベール研究室の12プロジェクト（うち内職強化 SideBusinessGoldBonus 4種）・必要素材・ゴールド・効果種別・効果値） |
 | `relic.csv` | 03 §4.7・§4.8.2 | RelicBalance（未鑑定遺物の希少度4段階＝鑑定費用・鑑定結果比率・換金額と獲得個数の幅・武具の抽選プール・**売却額**、採取ドロップ確率、希少度ロール閾値、ボス撃破ドロップの補正）。**アフィックスの付与率・Tier範囲**（`Affix*`、→ AffixBalance） |
 
@@ -141,6 +142,7 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 | `SellPrice*` | 鑑定で出土した武具を保管庫から売却する際の1点あたりの額（銅50／銀125／金250／虹600G、→ §4.8.2） |
 | `AffixPrefixRate*` / `AffixSuffixRate*` | 鑑定で武具が出たときに接頭辞・接尾辞が付く確率（%、0〜100。銅20/0・銀100/30・金100/100・虹100/100、2026年9月・§0.39、→ affixes.csv） |
 | `AffixMinTier*` / `AffixMaxTier*` | 抽選するアフィックスのTier範囲（銅1〜1・銀1〜2・金2〜3・虹3〜3。1〜3の外・Min>Maxなら例外） |
+| `ArtifactRate*` | 鑑定で武具が出たときに、まだ入手していない固定アーティファクト（→ uniques.csv）へ化ける確率（%、0〜100。銅0・銀0・金4・虹12、2026年9月・§0.45、→ 03 §4.7.5） |
 | `AffixSellBonusTier1`〜`AffixSellBonusTier3`（希少度名ではなくTier番号が末尾） | 鑑定品の武具の売却額へ、付いているアフィックス1枠ごとに足す額（Tier1＝25／Tier2＝60／Tier3＝150G。負なら例外。2026年9月・§0.40、→ 03 §4.8.2） |
 
 希少度に紐づかないキー：

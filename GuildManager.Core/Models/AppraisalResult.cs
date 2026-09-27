@@ -35,6 +35,8 @@ namespace GuildManager.Core.Models
 
         /// <summary>武具だった場合の現物（→ GameState.Armory に格納済みの同一インスタンス）。それ以外はnull。</summary>
         public EquipmentItem? ResultEquipment { get; set; }
+        /// <summary>武具が固定アーティファクト（紫、→ 03 §4.7.5、2026年9月・§0.45）に化けたか。鑑定コメント・演出の出し分けに使う。</summary>
+        public bool IsArtifact { get; set; }
 
         /// <summary>素材だった場合の素材Id（→ Balance.MaterialBalance）。それ以外はnull。</summary>
         public string? ResultMaterialId { get; set; }

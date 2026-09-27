@@ -427,6 +427,7 @@ namespace GuildManager.Core.Models
         /// 装備中の4枠（武器・防具・アクセサリー1・アクセサリー2）の最大HP加算の合計（→ Item.MaxHpBonus、03 §4.2.2）。
         /// 2026年9月・§0.37：旧 GetEquipmentBonus(効果種別) は個人CPの撤廃に伴い最大HP専用のこのメソッドへ置き換えた。
         /// §0.39：鑑定品のアフィックスによる加算（→ EquipmentItem.AffixHpBonus）も全枠ぶん足す。
+        /// §0.45：固有武具の固有補正も足す（→ EquipmentItem.GetTotalHpBonus）。
         /// </summary>
         public int GetEquipmentHpBonus()
         {
@@ -435,7 +436,7 @@ namespace GuildManager.Core.Models
             {
                 var equipped = GetEquipped(slot);
                 if (equipped == null) continue;
-                total += (equipped.GetDefinition()?.MaxHpBonus ?? 0) + equipped.AffixHpBonus;
+                total += equipped.GetTotalHpBonus();
             }
             return total;
         }
@@ -443,6 +444,7 @@ namespace GuildManager.Core.Models
         /// <summary>
         /// 装備中の4枠すべての、指定能力値への補正の合計（→ Item.StatBonuses、03 §4.2.2）。
         /// §0.39：鑑定品のアフィックスによる補正（→ EquipmentItem.AffixStatBonuses）も含む。
+        /// §0.45：固有武具の固有補正も含む（→ EquipmentItem.GetTotalStatBonus）。
         /// GetEffectiveStat が加算するため、部隊指標・最大HP・UIの装備補正（水色）へそのまま連動する。
         /// カタログから引けない個体（旧データ）のカタログ分は0として扱う（個体に焼き付いたアフィックス分は数える）。
         /// </summary>
@@ -453,10 +455,17 @@ namespace GuildManager.Core.Models
             {
                 var equipped = GetEquipped(slot);
                 if (equipped == null) continue;
-                total += (equipped.GetDefinition()?.GetStatBonus(statName) ?? 0) + equipped.GetAffixStatBonus(statName);
+                total += equipped.GetTotalStatBonus(statName);
             }
             return total;
         }
+
+        /// <summary>
+        /// 装備中のいずれかの個体が、指定のボスギミックを対策する伝説級か（→ EquipmentItem.CountersGimmick、03 §4.7.5）。
+        /// DungeonResolver.IsCountered の第4の対策口（装備）が使う。
+        /// </summary>
+        public bool CountersGimmickByEquipment(BossGimmickType type) =>
+            AllSlots.Any(slot => GetEquipped(slot)?.CountersGimmick(type) == true);
         public int CurrentHP { get; set; }
         public int Satisfaction { get; set; } = 70;
         public InjurySeverity Injury { get; set; } = InjurySeverity.None;

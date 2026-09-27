@@ -108,6 +108,8 @@ namespace GuildManager.Core.Tests.Systems
         {
             var relic = MakeRelic(ItemRarity.Epic);
             var state = new GameState { Gold = 10000, WeekNumber = 31, UnidentifiedItems = { relic } };
+            // 固定アーティファクト（→ §0.45）を全件入手済みにして、通常の武具の経路を検証する（化け判定は → UniqueItemTests）。
+            state.ObtainedUniqueIds.UnionWith(UniqueBalance.Artifacts.Select(a => a.Id));
 
             // 種別ロール1 → 必ず武具区分（EquipmentRateは全希少度で1以上）。
             var result = new AppraisalSystem(new FirstRollRng(EquipmentRoll)).Appraise(state, relic.Id);

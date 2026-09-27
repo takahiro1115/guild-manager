@@ -958,6 +958,12 @@ public partial class MainDashboard : Control
 				rewardLine += $" ／ 📦 {MaterialBalance.GetName(boss.RewardMaterialId)} ×{boss.RewardMaterialCount}";
 			sb.AppendLine($"[color=lime]{rewardLine}[/color]");
 			AppendRelicLines(sb, resolution);
+			// 伝説級の固有武具（→ 03 §4.7.5、2026年9月・§0.45）：割り当てのあるボスの初回撃破で確定入手。
+			if (resolution.LegendaryFound is { } legendary)
+			{
+				sb.AppendLine($"[color=gold][b]👑【伝説級】{ItemColorHelper.GetColoredBBCode(legendary)} を手に入れた！[/b][/color]");
+				sb.AppendLine($"[color=gray]性能：{legendary.DescribeEffects()}。ギルド保管庫へ納めた（ギルドの宝のため売却不可）。[/color]");
+			}
 		}
 
 		AppendBondLine(sb, resolution);

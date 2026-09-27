@@ -1,5 +1,6 @@
 #nullable enable
 using Godot;
+using GuildManager.Core.Balance;
 using GuildManager.Core.Models;
 
 /// <summary>
@@ -11,8 +12,10 @@ using GuildManager.Core.Models;
 ///  - アフィックス1枠（接頭辞または接尾辞のみ） … 水色 <see cref="OneAffixHex"/>
 ///  - アフィックス2枠（接頭辞＋接尾辞＝当たり個体） … 黄緑 <see cref="TwoAffixHex"/>
 ///
-/// 将来のレアリティ段階（固定アーティファクト・ユニーク等）に備え、紫・金の色も定義だけしておく
-/// （<see cref="ItemColorTier"/> に段を足し、<see cref="GetTier"/> の判定へ条件を加えれば全画面に効く）。
+///  - 固定アーティファクト（固有武具、→ uniques.csv Grade=Artifact） … 紫 <see cref="ArtifactHex"/>
+///  - 伝説級（固有武具、→ uniques.csv Grade=Legendary） … 金 <see cref="UniqueHex"/>
+/// 固有武具の2段は2026年9月・§0.45（ハクスラ Step 3）で使い始めた。固有武具にアフィックスは付かないため、判定は固有が優先。
+/// CSVから消えた固有Id（定義を引けない個体）は通常の個体として扱う。
 /// </summary>
 public static class ItemColorHelper
 {
@@ -20,10 +23,10 @@ public static class ItemColorHelper
 	public const string OneAffixHex = "#38bdf8";
 	public const string TwoAffixHex = "#4ade80";
 
-	/// <summary>将来用：固定アーティファクト等（未使用）。</summary>
+	/// <summary>固定アーティファクト（固有武具・紫）。</summary>
 	public const string ArtifactHex = "#c084fc";
 
-	/// <summary>将来用：ユニーク・伝説級等（未使用）。</summary>
+	/// <summary>伝説級（固有武具・金）。</summary>
 	public const string UniqueHex = "#fbbf24";
 
 	/// <summary>表示色の段。値の大きいほど格上。</summary>
@@ -32,14 +35,19 @@ public static class ItemColorHelper
 		Normal,
 		OneAffix,
 		TwoAffix,
-		Artifact, // 将来用
-		Unique,   // 将来用
+		Artifact,
+		Unique,
 	}
 
 	/// <summary>個体の表示色の段（null＝通常）。</summary>
 	public static ItemColorTier GetTier(EquipmentItem? item)
 	{
 		if (item == null) return ItemColorTier.Normal;
+		switch (item.GetUniqueDefinition()?.Grade)
+		{
+			case UniqueGrade.Legendary: return ItemColorTier.Unique;
+			case UniqueGrade.Artifact: return ItemColorTier.Artifact;
+		}
 		int affixCount = (string.IsNullOrEmpty(item.PrefixId) ? 0 : 1) + (string.IsNullOrEmpty(item.SuffixId) ? 0 : 1);
 		return affixCount switch
 		{

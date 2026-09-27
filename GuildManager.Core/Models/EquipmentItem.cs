@@ -80,6 +80,21 @@ namespace GuildManager.Core.Models
         /// <summary>アフィックスによる最大HPへの加算の合計（→ Adventurer.GetEquipmentHpBonus）。</summary>
         public int AffixHpBonus { get; set; }
 
+        // ---- 固有武具（→ 03 §4.7.5、2026年9月・§0.45、ハクスラ Step 3） ----
+        // 固定アーティファクト（紫）・伝説級（金）の個体だけが持つ。固有の補正は uniques.csv の定義から引く
+        // （アフィックスと違って性能が固定のため、値を個体へ焼き付けない。カタログの基本性能と同じ扱い）。
+        // 固有武具にアフィックスは付かない。旧セーブの個体はキーが無く null のまま＝通常の個体として復元される。
+
+        /// <summary>固有武具のId（→ uniques.csv）。null＝固有武具ではない。</summary>
+        public string? UniqueId { get; set; }
+
+        /// <summary>固有武具か（CSVから消えた Id でも true。その場合は名前と固有補正を失い、カタログの基本性能だけが残る）。</summary>
+        [JsonIgnore]
+        public bool IsUnique => !string.IsNullOrEmpty(UniqueId);
+
+        /// <summary>固有武具の定義（→ UniqueBalance）。固有武具でない・CSVから消えた場合はnull。メソッドなのは GetDefinition と同じ理由。</summary>
+        public UniqueDefinition? GetUniqueDefinition() => UniqueBalance.FindById(UniqueId);
+
         /// <summary>接頭辞・接尾辞のいずれかを持つか。</summary>
         [JsonIgnore]
         public bool HasAffix => !string.IsNullOrEmpty(PrefixId) || !string.IsNullOrEmpty(SuffixId);
@@ -87,6 +102,7 @@ namespace GuildManager.Core.Models
         /// <summary>
         /// アフィックス込みの表示名：「{接頭辞}{カタログ名}{接尾辞}」（例：剛力の鉄の剣［巨躯］・剛力の鉄の剣・鉄の剣［巨躯］）。
         /// アフィックスが無ければカタログ名（カタログから引けない旧データはスナップショットの Name）。
+        /// 固有武具（→ UniqueId）は固有名（例：古代エルフの双刃）。
         /// affixes.csv から消えたアフィックスは名前を出さない（効果は個体に焼き付いたまま）。
         /// </summary>
         [JsonIgnore]
@@ -94,6 +110,8 @@ namespace GuildManager.Core.Models
         {
             get
             {
+                var unique = GetUniqueDefinition();
+                if (unique != null) return unique.Name;
                 string baseName = GetDefinition()?.Name ?? Name;
                 if (!HasAffix) return baseName;
                 return $"{AffixBalance.FindById(PrefixId)?.Name}{baseName}{AffixBalance.FindById(SuffixId)?.Name}";
@@ -102,6 +120,23 @@ namespace GuildManager.Core.Models
 
         /// <summary>指定した能力値へのアフィックス補正（無ければ0）。</summary>
         public int GetAffixStatBonus(string statName) => AffixStatBonuses.TryGetValue(statName, out int v) ? v : 0;
+
+        /// <summary>
+        /// この個体を装備したときの指定能力値への補正の合計：カタログの基本性能＋アフィックス＋固有補正
+        /// （→ Adventurer.GetEquipmentStatBonus）。カタログから引けない個体のカタログ分は0。
+        /// </summary>
+        public int GetTotalStatBonus(string statName) =>
+            (GetDefinition()?.GetStatBonus(statName) ?? 0) + GetAffixStatBonus(statName)
+            + (GetUniqueDefinition()?.GetStatBonus(statName) ?? 0);
+
+        /// <summary>この個体を装備したときの最大HPへの加算の合計：カタログ＋アフィックス＋固有補正（→ Adventurer.GetEquipmentHpBonus）。</summary>
+        public int GetTotalHpBonus() =>
+            (GetDefinition()?.MaxHpBonus ?? 0) + AffixHpBonus + (GetUniqueDefinition()?.HpBonus ?? 0);
+
+        /// <summary>
+        /// 装備者がいる部隊で、指定のボスギミックを対策済みにするか（伝説級の固有効果、→ DungeonResolver.IsCountered）。
+        /// </summary>
+        public bool CountersGimmick(BossGimmickType type) => GetUniqueDefinition()?.CounterGimmick == type;
 
         /// <summary>
         /// アフィックスを1つ付ける（鑑定の抽選 → AppraisalSystem）。位置（接頭辞／接尾辞）の Id と値を記録し、
@@ -132,14 +167,31 @@ namespace GuildManager.Core.Models
         /// 効果の短い説明：カタログの基本性能（→ Item.DescribeEffects）に、アフィックスの補正を位置ごとに添える。
         /// 例：「STR+2・VIT+1 [剛力: STR+3] [巨躯: 最大HP+15]」。アフィックスが無ければカタログの説明のまま。
         /// カタログから引けない個体の基本性能は「（不明）」。
+        /// 固有武具は固有の補正と対策効果を添える（例：「STR+6・VIT+2 [固有: STR+8・VIT+3] [重装甲対策]」）。
         /// </summary>
         public string DescribeEffects()
         {
             string text = GetDefinition()?.DescribeEffects() ?? "（不明）";
             text += DescribeAffix(PrefixId, PrefixValue);
             text += DescribeAffix(SuffixId, SuffixValue);
+            var unique = GetUniqueDefinition();
+            if (unique != null)
+            {
+                string bonuses = unique.DescribeBonuses();
+                if (bonuses.Length > 0) text += $" [固有: {bonuses}]";
+                if (unique.CounterGimmick.HasValue) text += $" [{GimmickLabel(unique.CounterGimmick.Value)}対策]";
+            }
             return text;
         }
+
+        /// <summary>ボスギミックの表示名（→ 03 §4.5.4）。</summary>
+        public static string GimmickLabel(BossGimmickType type) => type switch
+        {
+            BossGimmickType.Poison => "猛毒",
+            BossGimmickType.HeavyArmor => "重装甲",
+            BossGimmickType.Flying => "飛行",
+            _ => "即死級攻撃",
+        };
 
         private static string DescribeAffix(string? id, int value)
         {
@@ -179,6 +231,21 @@ namespace GuildManager.Core.Models
             AcquiredAtWeek = acquiredAtWeek,
             AcquiredFrom = acquiredFrom,
             Rarity = rarity,
+        };
+
+        /// <summary>
+        /// 固有武具の個体を作る（→ UniqueItemSystem）。土台のカタログ武具（BaseItemId）を指し、固有Idを刻む。
+        /// rarity は鑑定で出た固定アーティファクトなら元の遺物の希少度、ボスから得た伝説級は null。
+        /// </summary>
+        public static EquipmentItem FromUnique(
+            UniqueDefinition unique, int acquiredAtWeek = 0, string acquiredFrom = "", ItemRarity? rarity = null) => new()
+        {
+            ItemId = unique.BaseItemId,
+            Name = unique.Name,
+            AcquiredAtWeek = acquiredAtWeek,
+            AcquiredFrom = acquiredFrom,
+            Rarity = rarity,
+            UniqueId = unique.Id,
         };
     }
 }
