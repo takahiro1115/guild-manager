@@ -207,7 +207,7 @@ details summary { cursor: pointer; font-size: 12px; color: var(--muted); }
 .state { font-size: 11px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); }
 .state.pending { border-color: var(--accent); color: var(--accent); }
 .state.imported { border-color: #2f9e5a; color: #2f9e5a; }
-.state.cleaned { color: var(--muted); }
+.state.cleaned, .state.skipped { color: var(--muted); }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 
@@ -367,6 +367,13 @@ details summary { cursor: pointer; font-size: 12px; color: var(--muted); }
     <div class="slider" style="max-width: 420px"><label for="contrast">陰影の強さ</label><input type="range" id="contrast" min="0.4" max="1.8" step="0.05" value="1"><output id="contrastOut">1.00</output></div>
     <div class="grid" id="grid"></div>
     <div class="export">
+      <label class="field" style="grid-auto-flow:column;align-items:center;gap:6px">書き出す大きさ（長辺）
+        <select id="outSize" style="font:400 12px var(--font);padding:4px 6px;border:1px solid var(--line);border-radius:4px;background:var(--surface);color:var(--ink)">
+          <option value="512" selected>512px（ゲーム用・おすすめ）</option>
+          <option value="768">768px</option>
+          <option value="1024">1024px</option>
+          <option value="0">元のまま</option>
+        </select></label>
       <button type="button" class="btn primary" id="exportOne">この画像を書き出す（zip）</button>
       <button type="button" class="btn" id="exportAll" title="見本の adv_004 は含まない">全画像を書き出す（zip）</button>
       <span class="status" id="exportStatus"></span>
@@ -1121,11 +1128,27 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
 
   // ---------- 書き出し ----------
   let downloads = null;
+  // PNG にする。長辺が「書き出す大きさ」を超えるときは、半分ずつ段階的に縮めてから最後に合わせる（一気に縮めるより線がきれい）。
   function canvasBlob(imageData) {
-    const c = document.createElement("canvas"); c.width = imageData.width; c.height = imageData.height;
+    let c = document.createElement("canvas"); c.width = imageData.width; c.height = imageData.height;
     c.getContext("2d").putImageData(imageData, 0, 0);
+    const max = +$("outSize").value;
+    const long = Math.max(c.width, c.height);
+    if (max > 0 && long > max) {
+      const scale = max / long;
+      const tw = Math.round(c.width * scale), th = Math.round(c.height * scale);
+      while (c.width / 2 >= tw && c.height / 2 >= th) c = resizeCanvas(c, Math.round(c.width / 2), Math.round(c.height / 2));
+      if (c.width !== tw || c.height !== th) c = resizeCanvas(c, tw, th);
+    }
     return new Promise((res) => c.toBlob(res, "image/png"));
   }
+  function resizeCanvas(src, w, h) {
+    const c = document.createElement("canvas"); c.width = w; c.height = h;
+    const x = c.getContext("2d"); x.imageSmoothingEnabled = true; x.imageSmoothingQuality = "high";
+    x.drawImage(src, 0, 0, w, h);
+    return c;
+  }
+
   async function exportImages(list) {
     const status = $("exportStatus");
     status.className = "status";
@@ -1303,11 +1326,23 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
   // ---------- ゲームに送る（assets＋db） ----------
   let assetsNs = null, dbNs = null;
   const BATCHES = "portrait_batches";
-  const STATE_LABEL = { pending: "取り込み待ち", imported: "取り込み済み", cleaned: "片付け済み" };
+  const STATE_LABEL = { pending: "取り込み待ち", imported: "取り込み済み", skipped: "取り込まない", cleaned: "片付け済み" };
 
+  // 送る枚数が多いときは、もう一度押してもらってから送る（色の全組み合わせを誤って送るのを防ぐ）。
+  const LARGE_SEND = 24;
+  let confirmKey = null;
   async function sendImages(list) {
     const status = $("sendStatus");
     status.className = "status";
+    const total = list.length * combos().length;
+    const key = list.map((i) => i.id).join(",") + "|" + total;
+    if (total > LARGE_SEND && confirmKey !== key) {
+      confirmKey = key;
+      status.className = "status warn";
+      status.textContent = `${total} 枚になる（髪 ${selected.hair.size} × 瞳 ${selected.eye.size}${list.length > 1 ? ` × 画像 ${list.length}` : ""}）。1キャラは4〜6通りがおすすめ。このまま送るならもう一度押す。`;
+      return;
+    }
+    confirmKey = null;
     const cs = combos();
     if (!cs.length) { status.className = "status warn"; status.textContent = "髪色と瞳色を1つ以上選ぶ。"; return; }
     const bad = list.filter((img) => !/^[A-Za-z0-9_-]+$/.test(img.id));
@@ -1352,7 +1387,7 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
       const ids = document.createElement("span"); ids.className = "ids";
       ids.textContent = `PNG ${b.count} 枚：` + (b.items || []).map((it) => it.id).join("、") + (b.commit ? `（コミット ${String(b.commit).slice(0, 7)}）` : "");
       row.append(when, st, ids);
-      if (b.status === "imported") {
+      if (b.status === "imported" || b.status === "skipped") {
         const clean = document.createElement("button"); clean.type = "button"; clean.className = "btn"; clean.textContent = "片付ける";
         clean.title = "取り込み済みの画像をこのページの保存領域から消す（ゲーム側の画像は消えない）";
         clean.addEventListener("click", async () => {

@@ -19,6 +19,7 @@ description: 肖像工房（冒険者の顔グラフィック加工ツール）�
 1. `ArtifactData` を読み込み（ToolSearch で `select:ArtifactData`）、取り込み待ちを探す：
    `action: "query"`, `url`: 上の公開先, `collection: "portrait_batches"`, `query: {"where": [["status", "==", "pending"]]}`。
    0件なら「取り込み待ちの送信は無い」と伝えて終わる。各文書の `version` を控える。
+   `status` が `skipped`（ユーザーが取り込まないと決めた送信）・`imported`・`cleaned` の文書は対象外。
 2. 送信（文書）ごとに作業用フォルダ（scratchpad の下、例 `<scratchpad>/portrait_import/<doc_id>/`）を作り、
    `items` の各要素について `Artifact` の `action: "read"`, `url`: 上の公開先, `path`: その `assetId`, `out_dir`: 作業用フォルダ
    で画像を保存し、保存されたファイルを `<items[].id>.png` に改名する（複数枚は `paths` でまとめて読める）。
@@ -34,6 +35,9 @@ python3 tools/portrait_tool/import_portraits.py <zip またはフォルダ>
 ```
 
 - dry-run の結果（追加・置き換えの一覧）を確認してから本番を実行する。
+- 「長辺が 512px を超える」警告が出たら、肖像工房の「書き出す大きさ」を 512px にして送り直すか、このまま入れるかをユーザーに確認する
+  （ゲーム内の最大表示は 120×160px。大きい画像はリポジトリを重くするだけ）。
+- 1キャラの枚数が多すぎる（十数枚以上）ときも、入れる前にユーザーに確認する。
 - 「既にある」で止まったら、置き換えてよいかユーザーに確認し、よければ `--replace` を付ける。勝手に付けない。
 - 他の検査エラー（Id の書式、職業名、PNG が無い）は、直し方を添えてユーザーに伝える。肖像工房の画像Idや職業欄を直して送り直してもらう。
 

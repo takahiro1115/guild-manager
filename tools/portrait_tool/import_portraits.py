@@ -35,6 +35,8 @@ HEADER = ["Id", "Jobs", "HairColor", "EyeColor", "note"]
 JOBS = {"Warrior", "Knight", "Ranger", "Thief", "Mage", "Cleric", "Scholar"}
 ID_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+# ゲーム内の最大表示は 120×160px（個人詳細）。肖像工房は既定で長辺 512px に縮めて書き出す。これを超える画像は警告だけ出す。
+RECOMMENDED_MAX_SIDE = 512
 # 初期メンバーの専用画像など、プール外の既存ファイル名。上書きで壊さない。
 RESERVED = {"unknown_silhouette", "claudia", "rina", "fiona", "elsha", "gareth", "body_back", "eyes_fitted", "hair_front", "raw_base"}
 
@@ -45,6 +47,11 @@ def read_rows(text: str) -> list[dict[str, str]]:
     if missing:
         raise ValueError(f"{ROWS_FILE} に列 {', '.join(missing)} がありません")
     return [{k: (row.get(k) or "").strip() for k in HEADER} for row in reader]
+
+
+def png_size(data: bytes) -> tuple[int, int]:
+    """PNG の IHDR から幅と高さを読む（シグネチャ8バイト＋長さ4＋"IHDR"4 の後ろ）。"""
+    return int.from_bytes(data[16:20], "big"), int.from_bytes(data[20:24], "big")
 
 
 def valid_jobs(value: str) -> bool:
@@ -121,6 +128,13 @@ def run(src_dir: Path, repo: Path, dry_run: bool, replace: bool) -> int:
             errors.append(f"{where}: {rid}.png が PNG 形式ではない")
 
     extra = sorted(p.stem for p in src_dir.glob("*.png") if p.stem not in seen)
+    large = []
+    for rid in sorted(seen):
+        png = src_dir / f"{rid}.png"
+        if png.exists():
+            data = png.read_bytes()
+            if data[:8] == PNG_SIGNATURE and max(png_size(data)) > RECOMMENDED_MAX_SIDE:
+                large.append(f"{rid}（{'×'.join(map(str, png_size(data)))}px）")
     if errors:
         print("✖ 取り込みを中止した（何も変更していない）:", file=sys.stderr)
         for e in errors:
@@ -135,6 +149,8 @@ def run(src_dir: Path, repo: Path, dry_run: bool, replace: bool) -> int:
         print(f"  [{mark}] {r['Id']}  {r['Jobs']}  髪:{r['HairColor']}  瞳:{r['EyeColor']}")
     if extra:
         print(f"  （CSV に行が無いので無視した PNG: {', '.join(extra)}）")
+    if large:
+        print(f"  ⚠ 長辺が {RECOMMENDED_MAX_SIDE}px を超える画像: {', '.join(large)}。肖像工房で「書き出す大きさ」を 512px にして送り直すとリポジトリが軽くなる")
     if dry_run:
         return 0
 
