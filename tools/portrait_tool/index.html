@@ -307,6 +307,8 @@ details summary { cursor: pointer; font-size: 12px; color: var(--muted); }
           <button type="button" class="btn" id="resetBg">手直しを取り消す</button>
         </div>
         <div class="row" id="maskActions" hidden>
+          <label class="check" style="flex-basis:100%"><input type="checkbox" id="hueMode"> 色味で選ぶ（黒髪・暗い色向け。明るさの差を軽く見る）</label>
+          <button type="button" class="btn" id="thin">細い線を外す</button>
           <button type="button" class="btn" id="grow">1px 広げる</button>
           <button type="button" class="btn" id="shrink">1px 縮める</button>
           <button type="button" class="btn" id="clearMask">範囲を空にする</button>
@@ -423,7 +425,8 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
       bgEdit: new Int8Array(n),       // 1 = 手で消した / -1 = 手で残した / 0 = 自動のまま
       hair: new Uint8Array(n),
       eye: new Uint8Array(n),
-      tol: { bg: 24, hair: 60, eye: 60 },
+      tol: { bg: 24, hair: 40, eye: 60 },
+      hueMode: { hair: true, eye: false },
       box: { hair: null, eye: null },
       bgColor: [255, 255, 255],
       undo: [],
@@ -439,6 +442,16 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
   };
 
   // 端の画素の色を 16 段階に丸めて最も多い組を背景色とみなす（人物が端に接していても引きずられない）。
+  // 色味重視の距離：明るさの差を軽く（×0.4）、色味の差を重く（×2）見る。黒髪と紺の服の影のように、
+  // 明るさは同じで色味だけ違う所を分けられる。ハイライトのような明るさの変化はまたいで選べる。
+  function hueDist(d, i, r, g, b) {
+    const dL = ((d[i] + d[i + 1] + d[i + 2]) - (r + g + b)) / 3;
+    const dc1 = (d[i] - d[i + 1]) - (r - g);
+    const dc2 = ((d[i] + d[i + 1]) / 2 - d[i + 2]) - ((r + g) / 2 - b);
+    return Math.sqrt(0.16 * dL * dL + 4 * (dc1 * dc1 + dc2 * dc2));
+  }
+  const partDist = (img, key) => (img.hueMode[key] ? hueDist : dist);
+
   function estimateBgColor(img) {
     const { w, h, src } = img;
     const bins = new Map();
@@ -524,7 +537,7 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
   }
 
   // 領域の拡張（塗りつぶし）：種の色に近い画素を上下左右につないで集める。
-  function regionGrow(img, sx, sy, tol, box, allow) {
+  function regionGrow(img, sx, sy, tol, box, allow, distFn = dist) {
     const { w, h, src } = img;
     const x0 = box ? Math.max(0, box.x0) : 0, y0 = box ? Math.max(0, box.y0) : 0;
     const x1 = box ? Math.min(w, box.x1) : w, y1 = box ? Math.min(h, box.y1) : h;
@@ -543,7 +556,7 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
       for (const q of nb) {
         if (q < 0 || seen[q]) continue;
         seen[q] = 1;
-        if ((!allow || allow(q)) && dist(src, q * 4, r, g, b) <= tol) stack.push(q);
+        if ((!allow || allow(q)) && distFn(src, q * 4, r, g, b) <= tol) stack.push(q);
       }
     }
     return out;
@@ -801,7 +814,7 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
       for (let x = Math.max(0, Math.floor(cx - r)); x <= Math.min(w - 1, Math.ceil(cx + r)); x++) {
         if ((x - cx) * (x - cx) + (y - cy) * (y - cy) > r2) continue;
         const p = y * w + x;
-        if (tool === "range" && dist(src, p * 4, ref[0], ref[1], ref[2]) > tol) continue;
+        if (tool === "range" && (target === "bg" ? dist : partDist(img, target))(src, p * 4, ref[0], ref[1], ref[2]) > tol) continue;
         if (target === "bg") {
           img.bgEdit[p] = tool === "erase" ? -1 : 1;
         } else {
@@ -830,7 +843,7 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
         for (const p of regionGrow(img, pt.x, pt.y, img.tol.bg, null, null)) img.bgEdit[p] = 1;
       } else {
         const add = !e.altKey;
-        const pix = regionGrow(img, pt.x, pt.y, img.tol[target], img.box[target], (q) => !isBg(img, q));
+        const pix = regionGrow(img, pt.x, pt.y, img.tol[target], img.box[target], (q) => !isBg(img, q), partDist(img, target));
         for (const p of pix) img[target][p] = add ? 1 : 0;
       }
       invalidate(img); redraw(); scheduleVariants();
@@ -896,6 +909,28 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
     img[key] = out;
   }
 
+  // 細い線を外す：2画素縮めてから広げ直し（線幅4画素以下の部分が消える）、小さな欠片も取り除く。
+  function removeThin(img, key) {
+    const before = img[key];
+    for (let k = 0; k < 2; k++) morph(img, key, false);
+    for (let k = 0; k < 2; k++) morph(img, key, true);
+    const m = img[key];
+    for (let p = 0; p < m.length; p++) if (!before[p]) m[p] = 0;
+    const { w, h } = img;
+    const minSize = Math.max(20, Math.round(200 * (w * h) / (1024 * 1024)));
+    const seen = new Uint8Array(w * h);
+    for (let p0 = 0; p0 < m.length; p0++) {
+      if (!m[p0] || seen[p0]) continue;
+      const comp = [p0]; seen[p0] = 1;
+      for (let k = 0; k < comp.length; k++) {
+        const p = comp[k], x = p % w, y = (p / w) | 0;
+        for (const q of [x > 0 ? p - 1 : -1, x < w - 1 ? p + 1 : -1, y > 0 ? p - w : -1, y < h - 1 ? p + w : -1])
+          if (q >= 0 && m[q] && !seen[q]) { seen[q] = 1; comp.push(q); }
+      }
+      if (comp.length < minSize) for (const p of comp) m[p] = 0;
+    }
+  }
+
   // ---------- 画面の同期 ----------
   const HINTS = {
     bg: {
@@ -906,7 +941,7 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
       box: "範囲枠は髪・瞳の選択に使う。",
     },
     part: {
-      wand: "クリックした所から、似た色のつながった範囲を加える。Alt を押しながらで取り除く。範囲枠があれば枠の外には広がらない。",
+      wand: "クリックした所から、似た色のつながった範囲を加える。Alt を押しながらで取り除く。先に範囲枠で囲うと服へ漏れない。輪郭線を伝って細く広がったら「細い線を外す」。",
       range: "なぞった所のうち、なぞり始めの色に近い画素だけを加える。輪郭線に漏れにくい。",
       brush: "なぞった所をそのまま加える。",
       erase: "なぞった所を範囲から外す。",
@@ -930,6 +965,7 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
     }
     $("maskActions").hidden = target === "bg";
     $("clearBox").hidden = !(current && target !== "bg" && current.box[target]);
+    if (current && target !== "bg") $("hueMode").checked = current.hueMode[target];
     if (current) { $("tol").value = current.tol[target]; $("tolOut").value = current.tol[target]; }
     setHint((target === "bg" ? HINTS.bg : HINTS.part)[tool]);
   }
@@ -1158,6 +1194,13 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
     runBackground(current); syncTargetUi(); redraw(); scheduleVariants();
   });
   $("resetBg").addEventListener("click", () => { if (!current) return; pushUndo(current); current.bgEdit.fill(0); invalidate(current); redraw(); scheduleVariants(); });
+  $("hueMode").addEventListener("change", (e) => {
+    if (!current || target === "bg") return;
+    current.hueMode[target] = e.target.checked;
+    current.tol[target] = e.target.checked ? 40 : 60;
+    syncTargetUi();
+  });
+  $("thin").addEventListener("click", () => { if (!current) return; pushUndo(current); removeThin(current, target); redraw(); scheduleVariants(); });
   $("grow").addEventListener("click", () => { if (!current) return; pushUndo(current); morph(current, target, true); redraw(); scheduleVariants(); });
   $("shrink").addEventListener("click", () => { if (!current) return; pushUndo(current); morph(current, target, false); redraw(); scheduleVariants(); });
   $("clearMask").addEventListener("click", () => { if (!current) return; pushUndo(current); current[target].fill(0); redraw(); scheduleVariants(); });
@@ -1201,7 +1244,7 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
     const blob = new Blob([bytes], { type: "image/jpeg" });
     const img = await loadFile(new File([blob], "adv_004.jpg", { type: "image/jpeg" }));
     img.jobs = "Ranger|Warrior|Knight"; img.hairLabel = "暗褐"; img.eyeLabel = "琥珀";
-    img.tol.hair = 95; img.tol.eye = 90;
+    img.tol.hair = 95; img.tol.eye = 90; img.hueMode.hair = false;
     const notBg = (q) => !isBg(img, q);
     img.box.hair = { x0: 330, y0: 40, x1: 740, y1: 430 };
     for (const [x, y] of [[470, 120], [400, 150], [560, 100]]) for (const p of regionGrow(img, x, y, 95, img.box.hair, notBg)) img.hair[p] = 1;
