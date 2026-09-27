@@ -1,0 +1,6 @@
+Id,Jobs,HairColor,EyeColor,note
+adv_001,Thief|Ranger|Warrior,暗褐,紫,黒革の軽装・ポニーテール・腰に短剣。白背景（透過版に差し替え予定）
+adv_002,Thief|Ranger|Scholar,黒,緑,紺のベスト・首のバンダナ・ボブ。白背景（透過版に差し替え予定）
+adv_003,Mage|Scholar|Cleric,銀,紫,紫のローブ・フード・水晶の杖。白背景（透過版に差し替え予定）
+adv_004,Ranger|Warrior|Knight,暗褐,琥珀,革鎧・緑の外套・ボブ。白背景（透過版に差し替え予定）
+adv_005,Thief|Scholar|Ranger,黒,緑,紺のベスト・工具ポーチ。adv_002 と同じ顔立ちのため、同時に並ばないよう色違いに差し替える候補。白背景（透過版に差し替え予定）

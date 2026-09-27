@@ -42,8 +42,9 @@ namespace GuildManager.Core.Models
         public Gender Gender { get; set; }
 
         /// <summary>
-        /// ポートレート画像のID（→ 03 §2.1、項目62で新設）。null（未設定）が正常系
-        /// （採用で生成される冒険者は基本的に持たない）。装備の VisualPartId と同じ
+        /// ポートレート画像のID（→ 03 §2.1、項目62で新設）。null（未設定）はシルエット表示。
+        /// 2026年9月・§0.46：採用で生成される冒険者にも、顔グラフィックのプール（→ Balance.PortraitBalance・portraits.csv）から
+        /// 職業に似合う未使用の画像を割り当てる（→ Systems.RecruitmentSystem.AssignPortrait）。装備の VisualPartId と同じ
         /// 「IDだけCoreに持たせ、実際の画像解決はGodot側」というパターンに揃えてある：
         /// Godot側は `res://assets/portraits/{PortraitId}.png` を解決し、null または
         /// ファイルが存在しない場合はシルエット画像（unknown_silhouette.png）を表示する。
