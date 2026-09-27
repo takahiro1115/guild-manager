@@ -59,6 +59,7 @@
   --check-b: #222730;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body {
   background: var(--bg);
   color: var(--ink);
@@ -163,6 +164,39 @@ button:focus-visible, input:focus-visible, .thumb-btn:focus-visible { outline: 2
 .status.warn { color: var(--warn); }
 .csv { font: 400 11px/1.5 var(--mono); background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 8px; overflow-x: auto; white-space: pre; margin: 0; color: var(--ink); max-height: 160px; }
 details summary { cursor: pointer; font-size: 12px; color: var(--muted); }
+/* タブ */
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); }
+.tabs button {
+  border: 1px solid transparent; border-bottom: 0; background: transparent; color: var(--muted); padding: 8px 16px;
+  font: 600 13px var(--font); cursor: pointer; border-radius: var(--radius) var(--radius) 0 0; margin-bottom: -1px;
+}
+.tabs button[aria-selected="true"] { background: var(--panel); color: var(--ink); border-color: var(--line); }
+.tabs button .num { font-family: var(--mono); color: var(--accent); margin-right: 6px; }
+
+/* プロンプト作成 */
+.pp { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 900px) { .pp { grid-template-columns: 1fr; } }
+.pp select, .pp input[type="number"] {
+  font: 400 13px var(--font); padding: 6px 8px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); color: var(--ink); width: 100%;
+}
+.pp .field { color: var(--muted); }
+.pick { display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: end; }
+.pick .btn { padding: 6px 8px; }
+.results { display: grid; gap: 12px; }
+.pcard { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; display: grid; gap: 8px; }
+.pcard-head { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+.pcard-head .id { font: 500 13px var(--mono); color: var(--accent); }
+.pcard-head .desc { font-size: 13px; }
+.pill { font-size: 11px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+.pill.key-magenta { border-color: #d21fc6; color: #d21fc6; }
+.pill.key-green { border-color: #1f9d3a; color: #1f9d3a; }
+.pcard textarea {
+  width: 100%; min-height: 128px; resize: vertical; font: 400 12px/1.55 var(--mono); padding: 8px; border: 1px solid var(--line);
+  border-radius: 4px; background: var(--surface); color: var(--ink);
+}
+.pcard .lbl { font-size: 11px; color: var(--muted); letter-spacing: 0.04em; }
+.pcard .warn { font-size: 12px; color: var(--warn); margin: 0; }
+.pcard .csvline { font: 400 11px var(--mono); color: var(--muted); overflow-x: auto; white-space: nowrap; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 
@@ -172,9 +206,51 @@ details summary { cursor: pointer; font-size: 12px; color: var(--muted); }
       <div class="eyebrow">Guild Manager · portraits</div>
       <h1>冒険者肖像工房</h1>
     </div>
-    <p>立ち絵の背景を抜き（マゼンタや緑の背景で生成した画像はクロマキーで自動的にきれいに抜ける）、髪と瞳の範囲を決めて色違いをまとめて作る。書き出した PNG は <code>assets/portraits/</code> へ、CSV の行は <code>portraits.csv</code> へ。画像はこのブラウザの中だけで処理し、どこにも送らない。</p>
+    <p>①で画像生成アプリに貼るプロンプトを作り、②で生成した立ち絵の背景を抜き（マゼンタや緑の背景で生成した画像はクロマキーで自動的にきれいに抜ける）、髪と瞳の範囲を決めて色違いをまとめて作る。書き出した PNG は <code>assets/portraits/</code> へ、CSV の行は <code>portraits.csv</code> へ。画像はこのブラウザの中だけで処理し、どこにも送らない。</p>
   </header>
 
+  <div class="tabs" role="tablist">
+    <button type="button" role="tab" id="tabPrompt" aria-controls="promptPane" aria-selected="true"><span class="num">1</span>プロンプト作成</button>
+    <button type="button" role="tab" id="tabEdit" aria-controls="editPane" aria-selected="false"><span class="num">2</span>加工（背景・色違い）</button>
+  </div>
+
+  <section class="pp" id="promptPane" role="tabpanel" aria-labelledby="tabPrompt">
+    <div class="card">
+      <h2>冒険者の設定 <small>🎲 はランダム</small></h2>
+      <div class="pick"><label class="field">職業<select id="pJob"></select></label><button type="button" class="btn" data-dice="pJob" title="この項目だけ振り直す">🎲</button></div>
+      <div class="pick"><label class="field">髪型<select id="pStyle"></select></label><button type="button" class="btn" data-dice="pStyle" title="この項目だけ振り直す">🎲</button></div>
+      <div class="pick"><label class="field">髪色<select id="pHair"></select></label><button type="button" class="btn" data-dice="pHair" title="この項目だけ振り直す">🎲</button></div>
+      <div class="pick"><label class="field">瞳色<select id="pEye"></select></label><button type="button" class="btn" data-dice="pEye" title="この項目だけ振り直す">🎲</button></div>
+      <h2 style="margin-top:4px">出力</h2>
+      <label class="field">背景<select id="pBg">
+        <option value="auto">自動（マゼンタ／緑から、配色と重ならない方）</option>
+        <option value="magenta">マゼンタ #FF00FF（クロマキー用）</option>
+        <option value="green">緑 #00FF00（クロマキー用）</option>
+        <option value="gray">薄い灰色（参考プロンプトのまま）</option>
+      </select></label>
+      <div class="two">
+        <label class="field">縦横比<select id="pAr"><option value="1:1">1:1</option><option value="2:3">2:3</option><option value="3:4">3:4</option></select></label>
+        <label class="field">形式<select id="pFormat">
+          <option value="line">参考と同じ1行</option>
+          <option value="split">ポジティブ／ネガティブ</option>
+          <option value="mj">Midjourney（--no）</option>
+        </select></label>
+      </div>
+      <div class="two">
+        <label class="field">件数<input type="number" id="pCount" min="1" max="20" value="3"></label>
+        <label class="field">画像Idの開始番号<input type="number" id="pStart" min="1" max="999" value="6"></label>
+      </div>
+      <p class="note">「ランダム」にした項目は1件ごとに振り直す。固定した項目は全件で同じ。</p>
+      <div class="row">
+        <button type="button" class="btn primary" id="pMake">プロンプトを作る</button>
+        <button type="button" class="btn" id="pCopyCsv">CSV の行をまとめてコピー</button>
+      </div>
+      <span class="status" id="pStatus"></span>
+    </div>
+    <div class="results" id="pResults"></div>
+  </section>
+
+  <div id="editPane" role="tabpanel" aria-labelledby="tabEdit" hidden style="display:grid;gap:16px">
   <div class="strip" id="strip">
     <label class="add-btn" id="addBtn" for="fileInput">＋ 画像を追加<br><small>ドロップも可</small></label>
     <input type="file" id="fileInput" accept="image/png,image/jpeg,image/webp" multiple hidden>
@@ -282,6 +358,7 @@ details summary { cursor: pointer; font-size: 12px; color: var(--muted); }
       <pre class="csv" id="csvPreview"></pre>
     </details>
   </section>
+  </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -1114,6 +1191,7 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
   $("exportOne").addEventListener("click", () => current && exportImages([current]));
   $("exportAll").addEventListener("click", () => images.length && exportImages(images));
   window.addEventListener("resize", layoutCanvas);
+  window.__portraitRelayout = () => { layoutCanvas(); redraw(); };
 
   // ---------- 見本（adv_004） ----------
   async function loadSample() {
@@ -1145,5 +1223,210 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
       $("exportStatus").textContent = "この表示では保存できない（claude.ai で開くと書き出せる）。";
     }
   })();
+})();
+</script>
+
+<script>
+(() => {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+
+  // ---------- タブ ----------
+  function showTab(name) {
+    const edit = name === "edit";
+    $("tabPrompt").setAttribute("aria-selected", String(!edit));
+    $("tabEdit").setAttribute("aria-selected", String(edit));
+    $("promptPane").hidden = edit;
+    $("editPane").hidden = !edit;
+    try { localStorage.setItem("portraitTab", name); } catch (e) {}
+    if (edit && window.__portraitRelayout) window.__portraitRelayout();
+  }
+  $("tabPrompt").addEventListener("click", () => showTab("prompt"));
+  $("tabEdit").addEventListener("click", () => showTab("edit"));
+
+  // ---------- 参考プロンプトから分けた部品 ----------
+  const STYLE = "masterpiece, best quality, ultra-detailed, 2D korean anime game character portrait sprite, delicate refined art style, manhwa aesthetic, ultra-fine faint linework, soft watercolor-like cel shading, muted color palette";
+  const POSE = (expr) => `slight three-quarter body angle turned 15 degrees to the left, head turned to directly face viewer, looking straight forward at viewer with direct focused eye contact, ${expr}, medium close-up waist-up portrait, frame cropped cleanly at the navel line, lower border precisely at the waist belt, top of head comfortably near top edge`;
+  const NEGATIVE = ["hands", "holding items", "weapons", "swords", "greatswords", "axes", "shields", "spears", "lances", "hips", "thighs", "legs", "boots", "full body", "cropped at chest", "traditional watercolor paper texture", "rough pencil sketch", "thick black outlines", "heavy ink lines", "flat solid colors", "blurry"];
+
+  // 職業：Jobs は portraits.csv の似合う職業、avoid はクロマキーの背景色と重なる配色。
+  const JOBS = [
+    { key: "Warrior", name: "重戦士", jobs: "Warrior|Knight", avoid: [],
+      who: "battle-hardened young female warrior", face: "strong determined", expr: "fierce confident expression",
+      outfit: "heavy scratched steel pauldrons over a dark riveted leather brigandine, fur-trimmed half cape over one shoulder, sturdy iron gorget, thick leather belt with worn iron buckle touching bottom edge" },
+    { key: "Knight", name: "騎士", jobs: "Knight|Warrior", avoid: [],
+      who: "noble young female knight", face: "refined dignified", expr: "dignified resolute expression",
+      outfit: "polished blackened-silver steel cuirass with subtle engraved silver filigree trim, sturdy articulated gorget protecting throat, deep royal navy mantle draped over shoulder with brass insignia brooch, dark padded arming doublet, wide structured leather fauld belt with engraved steel buckle touching bottom edge" },
+    { key: "Ranger", name: "斥候", jobs: "Ranger|Thief", avoid: ["green"],
+      who: "keen-eyed young female ranger", face: "sharp alert", expr: "calm watchful expression",
+      outfit: "hooded forest-green cloak pushed back over the shoulders, fitted dark brown leather jerkin with crossed straps and small pouches, quiver strap across the chest, simple leather bracers, brown leather belt touching bottom edge" },
+    { key: "Thief", name: "盗賊", jobs: "Thief|Ranger", avoid: [],
+      who: "agile young female thief", face: "sharp playful", expr: "sly confident half-smile",
+      outfit: "fitted dark navy leather vest over a charcoal long-sleeve shirt, black scarf wrapped loosely around the neck, crossed harness straps with small tool pouches, fingerless gloves tucked into the belt, studded leather belt touching bottom edge" },
+    { key: "Mage", name: "魔導士", jobs: "Mage|Scholar", avoid: ["magenta"],
+      who: "young female mage", face: "elegant composed", expr: "calm composed expression",
+      outfit: "layered deep indigo hooded robe with silver runic embroidery, ornate high collar with a small crystal clasp, glowing crystal pendant, fine silver circlet, embroidered sash belt with tassels touching bottom edge" },
+    { key: "Cleric", name: "神官", jobs: "Cleric|Mage", avoid: [],
+      who: "gentle young female cleric", face: "soft graceful", expr: "serene compassionate expression",
+      outfit: "white and pale gold priestly vestments with an embroidered stole, holy sun symbol pendant, soft hood lowered on the shoulders, light chainmail collar peeking under the robe, cloth sash belt with gold trim touching bottom edge" },
+    { key: "Scholar", name: "学者", jobs: "Scholar|Mage", avoid: [],
+      who: "bookish young female scholar", face: "intelligent refined", expr: "thoughtful curious expression",
+      outfit: "tailored dark teal academic coat with brass buttons over a buttoned vest and white cravat, leather satchel strap across the chest, small notebook and quill pouch, leather belt with brass buckle touching bottom edge" },
+  ];
+  const STYLES = [
+    { key: "long", name: "ロングストレート", text: "straight hair neatly falling over shoulders with parted bangs" },
+    { key: "ponytail", name: "ポニーテール", text: "hair tied in a high ponytail with loose strands framing the face" },
+    { key: "bob", name: "ボブ", text: "chin-length bob cut with soft side-swept bangs" },
+    { key: "short", name: "ショート", text: "short tousled pixie-cut hair" },
+    { key: "braid", name: "サイドの三つ編み", text: "long hair in a single loose side braid over one shoulder" },
+    { key: "wavy", name: "ロングウェーブ", text: "long loose wavy hair flowing over the shoulders" },
+    { key: "halfup", name: "ハーフアップ", text: "half-up hairstyle with long hair flowing down the back" },
+    { key: "updo", name: "編み込みのまとめ髪", text: "elegant braided updo with a few loose side strands" },
+  ];
+  const HAIRS = [
+    { key: "black", name: "黒", text: "glossy jet-black" },
+    { key: "darkbrown", name: "暗褐", text: "dark chocolate-brown" },
+    { key: "chestnut", name: "栗", text: "warm chestnut-brown" },
+    { key: "blond", name: "金", text: "honey-blonde" },
+    { key: "platinum", name: "プラチナ", text: "pale platinum-blonde" },
+    { key: "silver", name: "銀", text: "silver-white" },
+    { key: "red", name: "赤", text: "deep crimson-red" },
+    { key: "copper", name: "赤銅", text: "copper-auburn" },
+    { key: "navy", name: "紺", text: "dusky navy-blue" },
+    { key: "green", name: "緑", text: "muted sage-green", avoid: ["green"] },
+    { key: "pink", name: "桃", text: "soft dusty-pink", avoid: ["magenta"] },
+    { key: "purple", name: "紫", text: "deep lavender-purple", avoid: ["magenta"] },
+  ];
+  const EYES = [
+    { key: "blue", name: "青", text: "cool slate-blue" },
+    { key: "sky", name: "空色", text: "pale sky-blue" },
+    { key: "green", name: "緑", text: "clear emerald-green", avoid: ["green"] },
+    { key: "amber", name: "琥珀", text: "warm amber" },
+    { key: "hazel", name: "茶", text: "warm hazel-brown" },
+    { key: "gold", name: "金", text: "bright golden" },
+    { key: "red", name: "赤", text: "deep ruby-red" },
+    { key: "gray", name: "灰", text: "misty gray" },
+    { key: "violet", name: "紫", text: "soft violet", avoid: ["magenta"] },
+  ];
+  const SOURCES = { pJob: JOBS, pStyle: STYLES, pHair: HAIRS, pEye: EYES };
+  const pick = (list) => list[Math.floor(Math.random() * list.length)];
+
+  for (const [id, list] of Object.entries(SOURCES)) {
+    const sel = $(id);
+    const r = document.createElement("option"); r.value = "*"; r.textContent = "🎲 ランダム"; sel.append(r);
+    for (const it of list) { const o = document.createElement("option"); o.value = it.key; o.textContent = it.name; sel.append(o); }
+  }
+  // 🎲：その項目だけ、ランダム以外の値を1つ振って固定する
+  document.querySelectorAll("[data-dice]").forEach((b) => b.addEventListener("click", () => {
+    const id = b.dataset.dice;
+    $(id).value = pick(SOURCES[id]).key;
+    make();
+  }));
+
+  // ---------- 組み立て ----------
+  function chooseBackground(choice, parts) {
+    const conflicts = (key) => parts.filter((p) => (p.avoid || []).includes(key)).length;
+    if (choice === "auto") return conflicts("magenta") <= conflicts("green") ? "magenta" : "green";
+    return choice;
+  }
+
+  function build(sel, bg, ar, format) {
+    const { job, style, hair, eye } = sel;
+    const chroma = bg === "magenta" || bg === "green";
+    const bgText = bg === "magenta"
+      ? "solid flat pure magenta (#FF00FF) chroma key background, no gradient, no shadow, no background texture"
+      : bg === "green"
+        ? "solid flat pure green (#00FF00) chroma key background, no gradient, no shadow, no background texture"
+        : "light gray neutral background";
+    const light = chroma
+      ? "soft even front lighting, no rim light, no colored light reflected on the character, clean crisp silhouette edges"
+      : "soft directional rim lighting";
+    const positive = [
+      STYLE, bgText, POSE(job.expr),
+      `${job.who} in her early 20s, ${job.face} facial features, ${eye.text} eyes with sharp focused gaze, ${hair.text} ${style.text}, ${job.outfit}`,
+      light, "8k resolution",
+    ].join(", ");
+    // クロマキー背景では「flat solid colors」を除く（背景の単色指定と打ち消し合うため）。
+    const neg = NEGATIVE.filter((t) => !(chroma && t === "flat solid colors"));
+    if (chroma) neg.push("background gradient", "drop shadow", bg === "magenta" ? "pink or magenta tint on the character" : "green tint on the character");
+    const negative = neg.join(", ");
+    if (format === "split") return { positive, negative };
+    if (format === "mj") return { line: `${positive} --ar ${ar} --no ${negative}` };
+    return { line: `${positive}, ${negative}, --ar ${ar}` };
+  }
+
+  const resolve = (id) => { const v = $(id).value; return v === "*" ? pick(SOURCES[id]) : SOURCES[id].find((x) => x.key === v); };
+
+  let rows = [];
+  function make() {
+    const count = Math.min(20, Math.max(1, parseInt($("pCount").value, 10) || 1));
+    const start = Math.max(1, parseInt($("pStart").value, 10) || 1);
+    const host = $("pResults");
+    host.textContent = "";
+    rows = [];
+    for (let k = 0; k < count; k++) {
+      const sel = { job: resolve("pJob"), style: resolve("pStyle"), hair: resolve("pHair"), eye: resolve("pEye") };
+      const parts = [sel.job, sel.hair, sel.eye];
+      const bg = chooseBackground($("pBg").value, parts);
+      const out = build(sel, bg, $("pAr").value, $("pFormat").value);
+      const id = "adv_" + String(start + k).padStart(3, "0");
+      const csv = [id, sel.job.jobs, sel.hair.name, sel.eye.name, `${sel.job.name}・${sel.style.name}（生成プロンプト・${bg === "gray" ? "灰背景" : bg === "magenta" ? "マゼンタ背景" : "緑背景"}）`].join(",");
+      rows.push(csv);
+      host.append(card(id, sel, bg, out, csv, parts));
+    }
+    $("pStatus").textContent = `${count} 件作った。`;
+  }
+
+  function copyText(text, btn) {
+    const done = () => { const t = btn.textContent; btn.textContent = "コピーした"; setTimeout(() => (btn.textContent = t), 1400); };
+    try {
+      navigator.clipboard.writeText(text).then(done, () => fallback());
+    } catch (e) { fallback(); }
+    function fallback() {
+      const ta = btn.closest(".pcard") ? btn.closest(".pcard").querySelector("textarea") : null;
+      if (ta) { ta.focus(); ta.select(); }
+      btn.textContent = "選択したので Ctrl+C でコピー";
+    }
+  }
+
+  function card(id, sel, bg, out, csv, parts) {
+    const el = document.createElement("article"); el.className = "pcard";
+    const head = document.createElement("div"); head.className = "pcard-head";
+    const idEl = document.createElement("span"); idEl.className = "id"; idEl.textContent = id;
+    const desc = document.createElement("span"); desc.className = "desc";
+    desc.textContent = `${sel.job.name}　${sel.hair.name}の${sel.style.name}　${sel.eye.name}の瞳`;
+    const pill = document.createElement("span");
+    pill.className = "pill" + (bg === "gray" ? "" : " key-" + bg);
+    pill.textContent = bg === "magenta" ? "背景：マゼンタ" : bg === "green" ? "背景：緑" : "背景：灰";
+    head.append(idEl, desc, pill);
+    el.append(head);
+
+    if (bg !== "gray" && parts.some((p) => (p.avoid || []).includes(bg))) {
+      const w = document.createElement("p"); w.className = "warn";
+      w.textContent = "配色の一部が背景色に近い。クロマキーで一緒に抜ける恐れがあるので、加工タブで「消す」ブラシで残す。";
+      el.append(w);
+    }
+    const blocks = out.line ? [["プロンプト", out.line]] : [["ポジティブ", out.positive], ["ネガティブ", out.negative]];
+    for (const [label, text] of blocks) {
+      const l = document.createElement("div"); l.className = "lbl"; l.textContent = label;
+      const ta = document.createElement("textarea"); ta.readOnly = true; ta.value = text; ta.setAttribute("aria-label", `${id} の${label}`);
+      const b = document.createElement("button"); b.type = "button"; b.className = "btn"; b.textContent = `${label}をコピー`;
+      b.addEventListener("click", () => copyText(text, b));
+      const row = document.createElement("div"); row.className = "row"; row.append(b);
+      el.append(l, ta, row);
+    }
+    const c = document.createElement("div"); c.className = "csvline"; c.textContent = csv; c.title = "portraits.csv に貼る行";
+    el.append(c);
+    return el;
+  }
+
+  $("pMake").addEventListener("click", make);
+  $("pCopyCsv").addEventListener("click", (e) => { if (rows.length) copyText(rows.join("\n"), e.currentTarget); });
+  for (const id of ["pBg", "pAr", "pFormat"]) $(id).addEventListener("change", make);
+
+  make();
+  let saved = null;
+  try { saved = localStorage.getItem("portraitTab"); } catch (e) {}
+  showTab(saved === "edit" ? "edit" : "prompt");
 })();
 </script>
