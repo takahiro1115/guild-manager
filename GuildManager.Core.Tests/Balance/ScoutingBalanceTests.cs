@@ -47,7 +47,8 @@ namespace GuildManager.Core.Tests.Balance
             Assert.Equal(0.25, ScoutingBalance.StealthWeightLdr, precision: 6);
             Assert.Equal(15, ScoutingBalance.StealthBonusRangerThief, precision: 6);
             Assert.Equal(15, ScoutingBalance.StealthHeavyArmorPenalty, precision: 6);
-            Assert.Equal(7, ScoutingBalance.StealthRequirementPerFloor, precision: 6);
+            Assert.Equal(48, ScoutingBalance.StealthRequirementBase, precision: 6);
+            Assert.Equal(1.4, ScoutingBalance.StealthRequirementPerFloor, precision: 6);
         }
 
         [Theory]

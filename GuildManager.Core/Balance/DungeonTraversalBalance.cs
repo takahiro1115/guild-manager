@@ -27,7 +27,10 @@ namespace GuildManager.Core.Balance
         /// <summary>部隊長LDR×この係数を走破力へ加算する（指揮による道中効率化）。</summary>
         public static readonly double WeightLdr = BalanceData.GetDouble(FileName, "Traversal_Weight_Ldr");
 
-        /// <summary>道中進軍の要求値＝現在到達階層（ReachedFloor）×この値。</summary>
+        /// <summary>
+        /// 道中進軍の要求値＝進軍を始める階層×この値×フィールド倍率（→ DungeonBalance.GetFieldRequirementMultiplier）。
+        /// 他の要求値と違って基礎値は置かない：毎回1Fから潜り直すため、浅い階を速く抜けられる形を残す（§0.45）。
+        /// </summary>
         public static readonly double RequirementPerFloor = BalanceData.GetDouble(FileName, "RequirementPerFloor");
 
         /// <summary>

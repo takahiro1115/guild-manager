@@ -35,7 +35,7 @@ namespace GuildManager.Core.Tests
         /// <summary>AGI/DEX（隠密）とINT（解析）を個別に指定できる冒険者。</summary>
         private static Adventurer MakeSpecialist(int agiDex, int intel, int ldr = 0)
         {
-            var a = new Adventurer { STR = 10, AGI = agiDex, VIT = 30, MND = 10, DEX = agiDex, LDR = ldr, INT = intel };
+            var a = new Adventurer { STR = 10, AGI = agiDex, VIT = 60, MND = 10, DEX = agiDex, LDR = ldr, INT = intel };
             a.CurrentHP = a.MaxHP;
             return a;
         }
@@ -53,7 +53,7 @@ namespace GuildManager.Core.Tests
         };
 
         /// <summary>
-        /// 護衛「余裕」時の解析成果倍率。以下の既存テストの部隊（VIT30以上）と浅い階層のボスでは
+        /// 護衛「余裕」時の解析成果倍率。以下の既存テストの部隊（VIT60以上）と浅い階層（5F以下、要求護衛値34以下）のボスでは
         /// 護衛比率が常に1.4以上になるため、期待値にこの倍率を掛けて比較する。
         /// </summary>
         private static readonly double AbundantGuard = ScoutingBalance.GuardIntelMultiplierAbundant;
@@ -135,7 +135,7 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void Resolve_LowAgiDexParty_IsDiscovered()
         {
-            // 深い階層（要求値＝5×18=90）に対してAGI+DEXが足りないと見つかる。
+            // 要求値（48＋5×1.4＝55）に対してAGI+DEXが足りないと見つかる。
             var party = PartyOf(MakeSpecialist(agiDex: 5, intel: 90));
             var boss = MakeBoss(floor: 5);
 
@@ -152,10 +152,10 @@ namespace GuildManager.Core.Tests
             var boss2 = MakeBoss(floor: 2);
             var resolver = new ScoutingResolver(new AlwaysMinRng());
 
-            // 要求値＝2×7=14。単独の平均素点(12+12)×1.10＝26.4→26、重戦士（既定の職）の重装ペナルティ−15で11と届かないが、
-            // 部隊長LDR60×0.25=15 を足せば26で超える（§0.41の値）。
-            var withoutLeader = resolver.Resolve(PartyOf(MakeSpecialist(agiDex: 12, intel: 50, ldr: 0)), boss1);
-            var withLeader = resolver.Resolve(PartyOf(MakeSpecialist(agiDex: 12, intel: 50, ldr: 60)), boss2);
+            // 要求値＝48＋2×1.4=50.8。単独の平均素点(25+25)×1.10＝55、重戦士（既定の職）の重装ペナルティ−15で40と届かないが、
+            // 部隊長LDR60×0.25=15 を足せば55で超える（§0.45の値）。
+            var withoutLeader = resolver.Resolve(PartyOf(MakeSpecialist(agiDex: 25, intel: 50, ldr: 0)), boss1);
+            var withLeader = resolver.Resolve(PartyOf(MakeSpecialist(agiDex: 25, intel: 50, ldr: 60)), boss2);
 
             Assert.False(withoutLeader.StealthSucceeded);
             Assert.True(withLeader.StealthSucceeded);
@@ -167,7 +167,7 @@ namespace GuildManager.Core.Tests
             // 見つかると落ち着いて観察できず、解析成果が1段階下がる
             //（AGI/DEX型とINT型の両方を編成する動機を作るための連動）。
             var boss = MakeBoss(floor: 5);
-            // INTは大成功域（要求70に対し合算150）だが、AGI+DEXは要求90に対し合算10で確実に見つかる。
+            // INTは大成功域（要求60.75に対し合算150）だが、隠密は要求55に対し素点10で確実に見つかる。
             var party = PartyOf(MakeSpecialist(agiDex: 5, intel: 150));
 
             var result = new ScoutingResolver(new AlwaysMinRng()).Resolve(party, boss);
@@ -264,10 +264,29 @@ namespace GuildManager.Core.Tests
             Assert.Equal(expected, ScoutingResolver.ClassifyGuard(ratio));
 
         [Fact]
-        public void RequiredGuardPower_ScalesWithBossFloor()
+        public void Requirements_AreBasePlusFloorTimesPerFloor()
         {
-            Assert.Equal(ScoutingBalance.BaseRequiredGuardPower, ScoutingResolver.RequiredGuardPower(MakeBoss(floor: 10)), precision: 6);
-            Assert.Equal(ScoutingBalance.BaseRequiredGuardPower * 3, ScoutingResolver.RequiredGuardPower(MakeBoss(floor: 30)), precision: 6);
+            var boss = MakeBoss(floor: 30);
+            Assert.Equal(ScoutingBalance.GuardRequirementBase + 30 * ScoutingBalance.GuardRequirementPerFloor,
+                ScoutingResolver.RequiredGuardPower(boss), precision: 6);
+            Assert.Equal(ScoutingBalance.StealthRequirementBase + 30 * ScoutingBalance.StealthRequirementPerFloor,
+                ScoutingResolver.StealthRequirement(boss), precision: 6);
+            Assert.Equal(ScoutingBalance.AnalysisRequirementBase + 30 * ScoutingBalance.AnalysisRequirementPerFloor,
+                ScoutingResolver.AnalysisRequirement(boss), precision: 6);
+        }
+
+        [Fact]
+        public void Requirements_ApplyFieldMultiplier()
+        {
+            var boss = MakeBoss(floor: 30);
+            boss.FieldOrder = 5;
+            double mult = DungeonBalance.GetFieldRequirementMultiplier(5);
+            Assert.Equal((ScoutingBalance.GuardRequirementBase + 30 * ScoutingBalance.GuardRequirementPerFloor) * mult,
+                ScoutingResolver.RequiredGuardPower(boss), precision: 6);
+            Assert.Equal((ScoutingBalance.StealthRequirementBase + 30 * ScoutingBalance.StealthRequirementPerFloor) * mult,
+                ScoutingResolver.StealthRequirement(boss), precision: 6);
+            Assert.Equal((ScoutingBalance.AnalysisRequirementBase + 30 * ScoutingBalance.AnalysisRequirementPerFloor) * mult,
+                ScoutingResolver.AnalysisRequirement(boss), precision: 6);
         }
 
         [Fact]

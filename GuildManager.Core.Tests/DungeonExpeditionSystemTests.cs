@@ -942,10 +942,10 @@ namespace GuildManager.Core.Tests
         }
 
         /// <summary>
-        /// 数週にまたがる潜行を確かめるための全能力値。2名で走破力＝7×1.8×2＋隊長LDR7＝32.2：
-        /// 1Fでは要求値15でRatio 2.15＝基礎4階層（1F→5F）、5Fでは要求値75でRatio 0.43＝基礎1階層（5F→6F）。
+        /// 数週にまたがる潜行を確かめるための全能力値。2名で走破力＝4×1.8×2＋隊長LDR4＝18.4：
+        /// 1Fでは要求値7.5でRatio 2.45＝基礎4階層（1F→5F）、5Fでは要求値37.5でRatio 0.49＝基礎1階層（5F→6F）。
         /// </summary>
-        private const int SlowDiverStat = 7;
+        private const int SlowDiverStat = 4;
 
         [Fact]
         public void Expedition_StopsAtBossFloor_AndSetsAwaitingDecision()
@@ -1387,7 +1387,7 @@ namespace GuildManager.Core.Tests
             a.Satisfaction = 50; b.Satisfaction = 50;
             var system = BuildSystem();
 
-            // 迷宮調査：能力値300の部隊 vs 10Fの要求護衛値35 → 護衛「余裕」で +2。
+            // 迷宮調査：能力値300の部隊 vs 10Fの要求護衛値39.5 → 護衛「余裕」で +2。
             system.TryDispatchSurvey(state, PartyOf(a, b), boss);
             var survey = Assert.Single(system.ProcessWeeklyMissions(state));
             Assert.Equal(GuardTier.Abundant, survey.ScoutingResult!.GuardTier);
@@ -1400,14 +1400,17 @@ namespace GuildManager.Core.Tests
         }
 
         [Theory]
-        [InlineData(1, true)]   // 撃破（要求火力＝1×45）
-        [InlineData(90, false)] // 火力不足で撤退（要求火力＝90×45）
+        [InlineData(1, true)]   // 撃破（要求火力＝270＋1×15＝285）
+        [InlineData(90, false)] // 火力不足で撤退（要求火力＝270＋90×15＝1620）
         public void ExpeditionSatisfaction_BossFight_WithForcedRetirement_StacksLossPenalty(int bossFloor, bool expectVictory)
         {
             // ギミック無しのボス：撃破でHP12%・撤退でHP20%を失う（AlwaysMinRng）。瀕死の隊員だけが強制除籍になり、
             // 生存者には「仲間ロストの余波（-30）」と「撃破+10／撤退-5」が重なって適用される。除籍者には適用しない。
             var boss = new FloorBoss { Name = "試験用の主", Floor = bossFloor, MaxHp = 1, CurrentHp = 1 };
             var (state, dying, survivor, _) = MakeState(boss);
+            // 瀕死の隊員はほぼ火力にならないため、生存者1名だけで1Fの要求火力285に届くよう全能力80（火力336）にする。
+            survivor.STR = survivor.AGI = survivor.VIT = survivor.MND = survivor.DEX = survivor.LDR = survivor.INT = 80;
+            survivor.CurrentHP = survivor.MaxHP;
             dying.CurrentHP = 1;
             dying.Satisfaction = 70;
             survivor.Satisfaction = 70;

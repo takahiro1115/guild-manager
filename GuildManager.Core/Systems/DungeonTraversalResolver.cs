@@ -86,7 +86,7 @@ namespace GuildManager.Core.Systems
             }
 
             double score = CalculateTraversalScore(party, state);
-            double requirement = FloorRequirement(startFloor);
+            double requirement = FloorRequirement(field, startFloor);
             double ratio = requirement <= 0 ? double.MaxValue : score / requirement;
 
             int baseFloors = CalculateBaseFloors(ratio);
@@ -320,11 +320,15 @@ namespace GuildManager.Core.Systems
             member.GetEffectiveStat("VIT") * DungeonTraversalBalance.WeightVit
             + member.GetEffectiveStat("MND") * DungeonTraversalBalance.WeightMnd;
 
-        /// <summary>道中進軍の要求値＝現在到達階層×係数（深く潜るほど道中も険しくなる）。</summary>
-        public static double CurrentFloorRequirement(DungeonField field) => FloorRequirement(field.ReachedFloor);
+        /// <summary>道中進軍の要求値＝現在到達階層×係数×フィールド倍率（深く潜るほど道中も険しくなる）。</summary>
+        public static double CurrentFloorRequirement(DungeonField field) => FloorRequirement(field, field.ReachedFloor);
 
-        /// <summary>指定階層から進軍する際の要求値＝階層×係数（→ 潜行中の部隊は ActiveDungeonMission.CurrentFloor を渡す）。</summary>
-        public static double FloorRequirement(int floor) => floor * DungeonTraversalBalance.RequirementPerFloor;
+        /// <summary>
+        /// 指定階層から進軍する際の要求値＝階層×係数×フィールド倍率（→ 潜行中の部隊は ActiveDungeonMission.CurrentFloor を渡す）。
+        /// 基礎値は0（→ DungeonTraversalBalance.RequirementPerFloor の注記。§0.45）。
+        /// </summary>
+        public static double FloorRequirement(DungeonField field, int floor) =>
+            DungeonBalance.ScaleRequirement(0, DungeonTraversalBalance.RequirementPerFloor, floor, field.Order);
 
         /// <summary>
         /// 基礎進軍階層数（＝移動予算。2026年9月、リニア進軍モデル）＝max(1, floor(Ratio×FloorsPerRatio))。

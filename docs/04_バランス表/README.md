@@ -189,12 +189,27 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 - `Stealth_PartySize_Mult_1`〜`_4`（1.10／1.00／0.85／0.70）… 人数倍率（平均素点にだけ**乗算**）。
 - `Stealth_HeavyArmor_Penalty`（15、§0.41で30→15）… 重装者1名につき**倍率適用後に直接減算**
   （重装鎧の装備者、または職業が重戦士・騎士。両方該当でも1名分）。結果は0未満にならない。
-- `StealthRequirementPerFloor`（7、§0.41で18→7）… 隠密の要求値＝ボス階層×この値。
+- `StealthRequirementPerFloor`（§0.41で18→7、§0.45で1.4）… 隠密の要求値の階層あたりの増分（下記「要求値の見直し」）。
 
 **`scouting.csv` の護衛（§0.41）**
 
 - `Guard_Support_Ratio`（0.3、新設）… 護衛力＝主護衛の max(STR,VIT,INT) ＋ 他の隊員の max(STR,VIT,INT) の合計×この値。
-- `BaseRequiredGuardPower`（50、35→50）… 要求護衛値＝この値×ボス階層÷10。支援分の加算に合わせて引き上げた。
+- `BaseRequiredGuardPower`（§0.41で35→50）… §0.45で削除し、`GuardRequirementBase`・`GuardRequirementPerFloor` へ置き換え。
+
+## 大迷宮の要求値の見直しで追加／変更されたキー（2026年9月、→ 03 §0.45）
+
+要求値はすべて **(基礎値＋階層×増分)×フィールド倍率** の形にそろえた（`DungeonBalance.ScaleRequirement`）。
+1つ目のフィールドは「10F＝各能力25前後の部隊、100F＝各能力90の精鋭が届く」に合わせてある
+（討伐・走破は4人部隊、調査は斥候1名を含む3人の調査隊が基準。`DungeonRequirementAnchorTests` で固定）。
+
+| ファイル | キー | 値 | 10F／30F／100F |
+|---|---|---|---|
+| `dungeon.csv` | `PartyPowerRequirementBase`（新設）／`PartyPowerRequirementPerFloor`（45→15） | 270／15 | 420／720／1,770 |
+| `scouting.csv` | `AnalysisRequirementBase`（新設）／`AnalysisRequirementPerFloor`（14→2.15） | 50／2.15 | 71.5／114.5／265 |
+| `scouting.csv` | `StealthRequirementBase`（新設）／`StealthRequirementPerFloor`（7→1.4） | 48／1.4 | 62／90／188 |
+| `scouting.csv` | `GuardRequirementBase`／`GuardRequirementPerFloor`（ともに新設） | 28／1.15 | 39.5／62.5／143 |
+| `dungeon_traversal.csv` | `RequirementPerFloor`（15→7.5。基礎値は置かない） | 7.5 | 75／225／750 |
+| `dungeon.csv` | `FieldRequirementMultiplier_1`〜`_5`（新設） | すべて1.0 | 上記すべてに掛けるフィールド倍率。2つ目以降の値は調整保留 |
 
 ## 道中損耗・機嫌・内職・相性で追加／変更されたキー（2026年9月、→ 03 §0.19〜§0.22）
 

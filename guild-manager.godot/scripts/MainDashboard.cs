@@ -882,7 +882,7 @@ public partial class MainDashboard : Control
 			if (traversal.IntelSpeedMultiplier > 1.0)
 				sb.AppendLine($"[color=lime]◆ 解析済みの情報を活かし、実効平均 走破速度 ×{traversal.IntelSpeedMultiplier:F1}で進んだ。[/color]");
 			// 判定・損耗内訳の開示（→ 03 §4.2.3「開発・バランス調整期間の特記事項」）。
-			sb.AppendLine($"[color=gray]【大迷宮潜行】走破力{traversal.TraversalScore:F0} / 要求値{traversal.Requirement:F0}（{traversal.FloorBefore}F×{DungeonTraversalBalance.RequirementPerFloor}）" +
+			sb.AppendLine($"[color=gray]【大迷宮潜行】走破力{traversal.TraversalScore:F0} / 要求値{traversal.Requirement:F0}（{traversal.FloorBefore}F×{DungeonTraversalBalance.RequirementPerFloor}×フィールド倍率）" +
 				$"＝ 比率{DungeonPanel.FormatRatio(traversal.Ratio)}［{DungeonPanel.TraversalRankLabel(traversal.Rank)}: 基礎{traversal.BaseFloors}階層＝floor(比率×{DungeonTraversalBalance.FloorsPerRatio:0.#})］[/color]");
 			if (traversal.Segments.Count > 0)
 			{

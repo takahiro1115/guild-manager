@@ -197,11 +197,13 @@ namespace GuildManager.Core.Systems
         public static double GetAnalysisValue(Adventurer member) =>
             member.GetEffectiveStat("INT") * ScoutingBalance.AnalysisStatCoefficient;
 
-        /// <summary>隠密の要求値＝階層×係数（深い階層ほど見つかりやすい）。</summary>
-        public static double StealthRequirement(FloorBoss boss) => boss.Floor * ScoutingBalance.StealthRequirementPerFloor;
+        /// <summary>隠密の要求値＝(基礎値＋階層×増分)×フィールド倍率（深い階層ほど見つかりやすい。§0.45）。</summary>
+        public static double StealthRequirement(FloorBoss boss) =>
+            DungeonBalance.ScaleRequirement(ScoutingBalance.StealthRequirementBase, ScoutingBalance.StealthRequirementPerFloor, boss.Floor, boss.FieldOrder);
 
-        /// <summary>解析の要求値＝階層×係数。</summary>
-        public static double AnalysisRequirement(FloorBoss boss) => boss.Floor * ScoutingBalance.AnalysisRequirementPerFloor;
+        /// <summary>解析の要求値＝(基礎値＋階層×増分)×フィールド倍率（§0.45）。</summary>
+        public static double AnalysisRequirement(FloorBoss boss) =>
+            DungeonBalance.ScaleRequirement(ScoutingBalance.AnalysisRequirementBase, ScoutingBalance.AnalysisRequirementPerFloor, boss.Floor, boss.FieldOrder);
 
         /// <summary>解析Ratioから3区分を求める。public static にしてあるのはテストから直接呼べるようにするため。</summary>
         public static SurveyOutcome ClassifyAnalysis(double ratio)
@@ -280,9 +282,9 @@ namespace GuildManager.Core.Systems
             return best;
         }
 
-        /// <summary>要求護衛値＝BaseRequiredGuardPower（10F区間の基準）×ボス階層÷10。</summary>
+        /// <summary>要求護衛値＝(基礎値＋階層×増分)×フィールド倍率（§0.45で旧「基準値×ボス階層÷10」を置き換え）。</summary>
         public static double RequiredGuardPower(FloorBoss boss) =>
-            ScoutingBalance.BaseRequiredGuardPower * boss.Floor / 10.0;
+            DungeonBalance.ScaleRequirement(ScoutingBalance.GuardRequirementBase, ScoutingBalance.GuardRequirementPerFloor, boss.Floor, boss.FieldOrder);
 
         /// <summary>護衛比率から4段階（余裕／十分／充足／不足）を求める。</summary>
         public static GuardTier ClassifyGuard(double ratio)

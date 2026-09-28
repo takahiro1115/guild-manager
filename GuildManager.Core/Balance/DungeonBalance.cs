@@ -15,8 +15,32 @@ namespace GuildManager.Core.Balance
     {
         private const string FileName = "dungeon.csv";
 
-        /// <summary>ボスを削り切るのに必要な部隊火力の基準＝階層×この値。</summary>
+        /// <summary>ボス討伐の要求火力の基礎値（→ Systems.DungeonResolver.RequiredPower。§0.45）。</summary>
+        public static readonly double PartyPowerRequirementBase = BalanceData.GetDouble(FileName, "PartyPowerRequirementBase");
+
+        /// <summary>ボス討伐の要求火力の階層あたりの増分。</summary>
         public static readonly double PartyPowerRequirementPerFloor = BalanceData.GetDouble(FileName, "PartyPowerRequirementPerFloor");
+
+        // ---- フィールド倍率（§0.45） ----
+        // 5つのフィールド（ダンジョン）で難しさに差をつけるための倍率。討伐火力・調査（護衛・隠密・解析）・
+        // 走破の要求値すべてに掛ける（→ ScaleRequirement）。2つ目以降の値は調整保留のため仮に1.0。
+
+        private static readonly double[] FieldRequirementMultipliers =
+            Enumerable.Range(1, 5)
+                .Select(order => BalanceData.GetDouble(FileName, $"FieldRequirementMultiplier_{order}"))
+                .ToArray();
+
+        /// <summary>フィールド倍率（Order 1〜5）。範囲外は近い端へ丸める。</summary>
+        public static double GetFieldRequirementMultiplier(int fieldOrder) =>
+            FieldRequirementMultipliers[System.Math.Clamp(fieldOrder, 1, FieldRequirementMultipliers.Length) - 1];
+
+        /// <summary>
+        /// 大迷宮の要求値の共通形＝(基礎値＋階層×階層あたりの増分)×フィールド倍率（§0.45）。
+        /// 旧式は「階層×係数」だけで、能力値がPA上限（100）で頭打ちになる冒険者側とは違って深い階層ほど
+        /// 際限なく伸び、100Fにはどんな部隊も届かなかった。基礎値で浅い階層の手応えを残しつつ、傾きを緩めた。
+        /// </summary>
+        public static double ScaleRequirement(double @base, double perFloor, int floor, int fieldOrder) =>
+            (@base + floor * perFloor) * GetFieldRequirementMultiplier(fieldOrder);
 
         /// <summary>完全解析（→ IntelTier.Complete）到達時の与ダメージ補正。</summary>
         public static readonly double FullIntelDamageBonus = BalanceData.GetDouble(FileName, "FullIntelDamageBonus");

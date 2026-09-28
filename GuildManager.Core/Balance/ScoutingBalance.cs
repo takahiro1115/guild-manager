@@ -56,7 +56,10 @@ namespace GuildManager.Core.Balance
 
         public static readonly double AnalysisStatCoefficient = BalanceData.GetDouble(FileName, "AnalysisStatCoefficient");
 
+        // ---- 要求値（§0.45：基礎値＋階層×増分、フィールド倍率は DungeonBalance.ScaleRequirement） ----
+        public static readonly double StealthRequirementBase = BalanceData.GetDouble(FileName, "StealthRequirementBase");
         public static readonly double StealthRequirementPerFloor = BalanceData.GetDouble(FileName, "StealthRequirementPerFloor");
+        public static readonly double AnalysisRequirementBase = BalanceData.GetDouble(FileName, "AnalysisRequirementBase");
         public static readonly double AnalysisRequirementPerFloor = BalanceData.GetDouble(FileName, "AnalysisRequirementPerFloor");
 
         // ---- 解析率の上昇量（成果別） ----
@@ -94,8 +97,11 @@ namespace GuildManager.Core.Balance
         public static readonly int GuardHpLossPercentMarginal = BalanceData.GetInt(FileName, "GuardEffect_HpLossPercent_Marginal");
         public static readonly int GuardHpLossPercentDeficient = BalanceData.GetInt(FileName, "GuardEffect_HpLossPercent_Deficient");
 
-        /// <summary>要求護衛値の基準（10F区間）。要求護衛値＝この値×ボス階層÷10。</summary>
-        public static readonly double BaseRequiredGuardPower = BalanceData.GetDouble(FileName, "BaseRequiredGuardPower");
+        /// <summary>要求護衛値の基礎値（§0.45で旧 BaseRequiredGuardPower「この値×ボス階層÷10」を置き換え）。</summary>
+        public static readonly double GuardRequirementBase = BalanceData.GetDouble(FileName, "GuardRequirementBase");
+
+        /// <summary>要求護衛値の階層あたりの増分。</summary>
+        public static readonly double GuardRequirementPerFloor = BalanceData.GetDouble(FileName, "GuardRequirementPerFloor");
 
         /// <summary>
         /// 護衛力の支援係数（§0.41）。護衛力＝主護衛（隊員中で最大の max(STR,VIT,INT)）＋ 他の隊員の max(STR,VIT,INT) の合計×この値。

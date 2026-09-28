@@ -45,6 +45,23 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
+        public void Load_OldSaveWithoutBossFieldOrder_RestoresItFromParentField()
+        {
+            // §0.45で FloorBoss.FieldOrder（要求値のフィールド倍率に使う）を追加した。この項目を持たない旧セーブでも、
+            // 各ボスは所属フィールドの攻略順を引き継いで復元される。
+            var state = new GameState { DungeonFields = SampleData.CreateDefaultFields() };
+            string json = JsonSerializer.Serialize(state.ToSaveData());
+            string oldJson = System.Text.RegularExpressions.Regex.Replace(json, "\"FieldOrder\":\\d+,?", "");
+            Assert.DoesNotContain("FieldOrder", oldJson);
+
+            var restored = GameState.FromSaveData(JsonSerializer.Deserialize<SaveData>(oldJson)!);
+
+            Assert.All(restored.DungeonFields, field =>
+                Assert.All(field.Bosses, boss => Assert.Equal(field.Order, boss.FieldOrder)));
+            Assert.Contains(restored.DungeonFields, f => f.Order == 5);
+        }
+
+        [Fact]
         public void RoundTrip_PreservesFinalQuestUnlocked_WhenTrue()
         {
             // v1.10改訂で新設されたフィールド（→ 03 §8.2）。v1.8作成時点ではGameStateに

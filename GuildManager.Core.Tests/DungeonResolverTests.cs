@@ -67,9 +67,19 @@ namespace GuildManager.Core.Tests
         // ---------------- 討伐の見立て用ヘルパー（→ 03 §0.43、大迷宮画面の出撃前の表示と共通） ----------------
 
         [Fact]
-        public void RequiredPower_IsFloorTimesPerFloor()
+        public void RequiredPower_IsBasePlusFloorTimesPerFloor()
         {
-            Assert.Equal(30 * DungeonBalance.PartyPowerRequirementPerFloor, DungeonResolver.RequiredPower(MakeBoss(floor: 30)), precision: 6);
+            Assert.Equal(DungeonBalance.PartyPowerRequirementBase + 30 * DungeonBalance.PartyPowerRequirementPerFloor,
+                DungeonResolver.RequiredPower(MakeBoss(floor: 30)), precision: 6);
+        }
+
+        [Fact]
+        public void RequiredPower_AppliesFieldMultiplier()
+        {
+            var boss = MakeBoss(floor: 30);
+            boss.FieldOrder = 3;
+            Assert.Equal((DungeonBalance.PartyPowerRequirementBase + 30 * DungeonBalance.PartyPowerRequirementPerFloor)
+                * DungeonBalance.GetFieldRequirementMultiplier(3), DungeonResolver.RequiredPower(boss), precision: 6);
         }
 
         [Fact]
@@ -142,7 +152,7 @@ namespace GuildManager.Core.Tests
         public void Resolve_Victory_WhenPartyPowerMeetsRequirement()
         {
             var boss = MakeBoss(floor: 1);
-            var result = new DungeonResolver(new AlwaysMinRng()).Resolve(PartyOf(MakeRanger()), boss);
+            var result = new DungeonResolver(new AlwaysMinRng()).Resolve(PartyOf(MakeRanger(80)), boss); // 火力80×4.2＝336 ≥ 1Fの要求285
 
             Assert.Equal(DungeonOutcome.Victory, result.Outcome);
             Assert.True(boss.IsDefeated);
@@ -152,7 +162,7 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void Resolve_Retreat_WhenPartyPowerIsInsufficient()
         {
-            var boss = MakeBoss(floor: 10); // 要求火力＝450
+            var boss = MakeBoss(floor: 10); // 要求火力＝270＋10×15＝420
             var result = new DungeonResolver(new AlwaysMinRng()).Resolve(PartyOf(MakeRanger(10)), boss);
 
             Assert.Equal(DungeonOutcome.Retreat, result.Outcome);
@@ -165,14 +175,14 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void Resolve_FullIntel_AddsDamageBonus_AndCanFlipRetreatIntoVictory()
         {
-            // 斥候（配置補正1.0）全能力50 → 素の火力は 50×4.2＝210。
-            // 階層5の要求火力は225のため素では届かないが、完全解析の+20%（252）で覆る。
+            // 斥候（配置補正1.0）全能力70 → 素の火力は 70×4.2＝294。
+            // 階層5の要求火力は270＋5×15＝345のため素では届かないが、完全解析の+20%（352.8）で覆る。
             var withoutIntel = MakeBoss(floor: 5, intelRate: 0.0);
             var withIntel = MakeBoss(floor: 5, intelRate: 1.0);
             var resolver = new DungeonResolver(new AlwaysMinRng());
 
-            var retreat = resolver.Resolve(PartyOf(MakeRanger()), withoutIntel);
-            var victory = resolver.Resolve(PartyOf(MakeRanger()), withIntel);
+            var retreat = resolver.Resolve(PartyOf(MakeRanger(70)), withoutIntel);
+            var victory = resolver.Resolve(PartyOf(MakeRanger(70)), withIntel);
 
             Assert.Equal(DungeonOutcome.Retreat, retreat.Outcome);
             Assert.False(retreat.FullIntelBonusApplied);
@@ -188,7 +198,7 @@ namespace GuildManager.Core.Tests
             // ボーナスは完全解析（1.0）到達時のみ。0.75では付かない。
             var boss = MakeBoss(floor: 5, intelRate: 0.75);
 
-            var result = new DungeonResolver(new AlwaysMinRng()).Resolve(PartyOf(MakeRanger()), boss);
+            var result = new DungeonResolver(new AlwaysMinRng()).Resolve(PartyOf(MakeRanger(80)), boss); // 火力80×4.2＝336 ≥ 1Fの要求285
 
             Assert.False(result.FullIntelBonusApplied);
         }
@@ -204,7 +214,7 @@ namespace GuildManager.Core.Tests
             };
             var boss = MakeBoss(floor: 1, intelRate: 0.0, gimmick);
 
-            var result = new DungeonResolver(new AlwaysMinRng()).Resolve(PartyOf(MakeRanger()), boss);
+            var result = new DungeonResolver(new AlwaysMinRng()).Resolve(PartyOf(MakeRanger(80)), boss); // 火力80×4.2＝336 ≥ 1Fの要求285
 
             Assert.Contains(BossGimmickType.HeavyArmor, result.UncounteredGimmicks);
             // 1.0 + 危険度2 × 0.75 = 2.5倍

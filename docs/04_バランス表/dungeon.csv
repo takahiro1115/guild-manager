@@ -1,5 +1,11 @@
 key,value,unit,note
-PartyPowerRequirementPerFloor,45,pt,ボスのHPを削り切るのに必要な部隊火力の基準＝階層×この値
+PartyPowerRequirementBase,270,pt,ボス討伐の要求火力＝(この値＋階層×PartyPowerRequirementPerFloor)×フィールド倍率。§0.45で基礎値を新設（10F≒各能力25の4人部隊、100F≒各能力90の4人部隊が完全解析+20%込みで届く）
+PartyPowerRequirementPerFloor,15,pt,ボス討伐の要求火力の階層あたりの増分。§0.45で45→15（旧値では各能力100の部隊でも50F前後が限界だった）
+FieldRequirementMultiplier_1,1.0,倍,フィールド倍率（翠緑の原生林）。討伐火力・調査（護衛・隠密・解析）・走破の要求値すべてに掛ける（§0.45）
+FieldRequirementMultiplier_2,1.0,倍,フィールド倍率（嘆きの鍾乳洞）。2つ目以降のダンジョンの調整は保留中のため仮に1.0
+FieldRequirementMultiplier_3,1.0,倍,フィールド倍率（忘却の古代廃墟）。調整保留のため仮に1.0
+FieldRequirementMultiplier_4,1.0,倍,フィールド倍率（焦熱の峡谷）。調整保留のため仮に1.0
+FieldRequirementMultiplier_5,1.0,倍,フィールド倍率（深淵の特異点）。調整保留のため仮に1.0
 FullIntelDamageBonus,0.20,倍,完全解析（解析率1.0）到達時の与ダメージ補正（+20%）
 UncounteredDamageMultiplierPerDangerLevel,0.75,倍,未対策ギミック1件につき被ダメージへ加算される倍率（危険度1あたり）
 BaseHpLossPctMin,12,%,対策済みで討伐した場合のHP消費率の下限

@@ -355,6 +355,12 @@ namespace GuildManager.Core.Models
                 Facilities = new List<Facility>(),
             };
 
+            // ボスの所属フィールド（→ FloorBoss.FieldOrder、§0.45）は、この項目を持たない旧セーブでは既定値1のまま
+            // 読み込まれるため、所属フィールドの攻略順から付け直す（新しいセーブでも値は一致する）。
+            foreach (var field in state.DungeonFields)
+                foreach (var boss in field.Bosses)
+                    boss.FieldOrder = field.Order;
+
             foreach (var record in data.CompatibilityPairs)
             {
                 // CompatibilitySystem.NormalizeKeyと同じ正規化ルール（小さいGuid,大きいGuid）。

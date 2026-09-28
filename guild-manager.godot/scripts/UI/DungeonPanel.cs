@@ -1043,7 +1043,7 @@ public partial class DungeonPanel : ScrollContainer
 		if (boss != null)
 		{
 			double score = DungeonTraversalResolver.CalculateTraversalScore(party, _state);
-			double requirement = DungeonTraversalResolver.FloorRequirement(1);
+			double requirement = DungeonTraversalResolver.FloorRequirement(_selectedField, 1);
 			double ratio = requirement <= 0 ? double.MaxValue : score / requirement;
 			int baseFloors = DungeonTraversalResolver.CalculateBaseFloors(ratio);
 			var rank = DungeonTraversalResolver.RankFromFloors(baseFloors);
@@ -1202,7 +1202,7 @@ public partial class DungeonPanel : ScrollContainer
 		}
 
 		double score = DungeonTraversalResolver.CalculateTraversalScore(party, _state);
-		double requirement = DungeonTraversalResolver.FloorRequirement(1);
+		double requirement = DungeonTraversalResolver.FloorRequirement(_selectedField, 1);
 		double ratio = requirement <= 0 ? double.MaxValue : score / requirement;
 		int baseFloors = DungeonTraversalResolver.CalculateBaseFloors(ratio);
 		var rank = DungeonTraversalResolver.RankFromFloors(baseFloors);
@@ -1230,7 +1230,7 @@ public partial class DungeonPanel : ScrollContainer
 			$"1階層ごとに 1÷区間倍率 の予算を消費して進む（区間倍率＝1.0＋区間担当ボスの解析率×{DungeonTraversalBalance.IntelSpeedBonusPerIntel:0.#}）。\n" +
 			$"損耗は階層ごとに積み上げる：その階層の基礎率（既踏／未踏破）÷歩いた階層数×区間の被ダメ倍率（完全解析区間は×{DungeonTraversalBalance.FullIntelDamageMultiplier:0.0#}）。\n" +
 			$"走破力（Σ(VIT×{DungeonTraversalBalance.WeightVit:0.#}＋MND×{DungeonTraversalBalance.WeightMnd:0.#})＋部隊長LDR補正、研究・参謀込み）：{score:F0}\n" +
-			$"討伐火力：扉前でボスに挑んだときの部隊火力（完全解析+{DungeonBalance.FullIntelDamageBonus * 100:F0}%・巨獣狩り込み）。要求＝ボス階層×{DungeonBalance.PartyPowerRequirementPerFloor:0.#}。\n" +
+			$"討伐火力：扉前でボスに挑んだときの部隊火力（完全解析+{DungeonBalance.FullIntelDamageBonus * 100:F0}%・巨獣狩り込み）。要求＝({DungeonBalance.PartyPowerRequirementBase:0.#}＋ボス階層×{DungeonBalance.PartyPowerRequirementPerFloor:0.#})×フィールド倍率{DungeonBalance.GetFieldRequirementMultiplier(boss.FieldOrder):0.##}。\n" +
 			"道中進軍は低リスク：HPは減っても強制除籍にはならない。\n" +
 			"道中で拾った素材・ゴールドは、ギルドへ帰還した時点で格納される。";
 		_traversalPreviewLabel.TooltipText = tooltip;
@@ -1274,7 +1274,7 @@ public partial class DungeonPanel : ScrollContainer
 
 		string tooltip =
 			$"護衛力（主護衛＝隊員の中で最も高いSTR・VIT・INT ＋ 他の隊員それぞれのSTR・VIT・INTの最大値×{ScoutingBalance.GuardSupportRatio:0.##}）：{guardPower:F0}\n" +
-			$"要求護衛値＝{ScoutingBalance.BaseRequiredGuardPower}×{boss.Floor}F÷10。人数が多いほど護衛力は上がるが、隠密は下がる（大勢で守るか、少数で潜むか）。\n" +
+			$"要求護衛値＝({ScoutingBalance.GuardRequirementBase:0.#}＋{boss.Floor}F×{ScoutingBalance.GuardRequirementPerFloor:0.#})×フィールド倍率{DungeonBalance.GetFieldRequirementMultiplier(boss.FieldOrder):0.##}。人数が多いほど護衛力は上がるが、隠密は下がる（大勢で守るか、少数で潜むか）。\n" +
 			$"護衛評価：{GuardTierLabel(tier)}（{GuardTierDescription(tier)}。解析成果 ×{ScoutingResolver.GuardIntelMultiplier(tier):F2}、" +
 			$"各員のHP消費 最大HPの{ScoutingResolver.GuardHpLossPercent(tier)}%）\n" +
 			"調査は低リスク：HPは減っても強制除籍にはならない。";

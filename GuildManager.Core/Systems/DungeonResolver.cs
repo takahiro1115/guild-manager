@@ -91,10 +91,12 @@ namespace GuildManager.Core.Systems
         }
 
         /// <summary>
-        /// ボス討伐の要求火力＝ボス階層×PartyPowerRequirementPerFloor（→ BAL: dungeon.csv）。
+        /// ボス討伐の要求火力＝(PartyPowerRequirementBase＋ボス階層×PartyPowerRequirementPerFloor)×フィールド倍率
+        /// （→ BAL: dungeon.csv、DungeonBalance.ScaleRequirement。§0.45）。
         /// Resolve と、大迷宮画面の出撃前の見立て（→ DungeonPanel）が共通で使う。
         /// </summary>
-        public static double RequiredPower(FloorBoss boss) => boss.Floor * DungeonBalance.PartyPowerRequirementPerFloor;
+        public static double RequiredPower(FloorBoss boss) =>
+            DungeonBalance.ScaleRequirement(DungeonBalance.PartyPowerRequirementBase, DungeonBalance.PartyPowerRequirementPerFloor, boss.Floor, boss.FieldOrder);
 
         /// <summary>
         /// そのボスに挑んだ場合の部隊火力（巨獣狩りの上乗せ・完全解析の弱点ボーナス込み）。

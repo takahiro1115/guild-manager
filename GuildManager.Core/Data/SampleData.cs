@@ -179,6 +179,7 @@ namespace GuildManager.Core.Data
                 {
                     Name = tier + def.MonsterByGimmick[index % 4],
                     Floor = floor,
+                    FieldOrder = def.Order,
                     MaxHp = maxHp,
                     CurrentHp = maxHp,
                     RewardGold = rewardGold,
