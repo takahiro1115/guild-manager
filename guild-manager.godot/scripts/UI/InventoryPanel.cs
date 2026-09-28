@@ -161,7 +161,7 @@ public partial class InventoryPanel : VBoxContainer
 		}
 
 		var profile = RelicBalance.Get(relic.Rarity);
-		_relicDetailLabel.AppendText($"[font_size=18][b][color={profile.ColorName}]{relic.Name}[/color][/b][/font_size]\n");
+		_relicDetailLabel.AppendText($"[font_size=15][b][color={profile.ColorName}]{relic.Name}[/color][/b][/font_size]\n");
 		_relicDetailLabel.AppendText($"希少度：[color={profile.ColorName}]{profile.Label}（{relic.Rarity}）[/color]\n");
 		_relicDetailLabel.AppendText($"出土地：{FieldName(relic.OriginFieldId)} 第{relic.OriginFloor}層\n");
 		_relicDetailLabel.AppendText($"鑑定費用：{relic.AppraisalCost} G（所持金 {_state.Gold} G）\n\n");
@@ -239,8 +239,8 @@ public partial class InventoryPanel : VBoxContainer
 		};
 		string effect = equipment == null ? "" : $"性能：{AffixEffectText(equipment)}\n";
 
-		return $"[font_size=17][b]{relicName} の封を解いた……[/b][/font_size]\n" +
-			$"[color={profile.ColorName}][font_size=18][b]{gain}[/b][/font_size][/color]\n" +
+		return $"[font_size=15][b]{relicName} の封を解いた……[/b][/font_size]\n" +
+			$"[color={profile.ColorName}][font_size=15][b]{gain}[/b][/font_size][/color]\n" +
 			effect +
 			$"[color=gray]（鑑定費用 -{result.AppraisalCost} G）[/color]\n\n" +
 			$"[color=cyan]アルベール『{result.FlavorText}』[/color]";
@@ -265,7 +265,7 @@ public partial class InventoryPanel : VBoxContainer
 		{
 			var header = new RichTextLabel { BbcodeEnabled = true, FitContent = true, SizeFlagsHorizontal = SizeFlags.ExpandFill };
 			bool unlocked = _state.DungeonFields.Any(f => f.Id == group.Key && f.IsUnlocked);
-			header.AppendText($"[font_size=16][b]{FieldName(group.Key)}[/b][/font_size]" +
+			header.AppendText($"[font_size=15][b]{FieldName(group.Key)}[/b][/font_size]" +
 				(unlocked ? "" : "　[color=gray]（未開放）[/color]"));
 			_materialListBox.AddChild(header);
 
@@ -421,7 +421,7 @@ public partial class InventoryPanel : VBoxContainer
 	private static Control SectionHeader(string text)
 	{
 		var label = new RichTextLabel { BbcodeEnabled = true, FitContent = true, SizeFlagsHorizontal = SizeFlags.ExpandFill };
-		label.AppendText($"[font_size=16][b]{text}[/b][/font_size]");
+		label.AppendText($"[font_size=15][b]{text}[/b][/font_size]");
 		return label;
 	}
 
@@ -479,7 +479,7 @@ public partial class InventoryPanel : VBoxContainer
 			  $"［{RelicBalance.GetRarityLabel(sample.Rarity.Value)}］[/color]"
 			: "";
 
-		string text = $"[font_size=16][b]{ItemColorHelper.GetColoredBBCode(sample)}[/b][/font_size]{rarityTag} ×{stock.Count}" +
+		string text = $"[font_size=15][b]{ItemColorHelper.GetColoredBBCode(sample)}[/b][/font_size]{rarityTag} ×{stock.Count}" +
 			$"　[color=yellow]{unitPrice}G/点[/color]\n" +
 			$"　{effect}";
 
