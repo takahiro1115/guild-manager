@@ -42,9 +42,7 @@ public partial class DungeonPanel : ScrollContainer
 	// ==================== Zone B: ボス警戒・ポーチ ====================
 	private PanelContainer _bossProfileCard = null!;
 	private RichTextLabel _bossHeaderLabel = null!;
-	private ProgressBar _bossHpBar = null!;
 	private Label _bossHpLabel = null!;
-	private ProgressBar _intelProgressBar = null!;
 	private Label _intelPercentLabel = null!;
 	private RichTextLabel _intelTierLabel = null!;
 	private RichTextLabel _completeBadgeLabel = null!;
@@ -58,7 +56,8 @@ public partial class DungeonPanel : ScrollContainer
 	// ==================== Zone C: 部隊状況・コマンド ====================
 	private HBoxContainer _squadButtons = null!;
 	private readonly ButtonGroup _squadButtonGroup = new() { AllowUnpress = true };
-	private HBoxContainer _squadMemberContainer = null!;
+	/// <summary>部隊ごとの列の、ボタンの下のメンバーカード置き場（部隊の並び順）。</summary>
+	private readonly List<VBoxContainer> _squadCardBoxes = new();
 	private RichTextLabel _traversalPreviewLabel = null!;
 	private RichTextLabel _surveyPreviewLabel = null!;
 	private RichTextLabel _gatheringPreviewLabel = null!;
@@ -84,8 +83,6 @@ public partial class DungeonPanel : ScrollContainer
 	private Button _engageBossButton = null!;
 	private Button _retreatButton = null!;
 
-	private Button _cancelMissionButton = null!;
-	private ItemList _pendingMissionList = null!;
 
 	// ==================== 状態変数 ====================
 	private GameState _state = null!;
@@ -132,9 +129,8 @@ public partial class DungeonPanel : ScrollContainer
 		// Zone B
 		_bossProfileCard = GetNode<PanelContainer>("%BossProfileCard");
 		_bossHeaderLabel = GetNode<RichTextLabel>("%BossHeaderLabel");
-		_bossHpBar = GetNode<ProgressBar>("%BossHpBar");
+		_bossHpRow = GetNode<Control>("%BossHpRow");
 		_bossHpLabel = GetNode<Label>("%BossHpLabel");
-		_intelProgressBar = GetNode<ProgressBar>("%IntelProgressBar");
 		_intelPercentLabel = GetNode<Label>("%IntelPercentLabel");
 		_intelTierLabel = GetNode<RichTextLabel>("%IntelTierLabel");
 		_completeBadgeLabel = GetNode<RichTextLabel>("%CompleteBadgeLabel");
@@ -145,7 +141,6 @@ public partial class DungeonPanel : ScrollContainer
 
 		// Zone C
 		_squadButtons = GetNode<HBoxContainer>("%SquadButtons");
-		_squadMemberContainer = GetNode<HBoxContainer>("%SquadMemberContainer");
 		_traversalPreviewLabel = GetNode<RichTextLabel>("%TraversalPreviewLabel");
 		_surveyPreviewLabel = GetNode<RichTextLabel>("%SurveyPreviewLabel");
 		_gatheringPreviewLabel = GetNode<RichTextLabel>("%GatheringPreviewLabel");
@@ -171,8 +166,6 @@ public partial class DungeonPanel : ScrollContainer
 		_engageBossButton = GetNode<Button>("%EngageBossButton");
 		_retreatButton = GetNode<Button>("%RetreatButton");
 
-		_cancelMissionButton = GetNode<Button>("%CancelMissionButton");
-		_pendingMissionList = GetNode<ItemList>("%PendingMissionList");
 
 		_depthBar.BossClicked += OnDepthBarBossClicked;
 		_depthLegend.AppendText(
@@ -180,7 +173,6 @@ public partial class DungeonPanel : ScrollContainer
 			"[color=#60a5fa]■[/color]解析済み（濃いほど解析が進む／[color=#2d52a3]■[/color]は未踏破の区間）\n" +
 			"[color=#4ade80]✔[/color]撃破済み　[color=#fb923c]⚔[/color]現在の目標　[color=#22d3ee]▶[/color]到達階層　[color=#f472b6]●[/color]潜行中の部隊");
 
-		_bossHpRow = _bossHpBar.GetParent<Control>();
 		_backToTargetButton = new Button { Text = "⚔ 現在の目標のボスを表示", Visible = false, SizeFlagsHorizontal = SizeFlags.ShrinkBegin };
 		_backToTargetButton.Pressed += () =>
 		{
@@ -192,12 +184,6 @@ public partial class DungeonPanel : ScrollContainer
 		var bossVBox = _bossHeaderLabel.GetParent();
 		bossVBox.AddChild(_backToTargetButton);
 		bossVBox.MoveChild(_backToTargetButton, _bossHeaderLabel.GetIndex() + 1);
-
-		_bossHpBar.MinValue = 0;
-		_bossHpBar.MaxValue = 100;
-
-		_intelProgressBar.MinValue = 0;
-		_intelProgressBar.MaxValue = 100;
 
 		// ボタンテーマ色
 		_engageBossButton.AddThemeColorOverride("font_color", new Color(1f, 0.4f, 0.4f));
@@ -212,8 +198,6 @@ public partial class DungeonPanel : ScrollContainer
 		_emergencyRetreatButton.Pressed += OnRetreatPressed;
 		_engageBossButton.Pressed += OnEngageBossPressed;
 		_retreatButton.Pressed += OnRetreatPressed;
-		_pendingMissionList.ItemSelected += _ => OnPendingMissionSelected();
-		_cancelMissionButton.Pressed += OnCancelMissionPressed;
 
 		VisibilityChanged += () =>
 		{
@@ -247,7 +231,6 @@ public partial class DungeonPanel : ScrollContainer
 		RefreshPouchCost();
 		RefreshPartyOptions();
 		RefreshDispatchSection(boss);
-		RefreshPendingMissions();
 		UpdateCommandAreaVisibility();
 	}
 
@@ -583,7 +566,6 @@ public partial class DungeonPanel : ScrollContainer
 				? $"[color=gold][b]🏆 このダンジョンは完全踏破されました（{_selectedField.ReachedFloor}/{DungeonField.MaxFloor}F）。[/b][/color]"
 				: "[color=gray]挑むべき階層ボスはいない。[/color]");
 			_bossHpRow.Visible = false;
-			_intelProgressBar.Value = 0;
 			_intelPercentLabel.Text = "-";
 			_completeBadgeLabel.Visible = false;
 			PopulateGimmickCards(null, IntelTier.Unknown, previewParty);
@@ -600,20 +582,14 @@ public partial class DungeonPanel : ScrollContainer
 		_bossHpRow.Visible = true;
 		if (tier < IntelTier.Basic)
 		{
-			_bossHpBar.Visible = false;
 			_bossHpLabel.Text = "？？？（解析率25%で判明）";
 		}
 		else
 		{
-			_bossHpBar.Visible = true;
-			_bossHpBar.MinValue = 0;
-			_bossHpBar.MaxValue = Math.Max(1, boss.MaxHp);
-			_bossHpBar.Value = Math.Clamp(boss.CurrentHp, 0, boss.MaxHp);
 			double hpPct = (double)boss.CurrentHp / Math.Max(1, boss.MaxHp) * 100.0;
 			_bossHpLabel.Text = $"{boss.CurrentHp} / {boss.MaxHp} ({hpPct:F0}%)";
 		}
 
-		_intelProgressBar.Value = Math.Round(boss.IntelRate * 100);
 		_intelPercentLabel.Text = $"{boss.IntelRate * 100:F0}%";
 
 		_intelTierLabel.AppendText($"解析段階：[color={TierColor(tier)}][b]{TierLabel(tier)}[/b][/color]");
@@ -698,7 +674,7 @@ public partial class DungeonPanel : ScrollContainer
 		var card = new PanelContainer
 		{
 			SizeFlagsHorizontal = SizeFlags.ExpandFill,
-			CustomMinimumSize = new Vector2(200, 86),
+			CustomMinimumSize = new Vector2(150, 86),
 		};
 		var margin = new MarginContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
 		margin.AddThemeConstantOverride("margin_left", 8);
@@ -712,7 +688,7 @@ public partial class DungeonPanel : ScrollContainer
 			BbcodeEnabled = true,
 			FitContent = false,
 			ScrollActive = false,
-			CustomMinimumSize = new Vector2(180, 0),
+			CustomMinimumSize = new Vector2(130, 0),
 			SizeFlagsHorizontal = SizeFlags.ExpandFill,
 			SizeFlagsVertical = SizeFlags.ExpandFill,
 		};
@@ -761,6 +737,8 @@ public partial class DungeonPanel : ScrollContainer
 			child.QueueFree();
 		}
 
+		_squadCardBoxes.Clear();
+		_squadButtons.AddChild(BuildMissionIcons());
 		_hasSelectableParty = false;
 		bool keepSelection = false;
 		int unlocked = Math.Max(1, _state.UnlockedSquadSlots);
@@ -770,6 +748,7 @@ public partial class DungeonPanel : ScrollContainer
 			var members = saved.MemberIds.Select(id => _state.Adventurers.FirstOrDefault(a => a.Id == id)).Where(a => a != null).ToList();
 			int available = PartyFormationSystem.BuildDispatchParty(_state, saved.MemberIds).Members.Count;
 			bool isLocked = i >= unlocked;
+			var mission = isLocked ? null : MissionOfParty(saved);
 
 			var button = new Button
 			{
@@ -779,11 +758,12 @@ public partial class DungeonPanel : ScrollContainer
 				CustomMinimumSize = new Vector2(0, 30),
 				ClipText = true,
 				TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis,
-				Text = isLocked ? $"第{i + 1}部隊（未開放）" : $"[{available}/{members.Count}] {saved.Name}",
-				Disabled = isLocked || available == 0,
+				Text = isLocked ? $"第{i + 1}部隊（未開放）" : saved.Name,
+				Disabled = isLocked || (available == 0 && mission == null),
 				TooltipText = isLocked
 					? "出撃枠が未開放の部隊（森の節目ボス撃破で開放）"
-					: $"{saved.Name}\n{(members.Count == 0 ? "（編成が空）" : string.Join("・", members.Select(a => a!.Name)))}" +
+					: (mission != null ? $"{MissionLabel(mission)}\n" + (mission.WeeksElapsed == 0 ? "（もう一度押すと出撃を取り消す）\n" : "") : "") +
+					  $"{saved.Name}\n{(members.Count == 0 ? "（編成が空）" : string.Join("・", members.Select(a => a!.Name)))}" +
 					  (available == 0 && members.Count > 0 ? "\n全員が出撃中・負傷などで出撃できない" : ""),
 			};
 
@@ -796,12 +776,67 @@ public partial class DungeonPanel : ScrollContainer
 			}
 
 			var partyId = saved.Id;
-			button.Toggled += pressed => SelectParty(pressed ? partyId : null);
-			_squadButtons.AddChild(button);
+			button.Toggled += pressed =>
+			{
+				if (pressed)
+					SelectParty(partyId);
+				else if (_selectedPartyId == partyId && _squadButtonGroup.GetPressedButton() == null)
+					OnPartyUnpressed(partyId);
+			};
+			var column = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+			column.AddThemeConstantOverride("separation", 6);
+			column.AddChild(button);
+			var cardBox = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+			cardBox.AddThemeConstantOverride("separation", 6);
+			column.AddChild(cardBox);
+			_squadCardBoxes.Add(cardBox);
+			_squadButtons.AddChild(column);
 		}
 
 		if (!keepSelection)
 			_selectedPartyId = null;
+	}
+
+	/// <summary>選択中の部隊のボタンをもう一度押した：出発準備中の任務があれば取り消し、なければ選択を解く。</summary>
+	private void OnPartyUnpressed(Guid partyId)
+	{
+		var saved = _state.SavedParties.FirstOrDefault(p => p.Id == partyId);
+		var mission = saved == null ? null : MissionOfParty(saved);
+		_selectedPartyId = null;
+		if (mission != null && mission.WeeksElapsed == 0)
+			CancelMission(mission);
+		else
+			SelectParty(null);
+	}
+
+	/// <summary>部隊ボタンの列の先頭に置く、任務の種類ごとの絵文字。その任務が出撃・潜行中なら点灯、無ければ暗くする。</summary>
+	private VBoxContainer BuildMissionIcons()
+	{
+		var column = new VBoxContainer();
+		var row = new HBoxContainer { CustomMinimumSize = new Vector2(0, 30) };
+		row.AddThemeConstantOverride("separation", 4);
+		column.AddChild(row);
+
+		void AddIcon(string icon, string name, Func<ActiveDungeonMission, bool> matches)
+		{
+			var active = _state.ActiveDungeonMissions.Where(matches).ToList();
+			var label = new Label
+			{
+				Text = icon,
+				VerticalAlignment = VerticalAlignment.Center,
+				MouseFilter = MouseFilterEnum.Stop,
+				Modulate = active.Count > 0 ? new Color(1, 1, 1) : new Color(1, 1, 1, 0.25f),
+				TooltipText = active.Count > 0
+					? $"{name}：{active.Count}部隊が出撃中"
+					: $"{name}：出撃中の部隊なし",
+			};
+			row.AddChild(label);
+		}
+
+		AddIcon("🏃", "潜行", m => m.MissionType is DungeonMissionType.Scouting or DungeonMissionType.BossAssault);
+		AddIcon("🔍", "迷宮調査", m => m.MissionType == DungeonMissionType.Survey);
+		AddIcon("🌿", "探索（採取）", m => m.MissionType == DungeonMissionType.Gathering);
+		return column;
 	}
 
 	private void SelectParty(Guid? partyId)
@@ -815,8 +850,6 @@ public partial class DungeonPanel : ScrollContainer
 
 		if (_selectedPartyId != null)
 		{
-			_pendingMissionList.DeselectAll();
-			_cancelMissionButton.Disabled = true;
 		}
 
 		var boss = _selectedField?.GetNextActiveBoss();
@@ -830,13 +863,25 @@ public partial class DungeonPanel : ScrollContainer
 
 	private void RefreshSquadMemberCards()
 	{
-		foreach (var child in _squadMemberContainer.GetChildren())
+		int unlocked = Math.Max(1, _state.UnlockedSquadSlots);
+		for (int p = 0; p < _squadCardBoxes.Count; p++)
 		{
-			_squadMemberContainer.RemoveChild(child);
-			child.QueueFree();
-		}
+			var box = _squadCardBoxes[p];
+			foreach (var child in box.GetChildren())
+			{
+				box.RemoveChild(child);
+				child.QueueFree();
+			}
 
-		var saved = SelectedSavedParty();
+			var saved = p < unlocked && p < _state.SavedParties.Count ? _state.SavedParties[p] : null;
+			string emptyText = p >= unlocked ? "（未開放）" : saved == null ? "（部隊なし）" : "（空枠）";
+			AddSquadMemberCards(box, saved, emptyText);
+		}
+	}
+
+	/// <summary>1部隊ぶん（4枠）のメンバーカードを箱に並べる。<paramref name="saved"/> が null なら全枠を空枠として出す。</summary>
+	private void AddSquadMemberCards(VBoxContainer container, SavedParty? saved, string emptyText)
+	{
 		var members = saved != null
 			? saved.MemberIds.Select(id => _state.Adventurers.FirstOrDefault(a => a.Id == id)).ToList()
 			: new List<Adventurer?>();
@@ -849,9 +894,9 @@ public partial class DungeonPanel : ScrollContainer
 			var card = new PanelContainer
 			{
 				SizeFlagsHorizontal = SizeFlags.ExpandFill,
-				CustomMinimumSize = new Vector2(90, 64),
+				CustomMinimumSize = new Vector2(0, 68),
 			};
-			SetMemberCardStyle(card, HpLevel.Normal);
+			SetMemberCardStyle(card);
 			var margin = new MarginContainer
 			{
 				SizeFlagsHorizontal = SizeFlags.ExpandFill,
@@ -874,14 +919,13 @@ public partial class DungeonPanel : ScrollContainer
 			if (saved != null && i < members.Count && members[i] != null)
 			{
 				var adv = members[i]!;
-				bool isFront = PlacementRules.GetDefault(adv.JobClass) == Placement.Front;
 				bool isDispatched = _state.ActiveDungeonMissions.Any(m => m.Party.Members.Any(p => p.Id == adv.Id));
 				bool isAvailable = adv.CurrentHP > 0 && !isDispatched;
 
 				// ポートレート
 				var portrait = new TextureRect
 				{
-					CustomMinimumSize = new Vector2(32, 32),
+					CustomMinimumSize = new Vector2(56, 56),
 					SizeFlagsVertical = SizeFlags.ShrinkCenter,
 					ExpandMode = TextureRect.ExpandModeEnum.FitWidthProportional,
 					StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
@@ -906,7 +950,7 @@ public partial class DungeonPanel : ScrollContainer
 				nameLabel.AddThemeColorOverride("font_color", isAvailable ? new Color(1, 1, 1) : new Color(0.6f, 0.6f, 0.6f));
 				vbox.AddChild(nameLabel);
 
-				// 職業・前後衛
+				// 職業
 				var badgeRow = new HBoxContainer();
 				badgeRow.AddThemeConstantOverride("separation", 4);
 
@@ -917,19 +961,9 @@ public partial class DungeonPanel : ScrollContainer
 				jobLabel.AddThemeFontSizeOverride("font_size", FontNote);
 				jobLabel.AddThemeColorOverride("font_color", new Color(0.8f, 0.85f, 0.9f));
 				badgeRow.AddChild(jobLabel);
-
-				var posBadge = new Label
-				{
-					Text = isFront ? "【前衛】" : "【後衛】",
-				};
-				posBadge.AddThemeFontSizeOverride("font_size", FontNote);
-				posBadge.AddThemeColorOverride("font_color", isFront
-					? new Color(0.4f, 0.9f, 1.0f)
-					: new Color(0.85f, 0.65f, 1.0f));
-				badgeRow.AddChild(posBadge);
 				vbox.AddChild(badgeRow);
 
-				// HPバー＆数値（§0.43：HPの割合で色分け。70%以上＝緑／40〜70%＝黄／40%未満＝赤、重傷は空のバーと残り週数）
+				// HPバー＆数値（HPの割合で色分け。70%以上＝緑／30〜70%＝黄／30%未満＝赤、重傷は空のバーと残り週数。枠の色分けはしない）
 				bool isSevere = adv.Injury == InjurySeverity.Severe;
 				double hpRatio = adv.MaxHP > 0 ? (double)adv.CurrentHP / adv.MaxHP : 0;
 				var level = isSevere ? HpLevel.Severe : HpLevelOf(hpRatio);
@@ -959,7 +993,7 @@ public partial class DungeonPanel : ScrollContainer
 				hpRow.AddChild(hpLabel);
 				vbox.AddChild(hpRow);
 
-				// 帰還時のHP見込み（最悪の損耗）：いずれかの任務で40%を割る恐れがあれば名前に ⚠（今すでに40%未満なら枠が赤いので付けない）
+				// 帰還時のHP見込み（最悪の損耗）：いずれかの任務で30%を割る恐れがあれば名前に ⚠（今すでに30%未満ならHPバーが赤いので付けない）
 				var risky = isSevere || isDispatched || hpRatio < HpDangerRatio
 					? new List<(string Mission, double After)>()
 					: worstLosses.Select(w => (w.Mission, After: hpRatio - w.LossPct / 100.0)).ToList();
@@ -970,20 +1004,20 @@ public partial class DungeonPanel : ScrollContainer
 					nameLabel.AddThemeColorOverride("font_color", new Color("#fb923c"));
 				}
 
-				SetMemberCardStyle(card, level);
+				SetMemberCardStyle(card);
 				card.TooltipText = $"{adv.Name}：HP {adv.CurrentHP}/{adv.MaxHP}（{hpRatio * 100:F0}%）" +
 					(isSevere ? $"\n重傷のため出撃不可（全治まで{adv.InjuryWeeksRemaining}週）" : "") +
 					(risky.Count > 0
 						? "\n帰還時のHP見込み（最悪の損耗）：" + string.Join("・", risky.Select(r => $"{r.Mission} {Math.Max(0, r.After) * 100:F0}%")) +
-						  (atRisk ? "\n⚠ 40%を割る恐れ。HPの割合は討伐火力・採取スコアに掛かる。休ませるなら今。" : "")
+						  (atRisk ? "\n⚠ 30%を割る恐れ。HPの割合は討伐火力・採取スコアに掛かる。休ませるなら今。" : "")
 						: "") +
-					"\nHPの色：70%以上＝緑／40〜70%＝黄／40%未満＝赤";
+					"\nHPの色：70%以上＝緑／30〜70%＝黄／30%未満＝赤";
 			}
 			else
 			{
 				var emptyLabel = new Label
 				{
-					Text = saved == null ? "（部隊未選択）" : "（空枠）",
+					Text = saved == null ? emptyText : "（空枠）",
 					HorizontalAlignment = HorizontalAlignment.Center,
 					VerticalAlignment = VerticalAlignment.Center,
 					SizeFlagsHorizontal = SizeFlags.ExpandFill,
@@ -994,15 +1028,15 @@ public partial class DungeonPanel : ScrollContainer
 				hbox.AddChild(emptyLabel);
 			}
 
-			_squadMemberContainer.AddChild(card);
+			container.AddChild(card);
 		}
 	}
 
 	// ==== 部隊カードのHP表示（2026年9月・§0.43） ====
 
-	/// <summary>HPの割合の段階の境目（表示用。70%以上＝通常、40〜70%＝注意、40%未満＝危険）。</summary>
+	/// <summary>HPの割合の段階の境目（HPバーの色分けに使う。70%以上＝通常、30〜70%＝注意、30%未満＝危険）。</summary>
 	private const double HpCautionRatio = 0.7;
-	private const double HpDangerRatio = 0.4;
+	private const double HpDangerRatio = 0.3;
 
 	private enum HpLevel { Normal, Caution, Danger, Severe }
 
@@ -1016,24 +1050,17 @@ public partial class DungeonPanel : ScrollContainer
 		_ => new Color("#f87171"),
 	};
 
-	/// <summary>部隊カードの枠：通常＝灰の細枠、注意＝黄、危険＝赤、重傷＝赤の太枠。</summary>
-	private static void SetMemberCardStyle(PanelContainer card, HpLevel level)
+	/// <summary>部隊カードの枠：HPの割合による色分けはしない（灰の細枠で統一。HPの状態はバーの色で示す）。</summary>
+	private static void SetMemberCardStyle(PanelContainer card)
 	{
-		var (border, width) = level switch
-		{
-			HpLevel.Caution => (HpLevelColor(HpLevel.Caution), 2),
-			HpLevel.Danger => (HpLevelColor(HpLevel.Danger), 2),
-			HpLevel.Severe => (HpLevelColor(HpLevel.Danger), 3),
-			_ => (new Color(0.3f, 0.3f, 0.35f), 1),
-		};
-		var style = new StyleBoxFlat { BgColor = CardBackground, BorderColor = border };
-		style.SetBorderWidthAll(width);
+		var style = new StyleBoxFlat { BgColor = CardBackground, BorderColor = new Color(0.3f, 0.3f, 0.35f) };
+		style.SetBorderWidthAll(1);
 		style.SetCornerRadiusAll(4);
 		card.AddThemeStyleboxOverride("panel", style);
 	}
 
 	/// <summary>
-	/// 任務ごとの最悪の損耗（最大HPに対する%）。部隊カードの「⚠ 40%を割る恐れ」の判定に使う。値は見立てカードと同じ Core の範囲の上限：
+	/// 任務ごとの最悪の損耗（最大HPに対する%）。部隊カードの「⚠ 30%を割る恐れ」の判定に使う。値は見立てカードと同じ Core の範囲の上限：
 	///  - 潜行：進軍ランクの既踏の損耗上限。予測到達が未踏破の階層に及ぶなら未踏破の損耗上限（夜目の軽減込み）との大きい方
 	///  - 迷宮調査：護衛評価ごとのHP消費（完全解析済みなら出撃しないので除く）
 	///  - 探索：採取の損耗上限
@@ -1482,21 +1509,6 @@ public partial class DungeonPanel : ScrollContainer
 
 	// ==================== 潜行中の部隊・状況排他コマンド ====================
 
-	private void RefreshPendingMissions()
-	{
-		_pendingMissionList.Clear();
-		foreach (var mission in _state.ActiveDungeonMissions)
-		{
-			string members = string.Join("・", mission.Party.Members.Select(m => m.Name));
-			_pendingMissionList.AddItem($"{MissionLabel(mission)}：{members}");
-		}
-
-		if (_state.ActiveDungeonMissions.Count == 0)
-			_pendingMissionList.AddItem("（潜行中の部隊はいない）", null, false);
-
-		_cancelMissionButton.Disabled = true;
-	}
-
 	private static string MissionLabel(ActiveDungeonMission mission)
 	{
 		if (mission.MissionType == DungeonMissionType.Gathering)
@@ -1521,20 +1533,15 @@ public partial class DungeonPanel : ScrollContainer
 	private static string LootSummary(ActiveDungeonMission mission) =>
 		$"拾得 {mission.CarriedGold}G・素材{mission.CarriedMaterials.Values.Sum()}個";
 
+	/// <summary>その部隊のメンバーを含む出撃・潜行中の任務（無ければ null）。</summary>
+	private ActiveDungeonMission? MissionOfParty(SavedParty saved) =>
+		_state.ActiveDungeonMissions.FirstOrDefault(m => m.Party.Members.Any(p => saved.MemberIds.Contains(p.Id)));
+
+	/// <summary>選択中の部隊が出撃・潜行中ならその任務。指令欄はこの任務に対して出る。</summary>
 	private ActiveDungeonMission? SelectedPendingMission()
 	{
-		var selected = _pendingMissionList.GetSelectedItems();
-		if (selected.Length == 0)
-			return null;
-		int index = selected[0];
-		return index >= 0 && index < _state.ActiveDungeonMissions.Count ? _state.ActiveDungeonMissions[index] : null;
-	}
-
-	private void OnPendingMissionSelected()
-	{
-		var mission = SelectedPendingMission();
-		_cancelMissionButton.Disabled = mission == null || mission.WeeksElapsed > 0;
-		UpdateCommandAreaVisibility();
+		var saved = SelectedSavedParty();
+		return saved == null ? null : MissionOfParty(saved);
 	}
 
 	private ActiveDungeonMission? DecisionTarget()
@@ -1771,10 +1778,10 @@ public partial class DungeonPanel : ScrollContainer
 		StateChanged.Invoke();
 	}
 
-	private void OnCancelMissionPressed()
+	/// <summary>出発準備中（まだ潜行を始めていない）の任務を取り消す。選択中の部隊のボタンをもう一度押したときに呼ぶ。</summary>
+	private void CancelMission(ActiveDungeonMission mission)
 	{
-		var mission = SelectedPendingMission();
-		if (mission == null || _expeditionSystem == null)
+		if (_expeditionSystem == null)
 			return;
 
 		if (!_expeditionSystem.TryCancel(_state, mission))

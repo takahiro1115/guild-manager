@@ -11,7 +11,7 @@ using GuildManager.Core.Systems;
 /// 部隊編成パネル（仕様書 03 §4.0.2・§5.3.1・§9）。
 ///
 /// 解放出撃枠（UnlockedSquadSlots）と連動した最大4部隊の切り替え、
-/// 4枠メンバーカード（前後衛自動決定バッジ表示・除名・リーダー選出・出撃中ガード）、
+/// 4枠メンバーカード（除名・リーダー選出・出撃中ガード）、
 /// 冒険者一覧（能力値の表・見出しクリックの並べ替え・任務別の貢献列・配属）、
 /// および任務別の部隊指標（進軍→討伐・解析・採取・健全度・相性）を提供する。
 ///
@@ -46,7 +46,6 @@ public partial class PartyFormationPanel : VBoxContainer
 	private readonly Control[] _emptySlotContainers = new Control[4];
 	private readonly Control[] _filledSlotContainers = new Control[4];
 	private readonly Label[] _slotRoleLabels = new Label[4];
-	private readonly Label[] _slotPositionBadges = new Label[4];
 	private readonly TextureRect[] _slotPortraits = new TextureRect[4];
 	private readonly Label[] _slotNameLabels = new Label[4];
 	private readonly Label[] _slotJobAgeLabels = new Label[4];
@@ -100,7 +99,6 @@ public partial class PartyFormationPanel : VBoxContainer
 	private static readonly string[] StatColumns = { "STR", "VIT", "AGI", "DEX", "INT", "MND", "LDR" };
 
 	// 一覧の列幅（見出しと各行で共有して縦に揃える）
-	private const int BadgeWidth = 44;
 	private const int NameMinWidth = 150;
 	private const int HpWidth = 66;
 	private const int StatWidth = 38;
@@ -148,7 +146,6 @@ public partial class PartyFormationPanel : VBoxContainer
 		{
 			_emptySlotContainers[i] = GetNode<Control>($"%EmptySlotContainer{i}");
 			_filledSlotContainers[i] = GetNode<Control>($"%FilledSlotContainer{i}");
-			_slotPositionBadges[i] = GetNode<Label>($"%SlotPositionBadge{i}");
 			_slotPortraits[i] = GetNode<TextureRect>($"%SlotPortrait{i}");
 			_slotNameLabels[i] = GetNode<Label>($"%SlotNameLabel{i}");
 			_slotJobAgeLabels[i] = GetNode<Label>($"%SlotJobAgeLabel{i}");
@@ -307,19 +304,6 @@ public partial class PartyFormationPanel : VBoxContainer
 					_slotRoleLabels[i].AddThemeColorOverride("font_color", isLeader
 						? new Color(1f, 0.85f, 0.4f)
 						: new Color(0.8f, 0.8f, 0.8f));
-
-					// 前後衛判定バッジ
-					var placement = PlacementRules.GetDefault(adventurer.JobClass);
-					if (placement == Placement.Front)
-					{
-						_slotPositionBadges[i].Text = "【前衛】";
-						_slotPositionBadges[i].AddThemeColorOverride("font_color", new Color(0.4f, 0.9f, 1.0f));
-					}
-					else
-					{
-						_slotPositionBadges[i].Text = "【後衛】";
-						_slotPositionBadges[i].AddThemeColorOverride("font_color", new Color(0.85f, 0.65f, 1.0f));
-					}
 
 					// ポートレート
 					LoadPortraitTexture(_slotPortraits[i], adventurer.PortraitId);
@@ -710,7 +694,6 @@ public partial class PartyFormationPanel : VBoxContainer
 		header.AddThemeConstantOverride("separation", ColumnSeparation);
 		_candidateHeaderMargin.AddChild(header);
 
-		header.AddChild(HeaderSpacer(BadgeWidth));
 		header.AddChild(SortButton(SortKey.Name, "氏名（職業・年齢）", NameMinWidth, expand: true, alignRight: false));
 		header.AddChild(SortButton(SortKey.Hp, "HP", HpWidth));
 		foreach (var stat in StatColumns)
@@ -898,11 +881,6 @@ public partial class PartyFormationPanel : VBoxContainer
 		var hbox = new HBoxContainer();
 		hbox.AddThemeConstantOverride("separation", ColumnSeparation);
 		margin.AddChild(hbox);
-
-		// 前後衛バッジ
-		bool isFront = PlacementRules.GetDefault(a.JobClass) == Placement.Front;
-		hbox.AddChild(Cell(isFront ? "【前衛】" : "【後衛】", BadgeWidth,
-			isFront ? new Color(0.4f, 0.9f, 1.0f) : new Color(0.85f, 0.65f, 1.0f), alignRight: false));
 
 		// 氏名・職業・年齢
 		var nameLabel = Cell($"{a.Name} ({JobLabel(a.JobClass)}・{a.Age}歳)", NameMinWidth, null, alignRight: false, fontSize: 12);

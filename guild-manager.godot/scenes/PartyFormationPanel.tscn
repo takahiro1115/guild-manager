@@ -376,13 +376,6 @@ theme_override_colors/font_color = Color(1, 0.85, 0.4, 1)
 theme_override_font_sizes/font_size = 11
 text = "【隊長】"
 
-[node name="SlotPositionBadge0" type="Label" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot0/Margin/FilledSlotContainer0/HeaderHBox"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_colors/font_color = Color(0.4, 0.9, 1, 1)
-theme_override_font_sizes/font_size = 11
-text = "【前衛】"
-
 [node name="BodyHBox" type="HBoxContainer" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot0/Margin/FilledSlotContainer0"]
 layout_mode = 2
 theme_override_constants/separation = 6
@@ -477,13 +470,6 @@ size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
 theme_override_font_sizes/font_size = 11
 text = "スロット2"
-
-[node name="SlotPositionBadge1" type="Label" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot1/Margin/FilledSlotContainer1/HeaderHBox"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_colors/font_color = Color(0.4, 0.9, 1, 1)
-theme_override_font_sizes/font_size = 11
-text = "【前衛】"
 
 [node name="BodyHBox" type="HBoxContainer" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot1/Margin/FilledSlotContainer1"]
 layout_mode = 2
@@ -580,13 +566,6 @@ theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
 theme_override_font_sizes/font_size = 11
 text = "スロット3"
 
-[node name="SlotPositionBadge2" type="Label" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot2/Margin/FilledSlotContainer2/HeaderHBox"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_colors/font_color = Color(0.4, 0.9, 1, 1)
-theme_override_font_sizes/font_size = 11
-text = "【前衛】"
-
 [node name="BodyHBox" type="HBoxContainer" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot2/Margin/FilledSlotContainer2"]
 layout_mode = 2
 theme_override_constants/separation = 6
@@ -681,13 +660,6 @@ size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
 theme_override_font_sizes/font_size = 11
 text = "スロット4"
-
-[node name="SlotPositionBadge3" type="Label" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot3/Margin/FilledSlotContainer3/HeaderHBox"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_colors/font_color = Color(0.4, 0.9, 1, 1)
-theme_override_font_sizes/font_size = 11
-text = "【前衛】"
 
 [node name="BodyHBox" type="HBoxContainer" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot3/Margin/FilledSlotContainer3"]
 layout_mode = 2

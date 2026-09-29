@@ -206,119 +206,116 @@ layout_mode = 2
 bbcode_enabled = true
 fit_content = true
 
-[node name="BossHpRow" type="HBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox"]
+[node name="StatsGimmickRow" type="HBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox"]
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 10
 
-[node name="BossHpTitle" type="Label" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/BossHpRow"]
+[node name="StatsColumn" type="VBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 2
+
+[node name="BossHpRow" type="HBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/StatsColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="BossHpTitle" type="Label" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/StatsColumn/BossHpRow"]
 layout_mode = 2
 text = "ボスHP"
 
-[node name="BossHpBar" type="ProgressBar" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/BossHpRow"]
+[node name="BossHpLabel" type="Label" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/StatsColumn/BossHpRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 16)
 layout_mode = 2
 size_flags_horizontal = 3
-size_flags_vertical = 4
-step = 1.0
-show_percentage = false
-
-[node name="BossHpLabel" type="Label" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/BossHpRow"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(100, 0)
-layout_mode = 2
 horizontal_alignment = 2
 
-[node name="IntelRow" type="HBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox"]
+[node name="IntelRow" type="HBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/StatsColumn"]
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 6
 
-[node name="IntelTitle" type="Label" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/IntelRow"]
+[node name="IntelTitle" type="Label" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/StatsColumn/IntelRow"]
 layout_mode = 2
 text = "情報解析率"
 
-[node name="IntelProgressBar" type="ProgressBar" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/IntelRow"]
+[node name="IntelPercentLabel" type="Label" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/StatsColumn/IntelRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 16)
 layout_mode = 2
 size_flags_horizontal = 3
-size_flags_vertical = 4
-step = 1.0
-show_percentage = false
-
-[node name="IntelPercentLabel" type="Label" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/IntelRow"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(48, 0)
-layout_mode = 2
 horizontal_alignment = 2
 
-[node name="IntelTierLabel" type="RichTextLabel" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox"]
+[node name="IntelTierLabel" type="RichTextLabel" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/StatsColumn"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(320, 0)
+custom_minimum_size = Vector2(150, 0)
 layout_mode = 2
 bbcode_enabled = true
 fit_content = true
 
-[node name="CompleteBadgeLabel" type="RichTextLabel" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox"]
+[node name="CompleteBadgeLabel" type="RichTextLabel" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/StatsColumn"]
 unique_name_in_owner = true
 visible = false
-custom_minimum_size = Vector2(320, 0)
+custom_minimum_size = Vector2(150, 0)
 layout_mode = 2
 bbcode_enabled = true
 fit_content = true
 
-[node name="GimmickWrapper" type="VBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox"]
+[node name="GimmickPouchColumn" type="VBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="GimmickWrapper" type="VBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/StatsColumn"]
 layout_mode = 2
 theme_override_constants/separation = 2
 
-[node name="GimmickTitle" type="Label" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/GimmickWrapper"]
+[node name="GimmickTitle" type="Label" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/StatsColumn/GimmickWrapper"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.8, 0.85, 0.9, 1)
 text = "判明した特殊能力"
 
-[node name="GimmickContainer" type="GridContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/GimmickWrapper"]
+[node name="GimmickContainer" type="GridContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/StatsColumn/GimmickWrapper"]
 unique_name_in_owner = true
 layout_mode = 2
-columns = 2
+columns = 1
 theme_override_constants/h_separation = 6
 theme_override_constants/v_separation = 4
 
-[node name="PouchCard" type="PanelContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox"]
+[node name="PouchCard" type="PanelContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/GimmickPouchColumn"]
 layout_mode = 2
 
-[node name="Margin" type="MarginContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/PouchCard"]
+[node name="Margin" type="MarginContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/GimmickPouchColumn/PouchCard"]
 layout_mode = 2
 theme_override_constants/margin_left = 8
 theme_override_constants/margin_top = 4
 theme_override_constants/margin_right = 8
 theme_override_constants/margin_bottom = 4
 
-[node name="VBox" type="VBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/PouchCard/Margin"]
+[node name="VBox" type="VBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/GimmickPouchColumn/PouchCard/Margin"]
 layout_mode = 2
 theme_override_constants/separation = 2
 
-[node name="PouchTitle" type="Label" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/PouchCard/Margin/VBox"]
+[node name="PouchTitle" type="Label" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/GimmickPouchColumn/PouchCard/Margin/VBox"]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.85, 0.4, 1)
 text = "部隊携行ポーチ（最大2枠・重複不可）"
 
-[node name="PouchRow" type="HBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/PouchCard/Margin/VBox"]
+[node name="PouchRow" type="VBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/GimmickPouchColumn/PouchCard/Margin/VBox"]
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 4
 
-[node name="PouchSlot1" type="OptionButton" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/PouchCard/Margin/VBox/PouchRow"]
+[node name="PouchSlot1" type="OptionButton" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/GimmickPouchColumn/PouchCard/Margin/VBox/PouchRow"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="PouchSlot2" type="OptionButton" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/PouchCard/Margin/VBox/PouchRow"]
+[node name="PouchSlot2" type="OptionButton" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/GimmickPouchColumn/PouchCard/Margin/VBox/PouchRow"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="PouchCostLabel" type="RichTextLabel" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/PouchCard/Margin/VBox"]
+[node name="PouchCostLabel" type="RichTextLabel" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/GimmickPouchColumn/PouchCard/Margin/VBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(320, 0)
+custom_minimum_size = Vector2(150, 0)
 layout_mode = 2
 bbcode_enabled = true
 fit_content = true
@@ -343,25 +340,10 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 15
 text = "出撃"
 
-[node name="SquadRow" type="HBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneC/ZoneCMargin/ZoneCVBox"]
+[node name="SquadButtons" type="HBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneC/ZoneCMargin/ZoneCVBox"]
+unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 8
-
-[node name="SquadLabel" type="Label" parent="Margin/MainHBox/RightColumn/ZoneC/ZoneCMargin/ZoneCVBox/SquadRow"]
-layout_mode = 2
-text = "出撃部隊:"
-
-[node name="SquadButtons" type="HBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneC/ZoneCMargin/ZoneCVBox/SquadRow"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 6
-
-[node name="SquadMemberContainer" type="HBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneC/ZoneCMargin/ZoneCVBox"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 68)
-layout_mode = 2
-theme_override_constants/separation = 6
 
 [node name="DispatchStatusLabel" type="RichTextLabel" parent="Margin/MainHBox/RightColumn/ZoneC/ZoneCMargin/ZoneCVBox"]
 unique_name_in_owner = true
@@ -561,28 +543,3 @@ custom_minimum_size = Vector2(0, 36)
 layout_mode = 2
 size_flags_horizontal = 3
 text = "🏃 撤退・帰還する"
-
-[node name="PendingSection" type="VBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneC/ZoneCMargin/ZoneCVBox"]
-layout_mode = 2
-theme_override_constants/separation = 4
-
-[node name="PendingHeader" type="HBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneC/ZoneCMargin/ZoneCVBox/PendingSection"]
-layout_mode = 2
-
-[node name="PendingLabel" type="Label" parent="Margin/MainHBox/RightColumn/ZoneC/ZoneCMargin/ZoneCVBox/PendingSection/PendingHeader"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
-text = "出撃・潜行中の部隊一覧"
-
-[node name="CancelMissionButton" type="Button" parent="Margin/MainHBox/RightColumn/ZoneC/ZoneCMargin/ZoneCVBox/PendingSection/PendingHeader"]
-unique_name_in_owner = true
-layout_mode = 2
-disabled = true
-text = "出撃取り消し"
-
-[node name="PendingMissionList" type="ItemList" parent="Margin/MainHBox/RightColumn/ZoneC/ZoneCMargin/ZoneCVBox/PendingSection"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 48)
-layout_mode = 2
-auto_height = true

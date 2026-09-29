@@ -17,7 +17,6 @@ using GuildManager.Core.Systems;
 /// 1. Core層の完全独立維持（Core変更ゼロ、描画と入力変換のみに徹する）
 /// 2. Unique Name (%NodeName) による安全なノード参照
 /// 3. 未選択状態の厳守（初期表示や更新時に自動で先頭を選択しない）
-/// 4. 職業に応じた配置区分（【前衛】/【後衛】）の明示
 /// </summary>
 public partial class AdventurerPanel : VBoxContainer
 {
@@ -32,7 +31,6 @@ public partial class AdventurerPanel : VBoxContainer
 	// ---- 基本情報カード ----
 	private TextureRect _portraitTextureRect = null!;
 	private Label _nameLabel = null!;
-	private Label _placementBadgeLabel = null!;
 	private Label _jobBadgeLabel = null!;
 	private Label _ageLabel = null!;
 	private RichTextLabel _statusLabel = null!;
@@ -125,7 +123,6 @@ public partial class AdventurerPanel : VBoxContainer
 		// 基本情報
 		_portraitTextureRect = GetNode<TextureRect>("%PortraitTextureRect");
 		_nameLabel = GetNode<Label>("%NameLabel");
-		_placementBadgeLabel = GetNode<Label>("%PlacementBadgeLabel");
 		_jobBadgeLabel = GetNode<Label>("%JobBadgeLabel");
 		_ageLabel = GetNode<Label>("%AgeLabel");
 		_statusLabel = GetNode<RichTextLabel>("%StatusLabel");
@@ -287,13 +284,6 @@ public partial class AdventurerPanel : VBoxContainer
 
 		// ---- 基本情報 ----
 		_nameLabel.Text = a.Name;
-
-		bool isFront = PlacementRules.GetDefault(a.JobClass) == Placement.Front;
-		_placementBadgeLabel.Text = isFront ? "【前衛】" : "【後衛】";
-		_placementBadgeLabel.AddThemeColorOverride("font_color", isFront
-			? new Color(0.4f, 0.8f, 1.0f) // 前衛：水色
-			: new Color(0.9f, 0.6f, 1.0f) // 後衛：薄紫色
-		);
 
 		_jobBadgeLabel.Text = JobLabel(a.JobClass);
 		_ageLabel.Text = $"{a.Age}歳（{AgeBandLabel(a.AgeBand)}）";
