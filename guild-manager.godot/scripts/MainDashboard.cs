@@ -192,6 +192,12 @@ public partial class MainDashboard : Control
 
 		_systemPanel = GetNode<SystemPanel>("%SystemTab");
 		_systemPanel.SaveRequested += SaveProgress;
+		_systemPanel.DebugAddGoldRequested += () =>
+		{
+			_state.Gold += 10000;
+			AppendLog($"[color=gray]🛠 デバッグ：所持金を10,000G増やした（現在 {_state.Gold} G）。[/color]");
+			RefreshAll();
+		};
 
 		SwitchView(DashboardView.Dungeon);
 

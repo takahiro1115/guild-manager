@@ -21,11 +21,15 @@ public partial class SystemPanel : ScrollContainer
 	/// <summary>「進行状況を保存」の押下を通知する。MainDashboard がセーブを実行し、成否を返す。</summary>
 	public event Func<bool> SaveRequested = () => false;
 
+	/// <summary>デバッグ用「所持金 +10,000 G」の押下を通知する（MainDashboard が所持金を増やして表示を更新する）。</summary>
+	public event Action DebugAddGoldRequested = () => { };
+
 	public override void _Ready()
 	{
 		_saveDataBtn = GetNode<Button>("%SaveDataBtn");
 		_saveFeedbackLabel = GetNode<Label>("%SaveFeedbackLabel");
 		_saveDataBtn.Pressed += OnSaveDataPressed;
+		GetNode<Button>("%DebugAddGoldBtn").Pressed += () => DebugAddGoldRequested();
 		_windowedBtn = GetNode<Button>("%WindowedBtn");
 		_maximizedBtn = GetNode<Button>("%MaximizedBtn");
 		_fullscreenBtn = GetNode<Button>("%FullscreenBtn");

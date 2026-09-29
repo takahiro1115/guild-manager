@@ -159,6 +159,13 @@ size_flags_horizontal = 3
 toggle_mode = true
 text = "フルスクリーン"
 
+[node name="DebugAddGoldBtn" type="Button" parent="Margin/VBox/CardRow/ConfigCard/Margin/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+tooltip_text = "デバッグ用：所持金を増やす"
+text = "🛠 デバッグ：所持金 +10,000 G"
+
 [node name="ConfigNoteLabel" type="Label" parent="Margin/VBox/CardRow/ConfigCard/Margin/VBox"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
