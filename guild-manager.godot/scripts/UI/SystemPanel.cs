@@ -14,6 +14,9 @@ public partial class SystemPanel : ScrollContainer
 {
 	private Button _saveDataBtn = null!;
 	private Label _saveFeedbackLabel = null!;
+	private Button _windowedBtn = null!;
+	private Button _maximizedBtn = null!;
+	private Button _fullscreenBtn = null!;
 
 	/// <summary>「進行状況を保存」の押下を通知する。MainDashboard がセーブを実行し、成否を返す。</summary>
 	public event Func<bool> SaveRequested = () => false;
@@ -23,6 +26,52 @@ public partial class SystemPanel : ScrollContainer
 		_saveDataBtn = GetNode<Button>("%SaveDataBtn");
 		_saveFeedbackLabel = GetNode<Label>("%SaveFeedbackLabel");
 		_saveDataBtn.Pressed += OnSaveDataPressed;
+		_windowedBtn = GetNode<Button>("%WindowedBtn");
+		_maximizedBtn = GetNode<Button>("%MaximizedBtn");
+		_fullscreenBtn = GetNode<Button>("%FullscreenBtn");
+		var group = new ButtonGroup();
+		foreach (var b in new[] { _windowedBtn, _maximizedBtn, _fullscreenBtn })
+			b.ButtonGroup = group;
+		_windowedBtn.Pressed += () => SetDisplayMode(Window.ModeEnum.Windowed);
+		_maximizedBtn.Pressed += () => SetDisplayMode(Window.ModeEnum.Maximized);
+		_fullscreenBtn.Pressed += () => SetDisplayMode(Window.ModeEnum.Fullscreen);
+		UpdateDisplayModeButtons();
+		VisibilityChanged += UpdateDisplayModeButtons;
+	}
+
+	/// <summary>窓表示の大きさ：基準解像度（1920×1080）を上限に、タイトルバー・タスクバー分を除いた作業領域へ収める。</summary>
+	private static readonly Vector2I WindowedMargin = new(16, 56);
+
+	/// <summary>窓表示にして、画面の作業領域に収まる大きさ・中央の位置へ整える（起動時と、最大化からの復帰時に呼ぶ）。</summary>
+	public static void FitWindowedToScreen(Window window)
+	{
+		window.Mode = Window.ModeEnum.Windowed;
+		var usable = DisplayServer.ScreenGetUsableRect(window.CurrentScreen);
+		var size = new Vector2I(
+			Math.Min(1920, usable.Size.X - WindowedMargin.X),
+			Math.Min(1080, usable.Size.Y - WindowedMargin.Y));
+		window.Size = size;
+		window.Position = usable.Position + new Vector2I(
+			(usable.Size.X - size.X) / 2,
+			WindowedMargin.Y - 16 + (usable.Size.Y - WindowedMargin.Y - size.Y) / 2);
+	}
+
+	private void SetDisplayMode(Window.ModeEnum mode)
+	{
+		var window = GetWindow();
+		if (mode == Window.ModeEnum.Windowed)
+			FitWindowedToScreen(window);
+		else
+			window.Mode = mode;
+		UpdateDisplayModeButtons();
+	}
+
+	private void UpdateDisplayModeButtons()
+	{
+		var mode = GetWindow().Mode;
+		_windowedBtn.SetPressedNoSignal(mode == Window.ModeEnum.Windowed);
+		_maximizedBtn.SetPressedNoSignal(mode == Window.ModeEnum.Maximized);
+		_fullscreenBtn.SetPressedNoSignal(mode is Window.ModeEnum.Fullscreen or Window.ModeEnum.ExclusiveFullscreen);
 	}
 
 	private void OnSaveDataPressed()

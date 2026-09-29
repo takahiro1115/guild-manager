@@ -27,8 +27,8 @@ using GuildManager.Core.Systems;
 public partial class DungeonPanel : ScrollContainer
 {
 	/// <summary>文字の大きさの3段階（本文はテーマの既定13。§0.43）。</summary>
-	private const int FontNote = 12;
-	private const int FontBody = 13;
+	private const int FontNote = 15;
+	private const int FontBody = 16;
 
 	// ==================== Zone A: 探索状況 ====================
 	private OptionButton _fieldSelector = null!;
@@ -47,7 +47,6 @@ public partial class DungeonPanel : ScrollContainer
 	private RichTextLabel _intelTierLabel = null!;
 	private RichTextLabel _completeBadgeLabel = null!;
 	private Control _bossHpRow = null!;
-	private Button _backToTargetButton = null!;
 	private GridContainer _gimmickContainer = null!;
 	private OptionButton _pouchSlot1 = null!;
 	private OptionButton _pouchSlot2 = null!;
@@ -172,18 +171,6 @@ public partial class DungeonPanel : ScrollContainer
 			"[color=#0b0b0e]■[/color]未踏破　[color=#e5e7eb]■[/color]踏破済み　" +
 			"[color=#60a5fa]■[/color]解析済み（濃いほど解析が進む／[color=#2d52a3]■[/color]は未踏破の区間）\n" +
 			"[color=#4ade80]✔[/color]撃破済み　[color=#fb923c]⚔[/color]現在の目標　[color=#22d3ee]▶[/color]到達階層　[color=#f472b6]●[/color]潜行中の部隊");
-
-		_backToTargetButton = new Button { Text = "⚔ 現在の目標のボスを表示", Visible = false, SizeFlagsHorizontal = SizeFlags.ShrinkBegin };
-		_backToTargetButton.Pressed += () =>
-		{
-			_viewedBossId = null;
-			var target = _selectedField?.GetNextActiveBoss();
-			RefreshProgress(target);
-			RefreshBossInfo(target, target);
-		};
-		var bossVBox = _bossHeaderLabel.GetParent();
-		bossVBox.AddChild(_backToTargetButton);
-		bossVBox.MoveChild(_backToTargetButton, _bossHeaderLabel.GetIndex() + 1);
 
 		// ボタンテーマ色
 		_engageBossButton.AddThemeColorOverride("font_color", new Color(1f, 0.4f, 0.4f));
@@ -552,7 +539,6 @@ public partial class DungeonPanel : ScrollContainer
 
 		bool viewingOther = boss != null && target != null && boss.Id != target.Id
 			|| boss != null && target == null;
-		_backToTargetButton.Visible = viewingOther && target != null;
 
 		// 選択部隊＋ポーチでの対策状況プレビュー
 		var saved = SelectedSavedParty();
@@ -577,7 +563,7 @@ public partial class DungeonPanel : ScrollContainer
 		string state = boss.IsDefeated ? "　[color=#4ade80]✔ 撃破済み[/color]"
 			: viewingOther ? "　[color=#fbbf24]（閲覧中）[/color]"
 			: "　[color=#fb923c]⚔ 現在の目標[/color]";
-		_bossHeaderLabel.AppendText($"[font_size=15][b]第{boss.Floor}層の主「{boss.Name}」[/b][/font_size]{state}");
+		_bossHeaderLabel.AppendText($"[font_size=18][b]第{boss.Floor}層の主「{boss.Name}」[/b][/font_size]{state}");
 
 		_bossHpRow.Visible = true;
 		if (tier < IntelTier.Basic)
@@ -667,14 +653,14 @@ public partial class DungeonPanel : ScrollContainer
 	/// <summary>
 	/// 特殊能力のカードを1枚追加する。FitContent は使わない（2026年9月のレイアウト適正化、→ 03 §9）：
 	/// RichTextLabel の最小幅は0のため、FitContent=true だと「幅ほぼ0で折り返した場合の高さ」が最小高さとして報告され、
-	/// Zone B が縦に膨らんで出撃欄を画面外へ押し出していた。カードの固定高さに収め、はみ出す分は切り詰める。
+	/// Zone B が縦に膨らんで出撃欄を画面外へ押し出していた。カードは固定高さ（文字サイズ16で説明・対策・判定の5行が収まる高さ）とする。
 	/// </summary>
 	private void AddGimmickCard(string bbcode)
 	{
 		var card = new PanelContainer
 		{
 			SizeFlagsHorizontal = SizeFlags.ExpandFill,
-			CustomMinimumSize = new Vector2(150, 86),
+			CustomMinimumSize = new Vector2(150, 144),
 		};
 		var margin = new MarginContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
 		margin.AddThemeConstantOverride("margin_left", 8);
@@ -738,7 +724,6 @@ public partial class DungeonPanel : ScrollContainer
 		}
 
 		_squadCardBoxes.Clear();
-		_squadButtons.AddChild(BuildMissionIcons());
 		_hasSelectableParty = false;
 		bool keepSelection = false;
 		int unlocked = Math.Max(1, _state.UnlockedSquadSlots);
@@ -758,7 +743,7 @@ public partial class DungeonPanel : ScrollContainer
 				CustomMinimumSize = new Vector2(0, 30),
 				ClipText = true,
 				TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis,
-				Text = isLocked ? $"第{i + 1}部隊（未開放）" : saved.Name,
+				Text = isLocked ? $"第{i + 1}部隊（未開放）" : mission != null ? $"{MissionIcon(mission)} {saved.Name}" : saved.Name,
 				Disabled = isLocked || (available == 0 && mission == null),
 				TooltipText = isLocked
 					? "出撃枠が未開放の部隊（森の節目ボス撃破で開放）"
@@ -809,35 +794,14 @@ public partial class DungeonPanel : ScrollContainer
 			SelectParty(null);
 	}
 
-	/// <summary>部隊ボタンの列の先頭に置く、任務の種類ごとの絵文字。その任務が出撃・潜行中なら点灯、無ければ暗くする。</summary>
-	private VBoxContainer BuildMissionIcons()
+	/// <summary>出撃・潜行中の部隊のボタンに付ける、任務の種類の絵文字（潜行🏃・討伐⚔️・調査🔍・探索🌿）。</summary>
+	private static string MissionIcon(ActiveDungeonMission mission) => mission.MissionType switch
 	{
-		var column = new VBoxContainer();
-		var row = new HBoxContainer { CustomMinimumSize = new Vector2(0, 30) };
-		row.AddThemeConstantOverride("separation", 4);
-		column.AddChild(row);
-
-		void AddIcon(string icon, string name, Func<ActiveDungeonMission, bool> matches)
-		{
-			var active = _state.ActiveDungeonMissions.Where(matches).ToList();
-			var label = new Label
-			{
-				Text = icon,
-				VerticalAlignment = VerticalAlignment.Center,
-				MouseFilter = MouseFilterEnum.Stop,
-				Modulate = active.Count > 0 ? new Color(1, 1, 1) : new Color(1, 1, 1, 0.25f),
-				TooltipText = active.Count > 0
-					? $"{name}：{active.Count}部隊が出撃中"
-					: $"{name}：出撃中の部隊なし",
-			};
-			row.AddChild(label);
-		}
-
-		AddIcon("🏃", "潜行", m => m.MissionType is DungeonMissionType.Scouting or DungeonMissionType.BossAssault);
-		AddIcon("🔍", "迷宮調査", m => m.MissionType == DungeonMissionType.Survey);
-		AddIcon("🌿", "探索（採取）", m => m.MissionType == DungeonMissionType.Gathering);
-		return column;
-	}
+		DungeonMissionType.Gathering => "🌿",
+		DungeonMissionType.Survey => "🔍",
+		DungeonMissionType.BossAssault => "⚔️",
+		_ => mission.Status == ExpeditionStatus.EngagingBoss ? "⚔️" : "🏃",
+	};
 
 	private void SelectParty(Guid? partyId)
 	{
@@ -894,7 +858,7 @@ public partial class DungeonPanel : ScrollContainer
 			var card = new PanelContainer
 			{
 				SizeFlagsHorizontal = SizeFlags.ExpandFill,
-				CustomMinimumSize = new Vector2(0, 68),
+				CustomMinimumSize = new Vector2(0, 80),
 			};
 			SetMemberCardStyle(card);
 			var margin = new MarginContainer

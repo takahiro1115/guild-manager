@@ -50,7 +50,7 @@ theme_override_constants/separation = 8
 
 [node name="ZoneATitle" type="Label" parent="Margin/MainHBox/ZoneA/ZoneAMargin/ZoneAVBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 15
+theme_override_font_sizes/font_size = 18
 text = "探索状況"
 
 [node name="FieldSelectVBox" type="VBoxContainer" parent="Margin/MainHBox/ZoneA/ZoneAMargin/ZoneAVBox"]
@@ -60,7 +60,7 @@ theme_override_constants/separation = 2
 [node name="FieldLabel" type="Label" parent="Margin/MainHBox/ZoneA/ZoneAMargin/ZoneAVBox/FieldSelectVBox"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
-theme_override_font_sizes/font_size = 12
+theme_override_font_sizes/font_size = 15
 text = "挑戦するダンジョン（フィールド）"
 
 [node name="FieldSelector" type="OptionButton" parent="Margin/MainHBox/ZoneA/ZoneAMargin/ZoneAVBox/FieldSelectVBox"]
@@ -105,8 +105,8 @@ layout_mode = 2
 bbcode_enabled = true
 fit_content = true
 scroll_active = false
-theme_override_font_sizes/normal_font_size = 12
-theme_override_font_sizes/bold_font_size = 12
+theme_override_font_sizes/normal_font_size = 15
+theme_override_font_sizes/bold_font_size = 15
 
 [node name="ExpeditionLootContainer" type="PanelContainer" parent="Margin/MainHBox/ZoneA/ZoneAMargin/ZoneAVBox"]
 unique_name_in_owner = true
@@ -166,7 +166,10 @@ size_flags_vertical = 3
 theme_override_constants/separation = 8
 
 [node name="ZoneB" type="PanelContainer" parent="Margin/MainHBox/RightColumn"]
+custom_minimum_size = Vector2(0, 236)
 layout_mode = 2
+size_flags_vertical = 0
+clip_contents = true
 
 [node name="ZoneBMargin" type="MarginContainer" parent="Margin/MainHBox/RightColumn/ZoneB"]
 layout_mode = 2
@@ -178,11 +181,6 @@ theme_override_constants/margin_bottom = 4
 [node name="ZoneBVBox" type="VBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin"]
 layout_mode = 2
 theme_override_constants/separation = 3
-
-[node name="ZoneBTitle" type="Label" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 15
-text = "階層ボス"
 
 [node name="BossProfileCard" type="PanelContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox"]
 unique_name_in_owner = true
@@ -199,10 +197,14 @@ theme_override_constants/margin_bottom = 3
 layout_mode = 2
 theme_override_constants/separation = 2
 
-[node name="BossHeaderLabel" type="RichTextLabel" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox"]
+[node name="BossHeaderRow" type="HBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox"]
+layout_mode = 2
+
+[node name="BossHeaderLabel" type="RichTextLabel" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/BossHeaderRow"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(320, 0)
 layout_mode = 2
+size_flags_horizontal = 3
 bbcode_enabled = true
 fit_content = true
 
@@ -264,56 +266,63 @@ layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 4
 
-[node name="GimmickWrapper" type="VBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/StatsColumn"]
+[node name="GimmickWrapper" type="VBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/GimmickPouchColumn"]
 layout_mode = 2
 theme_override_constants/separation = 2
 
-[node name="GimmickTitle" type="Label" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/StatsColumn/GimmickWrapper"]
+[node name="GimmickTitle" type="Label" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/GimmickPouchColumn/GimmickWrapper"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.8, 0.85, 0.9, 1)
 text = "判明した特殊能力"
 
-[node name="GimmickContainer" type="GridContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/StatsColumn/GimmickWrapper"]
+[node name="GimmickScroll" type="ScrollContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/GimmickPouchColumn/GimmickWrapper"]
+custom_minimum_size = Vector2(0, 150)
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="GimmickContainer" type="GridContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/GimmickPouchColumn/GimmickWrapper/GimmickScroll"]
 unique_name_in_owner = true
 layout_mode = 2
+size_flags_horizontal = 3
 columns = 1
 theme_override_constants/h_separation = 6
 theme_override_constants/v_separation = 4
 
-[node name="PouchCard" type="PanelContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/GimmickPouchColumn"]
+[node name="PouchCard" type="PanelContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/StatsColumn"]
 layout_mode = 2
 
-[node name="Margin" type="MarginContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/GimmickPouchColumn/PouchCard"]
+[node name="Margin" type="MarginContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/StatsColumn/PouchCard"]
 layout_mode = 2
 theme_override_constants/margin_left = 8
 theme_override_constants/margin_top = 4
 theme_override_constants/margin_right = 8
 theme_override_constants/margin_bottom = 4
 
-[node name="VBox" type="VBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/GimmickPouchColumn/PouchCard/Margin"]
+[node name="VBox" type="VBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/StatsColumn/PouchCard/Margin"]
 layout_mode = 2
 theme_override_constants/separation = 2
 
-[node name="PouchTitle" type="Label" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/GimmickPouchColumn/PouchCard/Margin/VBox"]
+[node name="PouchTitle" type="Label" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/StatsColumn/PouchCard/Margin/VBox"]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.85, 0.4, 1)
 text = "部隊携行ポーチ（最大2枠・重複不可）"
 
-[node name="PouchRow" type="VBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/GimmickPouchColumn/PouchCard/Margin/VBox"]
+[node name="PouchRow" type="HBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/StatsColumn/PouchCard/Margin/VBox"]
 layout_mode = 2
-theme_override_constants/separation = 4
+theme_override_constants/separation = 6
 
-[node name="PouchSlot1" type="OptionButton" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/GimmickPouchColumn/PouchCard/Margin/VBox/PouchRow"]
+[node name="PouchSlot1" type="OptionButton" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/StatsColumn/PouchCard/Margin/VBox/PouchRow"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="PouchSlot2" type="OptionButton" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/GimmickPouchColumn/PouchCard/Margin/VBox/PouchRow"]
+[node name="PouchSlot2" type="OptionButton" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/StatsColumn/PouchCard/Margin/VBox/PouchRow"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="PouchCostLabel" type="RichTextLabel" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/GimmickPouchColumn/PouchCard/Margin/VBox"]
+[node name="PouchCostLabel" type="RichTextLabel" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/StatsColumn/PouchCard/Margin/VBox"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(150, 0)
 layout_mode = 2
@@ -334,11 +343,6 @@ theme_override_constants/margin_bottom = 6
 [node name="ZoneCVBox" type="VBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneC/ZoneCMargin"]
 layout_mode = 2
 theme_override_constants/separation = 5
-
-[node name="ZoneCTitle" type="Label" parent="Margin/MainHBox/RightColumn/ZoneC/ZoneCMargin/ZoneCVBox"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 15
-text = "出撃"
 
 [node name="SquadButtons" type="HBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneC/ZoneCMargin/ZoneCVBox"]
 unique_name_in_owner = true
@@ -401,8 +405,8 @@ layout_mode = 2
 bbcode_enabled = true
 fit_content = true
 scroll_active = false
-theme_override_font_sizes/normal_font_size = 12
-theme_override_font_sizes/bold_font_size = 12
+theme_override_font_sizes/normal_font_size = 15
+theme_override_font_sizes/bold_font_size = 15
 
 [node name="ScoutingButton" type="Button" parent="Margin/MainHBox/RightColumn/ZoneC/ZoneCMargin/ZoneCVBox/ActionCommandContainer/Margin/CommandAreaStandby/TraversalPreviewCard/Margin/VBox"]
 unique_name_in_owner = true
@@ -444,8 +448,8 @@ layout_mode = 2
 bbcode_enabled = true
 fit_content = true
 scroll_active = false
-theme_override_font_sizes/normal_font_size = 12
-theme_override_font_sizes/bold_font_size = 12
+theme_override_font_sizes/normal_font_size = 15
+theme_override_font_sizes/bold_font_size = 15
 
 [node name="SurveyButton" type="Button" parent="Margin/MainHBox/RightColumn/ZoneC/ZoneCMargin/ZoneCVBox/ActionCommandContainer/Margin/CommandAreaStandby/SurveyPreviewCard/Margin/VBox"]
 unique_name_in_owner = true
@@ -487,8 +491,8 @@ layout_mode = 2
 bbcode_enabled = true
 fit_content = true
 scroll_active = false
-theme_override_font_sizes/normal_font_size = 12
-theme_override_font_sizes/bold_font_size = 12
+theme_override_font_sizes/normal_font_size = 15
+theme_override_font_sizes/bold_font_size = 15
 
 [node name="GatheringButton" type="Button" parent="Margin/MainHBox/RightColumn/ZoneC/ZoneCMargin/ZoneCVBox/ActionCommandContainer/Margin/CommandAreaStandby/GatheringPreviewCard/Margin/VBox"]
 unique_name_in_owner = true

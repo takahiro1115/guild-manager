@@ -99,7 +99,7 @@ public partial class ResearchPanel : ScrollContainer
 		card.AddChild(vbox);
 
 		var titleLabel = new RichTextLabel { BbcodeEnabled = true, FitContent = true, SizeFlagsHorizontal = SizeFlags.ExpandFill };
-		titleLabel.AppendText($"[font_size=15][b]{research.Name}[/b][/font_size]" +
+		titleLabel.AppendText($"[font_size=18][b]{research.Name}[/b][/font_size]" +
 			(completed ? "　[bgcolor=#2a5a2a][color=lime] ✔ 研究完了 [/color][/bgcolor]" : ""));
 		vbox.AddChild(titleLabel);
 

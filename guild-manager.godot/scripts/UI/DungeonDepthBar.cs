@@ -27,7 +27,7 @@ public partial class DungeonDepthBar : Control
 	private const float FloorLabelWidth = 40f;
 	private const float BarWidth = 34f;
 	private const float MarkerGap = 6f;
-	private const int FontSize = 12;
+	private const int FontSize = 15;
 
 	/// <summary>段階ごとの色（添字：IntelTier の Basic=1 〜 Complete=4）。</summary>
 	private static readonly Color[] ReachedAnalyzed =

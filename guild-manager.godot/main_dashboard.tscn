@@ -107,6 +107,12 @@ layout_mode = 2
 toggle_mode = true
 text = "⚙️ システム"
 
+[node name="NavCloseBtn" type="Button" parent="Root/NavigationBar"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(110, 36)
+layout_mode = 2
+text = "✖ 閉じる"
+
 [node name="NavSpacer" type="Control" parent="Root/NavigationBar"]
 layout_mode = 2
 size_flags_horizontal = 3
@@ -186,7 +192,7 @@ layout_mode = 2
 
 [node name="Label" type="Label" parent="Root/MainContentArea/RightPanel" unique_id=1329327818]
 layout_mode = 2
-theme_override_font_sizes/font_size = 15
+theme_override_font_sizes/font_size = 18
 text = "作戦週報"
 
 [node name="ResultLog" type="RichTextLabel" parent="Root/MainContentArea/RightPanel" unique_id=1076099228]
@@ -216,14 +222,14 @@ theme_override_constants/separation = 12
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 17
 text = "次週へ進める (Next Week)"
 
 [node name="AutoSkipButton" type="Button" parent="Root/FooterPanel/Margin/FooterHBox" unique_id=22271401]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(240, 0)
 layout_mode = 2
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 17
 text = "自動スキップ (Auto Skip)"
 
 [node name="RecruitmentPopup" parent="." unique_id=1627770275 instance=ExtResource("2_recruit")]

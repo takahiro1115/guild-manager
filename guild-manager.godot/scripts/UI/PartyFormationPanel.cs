@@ -596,7 +596,7 @@ public partial class PartyFormationPanel : VBoxContainer
 			SizeFlagsHorizontal = SizeFlags.ExpandFill,
 			Visible = slotIndex > 0,
 		};
-		promote.AddThemeFontSizeOverride("font_size", 11);
+		promote.AddThemeFontSizeOverride("font_size", 15);
 		promote.Pressed += () => OnPromoteClicked(slotIndex);
 		promote.MouseEntered += () => PreviewPromote(slotIndex, promote);
 		promote.MouseExited += () => ClearPreviewLater(promote);
@@ -650,15 +650,15 @@ public partial class PartyFormationPanel : VBoxContainer
 		var toolbar = new HBoxContainer();
 		toolbar.AddThemeConstantOverride("separation", 12);
 		_availableOnlyCheck = new CheckBox { Text = "配属可能のみ", TooltipText = "出撃中・負傷中・部隊に所属中の冒険者を隠す" };
-		_availableOnlyCheck.AddThemeFontSizeOverride("font_size", 11);
+		_availableOnlyCheck.AddThemeFontSizeOverride("font_size", 15);
 		_availableOnlyCheck.Toggled += _ => RefreshCandidateList();
 		toolbar.AddChild(_availableOnlyCheck);
 
 		var contributionLabel = new Label { Text = "貢献列：" };
-		contributionLabel.AddThemeFontSizeOverride("font_size", 11);
+		contributionLabel.AddThemeFontSizeOverride("font_size", 15);
 		toolbar.AddChild(contributionLabel);
 		_contributionOption = new OptionButton { TooltipText = "「貢献」列に出す任務別の値（隊員1名ぶん）" };
-		_contributionOption.AddThemeFontSizeOverride("font_size", 11);
+		_contributionOption.AddThemeFontSizeOverride("font_size", 15);
 		foreach (var (_, label, _) in ContributionKinds)
 			_contributionOption.AddItem(label);
 		_contributionOption.ItemSelected += index =>
@@ -675,7 +675,7 @@ public partial class PartyFormationPanel : VBoxContainer
 			TooltipText = "見出しクリックの並べ替えを解除し、既定の並び（ロースター順＝加入順）に戻す。\n「配属可能のみ」と貢献列の選択はそのまま。",
 			Disabled = true,
 		};
-		_resetSortButton.AddThemeFontSizeOverride("font_size", 11);
+		_resetSortButton.AddThemeFontSizeOverride("font_size", 15);
 		_resetSortButton.Pressed += () =>
 		{
 			_sortKey = SortKey.None;
@@ -721,7 +721,7 @@ public partial class PartyFormationPanel : VBoxContainer
 			TooltipText = "クリックで並べ替え（もう一度で昇順／降順を切り替え）",
 			ClipText = true,
 		};
-		button.AddThemeFontSizeOverride("font_size", 11);
+		button.AddThemeFontSizeOverride("font_size", 15);
 		button.Pressed += () => OnSortPressed(key);
 		_sortButtons[key] = button;
 		return button;
@@ -850,7 +850,7 @@ public partial class PartyFormationPanel : VBoxContainer
 		{
 			var empty = new Label { Text = "条件に合う冒険者がいません。" };
 			empty.AddThemeColorOverride("font_color", new Color(0.6f, 0.6f, 0.6f));
-			empty.AddThemeFontSizeOverride("font_size", 11);
+			empty.AddThemeFontSizeOverride("font_size", 15);
 			_candidateListContainer.AddChild(empty);
 		}
 
@@ -883,7 +883,7 @@ public partial class PartyFormationPanel : VBoxContainer
 		margin.AddChild(hbox);
 
 		// 氏名・職業・年齢
-		var nameLabel = Cell($"{a.Name} ({JobLabel(a.JobClass)}・{a.Age}歳)", NameMinWidth, null, alignRight: false, fontSize: 12);
+		var nameLabel = Cell($"{a.Name} ({JobLabel(a.JobClass)}・{a.Age}歳)", NameMinWidth, null, alignRight: false, fontSize: 15);
 		nameLabel.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 		nameLabel.ClipText = true;
 		hbox.AddChild(nameLabel);
@@ -911,7 +911,7 @@ public partial class PartyFormationPanel : VBoxContainer
 		var assignButton = new Button();
 		assignButton.Text = "配属 ＋";
 		assignButton.CustomMinimumSize = new Vector2(AssignWidth, 22);
-		assignButton.AddThemeFontSizeOverride("font_size", 11);
+		assignButton.AddThemeFontSizeOverride("font_size", 15);
 		assignButton.Disabled = !canAssign;
 		assignButton.Pressed += () => OnAssignAdventurerClicked(a);
 		assignButton.MouseEntered += () => PreviewCandidate(a, panel);
@@ -935,7 +935,7 @@ public partial class PartyFormationPanel : VBoxContainer
 		return panel;
 	}
 
-	private static Label Cell(string text, int width, Color? color, bool alignRight = true, int fontSize = 11)
+	private static Label Cell(string text, int width, Color? color, bool alignRight = true, int fontSize = 15)
 	{
 		var label = new Label
 		{

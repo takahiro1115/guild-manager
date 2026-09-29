@@ -35,7 +35,7 @@ theme_override_constants/separation = 12
 
 [node name="TitleLabel" type="Label" parent="HeaderPanel/Margin/HeaderVBox/TopRow"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 15
+theme_override_font_sizes/font_size = 18
 text = "部隊編成（最大4部隊・同時出撃枠連動）"
 
 [node name="DispatchedBadge" type="PanelContainer" parent="HeaderPanel/Margin/HeaderVBox/TopRow"]
@@ -53,7 +53,7 @@ theme_override_constants/margin_bottom = 2
 [node name="Label" type="Label" parent="HeaderPanel/Margin/HeaderVBox/TopRow/DispatchedBadge/Margin"]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.4, 0.2, 1)
-theme_override_font_sizes/font_size = 12
+theme_override_font_sizes/font_size = 15
 text = "【出撃中・編成変更不可】"
 
 [node name="StatusLabel" type="Label" parent="HeaderPanel/Margin/HeaderVBox/TopRow"]
@@ -61,7 +61,7 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.8, 0.9, 1, 1)
-theme_override_font_sizes/font_size = 12
+theme_override_font_sizes/font_size = 15
 text = "部隊を選択してメンバーを編成してください。"
 horizontal_alignment = 2
 
@@ -75,7 +75,7 @@ custom_minimum_size = Vector2(130, 32)
 layout_mode = 2
 toggle_mode = true
 button_pressed = true
-theme_override_font_sizes/font_size = 12
+theme_override_font_sizes/font_size = 15
 text = "第1部隊"
 
 [node name="SquadButton1" type="Button" parent="HeaderPanel/Margin/HeaderVBox/SelectorRow"]
@@ -83,7 +83,7 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(130, 32)
 layout_mode = 2
 toggle_mode = true
-theme_override_font_sizes/font_size = 12
+theme_override_font_sizes/font_size = 15
 text = "第2部隊"
 
 [node name="SquadButton2" type="Button" parent="HeaderPanel/Margin/HeaderVBox/SelectorRow"]
@@ -91,7 +91,7 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(130, 32)
 layout_mode = 2
 toggle_mode = true
-theme_override_font_sizes/font_size = 12
+theme_override_font_sizes/font_size = 15
 text = "第3部隊"
 
 [node name="SquadButton3" type="Button" parent="HeaderPanel/Margin/HeaderVBox/SelectorRow"]
@@ -99,7 +99,7 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(130, 32)
 layout_mode = 2
 toggle_mode = true
-theme_override_font_sizes/font_size = 12
+theme_override_font_sizes/font_size = 15
 text = "第4部隊"
 
 [node name="VSeparator" type="VSeparator" parent="HeaderPanel/Margin/HeaderVBox/SelectorRow"]
@@ -109,14 +109,14 @@ layout_mode = 2
 unique_name_in_owner = true
 custom_minimum_size = Vector2(160, 0)
 layout_mode = 2
-theme_override_font_sizes/font_size = 12
+theme_override_font_sizes/font_size = 15
 placeholder_text = "部隊名（12文字まで）"
 max_length = 12
 
 [node name="SquadRenameButton" type="Button" parent="HeaderPanel/Margin/HeaderVBox/SelectorRow"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 12
+theme_override_font_sizes/font_size = 15
 text = "部隊名を変更"
 
 [node name="SummaryPanel" type="PanelContainer" parent="."]
@@ -139,8 +139,8 @@ layout_mode = 2
 bbcode_enabled = true
 fit_content = true
 scroll_active = false
-theme_override_font_sizes/normal_font_size = 11
-theme_override_font_sizes/bold_font_size = 11
+theme_override_font_sizes/normal_font_size = 15
+theme_override_font_sizes/bold_font_size = 15
 text = ""
 
 [node name="SummaryHBox" type="HBoxContainer" parent="SummaryPanel/Margin/SummaryVBox"]
@@ -165,7 +165,7 @@ theme_override_constants/separation = 1
 [node name="Title" type="Label" parent="SummaryPanel/Margin/SummaryVBox/SummaryHBox/TraversalCard/Margin/VBox"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.7, 0.8, 0.9, 1)
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 15
 text = "🏃 進軍 → ⚔️ 討伐"
 
 [node name="TraversalBody" type="RichTextLabel" parent="SummaryPanel/Margin/SummaryVBox/SummaryHBox/TraversalCard/Margin/VBox"]
@@ -174,7 +174,7 @@ layout_mode = 2
 bbcode_enabled = true
 fit_content = true
 scroll_active = false
-theme_override_font_sizes/normal_font_size = 11
+theme_override_font_sizes/normal_font_size = 15
 
 [node name="SurveyCard" type="PanelContainer" parent="SummaryPanel/Margin/SummaryVBox/SummaryHBox"]
 layout_mode = 2
@@ -195,7 +195,7 @@ theme_override_constants/separation = 1
 [node name="Title" type="Label" parent="SummaryPanel/Margin/SummaryVBox/SummaryHBox/SurveyCard/Margin/VBox"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.7, 0.8, 0.9, 1)
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 15
 text = "🔍 解析（迷宮調査）"
 
 [node name="SurveyBody" type="RichTextLabel" parent="SummaryPanel/Margin/SummaryVBox/SummaryHBox/SurveyCard/Margin/VBox"]
@@ -204,7 +204,7 @@ layout_mode = 2
 bbcode_enabled = true
 fit_content = true
 scroll_active = false
-theme_override_font_sizes/normal_font_size = 11
+theme_override_font_sizes/normal_font_size = 15
 
 [node name="GatheringCard" type="PanelContainer" parent="SummaryPanel/Margin/SummaryVBox/SummaryHBox"]
 layout_mode = 2
@@ -224,7 +224,7 @@ theme_override_constants/separation = 1
 [node name="Title" type="Label" parent="SummaryPanel/Margin/SummaryVBox/SummaryHBox/GatheringCard/Margin/VBox"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.7, 0.8, 0.9, 1)
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 15
 text = "🌿 採取"
 
 [node name="GatheringBody" type="RichTextLabel" parent="SummaryPanel/Margin/SummaryVBox/SummaryHBox/GatheringCard/Margin/VBox"]
@@ -233,7 +233,7 @@ layout_mode = 2
 bbcode_enabled = true
 fit_content = true
 scroll_active = false
-theme_override_font_sizes/normal_font_size = 11
+theme_override_font_sizes/normal_font_size = 15
 
 [node name="StatusColumn" type="VBoxContainer" parent="SummaryPanel/Margin/SummaryVBox/SummaryHBox"]
 layout_mode = 2
@@ -261,14 +261,14 @@ layout_mode = 2
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.7, 0.8, 0.9, 1)
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 15
 text = "部隊健全度"
 
 [node name="AverageHpLabel" type="Label" parent="SummaryPanel/Margin/SummaryVBox/SummaryHBox/StatusColumn/HpHealthCard/Margin/VBox/HpHeaderHBox"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.9, 0.5, 1)
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 15
 text = "0%"
 
 [node name="AverageHpBar" type="ProgressBar" parent="SummaryPanel/Margin/SummaryVBox/SummaryHBox/StatusColumn/HpHealthCard/Margin/VBox"]
@@ -295,7 +295,7 @@ layout_mode = 2
 [node name="Title" type="Label" parent="SummaryPanel/Margin/SummaryVBox/SummaryHBox/StatusColumn/CompatibilityCard/Margin/VBox"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.7, 0.8, 0.9, 1)
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 15
 text = "部隊内相性"
 
 [node name="CompatibilityWarningLabel" type="RichTextLabel" parent="SummaryPanel/Margin/SummaryVBox/SummaryHBox/StatusColumn/CompatibilityCard/Margin/VBox"]
@@ -304,7 +304,7 @@ custom_minimum_size = Vector2(0, 20)
 layout_mode = 2
 bbcode_enabled = true
 fit_content = true
-theme_override_font_sizes/normal_font_size = 11
+theme_override_font_sizes/normal_font_size = 15
 text = "[color=lime]相性良好[/color]"
 
 [node name="MemberSlotsPanel" type="PanelContainer" parent="."]
@@ -323,7 +323,7 @@ theme_override_constants/separation = 4
 
 [node name="SlotsHeader" type="Label" parent="MemberSlotsPanel/Margin/VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 12
+theme_override_font_sizes/font_size = 15
 text = "編成メンバー（最大4名・一番左が👑リーダー＝部隊長。リーダーのLDRが走破・隠密・採取に効く）"
 
 [node name="MemberSlotsContainer" type="HBoxContainer" parent="MemberSlotsPanel/Margin/VBox"]
@@ -356,7 +356,7 @@ horizontal_alignment = 1
 [node name="SubLabel" type="Label" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot0/Margin/EmptySlotContainer0"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.4, 0.4, 0.4, 1)
-theme_override_font_sizes/font_size = 10
+theme_override_font_sizes/font_size = 15
 text = "下の候補一覧から配属"
 horizontal_alignment = 1
 
@@ -373,7 +373,7 @@ layout_mode = 2
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(1, 0.85, 0.4, 1)
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 15
 text = "【隊長】"
 
 [node name="BodyHBox" type="HBoxContainer" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot0/Margin/FilledSlotContainer0"]
@@ -401,13 +401,13 @@ text = "氏名"
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
-theme_override_font_sizes/font_size = 10
+theme_override_font_sizes/font_size = 15
 text = "戦士 (21歳)"
 
 [node name="SlotHpLabel0" type="Label" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot0/Margin/FilledSlotContainer0/BodyHBox/InfoVBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 10
+theme_override_font_sizes/font_size = 15
 text = "HP 50/50"
 
 [node name="SlotHpBar0" type="ProgressBar" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot0/Margin/FilledSlotContainer0/BodyHBox/InfoVBox"]
@@ -422,7 +422,7 @@ show_percentage = false
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 24)
 layout_mode = 2
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 15
 text = "編成解除"
 
 [node name="MemberSlot1" type="PanelContainer" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer"]
@@ -451,7 +451,7 @@ horizontal_alignment = 1
 [node name="SubLabel" type="Label" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot1/Margin/EmptySlotContainer1"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.4, 0.4, 0.4, 1)
-theme_override_font_sizes/font_size = 10
+theme_override_font_sizes/font_size = 15
 text = "下の候補一覧から配属"
 horizontal_alignment = 1
 
@@ -468,7 +468,7 @@ layout_mode = 2
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 15
 text = "スロット2"
 
 [node name="BodyHBox" type="HBoxContainer" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot1/Margin/FilledSlotContainer1"]
@@ -496,13 +496,13 @@ text = "氏名"
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
-theme_override_font_sizes/font_size = 10
+theme_override_font_sizes/font_size = 15
 text = "戦士 (21歳)"
 
 [node name="SlotHpLabel1" type="Label" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot1/Margin/FilledSlotContainer1/BodyHBox/InfoVBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 10
+theme_override_font_sizes/font_size = 15
 text = "HP 50/50"
 
 [node name="SlotHpBar1" type="ProgressBar" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot1/Margin/FilledSlotContainer1/BodyHBox/InfoVBox"]
@@ -517,7 +517,7 @@ show_percentage = false
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 24)
 layout_mode = 2
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 15
 text = "編成解除"
 
 [node name="MemberSlot2" type="PanelContainer" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer"]
@@ -546,7 +546,7 @@ horizontal_alignment = 1
 [node name="SubLabel" type="Label" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot2/Margin/EmptySlotContainer2"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.4, 0.4, 0.4, 1)
-theme_override_font_sizes/font_size = 10
+theme_override_font_sizes/font_size = 15
 text = "下の候補一覧から配属"
 horizontal_alignment = 1
 
@@ -563,7 +563,7 @@ layout_mode = 2
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 15
 text = "スロット3"
 
 [node name="BodyHBox" type="HBoxContainer" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot2/Margin/FilledSlotContainer2"]
@@ -591,13 +591,13 @@ text = "氏名"
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
-theme_override_font_sizes/font_size = 10
+theme_override_font_sizes/font_size = 15
 text = "戦士 (21歳)"
 
 [node name="SlotHpLabel2" type="Label" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot2/Margin/FilledSlotContainer2/BodyHBox/InfoVBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 10
+theme_override_font_sizes/font_size = 15
 text = "HP 50/50"
 
 [node name="SlotHpBar2" type="ProgressBar" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot2/Margin/FilledSlotContainer2/BodyHBox/InfoVBox"]
@@ -612,7 +612,7 @@ show_percentage = false
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 24)
 layout_mode = 2
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 15
 text = "編成解除"
 
 [node name="MemberSlot3" type="PanelContainer" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer"]
@@ -641,7 +641,7 @@ horizontal_alignment = 1
 [node name="SubLabel" type="Label" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot3/Margin/EmptySlotContainer3"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.4, 0.4, 0.4, 1)
-theme_override_font_sizes/font_size = 10
+theme_override_font_sizes/font_size = 15
 text = "下の候補一覧から配属"
 horizontal_alignment = 1
 
@@ -658,7 +658,7 @@ layout_mode = 2
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 15
 text = "スロット4"
 
 [node name="BodyHBox" type="HBoxContainer" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot3/Margin/FilledSlotContainer3"]
@@ -686,13 +686,13 @@ text = "氏名"
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
-theme_override_font_sizes/font_size = 10
+theme_override_font_sizes/font_size = 15
 text = "戦士 (21歳)"
 
 [node name="SlotHpLabel3" type="Label" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot3/Margin/FilledSlotContainer3/BodyHBox/InfoVBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 10
+theme_override_font_sizes/font_size = 15
 text = "HP 50/50"
 
 [node name="SlotHpBar3" type="ProgressBar" parent="MemberSlotsPanel/Margin/VBox/MemberSlotsContainer/MemberSlot3/Margin/FilledSlotContainer3/BodyHBox/InfoVBox"]
@@ -707,7 +707,7 @@ show_percentage = false
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 24)
 layout_mode = 2
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 15
 text = "編成解除"
 
 [node name="CandidatePanel" type="PanelContainer" parent="."]
@@ -738,7 +738,7 @@ text = "編成候補（待機冒険者一覧）"
 [node name="Guidance" type="Label" parent="CandidatePanel/Margin/VBox/CandidateHeaderHBox"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 15
 text = "※見出しクリックで並べ替え（能力値は装備・特性込みの実効値）。行にマウスを重ねると配属後の指標を上に表示"
 
 [node name="CandidateScroll" type="ScrollContainer" parent="CandidatePanel/Margin/VBox"]

@@ -1,14 +1,18 @@
-[gd_resource type="Theme" format=3]
+[gd_resource type="Theme" load_steps=2 format=3]
+
+[sub_resource type="FontVariation" id="FontVariation_plain"]
 
 [resource]
-default_font_size = 13
-Button/font_sizes/font_size = 13
-CheckBox/font_sizes/font_size = 13
-ItemList/font_sizes/font_size = 13
-Label/font_sizes/font_size = 13
-LineEdit/font_sizes/font_size = 13
-OptionButton/font_sizes/font_size = 13
-PopupMenu/font_sizes/font_size = 13
-RichTextLabel/font_sizes/bold_font_size = 13
-RichTextLabel/font_sizes/normal_font_size = 13
-TooltipLabel/font_sizes/font_size = 13
+default_font_size = 16
+Button/font_sizes/font_size = 16
+CheckBox/font_sizes/font_size = 16
+ItemList/font_sizes/font_size = 16
+Label/font_sizes/font_size = 16
+LineEdit/font_sizes/font_size = 16
+OptionButton/font_sizes/font_size = 16
+PopupMenu/font_sizes/font_size = 16
+RichTextLabel/font_sizes/bold_font_size = 16
+RichTextLabel/fonts/bold_font = SubResource("FontVariation_plain")
+RichTextLabel/fonts/bold_italics_font = SubResource("FontVariation_plain")
+RichTextLabel/font_sizes/normal_font_size = 16
+TooltipLabel/font_sizes/font_size = 16

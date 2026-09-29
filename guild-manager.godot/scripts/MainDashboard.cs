@@ -160,6 +160,7 @@ public partial class MainDashboard : Control
 		_navFacilityBtn.Pressed += () => SwitchView(DashboardView.Facility);
 		_navWarehouseBtn.Pressed += () => SwitchView(DashboardView.Warehouse);
 		_navSystemBtn.Pressed += () => SwitchView(DashboardView.System);
+		GetNode<Button>("%NavCloseBtn").Pressed += ShowQuitPrompt;
 
 		_dungeonPanel = GetNode<DungeonPanel>("%DungeonTab");
 		_dungeonPanel.LogRequested += AppendLog;
@@ -294,9 +295,43 @@ public partial class MainDashboard : Control
 			DialogText = "セーブデータが見つかりました。続きから再開しますか？",
 			OkButtonText = "続きから",
 			CancelButtonText = "新規ゲーム",
+			Title = "確認",
+			MinSize = new Vector2I(640, 220),
 		};
+		// ダイアログは別ウィンドウのためテーマが届かず既定の小さな文字になる。読みやすい大きさを直接指定する。
+		const int dialogFontSize = 22;
+		dialog.GetLabel().AddThemeFontSizeOverride("font_size", dialogFontSize);
+		dialog.GetOkButton().AddThemeFontSizeOverride("font_size", dialogFontSize);
+		dialog.GetCancelButton().AddThemeFontSizeOverride("font_size", dialogFontSize);
+		dialog.GetOkButton().CustomMinimumSize = new Vector2(150, 48);
+		dialog.GetCancelButton().CustomMinimumSize = new Vector2(150, 48);
+		dialog.AddThemeFontSizeOverride("title_font_size", dialogFontSize);
 		dialog.Confirmed += () => OnContinueChosen(dialog);
 		dialog.Canceled += () => OnNewGameChosen(dialog);
+		AddChild(dialog);
+		dialog.PopupCentered();
+	}
+
+	/// <summary>「閉じる」ボタン：確認のうえゲームを終了する（フルスクリーンでは窓の×が使えないため）。</summary>
+	private void ShowQuitPrompt()
+	{
+		var dialog = new ConfirmationDialog
+		{
+			DialogText = "ゲームを終了しますか？\n（保存していない進行状況は失われます）",
+			OkButtonText = "終了する",
+			CancelButtonText = "キャンセル",
+			Title = "確認",
+			MinSize = new Vector2I(640, 220),
+		};
+		const int dialogFontSize = 22;
+		dialog.GetLabel().AddThemeFontSizeOverride("font_size", dialogFontSize);
+		dialog.GetOkButton().AddThemeFontSizeOverride("font_size", dialogFontSize);
+		dialog.GetCancelButton().AddThemeFontSizeOverride("font_size", dialogFontSize);
+		dialog.GetOkButton().CustomMinimumSize = new Vector2(150, 48);
+		dialog.GetCancelButton().CustomMinimumSize = new Vector2(150, 48);
+		dialog.AddThemeFontSizeOverride("title_font_size", dialogFontSize);
+		dialog.Confirmed += () => GetTree().Quit();
+		dialog.Canceled += dialog.QueueFree;
 		AddChild(dialog);
 		dialog.PopupCentered();
 	}

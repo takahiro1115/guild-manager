@@ -267,9 +267,9 @@ public partial class RecruitmentPopup : PopupPanel
 		bool isFront = PlacementRules.GetDefault(c.JobClass) == Placement.Front;
 		headRow.AddChild(MakeLabel(isFront ? "【前衛】" : "【後衛】", 14,
 			isFront ? new Color(0.4f, 0.8f, 1.0f) : new Color(0.9f, 0.6f, 1.0f)));
-		headRow.AddChild(MakeLabel(AdventurerPanel.JobLabel(c.JobClass), 14, new Color(1f, 0.85f, 0.4f)));
-		headRow.AddChild(MakeLabel(c.Name, 16, null));
-		headRow.AddChild(MakeLabel($"{c.Age}歳", 14, null));
+		headRow.AddChild(MakeLabel(AdventurerPanel.JobLabel(c.JobClass), 17, new Color(1f, 0.85f, 0.4f)));
+		headRow.AddChild(MakeLabel(c.Name, 19, null));
+		headRow.AddChild(MakeLabel($"{c.Age}歳", 17, null));
 
 		// 2行目：契約金・初期装備・総合PA・週給
 		string cost = _draft != null ? "契約金: 0 G（無料）" : $"契約金: {offer.SigningBonus:N0} G";
@@ -281,7 +281,7 @@ public partial class RecruitmentPopup : PopupPanel
 		string traits = c.TraitIds.Count == 0
 			? "なし"
 			: string.Join("・", c.TraitIds.Select(t => TraitCatalog.FindById(t)?.DisplayName ?? t));
-		info.AddChild(MakeLabel($"特性: {traits}", 12, new Color(0.9f, 0.9f, 0.4f)));
+		info.AddChild(MakeLabel($"特性: {traits}", 15, new Color(0.9f, 0.9f, 0.4f)));
 
 		return card;
 	}

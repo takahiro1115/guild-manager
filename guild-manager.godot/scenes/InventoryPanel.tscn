@@ -15,7 +15,7 @@ script = ExtResource("1_script")
 
 [node name="TitleLabel" type="Label" parent="."]
 layout_mode = 2
-theme_override_font_sizes/font_size = 15
+theme_override_font_sizes/font_size = 18
 text = "倉庫・遺物：大迷宮から持ち帰った未鑑定の古代遺物をアルベールに鑑定させ、採取素材とギルド保管庫の在庫を一元管理する。"
 autowrap_mode = 2
 
@@ -86,7 +86,7 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 46)
 layout_mode = 2
 disabled = true
-theme_override_font_sizes/font_size = 15
+theme_override_font_sizes/font_size = 18
 text = "🔬 アルベールに鑑定させる"
 
 [node name="MaterialTab" type="ScrollContainer" parent="Tabs"]
