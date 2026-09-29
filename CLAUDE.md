@@ -7,7 +7,7 @@
 - `GuildManager.Core/` … 純粋な C#（net8.0）。ゲームルール・計算式・セーブ。Godot を参照しない（`using Godot` はビルドエラーになる）
 - `GuildManager.Core.Tests/` … xUnit。Core を変えたら必ずテストを足すか直す
 - `guild-manager.godot/scripts/` … Node / Control を継承する表示層。計算は Core に委譲し、UI は Core の関数から値を取る（UI に式を持たせない）
-- `guild-manager.godot/scenes/`・`guild-manager.godot/*.tscn` … シーン。`themes/dungeon_theme.tres` で文字サイズを本文13・補足12・見出し15にそろえる
+- `guild-manager.godot/scenes/`・`guild-manager.godot/*.tscn` … シーン。`themes/dungeon_theme.tres` で文字サイズを本文16・補足15・見出し18にそろえる（RichText の太字も通常字体で表示する）
 - `docs/04_バランス表/*.csv` … バランス値。読み込みにフォールバックが無いので、コードでキーを足したら CSV にも必ず足す（備考に ASCII のカンマを含めるときは `"…"` で囲む）
 - `tools/portrait_tool/` … 肖像工房（顔グラフィックの加工ツール）。取り込みはスキル `import-portraits`
 
