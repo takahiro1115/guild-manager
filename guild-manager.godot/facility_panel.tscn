@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://facilitypanel001"]
 
 [ext_resource type="Script" path="res://scripts/UI/FacilityPanel.cs" id="1_script"]
+[ext_resource type="Theme" path="res://themes/dungeon_theme.tres" id="2_theme"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_banner"]
 bg_color = Color(0.117647, 0.141176, 0.180392, 0.95)
@@ -46,6 +47,7 @@ grow_horizontal = 2
 grow_vertical = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
+theme = ExtResource("2_theme")
 theme_override_constants/separation = 10
 script = ExtResource("1_script")
 
@@ -73,14 +75,14 @@ theme_override_constants/separation = 10
 [node name="ConstructionStatusIcon" type="Label" parent="ConstructionBanner/BannerMargin/BannerVBox/BannerHeaderRow"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
+theme_override_font_sizes/font_size = 15
 text = "ℹ️"
 
 [node name="ConstructionTitleLabel" type="Label" parent="ConstructionBanner/BannerMargin/BannerVBox/BannerHeaderRow"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 16
+theme_override_font_sizes/font_size = 15
 text = "現在進行中の工事はありません（同時着工1件まで）"
 
 [node name="ConstructionWeeksLabel" type="Label" parent="ConstructionBanner/BannerMargin/BannerVBox/BannerHeaderRow"]
@@ -153,12 +155,12 @@ layout_mode = 2
 [node name="TitleLabel" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Dormitory/Margin/VBox/HeaderRow"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 17
+theme_override_font_sizes/font_size = 15
 text = "🛏️ 宿舎"
 
 [node name="LevelBadge" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Dormitory/Margin/VBox/HeaderRow"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 12
 text = "Lv 1"
 
 [node name="HSeparator" type="HSeparator" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Dormitory/Margin/VBox"]
@@ -178,7 +180,6 @@ text = "次Lv：現役枠上限 [color=cyan]+4名[/color]（計 12名）"
 
 [node name="CostLabel" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Dormitory/Margin/VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 13
 text = "改築費: 500 G　工期: 1週"
 
 [node name="Spacer" type="Control" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Dormitory/Margin/VBox"]
@@ -215,12 +216,12 @@ layout_mode = 2
 [node name="TitleLabel" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Infirmary/Margin/VBox/HeaderRow"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 17
+theme_override_font_sizes/font_size = 15
 text = "💉 医務室"
 
 [node name="LevelBadge" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Infirmary/Margin/VBox/HeaderRow"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 12
 text = "Lv 1"
 
 [node name="HSeparator" type="HSeparator" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Infirmary/Margin/VBox"]
@@ -240,7 +241,6 @@ text = "次Lv：重傷回復 [color=cyan]+1週/週[/color]、HP回復 [color=cya
 
 [node name="CostLabel" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Infirmary/Margin/VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 13
 text = "改築費: 500 G　工期: 1週"
 
 [node name="Spacer" type="Control" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Infirmary/Margin/VBox"]
@@ -277,12 +277,12 @@ layout_mode = 2
 [node name="TitleLabel" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Tavern/Margin/VBox/HeaderRow"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 17
+theme_override_font_sizes/font_size = 15
 text = "🍺 ギルド酒場"
 
 [node name="LevelBadge" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Tavern/Margin/VBox/HeaderRow"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 12
 text = "Lv 1"
 
 [node name="HSeparator" type="HSeparator" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Tavern/Margin/VBox"]
@@ -302,7 +302,6 @@ text = "次Lv：満足度自然回復 [color=cyan]+1 pt/週[/color]（計 +2 pt/
 
 [node name="CostLabel" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Tavern/Margin/VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 13
 text = "改築費: 500 G　工期: 1週"
 
 [node name="Spacer" type="Control" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Tavern/Margin/VBox"]
@@ -339,12 +338,12 @@ layout_mode = 2
 [node name="TitleLabel" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_WarriorHall/Margin/VBox/HeaderRow"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 17
+theme_override_font_sizes/font_size = 15
 text = "⚔️ 戦士訓練所"
 
 [node name="LevelBadge" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_WarriorHall/Margin/VBox/HeaderRow"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 12
 text = "Lv 0"
 
 [node name="HSeparator" type="HSeparator" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_WarriorHall/Margin/VBox"]
@@ -364,7 +363,6 @@ text = "次Lv：訓練枠 [color=cyan]1名[/color] 開放、教官配置 開放"
 
 [node name="CostLabel" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_WarriorHall/Margin/VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 13
 text = "改築費: 500 G　工期: 1週"
 
 [node name="InstructorPanel" type="PanelContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_WarriorHall/Margin/VBox"]
@@ -418,12 +416,12 @@ layout_mode = 2
 [node name="TitleLabel" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Church/Margin/VBox/HeaderRow"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 17
+theme_override_font_sizes/font_size = 15
 text = "⛪ 教会"
 
 [node name="LevelBadge" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Church/Margin/VBox/HeaderRow"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 12
 text = "Lv 0"
 
 [node name="HSeparator" type="HSeparator" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Church/Margin/VBox"]
@@ -443,7 +441,6 @@ text = "次Lv：訓練枠 [color=cyan]1名[/color] 開放、教官配置 開放"
 
 [node name="CostLabel" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Church/Margin/VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 13
 text = "改築費: 500 G　工期: 1週"
 
 [node name="InstructorPanel" type="PanelContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Church/Margin/VBox"]
@@ -497,12 +494,12 @@ layout_mode = 2
 [node name="TitleLabel" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_MageLab/Margin/VBox/HeaderRow"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 17
+theme_override_font_sizes/font_size = 15
 text = "🔮 魔法研究所"
 
 [node name="LevelBadge" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_MageLab/Margin/VBox/HeaderRow"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 12
 text = "Lv 0"
 
 [node name="HSeparator" type="HSeparator" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_MageLab/Margin/VBox"]
@@ -522,7 +519,6 @@ text = "次Lv：訓練枠 [color=cyan]1名[/color] 開放、教官配置 開放"
 
 [node name="CostLabel" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_MageLab/Margin/VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 13
 text = "改築費: 500 G　工期: 1週"
 
 [node name="InstructorPanel" type="PanelContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_MageLab/Margin/VBox"]
@@ -576,12 +572,12 @@ layout_mode = 2
 [node name="TitleLabel" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_ScoutPost/Margin/VBox/HeaderRow"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 17
+theme_override_font_sizes/font_size = 15
 text = "🏹 斥候所"
 
 [node name="LevelBadge" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_ScoutPost/Margin/VBox/HeaderRow"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 12
 text = "Lv 0"
 
 [node name="HSeparator" type="HSeparator" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_ScoutPost/Margin/VBox"]
@@ -601,7 +597,6 @@ text = "次Lv：訓練枠 [color=cyan]1名[/color] 開放、教官配置 開放"
 
 [node name="CostLabel" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_ScoutPost/Margin/VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 13
 text = "改築費: 500 G　工期: 1週"
 
 [node name="InstructorPanel" type="PanelContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_ScoutPost/Margin/VBox"]
@@ -655,12 +650,12 @@ layout_mode = 2
 [node name="TitleLabel" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_WarRoom/Margin/VBox/HeaderRow"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 17
+theme_override_font_sizes/font_size = 15
 text = "📜 作戦資料室"
 
 [node name="LevelBadge" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_WarRoom/Margin/VBox/HeaderRow"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 12
 text = "Lv 0"
 
 [node name="HSeparator" type="HSeparator" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_WarRoom/Margin/VBox"]
@@ -680,7 +675,6 @@ text = "次Lv：参謀配置機能 開放"
 
 [node name="CostLabel" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_WarRoom/Margin/VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 13
 text = "改築費: 500 G　工期: 1週"
 
 [node name="InstructorPanel" type="PanelContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_WarRoom/Margin/VBox"]
@@ -734,12 +728,12 @@ layout_mode = 2
 [node name="TitleLabel" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_RecruitmentOffice/Margin/VBox/HeaderRow"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 17
+theme_override_font_sizes/font_size = 15
 text = "🤝 冒険者支援室"
 
 [node name="LevelBadge" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_RecruitmentOffice/Margin/VBox/HeaderRow"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 12
 text = "Lv 0"
 
 [node name="HSeparator" type="HSeparator" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_RecruitmentOffice/Margin/VBox"]
@@ -759,7 +753,6 @@ text = "次Lv：スカウト顧問配置機能 開放"
 
 [node name="CostLabel" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_RecruitmentOffice/Margin/VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 13
 text = "改築費: 500 G　工期: 1週"
 
 [node name="InstructorPanel" type="PanelContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_RecruitmentOffice/Margin/VBox"]

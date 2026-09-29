@@ -1,6 +1,7 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" path="res://scripts/UI/ResearchPanel.cs" id="1_script"]
+[ext_resource type="Theme" path="res://themes/dungeon_theme.tres" id="2_theme"]
 
 [node name="ResearchPanel" type="ScrollContainer"]
 anchors_preset = 15
@@ -9,6 +10,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 horizontal_scroll_mode = 0
+theme = ExtResource("2_theme")
 script = ExtResource("1_script")
 
 [node name="VBox" type="VBoxContainer" parent="."]

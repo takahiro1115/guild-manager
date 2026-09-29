@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" path="res://scripts/UI/AdventurerPanel.cs" id="1_script"]
 [ext_resource type="Script" path="res://scripts/UI/TripleStatBar.cs" id="2_triplebar"]
+[ext_resource type="Theme" path="res://themes/dungeon_theme.tres" id="3_theme"]
 
 [node name="AdventurerPanel" type="VBoxContainer"]
 anchors_preset = 15
@@ -11,6 +12,7 @@ grow_horizontal = 2
 grow_vertical = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
+theme = ExtResource("3_theme")
 theme_override_constants/separation = 6
 script = ExtResource("1_script")
 
@@ -67,7 +69,7 @@ theme_override_constants/margin_bottom = 40
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
-theme_override_font_sizes/font_size = 16
+theme_override_font_sizes/font_size = 15
 text = "← 編成スロットまたは候補一覧から冒険者を選択してください。"
 horizontal_alignment = 1
 
@@ -94,7 +96,7 @@ theme_override_constants/separation = 16
 
 [node name="PortraitTextureRect" type="TextureRect" parent="Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(120, 160)
+custom_minimum_size = Vector2(190, 253)
 layout_mode = 2
 size_flags_vertical = 0
 expand_mode = 1
@@ -112,7 +114,7 @@ theme_override_constants/separation = 8
 [node name="NameLabel" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox/HeaderRow"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 15
 text = "氏名"
 
 [node name="RenameButton" type="Button" parent="Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox/HeaderRow"]
@@ -127,20 +129,20 @@ text = "✏️"
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.4, 0.8, 1, 1)
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 12
 text = "【前衛】"
 
 [node name="JobBadgeLabel" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox/HeaderRow"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.85, 0.4, 1)
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 12
 text = "職業"
 
 [node name="AgeLabel" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox/HeaderRow"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 12
 text = "21歳 (全盛期)"
 
 [node name="StatusRow" type="HBoxContainer" parent="Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox"]
@@ -166,7 +168,6 @@ unique_name_in_owner = true
 visible = false
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.4, 0.2, 1)
-theme_override_font_sizes/font_size = 13
 text = "⚠ 契約交渉中（あとX週で対応しないと退団）"
 
 [node name="ConditionGrid" type="GridContainer" parent="Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox"]
@@ -178,13 +179,11 @@ columns = 2
 [node name="HpLabel" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox/ConditionGrid"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 13
 text = "HP: 100/100"
 
 [node name="SatisfactionLabel" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox/ConditionGrid"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 13
 text = "満足度: 80/100"
 
 [node name="HpBar" type="ProgressBar" parent="Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox/ConditionGrid"]
@@ -395,26 +394,22 @@ columns = 2
 [node name="ActiveWeeksLabel" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/LifecycleCard/Margin/VBox/TimelineDetailGrid"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 13
 text = "稼働期間: 0 / 384週"
 
 [node name="RemainingWeeksLabel" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/LifecycleCard/Margin/VBox/TimelineDetailGrid"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 13
 text = "引退まで: 残り 384週"
 
 [node name="ContributionScoreLabel" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/LifecycleCard/Margin/VBox/TimelineDetailGrid"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 13
 text = "累積功績スコア: 0 pt"
 
 [node name="SeveranceEstimateLabel" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/LifecycleCard/Margin/VBox/TimelineDetailGrid"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.85, 0.4, 1)
-theme_override_font_sizes/font_size = 13
 text = "退職金見込額: 0 G"
 
 [node name="SubSectionHBox" type="HBoxContainer" parent="Body/RightPane/DetailVBox/DetailContainer"]
@@ -438,7 +433,7 @@ theme_override_constants/separation = 4
 
 [node name="TraitHeader" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/SubSectionHBox/TraitCard/Margin/VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 15
 text = "特性スロット（最大5枠）"
 
 [node name="TraitSlotContainer" type="VBoxContainer" parent="Body/RightPane/DetailVBox/DetailContainer/SubSectionHBox/TraitCard/Margin/VBox"]
@@ -492,7 +487,7 @@ theme_override_constants/separation = 4
 
 [node name="EquipHeader" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/SubSectionHBox/EquipCard/Margin/VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 15
 text = "装備スロット"
 
 [node name="EquipGrid" type="GridContainer" parent="Body/RightPane/DetailVBox/DetailContainer/SubSectionHBox/EquipCard/Margin/VBox"]
