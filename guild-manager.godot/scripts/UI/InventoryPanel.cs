@@ -231,6 +231,8 @@ public partial class InventoryPanel : VBoxContainer
 		var equipment = result.Type == AppraisalResultType.Equipment ? result.ResultEquipment : null;
 		string gain = result.Type switch
 		{
+			AppraisalResultType.Equipment when equipment != null && result.IsArtifact =>
+				$"✨ 固定アーティファクト {ItemColorHelper.GetColoredBBCode(equipment)} を獲得！ ギルド保管庫へ納めた。",
 			AppraisalResultType.Equipment when equipment != null =>
 				$"⚔️ {ItemColorHelper.GetColoredBBCode(equipment)} を獲得！ ギルド保管庫へ納めた。",
 			AppraisalResultType.Equipment => $"⚔️ {result.ItemName} を獲得！ ギルド保管庫へ納めた。",
@@ -412,7 +414,7 @@ public partial class InventoryPanel : VBoxContainer
 		{
 			_armoryListBox.AddChild(new HSeparator());
 			_armoryListBox.AddChild(SectionHeader(
-				"💎 特殊・希少武具（1点ずつ。アフィックス付き・金・虹は誤売却防止のためまとめ売り不可）"));
+				"💎 特殊・希少武具（1点ずつ。固有武具・アフィックス付き・金・虹は誤売却防止のためまとめ売り不可。伝説級は売却不可）"));
 			foreach (var item in precious)
 				_armoryListBox.AddChild(BuildPreciousArmoryRow(item));
 		}
@@ -448,6 +450,18 @@ public partial class InventoryPanel : VBoxContainer
 		var row = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
 		row.AddChild(BuildArmoryInfoLabel(new List<EquipmentItem> { item }, price));
 
+		if (!EquipmentSystem.CanSell(item))
+		{
+			// 伝説級（→ 03 §4.7.5、§0.45）はボスの初回撃破でしか得られない一点物のため売却不可。ボタンは置くが押せない。
+			row.AddChild(new Button
+			{
+				Text = "🔒 売却不可",
+				Disabled = true,
+				TooltipText = "伝説級はギルドの宝のため売却できません（二度と手に入りません）。",
+			});
+			return row;
+		}
+
 		var button = new Button { Text = $"💰 売却（{price}G）" };
 		button.Pressed += () => SellEquipments(new List<EquipmentItem> { item });
 		row.AddChild(button);
@@ -479,12 +493,21 @@ public partial class InventoryPanel : VBoxContainer
 			  $"［{RelicBalance.GetRarityLabel(sample.Rarity.Value)}］[/color]"
 			: "";
 
-		string text = $"[font_size=15][b]{ItemColorHelper.GetColoredBBCode(sample)}[/b][/font_size]{rarityTag} ×{stock.Count}" +
-			$"　[color=yellow]{unitPrice}G/点[/color]\n" +
+		// 固有武具（→ 03 §4.7.5、§0.45）は格のタグを個体と同じ色で添える。
+		string uniqueTag = sample.GetUniqueDefinition()?.Grade switch
+		{
+			UniqueGrade.Legendary => $"　{ItemColorHelper.GetColoredBBCode(sample, "［伝説級］")}",
+			UniqueGrade.Artifact => $"　{ItemColorHelper.GetColoredBBCode(sample, "［固定アーティファクト］")}",
+			_ => "",
+		};
+		string priceText = EquipmentSystem.CanSell(sample) ? $"[color=yellow]{unitPrice}G/点[/color]" : "[color=gray]売却不可[/color]";
+
+		string text = $"[font_size=15][b]{ItemColorHelper.GetColoredBBCode(sample)}[/b][/font_size]{uniqueTag}{rarityTag} ×{stock.Count}" +
+			$"　{priceText}\n" +
 			$"　{effect}";
 
-		// 鑑定品（迷宮から出土した武具）だけ、出土地・階層（冒険者から返還された個体はその経路）を表示する。
-		if (sample.Rarity.HasValue)
+		// 鑑定品（迷宮から出土した武具）と固有武具だけ、出土地・階層（冒険者から返還された個体・ボスから得た伝説級はその経路）を表示する。
+		if (sample.Rarity.HasValue || sample.IsUnique)
 		{
 			var origins = stock.Select(OriginText).Distinct().ToList();
 			var shown = origins.Take(3).ToList();
@@ -497,13 +520,13 @@ public partial class InventoryPanel : VBoxContainer
 
 	/// <summary>
 	/// 性能の説明（→ EquipmentItem.DescribeEffects）。カタログ性能は灰色のまま、アフィックスの内訳
-	/// （「 [剛力: STR+3]」の部分）だけ個体の色で強調する。
+	/// （「 [剛力: STR+3]」の部分）と固有武具の固有補正・対策効果（「 [固有: STR+8] [重装甲対策]」）だけ個体の色で強調する。
 	/// </summary>
 	private static string AffixEffectText(EquipmentItem item)
 	{
 		string catalog = item.GetDefinition()?.DescribeEffects() ?? "";
 		string full = item.DescribeEffects();
-		if (!item.HasAffix || !full.StartsWith(catalog, StringComparison.Ordinal))
+		if (!(item.HasAffix || item.IsUnique) || !full.StartsWith(catalog, StringComparison.Ordinal))
 			return $"[color=gray]{full}[/color]";
 		return $"[color=gray]{catalog}[/color]{ItemColorHelper.GetColoredBBCode(item, full[catalog.Length..])}";
 	}

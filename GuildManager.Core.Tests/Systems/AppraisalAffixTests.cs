@@ -139,6 +139,8 @@ namespace GuildManager.Core.Tests.Systems
                 AppraisalCost = RelicBalance.GetAppraisalCost(ItemRarity.Epic),
             };
             var state = new GameState { Gold = 10000, UnidentifiedItems = { relic } };
+            // 固定アーティファクト（→ §0.45）を全件入手済みにして、化け判定の乱数を引かせない（通常の武具の経路を検証する）。
+            state.ObtainedUniqueIds.UnionWith(UniqueBalance.Artifacts.Select(a => a.Id));
 
             // 下限固定：種別ロール1＝武具、プール先頭＝重装鎧、接頭辞・接尾辞とも付与判定1で当選し、
             // 重み抽選1＝Tier2〜3の母集団の先頭（怪力の／［猛虎］）、値は下限の3。

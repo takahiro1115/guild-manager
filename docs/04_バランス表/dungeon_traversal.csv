@@ -2,7 +2,7 @@ key,value,unit,note
 Traversal_Weight_Vit,1.0,倍,走破力算出における各員のVIT（体力・悪路踏破）への重み
 Traversal_Weight_Mnd,0.8,倍,走破力算出における各員のMND（精神力・気力の持久）への重み
 Traversal_Weight_Ldr,1.0,倍,部隊長LDR×この係数を走破力へ加算（指揮による道中効率化）
-RequirementPerFloor,7.5,pt,道中進軍の要求値＝進軍を始める階層×この値×フィールド倍率（dungeon.csv）。§0.45で15→7.5（100F≒各能力90の4人部隊で比率およそ1.0）。毎回1Fから潜り直すため、浅い階を速く抜けられるよう基礎値は置かず階層に比例させる
+RequirementPerFloor,7.5,pt,道中進軍の要求値＝進軍を始める階層×この値×フィールド倍率（dungeon.csv）。§0.47で15→7.5（100F≒各能力90の4人部隊で比率およそ1.0）。毎回1Fから潜り直すため、浅い階を速く抜けられるよう基礎値は置かず階層に比例させる
 FloorsPerRatio,2.0,階/倍,道中進軍の基礎進軍階層数＝max(1, floor(走破力Ratio×この値))（リニア比例・上限なし。2026年9月：旧RatioThreshold_*／FloorsAdvanced_*の4段階・最大4階層を置き換え）。区間の解析倍率（1.0〜3.0）はこの基礎階層数（移動予算）に掛かる
 HpLossPctMin_Lightning,5,%,電撃進軍（基礎4階層）でのHP消費率下限（楽に踏破できた分、消耗も軽い）。疾風（5階層）・神速（6階層以上）も電撃と同じ率で底打ち（それ以上は軽くならない）
 HpLossPctMax_Lightning,8,%,電撃進軍でのHP消費率上限

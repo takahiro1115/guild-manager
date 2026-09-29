@@ -76,6 +76,12 @@ namespace GuildManager.Core.Systems
         public List<UnidentifiedItem> RelicsFound { get; set; } = new();
 
         /// <summary>
+        /// この解決で入手した伝説級の固有武具（→ 03 §4.7.5、2026年9月・§0.45）。割り当てのある階層ボスの初回撃破でのみ設定される。
+        /// 既に GameState.Armory へ格納済みの同一インスタンス（週報ログの表示用）。無ければ null。
+        /// </summary>
+        public EquipmentItem? LegendaryFound { get; set; }
+
+        /// <summary>
         /// 強制除籍された隊員から回収し、ギルド保管庫へ返還された装備（→ 03 §4.2.2「離脱時の自動回収」、
         /// EquipmentSystem.UnequipAllToArmory）。キーは冒険者Id。何も装備していなかった者は
         /// キー自体が入らない。ボス討伐（DungeonResult）でのみ設定されうる。

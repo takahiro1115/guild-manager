@@ -325,7 +325,7 @@ namespace GuildManager.Core.Systems
 
         /// <summary>
         /// 指定階層から進軍する際の要求値＝階層×係数×フィールド倍率（→ 潜行中の部隊は ActiveDungeonMission.CurrentFloor を渡す）。
-        /// 基礎値は0（→ DungeonTraversalBalance.RequirementPerFloor の注記。§0.45）。
+        /// 基礎値は0（→ DungeonTraversalBalance.RequirementPerFloor の注記。§0.47）。
         /// </summary>
         public static double FloorRequirement(DungeonField field, int floor) =>
             DungeonBalance.ScaleRequirement(0, DungeonTraversalBalance.RequirementPerFloor, floor, field.Order);

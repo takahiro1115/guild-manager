@@ -200,6 +200,9 @@ namespace GuildManager.Core.Models
         /// </summary>
         public List<EquipmentItem> Armory { get; set; } = new();
 
+        /// <summary>入手済みの固有武具Id（→ GameState.ObtainedUniqueIds、03 §4.7.5）。旧セーブでは空で復元される。</summary>
+        public HashSet<string> ObtainedUniqueIds { get; set; } = new();
+
         /// <summary>
         /// 完了済みの研究Id一覧（→ GameState.CompletedResearchIds、アルベールの研究室）。
         /// HashSet&lt;string&gt;はJSON配列として直接シリアライズできる。本フィールド追加前の

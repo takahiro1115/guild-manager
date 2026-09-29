@@ -15,13 +15,13 @@ namespace GuildManager.Core.Balance
     {
         private const string FileName = "dungeon.csv";
 
-        /// <summary>ボス討伐の要求火力の基礎値（→ Systems.DungeonResolver.RequiredPower。§0.45）。</summary>
+        /// <summary>ボス討伐の要求火力の基礎値（→ Systems.DungeonResolver.RequiredPower。§0.47）。</summary>
         public static readonly double PartyPowerRequirementBase = BalanceData.GetDouble(FileName, "PartyPowerRequirementBase");
 
         /// <summary>ボス討伐の要求火力の階層あたりの増分。</summary>
         public static readonly double PartyPowerRequirementPerFloor = BalanceData.GetDouble(FileName, "PartyPowerRequirementPerFloor");
 
-        // ---- フィールド倍率（§0.45） ----
+        // ---- フィールド倍率（§0.47） ----
         // 5つのフィールド（ダンジョン）で難しさに差をつけるための倍率。討伐火力・調査（護衛・隠密・解析）・
         // 走破の要求値すべてに掛ける（→ ScaleRequirement）。2つ目以降の値は調整保留のため仮に1.0。
 
@@ -35,7 +35,7 @@ namespace GuildManager.Core.Balance
             FieldRequirementMultipliers[System.Math.Clamp(fieldOrder, 1, FieldRequirementMultipliers.Length) - 1];
 
         /// <summary>
-        /// 大迷宮の要求値の共通形＝(基礎値＋階層×階層あたりの増分)×フィールド倍率（§0.45）。
+        /// 大迷宮の要求値の共通形＝(基礎値＋階層×階層あたりの増分)×フィールド倍率（§0.47）。
         /// 旧式は「階層×係数」だけで、能力値がPA上限（100）で頭打ちになる冒険者側とは違って深い階層ほど
         /// 際限なく伸び、100Fにはどんな部隊も届かなかった。基礎値で浅い階層の手応えを残しつつ、傾きを緩めた。
         /// </summary>

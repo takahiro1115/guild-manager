@@ -63,7 +63,9 @@ namespace GuildManager.Core.Systems
             var result = RollContents(state, item);
             result.AppraisalCost = item.AppraisalCost;
             result.Rarity = item.Rarity;
-            result.FlavorText = BuildFlavorText(result.Type, item.Rarity);
+            result.FlavorText = result.IsArtifact
+                ? $"……待て、この刻印は古文書で見たことがある。「{result.ItemName}」だ。名のある一振りが、まさか実在したとは。これは世に二つと無い。"
+                : BuildFlavorText(result.Type, item.Rarity);
             // 鑑定完了でマスターの機嫌が上がる（→ 03 §8.1、2026年9月新設。週次決算を待たず即時）。
             result.MoodGained = MasterMoodSystem.ApplyAppraisal(state);
             return result;
@@ -95,6 +97,10 @@ namespace GuildManager.Core.Systems
 
         private AppraisalResult AppraiseAsEquipment(GameState state, UnidentifiedItem item, RelicBalance.RarityProfile profile)
         {
+            var artifact = TryRollArtifact(state, item, profile);
+            if (artifact != null)
+                return artifact;
+
             var pool = profile.EquipmentPool;
             string catalogId = pool[_rng.NextInt(0, pool.Count - 1)];
 
@@ -110,6 +116,31 @@ namespace GuildManager.Core.Systems
                 ItemName = equipment.DisplayName,
                 Type = AppraisalResultType.Equipment,
                 ResultEquipment = equipment,
+            };
+        }
+
+        /// <summary>
+        /// 固定アーティファクト（紫、→ 03 §4.7.5、2026年9月・§0.45）への化け判定。希少度ごとの確率（→ relic.csv ArtifactRate*）で、
+        /// まだ入手していない固定アーティファクトから1つを等確率で選ぶ。乱数は「判定 1〜100 → 当選時のみ 抽選 0〜件数−1」の順。
+        /// 確率0（銅・銀）または未入手が残っていなければ乱数を引かずに null（通常の武具の抽選へ進む）。
+        /// 固有武具にアフィックスは付かない（性能は固定）。
+        /// </summary>
+        private AppraisalResult? TryRollArtifact(GameState state, UnidentifiedItem item, RelicBalance.RarityProfile profile)
+        {
+            if (profile.ArtifactRate <= 0) return null;
+            var available = UniqueItemSystem.GetAvailableArtifacts(state);
+            if (available.Count == 0) return null;
+            if (_rng.NextInt(1, 100) > profile.ArtifactRate) return null;
+
+            var unique = available[_rng.NextInt(0, available.Count - 1)];
+            // Grant が null を返すのは入手済みの場合だけで、available は未入手に絞ってあるためここでは null にならない。
+            var equipment = UniqueItemSystem.Grant(state, unique, BuildOriginText(item), item.Rarity)!;
+            return new AppraisalResult
+            {
+                ItemName = equipment.DisplayName,
+                Type = AppraisalResultType.Equipment,
+                ResultEquipment = equipment,
+                IsArtifact = true,
             };
         }
 

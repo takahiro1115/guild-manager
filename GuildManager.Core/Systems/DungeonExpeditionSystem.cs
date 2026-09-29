@@ -524,6 +524,7 @@ namespace GuildManager.Core.Systems
             int? squadSlotsExpandedTo = null;
             DungeonField? fieldNewlyUnlocked = null;
             UnidentifiedItem? relic = null;
+            EquipmentItem? legendary = null;
             if (assault.Outcome == DungeonOutcome.Victory)
             {
                 int slotsBefore = state.UnlockedSquadSlots;
@@ -547,12 +548,16 @@ namespace GuildManager.Core.Systems
                     _relicRng, mission.Field.Id, boss.Floor,
                     RelicBalance.BossRelicRollBonus, RelicBalance.BossMinimumRarity);
                 state.UnidentifiedItems.Add(relic);
+
+                // 伝説級の固有武具（→ 03 §4.7.5、2026年9月・§0.45）：割り当てのあるボスの初回撃破で確定入手（乱数なし）。
+                legendary = UniqueItemSystem.TryGrantBossDrop(state, mission.Field, boss);
             }
 
             var resolution = new DungeonMissionResolution(
                 mission.Party, boss, mission.Field, intelBefore, assault, squadSlotsExpandedTo, fieldNewlyUnlocked);
             if (relic != null)
                 resolution.RelicsFound.Add(relic);
+            resolution.LegendaryFound = legendary;
             resolution.RecoveredEquipment = recoveredEquipment;
             // 障害特性の開示（→ 03 §5.3.2）：撤退時の重傷生還による古傷と、仲間除籍の衝撃によるトラウマ。
             resolution.TraitGrantEvents.AddRange(assault.TraitGrantEvents);

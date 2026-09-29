@@ -29,7 +29,7 @@ namespace GuildManager.Core.Balance
 
         /// <summary>
         /// 道中進軍の要求値＝進軍を始める階層×この値×フィールド倍率（→ DungeonBalance.GetFieldRequirementMultiplier）。
-        /// 他の要求値と違って基礎値は置かない：毎回1Fから潜り直すため、浅い階を速く抜けられる形を残す（§0.45）。
+        /// 他の要求値と違って基礎値は置かない：毎回1Fから潜り直すため、浅い階を速く抜けられる形を残す（§0.47）。
         /// </summary>
         public static readonly double RequirementPerFloor = BalanceData.GetDouble(FileName, "RequirementPerFloor");
 

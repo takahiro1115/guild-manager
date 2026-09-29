@@ -43,9 +43,19 @@ namespace GuildManager.Core.Systems
 
         private readonly IRng _rng;
 
-        public RecruitmentSystem(IRng rng)
+        /// <summary>
+        /// 顔グラフィックの割り当て（→ AssignPortrait）専用の乱数。能力値・特性の抽選と系列を分けてあるのは、
+        /// プールに画像を足し引きしても応募者の能力値の出方が変わらないようにするため（→ DungeonExpeditionSystem の遺物用乱数と同じ考え方）。
+        /// </summary>
+        private readonly IRng _portraitRng;
+
+        /// <summary>portraitRng を省略したときの既定シード。</summary>
+        public const int DefaultPortraitSeed = 3170;
+
+        public RecruitmentSystem(IRng rng, IRng? portraitRng = null)
         {
             _rng = rng;
+            _portraitRng = portraitRng ?? new SeededRng(DefaultPortraitSeed);
         }
 
         /// <summary>
@@ -85,6 +95,7 @@ namespace GuildManager.Core.Systems
             double highPotentialChance = HighPotentialBaseChance + scoutMasterBonus;
             int count = Math.Max(DraftGuaranteedJobs.Length, RecruitmentBalance.DraftCandidateCount);
             var existingNames = new HashSet<string>(state.Adventurers.Select(a => a.Name));
+            var usedPortraits = CollectUsedPortraits(state);
 
             var offers = new List<RecruitmentOffer>();
             for (int i = 0; i < count; i++)
@@ -92,6 +103,7 @@ namespace GuildManager.Core.Systems
                 JobClass? job = i < DraftGuaranteedJobs.Length ? DraftGuaranteedJobs[i] : null;
                 var generated = GenerateOne(i, highPotentialChance, existingNames, job, RecruitmentBalance.MinCandidateAge);
                 existingNames.Add(generated.Candidate.Name);
+                AssignPortrait(generated.Candidate, usedPortraits);
                 offers.Add(new RecruitmentOffer(generated.Candidate, 0)); // ドラフトは契約金無料
             }
 
@@ -168,12 +180,14 @@ namespace GuildManager.Core.Systems
             // 氏名の重複回避対象：現役ロースターに加え、同じ採用試験内で既に生成した
             // 候補の名前も含める（同じ回の応募者同士で名前が被らないようにするため）。
             var existingNames = new HashSet<string>(state.Adventurers.Select(a => a.Name));
+            var usedPortraits = CollectUsedPortraits(state);
 
             var offers = new List<RecruitmentOffer>();
             for (int i = 0; i < count; i++)
             {
                 var offer = GenerateOne(i, highPotentialChance, existingNames);
                 existingNames.Add(offer.Candidate.Name);
+                AssignPortrait(offer.Candidate, usedPortraits);
                 offers.Add(offer);
             }
             return offers;
@@ -190,6 +204,38 @@ namespace GuildManager.Core.Systems
             state.Gold -= offer.SigningBonus;
             state.Adventurers.Add(offer.Candidate);
             return true;
+        }
+
+        // ==================== 顔グラフィック（→ 03 §2.1、2026年9月・§0.46） ====================
+
+        /// <summary>現役ロースターが使っている顔グラフィックのId（引退・除籍した者の顔は再び使える＝世代交代）。</summary>
+        private static HashSet<string> CollectUsedPortraits(GameState state) =>
+            state.Adventurers.Where(a => !a.IsRetired && a.PortraitId != null).Select(a => a.PortraitId!).ToHashSet();
+
+        /// <summary>
+        /// 応募者に顔グラフィックを割り当てる（→ PortraitBalance・portraits.csv）。優先順は
+        /// ①職業に似合う・誰も使っていない → ②誰も使っていない（職業不問） → ③職業に似合う（重複を許す） → ④プール全体（重複を許す）。
+        /// プールが空なら何もしない（null＝シルエット表示）。同じ採用回の応募者同士も重複しないよう、選んだIdは usedPortraits へ足す。
+        /// 乱数は候補があるときだけ1回（0〜候補数−1）引く。
+        /// </summary>
+        private void AssignPortrait(Adventurer candidate, HashSet<string> usedPortraits)
+        {
+            var pool = PortraitBalance.All;
+            if (pool.Count == 0) return;
+
+            var unused = pool.Where(p => !usedPortraits.Contains(p.Id)).ToList();
+            var candidates = new[]
+                {
+                    unused.Where(p => p.Suits(candidate.JobClass)).ToList(),
+                    unused,
+                    pool.Where(p => p.Suits(candidate.JobClass)).ToList(),
+                    pool.ToList(),
+                }
+                .First(list => list.Count > 0);
+
+            var picked = candidates[_portraitRng.NextInt(0, candidates.Count - 1)];
+            candidate.PortraitId = picked.Id;
+            usedPortraits.Add(picked.Id);
         }
 
         private RecruitmentOffer GenerateOne(int index, double highPotentialChance, HashSet<string> existingNames,

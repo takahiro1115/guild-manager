@@ -220,6 +220,13 @@ namespace GuildManager.Core.Models
         public List<EquipmentItem> Armory { get; set; } = new();
 
         /// <summary>
+        /// 入手済みの固有武具Id（→ uniques.csv、Systems.UniqueItemSystem、03 §4.7.5、2026年9月・§0.45）。
+        /// 固有武具は1つのセーブにつき1本のため、売却・ロストで手元から消えてもIdは残り、二度と出ない。
+        /// 本フィールドを持たない旧セーブでは空集合で復元される。
+        /// </summary>
+        public HashSet<string> ObtainedUniqueIds { get; set; } = new();
+
+        /// <summary>
         /// 完了済みの研究Id一覧（→ Models.ResearchDefinition・アルベールの研究室）。
         /// 一度完了した研究は取り消せない（削除する経路を用意しない）。初期値は空集合、
         /// 既存セーブ（本フィールド追加前）はJSON側にキーが無いため復元時は自動的に空集合になる
@@ -266,6 +273,7 @@ namespace GuildManager.Core.Models
                 Materials = new Dictionary<string, int>(Materials),
                 UnidentifiedItems = new List<UnidentifiedItem>(UnidentifiedItems),
                 Armory = new List<EquipmentItem>(Armory),
+                ObtainedUniqueIds = new HashSet<string>(ObtainedUniqueIds),
                 CompletedResearchIds = new HashSet<string>(CompletedResearchIds),
             };
 
@@ -351,11 +359,12 @@ namespace GuildManager.Core.Models
                 // System.Text.Jsonがプロパティ初期化子の空リストをそのまま残すため、空で復元される。
                 UnidentifiedItems = new List<UnidentifiedItem>(data.UnidentifiedItems ?? new List<UnidentifiedItem>()),
                 Armory = new List<EquipmentItem>(data.Armory ?? new List<EquipmentItem>()),
+                ObtainedUniqueIds = new HashSet<string>(data.ObtainedUniqueIds ?? new HashSet<string>()),
                 CompletedResearchIds = new HashSet<string>(data.CompletedResearchIds),
                 Facilities = new List<Facility>(),
             };
 
-            // ボスの所属フィールド（→ FloorBoss.FieldOrder、§0.45）は、この項目を持たない旧セーブでは既定値1のまま
+            // ボスの所属フィールド（→ FloorBoss.FieldOrder、§0.47）は、この項目を持たない旧セーブでは既定値1のまま
             // 読み込まれるため、所属フィールドの攻略順から付け直す（新しいセーブでも値は一致する）。
             foreach (var field in state.DungeonFields)
                 foreach (var boss in field.Bosses)

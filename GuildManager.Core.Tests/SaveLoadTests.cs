@@ -47,7 +47,7 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void Load_OldSaveWithoutBossFieldOrder_RestoresItFromParentField()
         {
-            // §0.45で FloorBoss.FieldOrder（要求値のフィールド倍率に使う）を追加した。この項目を持たない旧セーブでも、
+            // §0.47で FloorBoss.FieldOrder（要求値のフィールド倍率に使う）を追加した。この項目を持たない旧セーブでも、
             // 各ボスは所属フィールドの攻略順を引き継いで復元される。
             var state = new GameState { DungeonFields = SampleData.CreateDefaultFields() };
             string json = JsonSerializer.Serialize(state.ToSaveData());

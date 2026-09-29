@@ -165,9 +165,18 @@ namespace GuildManager.Core.Systems
         /// 2026年9月・§0.40：上記の基本額に、付いているアフィックス（接頭辞・接尾辞）1枠ごとに
         /// そのTierの加算額（→ BAL: relic.csv の AffixSellBonusTier*、Tier1＝25／Tier2＝60／Tier3＝150G）を足す。
         /// affixes.csv から消えたアフィックス（Tierが分からない）は加算しない。
+        ///
+        /// 2026年9月・§0.45：固有武具は上の2系統に依らず、uniques.csv の SellPrice（固定アーティファクト）。
+        /// 伝説級は売却できない（→ CanSell）。
         /// </summary>
         public static int GetSellPrice(EquipmentItem item)
         {
+            // 固有武具（§0.45）は uniques.csv の SellPrice（伝説級は0＝売却不可、→ CanSell）。CSVから消えた固有Idは
+            // 通常の個体と同じ系統へ落とす（名前と固有補正を失った「ただの武具」として扱う）。
+            var unique = item.GetUniqueDefinition();
+            if (unique != null)
+                return unique.SellPrice;
+
             int basePrice;
             if (item.Rarity.HasValue)
             {
@@ -195,9 +204,17 @@ namespace GuildManager.Core.Systems
         /// **アフィックスの付いた個体**（希少度が銅・銀でも）と、**金・虹の鑑定品**は対象外＝1点ずつの個別売却だけにする。
         /// 同じ「鉄の剣」でも当たり個体は一点物で、束に紛れて誤って売られるのを構造的に防ぐため（2026年9月・§0.40で
         /// アフィックス付きを追加。金・虹の除外はそれまで UI 側〈InventoryPanel〉の判定だったのをここへ移した）。
+        /// 固有武具（§0.45）も対象外。
         /// </summary>
         public static bool IsBulkSellable(EquipmentItem item) =>
-            !item.HasAffix && item.Rarity is not (ItemRarity.Epic or ItemRarity.Legendary);
+            !item.HasAffix && !item.IsUnique && item.Rarity is not (ItemRarity.Epic or ItemRarity.Legendary);
+
+        /// <summary>
+        /// 売却できる個体か（→ 03 §4.8.3・§4.7.5、2026年9月・§0.45）。**伝説級の固有武具だけが売却不可**
+        /// （ボスの初回撃破でしか得られず、二度と手に入らない「ギルドの宝」のため。誤売却の取り返しがつかない）。
+        /// </summary>
+        public static bool CanSell(EquipmentItem item) =>
+            item.GetUniqueDefinition()?.Grade != UniqueGrade.Legendary;
 
         /// <summary>
         /// 保管庫の武具をまとめて売却する（→ 03 §4.8）。itemIds は個体Id（→ EquipmentItem.Id）の
@@ -208,6 +225,7 @@ namespace GuildManager.Core.Systems
         ///  - itemIds が空
         ///  - 同じ個体Idが重複している
         ///  - 保管庫に無い個体Idが含まれている（＝誰かが装備中、または存在しない）
+        ///  - 売却できない個体（伝説級の固有武具、→ CanSell）が含まれている
         ///
         /// 「冒険者が装備中の個体は売れない」は、**保管庫に在るかどうか**の判定で自然に担保される
         /// （装備中の個体は保管庫から抜けている、という不変条件。→ 本クラス冒頭）。念のため
@@ -228,6 +246,8 @@ namespace GuildManager.Core.Systems
             {
                 if (!byId.TryGetValue(id, out var item))
                     return false; // 保管庫に無い＝装備中か存在しない
+                if (!CanSell(item))
+                    return false; // 伝説級は売却不可
                 targets.Add(item);
             }
 
@@ -273,15 +293,24 @@ namespace GuildManager.Core.Systems
 
         /// <summary>
         /// 保管庫の武具のうち、まとめ売りの対象外で1点ずつ個別に売る個体（→ UI: InventoryPanel の「特殊・希少武具」）。
-        /// 希少度の高い順 → アフィックスの多い順 → 表示名の順に並べる。
+        /// 固有武具（伝説級 → 固定アーティファクト）を先頭に、続けて希少度の高い順 → アフィックスの多い順 → 表示名の順に並べる。
         /// </summary>
         public static IReadOnlyList<EquipmentItem> GetIndividuallySoldArmory(GameState state) =>
             state.Armory
                 .Where(e => !IsBulkSellable(e))
-                .OrderByDescending(e => e.Rarity ?? ItemRarity.Common)
+                .OrderByDescending(e => UniqueSortKey(e))
+                .ThenByDescending(e => e.Rarity ?? ItemRarity.Common)
                 .ThenByDescending(e => (e.PrefixId != null ? 1 : 0) + (e.SuffixId != null ? 1 : 0))
                 .ThenBy(e => e.DisplayName, StringComparer.Ordinal)
                 .ToList();
+
+        /// <summary>並べ替えの格：伝説級＝2、固定アーティファクト＝1、それ以外（CSVから消えた固有Idを含む）＝0。</summary>
+        private static int UniqueSortKey(EquipmentItem item) => item.GetUniqueDefinition()?.Grade switch
+        {
+            UniqueGrade.Legendary => 2,
+            UniqueGrade.Artifact => 1,
+            _ => 0,
+        };
 
         /// <summary>
         /// 指定した冒険者・スロットに対して、保管庫から装備できる個体の一覧（→ UI: EquipmentPopup）。

@@ -92,7 +92,7 @@ namespace GuildManager.Core.Systems
 
         /// <summary>
         /// ボス討伐の要求火力＝(PartyPowerRequirementBase＋ボス階層×PartyPowerRequirementPerFloor)×フィールド倍率
-        /// （→ BAL: dungeon.csv、DungeonBalance.ScaleRequirement。§0.45）。
+        /// （→ BAL: dungeon.csv、DungeonBalance.ScaleRequirement。§0.47）。
         /// Resolve と、大迷宮画面の出撃前の見立て（→ DungeonPanel）が共通で使う。
         /// </summary>
         public static double RequiredPower(FloorBoss boss) =>
@@ -111,9 +111,9 @@ namespace GuildManager.Core.Systems
         }
 
         /// <summary>
-        /// ギミック1件が対策できているか。3つの対策口（職業・ステータス合算・携行アイテム）の
-        /// いずれかを満たせば対策成立（OR条件）。対策口が1つも設定されていないギミックは
-        /// 「対策不能」として常に未対策になる（ボス定義側の設定漏れを黙って握り潰さないため）。
+        /// ギミック1件が対策できているか。4つの対策口（職業・ステータス合算・携行アイテム・伝説級の装備）の
+        /// いずれかを満たせば対策成立（OR条件）。ボス定義側の対策口（職業・ステータス・アイテム）が1つも
+        /// 設定されていないギミックは、伝説級の装備が無い限り未対策になる（ボス定義側の設定漏れを黙って握り潰さないため）。
         /// public static にしてあるのは編成画面のプレビューとテストから直接使えるようにするため。
         /// </summary>
         public static bool IsCountered(BossGimmick gimmick, Party party)
@@ -131,6 +131,11 @@ namespace GuildManager.Core.Systems
 
             if (!string.IsNullOrEmpty(gimmick.RequiredItemId) &&
                 party.ConsumableItemIds.Contains(gimmick.RequiredItemId!))
+                return true;
+
+            // 第4の対策口（2026年9月・§0.45）：伝説級の固有武具を装備した隊員が1人でもいれば対策成立。
+            // ボス定義側の設定は不要（どのボスのどのギミックにも、種別が一致すれば効く）。
+            if (party.Members.Any(m => m.CountersGimmickByEquipment(gimmick.Type)))
                 return true;
 
             return false;

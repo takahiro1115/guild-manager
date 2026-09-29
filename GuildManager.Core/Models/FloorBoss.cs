@@ -20,7 +20,7 @@ namespace GuildManager.Core.Models
 
         /// <summary>
         /// 所属フィールドの攻略順（→ DungeonField.Order、1〜5）。要求値のフィールド倍率
-        /// （→ Balance.DungeonBalance.ScaleRequirement）に使う（§0.45）。SampleData.CreateFieldBosses が設定し、
+        /// （→ Balance.DungeonBalance.ScaleRequirement）に使う（§0.47）。SampleData.CreateFieldBosses が設定し、
         /// この項目を持たない旧セーブは GameState.FromSaveData が所属フィールドから補う。
         /// </summary>
         public int FieldOrder { get; set; } = 1;

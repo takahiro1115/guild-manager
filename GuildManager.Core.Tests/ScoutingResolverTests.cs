@@ -153,7 +153,7 @@ namespace GuildManager.Core.Tests
             var resolver = new ScoutingResolver(new AlwaysMinRng());
 
             // 要求値＝48＋2×1.4=50.8。単独の平均素点(25+25)×1.10＝55、重戦士（既定の職）の重装ペナルティ−15で40と届かないが、
-            // 部隊長LDR60×0.25=15 を足せば55で超える（§0.45の値）。
+            // 部隊長LDR60×0.25=15 を足せば55で超える（§0.47の値）。
             var withoutLeader = resolver.Resolve(PartyOf(MakeSpecialist(agiDex: 25, intel: 50, ldr: 0)), boss1);
             var withLeader = resolver.Resolve(PartyOf(MakeSpecialist(agiDex: 25, intel: 50, ldr: 60)), boss2);
 

@@ -197,11 +197,11 @@ namespace GuildManager.Core.Systems
         public static double GetAnalysisValue(Adventurer member) =>
             member.GetEffectiveStat("INT") * ScoutingBalance.AnalysisStatCoefficient;
 
-        /// <summary>隠密の要求値＝(基礎値＋階層×増分)×フィールド倍率（深い階層ほど見つかりやすい。§0.45）。</summary>
+        /// <summary>隠密の要求値＝(基礎値＋階層×増分)×フィールド倍率（深い階層ほど見つかりやすい。§0.47）。</summary>
         public static double StealthRequirement(FloorBoss boss) =>
             DungeonBalance.ScaleRequirement(ScoutingBalance.StealthRequirementBase, ScoutingBalance.StealthRequirementPerFloor, boss.Floor, boss.FieldOrder);
 
-        /// <summary>解析の要求値＝(基礎値＋階層×増分)×フィールド倍率（§0.45）。</summary>
+        /// <summary>解析の要求値＝(基礎値＋階層×増分)×フィールド倍率（§0.47）。</summary>
         public static double AnalysisRequirement(FloorBoss boss) =>
             DungeonBalance.ScaleRequirement(ScoutingBalance.AnalysisRequirementBase, ScoutingBalance.AnalysisRequirementPerFloor, boss.Floor, boss.FieldOrder);
 
@@ -282,7 +282,7 @@ namespace GuildManager.Core.Systems
             return best;
         }
 
-        /// <summary>要求護衛値＝(基礎値＋階層×増分)×フィールド倍率（§0.45で旧「基準値×ボス階層÷10」を置き換え）。</summary>
+        /// <summary>要求護衛値＝(基礎値＋階層×増分)×フィールド倍率（§0.47で旧「基準値×ボス階層÷10」を置き換え）。</summary>
         public static double RequiredGuardPower(FloorBoss boss) =>
             DungeonBalance.ScaleRequirement(ScoutingBalance.GuardRequirementBase, ScoutingBalance.GuardRequirementPerFloor, boss.Floor, boss.FieldOrder);
 
