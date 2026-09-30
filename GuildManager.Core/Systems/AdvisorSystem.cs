@@ -117,15 +117,6 @@ namespace GuildManager.Core.Systems
             return average * AdvisorBalance.TrainerBonusCoefficient;
         }
 
-        /// <summary>
-        /// 参謀ボーナス：7能力（STR・VIT・AGI・DEX・INT・MND・LDR）の実効値平均に比例。
-        /// 旧通常クエストのPartyScout（§4.1）とSurvivalThreshold（§4.3）へ加算していた値。
-        /// 旧クエストの撤去（2026年9月）以降は加算先が無い（大迷宮向けは GetAdvisorSurveyIntelBonus・
-        /// GetAdvisorTraversalPowerBonus）。
-        /// </summary>
-        public static double GetAdvisorBonus(Adventurer advisor) =>
-            SevenStatAverage(advisor) * AdvisorBalance.AdvisorBonusCoefficient;
-
         // ---------------- 参謀の大迷宮支援（2026年9月、→ 03 §7.2） ----------------
 
         /// <summary>任命中の参謀（作戦資料室）。未任命・該当者なしならnull。</summary>

@@ -38,6 +38,9 @@ namespace GuildManager.Core.Systems
         /// <summary>冒険者IDごとの、今回の進軍で失ったHP量。</summary>
         public Dictionary<Guid, int> HpLostByAdventurer { get; set; } = new();
 
+        /// <summary>この任務で負傷した隊員（→ CriticalInjury、週報の開示用。§0.53）。</summary>
+        public List<InjuryEvent> InjuryEvents { get; set; } = new();
+
         /// <summary>
         /// 進軍全体の実効平均走破倍率（1.0〜3.0、→ DungeonTraversalResolver.IntelSpeedMultiplier）。
         /// 歩いた各階層の区間倍率を階層数で重み付けした平均（区間をまたいだ場合は各区間の倍率が混ざる）。

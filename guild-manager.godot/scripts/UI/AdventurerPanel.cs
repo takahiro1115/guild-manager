@@ -291,7 +291,7 @@ public partial class AdventurerPanel : VBoxContainer
 		if (a.Injury == InjurySeverity.Severe)
 			_statusLabel.AppendText($"[color=red]重傷・出撃不可（全治まで{a.InjuryWeeksRemaining}週）[/color]");
 		else if (a.Injury == InjurySeverity.Light)
-			_statusLabel.AppendText($"[color=orange]軽傷（全治まで{a.InjuryWeeksRemaining}週）[/color]");
+			_statusLabel.AppendText($"[color=orange]軽傷（全治まで{a.InjuryWeeksRemaining}週・能力値−{CombatBalance.LightInjuryStatPenaltyRate * 100:0}%）[/color]");
 		else if (a.IsDispatched)
 			_statusLabel.AppendText("[color=cyan]出撃中[/color]");
 		else

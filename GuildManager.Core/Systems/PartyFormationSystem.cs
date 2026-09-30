@@ -120,9 +120,7 @@ namespace GuildManager.Core.Systems
         /// </summary>
         /// <param name="state">現在のゲーム状態。</param>
         /// <param name="memberIds">
-        /// 出撃メンバー候補のId一覧。通常はsavedParty.MemberIdsをそのまま渡すが、
-        /// 派遣直前の一時的な入れ替え（→ 03 §4.0.2・§4.0.3）を行う場合は、
-        /// 差し替え後のId一覧をここに渡す。SavedParty自体は一切変更しない。
+        /// 出撃メンバー候補のId一覧（通常は savedParty.MemberIds）。SavedParty自体は一切変更しない。
         /// </param>
         public static Party BuildDispatchParty(GameState state, IEnumerable<Guid> memberIds)
         {

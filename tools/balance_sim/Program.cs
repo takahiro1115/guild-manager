@@ -150,6 +150,7 @@ class GameSim
     public readonly List<string> Yearly = new();
     public readonly List<int> RosterByYear = new();
     public int ForcedRetired;
+    public int SevereInjuries, LightInjuries;
     public string? Defeat;
     public int DivesTotal;
     public static bool Trace;
@@ -212,6 +213,8 @@ class GameSim
                     $" 内職{result.SideJobIncome} HP[{string.Join(",", Active.Select(a => $"{a.CurrentHP}/{a.MaxHP}"))}]");
             foreach (var r in result.DungeonMissionResolutions)
             {
+                foreach (var inj in r.InjuryEvents)
+                    if (inj.Severity == InjurySeverity.Severe) SevereInjuries++; else LightInjuries++;
                 if (r.DungeonResult != null)
                     ForcedRetired += r.DungeonResult.ForceRetiredAdventurerIds.Count;
                 if (r.ArrivedAtBossDoor && r.Field.Order == 1)
@@ -522,6 +525,7 @@ class GameSim
         }
         Console.WriteLine();
         Console.WriteLine($"強制除籍（計）：{string.Join(", ", sims.Select(x => x.ForcedRetired))}");
+        Console.WriteLine($"負傷（計）：重傷 {string.Join(", ", sims.Select(x => x.SevereInjuries))}／軽傷 {string.Join(", ", sims.Select(x => x.LightInjuries))}");
         Console.WriteLine($"敗北：{string.Join(", ", sims.Select(x => x.Defeat ?? "なし"))}");
         Console.WriteLine("現役人数（各年のはじめ、中央値）：" + string.Join("・", Enumerable.Range(0, 8).Select(y => { var l = sims.Where(x => x.RosterByYear.Count > y).Select(x => (double)x.RosterByYear[y]).ToList(); return l.Count == 0 ? "-" : $"{y + 2}年目 {Median(l):F0}名（{l.Count}回）"; })));
         if (!FreeMoney)

@@ -29,6 +29,9 @@ namespace GuildManager.Core.Systems
         /// <summary>冒険者IDごとの、今回の採取で失ったHP量。</summary>
         public Dictionary<Guid, int> HpLostByAdventurer { get; set; } = new();
 
+        /// <summary>この任務で負傷した隊員（→ CriticalInjury、週報の開示用。§0.53）。</summary>
+        public List<InjuryEvent> InjuryEvents { get; set; } = new();
+
         // ---- 判定内訳の開示用（→ 03 §4.2.3「開発・バランス調整期間の特記事項」） ----
 
         /// <summary>採取スコアの内訳（→ GatheringResolver.BreakDownGatheringScore）。</summary>

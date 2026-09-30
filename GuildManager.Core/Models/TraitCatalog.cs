@@ -59,8 +59,9 @@ namespace GuildManager.Core.Models
         });
 
         /// <summary>
-        /// 豪胆（先天的）。新人採用時に低確率で付与される。致死判定のSurvivalThreshold
-        /// （→ 03 §4.3）に固定ボーナスを与える（→ BAL: 特性/豪胆ボーナス）。
+        /// 豪胆（先天的）。新人採用時に低確率で付与される。階層ボス戦で本人が受けるHP損耗率を
+        /// 固定ポイント減らす（踏みとどまる。→ DungeonResolver、BAL: trait.csv BraveSurvivalThresholdBonus。
+        /// §0.53で旧・致死判定の生存閾値ボーナスから付け直した）。
         /// </summary>
         public static readonly TraitDefinition Brave = Define(new TraitDefinition
         {
@@ -74,8 +75,9 @@ namespace GuildManager.Core.Models
         });
 
         /// <summary>
-        /// 注意深い（先天的）。新人採用時に低確率で付与される。索敵フェーズ（→ 03 §4.1）の
-        /// DEX寄与を補正する（→ BAL: 特性/注意深い補正）。
+        /// 注意深い（先天的）。新人採用時に低確率で付与される。隠密への本人の寄与（AGI＋DEX）を
+        /// 割合で高める（→ ScoutingResolver.GetStealthValue、BAL: trait.csv AttentiveScoutingBonus。
+        /// §0.53で旧・索敵フェーズのDEX寄与補正から付け直した）。
         /// </summary>
         public static readonly TraitDefinition Attentive = Define(new TraitDefinition
         {
@@ -84,7 +86,7 @@ namespace GuildManager.Core.Models
             IsTransmittable = true, // → 特性伝授刷新仕様
             Effects = new List<TraitEffect>
             {
-                new TraitEffect { EffectType = TraitEffectType.ScoutingModifier, TargetStat = "DEX", Value = TraitBalance.AttentiveScoutingBonus }
+                new TraitEffect { EffectType = TraitEffectType.ScoutingModifier, TargetStat = "", Value = TraitBalance.AttentiveScoutingBonus }
             }
         });
 
@@ -126,22 +128,24 @@ namespace GuildManager.Core.Models
         });
 
         /// <summary>
-        /// 知識人（先天的）。新人採用時に低確率で付与される。項目64時点では**単独の効果を持たない**
-        /// （ペア特性シナジー専用の特性：「豪胆」との組み合わせで護衛クエストに負のシナジーを持つ。
-        /// → 03 §4.2.3・pair_synergy.csv）。指示書（項目64）が「単独効果は無いか最小限でよい／
-        /// trait.csvの該当行は省略可」としているため、独自の効果量を仮置きせず空のままにしてある。
+        /// 知識人（先天的）。新人採用時に低確率で付与される。解析への本人の寄与（INT×係数）を割合で高める
+        /// （→ ScoutingResolver.GetAnalysisValue、BAL: trait.csv ScholarAnalysisBonus）。
+        /// §0.53で付与：旧来はペア特性シナジー専用で単独の効果を持たず、シナジーの撤去（旧クエスト撤去）で効果が無くなっていた。
         /// </summary>
         public static readonly TraitDefinition Scholar = Define(new TraitDefinition
         {
             Id = ScholarId,
             IsTransmittable = true, // 教官深化 Step 1（§0.34）：障害特性と容姿秀麗以外はすべて伝授対象
             BlocksDeployment = false,
-            Effects = new List<TraitEffect>(),
+            Effects = new List<TraitEffect>
+            {
+                new TraitEffect { EffectType = TraitEffectType.AnalysisModifier, TargetStat = "", Value = TraitBalance.ScholarAnalysisBonus }
+            },
         });
 
         /// <summary>
         /// 師匠肌（先天的。→ 特性伝授刷新仕様で新設）。単独の戦闘効果は持たない
-        /// （知識人と同じ、他システム専用のマーカー特性）。この特性を持つ引退済み冒険者が
+        /// （他システム専用のマーカー特性）。この特性を持つ引退済み冒険者が
         /// 訓練施設の教官として配置されていると、週次の特性伝授ロールに追加ボーナスが乗る
         /// （→ TrainingBalance.MentorTraitInheritanceBonus・TrainingSystem.
         /// ProcessWeeklyTraitTransmission）。自身も伝授対象（教え上手は教え上手から学べる）。
@@ -155,11 +159,11 @@ namespace GuildManager.Core.Models
         });
 
         // ---- 2026年9月新設：大迷宮ギミック対策・訓練系のコア特性4種（→ 03 §5.3.2） ----
-        // 表示名・説明・障害フラグは trait.csv が正本。効果の数値（どのフロア・ボスで何%軽減するか等）は
-        // 仕様がまだ決まっていないため、知識人・師匠肌と同じく効果リストを空のまま置く（数値を仮置きしない）。
-        // 入手経路（採用時の先天付与・教官からの伝授など）も未接続（→ 06 タスクリスト「特性深化」）。
+        // 表示名・説明・障害フラグは trait.csv が正本。効果は §0.32 で各システムに接続済みで、TraitEffect のリストではなく
+        // 各システムが HasTrait で判定する（効果の数値は combat.csv・dungeon_traversal.csv・training.csv）。そのため Effects は空。
+        // 入手経路は採用時の先天付与（→ RecruitmentSystem.InnateTraitPool）・教官からの伝授・巨獣狩りの後天開眼。
 
-        /// <summary>耐毒体質：猛毒・瘴気フロアでの被弾損耗を大幅に軽減する（効果は未接続）。</summary>
+        /// <summary>耐毒体質：未対策の「猛毒」ギミックによる被ダメージの上乗せを軽減する（→ DungeonResolver、CombatBalance.ResistPoisonDamageReductionRate）。</summary>
         public static readonly TraitDefinition ResistPoison = Define(new TraitDefinition
         {
             Id = ResistPoisonId,
@@ -167,7 +171,7 @@ namespace GuildManager.Core.Models
             Effects = new List<TraitEffect>(),
         });
 
-        /// <summary>夜目：暗黒・濃霧フロアの踏破時、未踏破区間の進行損耗を抑制する（効果は未接続）。</summary>
+        /// <summary>夜目：部隊に1人いれば、道中の未踏破階層の損耗を軽減する（→ DungeonTraversalResolver.UnexploredLossMultiplier）。</summary>
         public static readonly TraitDefinition NightVision = Define(new TraitDefinition
         {
             Id = NightVisionId,
@@ -175,7 +179,7 @@ namespace GuildManager.Core.Models
             Effects = new List<TraitEffect>(),
         });
 
-        /// <summary>巨獣狩り：大型ボスに対する討伐能力を高める（効果は未接続）。</summary>
+        /// <summary>巨獣狩り：「重装甲」ギミックのボスに対して本人の討伐火力が上がる（→ DungeonPowerCalculator.MemberPower）。</summary>
         public static readonly TraitDefinition GiantHunter = Define(new TraitDefinition
         {
             Id = GiantHunterId,
@@ -183,7 +187,7 @@ namespace GuildManager.Core.Models
             Effects = new List<TraitEffect>(),
         });
 
-        /// <summary>勤勉：訓練場に配置された際の能力成長判定確率が上昇する（効果は未接続）。</summary>
+        /// <summary>勤勉：訓練施設での成長判定の基礎確率が上がる（→ GrowthSystem.ProcessTrainingGrowth、TrainingBalance.DiligentGrowthRateBonus）。</summary>
         public static readonly TraitDefinition Diligent = Define(new TraitDefinition
         {
             Id = DiligentId,

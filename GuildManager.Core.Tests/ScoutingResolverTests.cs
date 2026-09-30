@@ -328,7 +328,8 @@ namespace GuildManager.Core.Tests
             Assert.Equal(healthy.MaxHP * ScoutingBalance.GuardHpLossPercentDeficient / 100, result.HpLostByAdventurer[healthy.Id]);
             Assert.Equal(healthy.MaxHP - healthy.MaxHP * 40 / 100, healthy.CurrentHP);
             Assert.Equal(1, exhausted.CurrentHP);                       // HP下限1で生存
-            Assert.Equal(InjurySeverity.None, exhausted.Injury);        // 負傷・除籍判定には接続しない
+            Assert.Equal(InjurySeverity.Light, exhausted.Injury);       // HPが1まで落ちたので軽傷（§0.53）。除籍には接続しない
+            Assert.Equal(InjurySeverity.None, healthy.Injury);
             Assert.False(exhausted.IsRetired);
         }
 

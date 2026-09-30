@@ -55,6 +55,9 @@ namespace GuildManager.Core.Systems
         /// <summary>冒険者IDごとの、今回の戦闘で失ったHP量。</summary>
         public Dictionary<Guid, int> HpLostByAdventurer { get; set; } = new();
 
+        /// <summary>この任務で負傷した隊員（→ CriticalInjury、週報の開示用。§0.53）。</summary>
+        public List<InjuryEvent> InjuryEvents { get; set; } = new();
+
         /// <summary>
         /// HPが0になり、ギルド登録を強制抹消された冒険者ID。
         ///

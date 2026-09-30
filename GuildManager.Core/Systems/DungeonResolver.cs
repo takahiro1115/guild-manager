@@ -228,7 +228,9 @@ namespace GuildManager.Core.Systems
                     lossPct = (int)Math.Clamp(Math.Round(lossPct * result.DamageMultiplier), 0, 100);
                 }
 
-                lossPct = (int)Math.Max(0, lossPct - survivalBonus);
+                // 研究の生存ボーナス（部隊全員）と豪胆（本人のみ、→ TraitEffectType.SurvivalThresholdModifier、§0.53）を差し引く。
+                double braveBonus = member.SumTraitEffect(TraitEffectType.SurvivalThresholdModifier);
+                lossPct = (int)Math.Max(0, lossPct - survivalBonus - braveBonus);
 
                 int hpLoss = member.MaxHP * lossPct / 100;
                 int newHp = Math.Max(0, member.CurrentHP - hpLoss);
@@ -240,9 +242,15 @@ namespace GuildManager.Core.Systems
                     result.ForceRetiredAdventurerIds.Add(member.Id);
                 // 重傷生還の古傷（→ 03 §4.3.2）：撤退で最大HPの10%以下（最低でもHP1、→ CriticalInjury.RetreatHpThreshold）
                 // で生還した隊員だけロールする（撃破時は対象外）。
-                else if (result.Outcome == DungeonOutcome.Retreat
-                         && CriticalInjury.RollOldWound(member, _rng, CriticalInjury.RetreatHpThreshold(member)) is { } grant)
-                    result.TraitGrantEvents.Add(grant);
+                else
+                {
+                    if (result.Outcome == DungeonOutcome.Retreat
+                        && CriticalInjury.RollOldWound(member, _rng, CriticalInjury.RetreatHpThreshold(member)) is { } grant)
+                        result.TraitGrantEvents.Add(grant);
+                    // 重傷（§0.53）：撃破・撤退とも、生き残った隊員のHPが最大HPの一定割合未満なら出撃不可の重傷になる。
+                    if (CriticalInjury.TryInflictSevere(member, _rng) is { } injury)
+                        result.InjuryEvents.Add(injury);
+                }
             }
         }
     }

@@ -553,6 +553,11 @@ public partial class MainDashboard : Control
 				AppendLog(grant.Cause == TraitGrantCause.Awakening
 					? $"[color=gold]✨ {grant.ToLogText()}[/color]"
 					: $"[color=orange]⚠ {grant.ToLogText()}[/color]");
+			// 負傷（→ 03 §4.3・§0.53）：ボス戦の重傷は出撃不可、道中・調査・採取の軽傷は能力値が下がる。
+			foreach (var injury in dungeonResolution.InjuryEvents)
+				AppendLog(injury.Severity == InjurySeverity.Severe
+					? $"[color=red]🩹 {injury.Name} が重傷を負った（全治{injury.Weeks}週・出撃不可。医務室で早く治る）。[/color]"
+					: $"[color=orange]🩹 {injury.Name} が軽傷を負った（全治{injury.Weeks}週。治るまで能力値−{CombatBalance.LightInjuryStatPenaltyRate * 100:0}%）。[/color]");
 		}
 
 		LogMasterMood(settlement.MoodReport); // → 03 §8.1・§8.1.1：マスターの機嫌の変動内訳

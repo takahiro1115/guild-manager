@@ -50,11 +50,14 @@ namespace GuildManager.Core.Balance
         /// <summary>トラウマがMNDに与える恒久的な減少率。</summary>
         public static readonly double TraumaMndReduction = BalanceData.GetDouble(FileName, "TraumaMndReduction");
 
-        /// <summary>豪胆が致死判定のSurvivalThreshold（→ 03 §4.3）に与える固定加算。</summary>
+        /// <summary>豪胆：階層ボス戦で本人が受けるHP損耗率（%）から差し引くポイント（§0.53。旧：致死判定の生存閾値への加算）。</summary>
         public static readonly double BraveSurvivalThresholdBonus = BalanceData.GetDouble(FileName, "BraveSurvivalThresholdBonus");
 
-        /// <summary>注意深いが索敵フェーズ（→ 03 §4.1）のDEX寄与に与える補正。</summary>
+        /// <summary>注意深い：隠密への本人の寄与（AGI＋DEX）に掛ける補正率（§0.53。0.10で×1.10。旧：索敵フェーズのDEX寄与）。</summary>
         public static readonly double AttentiveScoutingBonus = BalanceData.GetDouble(FileName, "AttentiveScoutingBonus");
+
+        /// <summary>知識人：解析への本人の寄与（INT×係数）に掛ける補正率（§0.53。0.20で×1.20）。</summary>
+        public static readonly double ScholarAnalysisBonus = BalanceData.GetDouble(FileName, "ScholarAnalysisBonus");
 
         /// <summary>容姿秀麗が関与する相性ペアの上昇量に掛かる倍率（下降量には影響しない）。</summary>
         public static readonly double BeautifulCompatibilityGainMultiplier = BalanceData.GetDouble(FileName, "BeautifulCompatibilityGainMultiplier");
@@ -63,8 +66,6 @@ namespace GuildManager.Core.Balance
         /// 田舎育ちの採取スコアボーナス率（→ TraitEffectType.GatheringScoreBonus、GatheringResolver、2026年9月再設計）。
         /// 保有者本人の採取寄与（AGI×係数＋DEX×係数）にこの率を掛けた分を採取スコアへ加算する（0.20で+20%）。
         /// 旧・探索クエストの個人スコア加算（CountryBredExplorationBonus）の後継。
-        /// 知識人（Scholar）には単独効果を持たせていない（ペア特性シナジー専用の特性。
-        /// → PairSynergyBalance・TraitCatalog.Scholar）。
         /// </summary>
         public static readonly double CountryBredGatheringBonusRate = BalanceData.GetDouble(FileName, "CountryBredGatheringBonusRate");
 

@@ -15,7 +15,7 @@
 | ファイル | 対応する仕様書セクション | 対応する実装 |
 |---|---|---|
 | `economy.csv` | 03 §8.1・§5.2・§8.3 | EconomyBalance（初期資金・週給/契約金/退職金係数・退職金不足の機嫌低下・内職売上の基本額と間隔・破産判定週数）, SatisfactionBalance(賃金), RecruitmentSystem(契約金) |
-| `combat.csv` | 03 §4.2・§4.3 | CombatBalance（配置補正 `PlacementCorrection_*` は2026年9月に削除（→ 03 §0.23）、不意打ちの被弾ウェイト `Ambush*RowWeight` と `PlacementBalance` クラスは参照先の無いまま残っていたため削除）。（旧討伐フロー用の値の多くは旧クエスト撤去で休眠中。耐毒体質 `ResistPoisonDamageReductionRate`・巨獣狩り `GiantHunterDamageBonusRate`・重傷生還の古傷 `OldWoundCriticalChance`・ボス戦撤退の古傷判定HP上限 `OldWoundRetreatHpThresholdPct`・巨獣狩りの後天開眼 `GiantHunterAwakeningChance` は現役、→ 03 §0.32〜§0.35） |
+| `combat.csv` | 03 §2.3・§4.3 | CombatBalance：最大HP（`MaxHpBase`・`MaxHpVitCoefficient`）・**負傷**（重傷の全治週数 `SevereInjuryWeeksMin/Max`・重傷になるHPの割合 `SevereInjuryHpThresholdPct`・軽傷の全治週数 `LightInjuryWeeksMin/Max`・軽傷の能力値低下 `LightInjuryStatPenaltyRate`、→ 03 §0.53）・耐毒体質 `ResistPoisonDamageReductionRate`・巨獣狩り `GiantHunterDamageBonusRate`・古傷 `OldWoundCriticalChance`・`OldWoundRetreatHpThresholdPct`・巨獣狩りの後天開眼 `GiantHunterAwakeningChance`。旧クエストの戦闘処理の値（敵CP・索敵・奇襲/不意打ち・戦闘比率・HP消費率・致死回避閾値・不可逆帯幅）は読み込むだけで未使用だったため §0.53 で削除 |
 | `aging.csv` | 03 §3.0〜3.7 | GrowthBalance（年齢帯別成長ロール基礎確率＝新鋭/成長/全盛の3区分・難易度係数・成長量幅）, AgingSystem（満期引退年齢・稼働週数） |
 | `growth_job_weights.csv` | 03 §3.1〜3.4 | GrowthBalance.JobStatWeights |
 | `satisfaction.csv` | 03 §5.1・§5.2 | SatisfactionBalance |
@@ -24,7 +24,7 @@
 | `recruitment.csv` | 03 §2.4・§7.3 | RecruitmentSystem, NameGeneratorBalance（第1週の新春ドラフト：`DraftCandidateCount`・`DraftHireCount`。旧 `TutorialCandidateCount` は削除） |
 | `compatibility_advisor.csv` | 03 §5.3・§7 | CompatibilityBalance, AdvisorBalance（教官成長補正、参謀の大迷宮調査解析ボーナス・道中潜行走破力ボーナス、スカウト有望新人率） |
 | `training.csv` | 03 §3.1〜3.4・§3.5改・§7.1 | TrainingBalance（勤勉 `DiligentGrowthRateBonus`、→ 03 §0.32。教官からの特性伝授 `TraitInheritanceBaseChance`・師匠肌ボーナス `MentorTraitInheritanceBonus`、→ 03 §0.34） |
-| `trait.csv` | 03 §4.3・§5.3.2・§4.2.3 | TraitBalance（→ TraitCatalog）、ペアシナジーの隊長LDR緩和係数。全特性の表示名・説明・障害フラグ（`{Id}_DisplayName`・`{Id}_Description`・`{Id}_IsCurseOrInjury`、§0.31）。旧 `TraitTransmission*` 3キーは §0.34 で削除（→ training.csv） |
+| `trait.csv` | 03 §4.3・§5.3.2・§4.2.3 | TraitBalance（→ TraitCatalog。豪胆 `BraveSurvivalThresholdBonus`＝ボス戦の損耗−pt・注意深い `AttentiveScoutingBonus`＝隠密の寄与×(1＋値)・知識人 `ScholarAnalysisBonus`＝解析の寄与×(1＋値)、→ 03 §0.53。ペアシナジーの緩和係数は§0.53で削除）。全特性の表示名・説明・障害フラグ（`{Id}_DisplayName`・`{Id}_Description`・`{Id}_IsCurseOrInjury`、§0.31）。旧 `TraitTransmission*` 3キーは §0.34 で削除（→ training.csv） |
 | `equipment.csv` | 03 §4.2.2 | EquipmentBalance（→ ItemCatalog）。**テーブル形式**（`Id,Price,HpBonus,BonusStr〜BonusLdr,note`、2026年9月に key,value 形式から移行）。`HpBonus`＝最大HP加算（武器は0）。§0.37で旧 `EffectValue`（個人CP／最大HPの二義）を個人CPの撤廃に伴い `HpBonus` へ改名 |
 | `consumables.csv` | 03 §4.5.4 | ConsumableBalance（→ ConsumableCatalog。大迷宮ボスギミック対策4種の価格） |
 | `progression.csv` | 03 §4.5.1 | ProgressionBalance（初期の同時出撃枠） |
@@ -66,7 +66,7 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
   解析率上昇量への**加算率**とする（平均50で+10%。研究ボーナスと合算）。
 - `Advisor_TraversalPowerBonusCoeff`（0.2）… 同平均×この係数を、道中潜行の走破力スコアへ
   **直接加算**する（平均50で+10）。
-- `AdvisorBonusCoefficient` は旧クエスト用で加算先を失っており、休眠中のキー。
+- 旧クエスト用の `AdvisorBonusCoefficient`（加算先を失った休眠キー）は §0.53 で削除した。
 - `ExpeditionGain_BossVictory`（3）／`_Traversal`（1）／`_Survey`（1）／`_Gathering`（1）… 大迷宮の任務を
   達成して生還した部隊の、生還者同士の全ペアの相性上昇量（→ 03 §5.3.1・§0.22）。旧クエスト用の
   `AchievementGain`・`FailureLoss` を置き換えたもの（未達成時の下降は廃止）。

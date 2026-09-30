@@ -516,16 +516,18 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
-        public void Traversal_Unexplored_NeverKillsOrInjures()
+        public void Traversal_Unexplored_NeverKills_ButFallingToOneHp_InflictsLightInjury()
         {
-            // 重損耗でもHP下限1で止まり、負傷・除籍には接続しない。
+            // 重損耗でもHP下限1で止まり、除籍には接続しない。HPが1まで落ちた隊員は軽傷になる（§0.53）。
             var member = MakeSturdySpecialist();
             member.CurrentHP = 2;
 
             new DungeonTraversalResolver(new AlwaysMaxRng()).Resolve(PartyOf(member), MakeUnexploredField(0.0), currentFloor: 1);
 
             Assert.Equal(1, member.CurrentHP);
-            Assert.Equal(InjurySeverity.None, member.Injury);
+            Assert.Equal(InjurySeverity.Light, member.Injury);
+            Assert.Equal(CombatBalance.LightInjuryWeeksMax, member.InjuryWeeksRemaining); // AlwaysMax
+            Assert.True(member.IsAvailable); // 軽傷は出撃できる
             Assert.False(member.IsRetired);
         }
 

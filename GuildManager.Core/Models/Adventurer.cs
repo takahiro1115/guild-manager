@@ -211,7 +211,13 @@ namespace GuildManager.Core.Models
         /// 討伐火力・最大HP計算・大迷宮の各部隊指標（走破・隠密・解析・護衛）の共通ヘルパー。
         /// 特性の割合減は素の能力値にだけ掛かり、装備補正は減らない（古傷を負っても剣の重みは変わらない）。
         /// </summary>
-        public double GetEffectiveStat(string statName)
+        public double GetEffectiveStat(string statName) => EffectiveStat(statName, includeInjury: true);
+
+        /// <summary>
+        /// 実効値の本体。軽傷（→ InjurySeverity.Light、§0.53）の間は素の値の部分に LightInjuryStatPenaltyRate の低下を
+        /// 特性の割合減と同じく加える（装備補正は減らない）。最大HPは軽傷で上下させないため、MaxHP は includeInjury=false で呼ぶ。
+        /// </summary>
+        private double EffectiveStat(string statName, bool includeInjury)
         {
             int baseValue = statName switch
             {
@@ -226,6 +232,8 @@ namespace GuildManager.Core.Models
             };
 
             double totalReduction = SumTraitEffect(TraitEffectType.StatPercentReduction, statName);
+            if (includeInjury && Injury == InjurySeverity.Light)
+                totalReduction -= CombatBalance.LightInjuryStatPenaltyRate;
 
             // 減少しすぎて0以下にならないよう下限をクランプ（暫定：最大80%減まで）
             double multiplier = Math.Max(1.0 + totalReduction, 0.2);
@@ -317,7 +325,7 @@ namespace GuildManager.Core.Models
         /// （05技術メモ§3の方針違反。他のSystemクラスへの直書きと同様の問題）。
         /// CombatBalance（combat.csv）へ集約した。
         /// </summary>
-        public int MaxHP => (int)(GetEffectiveStat("VIT") * CombatBalance.MaxHpVitCoefficient) + CombatBalance.MaxHpBase + GetEquipmentHpBonus();
+        public int MaxHP => (int)(EffectiveStat("VIT", includeInjury: false) * CombatBalance.MaxHpVitCoefficient) + CombatBalance.MaxHpBase + GetEquipmentHpBonus();
 
         // ---- 装備（Weapon/Armor/Accessory1/Accessory2）。仕様書 03 §4.2.2 参照。 ----
         //

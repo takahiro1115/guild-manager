@@ -462,6 +462,9 @@ namespace GuildManager.Core.Systems
                 // （既にHP1のまま潜行を続けている隊員を毎週ロールし直さない）。
                 if (fellToCritical && CriticalInjury.RollOldWound(member, _rng) is { } grant)
                     result.TraitGrantEvents.Add(grant);
+                // 軽傷（§0.53）：今回HPが下限1まで落ちた隊員は軽傷になる（既に負傷中なら重ねない）。
+                if (fellToCritical && CriticalInjury.TryInflictLight(member, _rng) is { } injury)
+                    result.InjuryEvents.Add(injury);
             }
 
             int n = party.Members.Count;

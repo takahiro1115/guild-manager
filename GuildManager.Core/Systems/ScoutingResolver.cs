@@ -30,12 +30,14 @@ namespace GuildManager.Core.Systems
         /// <summary>調査でのHP下限。致死判定に接続しないため0にはしない（→ QuestResolver.NonCombatMinHp と同じ考え方）。</summary>
         private const int MinHp = 1;
 
+        private readonly IRng _rng;
+
         /// <summary>
-        /// rng は現在使っていない（HP消費が乱数幅から護衛段階ごとの固定率に変わったため、2026年9月改訂）。
-        /// 他のResolverと生成方法を揃え、既存の呼び出し側を変えずに済むよう引数だけ残している。
+        /// rng は軽傷の全治週数の抽選にだけ使う（§0.53。HP消費は護衛段階ごとの固定率で乱数を使わない、2026年9月改訂）。
         /// </summary>
         public ScoutingResolver(IRng rng)
         {
+            _rng = rng;
         }
 
         /// <summary>
@@ -156,12 +158,14 @@ namespace GuildManager.Core.Systems
             party.IsEmpty ? 0 : party.Members.Average(GetStealthValue);
 
         /// <summary>
-        /// 隊員1名の隠密素点＝AGI×WeightAgi ＋ DEX×WeightDex（→ CalculateBaseStealthScore はこの平均）。
+        /// 隊員1名の隠密素点＝(AGI×WeightAgi ＋ DEX×WeightDex)×(1＋注意深いの補正)（→ CalculateBaseStealthScore はこの平均）。
+        /// 注意深い（→ TraitEffectType.ScoutingModifier、§0.53）の保有者は寄与が割合で上がる。
         /// 編成画面の「隠密」貢献列（→ PartyFormationPanel）も同じ値を使う。
         /// </summary>
         public static double GetStealthValue(Adventurer member) =>
-            member.GetEffectiveStat("AGI") * ScoutingBalance.StealthWeightAgi
-            + member.GetEffectiveStat("DEX") * ScoutingBalance.StealthWeightDex;
+            (member.GetEffectiveStat("AGI") * ScoutingBalance.StealthWeightAgi
+             + member.GetEffectiveStat("DEX") * ScoutingBalance.StealthWeightDex)
+            * (1.0 + member.SumTraitEffect(TraitEffectType.ScoutingModifier));
 
         /// <summary>部隊長LDR補正＝先頭の隊員のLDR×WeightLdr（パニック・事故の防止）。空の部隊は0。</summary>
         public static double CalculateStealthLeaderBonus(Party party) =>
@@ -193,9 +197,13 @@ namespace GuildManager.Core.Systems
         /// <summary>解析スコア＝Σ(INT)×係数（→ GetAnalysisValue の合計）。空の部隊は0。</summary>
         public static double CalculateAnalysisScore(Party party) => party.Members.Sum(GetAnalysisValue);
 
-        /// <summary>隊員1名の解析への寄与＝INT×AnalysisStatCoefficient（編成画面の「解析」貢献列も同じ値）。</summary>
+        /// <summary>
+        /// 隊員1名の解析への寄与＝INT×AnalysisStatCoefficient×(1＋知識人の補正)（編成画面の「解析」貢献列も同じ値）。
+        /// 知識人（→ TraitEffectType.AnalysisModifier、§0.53）の保有者は寄与が割合で上がる。
+        /// </summary>
         public static double GetAnalysisValue(Adventurer member) =>
-            member.GetEffectiveStat("INT") * ScoutingBalance.AnalysisStatCoefficient;
+            member.GetEffectiveStat("INT") * ScoutingBalance.AnalysisStatCoefficient
+            * (1.0 + member.SumTraitEffect(TraitEffectType.AnalysisModifier));
 
         /// <summary>隠密の要求値＝(基礎値＋階層×増分)×フィールド倍率（深い階層ほど見つかりやすい。§0.47）。</summary>
         public static double StealthRequirement(FloorBoss boss) =>
@@ -320,9 +328,9 @@ namespace GuildManager.Core.Systems
 
         /// <summary>
         /// 調査のHP消費＝各員の最大HP×護衛段階ごとの%（→ GuardHpLossPercent）。
-        /// HPは下限1で止まり、致死判定・負傷状態・強制除籍には一切接続しない。
+        /// HPは下限1で止まり、致死判定・強制除籍には接続しない。今回HPが1まで落ちた隊員は軽傷になる（§0.53）。
         /// </summary>
-        private static void ApplyHpLoss(ScoutingResult result, Party party)
+        private void ApplyHpLoss(ScoutingResult result, Party party)
         {
             int lossPct = GuardHpLossPercent(result.GuardTier);
 
@@ -330,9 +338,12 @@ namespace GuildManager.Core.Systems
             {
                 int hpLoss = member.MaxHP * lossPct / 100;
                 int newHp = Math.Max(MinHp, member.CurrentHP - hpLoss);
+                bool fellToCritical = member.CurrentHP > MinHp && newHp <= MinHp;
 
                 result.HpLostByAdventurer[member.Id] = member.CurrentHP - newHp;
                 member.CurrentHP = newHp;
+                if (fellToCritical && CriticalInjury.TryInflictLight(member, _rng) is { } injury)
+                    result.InjuryEvents.Add(injury);
             }
         }
     }

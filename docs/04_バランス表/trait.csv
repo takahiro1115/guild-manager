@@ -1,11 +1,11 @@
 key,value,unit,note
 OldWoundStatReduction,-0.15,倍,古傷がSTR/VIT/AGI/DEXそれぞれに与える恒久的な減少率（→ 03 §4.3・§5.3.2）
 TraumaMndReduction,-0.15,倍,トラウマがMNDに与える恒久的な減少率（→ 03 §5.3.2）
-BraveSurvivalThresholdBonus,5,pt,豪胆が致死判定のSurvivalThreshold（→ 03 §4.3）に与える固定加算
-AttentiveScoutingBonus,0.10,倍,注意深いが索敵フェーズのDEX寄与に与える補正（→ 03 §4.1・§5.3.2）
+BraveSurvivalThresholdBonus,5,pt,豪胆：階層ボス戦で本人が受けるHP損耗率（%）から差し引くポイント。§0.53で旧・致死判定の生存閾値への加算から付け直した
+AttentiveScoutingBonus,0.10,倍,注意深い：隠密への本人の寄与（AGI＋DEX）に掛ける補正率（0.10で×1.10）。§0.53で旧・索敵フェーズのDEX寄与から付け直した
+ScholarAnalysisBonus,0.20,倍,知識人：解析への本人の寄与（INT×係数）に掛ける補正率（0.20で×1.20）。§0.53で新設（旧来はペア特性シナジー専用で単独の効果が無かった）
 BeautifulCompatibilityGainMultiplier,1.5,倍,容姿秀麗が関与する相性ペアの上昇量に掛かる倍率（下降量には影響しない。→ 03 §5.3.1）
 CountryBredGatheringBonusRate,0.20,倍,田舎育ちの採取スコアボーナス率：保有者本人の採取寄与（AGI×係数＋DEX×係数）にこの率を掛けた分を採取スコアへ加算（+20%。→ 03 §5.3.2。旧CountryBredExplorationBonus＝探索クエストの個人スコア加算）
-PairSynergyLdrMitigationCoefficient,0.01,倍,"ペア特性シナジーの合計がマイナスの時だけ働く緩和係数。緩和率＝clamp(隊長LDR×この係数,0,1)（LDR100で全額相殺。→ 03 §4.2.3・pair_synergy.csv。仮値）"
 OldWound_DisplayName,古傷,名称,特性の表示名（→ 03 §5.3）
 OldWound_Description,STR・VIT・AGI・DEXが恒久的に低下する障害。忘却・上書きできない,説明,特性の説明文（UIのツールチップ等）
 OldWound_IsCurseOrInjury,true,真偽,障害・呪い特性か（true＝特性スロットを恒久占有し、忘却・上書き不可。→ 03 §5.3）
@@ -13,10 +13,10 @@ Trauma_DisplayName,トラウマ,名称,特性の表示名
 Trauma_Description,MNDが恒久的に低下する心の傷。忘却・上書きできない,説明,特性の説明文
 Trauma_IsCurseOrInjury,true,真偽,障害・呪い特性か
 Brave_DisplayName,豪胆,名称,特性の表示名
-Brave_Description,致死判定で踏みとどまりやすくなる（生存閾値にボーナス）,説明,特性の説明文
+Brave_Description,階層ボス戦で踏みとどまり、受けるHP損耗が少し減る,説明,特性の説明文
 Brave_IsCurseOrInjury,false,真偽,障害・呪い特性か
 Attentive_DisplayName,注意深い,名称,特性の表示名
-Attentive_Description,索敵・偵察でDEXの寄与が高まる,説明,特性の説明文
+Attentive_Description,迷宮調査で気配を消すのが上手く、隠密への寄与が高まる,説明,特性の説明文
 Attentive_IsCurseOrInjury,false,真偽,障害・呪い特性か
 Beautiful_DisplayName,容姿秀麗,名称,特性の表示名
 Beautiful_Description,この冒険者が関わる相性の上昇量が増える（下降量は変わらない）,説明,特性の説明文
@@ -25,7 +25,7 @@ CountryBred_DisplayName,田舎育ち,名称,特性の表示名
 CountryBred_Description,探索採取で本人の採取寄与に上乗せがつく,説明,特性の説明文
 CountryBred_IsCurseOrInjury,false,真偽,障害・呪い特性か
 Scholar_DisplayName,知識人,名称,特性の表示名
-Scholar_Description,単独の効果は持たない（豪胆と同じ部隊にいると負のペアシナジー）,説明,特性の説明文
+Scholar_Description,博識で、迷宮調査の解析への寄与が高まる,説明,特性の説明文
 Scholar_IsCurseOrInjury,false,真偽,障害・呪い特性か
 Mentor_DisplayName,師匠肌,名称,特性の表示名
 Mentor_Description,教官として訓練施設に配置されると、特性伝授の確率が上がる,説明,特性の説明文

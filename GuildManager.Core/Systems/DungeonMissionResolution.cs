@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Collections.Generic;
 using GuildManager.Core.Models;
 
@@ -31,6 +32,13 @@ namespace GuildManager.Core.Systems
         public DungeonResult? DungeonResult { get; }
         public TraversalResult? TraversalResult { get; }
         public GatheringResult? GatheringResult { get; }
+
+        /// <summary>この任務で負傷した隊員（ボス戦の重傷・道中／調査／採取の軽傷をまとめたもの、§0.53）。</summary>
+        public IEnumerable<InjuryEvent> InjuryEvents =>
+            (DungeonResult?.InjuryEvents ?? Enumerable.Empty<InjuryEvent>())
+            .Concat(TraversalResult?.InjuryEvents ?? Enumerable.Empty<InjuryEvent>())
+            .Concat(ScoutingResult?.InjuryEvents ?? Enumerable.Empty<InjuryEvent>())
+            .Concat(GatheringResult?.InjuryEvents ?? Enumerable.Empty<InjuryEvent>());
 
         /// <summary>
         /// この撃破で同時出撃枠が拡張された場合、拡張後の枠数（→ 「古代エルフ通信技術の復元」）。

@@ -949,7 +949,7 @@ public partial class DungeonPanel : ScrollContainer
 
 				var hpLabel = new Label
 				{
-					Text = isSevere ? $"重傷 残り{adv.InjuryWeeksRemaining}週" : isDispatched ? "出撃中" : $"{adv.CurrentHP}/{adv.MaxHP}",
+					Text = isSevere ? $"重傷 残り{adv.InjuryWeeksRemaining}週" : isDispatched ? "出撃中" : adv.Injury == InjurySeverity.Light ? $"{adv.CurrentHP}/{adv.MaxHP} 軽傷" : $"{adv.CurrentHP}/{adv.MaxHP}",
 				};
 				hpLabel.AddThemeFontSizeOverride("font_size", FontNote);
 				hpLabel.AddThemeColorOverride("font_color", level is HpLevel.Severe or HpLevel.Danger ? HpLevelColor(HpLevel.Danger)
@@ -971,6 +971,7 @@ public partial class DungeonPanel : ScrollContainer
 				SetMemberCardStyle(card);
 				card.TooltipText = $"{adv.Name}：HP {adv.CurrentHP}/{adv.MaxHP}（{hpRatio * 100:F0}%）" +
 					(isSevere ? $"\n重傷のため出撃不可（全治まで{adv.InjuryWeeksRemaining}週）" : "") +
+					(adv.Injury == InjurySeverity.Light ? $"\n軽傷（全治まで{adv.InjuryWeeksRemaining}週）：治るまで能力値−{CombatBalance.LightInjuryStatPenaltyRate * 100:0}%" : "") +
 					(risky.Count > 0
 						? "\n帰還時のHP見込み（最悪の損耗）：" + string.Join("・", risky.Select(r => $"{r.Mission} {Math.Max(0, r.After) * 100:F0}%")) +
 						  (atRisk ? "\n⚠ 30%を割る恐れ。HPの割合は討伐火力・採取スコアに掛かる。休ませるなら今。" : "")

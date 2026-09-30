@@ -307,17 +307,6 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
-        public void GetAdvisorBonus_IsProportionalToSevenStatEffectiveAverage()
-        {
-            // 7能力の実効値がばらついていても、単純平均（=70）を基準にする。
-            var advisor = new Adventurer { STR = 100, AGI = 40, VIT = 90, MND = 50, DEX = 70, LDR = 80, INT = 60 };
-
-            double bonus = AdvisorSystem.GetAdvisorBonus(advisor);
-
-            Assert.Equal(70.0 * AdvisorBalance.AdvisorBonusCoefficient, bonus, precision: 6);
-        }
-
-        [Fact]
         public void GetScoutMasterBonus_IsProportionalToLdrDexEffectiveAverage()
         {
             var scoutMaster = new Adventurer { LDR = 80, DEX = 60 }; // 平均70

@@ -287,7 +287,7 @@ public partial class FacilityPanel : VBoxContainer
 			$"現役冒険者の保有枠上限：[b]{FacilityBalance.GetDormitoryCapacity(level)}名[/b]",
 
 		FacilityType.Infirmary =>
-			$"重傷回復速度：[b]{FacilityBalance.GetInfirmaryInjuryRecoverySpeed(level)}週/週[/b]　HP自然回復：[b]×{FacilityBalance.GetInfirmaryHpRecoveryMultiplier(level):F2}[/b]",
+			$"負傷の回復速度：[b]{FacilityBalance.GetInfirmaryInjuryRecoverySpeed(level)}週/週[/b]　HP自然回復：[b]×{FacilityBalance.GetInfirmaryHpRecoveryMultiplier(level):F2}[/b]",
 
 		FacilityType.Tavern =>
 			$"週次満足度自然回復：[b]+{FacilityBalance.GetTavernSatisfactionRecovery(level)} pt/週[/b]",

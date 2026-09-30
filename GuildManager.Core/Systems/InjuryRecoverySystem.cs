@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using GuildManager.Core.Balance;
 using GuildManager.Core.Models;
 
@@ -16,17 +17,20 @@ namespace GuildManager.Core.Systems
     /// （→ FacilityBalance.GetInfirmaryInjuryRecoverySpeed。Lv1＝週1減＝施設システム
     /// 導入前と同じ速度）。
     ///
-    /// 不可逆障害（Permanent）は対象外（そもそも完治しない想定。現状のMVPでは未実装）。
+    /// 重傷は治ったときにHPを満タンにして復帰させる。軽傷（§0.53）は治ってもHPはそのまま（静養で回復する）。
+    /// その週の任務で負傷したばかりの隊員（justInjured）は、その週の回復を進めない（負傷した週に1週分が消化されないように）。
     /// </summary>
     public class InjuryRecoverySystem
     {
-        public void ProcessWeeklyRecovery(GameState state)
+        public void ProcessWeeklyRecovery(GameState state, IReadOnlySet<Guid>? justInjured = null)
         {
             int recoverySpeed = FacilityBalance.GetInfirmaryInjuryRecoverySpeed(state.GetFacilityLevel(FacilityType.Infirmary));
 
             foreach (var adventurer in state.Adventurers)
             {
                 if (adventurer.Injury == InjurySeverity.None)
+                    continue;
+                if (justInjured != null && justInjured.Contains(adventurer.Id))
                     continue;
 
                 if (adventurer.InjuryWeeksRemaining > 0)
@@ -36,8 +40,9 @@ namespace GuildManager.Core.Systems
 
                 if (adventurer.InjuryWeeksRemaining <= 0)
                 {
+                    if (adventurer.Injury == InjurySeverity.Severe)
+                        adventurer.CurrentHP = adventurer.MaxHP;
                     adventurer.Injury = InjurySeverity.None;
-                    adventurer.CurrentHP = adventurer.MaxHP;
                 }
             }
         }

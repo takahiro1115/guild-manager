@@ -1,69 +1,35 @@
 namespace GuildManager.Core.Balance
 {
     /// <summary>
-    /// 遠征解決エンジン（QuestResolver）・最大HP算出（Adventurer.MaxHP）関連のバランス値。
-    /// 仕様書 03 §4.1〜4.3 参照。値は docs/04_バランス表/combat.csv から読み込む
+    /// 最大HP・負傷・戦闘系の特性・古傷のバランス値。値は docs/04_バランス表/combat.csv から読み込む
     /// （→ 03 §10.1、項目58）。
     ///
-    /// 事前調査メモ（項目58）：これらの数値はQuestResolver.cs・Adventurer.cs（MaxHP算出）に
-    /// 直書きされていた（05技術メモ§3の方針違反）。今回新設したこのクラスへ集約した。
-    /// 配置関連の値は残っていない（職業×配置の補正は2026年9月・§0.23で撤廃、不意打ちの被弾ウェイトと
-    /// PlacementBalance クラスは参照先の無いまま残っていたため削除した）。
-    ///
-    /// 項目63改訂：個人CP重み（旧WeightSTR〜WeightLDR）は、クエスト種別ごとの統一点数
-    /// 計算式（→ 03 §4.2.3）の一部として QuestScoringBalance（quest_type_weights.csv）へ
-    /// 移した。討伐の重みはそのテーブルのSubjugation行が持つ（値は移行前と同一）。
-    /// あわせて旧クエスト適性倍率（QuestAptitudeBalance）のキーも廃止した。
+    /// 旧通常クエストの戦闘処理（索敵・奇襲／不意打ち・戦闘比率・HP消費率・致死回避閾値・敵CP）の値は、
+    /// 旧クエストの撤去後も読み込むだけで使われていなかったため、2026年10月に削除した（→ 03 §0.53）。
     /// </summary>
     public static class CombatBalance
     {
         private const string FileName = "combat.csv";
 
-        /// <summary>
-        /// 討伐の要求値（敵CP）＝クエスト難易度×この係数。→ BAL: 戦闘/敵CP係数。
-        /// 項目63の統一点数計算式では「討伐の要求係数」も兼ねる
-        /// （→ QuestScoringBalance.GetRequirementCoefficient）。
-        /// </summary>
-        public static readonly double EnemyCpCoefficient = BalanceData.GetDouble(FileName, "EnemyCpCoefficient");
-
         // ---- 最大HP算出（→ Adventurer.MaxHP）。最大HP＝VIT×係数＋基礎値＋装備ボーナス ----
         public static readonly int MaxHpBase = BalanceData.GetInt(FileName, "MaxHpBase");
         public static readonly double MaxHpVitCoefficient = BalanceData.GetDouble(FileName, "MaxHpVitCoefficient");
 
-        // ---- フェーズ1：索敵・遭遇判定（→ 03 §4.1） ----
-        public static readonly double ScoutAvgCoefficient = BalanceData.GetDouble(FileName, "ScoutAvgCoefficient");
-        public static readonly double ScoutLeaderLdrCoefficient = BalanceData.GetDouble(FileName, "ScoutLeaderLdrCoefficient");
-        public static readonly double SurpriseLowerBoundBase = BalanceData.GetDouble(FileName, "SurpriseLowerBoundBase");
-        public static readonly double AmbushUpperBoundBase = BalanceData.GetDouble(FileName, "AmbushUpperBoundBase");
-        public static readonly double SurpriseCombatMultiplier = BalanceData.GetDouble(FileName, "SurpriseCombatMultiplier");
-        public static readonly double AmbushEnemyMultiplier = BalanceData.GetDouble(FileName, "AmbushEnemyMultiplier");
-
-        // ---- フェーズ2：戦闘比率とHP消費（→ 03 §4.2） ----
-        public static readonly double RatioThresholdVictory = BalanceData.GetDouble(FileName, "RatioThreshold_Victory");
-        public static readonly double RatioThresholdNarrowWin = BalanceData.GetDouble(FileName, "RatioThreshold_NarrowWin");
-        public static readonly double RatioThresholdDefeat = BalanceData.GetDouble(FileName, "RatioThreshold_Defeat");
-
-        public static readonly int HpLossPctVictoryMin = BalanceData.GetInt(FileName, "HpLossPct_Victory_Min");
-        public static readonly int HpLossPctVictoryMax = BalanceData.GetInt(FileName, "HpLossPct_Victory_Max");
-        public static readonly int HpLossPctNarrowWinMin = BalanceData.GetInt(FileName, "HpLossPct_NarrowWin_Min");
-        public static readonly int HpLossPctNarrowWinMax = BalanceData.GetInt(FileName, "HpLossPct_NarrowWin_Max");
-        public static readonly int HpLossPctDefeatMin = BalanceData.GetInt(FileName, "HpLossPct_Defeat_Min");
-        public static readonly int HpLossPctDefeatMax = BalanceData.GetInt(FileName, "HpLossPct_Defeat_Max");
-        public static readonly int HpLossPctRoutMin = BalanceData.GetInt(FileName, "HpLossPct_Rout_Min");
-        public static readonly int HpLossPctRoutMax = BalanceData.GetInt(FileName, "HpLossPct_Rout_Max");
-
-        // ---- フェーズ3：負傷・致死判定（→ 03 §4.3） ----
-        public static readonly double SurvivalClericMndCoefficient = BalanceData.GetDouble(FileName, "SurvivalClericMndCoefficient");
-        public static readonly double SurvivalLeaderLdrCoefficient = BalanceData.GetDouble(FileName, "SurvivalLeaderLdrCoefficient");
-        public static readonly double SurvivalThresholdMin = BalanceData.GetDouble(FileName, "SurvivalThresholdMin");
-        public static readonly double SurvivalThresholdMax = BalanceData.GetDouble(FileName, "SurvivalThresholdMax");
-
-        /// <summary>致死回避閾値超〜＋この幅が不可逆障害（古傷）。超過は戦死。→ BAL: 戦闘/不可逆帯幅</summary>
-        public static readonly int PermanentBand = BalanceData.GetInt(FileName, "PermanentBand");
+        // ---- 負傷（→ Systems.CriticalInjury、03 §4.3・§0.53） ----
 
         /// <summary>重傷の全治週数レンジ。→ 03 §2.3「重傷: 全治3〜8週」</summary>
         public static readonly int SevereInjuryWeeksMin = BalanceData.GetInt(FileName, "SevereInjuryWeeksMin");
         public static readonly int SevereInjuryWeeksMax = BalanceData.GetInt(FileName, "SevereInjuryWeeksMax");
+
+        /// <summary>階層ボス戦の後、生き残った隊員のHPが最大HP×この値未満なら重傷（0.25で25%未満）。</summary>
+        public static readonly double SevereInjuryHpThresholdPct = BalanceData.GetDouble(FileName, "SevereInjuryHpThresholdPct");
+
+        /// <summary>軽傷の全治週数レンジ（道中・調査・採取でHPが1まで落ちたとき）。</summary>
+        public static readonly int LightInjuryWeeksMin = BalanceData.GetInt(FileName, "LightInjuryWeeksMin");
+        public static readonly int LightInjuryWeeksMax = BalanceData.GetInt(FileName, "LightInjuryWeeksMax");
+
+        /// <summary>軽傷の間、実効能力値（素の値の部分）を下げる率（0.10で−10%。装備の補正と最大HPは下げない）。</summary>
+        public static readonly double LightInjuryStatPenaltyRate = BalanceData.GetDouble(FileName, "LightInjuryStatPenaltyRate");
 
         /// <summary>
         /// 耐毒体質（→ TraitCatalog.ResistPoison、03 §5.3.2）：未対策の「猛毒」ギミックが被ダメージ倍率に足す分

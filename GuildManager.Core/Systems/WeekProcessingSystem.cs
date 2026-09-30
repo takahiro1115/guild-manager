@@ -117,7 +117,9 @@ namespace GuildManager.Core.Systems
 
             _trainingSystem.ProcessWeeklyTraining(state, dispatchedIds); // → 03 §3.1〜3.4・§3.5改：訓練場の週次費用・HP微減
             result.TraitTransmissionEvents.AddRange(_trainingSystem.ProcessWeeklyTraitTransmission(state)); // → 特性伝授刷新仕様：教官からの週次伝授ロール
-            _injuryRecoverySystem.ProcessWeeklyRecovery(state);
+            // 今週の任務で負傷した隊員は、今週の回復を進めない（→ InjuryRecoverySystem、§0.53）。
+            var justInjured = result.DungeonMissionResolutions.SelectMany(r => r.InjuryEvents).Select(e => e.AdventurerId).ToHashSet();
+            _injuryRecoverySystem.ProcessWeeklyRecovery(state, justInjured);
             _restRecoverySystem.ProcessWeeklyRest(state, dispatchedIds); // → 03 §3.5改：静養・HP自然回復（訓練場配置中は対象外）
             result.TrainingGrowthEvents.AddRange(_growthSystem.ProcessTrainingGrowth(state, dispatchedIds)); // → 03 §3.1〜3.4：成長トリガー経路2
 

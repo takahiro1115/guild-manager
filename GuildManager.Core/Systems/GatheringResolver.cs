@@ -170,7 +170,7 @@ namespace GuildManager.Core.Systems
 
         /// <summary>
         /// 採取のHP消費。ランクの区別はなく一律（→ BAL: gathering.csv）。
-        /// HPは下限1で止まり、致死判定・負傷状態には一切接続しない。
+        /// HPは下限1で止まり、致死判定には接続しない。今回HPが1まで落ちた隊員は軽傷になる（§0.53）。
         /// </summary>
         private void ApplyHpLoss(GatheringResult result, Party party)
         {
@@ -179,9 +179,12 @@ namespace GuildManager.Core.Systems
                 int lossPct = _rng.NextInt(GatheringBalance.HpLossPctMin, GatheringBalance.HpLossPctMax);
                 int hpLoss = member.MaxHP * lossPct / 100;
                 int newHp = Math.Max(MinHp, member.CurrentHP - hpLoss);
+                bool fellToCritical = member.CurrentHP > MinHp && newHp <= MinHp;
 
                 result.HpLostByAdventurer[member.Id] = member.CurrentHP - newHp;
                 member.CurrentHP = newHp;
+                if (fellToCritical && CriticalInjury.TryInflictLight(member, _rng) is { } injury)
+                    result.InjuryEvents.Add(injury);
             }
         }
     }

@@ -16,13 +16,6 @@ namespace GuildManager.Core.Balance
         /// </summary>
         public static readonly double TrainerBonusCoefficient = BalanceData.GetDouble(FileName, "TrainerBonusCoefficient");
 
-        /// <summary>
-        /// 参謀ボーナス係数。生涯ピーク7能力平均に掛け、PartyScout（§4.1）と
-        /// SurvivalThreshold（§4.3）の両方に加算する。→ BAL: 顧問/参謀補正。
-        /// ピーク平均100で+20（他の項と同程度の桁になるよう調整した値）。
-        /// </summary>
-        public static readonly double AdvisorBonusCoefficient = BalanceData.GetDouble(FileName, "AdvisorBonusCoefficient");
-
         // ---- 参謀の大迷宮支援（2026年9月、旧クエスト撤去で失われた加算先を大迷宮へ再配線） ----
 
         /// <summary>

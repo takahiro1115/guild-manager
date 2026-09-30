@@ -144,13 +144,14 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
-        public void SumTraitEffect_ReturnsAttentiveBonus_ForScoutingModifier_OnDexOnly()
+        public void SumTraitEffect_ReturnsAttentiveBonus_ForScoutingModifier()
         {
+            // §0.53：注意深いは隠密への寄与（AGI＋DEX）全体に掛かるため、対象ステータスを持たない（""）。
             var a = new Adventurer();
             a.TryAddTrait(TraitCatalog.AttentiveId);
 
-            Assert.Equal(0.10, a.SumTraitEffect(TraitEffectType.ScoutingModifier, "DEX"));
-            Assert.Equal(0, a.SumTraitEffect(TraitEffectType.ScoutingModifier, "STR")); // 対象ステータス違いは合算しない
+            Assert.Equal(0.10, a.SumTraitEffect(TraitEffectType.ScoutingModifier));
+            Assert.Equal(0, a.SumTraitEffect(TraitEffectType.ScoutingModifier, "DEX")); // 対象ステータスを指定すると一致しない
         }
 
         [Fact]
