@@ -76,7 +76,7 @@ theme_override_constants/separation = 16
 
 [node name="PortraitTextureRect" type="TextureRect" parent="Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(190, 253)
+custom_minimum_size = Vector2(285, 380)
 layout_mode = 2
 size_flags_vertical = 0
 expand_mode = 1
@@ -332,54 +332,54 @@ layout_mode = 2
 text = "0 / 0"
 horizontal_alignment = 2
 
-[node name="LifecycleCard" type="PanelContainer" parent="Body/RightPane/DetailVBox/DetailContainer"]
+[node name="LifecycleCard" type="PanelContainer" parent="Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox"]
 layout_mode = 2
 
-[node name="Margin" type="MarginContainer" parent="Body/RightPane/DetailVBox/DetailContainer/LifecycleCard"]
+[node name="Margin" type="MarginContainer" parent="Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox/LifecycleCard"]
 layout_mode = 2
 theme_override_constants/margin_left = 12
 theme_override_constants/margin_top = 8
 theme_override_constants/margin_right = 12
 theme_override_constants/margin_bottom = 8
 
-[node name="VBox" type="VBoxContainer" parent="Body/RightPane/DetailVBox/DetailContainer/LifecycleCard/Margin"]
+[node name="VBox" type="VBoxContainer" parent="Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox/LifecycleCard/Margin"]
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="LifecycleHeader" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/LifecycleCard/Margin/VBox"]
+[node name="LifecycleHeader" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox/LifecycleCard/Margin/VBox"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
 text = "8年稼働タイムライン（18歳加入〜26歳満期引退・最大384週）"
 
-[node name="TimelineBar" type="ProgressBar" parent="Body/RightPane/DetailVBox/DetailContainer/LifecycleCard/Margin/VBox"]
+[node name="TimelineBar" type="ProgressBar" parent="Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox/LifecycleCard/Margin/VBox"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 22)
 layout_mode = 2
 max_value = 384.0
 show_percentage = false
 
-[node name="TimelineDetailGrid" type="GridContainer" parent="Body/RightPane/DetailVBox/DetailContainer/LifecycleCard/Margin/VBox"]
+[node name="TimelineDetailGrid" type="GridContainer" parent="Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox/LifecycleCard/Margin/VBox"]
 layout_mode = 2
 theme_override_constants/h_separation = 16
 theme_override_constants/v_separation = 4
 columns = 2
 
-[node name="ActiveWeeksLabel" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/LifecycleCard/Margin/VBox/TimelineDetailGrid"]
+[node name="ActiveWeeksLabel" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox/LifecycleCard/Margin/VBox/TimelineDetailGrid"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "稼働期間: 0 / 384週"
 
-[node name="RemainingWeeksLabel" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/LifecycleCard/Margin/VBox/TimelineDetailGrid"]
+[node name="RemainingWeeksLabel" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox/LifecycleCard/Margin/VBox/TimelineDetailGrid"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "引退まで: 残り 384週"
 
-[node name="ContributionScoreLabel" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/LifecycleCard/Margin/VBox/TimelineDetailGrid"]
+[node name="ContributionScoreLabel" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox/LifecycleCard/Margin/VBox/TimelineDetailGrid"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "累積功績スコア: 0 pt"
 
-[node name="SeveranceEstimateLabel" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/LifecycleCard/Margin/VBox/TimelineDetailGrid"]
+[node name="SeveranceEstimateLabel" type="Label" parent="Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox/LifecycleCard/Margin/VBox/TimelineDetailGrid"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.85, 0.4, 1)

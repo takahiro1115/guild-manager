@@ -230,7 +230,7 @@ public partial class AdventurerPanel : VBoxContainer
 	{
 		ShowAdventurerDetail(candidate);
 
-		GetNode<Control>("Body/RightPane/DetailVBox/DetailContainer/LifecycleCard").Visible = false;
+		GetNode<Control>("Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox/LifecycleCard").Visible = false;
 		GetNode<Control>("Body/RightPane/DetailVBox/DetailContainer/ActionButtonsCard").Visible = false;
 		_renameButton.Visible = false;
 		_negotiationWarning.Visible = false;
