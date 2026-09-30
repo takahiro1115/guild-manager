@@ -196,7 +196,7 @@ public partial class RecruitmentPopup : PopupPanel
 	}
 
 	/// <summary>
-	/// 候補者1名分のカード：［チェックボックス］［前後衛・職業・氏名・年齢／契約金・初期装備・総合PA・週給／特性］。
+	/// 候補者1名分のカード：［チェックボックス］［職業・氏名・年齢／契約金・初期装備・総合PA・週給／特性］。
 	/// カード本体（PanelContainer）の左クリックで右ペインへ表示する。チェックボックスは自分でクリックを消費するため、
 	/// チェックの操作は行選択に伝わらず、行クリックもチェックを変えない。
 	/// </summary>
@@ -259,14 +259,11 @@ public partial class RecruitmentPopup : PopupPanel
 		info.AddThemeConstantOverride("separation", 2);
 		row.AddChild(info);
 
-		// 1行目：前後衛バッジ・職業・氏名・年齢
+		// 1行目：職業・氏名・年齢
 		var headRow = new HBoxContainer { MouseFilter = Control.MouseFilterEnum.Pass };
 		headRow.AddThemeConstantOverride("separation", 8);
 		info.AddChild(headRow);
 
-		bool isFront = PlacementRules.GetDefault(c.JobClass) == Placement.Front;
-		headRow.AddChild(MakeLabel(isFront ? "【前衛】" : "【後衛】", 14,
-			isFront ? new Color(0.4f, 0.8f, 1.0f) : new Color(0.9f, 0.6f, 1.0f)));
 		headRow.AddChild(MakeLabel(AdventurerPanel.JobLabel(c.JobClass), 17, new Color(1f, 0.85f, 0.4f)));
 		headRow.AddChild(MakeLabel(c.Name, 19, null));
 		headRow.AddChild(MakeLabel($"{c.Age}歳", 17, null));

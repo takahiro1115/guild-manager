@@ -29,7 +29,10 @@ public partial class SystemPanel : ScrollContainer
 		_saveDataBtn = GetNode<Button>("%SaveDataBtn");
 		_saveFeedbackLabel = GetNode<Label>("%SaveFeedbackLabel");
 		_saveDataBtn.Pressed += OnSaveDataPressed;
-		GetNode<Button>("%DebugAddGoldBtn").Pressed += () => DebugAddGoldRequested();
+		// デバッグボタンはエディタ実行・デバッグ版の書き出しでだけ出す（リリース版の書き出しでは隠す）
+		var debugAddGoldBtn = GetNode<Button>("%DebugAddGoldBtn");
+		debugAddGoldBtn.Visible = OS.IsDebugBuild();
+		debugAddGoldBtn.Pressed += () => DebugAddGoldRequested();
 		_windowedBtn = GetNode<Button>("%WindowedBtn");
 		_maximizedBtn = GetNode<Button>("%MaximizedBtn");
 		_fullscreenBtn = GetNode<Button>("%FullscreenBtn");
