@@ -62,7 +62,7 @@ theme_override_constants/separation = 16
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 23
+theme_override_font_sizes/font_size = 18
 text = "【新春採用試験】候補者一覧"
 
 [node name="SummaryLabel" type="Label" parent="Margin/VBox/HeaderPanel/Margin/HeaderHBox"]
@@ -88,7 +88,7 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(660, 0)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.75, 0.9, 1, 1)
-theme_override_font_sizes/font_size = 17
+theme_override_font_sizes/font_size = 16
 text = "採用する志願者にチェックを入れてください。"
 autowrap_mode = 3
 
@@ -112,7 +112,7 @@ layout_mode = 2
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.45, 0.4, 1)
-theme_override_font_sizes/font_size = 17
+theme_override_font_sizes/font_size = 16
 text = ""
 
 [node name="FooterRow" type="HBoxContainer" parent="Margin/VBox"]
@@ -135,6 +135,6 @@ mouse_filter = 2
 unique_name_in_owner = true
 custom_minimum_size = Vector2(480, 44)
 layout_mode = 2
-theme_override_font_sizes/font_size = 19
+theme_override_font_sizes/font_size = 18
 disabled = true
 text = "【 選択した冒険者を採用する 】"

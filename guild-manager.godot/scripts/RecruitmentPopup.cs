@@ -264,14 +264,14 @@ public partial class RecruitmentPopup : PopupPanel
 		headRow.AddThemeConstantOverride("separation", 8);
 		info.AddChild(headRow);
 
-		headRow.AddChild(MakeLabel(AdventurerPanel.JobLabel(c.JobClass), 17, new Color(1f, 0.85f, 0.4f)));
-		headRow.AddChild(MakeLabel(c.Name, 19, null));
-		headRow.AddChild(MakeLabel($"{c.Age}歳", 17, null));
+		headRow.AddChild(MakeLabel(AdventurerPanel.JobLabel(c.JobClass), 16, new Color(1f, 0.85f, 0.4f)));
+		headRow.AddChild(MakeLabel(c.Name, 18, null));
+		headRow.AddChild(MakeLabel($"{c.Age}歳", 16, null));
 
 		// 2行目：契約金・初期装備・総合PA・週給
 		string cost = _draft != null ? "契約金: 0 G（無料）" : $"契約金: {offer.SigningBonus:N0} G";
 		info.AddChild(MakeLabel(
-			$"{cost}　初期装備: {StarterLoadoutText(c)}　総合PA {c.TotalPA:F0}　週給 {c.WeeklyWage} G", 13,
+			$"{cost}　初期装備: {StarterLoadoutText(c)}　総合PA {c.TotalPA:F0}　週給 {c.WeeklyWage} G", 15,
 			new Color(0.85f, 0.85f, 0.85f)));
 
 		// 3行目：先天特性
