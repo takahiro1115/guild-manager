@@ -43,7 +43,7 @@ namespace GuildManager.Core.Data
                     STR = 60, AGI = 35, VIT = 55, MND = 10, DEX = 20, LDR = 40,
                     INT = 15, PA_INT = 20, // v1.2改訂：INT活性化に伴う暫定値。重戦士は低め
                     PA_STR = 80, PA_AGI = 50, PA_VIT = 75, PA_MND = 15, PA_DEX = 30, PA_LDR = 55,
-                    WeeklyWage = 55
+                    WeeklyWage = 37
                 },
                 new Adventurer
                 {
@@ -52,7 +52,7 @@ namespace GuildManager.Core.Data
                     STR = 30, AGI = 60, VIT = 35, MND = 15, DEX = 55, LDR = 25,
                     INT = 20, PA_INT = 30, // v1.2改訂：INT活性化に伴う暫定値。斥候は中間程度
                     PA_STR = 45, PA_AGI = 85, PA_VIT = 50, PA_MND = 20, PA_DEX = 80, PA_LDR = 35,
-                    WeeklyWage = 40
+                    WeeklyWage = 27
                 },
                 new Adventurer
                 {
@@ -61,7 +61,7 @@ namespace GuildManager.Core.Data
                     STR = 15, AGI = 20, VIT = 30, MND = 45, DEX = 15, LDR = 20,
                     INT = 25, PA_INT = 35, // v1.2改訂：INT活性化に伴う暫定値。神官は中間〜低め
                     PA_STR = 20, PA_AGI = 30, PA_VIT = 40, PA_MND = 70, PA_DEX = 25, PA_LDR = 30,
-                    WeeklyWage = 45
+                    WeeklyWage = 30
                 },
             };
 

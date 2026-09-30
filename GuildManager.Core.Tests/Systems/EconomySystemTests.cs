@@ -166,16 +166,16 @@ namespace GuildManager.Core.Tests.Systems
         }
 
         [Fact]
-        public void SideJobIncome_WithoutResearch_BaseIs200()
+        public void SideJobIncome_WithoutResearch_BaseIs300()
         {
             var state = SideJobWeekState(mood: 60);
 
             var income = new EconomySystem().ProcessWeeklySideJobIncome(state)!;
 
-            Assert.Equal(200, EconomyBalance.SideJobBaseAmount);
+            Assert.Equal(300, EconomyBalance.SideJobBaseAmount);
             Assert.Equal(0, income.ResearchBonus);
-            Assert.Equal(200, income.BaseGold);
-            Assert.Equal(200, income.FinalGold);
+            Assert.Equal(300, income.BaseGold);
+            Assert.Equal(300, income.FinalGold);
         }
 
         [Theory]
@@ -191,25 +191,25 @@ namespace GuildManager.Core.Tests.Systems
             var income = new EconomySystem().ProcessWeeklySideJobIncome(state)!;
 
             Assert.Equal(expectedBonus, income.ResearchBonus);
-            Assert.Equal(200 + expectedBonus, income.BaseGold);
-            Assert.Equal(200 + expectedBonus, income.FinalGold); // 平常×1.0
+            Assert.Equal(300 + expectedBonus, income.BaseGold);
+            Assert.Equal(300 + expectedBonus, income.FinalGold); // 平常×1.0
         }
 
         [Fact]
         public void SideJobIncome_ResearchBonusesStack_AndMoodMultiplierApplies()
         {
-            // 例（指示書）：基本 350G［初期200+研究150］×上機嫌1.5 ＝ 525G。
+            // 例：基本 450G［初期300（§0.52で200から）+研究150］×上機嫌1.5 ＝ 675G。
             var single = SideJobWeekState(90, ResearchIds.BeautyLotion);
             var incomeSingle = new EconomySystem().ProcessWeeklySideJobIncome(single)!;
-            Assert.Equal(350, incomeSingle.BaseGold);
+            Assert.Equal(450, incomeSingle.BaseGold);
             Assert.Equal(1.5, incomeSingle.Multiplier, precision: 6);
-            Assert.Equal(525, incomeSingle.FinalGold);
-            Assert.Equal(525, single.Gold);
+            Assert.Equal(675, incomeSingle.FinalGold);
+            Assert.Equal(675, single.Gold);
 
-            // 4段階すべて完了：200+150+250+400+600＝1600G。不機嫌×0.5で800G、危機×0.0で0G。
+            // 4段階すべて完了：300+150+250+400+600＝1700G。不機嫌×0.5で850G、危機×0.0で0G。
             var all = new[] { ResearchIds.BeautyLotion, ResearchIds.EnergyTonic, ResearchIds.TradeRoute, ResearchIds.VitalityElixir };
-            Assert.Equal(1600, EconomySystem.GetSideJobBaseGold(SideJobWeekState(30, all)));
-            Assert.Equal(800, new EconomySystem().ProcessWeeklySideJobIncome(SideJobWeekState(30, all))!.FinalGold);
+            Assert.Equal(1700, EconomySystem.GetSideJobBaseGold(SideJobWeekState(30, all)));
+            Assert.Equal(850, new EconomySystem().ProcessWeeklySideJobIncome(SideJobWeekState(30, all))!.FinalGold);
             Assert.Equal(0, new EconomySystem().ProcessWeeklySideJobIncome(SideJobWeekState(10, all))!.FinalGold);
         }
 

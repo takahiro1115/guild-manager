@@ -1,10 +1,10 @@
 key,value,unit,note
 InitialGold,3000,G,開始時の所持金（GameState.Gold の初期値）
 SideJobIntervalWeeks,4,週,アルベールの市販薬・内職売上の入金間隔（月次＝4週。旧SubsidyWeeksPerMonth。構造値のため通常は変更しない）
-SideJobBaseAmount,200,G/月,アルベールの市販薬・内職売上の基本額（旧・格付けGの月次助成金を流用）。実入金＝この値×マスターの機嫌の売上倍率（→ master_mood.csv SideJobMultiplier_*）
-WeeklyWageCoefficient,0.6,倍,週給＝総合PA×この係数（採用時の初期週給算出）
-AppropriateWageCoefficient,0.6,倍,適正週給＝総合PA×この係数（満足度の賃金妥当性判定に使用）
-SigningBonusCoefficient,3.0,倍,契約金＝総合PA×この係数
+SideJobBaseAmount,300,G/月,アルベールの市販薬・内職売上の基本額（旧・格付けGの月次助成金を流用）。実入金＝この値×マスターの機嫌の売上倍率（→ master_mood.csv SideJobMultiplier_*）。§0.52で200→300（序盤の人件費に対して定期収入が週給の3分の1しかなく破産しやすかった）
+WeeklyWageCoefficient,0.4,倍,週給＝総合PA×この係数（採用時の初期週給算出）。§0.52で0.6→0.4（人件費を全体に2/3へ。初期メンバーの週給も同じ割合で下げた）
+AppropriateWageCoefficient,0.4,倍,適正週給＝総合PA×この係数（満足度の賃金妥当性判定に使用）。§0.52で0.6→0.4（WeeklyWageCoefficient と同じ値にそろえる。ずれると採用直後から賃金不満になる）
+SigningBonusCoefficient,1.0,倍,契約金＝総合PA×この係数。§0.52で3.0→1.0（契約金 約1000〜1500G。旧値では1名3200〜4600Gで初期資金3000Gを上回り名簿を増やせなかった）
 SeveranceWeeks,12,×週給,引退時の退職金の基礎部分（週給×この週数）
 SeveranceContributionCoefficient,2.0,G/pt,"退職金の功績加算＝累積功績（TotalContributionScore）×この係数。「十分な退職金を持たせて安全に自立させる」という方針の実装（→ 01_コンセプト.md）"
 SeveranceShortfallMoodPenalty,15,pt,退職金を払いきれなかった場合のマスターの機嫌の低下量（「退職金を持たせて自立させる」アルベールの信念に背くため。旧SeveranceShortfallReputationPenalty）

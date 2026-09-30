@@ -23,6 +23,26 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
+        public void SampleData_StarterWages_AreLoweredButStillFair()
+        {
+            // §0.52：人件費を全体に2/3へ（55/40/45 → 37/27/30）。下げても賃金不満（適正週給×WageAdequacyRatio 未満）にはならない。
+            var adventurers = SampleData.CreateStarterAdventurers();
+
+            Assert.Equal(37 + 27 + 30, adventurers.Sum(a => a.WeeklyWage));
+            Assert.All(adventurers, a => Assert.True(
+                a.WeeklyWage >= a.TotalPA * GuildManager.Core.Balance.SatisfactionBalance.AppropriateWageCoefficient
+                    * GuildManager.Core.Balance.SatisfactionBalance.WageAdequacyRatio));
+        }
+
+        [Fact]
+        public void WageCoefficients_AreAligned_SoNewRecruitsAreNotUnderpaid()
+        {
+            // 採用時の週給と「適正週給」の係数をそろえる（ずれると採用直後から賃金不満になる、§0.52）。
+            Assert.Equal(GuildManager.Core.Balance.SatisfactionBalance.AppropriateWageCoefficient,
+                GuildManager.Core.Balance.EconomyBalance.WeeklyWageCoefficient, precision: 6);
+        }
+
+        [Fact]
         public void SampleData_AllStarterAdventurers_AreFemale()
         {
             // 世界観設定（女性限定ギルド仕様）：初期ロースターは全員Gender.Female。

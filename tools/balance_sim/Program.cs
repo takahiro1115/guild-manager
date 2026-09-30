@@ -4,6 +4,8 @@
 //   dotnet run --project tools/balance_sim -- ideal           新人1名を理想的に育てた場合の伸び
 //   dotnet run --project tools/balance_sim -- game 10 384     通しのシミュレーション（回数・最大週数）
 //   dotnet run --project tools/balance_sim -- game 10 384 free   同・お金の制約を外す
+//   dotnet run --project tools/balance_sim -- game 10 384 frugal 同・装備と施設を買わない
+//   dotnet run --project tools/balance_sim -- anchor          要求値と目安部隊の値
 //   dotnet run --project tools/balance_sim -- game 1 60 trace    同・1週ごとの経過を出す
 // バランス値は実行ファイルの隣の 04_バランス表（docs/04_バランス表 のコピー）から読む。
 using System.Text;
@@ -29,6 +31,7 @@ if (mode is "all" or "game")
     int runs = args.Length > 1 ? int.Parse(args[1]) : 10;
     GameSim.Trace = args.Length > 3 && args[3] == "trace";
     GameSim.FreeMoney = args.Length > 3 && args[3] == "free";
+    GameSim.Frugal = args.Length > 3 && args[3] == "frugal";
     int weeks = args.Length > 2 ? int.Parse(args[2]) : 48 * 8;
     GameSim.RunMany(runs, weeks);
 }
@@ -145,6 +148,7 @@ class GameSim
     public static bool FreeMoney;
     public readonly List<BossKill> Kills = new();
     public readonly List<string> Yearly = new();
+    public readonly List<int> RosterByYear = new();
     public int ForcedRetired;
     public string? Defeat;
     public int DivesTotal;
@@ -192,10 +196,16 @@ class GameSim
         for (int w = 0; w < weeks; w++)
         {
             if (Forest.Bosses.All(b => b.IsDefeated)) break;
+            int actBefore = s.Gold;
             Act();
+            Book("その他の行動", s.Gold - actBefore - actBooked);
+            actBooked = 0;
             if (FreeMoney) s.Gold = Math.Max(s.Gold, 100000);
             int goldBefore = s.Gold;
+            int wages = s.Adventurers.Sum(a => a.WeeklyWage);
+            int trainees = s.TrainingAssignments.Count;
             var result = week.ProcessWeek(s);
+            BookSettlement(result, s.Gold - goldBefore, wages, trainees);
             if (Trace)
                 Console.WriteLine($"w{result.Flags.Week}: G {goldBefore}→{s.Gold} 機嫌{s.MasterMood} 現役{Active.Count()} 週給計{Active.Sum(a => a.WeeklyWage)} 訓練{s.TrainingAssignments.Count} 工事{s.UnderConstruction?.Type} " +
                     string.Join(" / ", result.DungeonMissionResolutions.Select(r => $"{r.MissionType}@{r.CurrentFloor}{(r.DungeonResult != null ? ":" + r.DungeonResult.Outcome : "")}{(r.ReturnedHome ? "帰還" : "")}+{r.DepositedGold}G")) +
@@ -211,7 +221,11 @@ class GameSim
                 }
             }
             if (result.Flags.RecruitmentTrialOccurred)
+            {
+                int g = s.Gold;
                 HoldTrial();
+                Book("採用の契約金", s.Gold - g);
+            }
             if (s.WeekNumber % 48 == 1)
                 Snapshot();
             if (s.DefeatReason != null) { Defeat = s.DefeatReason.ToString() + $"（{s.WeekNumber}週）"; break; }
@@ -237,9 +251,15 @@ class GameSim
             }
         }
 
+        int g0 = s.Gold;
         HandleLoot();
+        BookAct("遺物・素材の売却（鑑定代差引）", s.Gold - g0);
+        g0 = s.Gold;
         Shop();
+        BookAct("装備の購入", s.Gold - g0);
+        g0 = s.Gold;
         BuildFacility();
+        BookAct("施設の建設", s.Gold - g0);
 
         // 扉前の判断
         foreach (var m in s.ActiveDungeonMissions.Where(m => m.Status == ExpeditionStatus.AwaitingBossDecision).ToList())
@@ -255,7 +275,9 @@ class GameSim
             if (Trace) Console.WriteLine($"  扉前{boss.Floor}F: 火力{power:F0}/要求{req:F0} 満タン時{m.Party.Members.Sum(StatSum):F0} 解析{boss.IntelRate:P0} 最低HP{minHp:P0} 装備[{string.Join(",", m.Party.Members.Select(a => $"{a.EquippedWeapon?.ItemId}/{a.EquippedArmor?.ItemId}/{a.EquippedAccessory1?.ItemId}"))}] G{s.Gold}");
             if (power >= req && safe && s.Gold >= DungeonExpeditionSystem.CalculateConsumableCost(items))
             {
+                int gp = s.Gold;
                 expedition.TryEngageBoss(s, m, items);
+                BookAct("携行品", s.Gold - gp);
                 pendingAssault[m] = (power / req, m.Party.Members.Average(a => Acc.All.Average(n => a.GetEffectiveStat(n))),
                     m.Party.Members.Average(a => StatSum(a) / WeightSum), boss.IntelRate);
             }
@@ -386,6 +408,7 @@ class GameSim
     /// <summary>所持金に余裕があれば、主力候補（上位4名）の装備を店で良いものへ買い替える（1週1点）。</summary>
     void Shop()
     {
+        if (Frugal) return;
         if (!UseShop) return;
         var best = (Gain: 0.0, Who: (Adventurer?)null, Item: (Item?)null);
         foreach (var a in Active.Where(a => !a.IsDispatched).OrderByDescending(StatSum).Take(4))
@@ -400,8 +423,50 @@ class GameSim
         if (best.Who != null)
             equipment.TryPurchaseAndEquip(s, best.Who, best.Item!.Id);
     }
+
+    // ==== 収支の内訳（→ RunMany の「お金の出入り」表） ====
+    public static int LedgerUntil = 48;
+    public static bool Frugal;
+    /// <summary>区間（1〜12週／13〜24週／25〜48週）×項目ごとの合計。</summary>
+    public readonly Dictionary<(int Phase, string Item), int> Ledger = new();
+    public readonly int[] PhaseWeeks = new int[3];
+    int actBooked;
+
+    static int PhaseOf(int week) => week <= 12 ? 0 : week <= 24 ? 1 : 2;
+
+    void Book(string item, int gold)
+    {
+        if (FreeMoney || s.WeekNumber > LedgerUntil || gold == 0) return;
+        var key = (PhaseOf(s.WeekNumber), item);
+        Ledger[key] = Ledger.GetValueOrDefault(key) + gold;
+    }
+
+    void BookAct(string item, int gold) { Book(item, gold); actBooked += gold; }
+
+    void BookSettlement(WeeklySettlementResult r, int total, int wages, int trainees)
+    {
+        if (FreeMoney || r.Flags.Week > LedgerUntil) return;
+        int week = r.Flags.Week;
+        PhaseWeeks[PhaseOf(week)]++;
+        void Add(string item, int gold) { if (gold != 0) { var k = (PhaseOf(week), item); Ledger[k] = Ledger.GetValueOrDefault(k) + gold; } }
+        int side = r.SideJobIncome?.FinalGold ?? 0;
+        int idle = r.IdleHelpEntries.Sum(e => e.Gold);
+        int gather = r.DungeonMissionResolutions.Sum(x => x.GatheringResult?.GoldEarned ?? 0);
+        int loot = r.DungeonMissionResolutions.Sum(x => x.DepositedGold);
+        int boss = r.DungeonMissionResolutions.Where(x => x.DungeonResult?.Outcome == DungeonOutcome.Victory).Sum(x => x.Boss?.RewardGold ?? 0);
+        int training = -trainees * 20;
+        Add("週給", -wages);
+        Add("訓練費", training);
+        Add("内職", side);
+        Add("待機お手伝い", idle);
+        Add("採取の報酬", gather);
+        Add("潜行の拾得ゴールド", loot);
+        Add("ボスの撃破報酬", boss);
+        Add("その他の決算", total - (-wages + training + side + idle + gather + loot + boss));
+    }
     void BuildFacility()
     {
+        if (Frugal) return;
         if (s.UnderConstruction != null) return;
         var counts = new Dictionary<FacilityType, int>();
         foreach (var f in BuildOrder)
@@ -426,6 +491,7 @@ class GameSim
 
     void Snapshot()
     {
+        RosterByYear.Add(Active.Count());
         var top = Active.OrderByDescending(StatSum).Take(4).ToList();
         double w = top.Count == 0 ? 0 : top.Average(a => StatSum(a) / WeightSum);
         Yearly.Add($"{GameCalendar.Format(s.WeekNumber)}: 上位4名の加重平均 {w:F1}（{string.Join("/", top.Select(a => $"{a.JobClass}{a.Age}歳{StatSum(a) / WeightSum:F0}"))}）" +
@@ -457,6 +523,21 @@ class GameSim
         Console.WriteLine();
         Console.WriteLine($"強制除籍（計）：{string.Join(", ", sims.Select(x => x.ForcedRetired))}");
         Console.WriteLine($"敗北：{string.Join(", ", sims.Select(x => x.Defeat ?? "なし"))}");
+        Console.WriteLine("現役人数（各年のはじめ、中央値）：" + string.Join("・", Enumerable.Range(0, 8).Select(y => { var l = sims.Where(x => x.RosterByYear.Count > y).Select(x => (double)x.RosterByYear[y]).ToList(); return l.Count == 0 ? "-" : $"{y + 2}年目 {Median(l):F0}名（{l.Count}回）"; })));
+        if (!FreeMoney)
+        {
+            Console.WriteLine();
+            Console.WriteLine($"### お金の出入り（1週あたりの平均G、全{runs}回。破産した回はその週まで）");
+            string[] phases = { "1〜12週", "13〜24週", "25〜48週" };
+            Console.WriteLine("| 項目 | " + string.Join(" | ", phases) + " |");
+            Console.WriteLine("|---|---|---|---|");
+            var items = sims.SelectMany(x => x.Ledger.Keys.Select(k => k.Item)).Distinct()
+                .OrderByDescending(i => sims.Sum(x => x.Ledger.Where(kv => kv.Key.Item == i).Sum(kv => kv.Value)));
+            var phaseWeeks = Enumerable.Range(0, 3).Select(p => Math.Max(1, sims.Sum(x => x.PhaseWeeks[p]))).ToArray();
+            foreach (var item in items)
+                Console.WriteLine($"| {item} | " + string.Join(" | ", Enumerable.Range(0, 3).Select(p => (sims.Sum(x => x.Ledger.GetValueOrDefault((p, item))) / (double)phaseWeeks[p]).ToString("+0;-0;0"))) + " |");
+            Console.WriteLine("| **収支** | " + string.Join(" | ", Enumerable.Range(0, 3).Select(p => (sims.Sum(x => x.Ledger.Where(kv => kv.Key.Phase == p).Sum(kv => kv.Value)) / (double)phaseWeeks[p]).ToString("+0;-0;0"))) + " |");
+        }
         Console.WriteLine();
         Console.WriteLine("### 1回目の年ごとの様子");
         foreach (var y in (sims.FirstOrDefault(x => x.Defeat == null) ?? sims[0]).Yearly) Console.WriteLine("- " + y);

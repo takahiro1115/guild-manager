@@ -253,6 +253,17 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 
 値を動かすときは `dotnet run --project tools/balance_sim -- anchor` で目安部隊の値と要求値を並べて確かめられる（→ tools/balance_sim/README.md）。
 
+## 序盤の経済・人件費の見直しで変更されたキー（2026年9月、→ 03 §0.52）
+
+人件費を全体に下げ、内職を少し増やした（シミュレーションで破産10回中7回→0回。`tools/balance_sim` の `game` モードの「お金の出入り」表で確かめられる）。
+
+| ファイル | キー | 旧 → 新 | 意味 |
+|---|---|---|---|
+| `economy.csv` | `SigningBonusCoefficient` | 3.0 → 1.0 | 契約金＝総合PA×年齢×この値（18歳加入で1名およそ1000〜1500G） |
+| `economy.csv` | `WeeklyWageCoefficient` | 0.6 → 0.4 | 採用時の週給＝総合PA×この値。初期メンバーの週給（コード側 `Data.SampleData`）も 55／40／45 → 37／27／30 |
+| `economy.csv` | `AppropriateWageCoefficient` | 0.6 → 0.4 | 満足度の適正週給。`WeeklyWageCoefficient` と同じ値にそろえる（テストで固定） |
+| `economy.csv` | `SideJobBaseAmount` | 200 → 300 | 内職の初期基本額（4週ごと、機嫌の倍率が掛かる） |
+
 ## 道中損耗・機嫌・内職・相性で追加／変更されたキー（2026年9月、→ 03 §0.19〜§0.22）
 
 **`dungeon_traversal.csv` ／ `dungeon.csv`（§0.19）** … キーの追加・変更なし。`FullIntelDamageMultiplier`（0.3）と
