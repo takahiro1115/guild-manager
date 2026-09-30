@@ -93,5 +93,26 @@ namespace GuildManager.Core.Tests.Balance
             Assert.All(Enumerable.Range(1, 5), order => Assert.True(DungeonBalance.GetFieldRequirementMultiplier(order) > 0));
             Assert.Equal(1.0, DungeonBalance.GetFieldRequirementMultiplier(1), precision: 6);
         }
+
+        [Fact]
+        public void FieldMultipliers_RiseByFieldOrder()
+        {
+            // §0.50：後のフィールドほど難しくする（森→鍾乳洞→廃墟→峡谷→深淵）。
+            for (int order = 2; order <= 5; order++)
+                Assert.True(DungeonBalance.GetFieldRequirementMultiplier(order) > DungeonBalance.GetFieldRequirementMultiplier(order - 1));
+        }
+
+        [Theory]
+        [InlineData(2, 40, 47, 48)]  // 鍾乳洞40F（伝説級）
+        [InlineData(3, 40, 51, 52)]  // 廃墟40F（伝説級）
+        [InlineData(4, 40, 56, 57)]  // 峡谷40F（伝説級）
+        [InlineData(5, 50, 75, 76)]  // 深淵50F（伝説級）
+        public void LegendaryBosses_NeedStagedStats(int fieldOrder, int floor, int notEnough, int enough)
+        {
+            // 伝説級を落とすボスに、完全解析・HP満タンの4人部隊で届く全能力の目安（§0.50）。フィールドごとに段階的に上がる。
+            var boss = new FloorBoss { Name = "伝説級の主", Floor = floor, FieldOrder = fieldOrder, MaxHp = 1, CurrentHp = 1, IntelRate = 1.0 };
+            Assert.True(DungeonResolver.CalculateBossPower(AssaultParty(notEnough), boss) < DungeonResolver.RequiredPower(boss));
+            Assert.True(DungeonResolver.CalculateBossPower(AssaultParty(enough), boss) >= DungeonResolver.RequiredPower(boss));
+        }
     }
 }

@@ -212,7 +212,7 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 | `scouting.csv` | `StealthRequirementBase`（新設）／`StealthRequirementPerFloor`（7→1.4） | 48／1.4 | 62／90／188 |
 | `scouting.csv` | `GuardRequirementBase`／`GuardRequirementPerFloor`（ともに新設） | 28／1.15 | 39.5／62.5／143 |
 | `dungeon_traversal.csv` | `RequirementPerFloor`（15→7.5。基礎値は置かない） | 7.5 | 75／225／750 |
-| `dungeon.csv` | `FieldRequirementMultiplier_1`〜`_5`（新設） | すべて1.0 | 上記すべてに掛けるフィールド倍率。2つ目以降の値は調整保留 |
+| `dungeon.csv` | `FieldRequirementMultiplier_1`〜`_5`（新設） | すべて1.0（§0.50で 1.0／1.1／1.2／1.3／1.5） | 上記すべてに掛けるフィールド倍率。2つ目以降は§0.50で仮の値を入れた（下記） |
 
 ## 走破を階層ごとの要求値で数える改訂で変更／追加されたキー（2026年9月、→ 03 §0.49）
 
@@ -224,6 +224,18 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 | `dungeon_traversal.csv` | `FloorsPerRatio`（2.0→4.0） | 4.0 | 比率1.0の深さで1週に進める階層数。大きくするほど深い階層まで速く潜れる（全能力90・全区間未解析で1F→100Fが 2.0＝30週、4.0＝14週、6.0＝9週） |
 | `dungeon_traversal.csv` | `RankRatioScale`（新設） | 2.0 | 進軍ランクの段＝floor(先頭の階層での比率×この値)。既踏の損耗率を決める。速さ（`FloorsPerRatio`）と切り離し、比率ごとのランクは従来どおり |
 | `dungeon_traversal.csv` | `RequirementPerFloor` | 7.5 | 1歩ごとに、踏み出す階層×この値を要求値にする（旧：出発階層だけで1回） |
+
+## 2つ目以降のフィールドの倍率を決めた改訂で変更されたキー（2026年9月、→ 03 §0.50）
+
+後のフィールドほど段階的に難しくする（仮の値。100Fに届かせる仕組みが決まったら見直す）。各フィールドの伝説級（40F、深淵は50F）に、
+完全解析・HP満タンの4人部隊（装備なし）で届く全能力の目安を段階的に上げた（`DungeonRequirementAnchorTests` で固定）。
+
+| ファイル | キー | 値 | 伝説級に届く全能力の目安 |
+|---|---|---|---|
+| `dungeon.csv` | `FieldRequirementMultiplier_2`（嘆きの鍾乳洞） | 1.0→1.1 | 40F＝48 |
+| `dungeon.csv` | `FieldRequirementMultiplier_3`（忘却の古代廃墟） | 1.0→1.2 | 40F＝52 |
+| `dungeon.csv` | `FieldRequirementMultiplier_4`（焦熱の峡谷） | 1.0→1.3 | 40F＝56 |
+| `dungeon.csv` | `FieldRequirementMultiplier_5`（深淵の特異点） | 1.0→1.5 | 50F＝76 |
 
 ## 道中損耗・機嫌・内職・相性で追加／変更されたキー（2026年9月、→ 03 §0.19〜§0.22）
 
