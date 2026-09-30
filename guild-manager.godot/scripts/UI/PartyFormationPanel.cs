@@ -34,7 +34,6 @@ public partial class PartyFormationPanel : VBoxContainer
 	private Label _statusLabel = null!;
 
 	// 任務別の部隊指標（§0.42）
-	private RichTextLabel _previewLabel = null!;
 	private RichTextLabel _traversalBody = null!;
 	private RichTextLabel _surveyBody = null!;
 	private RichTextLabel _gatheringBody = null!;
@@ -73,7 +72,6 @@ public partial class PartyFormationPanel : VBoxContainer
 
 	// 増減プレビュー（§0.42）：表示中の仮の編成と、その説明・きっかけになった行／ボタン
 	private List<Guid>? _previewIds;
-	private string _previewCaption = "";
 	private Control? _previewSource;
 
 	private GameState? _state;
@@ -101,9 +99,9 @@ public partial class PartyFormationPanel : VBoxContainer
 	// 一覧の列幅（見出しと各行で共有して縦に揃える）
 	private const int NameMinWidth = 150;
 	private const int HpWidth = 66;
-	private const int StatWidth = 38;
+	private const int StatWidth = 46; // 見出し「MND」（15px）が収まる幅
 	private const int ContributionWidth = 48;
-	private const int StatusWidth = 96;
+	private const int StatusWidth = 132; // 「【当部隊配属中】」（全角8字）が収まる幅。狭いと列がずれる
 	private const int AssignWidth = 64;
 	private const int ColumnSeparation = 6;
 	private const int RowMargin = 8;
@@ -133,7 +131,6 @@ public partial class PartyFormationPanel : VBoxContainer
 		_dispatchedBadge = GetNode<Control>("%DispatchedBadge");
 		_statusLabel = GetNode<Label>("%StatusLabel");
 
-		_previewLabel = GetNode<RichTextLabel>("%PreviewLabel");
 		_traversalBody = GetNode<RichTextLabel>("%TraversalBody");
 		_surveyBody = GetNode<RichTextLabel>("%SurveyBody");
 		_gatheringBody = GetNode<RichTextLabel>("%GatheringBody");
@@ -352,11 +349,6 @@ public partial class PartyFormationPanel : VBoxContainer
 		var m = PartyFormationSystem.CalculateMetrics(party, _state);
 		var p = _previewIds == null ? null : PartyFormationSystem.PreviewMetrics(_state, _previewIds);
 
-		_previewLabel.Clear();
-		_previewLabel.AppendText(p == null
-			? "[color=gray]部隊の任務別の指標（出撃できない隊員は除く）。候補の行や「👑 リーダーに選出」にマウスを重ねると、その編成にした場合の値を → で並べて表示する。[/color]"
-			: $"[color=#fbbf24]👁 {_previewCaption}[/color]　[color=gray]（→ の右が変更後の値。緑＝上がる／赤＝下がる）[/color]");
-
 		// 🏃 進軍 → ⚔️ 討伐
 		SetBody(_traversalBody,
 			Line("走破力", m.TraversalPower, p?.TraversalPower),
@@ -493,7 +485,6 @@ public partial class PartyFormationPanel : VBoxContainer
 		var currentParty = GetCurrentParty();
 		if (currentParty == null) return;
 		_previewIds = ids;
-		_previewCaption = caption;
 		_previewSource = source;
 		RefreshSquadSummary(currentParty);
 	}
@@ -519,7 +510,6 @@ public partial class PartyFormationPanel : VBoxContainer
 	private void ClearPreviewState()
 	{
 		_previewIds = null;
-		_previewCaption = "";
 		_previewSource = null;
 	}
 
@@ -632,7 +622,7 @@ public partial class PartyFormationPanel : VBoxContainer
 			return;
 		}
 
-		_statusLabel.Text = $"{member?.Name ?? "隊員"} を {currentParty.Name} のリーダーにしました。";
+		_statusLabel.Text = "";
 		StateChanged.Invoke();
 	}
 
@@ -664,6 +654,7 @@ public partial class PartyFormationPanel : VBoxContainer
 		_contributionOption.ItemSelected += index =>
 		{
 			_contributionKind = ContributionKinds[(int)index].Kind;
+			UpdateSortButtonTexts();
 			RefreshCandidateList();
 		};
 		toolbar.AddChild(_contributionOption);
@@ -695,10 +686,10 @@ public partial class PartyFormationPanel : VBoxContainer
 		_candidateHeaderMargin.AddChild(header);
 
 		header.AddChild(SortButton(SortKey.Name, "氏名（職業・年齢）", NameMinWidth, expand: true, alignRight: false));
-		header.AddChild(SortButton(SortKey.Hp, "HP", HpWidth));
+		header.AddChild(SortButton(SortKey.Hp, "HP", HpWidth, center: true));
 		foreach (var stat in StatColumns)
-			header.AddChild(SortButton(Enum.Parse<SortKey>(stat), stat, StatWidth));
-		header.AddChild(SortButton(SortKey.Contribution, "貢献", ContributionWidth));
+			header.AddChild(SortButton(Enum.Parse<SortKey>(stat), stat, StatWidth, center: true));
+		header.AddChild(SortButton(SortKey.Contribution, "貢献", ContributionWidth, center: true));
 		header.AddChild(HeaderSpacer(StatusWidth));
 		header.AddChild(HeaderSpacer(AssignWidth));
 
@@ -709,7 +700,7 @@ public partial class PartyFormationPanel : VBoxContainer
 
 	private static Control HeaderSpacer(int width) => new Control { CustomMinimumSize = new Vector2(width, 0), MouseFilter = MouseFilterEnum.Ignore };
 
-	private Button SortButton(SortKey key, string text, int width, bool expand = false, bool alignRight = true)
+	private Button SortButton(SortKey key, string text, int width, bool expand = false, bool alignRight = true, bool center = false)
 	{
 		var button = new Button
 		{
@@ -717,7 +708,7 @@ public partial class PartyFormationPanel : VBoxContainer
 			Flat = true,
 			CustomMinimumSize = new Vector2(width, 20),
 			SizeFlagsHorizontal = expand ? SizeFlags.ExpandFill : SizeFlags.ShrinkBegin,
-			Alignment = alignRight ? HorizontalAlignment.Right : HorizontalAlignment.Left,
+			Alignment = center ? HorizontalAlignment.Center : alignRight ? HorizontalAlignment.Right : HorizontalAlignment.Left,
 			TooltipText = "クリックで並べ替え（もう一度で昇順／降順を切り替え）",
 			ClipText = true,
 		};
@@ -889,19 +880,19 @@ public partial class PartyFormationPanel : VBoxContainer
 		hbox.AddChild(nameLabel);
 
 		// HP
-		hbox.AddChild(Cell($"{a.CurrentHP}/{a.MaxHP}", HpWidth, a.CurrentHP < a.MaxHP ? new Color(1f, 0.75f, 0.45f) : StatValueColor));
+		hbox.AddChild(Cell($"{a.CurrentHP}/{a.MaxHP}", HpWidth, a.CurrentHP < a.MaxHP ? new Color(1f, 0.75f, 0.45f) : StatValueColor, center: true));
 
 		// 7大能力値（実効値。列の最大値は金色）
 		foreach (var stat in StatColumns)
 		{
 			int value = StatValue(a, stat);
-			hbox.AddChild(Cell(value.ToString(), StatWidth, value == topStats[stat] ? TopValueColor : StatValueColor));
+			hbox.AddChild(Cell(value.ToString(), StatWidth, value == topStats[stat] ? TopValueColor : StatValueColor, center: true));
 		}
 
 		// 任務別の貢献
 		double contribution = ContributionValue(a);
 		hbox.AddChild(Cell($"{contribution:F0}", ContributionWidth,
-			Math.Abs(contribution - topContribution) < 0.001 ? TopValueColor : new Color(0.55f, 0.85f, 1f)));
+			Math.Abs(contribution - topContribution) < 0.001 ? TopValueColor : new Color(0.55f, 0.85f, 1f), center: true));
 
 		// 状態バッジ
 		var (statusText, statusColor) = StatusBadge(a, isDispatched, isInCurrentParty, isInOtherParty, otherParty);
@@ -935,13 +926,13 @@ public partial class PartyFormationPanel : VBoxContainer
 		return panel;
 	}
 
-	private static Label Cell(string text, int width, Color? color, bool alignRight = true, int fontSize = 15)
+	private static Label Cell(string text, int width, Color? color, bool alignRight = true, int fontSize = 15, bool center = false)
 	{
 		var label = new Label
 		{
 			Text = text,
 			CustomMinimumSize = new Vector2(width, 0),
-			HorizontalAlignment = alignRight ? HorizontalAlignment.Right : HorizontalAlignment.Left,
+			HorizontalAlignment = center ? HorizontalAlignment.Center : alignRight ? HorizontalAlignment.Right : HorizontalAlignment.Left,
 		};
 		label.AddThemeFontSizeOverride("font_size", fontSize);
 		if (color is Color c)
@@ -1078,7 +1069,7 @@ public partial class PartyFormationPanel : VBoxContainer
 			return;
 		}
 
-		_statusLabel.Text = $"{a.Name} を {currentParty.Name} に配属しました。";
+		_statusLabel.Text = "";
 		StateChanged.Invoke();
 	}
 
@@ -1099,7 +1090,7 @@ public partial class PartyFormationPanel : VBoxContainer
 		var member = _state.Adventurers.FirstOrDefault(a => a.Id == id);
 		_partyFormationSystem.RemoveMember(currentParty, id);
 
-		_statusLabel.Text = $"{member?.Name ?? "メンバー"} を部隊から外しました。";
+		_statusLabel.Text = "";
 		StateChanged.Invoke();
 	}
 
@@ -1122,7 +1113,7 @@ public partial class PartyFormationPanel : VBoxContainer
 		}
 
 		_partyFormationSystem.RenameParty(currentParty, newName);
-		_statusLabel.Text = $"部隊名を「{newName}」に変更しました。";
+		_statusLabel.Text = "";
 		StateChanged.Invoke();
 	}
 

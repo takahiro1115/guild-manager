@@ -62,7 +62,7 @@ layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.8, 0.9, 1, 1)
 theme_override_font_sizes/font_size = 15
-text = "部隊を選択してメンバーを編成してください。"
+text = ""
 horizontal_alignment = 2
 
 [node name="SelectorRow" type="HBoxContainer" parent="HeaderPanel/Margin/HeaderVBox"]
@@ -132,16 +132,6 @@ theme_override_constants/margin_bottom = 4
 [node name="SummaryVBox" type="VBoxContainer" parent="SummaryPanel/Margin"]
 layout_mode = 2
 theme_override_constants/separation = 3
-
-[node name="PreviewLabel" type="RichTextLabel" parent="SummaryPanel/Margin/SummaryVBox"]
-unique_name_in_owner = true
-layout_mode = 2
-bbcode_enabled = true
-fit_content = true
-scroll_active = false
-theme_override_font_sizes/normal_font_size = 15
-theme_override_font_sizes/bold_font_size = 15
-text = ""
 
 [node name="SummaryHBox" type="HBoxContainer" parent="SummaryPanel/Margin/SummaryVBox"]
 layout_mode = 2
