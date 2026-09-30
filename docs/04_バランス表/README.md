@@ -29,7 +29,7 @@
 | `consumables.csv` | 03 §4.5.4 | ConsumableBalance（→ ConsumableCatalog。大迷宮ボスギミック対策4種の価格） |
 | `progression.csv` | 03 §4.5.1 | ProgressionBalance（初期の同時出撃枠） |
 | `dungeon.csv` | 03 §4.5.1・§4.5.4 | DungeonBalance（ボス能力重み・未踏破重損耗・ボス間隔・撃破実績点・出撃成長回数） |
-| `dungeon_traversal.csv` | 03 §4.5.3 | DungeonTraversalBalance（**走破力の重み（VIT/MND/隊長LDR）**・**基礎進軍階層数のRatioスケール `FloorsPerRatio`**（リニア進軍・上限なし、→ 03 §0.25）・進軍ランク別の既踏損耗率・調査度連動走破倍率・夜目 `NightVisionUnexploredDamageReductionRate`（→ 03 §0.32）） |
+| `dungeon_traversal.csv` | 03 §4.5.3 | DungeonTraversalBalance（**走破力の重み（VIT/MND/隊長LDR）**・**1歩の消費の尺度 `FloorsPerRatio`**（比率1.0の深さで週に進める階層数、4.0。進軍ランクの段 `RankRatioScale` は別。1歩の消費＝その階層の要求値÷(走破力×この値)÷解析倍率、週の予算1、→ 03 §0.49。旧リニア進軍は §0.25）・進軍ランク別の既踏損耗率・調査度連動走破倍率・夜目 `NightVisionUnexploredDamageReductionRate`（→ 03 §0.32）） |
 | `scouting.csv` | 03 §4.5.3 | ScoutingBalance（**隠密適性の重み・専門職ボーナス・人数倍率・重装ペナルティ**、迷宮調査の4段階護衛判定・解析成果倍率・護衛HP損耗） |
 | `gathering.csv` | 03 §4.5.5 | GatheringBalance（採取スコア係数・職業ボーナス・報酬ゴールド） |
 | `materials.csv` | 03 §4.5.5・**§4.8.1** | MaterialBalance（全5フィールドの採取素材定義・MinFloor・基準獲得数・**売却額 `SellPrice`**） |
@@ -213,6 +213,17 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 | `scouting.csv` | `GuardRequirementBase`／`GuardRequirementPerFloor`（ともに新設） | 28／1.15 | 39.5／62.5／143 |
 | `dungeon_traversal.csv` | `RequirementPerFloor`（15→7.5。基礎値は置かない） | 7.5 | 75／225／750 |
 | `dungeon.csv` | `FieldRequirementMultiplier_1`〜`_5`（新設） | すべて1.0 | 上記すべてに掛けるフィールド倍率。2つ目以降の値は調整保留 |
+
+## 走破を階層ごとの要求値で数える改訂で変更／追加されたキー（2026年9月、→ 03 §0.49）
+
+進軍の数え方が「出発階層の比率で予算 `floor(比率×2)` 階層」から
+「1週の予算1、1歩の消費＝その階層の要求値÷(走破力×`FloorsPerRatio`)÷区間の解析倍率」へ変わった。
+
+| ファイル | キー | 値 | 意味 |
+|---|---|---|---|
+| `dungeon_traversal.csv` | `FloorsPerRatio`（2.0→4.0） | 4.0 | 比率1.0の深さで1週に進める階層数。大きくするほど深い階層まで速く潜れる（全能力90・全区間未解析で1F→100Fが 2.0＝30週、4.0＝14週、6.0＝9週） |
+| `dungeon_traversal.csv` | `RankRatioScale`（新設） | 2.0 | 進軍ランクの段＝floor(先頭の階層での比率×この値)。既踏の損耗率を決める。速さ（`FloorsPerRatio`）と切り離し、比率ごとのランクは従来どおり |
+| `dungeon_traversal.csv` | `RequirementPerFloor` | 7.5 | 1歩ごとに、踏み出す階層×この値を要求値にする（旧：出発階層だけで1回） |
 
 ## 道中損耗・機嫌・内職・相性で追加／変更されたキー（2026年9月、→ 03 §0.19〜§0.22）
 

@@ -11,12 +11,12 @@ namespace GuildManager.Core.Systems
     /// </summary>
     public class TraversalResult
     {
-        /// <summary>今回の進軍ランク（走破力Ratioから決まる）。</summary>
+        /// <summary>今回の進軍ランク（先頭の階層 FrontFloor での走破力Ratioから決まる）。</summary>
         public TraversalRank Rank { get; set; }
 
         /// <summary>
-        /// 基礎進軍階層数（＝移動予算。→ DungeonTraversalResolver.CalculateBaseFloors：max(1, floor(Ratio×FloorsPerRatio))、
-        /// 上限なし。2026年9月、リニア進軍モデル）。実際に進んだ階層数は区間の解析倍率とストッパーで決まる（→ FloorAfter−FloorBefore）。
+        /// 先頭の階層の深さで、比率のまま1週に進める階層数（→ DungeonTraversalResolver.CalculateBaseFloors：max(1, floor(Ratio×FloorsPerRatio))）。
+        /// 表示用（§0.49。進軍ランクは Ratio×RankRatioScale で別に決める）。実際に進んだ階層数は階層ごとの要求値・区間の解析倍率・ストッパーで決まる（→ FloorAfter−FloorBefore）。
         /// </summary>
         public int BaseFloors { get; set; }
 
@@ -74,10 +74,15 @@ namespace GuildManager.Core.Systems
         /// <summary>走破力スコア（→ DungeonTraversalResolver.CalculateTraversalScore）。判定内訳の開示用。</summary>
         public double TraversalScore { get; set; }
 
-        /// <summary>出発階層の要求値（→ DungeonTraversalResolver.FloorRequirement）。</summary>
+        /// <summary>先頭の階層 FrontFloor の要求値（→ DungeonTraversalResolver.FloorRequirement）。</summary>
         public double Requirement { get; set; }
 
-        /// <summary>走破力÷要求値（→ 進軍ランクの判定に使ったRatio）。</summary>
+        /// <summary>
+        /// その週に最後に踏み出した階層（1歩も進めなければ出発階層）。要求値・比率・進軍ランクはこの階層で求める（§0.49）。
+        /// </summary>
+        public int FrontFloor { get; set; }
+
+        /// <summary>走破力÷要求値（→ 進軍ランクの判定に使ったRatio、先頭の階層での値）。</summary>
         public double Ratio { get; set; }
 
         /// <summary>既踏階層の基礎損耗率（進軍ランクの率、部隊平均の%）。既踏階層を歩かなかった場合は0。</summary>

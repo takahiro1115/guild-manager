@@ -21,7 +21,8 @@ namespace GuildManager.Core.Systems
     /// 致死判定には一切接続しない（→ ScoutingResolver.MinHpと同じ考え方）。
     ///
     /// 毎回1Fリセット・複数週潜行型（2026年9月改訂）：潜行中の部隊は Resolve(party, field, currentFloor)
-    /// で現在階層から進む。調査度連動の走破加速（→ IntelSpeedMultiplier）により、解析済みの区間ほど
+    /// で現在階層から進む。1歩の重さはその階層の要求値で決まり、深く潜るほど1週に進める階層が減る（→ StepCost、§0.49）。
+    /// 調査度連動の走破加速（→ IntelSpeedMultiplier）により、解析済みの区間ほど
     /// 少ない予算で抜けられ（完全解析で3倍速）、完全解析済みの区間を歩いた階層ではHP損耗も軽減される
     /// （→ DamageTakenMultiplier。損耗は階層ごとに積み上げる、→ ApplyHpLoss）。進んだ階層に応じて素材・ゴールドを拾う（→ TraversalResult.LootGold等）。
     /// </summary>
@@ -67,9 +68,11 @@ namespace GuildManager.Core.Systems
         }
 
         /// <summary>
-        /// 進軍の本体。1階層ずつ「移動予算」を消費して進む：基礎進軍階層数（→ CalculateBaseFloors、Ratioにリニア比例・上限なし）を
-        /// 予算とし、1階層進むごとに 1÷走破倍率（→ IntelSpeedMultiplier、その階層の区間担当ボスの
-        /// 解析率で決まる）を消費する。完全解析済みの区間は1/3の予算で抜けられる＝同じ予算で3倍進む。
+        /// 進軍の本体（2026年9月・§0.49で階層ごとの要求値へ改訂）。1週の移動予算1を、1階層ずつ消費して進む：
+        /// 1歩の消費＝その階層の要求値 ÷（走破力×FloorsPerRatio）÷ 走破倍率（→ StepCost）。
+        /// 深い階層ほど要求値が大きく1歩が重くなり、解析済みの区間ほど軽くなる（完全解析で1/3）。
+        /// 最初の1歩だけは予算が足りなくても必ず進む（完全な足止めにはしない）。
+        /// 進軍ランク・比率は、その週に最後に踏み出した階層（＝先頭）の要求値で決める（→ PlanWeek）。
         /// HP損耗は歩いた階層ごとに「その階層の基礎損耗率×その区間の被ダメージ倍率」を積み上げる
         /// （→ ApplyHpLoss。2026年9月改訂：旧来の「進軍全体の基礎率×平均倍率」を廃止）。
         /// </summary>
@@ -86,53 +89,40 @@ namespace GuildManager.Core.Systems
             }
 
             double score = CalculateTraversalScore(party, state);
-            double requirement = FloorRequirement(field, startFloor);
-            double ratio = requirement <= 0 ? double.MaxValue : score / requirement;
+            var plan = Walk(field, startFloor, stopper, score);
 
-            int baseFloors = CalculateBaseFloors(ratio);
-            var rank = RankFromFloors(baseFloors);
+            var rank = plan.Rank;
             result.Rank = rank;
-            result.BaseFloors = baseFloors;
+            result.BaseFloors = plan.BaseFloors;
             result.TraversalScore = score;
-            result.Requirement = requirement;
-            result.Ratio = ratio;
+            result.Requirement = plan.Requirement;
+            result.Ratio = plan.Ratio;
+            result.FrontFloor = plan.FrontFloor;
 
             var startSegmentBoss = SegmentBoss(field, startFloor, stopper);
 
-            // ストッパー：次の未撃破ボス階層を超えて進むことはない（→ 案A「一度倒したボスは素通り」の裏返し。
-            // 未撃破のボスだけは必ず足止めになる）。
-            int limit = stopper == null ? DungeonField.MaxFloor : Math.Min(DungeonField.MaxFloor, stopper.Floor);
-
-            double budget = baseFloors;
-            int floor = startFloor;
             int exploredRecord = field.ReachedFloor; // 進軍前の最高到達階層（これより深い階層が未踏破）
             var steps = new List<TraversalStep>();
-            while (floor < limit)
+            for (int from = startFloor; from < plan.FloorAfter; from++)
             {
-                // floor→floor+1 の1歩は、出発する階層 floor の区間担当ボスが受け持つ
+                // from→from+1 の1歩は、出発する階層 from の区間担当ボスが受け持つ
                 // （→ GetSegmentBoss。9→10Fは10Fボス、10→11Fは20Fボスの区間）。
-                var segmentBoss = SegmentBoss(field, floor, stopper);
-                double speed = IntelSpeedMultiplier(segmentBoss);
-                double cost = 1.0 / speed;
-                if (budget + BudgetEpsilon < cost)
-                    break;
-
-                budget -= cost;
-                floor++;
+                var segmentBoss = SegmentBoss(field, from, stopper);
+                int floor = from + 1;
                 bool unexplored = floor > exploredRecord;
                 if (unexplored)
                     result.EnteredUnexplored = true;
-                steps.Add(new TraversalStep(floor, segmentBoss, unexplored, speed, DamageTakenMultiplier(segmentBoss)));
+                steps.Add(new TraversalStep(floor, segmentBoss, unexplored, IntelSpeedMultiplier(segmentBoss), DamageTakenMultiplier(segmentBoss)));
                 CollectLoot(result, field, floor);
             }
 
-            if (stopper != null && floor >= stopper.Floor)
+            if (stopper != null && plan.FloorAfter >= stopper.Floor)
             {
                 result.StopperTriggered = true;
                 result.TargetBoss = stopper;
             }
 
-            result.FloorAfter = floor;
+            result.FloorAfter = plan.FloorAfter;
             result.UnexploredFloorsAdvanced = steps.Count(s => s.Unexplored);
 
             // 進軍全体の実効倍率（階層数で重み付けした平均）。1階層も進めなかった場合は出発区間の値。
@@ -151,25 +141,80 @@ namespace GuildManager.Core.Systems
         private const double BudgetEpsilon = 1e-9;
 
         /// <summary>
-        /// 出撃前プレビュー用：startFloor から基礎 baseFloors 階層ぶんの予算で進んだ場合の到達階層の予測
-        /// （2026年9月、リニア進軍モデル）。Resolve と同じ規則で数える：1歩ごとに 1÷区間の解析倍率を消費し、
-        /// startFloor 以降で最初の未撃破ボスの階層・最深部で必ず止まる（越境しない）。乱数・状態の変更は無い。
+        /// 1週ぶんの進軍の見通し（→ PlanWeek・Walk）。FrontFloor＝その週に最後に踏み出した階層（1歩も進めなければ出発階層）。
+        /// Requirement・Ratio・BaseFloors・Rank はいずれも先頭の階層の要求値で求めた値で、
+        /// BaseFloors は「その深さで比率のまま1週に進める階層数」（＝ CalculateBaseFloors(Ratio)）。
         /// </summary>
-        public static int PredictFloorAfter(DungeonField field, int startFloor, int baseFloors)
+        public readonly record struct TraversalPlan(int FloorAfter, int FrontFloor, double Requirement, double Ratio, int BaseFloors, TraversalRank Rank);
+
+        /// <summary>
+        /// 1歩（floor→floor+1）の予算の消費（2026年9月・§0.49）＝ floor の要求値 ÷（走破力×FloorsPerRatio）÷ 区間の走破倍率。
+        /// 1週の予算は1。走破力が0なら無限大（最初の1歩だけ進む）。
+        /// </summary>
+        public static double StepCost(DungeonField field, int floor, double score, FloorBoss? stopper = null)
         {
-            var stopper = field.GetNextUndefeatedBossFrom(startFloor);
+            if (score <= 0)
+                return double.PositiveInfinity;
+            return FloorRequirement(field, floor) / (score * DungeonTraversalBalance.FloorsPerRatio)
+                / IntelSpeedMultiplier(SegmentBoss(field, floor, stopper));
+        }
+
+        /// <summary>
+        /// 1週の進軍を数える本体（Resolve と出撃前プレビューで共有する。乱数・状態の変更は無い）。
+        /// 予算1から StepCost を引きながら進み、stopper の階層・最深部で必ず止まる（越境しない）。
+        /// 最初の1歩は予算が足りなくても進む。
+        /// </summary>
+        private static TraversalPlan Walk(DungeonField field, int startFloor, FloorBoss? stopper, double score)
+        {
             int limit = stopper == null ? DungeonField.MaxFloor : Math.Min(DungeonField.MaxFloor, stopper.Floor);
-            double budget = baseFloors;
+            double budget = WeeklyBudget;
             int floor = startFloor;
             while (floor < limit)
             {
-                double cost = 1.0 / IntelSpeedMultiplier(SegmentBoss(field, floor, stopper));
-                if (budget + BudgetEpsilon < cost)
+                double cost = StepCost(field, floor, score, stopper);
+                if (floor > startFloor && budget + BudgetEpsilon < cost)
                     break;
                 budget -= cost;
                 floor++;
             }
-            return floor;
+
+            int front = floor > startFloor ? floor - 1 : startFloor;
+            double requirement = FloorRequirement(field, front);
+            double ratio = requirement <= 0 ? double.MaxValue : score / requirement;
+            int baseFloors = CalculateBaseFloors(ratio);
+            return new TraversalPlan(floor, front, requirement, ratio, baseFloors, ClassifyRatio(ratio));
+        }
+
+        /// <summary>1週の移動予算（§0.49）。1歩の消費は StepCost。</summary>
+        private const double WeeklyBudget = 1.0;
+
+        /// <summary>
+        /// 出撃前プレビュー用：startFloor から1週で進んだ場合の見通し。Resolve と同じ規則で数え、
+        /// startFloor 以降で最初の未撃破ボスの階層で止まる。
+        /// </summary>
+        public static TraversalPlan PlanWeek(DungeonField field, int startFloor, double score) =>
+            Walk(field, startFloor, field.GetNextUndefeatedBossFrom(startFloor), score);
+
+        /// <summary>出撃前プレビュー用：startFloor から1週で進んだ場合の到達階層の予測（→ PlanWeek）。</summary>
+        public static int PredictFloorAfter(DungeonField field, int startFloor, double score) =>
+            PlanWeek(field, startFloor, score).FloorAfter;
+
+        /// <summary>
+        /// 出撃前プレビュー用：startFloor から targetFloor（または途中の未撃破ボスの階層・最深部）に着くまでの週数。
+        /// 解析率・走破力は出発時のまま変わらないものとして数える。maxWeeks を超える場合は maxWeeks＋1 を返す。
+        /// </summary>
+        public static int PredictWeeksToFloor(DungeonField field, int startFloor, int targetFloor, double score, int maxWeeks = 99)
+        {
+            var stopper = field.GetNextUndefeatedBossFrom(startFloor);
+            int goal = Math.Min(targetFloor, stopper == null ? DungeonField.MaxFloor : Math.Min(DungeonField.MaxFloor, stopper.Floor));
+            int floor = startFloor;
+            for (int week = 1; week <= maxWeeks; week++)
+            {
+                floor = Walk(field, floor, stopper, score).FloorAfter;
+                if (floor >= goal)
+                    return week;
+            }
+            return maxWeeks + 1;
         }
 
         /// <summary>
@@ -324,17 +369,16 @@ namespace GuildManager.Core.Systems
         public static double CurrentFloorRequirement(DungeonField field) => FloorRequirement(field, field.ReachedFloor);
 
         /// <summary>
-        /// 指定階層から進軍する際の要求値＝階層×係数×フィールド倍率（→ 潜行中の部隊は ActiveDungeonMission.CurrentFloor を渡す）。
+        /// その階層から1階層進む際の要求値＝階層×係数×フィールド倍率。1歩ごとにこの値で消費を決める（→ StepCost、§0.49）。
         /// 基礎値は0（→ DungeonTraversalBalance.RequirementPerFloor の注記。§0.47）。
         /// </summary>
         public static double FloorRequirement(DungeonField field, int floor) =>
             DungeonBalance.ScaleRequirement(0, DungeonTraversalBalance.RequirementPerFloor, floor, field.Order);
 
         /// <summary>
-        /// 基礎進軍階層数（＝移動予算。2026年9月、リニア進軍モデル）＝max(1, floor(Ratio×FloorsPerRatio))。
-        /// 上限は持たない（旧来の最大4階層を撤廃）。ただし未撃破ボスの階層・最深部を超えて進むことはない
-        /// （→ ResolveFrom のストッパー）ため、実際の進軍はそこで打ち切られる。要求値0（Ratio＝∞）でも
-        /// 最深部の階層数で頭打ちにして整数へ変換する（オーバーフロー防止）。
+        /// 比率 ratio のまま1週に進める階層数＝max(1, floor(Ratio×FloorsPerRatio))。週報・見立ての
+        /// 表示に使う（進軍ランクは ClassifyRatio で別に決める）。§0.49以降、実際の進軍は階層ごとの要求値で1歩ずつ数える（→ StepCost）ため、この値そのものを予算にはしない。
+        /// 要求値0（Ratio＝∞）でも最深部の階層数で頭打ちにして整数へ変換する（オーバーフロー防止）。
         /// </summary>
         public static int CalculateBaseFloors(double ratio)
         {
@@ -344,7 +388,7 @@ namespace GuildManager.Core.Systems
         }
 
         /// <summary>
-        /// 基礎進軍階層数からの進軍ランクの逆引き：1＝苦戦／2＝通常／3＝迅速／4＝電撃／5＝疾風／6以上＝神速。
+        /// 進軍ランクの段（→ ClassifyRatio）からの逆引き：1＝苦戦／2＝通常／3＝迅速／4＝電撃／5＝疾風／6以上＝神速。
         /// </summary>
         public static TraversalRank RankFromFloors(int baseFloors) => baseFloors switch
         {
@@ -356,8 +400,16 @@ namespace GuildManager.Core.Systems
             _ => TraversalRank.Godspeed,
         };
 
-        /// <summary>走破力Ratioから進軍ランクを求める（＝RankFromFloors(CalculateBaseFloors(ratio))）。</summary>
-        public static TraversalRank ClassifyRatio(double ratio) => RankFromFloors(CalculateBaseFloors(ratio));
+        /// <summary>
+        /// 走破力Ratioから進軍ランクを求める＝RankFromFloors(max(1, floor(Ratio×RankRatioScale)))。
+        /// 進む速さ（FloorsPerRatio）とは切り離してあり、速さを変えても既踏の損耗率は変わらない（§0.49）。
+        /// </summary>
+        public static TraversalRank ClassifyRatio(double ratio)
+        {
+            double raw = Math.Floor(ratio * DungeonTraversalBalance.RankRatioScale);
+            int step = double.IsNaN(raw) ? 1 : (int)Math.Clamp(raw, 1, DungeonField.MaxFloor);
+            return RankFromFloors(step);
+        }
 
         /// <summary>
         /// 道中進軍のHP消費（2026年9月改訂：階層ごとの個別積み上げ）。

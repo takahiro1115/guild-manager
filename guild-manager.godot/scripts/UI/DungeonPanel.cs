@@ -1036,14 +1036,11 @@ public partial class DungeonPanel : ScrollContainer
 
 		if (boss != null)
 		{
+			// 1週目の進軍（→ PlanWeek、実際の解決と同じ規則）の損耗。進軍ランクは1週目の先頭の階層での比率（§0.49）。
 			double score = DungeonTraversalResolver.CalculateTraversalScore(party, _state);
-			double requirement = DungeonTraversalResolver.FloorRequirement(_selectedField, 1);
-			double ratio = requirement <= 0 ? double.MaxValue : score / requirement;
-			int baseFloors = DungeonTraversalResolver.CalculateBaseFloors(ratio);
-			var rank = DungeonTraversalResolver.RankFromFloors(baseFloors);
-			int predictedReach = DungeonTraversalResolver.PredictFloorAfter(_selectedField, 1, baseFloors);
-			double worst = DungeonTraversalResolver.RankHpLossRange(rank).Max;
-			if (predictedReach > _selectedField.ReachedFloor)
+			var firstWeek = DungeonTraversalResolver.PlanWeek(_selectedField, 1, score);
+			double worst = DungeonTraversalResolver.RankHpLossRange(firstWeek.Rank).Max;
+			if (firstWeek.FloorAfter > _selectedField.ReachedFloor)
 				worst = Math.Max(worst, DungeonBalance.UnexploredHpLossPctMax * DungeonTraversalResolver.UnexploredLossMultiplier(party));
 			result.Add(("潜行", worst));
 
@@ -1196,11 +1193,13 @@ public partial class DungeonPanel : ScrollContainer
 		}
 
 		double score = DungeonTraversalResolver.CalculateTraversalScore(party, _state);
-		double requirement = DungeonTraversalResolver.FloorRequirement(_selectedField, 1);
+		// 扉前の手前（最後の1歩を踏み出す階層）が道中でいちばん重い。比率・進軍ランクはその階層で見せる（§0.49）。
+		int doorFront = Math.Max(1, boss.Floor - 1);
+		double requirement = DungeonTraversalResolver.FloorRequirement(_selectedField, doorFront);
 		double ratio = requirement <= 0 ? double.MaxValue : score / requirement;
-		int baseFloors = DungeonTraversalResolver.CalculateBaseFloors(ratio);
-		var rank = DungeonTraversalResolver.RankFromFloors(baseFloors);
-		int predictedReach = DungeonTraversalResolver.PredictFloorAfter(_selectedField, 1, baseFloors);
+		var rank = DungeonTraversalResolver.ClassifyRatio(ratio);
+		var firstWeek = DungeonTraversalResolver.PlanWeek(_selectedField, 1, score);
+		int weeksToDoor = DungeonTraversalResolver.PredictWeeksToFloor(_selectedField, 1, boss.Floor, score);
 		var (rankLossMin, rankLossMax) = DungeonTraversalResolver.RankHpLossRange(rank);
 		// 夜目（→ 03 §4.5.3）の保有者がいれば、未踏破の損耗レンジを実際の解決と同じ倍率で縮めて見せる。
 		double unexploredMul = DungeonTraversalResolver.UnexploredLossMultiplier(party);
@@ -1213,15 +1212,18 @@ public partial class DungeonPanel : ScrollContainer
 		double requiredPower = DungeonResolver.RequiredPower(boss);
 
 		sb.Append($"\n目標：第{boss.Floor}層「{boss.Name}」扉前");
-		sb.Append($"\n走破力 [b]{score:F0}[/b] ／ 要求 {requirement:F0}（×{FormatRatio(ratio)}）");
-		sb.Append($"\n見立て：[color=cyan]{TraversalRankLabel(rank)}[/color] → 予測 第{predictedReach}層（+{predictedReach - 1}）");
-		sb.Append($"\n[color=gray]損耗 既踏{rankLossMin}〜{rankLossMax}%・未踏破{unexploredLoss}[/color]");
+		sb.Append($"\n走破力 [b]{score:F0}[/b] ／ 扉前の要求 {requirement:F0}（×{FormatRatio(ratio)}）");
+		string weeksText = weeksToDoor > 99 ? "99週超" : $"{weeksToDoor}週";
+		sb.Append($"\n見立て：扉前まで[color=cyan]{weeksText}[/color]（1週目は第{firstWeek.FloorAfter}層まで）");
+		sb.Append($"\n[color=gray]損耗/週 既踏{rankLossMin}〜{rankLossMax}%（{TraversalRankLabel(rank)}）・未踏破{unexploredLoss}[/color]");
 		sb.Append($"\n討伐火力 [b]{power:F0}[/b] ／ 要求 {requiredPower:F0}　{Check(power >= requiredPower, "撃破見込み", "火力不足")}");
 		_traversalPreviewLabel.AppendText(sb.ToString());
 
 		string tooltip =
 			$"区間別の走破倍率：{SegmentPreviewText(segments)}\n" +
-			$"1階層ごとに 1÷区間倍率 の予算を消費して進む（区間倍率＝1.0＋区間担当ボスの解析率×{DungeonTraversalBalance.IntelSpeedBonusPerIntel:0.#}）。\n" +
+			$"1週の予算は1。1階層ごとに（その階層の要求値〈階層×{DungeonTraversalBalance.RequirementPerFloor:0.#}〉÷(走破力×{DungeonTraversalBalance.FloorsPerRatio:0.#})）÷区間倍率 を消費して進む。\n" +
+			$"深く潜るほど1歩が重く、解析済みの区間ほど軽い（区間倍率＝1.0＋区間担当ボスの解析率×{DungeonTraversalBalance.IntelSpeedBonusPerIntel:0.#}）。最初の1階層は必ず進む。\n" +
+			$"扉前までの週数は、今の走破力・解析率のまま潜った場合の見込み。損耗は週ごとにかかる（進軍ランクは扉前の手前の階層での比率）。\n" +
 			$"損耗は階層ごとに積み上げる：その階層の基礎率（既踏／未踏破）÷歩いた階層数×区間の被ダメ倍率（完全解析区間は×{DungeonTraversalBalance.FullIntelDamageMultiplier:0.0#}）。\n" +
 			$"走破力（Σ(VIT×{DungeonTraversalBalance.WeightVit:0.#}＋MND×{DungeonTraversalBalance.WeightMnd:0.#})＋部隊長LDR補正、研究・参謀込み）：{score:F0}\n" +
 			$"討伐火力：扉前でボスに挑んだときの部隊火力（完全解析+{DungeonBalance.FullIntelDamageBonus * 100:F0}%・巨獣狩り込み）。要求＝({DungeonBalance.PartyPowerRequirementBase:0.#}＋ボス階層×{DungeonBalance.PartyPowerRequirementPerFloor:0.#})×フィールド倍率{DungeonBalance.GetFieldRequirementMultiplier(boss.FieldOrder):0.##}。\n" +

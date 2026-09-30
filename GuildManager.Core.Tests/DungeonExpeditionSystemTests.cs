@@ -928,7 +928,7 @@ namespace GuildManager.Core.Tests
         /// <summary>
         /// 素材定義のある「forest」フィールドに、指定階層の未撃破ボスを1体置いた状態。
         /// 全能力値 stat の2名（盗賊・重戦士）を待機させる。既定の300は走破力が非常に高く、1週目から扉前まで一気に進む。
-        /// 数週にまたがる潜行を確かめたい場合は SlowDiverStat（1F→5F→6F）を渡す（→ リニア進軍モデル、2026年9月）。
+        /// 数週にまたがる潜行を確かめたい場合は SlowDiverStat（1F→5F→6F）を渡す（→ 階層ごとの要求値で進む、§0.49）。
         /// </summary>
         private static (GameState State, DungeonField Field, FloorBoss Boss, Adventurer A, Adventurer B) MakeDeepDiveState(
             int bossFloor, int bossHp = 999_999, int stat = 300)
@@ -942,10 +942,11 @@ namespace GuildManager.Core.Tests
         }
 
         /// <summary>
-        /// 数週にまたがる潜行を確かめるための全能力値。2名で走破力＝4×1.8×2＋隊長LDR4＝18.4：
-        /// 1Fでは要求値7.5でRatio 2.45＝基礎4階層（1F→5F）、5Fでは要求値37.5でRatio 0.49＝基礎1階層（5F→6F）。
+        /// 数週にまたがる潜行を確かめるための全能力値。2名で走破力＝5×1.8×2＋隊長LDR5＝23。
+        /// 1歩の消費＝階層×7.5÷(23×4)（→ StepCost、§0.49）：1週目は1〜4Fの4歩で予算1のうち0.82を使い（1F→5F）、
+        /// 5Fからの1歩（0.41）は入らない。2週目は最初の1歩で6Fの扉前に着く（5F→6F）。
         /// </summary>
-        private const int SlowDiverStat = 4;
+        private const int SlowDiverStat = 5;
 
         [Fact]
         public void Expedition_StopsAtBossFloor_AndSetsAwaitingDecision()

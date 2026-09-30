@@ -69,7 +69,8 @@ namespace GuildManager.Core.Tests.Balance
         [Fact]
         public void Traversal_EliteParty_IsAboutEvenAt100F()
         {
-            // 走破は「基礎値0・階層に比例」の形（浅い階を速く抜けるため）なので、100Fで比率およそ1.0を目安にする。
+            // 走破は「基礎値0・階層に比例」の形（浅い階を速く抜けるため）なので、100Fで比率およそ1.0を目安にする
+            // （§0.49以降、1歩の重さはその階層の要求値で決まる：比率1.0の深さでは未解析で週4階層、完全解析で週12階層）。
             var field = new DungeonField { Id = "forest", Order = 1 };
             double ratio = DungeonTraversalResolver.CalculateTraversalScore(AssaultParty(90))
                 / DungeonTraversalResolver.FloorRequirement(field, 100);

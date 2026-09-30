@@ -5,8 +5,8 @@ namespace GuildManager.Core.Balance
     /// 値は docs/04_バランス表/dungeon_traversal.csv から読み込む（→ 03 §10.1、フォールバックなし）。
     ///
     /// 道中進軍は「一度倒したボス階層は素通りし、次の未撃破ボス階層まで部隊の走破力に応じて
-    /// 一気に進軍する」という調査任務の分岐（→ ScoutingBalance側のボス解析判定とは別枠）。
-    /// 走破力が不足していても必ず1階層は進む（→ FloorsPerRatio・max(1, …)）ため、
+    /// 進軍する」という調査任務の分岐（→ ScoutingBalance側のボス解析判定とは別枠）。
+    /// 1歩の重さはその階層の要求値で決まる（§0.49）。走破力が不足していても1週に必ず1階層は進むため、
     /// 完全な足止めにはならない設計。
     /// </summary>
     public static class DungeonTraversalBalance
@@ -28,17 +28,24 @@ namespace GuildManager.Core.Balance
         public static readonly double WeightLdr = BalanceData.GetDouble(FileName, "Traversal_Weight_Ldr");
 
         /// <summary>
-        /// 道中進軍の要求値＝進軍を始める階層×この値×フィールド倍率（→ DungeonBalance.GetFieldRequirementMultiplier）。
-        /// 他の要求値と違って基礎値は置かない：毎回1Fから潜り直すため、浅い階を速く抜けられる形を残す（§0.47）。
+        /// 道中進軍の要求値＝階層×この値×フィールド倍率（→ DungeonBalance.GetFieldRequirementMultiplier）。1歩ごとに、
+        /// 踏み出す階層の値で消費を決める（§0.49）。他の要求値と違って基礎値は置かない：毎回1Fから潜り直すため、
+        /// 浅い階を速く抜けられる形を残す（§0.47）。
         /// </summary>
         public static readonly double RequirementPerFloor = BalanceData.GetDouble(FileName, "RequirementPerFloor");
 
         /// <summary>
-        /// 基礎進軍階層数のRatioスケール（2026年9月、リニア進軍モデル）：
-        /// 基礎進軍階層数＝max(1, floor(走破力Ratio×この値))。上限なし（→ DungeonTraversalResolver.CalculateBaseFloors）。
-        /// 旧来の「Ratio閾値3本（1.0/1.4/1.8）→ 1〜4階層の4段階」（RatioThreshold_*／FloorsAdvanced_*）を置き換えた。
+        /// 比率1.0の深さで1週に進める階層数（§0.49）。1歩の消費＝その階層の要求値÷（走破力×この値）÷区間の走破倍率で、
+        /// 1週の予算は1（→ DungeonTraversalResolver.StepCost）。進軍ランクの逆引き
+        /// （max(1, floor(Ratio×この値)) → DungeonTraversalResolver.CalculateBaseFloors）にも使う。
         /// </summary>
         public static readonly double FloorsPerRatio = BalanceData.GetDouble(FileName, "FloorsPerRatio");
+
+        /// <summary>
+        /// 進軍ランクの段＝max(1, floor(先頭の階層での比率×この値))（1＝苦戦〜6以上＝神速、→ DungeonTraversalResolver.ClassifyRatio）。
+        /// 進む速さ（FloorsPerRatio）とは切り離してあり、FloorsPerRatio を変えても既踏の損耗率は変わらない（§0.49）。
+        /// </summary>
+        public static readonly double RankRatioScale = BalanceData.GetDouble(FileName, "RankRatioScale");
 
         // ---- 進軍ランクごとのHP消費率（疾風・神速は電撃の率で底打ち、→ DungeonTraversalResolver.RankHpLossRange） ----
         public static readonly int HpLossPctMinLightning = BalanceData.GetInt(FileName, "HpLossPctMin_Lightning");

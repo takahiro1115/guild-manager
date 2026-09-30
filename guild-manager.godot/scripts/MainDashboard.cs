@@ -923,8 +923,9 @@ public partial class MainDashboard : Control
 			if (traversal.IntelSpeedMultiplier > 1.0)
 				sb.AppendLine($"[color=lime]◆ 解析済みの情報を活かし、実効平均 走破速度 ×{traversal.IntelSpeedMultiplier:F1}で進んだ。[/color]");
 			// 判定・損耗内訳の開示（→ 03 §4.2.3「開発・バランス調整期間の特記事項」）。
-			sb.AppendLine($"[color=gray]【大迷宮潜行】走破力{traversal.TraversalScore:F0} / 要求値{traversal.Requirement:F0}（{traversal.FloorBefore}F×{DungeonTraversalBalance.RequirementPerFloor}×フィールド倍率）" +
-				$"＝ 比率{DungeonPanel.FormatRatio(traversal.Ratio)}［{DungeonPanel.TraversalRankLabel(traversal.Rank)}: 基礎{traversal.BaseFloors}階層＝floor(比率×{DungeonTraversalBalance.FloorsPerRatio:0.#})］[/color]");
+			sb.AppendLine($"[color=gray]【大迷宮潜行】走破力{traversal.TraversalScore:F0} / 先頭の要求値{traversal.Requirement:F0}（{traversal.FrontFloor}F×{DungeonTraversalBalance.RequirementPerFloor}×フィールド倍率）" +
+				$"＝ 比率{DungeonPanel.FormatRatio(traversal.Ratio)}［{DungeonPanel.TraversalRankLabel(traversal.Rank)}＝floor(比率×{DungeonTraversalBalance.RankRatioScale:0.#})段・この深さで週{traversal.BaseFloors}階層＝floor(比率×{DungeonTraversalBalance.FloorsPerRatio:0.#})］" +
+				$"　1歩の消費＝その階層の要求値÷(走破力×{DungeonTraversalBalance.FloorsPerRatio:0.#})÷区間倍率、週の予算1[/color]");
 			if (traversal.Segments.Count > 0)
 			{
 				string segments = string.Join(" + ", traversal.Segments.Select(s =>
