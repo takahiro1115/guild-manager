@@ -237,6 +237,22 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 | `dungeon.csv` | `FieldRequirementMultiplier_4`（焦熱の峡谷） | 1.0→1.3 | 40F＝56 |
 | `dungeon.csv` | `FieldRequirementMultiplier_5`（深淵の特異点） | 1.0→1.5 | 50F＝76 |
 
+## 要求値の傾きを緩めた改訂で変更されたキー（2026年9月、→ 03 §0.51）
+
+目安を「森の10F＝各能力25（据え置き）、森の100F＝各能力55、深淵の100F＝各能力70」に改めた（旧：森の100F＝各能力90。成長の上限では作れないことをシミュレーションで確認）。
+討伐・走破は4人部隊、調査は斥候1名を含む3人の調査隊が基準（`DungeonRequirementAnchorTests` で固定）。上の§0.47・§0.50の表の値を置き換える。
+
+| ファイル | キー | 旧 → 新 | 10F／30F／100F（森） |
+|---|---|---|---|
+| `dungeon.csv` | `PartyPowerRequirementBase`／`PartyPowerRequirementPerFloor` | 270／15 → 345／7.5 | 420／570／1,095 |
+| `scouting.csv` | `GuardRequirementBase`／`GuardRequirementPerFloor` | 28／1.15 → 34／0.53 | 39.3／49.9／87 |
+| `scouting.csv` | `StealthRequirementBase`／`StealthRequirementPerFloor` | 48／1.4 → 56／0.63 | 62.3／74.9／119 |
+| `scouting.csv` | `AnalysisRequirementBase`／`AnalysisRequirementPerFloor` | 50／2.15 → 61.5／1.0 | 71.5／91.5／161.5 |
+| `dungeon_traversal.csv` | `RequirementPerFloor` | 7.5 → 4.5 | 45／135／450 |
+| `dungeon.csv` | `FieldRequirementMultiplier_2`〜`_5` | 1.1／1.2／1.3／1.5 → 1.07／1.14／1.2／1.27 | 深淵の100F＝各能力70で届く |
+
+値を動かすときは `dotnet run --project tools/balance_sim -- anchor` で目安部隊の値と要求値を並べて確かめられる（→ tools/balance_sim/README.md）。
+
 ## 道中損耗・機嫌・内職・相性で追加／変更されたキー（2026年9月、→ 03 §0.19〜§0.22）
 
 **`dungeon_traversal.csv` ／ `dungeon.csv`（§0.19）** … キーの追加・変更なし。`FullIntelDamageMultiplier`（0.3）と

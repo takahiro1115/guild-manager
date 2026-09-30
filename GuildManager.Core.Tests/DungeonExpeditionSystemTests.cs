@@ -942,11 +942,11 @@ namespace GuildManager.Core.Tests
         }
 
         /// <summary>
-        /// 数週にまたがる潜行を確かめるための全能力値。2名で走破力＝5×1.8×2＋隊長LDR5＝23。
-        /// 1歩の消費＝階層×7.5÷(23×4)（→ StepCost、§0.49）：1週目は1〜4Fの4歩で予算1のうち0.82を使い（1F→5F）、
+        /// 数週にまたがる潜行を確かめるための全能力値。2名で走破力＝3×1.8×2＋隊長LDR3＝13.8。
+        /// 1歩の消費＝階層×4.5÷(13.8×4)（→ StepCost、§0.49）：1週目は1〜4Fの4歩で予算1のうち0.82を使い（1F→5F）、
         /// 5Fからの1歩（0.41）は入らない。2週目は最初の1歩で6Fの扉前に着く（5F→6F）。
         /// </summary>
-        private const int SlowDiverStat = 5;
+        private const int SlowDiverStat = 3;
 
         [Fact]
         public void Expedition_StopsAtBossFloor_AndSetsAwaitingDecision()
@@ -1401,16 +1401,16 @@ namespace GuildManager.Core.Tests
         }
 
         [Theory]
-        [InlineData(1, true)]   // 撃破（要求火力＝270＋1×15＝285）
-        [InlineData(90, false)] // 火力不足で撤退（要求火力＝270＋90×15＝1620）
+        [InlineData(1, true)]   // 撃破（要求火力＝345＋1×7.5＝352.5）
+        [InlineData(90, false)] // 火力不足で撤退（要求火力＝345＋90×7.5＝1020）
         public void ExpeditionSatisfaction_BossFight_WithForcedRetirement_StacksLossPenalty(int bossFloor, bool expectVictory)
         {
             // ギミック無しのボス：撃破でHP12%・撤退でHP20%を失う（AlwaysMinRng）。瀕死の隊員だけが強制除籍になり、
             // 生存者には「仲間ロストの余波（-30）」と「撃破+10／撤退-5」が重なって適用される。除籍者には適用しない。
             var boss = new FloorBoss { Name = "試験用の主", Floor = bossFloor, MaxHp = 1, CurrentHp = 1 };
             var (state, dying, survivor, _) = MakeState(boss);
-            // 瀕死の隊員はほぼ火力にならないため、生存者1名だけで1Fの要求火力285に届くよう全能力80（火力336）にする。
-            survivor.STR = survivor.AGI = survivor.VIT = survivor.MND = survivor.DEX = survivor.LDR = survivor.INT = 80;
+            // 瀕死の隊員はほぼ火力にならないため、生存者1名だけで1Fの要求火力352.5に届くよう全能力90（火力378）にする。
+            survivor.STR = survivor.AGI = survivor.VIT = survivor.MND = survivor.DEX = survivor.LDR = survivor.INT = 90;
             survivor.CurrentHP = survivor.MaxHP;
             dying.CurrentHP = 1;
             dying.Satisfaction = 70;

@@ -135,7 +135,7 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void Resolve_LowAgiDexParty_IsDiscovered()
         {
-            // 要求値（48＋5×1.4＝55）に対してAGI+DEXが足りないと見つかる。
+            // 要求値（56＋5×0.63＝59.15）に対してAGI+DEXが足りないと見つかる。
             var party = PartyOf(MakeSpecialist(agiDex: 5, intel: 90));
             var boss = MakeBoss(floor: 5);
 
@@ -152,10 +152,10 @@ namespace GuildManager.Core.Tests
             var boss2 = MakeBoss(floor: 2);
             var resolver = new ScoutingResolver(new AlwaysMinRng());
 
-            // 要求値＝48＋2×1.4=50.8。単独の平均素点(25+25)×1.10＝55、重戦士（既定の職）の重装ペナルティ−15で40と届かないが、
-            // 部隊長LDR60×0.25=15 を足せば55で超える（§0.47の値）。
+            // 要求値＝56＋2×0.63=57.26。単独の平均素点(25+25)×1.10＝55、重戦士（既定の職）の重装ペナルティ−15で40と届かないが、
+            // 部隊長LDR80×0.25=20 を足せば60で超える（§0.51の値）。
             var withoutLeader = resolver.Resolve(PartyOf(MakeSpecialist(agiDex: 25, intel: 50, ldr: 0)), boss1);
-            var withLeader = resolver.Resolve(PartyOf(MakeSpecialist(agiDex: 25, intel: 50, ldr: 60)), boss2);
+            var withLeader = resolver.Resolve(PartyOf(MakeSpecialist(agiDex: 25, intel: 50, ldr: 80)), boss2);
 
             Assert.False(withoutLeader.StealthSucceeded);
             Assert.True(withLeader.StealthSucceeded);
@@ -167,7 +167,7 @@ namespace GuildManager.Core.Tests
             // 見つかると落ち着いて観察できず、解析成果が1段階下がる
             //（AGI/DEX型とINT型の両方を編成する動機を作るための連動）。
             var boss = MakeBoss(floor: 5);
-            // INTは大成功域（要求60.75に対し合算150）だが、隠密は要求55に対し素点10で確実に見つかる。
+            // INTは大成功域（要求66.5に対し合算150）だが、隠密は要求59.15に対し素点10で確実に見つかる。
             var party = PartyOf(MakeSpecialist(agiDex: 5, intel: 150));
 
             var result = new ScoutingResolver(new AlwaysMinRng()).Resolve(party, boss);

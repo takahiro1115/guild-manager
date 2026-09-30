@@ -152,7 +152,7 @@ namespace GuildManager.Core.Tests
         public void Resolve_Victory_WhenPartyPowerMeetsRequirement()
         {
             var boss = MakeBoss(floor: 1);
-            var result = new DungeonResolver(new AlwaysMinRng()).Resolve(PartyOf(MakeRanger(80)), boss); // 火力80×4.2＝336 ≥ 1Fの要求285
+            var result = new DungeonResolver(new AlwaysMinRng()).Resolve(PartyOf(MakeRanger(90)), boss); // 火力90×4.2＝378 ≥ 1Fの要求352.5（345＋1×7.5）
 
             Assert.Equal(DungeonOutcome.Victory, result.Outcome);
             Assert.True(boss.IsDefeated);
@@ -162,7 +162,7 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void Resolve_Retreat_WhenPartyPowerIsInsufficient()
         {
-            var boss = MakeBoss(floor: 10); // 要求火力＝270＋10×15＝420
+            var boss = MakeBoss(floor: 10); // 要求火力＝345＋10×7.5＝420
             var result = new DungeonResolver(new AlwaysMinRng()).Resolve(PartyOf(MakeRanger(10)), boss);
 
             Assert.Equal(DungeonOutcome.Retreat, result.Outcome);
@@ -175,14 +175,14 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void Resolve_FullIntel_AddsDamageBonus_AndCanFlipRetreatIntoVictory()
         {
-            // 斥候（配置補正1.0）全能力70 → 素の火力は 70×4.2＝294。
-            // 階層5の要求火力は270＋5×15＝345のため素では届かないが、完全解析の+20%（352.8）で覆る。
+            // 斥候（配置補正1.0）全能力80 → 素の火力は 80×4.2＝336。
+            // 階層5の要求火力は345＋5×7.5＝382.5のため素では届かないが、完全解析の+20%（403.2）で覆る。
             var withoutIntel = MakeBoss(floor: 5, intelRate: 0.0);
             var withIntel = MakeBoss(floor: 5, intelRate: 1.0);
             var resolver = new DungeonResolver(new AlwaysMinRng());
 
-            var retreat = resolver.Resolve(PartyOf(MakeRanger(70)), withoutIntel);
-            var victory = resolver.Resolve(PartyOf(MakeRanger(70)), withIntel);
+            var retreat = resolver.Resolve(PartyOf(MakeRanger(80)), withoutIntel);
+            var victory = resolver.Resolve(PartyOf(MakeRanger(80)), withIntel);
 
             Assert.Equal(DungeonOutcome.Retreat, retreat.Outcome);
             Assert.False(retreat.FullIntelBonusApplied);
@@ -198,7 +198,7 @@ namespace GuildManager.Core.Tests
             // ボーナスは完全解析（1.0）到達時のみ。0.75では付かない。
             var boss = MakeBoss(floor: 5, intelRate: 0.75);
 
-            var result = new DungeonResolver(new AlwaysMinRng()).Resolve(PartyOf(MakeRanger(80)), boss); // 火力80×4.2＝336 ≥ 1Fの要求285
+            var result = new DungeonResolver(new AlwaysMinRng()).Resolve(PartyOf(MakeRanger(80)), boss);
 
             Assert.False(result.FullIntelBonusApplied);
         }
@@ -214,7 +214,7 @@ namespace GuildManager.Core.Tests
             };
             var boss = MakeBoss(floor: 1, intelRate: 0.0, gimmick);
 
-            var result = new DungeonResolver(new AlwaysMinRng()).Resolve(PartyOf(MakeRanger(80)), boss); // 火力80×4.2＝336 ≥ 1Fの要求285
+            var result = new DungeonResolver(new AlwaysMinRng()).Resolve(PartyOf(MakeRanger(90)), boss); // 火力90×4.2＝378 ≥ 1Fの要求352.5
 
             Assert.Contains(BossGimmickType.HeavyArmor, result.UncounteredGimmicks);
             // 1.0 + 危険度2 × 0.75 = 2.5倍

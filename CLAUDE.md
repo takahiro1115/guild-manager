@@ -10,6 +10,7 @@
 - `guild-manager.godot/scenes/`・`guild-manager.godot/*.tscn` … シーン。`themes/dungeon_theme.tres` で文字サイズを本文16・補足15・見出し18にそろえる（RichText の太字も通常字体で表示する）
 - `docs/04_バランス表/*.csv` … バランス値。読み込みにフォールバックが無いので、コードでキーを足したら CSV にも必ず足す（備考に ASCII のカンマを含めるときは `"…"` で囲む）
 - `tools/portrait_tool/` … 肖像工房（顔グラフィックの加工ツール）。取り込みはスキル `import-portraits`
+- `tools/balance_sim/` … バランス・シミュレーター（Core を回して要求値・成長・経済の手応えを数字で見る）。`dotnet run --project tools/balance_sim -- static` など（→ tools/balance_sim/README.md）
 
 ## コマンド（ルートに .sln は無いので、パスを指定する）
 - テスト: `dotnet test GuildManager.Core.Tests`
