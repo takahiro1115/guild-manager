@@ -1,7 +1,7 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" path="res://scripts/RecruitmentPopup.cs" id="1_script"]
-[ext_resource type="PackedScene" uid="uid://d3qap4adventurer" path="res://scenes/AdventurerPanel.tscn" id="2_detail"]
+[ext_resource type="PackedScene" path="res://scenes/AdventurerPanel.tscn" id="2_detail"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_popup"]
 bg_color = Color(0.1, 0.1, 0.12, 1)

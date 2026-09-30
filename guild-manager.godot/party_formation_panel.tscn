@@ -1,4 +1,4 @@
-[gd_scene format=3 uid="uid://partyformationpanel001"]
+[gd_scene format=3 uid="uid://partyformationstale01"]
 
 [ext_resource type="Script" path="res://scripts/UI/PartyFormationPanel.cs" id="1_script"]
 

@@ -1,4 +1,4 @@
-[gd_scene format=3 uid="uid://facilitypanel001"]
+[gd_scene format=3 uid="uid://facilitypanelstale01"]
 
 [ext_resource type="Script" path="res://scripts/UI/FacilityPanel.cs" id="1_script"]
 

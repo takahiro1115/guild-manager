@@ -131,6 +131,9 @@ public partial class MainDashboard : Control
 
 	public override void _Ready()
 	{
+		// 起動時はフルスクリーン。project.godot の window/size/mode=3（最初からフルスクリーンで作る）にすると、
+		// 後から窓表示へ戻せない（Godot 4.7・Windows）ため、窓表示で作ってからここで切り替える（→ SystemPanel）。
+		GetWindow().Mode = Window.ModeEnum.Fullscreen;
 		_weekLabel = GetNode<Label>("%WeekLabel");
 		_goldLabel = GetNode<Label>("%GoldLabel");
 		_rankLabel = GetNode<Label>("%RankLabel");

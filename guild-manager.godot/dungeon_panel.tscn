@@ -1,4 +1,4 @@
-[gd_scene format=3 uid="uid://dungeonpanel001"]
+[gd_scene format=3 uid="uid://dungeonpanelstale01"]
 
 [ext_resource type="Script" path="res://scripts/UI/DungeonPanel.cs" id="1_script"]
 

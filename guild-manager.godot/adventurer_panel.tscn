@@ -1,4 +1,4 @@
-[gd_scene format=3 uid="uid://d3qap4adventurer"]
+[gd_scene format=3 uid="uid://adventurerstale01"]
 
 [ext_resource type="Script" path="res://scripts/UI/AdventurerPanel.cs" id="1_script"]
 [ext_resource type="Script" path="res://scripts/UI/TripleStatBar.cs" id="2_triplebar"]
