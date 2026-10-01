@@ -60,8 +60,26 @@ namespace GuildManager.Core.Systems
         /// <summary>研究で培養槽が開いているか。</summary>
         public static bool IsUnlocked(GameState state) => state.IsResearchCompleted(ResearchIds.SoulFusion);
 
+        /// <summary>培養槽の数：soul_fusion.csv CultureTankCount＋段階研究（→ ResearchEffectType.CultureTankBonus、§0.60）。</summary>
+        public static int GetTankCount(GameState state) =>
+            SoulFusionBalance.CultureTankCount + (int)Math.Round(ResearchBalance.GetTotalEffectValue(state, ResearchEffectType.CultureTankBonus));
+
         /// <summary>培養槽に空きがあるか。</summary>
-        public static bool HasFreeTank(GameState state) => state.SoulFusionCultures.Count < SoulFusionBalance.CultureTankCount;
+        public static bool HasFreeTank(GameState state) => state.SoulFusionCultures.Count < GetTankCount(state);
+
+        /// <summary>
+        /// 娘のPAの基準（能力ごと、ばらつきの前）：両親のうち高い方×HigherParentWeight＋低い方×(1−HigherParentWeight)、四捨五入（§0.60）。
+        /// 高い方へ寄せるので、強い親から生まれた娘を親にすると、血統が世代ごとに伸びる。
+        /// </summary>
+        public static int BasePa(int paA, int paB)
+        {
+            double w = SoulFusionBalance.HigherParentWeight;
+            return (int)Math.Round(Math.Max(paA, paB) * w + Math.Min(paA, paB) * (1 - w), MidpointRounding.AwayFromZero);
+        }
+
+        /// <summary>段階研究（→ ResearchEffectType.SoulFusionPaBonus、§0.60）による娘のPAの上乗せ（pt）。</summary>
+        public static int GetResearchPaBonus(GameState state) =>
+            (int)Math.Round(ResearchBalance.GetTotalEffectValue(state, ResearchEffectType.SoulFusionPaBonus));
 
         /// <summary>ギルドにいる者（現役＋引退者）。除籍者は親になれない。</summary>
         public static IEnumerable<Adventurer> GuildMembers(GameState state) => state.Adventurers.Concat(state.RetiredAdventurers);
@@ -196,14 +214,15 @@ namespace GuildManager.Core.Systems
                 ParentIds = new List<Guid> { a.Id, b.Id },
             };
 
-            // ---- 能力の上限（PA）：両親の平均＋ばらつき。限界突破しない能力は100で止める ----
+            // ---- 能力の上限（PA）：両親の高い方へ寄せた基準＋ばらつき＋研究の上乗せ（§0.60）。限界突破しない能力は100で止める ----
             int varianceMin = Math.Min(SoulFusionBalance.PaVarianceMax,
                 SoulFusionBalance.PaVarianceMin + CatalystBonus(catalystMaterialId, SoulFusionCatalystEffect.PaVarianceMinBonus));
+            int researchBonus = GetResearchPaBonus(state);
             var rawPa = new Dictionary<string, int>();
             foreach (var stat in AdventurerStatAccessor.AllStatNames)
             {
-                double average = (AdventurerStatAccessor.GetPa(a, stat) + AdventurerStatAccessor.GetPa(b, stat)) / 2.0;
-                rawPa[stat] = (int)Math.Round(average, MidpointRounding.AwayFromZero) + _rng.NextInt(varianceMin, SoulFusionBalance.PaVarianceMax);
+                rawPa[stat] = BasePa(AdventurerStatAccessor.GetPa(a, stat), AdventurerStatAccessor.GetPa(b, stat)) + researchBonus
+                    + _rng.NextInt(varianceMin, SoulFusionBalance.PaVarianceMax);
             }
 
             var tier = GetNyxTier(a.JobClass, b.JobClass);
@@ -234,6 +253,9 @@ namespace GuildManager.Core.Systems
                     child.TryAddTrait(traitId);
             }
             RecruitmentSystem.RollInnateTraits(child, _rng);
+            // 魂魄の申し子（§0.62）：秘薬で生まれた娘だけの特性。先天判定の後に1回判定する。
+            if (_rng.NextInt(1, 100) <= SoulFusionBalance.SoulChildChancePercent)
+                child.TryAddTrait(TraitCatalog.SoulChildId);
             RecruitmentSystem.FinishNewcomer(child);
 
             AssignPortrait(state, child, a, b);
@@ -258,6 +280,7 @@ namespace GuildManager.Core.Systems
         {
             var def = TraitCatalog.FindById(traitId);
             if (def == null || def.IsCurseOrInjury) return 0;
+            if (traitId == TraitCatalog.SoulChildId) return 0; // 魂魄の申し子は親から受け継がず、娘ごとに判定する（§0.62）
             int chance = def.IsRare
                 ? SoulFusionBalance.RareTraitInheritChancePercent + CatalystBonus(catalystMaterialId, SoulFusionCatalystEffect.RareTraitInheritBonus)
                 : def.IsFlaw

@@ -139,12 +139,17 @@ namespace GuildManager.Core.Models
         public int MasterMood { get; set; } = MasterMoodBalance.InitialMood;
 
         /// <summary>
-        /// 「最終討伐クエストの依頼が持ち込まれるようになった」フラグ（仕様書 03 §8.2。
-        /// v1.10改訂で新設）。最終フィールドの100Fボス撃破でtrueになり、以後は取り消されない
-        /// （→ DungeonExpeditionSystem.ApplyFieldProgression）。旧来の「Aランク到達」経路は
-        /// ギルド格付けの廃止（2026年9月）に伴い撤去した。最終討伐クエスト自体は未設計のまま。
+        /// クリアしたか（仕様書 03 §8.2、2026年10月・§0.59）。最終フィールド（深淵）の100Fボス撃破でtrueになり、
+        /// 以後は取り消されない（→ DungeonExpeditionSystem.ApplyFieldProgression）。クリア後もギルドは続けられる。
+        /// 旧名 FinalQuestUnlocked（最終討伐クエストの解禁フラグ）。セーブのJSONキーは互換のため FinalQuestUnlocked のまま。
         /// </summary>
-        public bool FinalQuestUnlocked { get; set; } = false;
+        public bool IsGameCleared { get; set; } = false;
+
+        /// <summary>クリアした週（→ GameState.WeekNumber）。null＝未クリア。エンディングの記録に使う（→ GuildChronicle）。</summary>
+        public int? ClearedAtWeek { get; set; }
+
+        /// <summary>深淵100Fのボスを倒した部隊の生還者のId（エンディングの記録に出す）。未クリアなら空。</summary>
+        public List<Guid> ClearingMemberIds { get; set; } = new();
 
         /// <summary>
         /// 大迷宮での成果（新階層開拓・有効な調査・採取成功・ボス撃破）が最後にあってから経過した週数
@@ -287,7 +292,9 @@ namespace GuildManager.Core.Models
                 ConsecutiveNegativeGoldWeeks = ConsecutiveNegativeGoldWeeks,
                 DefeatReason = DefeatReason?.ToString(),
                 WeeksSinceLastGuildActivity = WeeksSinceLastGuildActivity,
-                FinalQuestUnlocked = FinalQuestUnlocked,
+                FinalQuestUnlocked = IsGameCleared,
+                ClearedAtWeek = ClearedAtWeek,
+                ClearingMemberIds = new List<Guid>(ClearingMemberIds),
                 UnlockedSquadSlots = UnlockedSquadSlots,
                 TotalDispatchCount = TotalDispatchCount,
                 ActiveAdventurers = new List<Adventurer>(Adventurers),
@@ -373,7 +380,10 @@ namespace GuildManager.Core.Models
                 DefeatReason = data.DefeatReason == null ? null : ParseEnum<DefeatReason>(data.DefeatReason, nameof(DefeatReason)),
                 // 旧キー（WeeksSinceLastRankAppropriateQuest）しか無い旧セーブは、その値を引き継ぐ。
                 WeeksSinceLastGuildActivity = data.WeeksSinceLastGuildActivity ?? data.WeeksSinceLastRankAppropriateQuest ?? 0,
-                FinalQuestUnlocked = data.FinalQuestUnlocked,
+                IsGameCleared = data.FinalQuestUnlocked,
+                // クリアの週を持たない旧セーブ（§0.59 より前に深淵100Fを倒していた）は、読み込んだ週をクリアの週として補う。
+                ClearedAtWeek = data.FinalQuestUnlocked ? (int?)(data.ClearedAtWeek ?? data.CurrentTurn) : null,
+                ClearingMemberIds = new List<Guid>(data.ClearingMemberIds ?? new List<Guid>()),
                 // 進行管理（→ コアシステム刷新仕様「4. 進行管理」）。同時出撃枠は
                 // 0（＝一切派遣できない不整合な状態）で復元されないよう、未設定の
                 // 古いセーブでは初期値へフォールバックする。

@@ -150,20 +150,41 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
-        public void DungeonField_DefeatingFinal100FBoss_UnlocksFinalQuest()
+        public void DungeonField_DefeatingFinal100FBoss_ClearsTheGame()
         {
             var fields = SampleData.CreateDefaultFields();
             var abyss = fields.Single(f => f.Order == 5);
             abyss.IsUnlocked = true; // 深淵の開放は本テストの対象外のため直接開けておく
-            var state = new GameState { DungeonFields = fields };
+            var state = new GameState { DungeonFields = fields, WeekNumber = 700 };
             var boss100F = abyss.Bosses.Single(b => b.Floor == 100);
             boss100F.IsDefeated = true;
 
-            Assert.False(state.FinalQuestUnlocked);
+            Assert.False(state.IsGameCleared);
             DungeonExpeditionSystem.ApplyFieldProgression(state, boss100F);
 
-            Assert.True(state.FinalQuestUnlocked);
+            Assert.True(state.IsGameCleared);
+            Assert.Equal(700, state.ClearedAtWeek);
             Assert.Equal(100, abyss.ReachedFloor); // MaxFloorで頭打ち（100+1ではなく100）
+
+            // クリアの週は最初の1回だけ記録する
+            state.WeekNumber = 800;
+            DungeonExpeditionSystem.ApplyFieldProgression(state, boss100F);
+            Assert.Equal(700, state.ClearedAtWeek);
+        }
+
+        [Fact]
+        public void DungeonField_DefeatingOther100FBoss_DoesNotClear()
+        {
+            var fields = SampleData.CreateDefaultFields();
+            var forest = fields.Single(f => f.Order == 1);
+            var state = new GameState { DungeonFields = fields };
+            var boss100F = forest.Bosses.Single(b => b.Floor == 100);
+            boss100F.IsDefeated = true;
+
+            DungeonExpeditionSystem.ApplyFieldProgression(state, boss100F);
+
+            Assert.False(state.IsGameCleared);
+            Assert.Null(state.ClearedAtWeek);
         }
 
         [Fact]

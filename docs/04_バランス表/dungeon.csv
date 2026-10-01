@@ -1,11 +1,11 @@
 key,value,unit,note
 PartyPowerRequirementBase,345,pt,ボス討伐の要求火力＝(この値＋階層×PartyPowerRequirementPerFloor)×フィールド倍率。§0.47で基礎値を新設（10F≒各能力25の4人部隊、100F≒各能力90の4人部隊が完全解析+20%込みで届く）。§0.51で270→345（10Fは据え置きで傾きを緩める）
-PartyPowerRequirementPerFloor,7.5,pt,ボス討伐の要求火力の階層あたりの増分。§0.47で45→15（旧値では各能力100の部隊でも50F前後が限界だった）。§0.51で15→7.5（森100F＝各能力55・深淵100F＝各能力70で届く）
+PartyPowerRequirementPerFloor,6.5,pt,ボス討伐の要求火力の階層あたりの増分。§0.47で45→15（旧値では各能力100の部隊でも50F前後が限界だった）。§0.51で15→7.5（森100F＝各能力55・深淵100F＝各能力70で届く）。§0.62で7.5→6.5（クリアまで15年前後に合わせる。balance_sim campaign）
 FieldRequirementMultiplier_1,1.0,倍,フィールド倍率（翠緑の原生林）。討伐火力・調査（護衛・隠密・解析）・走破の要求値すべてに掛ける（§0.47）
-FieldRequirementMultiplier_2,1.07,倍,フィールド倍率（嘆きの鍾乳洞）。§0.50で1.0→1.1・§0.51で1.07（森100F＝各能力55と深淵100F＝各能力70の間を等分）。段階的に難しくする
-FieldRequirementMultiplier_3,1.14,倍,フィールド倍率（忘却の古代廃墟）。§0.50で1.2・§0.51で1.14
-FieldRequirementMultiplier_4,1.2,倍,フィールド倍率（焦熱の峡谷）。§0.50で1.3・§0.51で1.2
-FieldRequirementMultiplier_5,1.27,倍,フィールド倍率（深淵の特異点）。§0.50で1.5・§0.51で1.27（最終フィールド。100Fは各能力70の精鋭で届く）
+FieldRequirementMultiplier_2,1.04,倍,フィールド倍率（嘆きの鍾乳洞）。§0.50で1.0→1.1・§0.51で1.07（森100F＝各能力55と深淵100F＝各能力70の間を等分）。段階的に難しくする。§0.62で1.04
+FieldRequirementMultiplier_3,1.08,倍,フィールド倍率（忘却の古代廃墟）。§0.50で1.2・§0.51で1.14。§0.62で1.08
+FieldRequirementMultiplier_4,1.12,倍,フィールド倍率（焦熱の峡谷）。§0.50で1.3・§0.51で1.2。§0.62で1.12
+FieldRequirementMultiplier_5,1.16,倍,フィールド倍率（深淵の特異点）。§0.50で1.5・§0.51で1.27（最終フィールド。100Fは各能力70の精鋭で届く）。§0.62で1.16（クリアまで15年前後に合わせる）
 FullIntelDamageBonus,0.20,倍,完全解析（解析率1.0）到達時の与ダメージ補正（+20%）
 UncounteredDamageMultiplierPerDangerLevel,0.75,倍,未対策ギミック1件につき被ダメージへ加算される倍率（危険度1あたり）
 BaseHpLossPctMin,12,%,対策済みで討伐した場合のHP消費率の下限
@@ -34,4 +34,4 @@ GrowthRolls_Traversal,2,回,出撃成長：道中進軍（潜行）1週ごとの
 GrowthRolls_BossVictory,5,回,出撃成長：階層ボス撃破時の成長ロール試行回数（対象：全7能力）。撤退・全滅では発生しない
 GrowthRolls_Survey,2,回,出撃成長：迷宮調査からの帰還時の成長ロール試行回数（対象：INT/DEX/LDR/AGI）
 GrowthRolls_Gathering,2,回,出撃成長：採取任務からの帰還時の成長ロール試行回数（対象：AGI/DEX/VIT）
-GrowthBaseChancePercent,35,%,出撃成長の成長ロール1回あたりの成功確率。成功で対象能力+1（PA上限でクランプ）
+GrowthBaseChancePercent,42,%,出撃成長の成長ロール1回あたりの成功確率。成功で対象能力+1（PA上限でクランプ）。§0.60で35→42（約1.2倍）。段階研究 GrowthRateBonus で さらに上がる

@@ -35,6 +35,7 @@ namespace GuildManager.Core.Systems
         {
             var item = ItemCatalog.FindById(itemId);
             if (item == null) return false;
+            if (!IsInShop(state, item)) return false; // まだ入荷していない上位装備（§0.61）
             if (adventurer.IsDispatched) return false;
             if (!item.IsAllowedFor(adventurer.JobClass)) return false;
             if (state.Gold < item.Price) return false;
@@ -43,6 +44,19 @@ namespace GuildManager.Core.Systems
             Attach(state, adventurer, item.Slot, EquipmentItem.FromCatalog(item, state.WeekNumber, "カタログから購入"));
             return true;
         }
+
+        /// <summary>倒した階層ボスの総数（全フィールドの合計）。上位装備の入荷の判定に使う（§0.61）。</summary>
+        public static int CountDefeatedBosses(GameState state) => state.DungeonFields.Sum(f => f.Bosses.Count(b => b.IsDefeated));
+
+        /// <summary>店に並んでいる上位装備の段（0＝まだ上位装備なし、1〜3）。→ progression.csv ShopTierUnlockBosses_*。</summary>
+        public static int GetUnlockedShopTier(GameState state)
+        {
+            int defeated = CountDefeatedBosses(state);
+            return ProgressionBalance.ShopTierUnlockBosses.Count(threshold => defeated >= threshold);
+        }
+
+        /// <summary>そのカタログ品が今店で買えるか（段0は常に買える）。</summary>
+        public static bool IsInShop(GameState state, Item item) => item.ShopTier <= GetUnlockedShopTier(state);
 
         /// <summary>
         /// ギルド保管庫（→ GameState.Armory）にある現物を、指定スロットへ装備する（2026年9月新設、→ §4.2.2）。

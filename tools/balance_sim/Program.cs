@@ -35,6 +35,17 @@ if (mode is "all" or "game")
     int weeks = args.Length > 2 ? int.Parse(args[2]) : 48 * 8;
     GameSim.RunMany(runs, weeks);
 }
+if (mode is "campaign")
+{
+    // 5フィールドを進めて深淵100F（クリア、→ 03 §8.2）まで回す。教官・研究・宿舎・秘薬も使う。
+    int runs = args.Length > 1 ? int.Parse(args[1]) : 10;
+    int weeks = args.Length > 2 ? int.Parse(args[2]) : 48 * 30;
+    GameSim.Campaign = true;
+    GameSim.UseSoulFusion = !(args.Length > 3 && args[3] == "nosf");
+    GameSim.Trace = args.Length > 3 && args[3] == "trace";
+    GameSim.UseElixirs = !(args.Length > 3 && args[3] == "noelixir");
+    GameSim.RunCampaign(runs, weeks);
+}
 
 // ============================================================================================
 // 1. 静的な表：全能力S・4人部隊（装備・特性なし）で、どこまで倒せるか・何週で潜れるか
@@ -192,11 +203,48 @@ class GameSim
     DungeonField Forest => s.DungeonFields.First(f => f.Order == 1);
     IEnumerable<Adventurer> Active => s.Adventurers.Where(a => !a.IsRetired);
 
+    // ==== campaign モード（5フィールド→深淵100F） ====
+    public static bool Campaign;
+    public static bool UseSoulFusion = true;
+    public static bool UseElixirs = true;
+    public int ElixirsGiven;
+
+    /// <summary>
+    /// campaign で買い物・研究・霊薬・秘薬に使わずに残す額：今年度末に満期を迎える者（年度末に26歳になる25歳。年の後半から数える）の退職金の見込み＋週給4週分＋3000G。
+    /// 残しておかないと、年度末の退職金が重なって破産する。
+    /// </summary>
+    int Reserve => Active.Where(a => a.Age >= 26 || (a.Age == 25 && GameCalendar.WeekOfYear(s.WeekNumber) >= 30)).Sum(AgingSystem.CalculateSeverancePay) + Active.Sum(a => a.WeeklyWage) * 4 + 3000;
+    readonly AdvisorSystem advisors = new();
+    SoulFusionSystem? soulFusion;
+    public readonly List<(int Order, int Floor, int Week)> FieldKills = new();
+    public int DaughtersBorn;
+    public int TrainerWeeks;
+
+    /// <summary>
+    /// 次に狙うボス。森だけのモードでは森の次のボス。campaign では、開いているフィールドの次のボスのうち
+    /// 要求火力が最も低いもの（深淵を開くための各フィールド20Fも自然にこの順で倒す）。
+    /// </summary>
+    (DungeonField Field, FloorBoss Boss)? PickTarget()
+    {
+        if (!Campaign)
+            return Forest.GetNextActiveBoss() is { } b ? (Forest, b) : null;
+        return s.DungeonFields.Where(f => f.IsUnlocked)
+            .Select(f => (Field: f, Boss: f.GetNextActiveBoss()))
+            .Where(x => x.Boss != null)
+            .OrderBy(x => DungeonResolver.RequiredPower(x.Boss!))
+            .Select(x => ((DungeonField, FloorBoss)?)(x.Field, x.Boss!))
+            .FirstOrDefault();
+    }
+
     public void Run(int weeks)
     {
         for (int w = 0; w < weeks; w++)
         {
-            if (Forest.Bosses.All(b => b.IsDefeated)) break;
+            if (Campaign ? s.IsGameCleared : Forest.Bosses.All(b => b.IsDefeated))
+            {
+                RecordFinishedAssaults(); // 最後の撃破（クリアの決戦など）を記録してから止める
+                break;
+            }
             int actBefore = s.Gold;
             Act();
             Book("その他の行動", s.Gold - actBefore - actBooked);
@@ -207,6 +255,8 @@ class GameSim
             int trainees = s.TrainingAssignments.Count;
             var result = week.ProcessWeek(s);
             BookSettlement(result, s.Gold - goldBefore, wages, trainees);
+            DaughtersBorn += result.SoulFusionBirths.Count;
+            TrainerWeeks += s.AssignedTrainers.Count(kv => kv.Value != null);
             if (Trace)
                 Console.WriteLine($"w{result.Flags.Week}: G {goldBefore}→{s.Gold} 機嫌{s.MasterMood} 現役{Active.Count()} 週給計{Active.Sum(a => a.WeeklyWage)} 訓練{s.TrainingAssignments.Count} 工事{s.UnderConstruction?.Type} " +
                     string.Join(" / ", result.DungeonMissionResolutions.Select(r => $"{r.MissionType}@{r.CurrentFloor}{(r.DungeonResult != null ? ":" + r.DungeonResult.Outcome : "")}{(r.ReturnedHome ? "帰還" : "")}+{r.DepositedGold}G")) +
@@ -241,19 +291,31 @@ class GameSim
 
     void Act()
     {
-        // 前週に討伐指令を出した部隊の決着を記録（ProcessWeek の後で IsDefeated を見る）
+        RecordFinishedAssaults();
+        ActInner();
+    }
+
+    /// <summary>前週に討伐指令を出した部隊の決着を記録（ProcessWeek の後で IsDefeated を見る）。</summary>
+    void RecordFinishedAssaults()
+    {
         foreach (var kv in pendingAssault.ToList())
         {
             if (!s.ActiveDungeonMissions.Contains(kv.Key))
             {
                 var boss = kv.Key.TargetedBoss!;
                 if (boss.IsDefeated)
+                {
                     Kills.Add(new BossKill(s.WeekNumber - 1, boss.Floor, kv.Value.Avg, kv.Value.W, kv.Value.Margin, kv.Value.Intel,
                         divesPerBoss.GetValueOrDefault(boss.Floor)));
+                    FieldKills.Add((kv.Key.Field.Order, boss.Floor, s.WeekNumber - 1));
+                }
                 pendingAssault.Remove(kv.Key);
             }
         }
+    }
 
+    void ActInner()
+    {
         int g0 = s.Gold;
         HandleLoot();
         BookAct("遺物・素材の売却（鑑定代差引）", s.Gold - g0);
@@ -293,8 +355,11 @@ class GameSim
                 expedition.TryRetreat(s, m);
         }
 
-        // 主力：森の次のボスへ潜行
-        var target = Forest.GetNextActiveBoss();
+        if (Campaign)
+            CampaignUpkeep();
+
+        // 主力：次のボスへ潜行（森だけのモードでは森、campaign では要求火力の最も低いボス）
+        var target = PickTarget()?.Boss;
         bool mainOut = s.ActiveDungeonMissions.Any(m => m.MissionType == DungeonMissionType.Scouting);
         var reserved = Active.Where(a => !a.IsDispatched && a.Injury != InjurySeverity.Severe)
             .OrderByDescending(StatSum).Take(4).Select(a => a.Id).ToHashSet();
@@ -401,8 +466,72 @@ class GameSim
         }
         var sellable = s.Armory.Where(EquipmentSystem.CanSell).Select(e => e.Id.ToString()).ToList();
         if (sellable.Count > 0) EquipmentSystem.TrySellEquipments(s, sellable, out _);
-        foreach (var id in s.Materials.Keys.ToList())
+        // campaign では、まだ済んでいない研究に要る素材と、秘薬の触媒（紅玉鉱石）は売らずに残す。
+        var keep = Campaign
+            ? ResearchBalance.GetAll().Where(r => !s.IsResearchCompleted(r.Id)).SelectMany(r => r.RequiredMaterials.Keys)
+                .Concat(UseElixirs ? ElixirBalance.Recipes.SelectMany(r => r.RequiredMaterials.Keys) : Enumerable.Empty<string>())
+                .Append("mat_canyon_gem").ToHashSet()
+            : new HashSet<string>();
+        foreach (var id in s.Materials.Keys.Where(id => !keep.Contains(id)).ToList())
             economy.TrySellAllOfMaterial(s, id, out _);
+    }
+
+    static readonly FacilityType[] CampaignBuildOrder =
+    {
+        FacilityType.WarriorHall, FacilityType.ScoutPost, FacilityType.Church, FacilityType.MageLab,
+        FacilityType.Dormitory,
+        FacilityType.WarriorHall, FacilityType.ScoutPost, FacilityType.Church, FacilityType.MageLab,
+        FacilityType.Infirmary, FacilityType.Dormitory, FacilityType.Infirmary,
+        FacilityType.WarriorHall, FacilityType.ScoutPost, FacilityType.Church, FacilityType.MageLab,
+        FacilityType.WarriorHall, FacilityType.ScoutPost, FacilityType.Church, FacilityType.MageLab,
+        FacilityType.WarriorHall, FacilityType.ScoutPost, FacilityType.Church, FacilityType.MageLab,
+    };
+
+    /// <summary>
+    /// campaign の毎週の手入れ：引退者を空いた訓練施設の教官に就ける、余裕があれば研究を済ませる、
+    /// 秘薬を処方する（相性100のペアのうち両親の総合PAの合計が最大の組。娘の職業は強い方の親、紅玉鉱石があれば触媒に）。
+    /// </summary>
+    void CampaignUpkeep()
+    {
+        var posted = s.AssignedTrainers.Values.OfType<Guid>().ToHashSet();
+        foreach (var f in TrainingFacilities.Where(f => s.GetFacilityLevel(f) >= 1))
+        {
+            if (s.AssignedTrainers.TryGetValue(f, out var cur) && cur != null) continue;
+            var best = s.RetiredAdventurers.Where(r => !posted.Contains(r.Id))
+                .OrderByDescending(r => FacilityBalance.GetTrainingTargetStats(f).Sum(n => Acc.Stat(r, n))).FirstOrDefault();
+            if (best != null && advisors.TryAssignTrainer(s, f, best.Id))
+                posted.Add(best.Id);
+        }
+
+        foreach (var r in ResearchBalance.GetAll().Where(r => !s.IsResearchCompleted(r.Id)))
+            if (s.Gold - r.RequiredGold >= Reserve)
+                ResearchSystem.CompleteResearch(s, r);
+
+        // 霊薬（§0.61）：若い上位の冒険者に、火力の重みが最も伸びる霊薬を1週1本
+        if (UseElixirs && ElixirSystem.IsUnlocked(s))
+        {
+            var weight = DungeonBalance.BossPowerWeights.ToDictionary(w => w.Stat, w => w.Weight);
+            var pick = Active.Where(a => !a.IsDispatched && a.Age <= 24 && a.ElixirsTaken < ElixirBalance.MaxPerAdventurer)
+                .OrderByDescending(StatSum).Take(6)
+                .SelectMany(a => ElixirBalance.Recipes.Select(r => (A: a, R: r, Gain: r.TargetStats.Sum(n => weight[n]) * (r.PaBonus + r.StatBonus))))
+                .Where(x => s.Gold - x.R.RequiredGold >= Reserve && ElixirSystem.Check(s, x.A, x.R.Id) == ElixirCheck.Ok)
+                .OrderByDescending(x => x.Gain).FirstOrDefault();
+            if (pick.A != null)
+            {
+                ElixirSystem.TryGive(s, pick.A, pick.R.Id);
+                ElixirsGiven++;
+            }
+        }
+
+        if (!UseSoulFusion || !SoulFusionSystem.IsUnlocked(s) || !SoulFusionSystem.HasFreeTank(s)
+            || s.Gold < SoulFusionBalance.PrescriptionGold + Reserve)
+            return;
+        var pair = SoulFusionSystem.GetEligiblePairs(s).OrderByDescending(p => p.A.TotalPA + p.B.TotalPA).FirstOrDefault();
+        if (pair.A == null) return;
+        var job = (StatSum(pair.A) >= StatSum(pair.B) ? pair.A : pair.B).JobClass;
+        string? catalyst = s.Materials.GetValueOrDefault("mat_canyon_gem") >= 3 ? "mat_canyon_gem" : null;
+        soulFusion ??= new SoulFusionSystem(new SeededRng(s.WeekNumber * 13 + 5));
+        soulFusion.TryPrescribe(s, pair.A, pair.B, job, catalyst);
     }
 
     static double ItemWorth(Item i) => DungeonBalance.BossPowerWeights.Sum(w => i.GetStatBonus(w.Stat) * w.Weight) + i.MaxHpBonus * 0.05;
@@ -414,14 +543,15 @@ class GameSim
         if (Frugal) return;
         if (!UseShop) return;
         var best = (Gain: 0.0, Who: (Adventurer?)null, Item: (Item?)null);
-        foreach (var a in Active.Where(a => !a.IsDispatched).OrderByDescending(StatSum).Take(4))
-            foreach (var item in ItemCatalog.GetAll().Where(i => i.IsAllowedFor(a.JobClass)))
+        foreach (var a in Active.Where(a => !a.IsDispatched).OrderByDescending(StatSum).Take(Campaign ? 6 : 4))
+            foreach (var item in ItemCatalog.GetAll().Where(i => i.IsAllowedFor(a.JobClass) && EquipmentSystem.IsInShop(s, i)))
             {
-                if (s.Gold - item.Price < 800) continue;
+                if (s.Gold - item.Price < (Campaign ? Reserve : 800)) continue;
                 double gain = ItemWorth(item) - Worth(a.GetEquipped(item.Slot));
                 if (gain <= 0.5) continue;
-                double perGold = gain / item.Price;
-                if (best.Who == null || perGold > best.Gain) best = (perGold, a, item);
+                // campaign ではお金が余るので、1G あたりではなく伸びの大きさで選ぶ（上位装備を買い進める）
+                double score = Campaign ? gain : gain / item.Price;
+                if (best.Who == null || score > best.Gain) best = (score, a, item);
             }
         if (best.Who != null)
             equipment.TryPurchaseAndEquip(s, best.Who, best.Item!.Id);
@@ -472,7 +602,7 @@ class GameSim
         if (Frugal) return;
         if (s.UnderConstruction != null) return;
         var counts = new Dictionary<FacilityType, int>();
-        foreach (var f in BuildOrder)
+        foreach (var f in Campaign ? CampaignBuildOrder : BuildOrder)
         {
             counts[f] = counts.GetValueOrDefault(f) + 1;
             if (s.GetFacilityLevel(f) >= counts[f]) continue;
@@ -498,7 +628,80 @@ class GameSim
         var top = Active.OrderByDescending(StatSum).Take(4).ToList();
         double w = top.Count == 0 ? 0 : top.Average(a => StatSum(a) / WeightSum);
         Yearly.Add($"{GameCalendar.Format(s.WeekNumber)}: 上位4名の加重平均 {w:F1}（{string.Join("/", top.Select(a => $"{a.JobClass}{a.Age}歳{StatSum(a) / WeightSum:F0}"))}）" +
-                   $" 森の最高到達 {Forest.ReachedFloor}F・撃破 {Forest.Bosses.Count(b => b.IsDefeated)}体・所持金 {s.Gold}G・機嫌 {s.MasterMood}・現役 {Active.Count()}名");
+                   (Campaign
+                       ? $" 撃破 {string.Join("/", s.DungeonFields.OrderBy(f => f.Order).Select(f => $"{FieldShort(f.Order)}{f.Bosses.Count(b => b.IsDefeated) * 10}F"))}・所持金 {s.Gold}G・現役 {Active.Count()}名・娘 {DaughtersBorn}名"
+                       : $" 森の最高到達 {Forest.ReachedFloor}F・撃破 {Forest.Bosses.Count(b => b.IsDefeated)}体・所持金 {s.Gold}G・機嫌 {s.MasterMood}・現役 {Active.Count()}名"));
+        if (Campaign) YearlyKills.Add(s.DungeonFields.Sum(f => f.Bosses.Count(b => b.IsDefeated)));
+    }
+
+    public readonly List<int> YearlyKills = new();
+    static string FieldShort(int order) => order switch { 1 => "森", 2 => "洞", 3 => "廃", 4 => "峡", _ => "深" };
+
+    public static void RunCampaign(int runs, int weeks)
+    {
+        Console.WriteLine($"## E. 深淵100F（クリア）までの通しのシミュレーション（{runs}回、最大{weeks}週＝{weeks / 48}年。教官・研究・宿舎{(UseSoulFusion ? "・秘薬" : "")}を使う）");
+        var sims = new List<GameSim>();
+        for (int i = 0; i < runs; i++)
+        {
+            var sim = new GameSim(i);
+            sim.Run(weeks);
+            sims.Add(sim);
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("### フィールドごとの節目ボスを初めて倒した年（中央値〔最小〜最大〕・倒せた回数）");
+        Console.WriteLine("| フィールド | 10F | 20F | 50F | 100F |");
+        Console.WriteLine("|---|---|---|---|---|");
+        foreach (int order in new[] { 1, 2, 3, 4, 5 })
+        {
+            var cells = new[] { 10, 20, 50, 100 }.Select(floor =>
+            {
+                var ws = sims.Select(x => x.FieldKills.Where(k => k.Order == order && k.Floor == floor).Select(k => (int?)k.Week).FirstOrDefault())
+                    .OfType<int>().Select(w => (double)w / 48 + 1).ToList();
+                return ws.Count == 0 ? $"―（0/{runs}）" : $"{Median(ws):F1}年目〔{ws.Min():F1}〜{ws.Max():F1}〕（{ws.Count}/{runs}）";
+            });
+            Console.WriteLine($"| {FieldShort(order)} | {string.Join(" | ", cells)} |");
+        }
+        Console.WriteLine();
+        var cleared = sims.Where(x => x.s.IsGameCleared).Select(x => (double)GameCalendar.YearOf(x.s.ClearedAtWeek!.Value)).ToList();
+        Console.WriteLine(cleared.Count == 0
+            ? $"クリア：0/{runs}回（{weeks / 48}年以内に深淵100Fに届かない）"
+            : $"クリア：{cleared.Count}/{runs}回、{Median(cleared):F0}年目〔{cleared.Min():F0}〜{cleared.Max():F0}〕");
+        Console.WriteLine($"撃破したボスの数（50体中、最終）：{string.Join(", ", sims.Select(x => x.s.DungeonFields.Sum(f => f.Bosses.Count(b => b.IsDefeated))))}");
+        Console.WriteLine("撃破数の推移（各年のはじめ、中央値）：" + string.Join("・", Enumerable.Range(0, weeks / 48).Select(y =>
+        {
+            var l = sims.Where(x => x.YearlyKills.Count > y).Select(x => (double)x.YearlyKills[y]).ToList();
+            return l.Count == 0 ? null : $"{y + 2}年目 {Median(l):F0}";
+        }).OfType<string>()));
+        Console.WriteLine($"秘薬で生まれた娘：{string.Join(", ", sims.Select(x => x.DaughtersBorn))}");
+        Console.WriteLine($"飲ませた霊薬：{string.Join(", ", sims.Select(x => x.ElixirsGiven))}　上位装備の段（最終）：{string.Join(", ", sims.Select(x => EquipmentSystem.GetUnlockedShopTier(x.s)))}");
+        Console.WriteLine($"強制除籍：{string.Join(", ", sims.Select(x => x.ForcedRetired))}　敗北：{string.Join(", ", sims.Select(x => x.Defeat ?? "なし"))}");
+        Console.WriteLine();
+        Console.WriteLine("### 1回目の最後の状態：各フィールドの次のボスと、上位4名の部隊の値");
+        sims[0].Diagnose();
+        Console.WriteLine();
+        Console.WriteLine("### 1回目の年ごとの様子");
+        foreach (var y in sims[0].Yearly) Console.WriteLine("- " + y);
+    }
+
+    /// <summary>止まっている理由を見る：各フィールドの次のボスの要求火力・ギミックと、上位4名の火力（完全解析）・走破力。</summary>
+    void Diagnose()
+    {
+        var top = Active.OrderByDescending(StatSum).Take(4).ToList();
+        var party = new Party();
+        foreach (var a in top) party.TryAdd(a);
+        double trav = DungeonTraversalResolver.CalculateTraversalScore(party);
+        foreach (var f in s.DungeonFields.OrderBy(f => f.Order))
+        {
+            var boss = f.GetNextActiveBoss();
+            if (boss == null) { Console.WriteLine($"- {FieldShort(f.Order)}：制覇"); continue; }
+            double power = DungeonResolver.CalculateBossPower(party, boss);
+            double req = DungeonResolver.RequiredPower(boss);
+            string gimmicks = string.Join("・", boss.Gimmicks.Select(g => $"{g.Type}{(DungeonResolver.IsCountered(g, party) ? "(対策済)" : g.RequiredItemId != null ? $"(携行品{g.RequiredItemId})" : "(対策なし)")}"));
+            Console.WriteLine($"- {FieldShort(f.Order)} {boss.Floor}F：要求火力 {req:F0}／上位4名の火力 {power:F0}（解析{boss.IntelRate:P0}）・ギミック {gimmicks}・" +
+                $"走破力 {trav:F0}／{boss.Floor}Fの走破要求 {DungeonTraversalResolver.FloorRequirement(f, boss.Floor):F1}・最高到達 {f.ReachedFloor}F");
+        }
+        Console.WriteLine($"  上位4名：{string.Join("／", top.Select(a => $"{a.JobClass}{a.Age}歳 加重{StatSum(a) / WeightSum:F0} 霊薬{a.ElixirsTaken} 装備[{a.EquippedWeapon?.ItemId}/{a.EquippedArmor?.ItemId}/{a.EquippedAccessory1?.ItemId}/{a.EquippedAccessory2?.ItemId}]"))}");
     }
 
     public static void RunMany(int runs, int weeks)

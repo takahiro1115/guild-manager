@@ -45,6 +45,9 @@ namespace GuildManager.Core.Balance
         public static readonly int CultureWeeks = BalanceData.GetInt(FileName, "CultureWeeks");
         public static readonly int CultureTankCount = BalanceData.GetInt(FileName, "CultureTankCount");
 
+        /// <summary>娘のPAの基準で、両親のうち高い方に掛ける重み（残りを低い方に掛ける。0.5＝平均、1.0＝高い方そのもの。§0.60）。</summary>
+        public static readonly double HigherParentWeight = BalanceData.GetDouble(FileName, "HigherParentWeight");
+
         public static readonly int PaVarianceMin = BalanceData.GetInt(FileName, "PaVarianceMin");
         public static readonly int PaVarianceMax = BalanceData.GetInt(FileName, "PaVarianceMax");
 
@@ -58,6 +61,9 @@ namespace GuildManager.Core.Balance
         public static readonly int TraitInheritChancePercent = BalanceData.GetInt(FileName, "TraitInheritChancePercent");
         public static readonly int RareTraitInheritChancePercent = BalanceData.GetInt(FileName, "RareTraitInheritChancePercent");
         public static readonly int FlawInheritChancePercent = BalanceData.GetInt(FileName, "FlawInheritChancePercent");
+
+        /// <summary>娘が「魂魄の申し子」（→ TraitCatalog.SoulChild、§0.62）を持つ確率（%）。</summary>
+        public static readonly int SoulChildChancePercent = BalanceData.GetInt(FileName, "SoulChildChancePercent");
 
         private static readonly Lazy<IReadOnlyList<SoulFusionCatalyst>> AllCatalysts = new(LoadCatalysts);
 

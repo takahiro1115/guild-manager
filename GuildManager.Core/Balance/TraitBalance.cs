@@ -171,6 +171,26 @@ namespace GuildManager.Core.Balance
         /// <summary>天才：7能力すべての素の値部分に掛ける補正率（0.15で×1.15）。</summary>
         public static readonly double GeniusStatBonus = BalanceData.GetDouble(FileName, "GeniusStatBonus");
 
+        // ---- §0.62：成長・素質系と戦闘系 ----
+
+        /// <summary>大器晩成：全盛期（23歳〜）の成長の確率に掛ける倍率（訓練・出撃の両方、→ GrowthSystem.TraitGrowthMultiplier）。</summary>
+        public static readonly double LateBloomerPeakGrowthMultiplier = BalanceData.GetDouble(FileName, "LateBloomerPeakGrowthMultiplier");
+
+        /// <summary>早熟：22歳までの成長の確率に掛ける倍率。</summary>
+        public static readonly double EarlyBloomerYouthGrowthMultiplier = BalanceData.GetDouble(FileName, "EarlyBloomerYouthGrowthMultiplier");
+
+        /// <summary>魂魄の申し子：7能力すべての素の値部分に掛ける補正率（0.05で×1.05）。</summary>
+        public static readonly double SoulChildStatBonus = BalanceData.GetDouble(FileName, "SoulChildStatBonus");
+
+        /// <summary>魂魄の申し子：成長の確率に掛ける倍率（年齢によらない）。</summary>
+        public static readonly double SoulChildGrowthMultiplier = BalanceData.GetDouble(FileName, "SoulChildGrowthMultiplier");
+
+        /// <summary>歴戦の勇士：本人の討伐火力の上乗せ率（→ DungeonPowerCalculator.TraitPowerModifier）。</summary>
+        public static readonly double VeteranPowerBonus = BalanceData.GetDouble(FileName, "VeteranPowerBonus");
+
+        /// <summary>鼓舞：部隊の討伐火力の上乗せ率（保有者が何人いても1回分、→ DungeonPowerCalculator.PartyPower）。</summary>
+        public static readonly double InspiringPartyPowerBonus = BalanceData.GetDouble(FileName, "InspiringPartyPowerBonus");
+
         /// <summary>単能力のレア特性（大魔導士・剣聖など7種）：対象能力の素の値部分に掛ける補正率（0.30で×1.30）。</summary>
         public static readonly double RareSingleStatBonus = BalanceData.GetDouble(FileName, "RareSingleStatBonus");
 

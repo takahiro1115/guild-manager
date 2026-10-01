@@ -238,17 +238,17 @@ namespace GuildManager.Core.Tests
         // ---------------- 子の能力（PA）と能力限界突破 ----------------
 
         [Fact]
-        public void ChildPa_IsParentAverage_PlusVariance_CappedAt100()
+        public void ChildPa_LeansToHigherParent_PlusVariance_CappedAt100()
         {
             var (state, a, b) = Setup(JobClass.Warrior, JobClass.Knight); // ふつう（突破5%）
-            foreach (var stat in AllStats) { SetPa(a, stat, 80); SetPa(b, stat, 61); } // 平均70.5→71
+            foreach (var stat in AllStats) { SetPa(a, stat, 80); SetPa(b, stat, 61); } // 80×0.75＋61×0.25＝75.25→75（§0.60）
 
             // 乱数が常に最大：ばらつき+10、突破の判定(100)は外れ、特性の判定も外れる。
             var child = new SoulFusionSystem(new AlwaysMaxRng()).CreateChild(state, a, b, JobClass.Knight, null).Child;
             foreach (var stat in AllStats)
             {
-                Assert.Equal(81, GetPa(child, stat));
-                Assert.Equal((int)(81 * RecruitmentBalance.YoungestGrowthRatio), GetStat(child, stat));
+                Assert.Equal(85, GetPa(child, stat));
+                Assert.Equal((int)(85 * RecruitmentBalance.YoungestGrowthRatio), GetStat(child, stat));
             }
 
             foreach (var stat in AllStats) { SetPa(a, stat, 100); SetPa(b, stat, 100); }

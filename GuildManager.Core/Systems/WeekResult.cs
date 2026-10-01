@@ -22,7 +22,8 @@ namespace GuildManager.Core.Systems
         public bool FacilityConstructionCompleted { get; set; }
         public bool DeathOrPermanentInjuryOccurred { get; set; }
 
-        public bool FinalQuestNewlyUnlocked { get; set; }
+        /// <summary>今週クリアしたか（深淵100Fのボス撃破、→ 03 §8.2・§0.59）。旧名 FinalQuestNewlyUnlocked。</summary>
+        public bool GameCleared { get; set; }
 
         /// <summary>
         /// 敗北（破産）が今週新たに確定したか。指示書の8停止条件には
@@ -44,7 +45,7 @@ namespace GuildManager.Core.Systems
             RecruitmentTrialOccurred || SatisfactionWarningOccurred ||
             FacilityConstructionCompleted || SoulFusionBirthOccurred ||
             DeathOrPermanentInjuryOccurred ||
-            FinalQuestNewlyUnlocked ||
+            GameCleared ||
             DefeatOccurred || BossDoorReached;
     }
 }

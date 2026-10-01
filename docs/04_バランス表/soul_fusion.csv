@@ -3,7 +3,8 @@ RequiredCompatibility,100,pt,秘薬を処方できるペアの相性（→ compa
 PrescriptionGold,2500,G,秘薬1回の処方費用（触媒の素材は別）。採用の契約金（総合PA×1.0、約1000〜1500G）より高い
 CultureWeeks,12,週,処方から誕生までの培養の週数。その間も親は出撃できる
 CultureTankCount,1,基,同時に培養できる数（培養槽の数）
-PaVarianceMin,-5,pt,子のPA＝両親のPAの平均＋この範囲の乱数（能力ごと）。下限
+HigherParentWeight,0.75,倍,娘のPAの基準＝両親のうち高い方×この値＋低い方×(1−この値)（能力ごと）。0.5なら平均。高い方へ寄せるので血統が世代ごとに伸びる（§0.60で新設。§0.58は平均）
+PaVarianceMin,-5,pt,子のPA＝基準（HigherParentWeight）＋この範囲の乱数＋研究の上乗せ（能力ごと）。下限
 PaVarianceMax,10,pt,同・上限。限界突破しない能力は100で止める
 BreakthroughChance_Destined,30,%,百合相性「運命の一対」（重戦士か騎士×神官＝勇者と聖女）の限界突破の確率（子1人につき1回）
 BreakthroughChance_Complementary,15,%,百合相性「好一対」（前衛×後衛）の限界突破の確率
@@ -14,3 +15,4 @@ BreakthroughPaCap,120,pt,限界突破した能力のPAの上限（通常の能�
 TraitInheritChancePercent,30,%,親の長所（障害・欠点・レア以外）を子が受け継ぐ確率（親ひとりの特性1つごと。両親とも持つ特性は2回判定）
 RareTraitInheritChancePercent,15,%,親のレア特性を子が受け継ぐ確率
 FlawInheritChancePercent,20,%,親の生まれつきの欠点を子が受け継ぐ確率（障害特性は受け継がない）
+SoulChildChancePercent,50,%,魂魄融和で生まれた娘が「魂魄の申し子」を持つ確率（親からの継承とは別。§0.62）

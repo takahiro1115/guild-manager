@@ -1,2 +1,5 @@
 key,value,unit,note
 InitialSquadSlots,1,枠,ゲーム開始時の同時出撃枠（1枠内で1〜4名の分割編成は自由）
+ShopTierUnlockBosses_1,15,体,店の上位装備・段1（ミスリル）が入荷する、倒した階層ボスの総数（全フィールドの合計。§0.61）
+ShopTierUnlockBosses_2,25,体,段2（オリハルコン）が入荷する、倒した階層ボスの総数
+ShopTierUnlockBosses_3,35,体,段3（星鉄）が入荷する、倒した階層ボスの総数

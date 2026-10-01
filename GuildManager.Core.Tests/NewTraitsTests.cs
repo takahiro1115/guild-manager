@@ -103,7 +103,7 @@ namespace GuildManager.Core.Tests
         {
             foreach (var id in NewTraitIds)
                 Assert.Contains(id, RecruitmentSystem.InnateTraitPool);
-            Assert.Equal(20, RecruitmentSystem.InnateTraitPool.Length); // §0.56で地図読みを追加
+            Assert.Equal(24, RecruitmentSystem.InnateTraitPool.Length); // §0.56で地図読み、§0.62で大器晩成・早熟・歴戦の勇士・鼓舞を追加
             Assert.Equal(3, RecruitmentBalance.InnateTraitChancePercent);
         }
 

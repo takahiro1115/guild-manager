@@ -108,16 +108,17 @@ namespace GuildManager.Core.Tests.Balance
         }
 
         [Theory]
-        [InlineData(1, 40, 31, 32)]  // 森40F（伝説級）
-        [InlineData(2, 40, 34, 35)]  // 鍾乳洞40F（伝説級）
-        [InlineData(3, 40, 36, 37)]  // 廃墟40F（伝説級）
-        [InlineData(4, 40, 38, 39)]  // 峡谷40F（伝説級）
-        [InlineData(5, 50, 45, 46)]  // 深淵50F（伝説級）
-        [InlineData(1, 100, 54, 55)] // 森100F
-        [InlineData(5, 100, 68, 69)] // 深淵100F（最終目標）
+        // §0.62でクリアまで15年前後に合わせて要求を下げた（階層の増分7.5→6.5、フィールド倍率1.07〜1.27→1.04〜1.16）。
+        [InlineData(1, 40, 30, 31)]  // 森40F（伝説級）
+        [InlineData(2, 40, 31, 32)]  // 鍾乳洞40F（伝説級）
+        [InlineData(3, 40, 32, 33)]  // 廃墟40F（伝説級）
+        [InlineData(4, 40, 33, 34)]  // 峡谷40F（伝説級）
+        [InlineData(5, 50, 38, 39)]  // 深淵50F（伝説級）
+        [InlineData(1, 100, 49, 50)] // 森100F
+        [InlineData(5, 100, 57, 58)] // 深淵100F（最終目標）
         public void LegendaryBosses_NeedStagedStats(int fieldOrder, int floor, int notEnough, int enough)
         {
-            // 伝説級・100Fのボスに、完全解析・HP満タンの4人部隊で届く全能力の目安（§0.50・§0.51）。フィールドごとに段階的に上がる。
+            // 伝説級・100Fのボスに、完全解析・HP満タンの4人部隊で届く全能力の目安（§0.50・§0.51・§0.62）。フィールドごとに段階的に上がる。
             var boss = new FloorBoss { Name = "伝説級の主", Floor = floor, FieldOrder = fieldOrder, MaxHp = 1, CurrentHp = 1, IntelRate = 1.0 };
             Assert.True(DungeonResolver.CalculateBossPower(AssaultParty(notEnough), boss) < DungeonResolver.RequiredPower(boss));
             Assert.True(DungeonResolver.CalculateBossPower(AssaultParty(enough), boss) >= DungeonResolver.RequiredPower(boss));

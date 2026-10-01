@@ -152,7 +152,9 @@ namespace GuildManager.Core.Tests
             foreach (var def in TraitCatalog.GetAll())
             {
                 // 障害特性・生まれつきの欠点（§0.56）・容姿秀麗は伝授されない。
-                bool expected = !def.IsCurseOrInjury && !def.IsFlaw && !def.IsRare && def.Id != TraitCatalog.BeautifulId; // レア特性（§0.57）も伝授されない
+                // レア特性（§0.57）・魂魄の申し子（§0.62、秘薬の娘だけ）も伝授されない
+                bool expected = !def.IsCurseOrInjury && !def.IsFlaw && !def.IsRare
+                    && def.Id != TraitCatalog.BeautifulId && def.Id != TraitCatalog.SoulChildId;
                 Assert.True(expected == def.IsTransmittable, $"{def.Id} の IsTransmittable が想定と違う");
             }
         }

@@ -62,25 +62,46 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
-        public void RoundTrip_PreservesFinalQuestUnlocked_WhenTrue()
+        public void RoundTrip_PreservesClear_WhenCleared()
         {
-            // v1.10改訂で新設されたフィールド（→ 03 §8.2）。v1.8作成時点ではGameStateに
-            // 存在しなかったため、SaveDataへの反映漏れが無いか確認する項目。
-            var state = new GameState { FinalQuestUnlocked = true };
+            // クリア（→ 03 §8.2・§0.59。旧 FinalQuestUnlocked、JSONキーは据え置き）・クリアの週・クリアした部隊。
+            var id = Guid.NewGuid();
+            var state = new GameState { IsGameCleared = true, ClearedAtWeek = 650, ClearingMemberIds = new List<Guid> { id } };
 
             var restored = GameState.FromSaveData(state.ToSaveData());
 
-            Assert.True(restored.FinalQuestUnlocked);
+            Assert.True(restored.IsGameCleared);
+            Assert.Equal(650, restored.ClearedAtWeek);
+            Assert.Equal(new[] { id }, restored.ClearingMemberIds);
+            Assert.Contains("\"FinalQuestUnlocked\":true", JsonSerializer.Serialize(state.ToSaveData()));
         }
 
         [Fact]
-        public void RoundTrip_FinalQuestUnlocked_DefaultsToFalse_ForNewGame()
+        public void RoundTrip_NotCleared_ForNewGame()
         {
             var state = new GameState();
 
             var restored = GameState.FromSaveData(state.ToSaveData());
 
-            Assert.False(restored.FinalQuestUnlocked);
+            Assert.False(restored.IsGameCleared);
+            Assert.Null(restored.ClearedAtWeek);
+            Assert.Empty(restored.ClearingMemberIds);
+        }
+
+        [Fact]
+        public void OldClearedSave_WithoutClearWeek_UsesLoadedWeek()
+        {
+            // §0.59 より前のセーブ：FinalQuestUnlocked=true だけを持ち、クリアの週・部隊のキーが無い。
+            var json = JsonSerializer.Serialize(new GameState { WeekNumber = 777, IsGameCleared = true }.ToSaveData());
+            var oldJson = System.Text.RegularExpressions.Regex.Replace(json, ",\"(ClearedAtWeek|ClearingMemberIds)\":(null|\\[\\])", "");
+            Assert.DoesNotContain("ClearedAtWeek", oldJson);
+            Assert.DoesNotContain("ClearingMemberIds", oldJson);
+
+            var restored = GameState.FromSaveData(JsonSerializer.Deserialize<SaveData>(oldJson)!);
+
+            Assert.True(restored.IsGameCleared);
+            Assert.Equal(777, restored.ClearedAtWeek);
+            Assert.Empty(restored.ClearingMemberIds);
         }
 
         [Fact]

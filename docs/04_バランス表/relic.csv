@@ -68,6 +68,8 @@ AffixMaxTierLegendary,3,Tier,虹：Tier上限
 AffixSellBonusTier1,25,G,鑑定品の武具の売却額へ、付いているTier1アフィックス1枠につき加算する額（→ 03 §4.8.2、2026年9月・§0.40）
 AffixSellBonusTier2,60,G,同上：Tier2アフィックス1枠につき
 AffixSellBonusTier3,150,G,同上：Tier3アフィックス1枠につき
+AffixDepthScaleStartFloor,20,層,この階層より深い出土品から、鑑定で付くアフィックスの値に倍率が掛かり始める（§0.61）
+AffixDepthScaleAt100,2.0,倍,100Fの出土品のアフィックスの値の倍率（開始階層から直線で伸ばす。例：60F≒1.5倍。四捨五入）
 ArtifactRateCommon,0,%,銅：鑑定で武具が出た場合に、まだ入手していない固定アーティファクト（紫、→ uniques.csv）へ化ける確率（→ 03 §4.7.3、2026年9月・§0.45）
 ArtifactRateRare,0,%,銀：同上
 ArtifactRateEpic,4,%,金：同上

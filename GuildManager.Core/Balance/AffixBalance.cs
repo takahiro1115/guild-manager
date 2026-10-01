@@ -105,6 +105,24 @@ namespace GuildManager.Core.Balance
         /// <summary>希少度ごとの付与ルール。</summary>
         public static AffixRarityRule GetRule(ItemRarity rarity) => RarityRules.Value[rarity];
 
+        // ---- 深い階層の鑑定品ほどアフィックスの値が大きい（2026年10月・§0.61） ----
+
+        /// <summary>この階層より深い出土品から、アフィックスの値に倍率が掛かり始める（relic.csv AffixDepthScaleStartFloor）。</summary>
+        public static readonly int DepthScaleStartFloor = BalanceData.GetInt(RelicFileName, "AffixDepthScaleStartFloor");
+
+        /// <summary>100Fの出土品のアフィックスの値の倍率（relic.csv AffixDepthScaleAt100）。その間は直線で伸ばす。</summary>
+        public static readonly double DepthScaleAt100 = BalanceData.GetDouble(RelicFileName, "AffixDepthScaleAt100");
+
+        /// <summary>
+        /// 出土階層によるアフィックスの値の倍率：開始階層以下は1.0、100Fで DepthScaleAt100、その間は直線（100F超は100F扱い）。
+        /// </summary>
+        public static double DepthMultiplier(int originFloor)
+        {
+            int floor = Math.Min(originFloor, 100);
+            if (floor <= DepthScaleStartFloor) return 1.0;
+            return 1.0 + (DepthScaleAt100 - 1.0) * (floor - DepthScaleStartFloor) / (100.0 - DepthScaleStartFloor);
+        }
+
         /// <summary>
         /// 指定の位置・装備枠・Tier範囲に合致するアフィックス（抽選の母集団）。CSVの行順を保つ。
         /// </summary>

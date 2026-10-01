@@ -54,6 +54,23 @@ namespace GuildManager.Core.Models
         /// （EffectValue は 0）、完了すると研究室の培養槽で秘薬を処方できるようになる。
         /// </summary>
         SoulFusionUnlock,
+
+        // ---- 世代を重ねて強くなる段階研究（2026年10月・§0.60）。同種の研究は加算で重複できる ----
+
+        /// <summary>採用の応募者のPA生成レンジ（通常・有望新人の両方）に加算する値（pt、→ Systems.RecruitmentSystem）。上限100は変わらない。</summary>
+        RecruitPaBonus,
+
+        /// <summary>成長の確率（訓練施設の成長ロール・出撃成長のロール）に (1＋EffectValue) を掛ける（→ Systems.GrowthSystem）。</summary>
+        GrowthRateBonus,
+
+        /// <summary>魂魄融和の娘のPA（能力ごと、上限で止める前）に加算する値（pt、→ Systems.SoulFusionSystem）。</summary>
+        SoulFusionPaBonus,
+
+        /// <summary>培養槽の数に加算する値（基、→ soul_fusion.csv CultureTankCount、Systems.SoulFusionSystem.HasFreeTank）。</summary>
+        CultureTankBonus,
+
+        /// <summary>霊薬の調合の解禁（→ Systems.ElixirSystem、§0.61）。数値の効果は持たない（EffectValue は 0）。</summary>
+        ElixirUnlock,
     }
 
     /// <summary>
@@ -78,6 +95,11 @@ namespace GuildManager.Core.Models
 
         /// <summary>効果量。意味は EffectType ごとに異なる（→ ResearchEffectTypeの各コメント）。</summary>
         public float EffectValue { get; init; }
+
+        /// <summary>
+        /// 前提の研究Id（2026年10月・§0.60）。この研究が済んでいないと始められない（段階研究のII・IIIなど）。null＝前提なし。
+        /// </summary>
+        public string? PrerequisiteId { get; init; }
     }
 
     /// <summary>
@@ -129,5 +151,8 @@ namespace GuildManager.Core.Models
 
         /// <summary>魂魄融和の秘薬：研究室の培養槽を開く（→ SoulFusionUnlock、§0.58）。</summary>
         public const string SoulFusion = "res_soul_fusion";
+
+        /// <summary>霊薬の調合法：研究室で霊薬を調合して冒険者に飲ませられる（→ ElixirUnlock、§0.61）。</summary>
+        public const string ElixirBrewing = "res_elixir_brewing";
     }
 }

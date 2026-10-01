@@ -1,0 +1,6 @@
+Id,Name,Description,TargetStats,PaBonus,StatBonus,RequiredMaterials,RequiredGold
+elixir_might,剛力の霊薬,黒鉱石と火山灰を煮詰めた赤黒い霊薬。筋と骨が軋むほど鍛えられる,STR;VIT,5,3,mat_cave_ore:3;mat_canyon_ash:4,3000
+elixir_gale,迅風の霊薬,変異胞子を遺物の欠片で濾した翠の霊薬。身のこなしと指先が冴える,AGI;DEX,5,3,mat_forest_spore:3;mat_ruins_scrap:4,3000
+elixir_wisdom,叡智の霊薬,ルーン石を月光草の露で溶かした青白い霊薬。思考と祈りが澄み渡る,INT;MND,5,3,mat_ruins_rune:3;mat_forest_herb:6,3000
+elixir_command,統率の霊薬,発光苔とルーン石を練り合わせた金色の霊薬。声に人を従わせる響きが宿る,LDR;MND,5,3,mat_cave_moss:6;mat_ruins_rune:2,3000
+elixir_awakening,潜在覚醒の霊薬,深淵の結晶から抽出した禁断の霊薬。眠っていた素質のすべてを揺り起こす,STR;VIT;AGI;DEX;INT;MND;LDR,4,2,mat_abyss_crystal:3;mat_abyss_dust:6,15000

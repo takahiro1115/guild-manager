@@ -529,8 +529,13 @@ namespace GuildManager.Core.Systems
             {
                 int slotsBefore = state.UnlockedSquadSlots;
                 var unlockedFieldIdsBefore = state.DungeonFields.Where(f => f.IsUnlocked).Select(f => f.Id).ToHashSet();
+                bool wasCleared = state.IsGameCleared;
 
                 ApplyFieldProgression(state, boss);
+
+                // クリアした部隊の生還者をエンディングの記録に残す（→ GuildChronicle、§0.59）。
+                if (!wasCleared && state.IsGameCleared)
+                    state.ClearingMemberIds = mission.Party.Members.Where(m => state.Adventurers.Contains(m)).Select(m => m.Id).ToList();
 
                 // 累積功績（→ AwardContribution）：撃破したボスの階層に比例（深い階層ほど大きい）。
                 // 強制除籍された者はロースターから外れているため加算されない。
@@ -683,7 +688,7 @@ namespace GuildManager.Core.Systems
         /// 順序：①撃破報酬の付与 → ②最高到達階層の更新 → ③次フィールドの開放判定
         /// （10Fボス撃破→Order+1を開放。ただし開放先はOrder 2〜4に限る＝深淵はこの経路では開かない）
         /// → ④深淵（Order 5）の開放判定（Order 1〜4すべてで20Fボスが撃破済みになった時点） →
-        /// ⑤最終フィールド（Orderが最大＝深淵）の100Fボス撃破でFinalQuestUnlockedを立てる →
+        /// ⑤最終フィールド（Orderが最大＝深淵）の100Fボス撃破でクリア（IsGameCleared・ClearedAtWeek） →
         /// ⑥森（Order=1）の節目ボス撃破による出撃枠拡張（「古代エルフ通信技術の復元」）。
         /// </summary>
         public static void ApplyFieldProgression(GameState state, FloorBoss defeatedBoss)
@@ -722,11 +727,13 @@ namespace GuildManager.Core.Systems
                     abyss.IsUnlocked = true;
             }
 
-            // ⑤最深部（最終フィールドの100Fボス）撃破：最終討伐クエストの解禁フラグを立てる
-            // （→ 03 §8.2。旧来の「Aランク到達」経路はギルド格付けの廃止（2026年9月）で撤去し、この経路のみになった）。
+            // ⑤最深部（最終フィールドの100Fボス）撃破：クリア（→ 03 §8.2・§0.59）。クリアの週は最初の1回だけ記録する。
             var finalField = state.DungeonFields.OrderByDescending(f => f.Order).FirstOrDefault();
             if (finalField != null && field == finalField && defeatedBoss.Floor == DungeonField.MaxFloor)
-                state.FinalQuestUnlocked = true;
+            {
+                state.IsGameCleared = true;
+                state.ClearedAtWeek ??= state.WeekNumber;
+            }
 
             // ⑥出撃枠拡張（「古代エルフの多頭通信術式」復元、→ 大迷宮ボス間隔・敗北条件改訂）。
             // 森（Order=1）の節目ボス撃破のみが対象：10F撃破で2枠、20F撃破で3枠まで引き上げる

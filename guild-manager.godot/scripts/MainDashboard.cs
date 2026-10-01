@@ -195,6 +195,7 @@ public partial class MainDashboard : Control
 
 		_systemPanel = GetNode<SystemPanel>("%SystemTab");
 		_systemPanel.SaveRequested += SaveProgress;
+		_systemPanel.EndingRequested += () => ShowEnding(); // クリア後にエンディングを見直す（→ 03 §0.59）
 		_systemPanel.DebugAddGoldRequested += () =>
 		{
 			_state.Gold += 10000;
@@ -515,6 +516,15 @@ public partial class MainDashboard : Control
 	/// </summary>
 	private void HandlePostSettlementInterruptions(WeeklySettlementResult settlement)
 	{
+		if (settlement.Flags.GameCleared)
+		{
+			// クリア（→ 03 §8.2・§0.59）：エンディングを先に見せ、閉じてから残りの割り込み（採用試験など）へ進む。
+			settlement.Flags.GameCleared = false;
+			DisableWeekAdvancement();
+			ShowEnding(() => HandlePostSettlementInterruptions(settlement));
+			return;
+		}
+
 		if (settlement.Flags.DefeatOccurred)
 		{
 			DisableWeekAdvancement(); // ゲームオーバー：これ以上週を進められない
@@ -592,6 +602,10 @@ public partial class MainDashboard : Control
 		// 魂魄融和の誕生（→ 03 §5.4・§0.58）。
 		foreach (var birth in settlement.SoulFusionBirths)
 			LogSoulFusionBirth(birth);
+
+		// クリア（→ 03 §8.2・§0.59）。
+		if (settlement.Flags.GameCleared)
+			AppendLog($"[color=gold][font_size=24][b]🏆 深淵100Fを制覇した！ 最後の生体コードがアルベールの手に渡った。[/b][/font_size][/color]");
 
 		if (settlement.CompletedFacility != null)
 			AppendLog($"[color=lime][b]🏗 {FacilityLabel(settlement.CompletedFacility.Type)}がLv{settlement.CompletedFacility.CurrentLevel}に完成した！[/b][/color]");
@@ -1158,6 +1172,67 @@ public partial class MainDashboard : Control
 			AppendLog($"[color=gray]特性：{string.Join("・", child.TraitIds.Select(id => TraitCatalog.FindById(id)?.DisplayName ?? id))}[/color]");
 	}
 
+	/// <summary>
+	/// エンディング（→ 03 §8.2・§0.59）：アルベールの語りとギルドの記録（→ GuildChronicle）を出す。
+	/// 「ギルドを続ける」で閉じると afterClose を呼ぶ（クリア後もそのまま遊べる）。システム画面から見直すときは afterClose なし。
+	/// </summary>
+	private void ShowEnding(Action afterClose = null)
+	{
+		var chronicle = GuildChronicle.Build(_state);
+
+		var text = new RichTextLabel
+		{
+			BbcodeEnabled = true,
+			FitContent = true,
+			CustomMinimumSize = new Vector2(860, 0),
+			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+		};
+		text.AppendText(EndingNarration() + "\n\n" + EndingRecord(chronicle));
+
+		var scroll = new ScrollContainer { CustomMinimumSize = new Vector2(900, 620), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+		scroll.AddChild(text);
+
+		var dialog = new AcceptDialog { Title = "エンディング ― 失われた理想郷", OkButtonText = "ギルドを続ける" };
+		dialog.AddChild(scroll);
+		dialog.Confirmed += () => CloseDialogThenRun(dialog, () => afterClose?.Invoke());
+		dialog.Canceled += () => CloseDialogThenRun(dialog, () => afterClose?.Invoke());
+		AddChild(dialog);
+		dialog.PopupCentered();
+	}
+
+	/// <summary>エンディングの語り（世界観は 01_コンセプト.md）。</summary>
+	private static string EndingNarration() =>
+		"[font_size=22][b]失われた理想郷[/b][/font_size]\n\n" +
+		"深淵の最奥で、最後の生体記憶結晶が淡く脈打っていた。\n" +
+		"冒険者たちが持ち帰ったそれを、アルベールは長いあいだ黙って掌に載せていた。\n\n" +
+		"[i]「……ようやく、揃ったわ」[/i]\n\n" +
+		"森の、洞窟の、廃墟の、峡谷の、そして深淵の主たちが抱えていた記憶。\n" +
+		"男を介さず、女同士の愛と絆だけで栄えたという古代エルフの社会――その欠片が、研究室の培養槽の光の中でひとつに繋がっていく。\n\n" +
+		"かつて政略に引き裂かれた勇者と聖女のことを、彼女は一度も口にしなかった。\n" +
+		"ただ、ギルドの広間で笑い合う娘たちを見下ろして、静かに白衣の襟を正した。\n\n" +
+		"[i]「理想郷は、どこか遠くにあるものじゃなかったのね。……さあ、次の世代の記録を始めましょう」[/i]\n\n" +
+		"[color=gray]ギルドはこれからも続いていく。[/color]";
+
+	/// <summary>エンディングに並べるギルドの記録。</summary>
+	private static string EndingRecord(GuildChronicle c)
+	{
+		var sb = new StringBuilder();
+		sb.AppendLine("[font_size=20][b]ギルドの記録[/b][/font_size]");
+		sb.AppendLine($"・制覇：{GameCalendar.Format(c.ClearedAtWeek)}（{c.Years}年目）");
+		if (c.ClearingMemberNames.Count > 0)
+			sb.AppendLine($"・深淵100Fを制した部隊：{string.Join("・", c.ClearingMemberNames)}");
+		sb.AppendLine($"・在籍した冒険者：{c.TotalMembers}名（現役 {c.ActiveCount}・引退 {c.RetiredCount}・強制除籍 {c.ExpelledCount}）");
+		if (c.DaughterCount > 0)
+			sb.AppendLine($"・魂魄融和で生まれた娘：{c.DaughterCount}名（最も新しい世代：第{c.MaxGeneration}世代）");
+		else
+			sb.AppendLine("・魂魄融和で生まれた娘：なし");
+		sb.AppendLine($"・倒した階層ボス：{c.BossesDefeated} / {c.TotalBosses}体（制覇したフィールド {c.FieldsConquered} / {c.TotalFields}）");
+		sb.AppendLine($"・出撃の回数：{c.TotalDispatchCount}回");
+		if (c.TopContributorName != null)
+			sb.AppendLine($"・最も功績を挙げた冒険者：{c.TopContributorName}（功績 {c.TopContributorScore} pt）");
+		return sb.ToString();
+	}
+
 	private static int StatPa(Adventurer a, string stat) => stat switch
 	{
 		"STR" => a.PA_STR, "AGI" => a.PA_AGI, "VIT" => a.PA_VIT, "MND" => a.PA_MND,
@@ -1275,6 +1350,7 @@ public partial class MainDashboard : Control
 		_researchPanel.Refresh(_state);
 		_facilityPanel.Refresh(_state);
 		_inventoryPanel.Refresh(_state);
+		_systemPanel.SetEndingAvailable(_state.IsGameCleared);
 	}
 
 

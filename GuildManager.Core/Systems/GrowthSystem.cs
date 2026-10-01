@@ -78,17 +78,35 @@ namespace GuildManager.Core.Systems
                     continue; // 訓練施設未配置＝単純待機（成長ロールなし）
 
                 var targetStats = FacilityBalance.GetTrainingTargetStats(facility);
-                double multiplier = GrowthBalance.TrainingFacilityMultiplier + GetTrainerBonus(state, facility);
+                double multiplier = (GrowthBalance.TrainingFacilityMultiplier + GetTrainerBonus(state, facility)) * GetResearchGrowthMultiplier(state);
 
                 // 勤勉（→ TraitCatalog.Diligent、03 §5.3.2・§6.2）：基礎確率に DiligentGrowthRateBonus を加算してから倍率を掛ける。
                 double baseBonus = (adventurer.HasTrait(TraitCatalog.DiligentId) ? TrainingBalance.DiligentGrowthRateBonus : 0)
                     + (adventurer.HasTrait(TraitCatalog.FickleId) ? TraitBalance.FickleGrowthRatePenalty : 0); // 飽きっぽい（§0.56）
-                var growthEvent = TryGrowOne(adventurer, multiplier, _ => targetStats[_rng.NextInt(0, targetStats.Length - 1)], baseBonus);
+                var growthEvent = TryGrowOne(adventurer, multiplier * TraitGrowthMultiplier(adventurer), _ => targetStats[_rng.NextInt(0, targetStats.Length - 1)], baseBonus);
                 if (growthEvent != null)
                     events.Add(growthEvent);
             }
 
             return events;
+        }
+
+        /// <summary>段階研究（→ ResearchEffectType.GrowthRateBonus、§0.60）による成長確率の倍率（1＋効果値の合計）。訓練・出撃の両方に掛かる。</summary>
+        public static double GetResearchGrowthMultiplier(GameState state) =>
+            1.0 + ResearchBalance.GetTotalEffectValue(state, ResearchEffectType.GrowthRateBonus);
+
+        /// <summary>
+        /// 成長・素質系の特性（§0.62）による本人の成長の確率の倍率（訓練・出撃の両方に掛かる）：
+        /// 大器晩成＝全盛期に×LateBloomerPeakGrowthMultiplier、早熟＝22歳まで×EarlyBloomerYouthGrowthMultiplier、
+        /// 魂魄の申し子＝常に×SoulChildGrowthMultiplier。複数あれば積。
+        /// </summary>
+        public static double TraitGrowthMultiplier(Adventurer a)
+        {
+            double m = 1.0;
+            if (a.HasTrait(TraitCatalog.LateBloomerId) && a.AgeBand == AgeBand.Peak) m *= TraitBalance.LateBloomerPeakGrowthMultiplier;
+            if (a.HasTrait(TraitCatalog.EarlyBloomerId) && a.AgeBand != AgeBand.Peak) m *= TraitBalance.EarlyBloomerYouthGrowthMultiplier;
+            if (a.HasTrait(TraitCatalog.SoulChildId)) m *= TraitBalance.SoulChildGrowthMultiplier;
+            return m;
         }
 
         /// <summary>配置先施設に教官がいれば、その教官の対象ステータス生涯ピーク値に比例したボーナスを返す（→ 03 §7.1）。</summary>
@@ -127,14 +145,19 @@ namespace GuildManager.Core.Systems
             if (rolls <= 0)
                 return events;
 
+            // 段階研究（§0.60）・成長系の特性（§0.62）で成功確率が上がる（どちらも無ければ GrowthBaseChancePercent のまま）。
+            double researchMultiplier = GetResearchGrowthMultiplier(state);
+
             foreach (var member in party.Members)
             {
                 if (member.CurrentHP <= 0 || !state.Adventurers.Contains(member))
                     continue;
 
+                int chancePercent = (int)Math.Round(DungeonBalance.GrowthBaseChancePercent * researchMultiplier * TraitGrowthMultiplier(member));
+
                 for (int i = 0; i < rolls; i++)
                 {
-                    if (_rng.NextInt(1, 100) > DungeonBalance.GrowthBaseChancePercent)
+                    if (_rng.NextInt(1, 100) > chancePercent)
                         continue;
 
                     string stat = stats[_rng.NextInt(0, stats.Count - 1)];

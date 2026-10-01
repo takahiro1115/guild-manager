@@ -75,6 +75,14 @@ namespace GuildManager.Core.Models
         /// </summary>
         public bool FinalQuestUnlocked { get; set; }
 
+        // 2026年10月・§0.59：上の FinalQuestUnlocked は「クリアした」の意味になった（→ GameState.IsGameCleared。キー名は互換のため据え置き）。
+
+        /// <summary>クリアした週（→ GameState.ClearedAtWeek）。旧セーブには無い（クリア済みなら読み込んだ週で補う）。</summary>
+        public int? ClearedAtWeek { get; set; }
+
+        /// <summary>深淵100Fのボスを倒した部隊の生還者のId（→ GameState.ClearingMemberIds）。旧セーブでは空。</summary>
+        public List<Guid>? ClearingMemberIds { get; set; } = new();
+
         // ---- 進行管理（→ コアシステム刷新仕様「4. 進行管理」） ----
 
         /// <summary>

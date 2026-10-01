@@ -24,11 +24,20 @@ public partial class SystemPanel : ScrollContainer
 	/// <summary>デバッグ用「所持金 +10,000 G」の押下を通知する（MainDashboard が所持金を増やして表示を更新する）。</summary>
 	public event Action DebugAddGoldRequested = () => { };
 
+	/// <summary>「エンディングを見る」の押下を通知する（クリア後だけ表示、→ 03 §0.59。MainDashboard がエンディングを開く）。</summary>
+	public event Action EndingRequested = () => { };
+
+	private Button _endingBtn = null!;
+
 	public override void _Ready()
 	{
 		_saveDataBtn = GetNode<Button>("%SaveDataBtn");
 		_saveFeedbackLabel = GetNode<Label>("%SaveFeedbackLabel");
 		_saveDataBtn.Pressed += OnSaveDataPressed;
+		// エンディングを見直すボタン（クリア後だけ表示）。シーンを変えずに、保存ボタンと同じ並びへコードで足す。
+		_endingBtn = new Button { Text = "📜 エンディングを見る", Visible = false };
+		_endingBtn.Pressed += () => EndingRequested();
+		_saveDataBtn.GetParent().AddChild(_endingBtn);
 		// デバッグボタンはエディタ実行・デバッグ版の書き出しでだけ出す（リリース版の書き出しでは隠す）
 		var debugAddGoldBtn = GetNode<Button>("%DebugAddGoldBtn");
 		debugAddGoldBtn.Visible = OS.IsDebugBuild();
@@ -80,6 +89,9 @@ public partial class SystemPanel : ScrollContainer
 		_maximizedBtn.SetPressedNoSignal(mode == Window.ModeEnum.Maximized);
 		_fullscreenBtn.SetPressedNoSignal(mode is Window.ModeEnum.Fullscreen or Window.ModeEnum.ExclusiveFullscreen);
 	}
+
+	/// <summary>クリア済みなら「エンディングを見る」を出す（MainDashboard.RefreshAll から呼ぶ）。</summary>
+	public void SetEndingAvailable(bool available) => _endingBtn.Visible = available;
 
 	private void OnSaveDataPressed()
 	{

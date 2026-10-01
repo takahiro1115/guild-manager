@@ -3,6 +3,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using GuildManager.Core.Balance;
 using GuildManager.Core.Models;
 using GuildManager.Core.Systems;
 
@@ -161,7 +162,14 @@ public partial class EquipmentPopup : PopupPanel
 				string equippedMark = _adventurer.GetEquippedId(slot) == item.Id ? "　【装備中】" : "";
 				_itemList.AddItem($"[{SlotLabel(slot)}] {item.Name}　{EffectText(item)}　{item.Price}G{equippedMark}");
 
-				if (!item.IsAllowedFor(_adventurer.JobClass))
+				if (!EquipmentSystem.IsInShop(_state, item))
+				{
+					// 上位装備（§0.61）：倒した階層ボスの総数で入荷する
+					int need = ProgressionBalance.ShopTierUnlockBosses[item.ShopTier - 1];
+					_itemList.SetItemDisabled(index, true);
+					_itemList.SetItemTooltip(index, $"未入荷：倒した階層ボスが{need}体になると店に並ぶ（現在 {EquipmentSystem.CountDefeatedBosses(_state)}体）。");
+				}
+				else if (!item.IsAllowedFor(_adventurer.JobClass))
 				{
 					_itemList.SetItemDisabled(index, true);
 					_itemList.SetItemTooltip(index, $"{AdventurerPanel.JobLabel(_adventurer.JobClass)}は装備できません。");

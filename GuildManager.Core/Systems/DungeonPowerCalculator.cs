@@ -42,10 +42,11 @@ namespace GuildManager.Core.Systems
             return statSum * hpRatio;
         }
 
-        /// <summary>特性による火力の補正率（猪突猛進＋、戦慄−。§0.56）。0＝補正なし。</summary>
+        /// <summary>特性による火力の補正率（猪突猛進＋、戦慄−。§0.56。歴戦の勇士＋、§0.62）。0＝補正なし。</summary>
         public static double TraitPowerModifier(Adventurer a) =>
             (a.HasTrait(TraitCatalog.RecklessId) ? TraitBalance.RecklessPowerBonus : 0)
-            + (a.HasTrait(TraitCatalog.DreadId) ? TraitBalance.DreadPowerPenalty : 0);
+            + (a.HasTrait(TraitCatalog.DreadId) ? TraitBalance.DreadPowerPenalty : 0)
+            + (a.HasTrait(TraitCatalog.VeteranId) ? TraitBalance.VeteranPowerBonus : 0);
 
         /// <summary>巨獣狩りの上乗せが効くか：本人が保有し、かつボスが「重装甲」ギミックを持つ。</summary>
         public static bool GiantHunterApplies(Adventurer a, FloorBoss? boss) =>
@@ -56,8 +57,15 @@ namespace GuildManager.Core.Systems
         /// <summary>
         /// 部隊全員分の火力合計（完全解析ボーナスは含まない。→ DungeonResolver が上乗せする）。
         /// boss を渡すと巨獣狩りの上乗せ（→ MemberPower）が効く。
+        /// 鼓舞（§0.62）の保有者が1人でもいれば、合計に (1＋InspiringPartyPowerBonus) を掛ける（何人いても1回分）。
         /// </summary>
-        public static double PartyPower(IEnumerable<Adventurer> members, FloorBoss? boss = null) =>
-            members.Sum(m => MemberPower(m, boss));
+        public static double PartyPower(IEnumerable<Adventurer> members, FloorBoss? boss = null)
+        {
+            var list = members.ToList();
+            double total = list.Sum(m => MemberPower(m, boss));
+            if (list.Any(m => m.HasTrait(TraitCatalog.InspiringId)))
+                total *= 1.0 + TraitBalance.InspiringPartyPowerBonus;
+            return total;
+        }
     }
 }

@@ -63,6 +63,12 @@ namespace GuildManager.Core.Models
         public const string ImmortalBodyId = "ImmortalBody";
         public const string IdatenId = "Idaten";
         public const string MarksmanId = "Marksman";
+        // 成長・素質系と戦闘系（§0.62）
+        public const string LateBloomerId = "LateBloomer";
+        public const string EarlyBloomerId = "EarlyBloomer";
+        public const string SoulChildId = "SoulChild";
+        public const string VeteranId = "Veteran";
+        public const string InspiringId = "Inspiring";
 
         /// <summary>
         /// ソードマスター（→ SwordMaster）が「剣」とみなす武器のカタログId。鑑定で出た個体もカタログIdで判定する。
@@ -413,6 +419,32 @@ namespace GuildManager.Core.Models
         /// <summary>百発百中：DEXが大きく上がる。</summary>
         public static readonly TraitDefinition Marksman = DefineRareSingleStat(MarksmanId, "DEX");
 
+        // ---- 2026年10月・§0.62：成長・素質系と戦闘系（クリアへのバランス 第3段） ----
+
+        /// <summary>大器晩成：全盛期（23歳〜）の成長の確率が上がる（→ GrowthSystem.TraitGrowthMultiplier）。先天・伝授できる。</summary>
+        public static readonly TraitDefinition LateBloomer = Define(new TraitDefinition { Id = LateBloomerId, IsTransmittable = true, Effects = new List<TraitEffect>() });
+
+        /// <summary>早熟：22歳までの成長の確率が上がる（→ GrowthSystem.TraitGrowthMultiplier）。先天・伝授できる。</summary>
+        public static readonly TraitDefinition EarlyBloomer = Define(new TraitDefinition { Id = EarlyBloomerId, IsTransmittable = true, Effects = new List<TraitEffect>() });
+
+        /// <summary>
+        /// 魂魄の申し子：魂魄融和で生まれた娘だけが確率で持つ（→ SoulFusionSystem、soul_fusion.csv SoulChildChancePercent）。
+        /// 7能力の素の値が少し上がり、成長の確率も上がる。伝授・親からの継承はされない。
+        /// </summary>
+        public static readonly TraitDefinition SoulChild = Define(new TraitDefinition
+        {
+            Id = SoulChildId,
+            Effects = new[] { "STR", "VIT", "AGI", "DEX", "INT", "MND", "LDR" }
+                .Select(stat => new TraitEffect { EffectType = TraitEffectType.StatPercentReduction, TargetStat = stat, Value = TraitBalance.SoulChildStatBonus })
+                .ToList(),
+        });
+
+        /// <summary>歴戦の勇士：本人の討伐火力が上がる（→ DungeonPowerCalculator.TraitPowerModifier）。先天・伝授できる。</summary>
+        public static readonly TraitDefinition Veteran = Define(new TraitDefinition { Id = VeteranId, IsTransmittable = true, Effects = new List<TraitEffect>() });
+
+        /// <summary>鼓舞：部隊の討伐火力が上がる（部隊に何人いても1回分。→ DungeonPowerCalculator.PartyPower）。先天・伝授できる。</summary>
+        public static readonly TraitDefinition Inspiring = Define(new TraitDefinition { Id = InspiringId, IsTransmittable = true, Effects = new List<TraitEffect>() });
+
         private static TraitDefinition DefineRareSingleStat(string id, string stat) => Define(new TraitDefinition
         {
             Id = id,
@@ -449,6 +481,7 @@ namespace GuildManager.Core.Models
             Coward, Clumsy, PoorDirection, Reckless, Sickly, Fickle, Moody, Slothful, Spendthrift,
             PoisonAftereffect, LegWound, ArmWound, Dread, Burnout,
             Genius, Archmage, SwordSaint, Saint, Charisma, ImmortalBody, Idaten, Marksman,
+            LateBloomer, EarlyBloomer, SoulChild, Veteran, Inspiring,
         };
 
         public static TraitDefinition? FindById(string id) => id switch
@@ -498,6 +531,11 @@ namespace GuildManager.Core.Models
             ImmortalBodyId => ImmortalBody,
             IdatenId => Idaten,
             MarksmanId => Marksman,
+            LateBloomerId => LateBloomer,
+            EarlyBloomerId => EarlyBloomer,
+            SoulChildId => SoulChild,
+            VeteranId => Veteran,
+            InspiringId => Inspiring,
             _ => null,
         };
     }

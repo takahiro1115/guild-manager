@@ -557,14 +557,14 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void ExpeditionGrowth_FailedRolls_GrantNoGrowth()
         {
-            // 成長ロールが成功確率（GrowthBaseChancePercent=35%）を上回れば伸びない。
+            // 成長ロールが成功確率（GrowthBaseChancePercent=42%、§0.60で35→42）を上回れば伸びない。
             var a = MakeGrowable();
             var (state, party) = PartyInRoster(a);
 
             var events = new GrowthSystem(new AlwaysMaxRng())
                 .ApplyExpeditionGrowth(state, party, DungeonMissionType.Scouting, isBossVictory: false);
 
-            Assert.Equal(35, DungeonBalance.GrowthBaseChancePercent);
+            Assert.Equal(42, DungeonBalance.GrowthBaseChancePercent);
             Assert.Empty(events);
             Assert.Equal(30, a.STR);
         }

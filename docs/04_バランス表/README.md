@@ -27,7 +27,7 @@
 | `trait.csv` | 03 §4.3・§5.3.2・§4.2.3 | TraitBalance（→ TraitCatalog。豪胆 `BraveSurvivalThresholdBonus`＝ボス戦の損耗−pt・注意深い `AttentiveScoutingBonus`＝隠密の寄与×(1＋値)・知識人 `ScholarAnalysisBonus`＝解析の寄与×(1＋値)、→ 03 §0.53。ペアシナジーの緩和係数は§0.53で削除）。全特性の表示名・説明・障害フラグ（`{Id}_DisplayName`・`{Id}_Description`・`{Id}_IsCurseOrInjury`、§0.31）。旧 `TraitTransmission*` 3キーは §0.34 で削除（→ training.csv）。§0.55で足した10種の効果量（`HawkEyeFlyingDamageReductionRate`・`SixthSenseInstantKillHpLossPct`・`GuardianGuardBonus`・`PathfinderTraversalBonus`・`SturdyMaxHpBonus`・`QuickHealerInjuryRecoveryBonus`・`QuickHealerRestRecoveryBonus`・`CheerfulSatisfactionBonus`・`HardworkerIdleHelpGoldMultiplier`・`FireMageIntBonus`・`SwordMasterStatBonus`、すべて仮の値、→ 03 §5.3.2）。§0.56のマイナスの特性（地図読み `MapReaderTraversalBonus`、欠点の `Coward*`・`Reckless*`・`ClumsyStealthPenalty`・`PoorDirectionTraversalPenalty`・`SicklyMaxHpPenalty`・`FickleGrowthRatePenalty`・`MoodySatisfactionPenalty`・`SpendthriftWageMultiplier`、障害の `PoisonAftereffect*`・`LegWoundAgiReduction`・`ArmWoundStatReduction`・`Dread*`・`Burnout*`。すべて仮の値）。§0.57のレア特性（`GeniusStatBonus`＝0.15・`RareSingleStatBonus`＝0.30、仮の値） |
 | `equipment.csv` | 03 §4.2.2 | EquipmentBalance（→ ItemCatalog）。**テーブル形式**（`Id,Price,HpBonus,BonusStr〜BonusLdr,note`、2026年9月に key,value 形式から移行）。`HpBonus`＝最大HP加算（武器は0）。§0.37で旧 `EffectValue`（個人CP／最大HPの二義）を個人CPの撤廃に伴い `HpBonus` へ改名 |
 | `consumables.csv` | 03 §4.5.4 | ConsumableBalance（→ ConsumableCatalog。大迷宮ボスギミック対策4種の価格） |
-| `progression.csv` | 03 §4.5.1 | ProgressionBalance（初期の同時出撃枠） |
+| `progression.csv` | 03 §4.5.1・§4.2.2 | ProgressionBalance（初期の同時出撃枠、店の上位装備が入荷する倒したボスの数 `ShopTierUnlockBosses_1〜3`＝§0.61） |
 | `dungeon.csv` | 03 §4.5.1・§4.5.4 | DungeonBalance（ボス能力重み・未踏破重損耗・ボス間隔・撃破実績点・出撃成長回数） |
 | `dungeon_traversal.csv` | 03 §4.5.3 | DungeonTraversalBalance（**走破力の重み（VIT/MND/隊長LDR）**・**1歩の消費の尺度 `FloorsPerRatio`**（比率1.0の深さで週に進める階層数、4.0。進軍ランクの段 `RankRatioScale` は別。1歩の消費＝その階層の要求値÷(走破力×この値)÷解析倍率、週の予算1、→ 03 §0.49。旧リニア進軍は §0.25）・進軍ランク別の既踏損耗率・調査度連動走破倍率・夜目 `NightVisionUnexploredDamageReductionRate`（→ 03 §0.32）） |
 | `scouting.csv` | 03 §4.5.3 | ScoutingBalance（**隠密適性の重み・専門職ボーナス・人数倍率・重装ペナルティ**、迷宮調査の4段階護衛判定・解析成果倍率・護衛HP損耗） |
@@ -36,8 +36,10 @@
 | `affixes.csv` | 03 §4.7.3・§4.2.2 | AffixBalance（鑑定品のランダムアフィックス＝接頭辞・接尾辞の一覧。**テーブル形式** `Id,Type,Name,TargetStat,MinValue,MaxValue,Tier,AllowedSlots,Weight`、2026年9月・§0.39） |
 | `portraits.csv` | 03 §2.1 | PortraitBalance（採用の応募者に割り当てる顔グラフィックの一覧。**テーブル形式** `Id,Jobs,HairColor,EyeColor`。Id＝`assets/portraits/{Id}.png`、Jobs＝似合う職業の `\|` 区切りまたは `All`。2026年9月・§0.46） |
 | `uniques.csv` | 03 §4.7.5 | UniqueBalance（固有武具＝固定アーティファクト〈紫〉・伝説級〈金〉の一覧。**テーブル形式** `Id,Grade,Name,BaseItemId,HpBonus,BonusStr〜BonusLdr,CounterGimmick,DropFieldId,DropFloor,SellPrice`。伝説級は入手元のボス〈フィールドId・階層〉と対策ギミック、売値0＝売却不可。2026年9月・§0.45） |
-| `research.csv` | 03 §4.6 | ResearchBalance（アルベール研究室の13プロジェクト（うち内職強化 SideBusinessGoldBonus 4種、魂魄融和の秘薬の解禁 `res_soul_fusion`＝SoulFusionUnlock・効果値0、§0.58）・必要素材・ゴールド・効果種別・効果値） |
-| `soul_fusion.csv` | 03 §5.4 | SoulFusionBalance（魂魄融和の秘薬、2026年10月・§0.58）：処方できる相性 `RequiredCompatibility`（100）・費用 `PrescriptionGold`（2500G）・培養 `CultureWeeks`（12週）・培養槽の数 `CultureTankCount`（1）・娘のPAのばらつき `PaVarianceMin/Max`（−5〜+10）・百合相性ごとの能力限界突破の確率 `BreakthroughChance_Destined/Complementary/Ordinary`（30/15/5%）・突破の上乗せ `BreakthroughBonusMin/Max`（5〜15）と上限 `BreakthroughPaCap`（120）・特性の継承確率 `TraitInheritChancePercent`（30）・`RareTraitInheritChancePercent`（15）・`FlawInheritChancePercent`（20）。すべて仮の値 |
+| `research.csv` | 03 §4.6 | ResearchBalance（アルベール研究室の24プロジェクト（うち内職強化 SideBusinessGoldBonus 4種、魂魄融和の秘薬の解禁 `res_soul_fusion`＝SoulFusionUnlock・効果値0、§0.58、段階研究11種＝RecruitPaBonus・GrowthRateBonus・SoulFusionPaBonus・CultureTankBonus、§0.60）・必要素材・ゴールド・効果種別・効果値・**前提 `Prerequisite`**（§0.60で列を追加。空＝前提なし、段階研究のII・IIIは前の段のId）） |
+| `elixir.csv` | 03 §4.6.2 | ElixirBalance（霊薬、2026年10月・§0.61）：1人が生涯に飲める数 `MaxPerAdventurer`（3） |
+| `elixir_recipes.csv` | 03 §4.6.2 | ElixirBalance.Recipes（霊薬の一覧。**テーブル形式** `Id,Name,Description,TargetStats,PaBonus,StatBonus,RequiredMaterials,RequiredGold`。TargetStats は能力名の `;` 区切り、RequiredMaterials は `素材Id:個数` の `;` 区切り。§0.61） |
+| `soul_fusion.csv` | 03 §5.4 | SoulFusionBalance（魂魄融和の秘薬、2026年10月・§0.58）：娘のPAの基準で高い方の親に掛ける重み `HigherParentWeight`（0.75、§0.60で新設。0.5＝平均）・処方できる相性 `RequiredCompatibility`（100）・費用 `PrescriptionGold`（2500G）・培養 `CultureWeeks`（12週）・培養槽の数 `CultureTankCount`（1）・娘のPAのばらつき `PaVarianceMin/Max`（−5〜+10）・百合相性ごとの能力限界突破の確率 `BreakthroughChance_Destined/Complementary/Ordinary`（30/15/5%）・突破の上乗せ `BreakthroughBonusMin/Max`（5〜15）と上限 `BreakthroughPaCap`（120）・特性の継承確率 `TraitInheritChancePercent`（30）・`RareTraitInheritChancePercent`（15）・`FlawInheritChancePercent`（20）。すべて仮の値 |
 | `soul_fusion_catalysts.csv` | 03 §5.4 | SoulFusionBalance.Catalysts（秘薬の触媒。**テーブル形式** `MaterialId,Count,EffectType,EffectValue,Note`。EffectType は `PaVarianceMinBonus`・`TraitInheritBonus`・`FlawInheritBonus`・`BreakthroughChanceBonus`・`RareTraitInheritBonus`。各フィールドの素材を1種ずつ、§0.58） |
 | `relic.csv` | 03 §4.7・§4.8.2 | RelicBalance（未鑑定遺物の希少度4段階＝鑑定費用・鑑定結果比率・換金額と獲得個数の幅・武具の抽選プール・**売却額**、採取ドロップ確率、希少度ロール閾値、ボス撃破ドロップの補正）。**アフィックスの付与率・Tier範囲**（`Affix*`、→ AffixBalance） |
 
@@ -238,6 +240,44 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 | `dungeon.csv` | `FieldRequirementMultiplier_3`（忘却の古代廃墟） | 1.0→1.2 | 40F＝52 |
 | `dungeon.csv` | `FieldRequirementMultiplier_4`（焦熱の峡谷） | 1.0→1.3 | 40F＝56 |
 | `dungeon.csv` | `FieldRequirementMultiplier_5`（深淵の特異点） | 1.0→1.5 | 50F＝76 |
+
+## 成長・戦闘の特性と要求値の見直し（クリアへのバランス 第3段）で追加／変更されたキー（2026年10月、→ 03 §0.62）
+
+3段の調整の後、`dotnet run --project tools/balance_sim -- campaign 10 1440` で10回ともクリア、16年目前後（13〜18年目。秘薬なしは18年目前後）。
+
+| ファイル | キー | 旧 → 新 | 意味 |
+|---|---|---|---|
+| `trait.csv` | `LateBloomerPeakGrowthMultiplier`・`EarlyBloomerYouthGrowthMultiplier` | （新設）1.6・1.3 | 大器晩成（全盛期）・早熟（22歳まで）の成長の確率の倍率。表示名・説明も `{Id}_DisplayName` 等で追加 |
+| `trait.csv` | `SoulChildStatBonus`・`SoulChildGrowthMultiplier` | （新設）0.05・1.15 | 魂魄の申し子（秘薬の娘だけ）：7能力×1.05・成長×1.15 |
+| `trait.csv` | `VeteranPowerBonus`・`InspiringPartyPowerBonus` | （新設）0.10・0.04 | 歴戦の勇士（本人の討伐火力）・鼓舞（部隊の討伐火力、1回分） |
+| `soul_fusion.csv` | `SoulChildChancePercent` | （新設）50 | 娘が魂魄の申し子を持つ確率 |
+| `recruitment.csv` | `InnateTraitChancePercent` の備考 | 候補20種 → 24種 | 先天の候補に大器晩成・早熟・歴戦の勇士・鼓舞を追加（確率3%は据え置き） |
+| `dungeon.csv` | `PartyPowerRequirementPerFloor` | 7.5 → 6.5 | 討伐の要求火力の階層あたりの増分 |
+| `dungeon.csv` | `FieldRequirementMultiplier_2`〜`_5` | 1.07／1.14／1.2／1.27 → 1.04／1.08／1.12／1.16 | フィールド倍率（調査・走破の要求にも掛かる）。目安は森100F＝各能力50・深淵100F＝各能力58 |
+
+## 装備と霊薬（クリアへのバランス 第2段）で追加されたキー（2026年10月、→ 03 §0.61）
+
+第2段後は15年目にボス44体（第1段のみ42体）、30年で48〜49体、クリアはまだ。
+
+| ファイル | キー・行 | 値 | 意味 |
+|---|---|---|---|
+| `equipment.csv` | `Mithril*`・`Orichalcum*`・`StarIron*`（各7行） | 補正+8／+13／+18前後、価格1500〜2000／4500〜6000／15000〜18000G | 店の上位装備（段はコードの `Item.ShopTier`） |
+| `progression.csv` | `ShopTierUnlockBosses_1〜3` | 15／25／35 | 上位装備が店に並ぶ、倒した階層ボスの総数 |
+| `relic.csv` | `AffixDepthScaleStartFloor`／`AffixDepthScaleAt100` | 20／2.0 | 鑑定品のアフィックスの値に掛ける出土階層の倍率（20F以下1.0、100Fで2.0、その間は直線） |
+| `research.csv` | `res_elixir_brewing` | 5000G・黒鉱石×5・ルーン石×3 | 霊薬の解禁（ElixirUnlock） |
+| `elixir.csv`・`elixir_recipes.csv` | （新設） | 1人3本・5種 | 霊薬（→ 上のファイル一覧） |
+
+## 世代で強くなる仕組み（クリアへのバランス 第1段）で追加／変更されたキー（2026年10月、→ 03 §0.60）
+
+5フィールドを深淵100Fまで回すシミュレーション（`dotnet run --project tools/balance_sim -- campaign 10 1440`）で、改訂前は30年でもクリアできず
+（ボス撃破28体前後で頭打ち）、お金が約130万G余っていた。目標はクリアまで15年前後（→ 03 §8.2）。第1段後は30年で47体（クリアはまだ）。
+
+| ファイル | キー | 旧 → 新 | 意味 |
+|---|---|---|---|
+| `aging.csv` | `GrowthProbability_Young`／`_Growing`／`_Peak` | 0.35／0.30／0.12 → 0.42／0.36／0.15 | 訓練の成長ロールの基礎確率（約1.2倍） |
+| `dungeon.csv` | `GrowthBaseChancePercent` | 35 → 42 | 出撃成長のロール1回の成功確率 |
+| `soul_fusion.csv` | `HigherParentWeight` | （新設）0.75 | 娘のPAの基準＝高い方の親×この値＋低い方×(1−この値)。§0.58は平均（0.5相当） |
+| `research.csv` | `Prerequisite` 列 | （新設） | 前提の研究Id。段階研究11行（`res_scout_network_1〜3`＝RecruitPaBonus 5・`res_training_method_1〜3`＝GrowthRateBonus 0.20・`res_elixir_purity_1〜3`＝SoulFusionPaBonus 3・`res_culture_tank_2〜3`＝CultureTankBonus 1）を追加 |
 
 ## 要求値の傾きを緩めた改訂で変更されたキー（2026年9月、→ 03 §0.51）
 

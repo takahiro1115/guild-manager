@@ -27,6 +27,13 @@ namespace GuildManager.Core.Models
         public int Price { get; set; }
 
         /// <summary>
+        /// 店に並ぶ段（2026年10月・§0.61）。0＝最初から買える。1〜3＝上位装備（ミスリル・オリハルコン・星鉄）で、
+        /// 倒した階層ボスの総数が progression.csv `ShopTierUnlockBosses_{段}` に達すると店に並ぶ（→ EquipmentSystem.GetUnlockedShopTier）。
+        /// 構造値のため ItemCatalog に書く。
+        /// </summary>
+        public int ShopTier { get; set; }
+
+        /// <summary>
         /// 7大能力値への固定加算（→ 03 §4.2.2、2026年9月新設）。キーは "STR","VIT","AGI","DEX","INT","MND","LDR"
         /// （→ Adventurer.GetEffectiveStat）。値は equipment.csv の Bonus* 列由来（→ EquipmentBalance）。
         /// 空＝補正なし。

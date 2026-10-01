@@ -288,9 +288,9 @@ namespace GuildManager.Core.Tests
         }
 
         [Theory]
-        // 新鋭期（18歳）の基礎確率0.35。飽きっぽいは−0.05で閾値30。
-        [InlineData(30, true)]
-        [InlineData(31, false)]
+        // 新鋭期（18歳）の基礎確率0.42（§0.60）。飽きっぽいは−0.05で閾値37。
+        [InlineData(37, true)]
+        [InlineData(38, false)]
         public void Fickle_LowersTrainingGrowthChance(int roll, bool expectGrowth)
         {
             var a = new Adventurer { Age = 18, STR = 30, VIT = 30, PA_STR = 90, PA_VIT = 90 };

@@ -93,6 +93,7 @@ namespace GuildManager.Core.Systems
         public RecruitmentDraft StartInitialDraft(GameState state, double scoutMasterBonus = 0)
         {
             double highPotentialChance = HighPotentialBaseChance + scoutMasterBonus;
+            int paBonus = GetRecruitPaBonus(state);
             int count = Math.Max(DraftGuaranteedJobs.Length, RecruitmentBalance.DraftCandidateCount);
             var existingNames = new HashSet<string>(state.Adventurers.Select(a => a.Name));
             var usedPortraits = CollectUsedPortraits(state);
@@ -101,7 +102,7 @@ namespace GuildManager.Core.Systems
             for (int i = 0; i < count; i++)
             {
                 JobClass? job = i < DraftGuaranteedJobs.Length ? DraftGuaranteedJobs[i] : null;
-                var generated = GenerateOne(i, highPotentialChance, existingNames, job, RecruitmentBalance.MinCandidateAge);
+                var generated = GenerateOne(i, highPotentialChance, existingNames, job, RecruitmentBalance.MinCandidateAge, paBonus);
                 existingNames.Add(generated.Candidate.Name);
                 AssignPortrait(generated.Candidate, usedPortraits);
                 offers.Add(new RecruitmentOffer(generated.Candidate, 0)); // ドラフトは契約金無料
@@ -144,6 +145,8 @@ namespace GuildManager.Core.Systems
             TraitCatalog.SturdyId, TraitCatalog.QuickHealerId, TraitCatalog.CheerfulId, TraitCatalog.HardworkerId,
             TraitCatalog.FireMageId, TraitCatalog.SwordMasterId,
             TraitCatalog.MapReaderId, // §0.56
+            // §0.62：成長・素質系と戦闘系（魂魄の申し子は秘薬の娘だけなので入れない）
+            TraitCatalog.LateBloomerId, TraitCatalog.EarlyBloomerId, TraitCatalog.VeteranId, TraitCatalog.InspiringId,
         };
 
         /// <summary>
@@ -221,6 +224,7 @@ namespace GuildManager.Core.Systems
         public List<RecruitmentOffer> GenerateCandidates(GameState state, double scoutMasterBonus = 0, int? candidateCount = null)
         {
             double highPotentialChance = HighPotentialBaseChance + scoutMasterBonus;
+            int paBonus = GetRecruitPaBonus(state);
             int count = candidateCount ?? RecruitmentBalance.CandidateCount;
 
             // 氏名の重複回避対象：現役ロースターに加え、同じ採用試験内で既に生成した
@@ -231,7 +235,7 @@ namespace GuildManager.Core.Systems
             var offers = new List<RecruitmentOffer>();
             for (int i = 0; i < count; i++)
             {
-                var offer = GenerateOne(i, highPotentialChance, existingNames);
+                var offer = GenerateOne(i, highPotentialChance, existingNames, paBonus: paBonus);
                 existingNames.Add(offer.Candidate.Name);
                 AssignPortrait(offer.Candidate, usedPortraits);
                 offers.Add(offer);
@@ -284,8 +288,13 @@ namespace GuildManager.Core.Systems
             usedPortraits.Add(picked.Id);
         }
 
+        /// <summary>段階研究（→ ResearchEffectType.RecruitPaBonus、§0.60）による応募者のPAの上乗せ（pt）。</summary>
+        public static int GetRecruitPaBonus(GameState state) =>
+            (int)Math.Round(ResearchBalance.GetTotalEffectValue(state, ResearchEffectType.RecruitPaBonus));
+
+        /// <param name="paBonus">PAの生成値に足す量（段階研究、→ GetRecruitPaBonus）。乱数の引き方は変えない。上限100で止める。</param>
         private RecruitmentOffer GenerateOne(int index, double highPotentialChance, HashSet<string> existingNames,
-            JobClass? fixedJob = null, int? fixedAge = null)
+            JobClass? fixedJob = null, int? fixedAge = null, int paBonus = 0)
         {
             int age = fixedAge ?? _rng.NextInt(RecruitmentBalance.MinCandidateAge, RecruitmentBalance.MaxCandidateAge);
 
@@ -332,7 +341,7 @@ namespace GuildManager.Core.Systems
 
             foreach (var stat in AdventurerStatAccessor.AllStatNames)
             {
-                int pa = Math.Min(100, _rng.NextInt(minPa, maxPa) + ageBonus);
+                int pa = Math.Min(100, _rng.NextInt(minPa, maxPa) + ageBonus + paBonus);
                 int actual = Math.Max(1, (int)(pa * growthRatio));
                 AdventurerStatAccessor.SetPa(candidate, stat, pa);
                 AdventurerStatAccessor.SetStat(candidate, stat, actual);

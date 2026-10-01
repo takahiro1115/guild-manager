@@ -43,10 +43,10 @@ namespace GuildManager.Core.Tests
         }
 
         [Theory]
-        [InlineData(18, 0.35)]
-        [InlineData(20, 0.30)]
-        [InlineData(25, 0.12)]
-        [InlineData(99, 0.12)] // 範囲外も全盛期へクランプされ、必ず有効な確率が返る
+        [InlineData(18, 0.42)] // §0.60で 0.35→0.42・0.30→0.36・0.12→0.15
+        [InlineData(20, 0.36)]
+        [InlineData(25, 0.15)]
+        [InlineData(99, 0.15)] // 範囲外も全盛期へクランプされ、必ず有効な確率が返る
         public void GetBaseProbability_ReturnsRateOfEachActiveAgeBand(int age, double expected)
         {
             // 8年稼働モデルで到達不能になった円熟期・限界期を撤去し、実働3区分へ純化した

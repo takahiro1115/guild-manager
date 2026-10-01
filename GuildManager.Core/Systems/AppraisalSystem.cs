@@ -108,7 +108,7 @@ namespace GuildManager.Core.Systems
             var definition = ItemCatalog.FindById(catalogId)!;
             // 希少度を個体へ刻む：売却額（→ 03 §4.8）と保管庫UIでの扱いが希少度で変わるため。
             var equipment = EquipmentItem.FromCatalog(definition, state.WeekNumber, BuildOriginText(item), item.Rarity);
-            RollAffixes(equipment, definition.Slot, item.Rarity);
+            RollAffixes(equipment, definition.Slot, item.Rarity, item.OriginFloor);
             state.Armory.Add(equipment);
 
             return new AppraisalResult
@@ -148,9 +148,11 @@ namespace GuildManager.Core.Systems
         /// ランダムアフィックスの付与（→ 03 §4.7、2026年9月・§0.39）。希少度ごとのルール（→ AffixBalance.GetRule、relic.csv）に従い、
         /// 接頭辞 → 接尾辞の順に独立して判定する。各位置の乱数は常に同じ順（付与判定 1〜100 → 当選時のみ 重み抽選 → 値 Min〜Max）で引く。
         /// 付与率0の位置は判定の乱数も引かない（銅の接尾辞）。
+        /// 出土階層が深いほど値が大きい（→ AffixBalance.DepthMultiplier、§0.61。値×倍率を四捨五入。乱数の引き方は変えない）。
         /// </summary>
-        public void RollAffixes(EquipmentItem equipment, EquipmentSlot slot, ItemRarity rarity)
+        public void RollAffixes(EquipmentItem equipment, EquipmentSlot slot, ItemRarity rarity, int originFloor = 1)
         {
+            double depth = AffixBalance.DepthMultiplier(originFloor);
             var rule = AffixBalance.GetRule(rarity);
             foreach (var type in new[] { AffixType.Prefix, AffixType.Suffix })
             {
@@ -161,7 +163,8 @@ namespace GuildManager.Core.Systems
                 // 母集団が空になる組み合わせは AffixBalance の読み込み時に弾いているため、ここでnullにはならない。
                 var candidates = AffixBalance.GetCandidates(type, slot, rule.MinTier, rule.MaxTier);
                 var affix = AffixBalance.PickWeighted(candidates, _rng)!;
-                equipment.ApplyAffix(affix, _rng.NextInt(affix.MinValue, affix.MaxValue));
+                int rolled = _rng.NextInt(affix.MinValue, affix.MaxValue);
+                equipment.ApplyAffix(affix, (int)Math.Round(rolled * depth, MidpointRounding.AwayFromZero));
             }
         }
 

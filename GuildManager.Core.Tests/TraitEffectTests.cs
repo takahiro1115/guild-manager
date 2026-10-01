@@ -318,16 +318,16 @@ namespace GuildManager.Core.Tests
         }
 
         [Theory]
-        // 新鋭期（18歳）の基礎確率0.35＝閾値35。勤勉は+0.10で閾値45（施設倍率1.0・教官なし）。
-        [InlineData(35, false, true)]
-        [InlineData(36, false, false)]
-        [InlineData(36, true, true)]
-        [InlineData(45, true, true)]
-        [InlineData(46, true, false)]
+        // 新鋭期（18歳）の基礎確率0.42＝閾値42（§0.60）。勤勉は+0.10で閾値52（施設倍率1.0・教官なし）。
+        [InlineData(42, false, true)]
+        [InlineData(43, false, false)]
+        [InlineData(43, true, true)]
+        [InlineData(52, true, true)]
+        [InlineData(53, true, false)]
         public void Diligent_AddsTenPointsToTrainingGrowthChance(int roll, bool diligent, bool expectGrowth)
         {
             Assert.Equal(0.10, TrainingBalance.DiligentGrowthRateBonus, precision: 6);
-            Assert.Equal(0.35, GrowthBalance.GetBaseProbability(AgeBand.Young), precision: 6);
+            Assert.Equal(0.42, GrowthBalance.GetBaseProbability(AgeBand.Young), precision: 6);
             var (state, _) = TrainingState(diligent);
 
             var events = new GrowthSystem(new FixedRng(roll)).ProcessTrainingGrowth(state, new HashSet<Guid>());

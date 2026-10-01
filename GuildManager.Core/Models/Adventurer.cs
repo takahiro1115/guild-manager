@@ -374,6 +374,12 @@ namespace GuildManager.Core.Models
         /// </summary>
         public bool HasUsedSoulFusion { get; set; } = false;
 
+        /// <summary>
+        /// これまでに飲んだ霊薬の数（→ Systems.ElixirSystem、03 §4.6.2・§0.61）。elixir.csv MaxPerAdventurer まで飲める。
+        /// 旧セーブには無く0で読まれる。
+        /// </summary>
+        public int ElixirsTaken { get; set; } = 0;
+
         /// <summary>戦死した週番号（GameState.WeekNumber）。null＝戦死していない（仕様書 03 §4.3.1）。
         /// 戦死者記録として保持し、GameState.Adventurers から GameState.FallenAdventurers へ移される。</summary>
         public int? FellAtWeek { get; set; }

@@ -174,3 +174,24 @@ Idaten_IsCurseOrInjury,false,真偽,障害・呪い特性か
 Marksman_DisplayName,百発百中,名称,特性の表示名（レア特性、§0.57）
 Marksman_Description,狙いを外さぬ天性の手先。DEXが大きく上がる。教わることはできない,説明,特性の説明文
 Marksman_IsCurseOrInjury,false,真偽,障害・呪い特性か
+LateBloomerPeakGrowthMultiplier,1.6,倍,大器晩成：全盛期（23歳〜）の成長の確率に掛ける倍率（訓練・出撃の両方。→ GrowthSystem.TraitGrowthMultiplier、03 §0.62）
+LateBloomer_DisplayName,大器晩成,名称,特性の表示名（成長・素質系、2026年10月・§0.62）
+LateBloomer_Description,若いうちは目立たないが、全盛期になってからぐんぐん伸びる。教官から教われる,説明,特性の説明文
+LateBloomer_IsCurseOrInjury,false,真偽,障害・呪い特性か
+EarlyBloomerYouthGrowthMultiplier,1.3,倍,早熟：22歳までの成長の確率に掛ける倍率（訓練・出撃の両方）
+EarlyBloomer_DisplayName,早熟,名称,特性の表示名（成長・素質系、§0.62）
+EarlyBloomer_Description,覚えが早く、若いうちからよく伸びる。教官から教われる,説明,特性の説明文
+EarlyBloomer_IsCurseOrInjury,false,真偽,障害・呪い特性か
+SoulChildStatBonus,0.05,倍,魂魄の申し子：7能力すべての素の値部分に掛ける補正率（0.05で×1.05）
+SoulChildGrowthMultiplier,1.15,倍,魂魄の申し子：成長の確率に掛ける倍率（年齢によらない）
+SoulChild_DisplayName,魂魄の申し子,名称,特性の表示名（魂魄融和で生まれた娘だけ、§0.62）
+SoulChild_Description,二人の魂が溶け合って生まれた娘の証。すべての能力が少し高く、よく伸びる。秘薬で生まれた娘だけが持つ,説明,特性の説明文
+SoulChild_IsCurseOrInjury,false,真偽,障害・呪い特性か
+VeteranPowerBonus,0.10,倍,歴戦の勇士：本人の討伐火力に掛ける上乗せ率（0.10で×1.10）
+Veteran_DisplayName,歴戦の勇士,名称,特性の表示名（戦闘系、§0.62）
+Veteran_Description,修羅場をくぐり抜けてきた者の落ち着き。階層ボス戦で本人の討伐火力が上がる。教官から教われる,説明,特性の説明文
+Veteran_IsCurseOrInjury,false,真偽,障害・呪い特性か
+InspiringPartyPowerBonus,0.04,倍,鼓舞：部隊の討伐火力に掛ける上乗せ率（保有者が何人いても1回分）
+Inspiring_DisplayName,鼓舞,名称,特性の表示名（戦闘系、§0.62）
+Inspiring_Description,声ひとつで仲間を奮い立たせる。階層ボス戦で部隊全体の討伐火力が上がる（何人いても1回分）。教官から教われる,説明,特性の説明文
+Inspiring_IsCurseOrInjury,false,真偽,障害・呪い特性か

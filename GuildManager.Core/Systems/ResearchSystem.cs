@@ -20,6 +20,8 @@ namespace GuildManager.Core.Systems
         {
             if (state.IsResearchCompleted(research.Id))
                 return false;
+            if (!IsPrerequisiteMet(state, research))
+                return false;
             if (state.Gold < research.RequiredGold)
                 return false;
 
@@ -32,6 +34,10 @@ namespace GuildManager.Core.Systems
 
             return true;
         }
+
+        /// <summary>前提の研究（→ ResearchDefinition.PrerequisiteId、§0.60）が無いか、済んでいるか。</summary>
+        public static bool IsPrerequisiteMet(GameState state, ResearchDefinition research) =>
+            research.PrerequisiteId == null || state.IsResearchCompleted(research.PrerequisiteId);
 
         /// <summary>
         /// 研究を完了させる。素材・ゴールドを減算し、CompletedResearchIdsへ登録する。

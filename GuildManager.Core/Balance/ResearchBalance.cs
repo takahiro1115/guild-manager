@@ -19,6 +19,7 @@ namespace GuildManager.Core.Balance
     ///  - RequiredGold：必要ゴールド。
     ///  - EffectType：ResearchEffectTypeの名前（→ Models.ResearchEffectType）。
     ///  - EffectValue：効果量（意味はEffectTypeごとに異なる）。
+    ///  - Prerequisite：前提の研究Id（空＝前提なし。§0.60の段階研究）。
     /// </summary>
     public static class ResearchBalance
     {
@@ -47,8 +48,13 @@ namespace GuildManager.Core.Balance
                     RequiredGold = ParseInt(row[4], i, "RequiredGold"),
                     EffectType = effectType,
                     EffectValue = ParseFloat(row[6], i, "EffectValue"),
+                    PrerequisiteId = string.IsNullOrWhiteSpace(row[7]) ? null : row[7].Trim(),
                 });
             }
+
+            foreach (var d in result.Where(d => d.PrerequisiteId != null))
+                if (result.All(x => x.Id != d.PrerequisiteId))
+                    throw new BalanceDataException($"{FileName} の研究「{d.Id}」の前提「{d.PrerequisiteId}」が見つかりません。");
 
             return result;
         }

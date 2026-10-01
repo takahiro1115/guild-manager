@@ -97,6 +97,8 @@ public partial class ResearchPanel : ScrollContainer
 
 		if (SoulFusionSystem.IsUnlocked(_state))
 			_researchCards.AddChild(BuildCultureTankCard());
+		if (ElixirSystem.IsUnlocked(_state))
+			_researchCards.AddChild(BuildElixirCard());
 
 		foreach (var research in ResearchBalance.GetAll())
 			_researchCards.AddChild(BuildResearchCard(research));
@@ -194,6 +196,82 @@ public partial class ResearchPanel : ScrollContainer
 		return card;
 	}
 
+	// ==================== 霊薬（§0.61） ====================
+
+	private int _selectedElixirTargetIndex;
+	private int _selectedElixirIndex;
+
+	/// <summary>
+	/// 霊薬のカード（研究「霊薬の調合法」の完了後）。飲ませる冒険者と霊薬を選び、調合してその場で飲ませる。
+	/// 冒険者は現役で出撃していない者（飲んだ数を併記）。
+	/// </summary>
+	private Control BuildElixirCard()
+	{
+		var card = new PanelContainer();
+		var vbox = new VBoxContainer();
+		card.AddChild(vbox);
+		vbox.AddChild(MakeRichLabel("[font_size=18][b]⚗ 霊薬の調合[/b][/font_size]"));
+		vbox.AddChild(MakeRichLabel($"[color=gray]飲ませた能力の潜在能力（PA）が上がり、能力値も少し上がる。1人{ElixirBalance.MaxPerAdventurer}本まで。[/color]"));
+
+		var targets = _state.Adventurers.Where(a => !a.IsRetired && !a.IsDispatched).ToList();
+		if (targets.Count == 0)
+		{
+			vbox.AddChild(MakeRichLabel("[color=gray]飲ませられる冒険者がいない（出撃中を除く）。[/color]"));
+			return card;
+		}
+		_selectedElixirTargetIndex = Math.Clamp(_selectedElixirTargetIndex, 0, targets.Count - 1);
+		_selectedElixirIndex = Math.Clamp(_selectedElixirIndex, 0, ElixirBalance.Recipes.Count - 1);
+
+		var targetOption = new OptionButton();
+		foreach (var a in targets)
+			targetOption.AddItem($"{a.Name}（{AdventurerPanel.JobLabel(a.JobClass)}・{a.Age}歳）　霊薬 {a.ElixirsTaken}/{ElixirBalance.MaxPerAdventurer}");
+		targetOption.Selected = _selectedElixirTargetIndex;
+		targetOption.ItemSelected += index => { _selectedElixirTargetIndex = (int)index; RefreshDeferred(); };
+		vbox.AddChild(MakeRow("飲ませる人", targetOption));
+
+		var elixirOption = new OptionButton();
+		foreach (var r in ElixirBalance.Recipes)
+			elixirOption.AddItem($"{r.Name}（{string.Join("・", r.TargetStats)}：PA+{r.PaBonus}・能力値+{r.StatBonus}）");
+		elixirOption.Selected = _selectedElixirIndex;
+		elixirOption.ItemSelected += index => { _selectedElixirIndex = (int)index; RefreshDeferred(); };
+		vbox.AddChild(MakeRow("霊薬", elixirOption));
+
+		var target = targets[_selectedElixirTargetIndex];
+		var recipe = ElixirBalance.Recipes[_selectedElixirIndex];
+		vbox.AddChild(MakeRichLabel($"[color=gray]{recipe.Description}[/color]"));
+
+		string goldPart = $"{_state.Gold}/{recipe.RequiredGold}G";
+		if (_state.Gold < recipe.RequiredGold) goldPart = $"[color=red]{goldPart}[/color]";
+		var materialParts = recipe.RequiredMaterials.Select(kv =>
+		{
+			int have = _state.Materials.TryGetValue(kv.Key, out int count) ? count : 0;
+			string part = $"{MaterialBalance.GetName(kv.Key)}: {have}/{kv.Value}";
+			return have < kv.Value ? $"[color=red]{part}[/color]" : part;
+		});
+		vbox.AddChild(MakeRichLabel($"必要資材：{string.Join("、", new[] { goldPart }.Concat(materialParts))}"));
+
+		var check = ElixirSystem.Check(_state, target, recipe.Id);
+		var button = new Button { Text = "調合して飲ませる", Disabled = check != ElixirCheck.Ok };
+		if (check != ElixirCheck.Ok)
+			button.TooltipText = check switch
+			{
+				ElixirCheck.LimitReached => $"もう{ElixirBalance.MaxPerAdventurer}本飲んでいる",
+				ElixirCheck.NotEnoughGold => "所持金が足りない",
+				ElixirCheck.NotEnoughMaterials => "素材が足りない",
+				ElixirCheck.Dispatched => "出撃中",
+				_ => "飲ませられない",
+			};
+		button.Pressed += () =>
+		{
+			if (!ElixirSystem.TryGive(_state, target, recipe.Id)) return;
+			LogRequested.Invoke($"[color=violet][b]⚗ {target.Name}に{recipe.Name}を飲ませた。[/b][/color]" +
+				$"[color=gray]（{string.Join("・", recipe.TargetStats)}の潜在能力+{recipe.PaBonus}・能力値+{recipe.StatBonus}、霊薬 {target.ElixirsTaken}/{ElixirBalance.MaxPerAdventurer}本）[/color]");
+			StateChanged.Invoke();
+		};
+		vbox.AddChild(button);
+		return card;
+	}
+
 	private string CultureStatusText(SoulFusionCulture culture)
 	{
 		string parentA = _state.FindAdventurer(culture.ParentAId)?.Name ?? "？";
@@ -276,6 +354,15 @@ public partial class ResearchPanel : ScrollContainer
 		var descLabel = new RichTextLabel { BbcodeEnabled = true, FitContent = true, SizeFlagsHorizontal = SizeFlags.ExpandFill };
 		descLabel.AppendText($"[color=gray]{research.Description}[/color]");
 		vbox.AddChild(descLabel);
+
+		// 段階研究の前提（§0.60）。済んでいなければ赤字。
+		if (!completed && research.PrerequisiteId != null)
+		{
+			string prereqName = ResearchBalance.Find(research.PrerequisiteId)?.Name ?? research.PrerequisiteId;
+			vbox.AddChild(MakeRichLabel(ResearchSystem.IsPrerequisiteMet(_state, research)
+				? $"前提：{prereqName} ✔"
+				: $"[color=red]前提：「{prereqName}」を先に済ませる[/color]"));
+		}
 
 		var costLabel = new RichTextLabel { BbcodeEnabled = true, FitContent = true, SizeFlagsHorizontal = SizeFlags.ExpandFill };
 		costLabel.AppendText($"必要資材：{BuildCostLine(research)}");

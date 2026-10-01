@@ -40,13 +40,14 @@ namespace GuildManager.Core.Tests
         // ---------------- research.csv・ResearchBalance ----------------
 
         [Fact]
-        public void ResearchBalance_LoadsAllThirteenDefinitions_WithMaterialsParsed()
+        public void ResearchBalance_LoadsAllDefinitions_WithMaterialsParsed()
         {
             // 4種（forestフィールド分）＋2026年9月新設の4種（cave/ruins/canyon/abyssフィールド分）
-            // ＋内職強化の4種（SideBusinessGoldBonus、2026年9月新設）＋魂魄融和の秘薬の解禁（§0.58）＝計13種。
+            // ＋内職強化の4種（SideBusinessGoldBonus、2026年9月新設）＋魂魄融和の秘薬の解禁（§0.58）
+            // ＋段階研究11種（採用3・成長3・秘薬の純度3・培養槽2、§0.60）＋霊薬の調合法（§0.61）＝計25種。
             var all = ResearchBalance.GetAll();
 
-            Assert.Equal(13, all.Count);
+            Assert.Equal(25, all.Count);
             Assert.All(all, r => Assert.NotEmpty(r.RequiredMaterials));
             Assert.All(all, r => Assert.True(r.RequiredGold > 0));
 

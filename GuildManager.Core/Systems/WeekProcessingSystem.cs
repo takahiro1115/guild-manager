@@ -83,7 +83,7 @@ namespace GuildManager.Core.Systems
             int thisWeek = state.WeekNumber;
             result.Flags.Week = thisWeek;
 
-            bool wasFinalQuestUnlocked = state.FinalQuestUnlocked;
+            bool wasCleared = state.IsGameCleared;
             var neededNegotiationBefore = state.Adventurers.Where(a => a.NeedsNegotiation).Select(a => a.Id).ToHashSet();
 
             // 出撃中（今週出発した分も含む）の冒険者は、HP自然回復・訓練場成長の対象から外す（→ 03 §4.0.1）。
@@ -146,9 +146,8 @@ namespace GuildManager.Core.Systems
             result.CompletedFacility = _facilitySystem.ProcessWeeklyConstruction(state); // → 03 §6.1：施設Lv投資
             result.Flags.FacilityConstructionCompleted = result.CompletedFacility != null;
 
-            // 最終討伐クエストの解禁（→ 03 §8.2。最終フィールドの100Fボス撃破で立つ）。
-            // 名声・ギルド格付けは2026年9月に廃止（→ マスターの機嫌、MasterMoodSystem）。
-            result.Flags.FinalQuestNewlyUnlocked = !wasFinalQuestUnlocked && state.FinalQuestUnlocked;
+            // クリア（→ 03 §8.2・§0.59。深淵100Fのボス撃破で立つ）。画面はこの週にエンディングを出す。
+            result.Flags.GameCleared = !wasCleared && state.IsGameCleared;
 
             // 敗北条件判定（→ 03 §8.3）：週次決算の最後に1回だけ行う。
             // 副官解雇（マスターの機嫌0、即時）と破産（所持金マイナス4週連続、猶予あり）（→ DefeatSystem）。

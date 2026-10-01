@@ -179,28 +179,34 @@ namespace GuildManager.Core.Tests
             Assert.False(result.Flags.DeathOrPermanentInjuryOccurred);
         }
 
-        // ---------------- FinalQuestNewlyUnlocked ----------------
+        // ---------------- GameCleared（→ 03 §8.2・§0.59） ----------------
 
         [Fact]
-        public void ProcessWeek_DoesNotSetFinalQuestNewlyUnlocked_WhenAlreadyUnlocked()
+        public void ProcessWeek_DoesNotSetGameCleared_WhenAlreadyCleared()
         {
-            var state = new GameState { FinalQuestUnlocked = true };
+            var state = new GameState { IsGameCleared = true, ClearedAtWeek = 1 };
             var system = BuildSystem();
 
             var result = system.ProcessWeek(state);
 
-            Assert.False(result.Flags.FinalQuestNewlyUnlocked);
+            Assert.False(result.Flags.GameCleared);
         }
 
         [Fact]
-        public void ProcessWeek_DoesNotSetFinalQuestNewlyUnlocked_WhenFinalBossNotDefeated()
+        public void ProcessWeek_DoesNotSetGameCleared_WhenFinalBossNotDefeated()
         {
             var state = new GameState();
             var system = BuildSystem();
 
             var result = system.ProcessWeek(state);
 
-            Assert.False(result.Flags.FinalQuestNewlyUnlocked);
+            Assert.False(result.Flags.GameCleared);
+        }
+
+        [Fact]
+        public void GameCleared_StopsAutoSkip()
+        {
+            Assert.True(new WeekResult { GameCleared = true }.ShouldStopAutoSkip);
         }
 
         // ---------------- SatisfactionWarningOccurred ----------------
