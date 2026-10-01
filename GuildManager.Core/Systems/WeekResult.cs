@@ -41,9 +41,16 @@ namespace GuildManager.Core.Systems
         /// <summary>魂魄融和の子が今週誕生したか（→ SoulFusionSystem、03 §5.4・§0.58）。新しい仲間を見てもらうため自動スキップを止める。</summary>
         public bool SoulFusionBirthOccurred { get; set; }
 
+        /// <summary>出撃した部隊に重傷者が出たか（§0.63。方針の自動出撃を続けたまま自動スキップしても、ここで止める）。</summary>
+        public bool SevereInjuryOccurred { get; set; }
+
+        /// <summary>階層ボスを倒したか（§0.63。進み具合を見てもらうため止める）。</summary>
+        public bool BossDefeated { get; set; }
+
         public bool ShouldStopAutoSkip =>
             RecruitmentTrialOccurred || SatisfactionWarningOccurred ||
             FacilityConstructionCompleted || SoulFusionBirthOccurred ||
+            SevereInjuryOccurred || BossDefeated ||
             DeathOrPermanentInjuryOccurred ||
             GameCleared ||
             DefeatOccurred || BossDoorReached;

@@ -27,5 +27,32 @@ namespace GuildManager.Core.Models
 
         /// <summary>所属する冒険者のId一覧（最大4名、→ Party.MaxSlots）。</summary>
         public List<Guid> MemberIds { get; set; } = new();
+
+        // ---- 部隊の方針（自動出撃、2026年10月・§0.63、→ Systems.SquadOrderSystem） ----
+
+        /// <summary>部隊の方針。None 以外なら、週送りの前に空いていれば自動で出撃する。旧セーブには無く None で読まれる。</summary>
+        public SquadOrder Order { get; set; } = SquadOrder.None;
+
+        /// <summary>方針の対象フィールドのId（→ DungeonField.Id）。方針が None なら使わない。</summary>
+        public string? OrderFieldId { get; set; }
+
+        /// <summary>潜行の方針で、扉前に着いたとき見込みがあれば自動で挑み、無ければ撤退するか（false＝止まって聞く）。</summary>
+        public bool AutoEngage { get; set; }
+    }
+
+    /// <summary>部隊の方針（→ SavedParty.Order、Systems.SquadOrderSystem、03 §4.0.3・§0.63）。</summary>
+    public enum SquadOrder
+    {
+        /// <summary>方針なし（手動で出撃させる）。</summary>
+        None,
+
+        /// <summary>潜行を続ける：対象フィールドの次の未撃破ボスへ1階層から潜る。</summary>
+        Dive,
+
+        /// <summary>調査を続ける：対象フィールドの次のボスを調査する。完全解析なら、その週は同じフィールドで採取する。</summary>
+        Survey,
+
+        /// <summary>採取を続ける：対象フィールドで採取する。</summary>
+        Gather,
     }
 }

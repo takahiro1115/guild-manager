@@ -52,5 +52,11 @@ namespace GuildManager.Core.Models
 
         /// <summary>道中で拾い集めたゴールド。ギルドへ帰還した時点で GameState.Gold へ格納される。</summary>
         public int CarriedGold { get; set; }
+
+        /// <summary>
+        /// 方針で自動出撃した部隊（→ SavedParty.Order、Systems.SquadOrderSystem、§0.63）の Id。手動の出撃・旧セーブは null。
+        /// 扉前で自動判断するか（→ SavedParty.AutoEngage）と、部隊が出撃中かどうかの判定に使う。
+        /// </summary>
+        public Guid? SavedPartyId { get; set; }
     }
 }

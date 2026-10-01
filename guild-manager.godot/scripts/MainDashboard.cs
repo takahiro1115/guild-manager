@@ -38,6 +38,7 @@ public partial class MainDashboard : Control
 	private PartyFormationSystem _partyFormationSystem = null!;
 	private WeekProcessingSystem _weekProcessingSystem = null!;
 	private AutoSkipService _autoSkipService = null!;
+	private SquadOrderSystem _squadOrderSystem = null!;
 
 	private Label _weekLabel = null!;
 	private Label _goldLabel = null!;
@@ -261,7 +262,9 @@ public partial class MainDashboard : Control
 			_restRecoverySystem, _growthSystem, _satisfactionSystem, _agingSystem,
 			_facilitySystem, _defeatSystem, _recruitmentSystem,
 			_dungeonExpeditionSystem);
-		_autoSkipService = new AutoSkipService(_weekProcessingSystem);
+		// 部隊の方針（自動出撃、→ 03 §4.0.3・§0.63）。週送り・自動スキップの決算の前に実行する。
+		_squadOrderSystem = new SquadOrderSystem(_dungeonExpeditionSystem);
+		_autoSkipService = new AutoSkipService(_weekProcessingSystem, _squadOrderSystem);
 		// GuildManager.CoreはGodotに依存しない方針（→ 05技術メモ）のため、保存先の実パスは
 		// Godot側からOS.GetUserDataDir()（user://に対応する実ディレクトリ）を注入する（→ 03 §12）。
 		_saveLoadService = new SaveLoadService(OS.GetUserDataDir());
@@ -467,7 +470,8 @@ public partial class MainDashboard : Control
 		if (_noDungeonDispatchDialog.Visible)
 			return;
 
-		if (_state.ActiveDungeonMissions.Count == 0)
+		// 方針つきの部隊（§0.63）があれば、週送りの前に自動で出撃するので確認しない。
+		if (_state.ActiveDungeonMissions.Count == 0 && !_state.SavedParties.Any(p => p.Order != SquadOrder.None))
 		{
 			_noDungeonDispatchDialog.PopupCentered();
 			return;
@@ -483,6 +487,9 @@ public partial class MainDashboard : Control
 	private void AdvanceWeek()
 	{
 		int thisWeek = _state.WeekNumber;
+
+		// 部隊の方針（§0.63）：決算の前に、扉前の自動判断と空いている部隊の自動出撃を行う。
+		LogSquadOrders(_squadOrderSystem.Execute(_state));
 
 		if (_state.ActiveDungeonMissions.Count == 0)
 			AppendLog($"[color=gray]{GameCalendar.Format(thisWeek)}：今週は誰も出撃せず、静養に努めた。[/color]");
@@ -675,19 +682,30 @@ public partial class MainDashboard : Control
 	/// </summary>
 	private void OnAutoSkipButtonPressed()
 	{
-		// 自動スキップは詳細な週報を出さない（→ 本メソッドのdocコメント）。大迷宮への出撃予定が残っていると、
-		// 討伐の決着（強制除籍を含む）がサマリーに埋もれてしまうため、先に「次週へ」で決着させてもらう。
-		if (_state.ActiveDungeonMissions.Count > 0)
+		// 手動で出した部隊が残っていると、討伐の決着（強制除籍を含む）を見落としやすいため、先に「次週へ」で決着させてもらう。
+		// 方針で自動出撃した部隊（§0.63）だけなら、自動スキップ中も方針どおりに出撃を続ける。
+		if (!AutoSkipService.CanAutoSkip(_state))
 		{
-			AppendLog("[color=orange]大迷宮へ出撃予定の部隊がいるため、自動スキップできない。" +
-				"「次週へ」で決着させるか、大迷宮タブで出撃を取り消すこと。[/color]");
+			AppendLog("[color=orange]手動で出撃させた部隊がいるため、自動スキップできない。" +
+				"「次週へ」で決着させるか、大迷宮タブで出撃を取り消すこと（方針つきの部隊なら自動スキップ中も出撃を続ける）。[/color]");
 			return;
 		}
 
 		DisableWeekAdvancement();
 
 		int startWeek = _state.WeekNumber;
-		var results = _autoSkipService.AutoSkip(_state);
+		var weeks = _autoSkipService.AutoSkipDetailed(_state);
+		var results = weeks.Select(w => w.Settlement.Flags).ToList();
+
+		// 方針で出撃した週は、週報を省略せずに残す（§0.63）。決戦の記録はステップ再生せずにそのまま流す。
+		// 「待機」は毎週出ると多すぎるので、自動スキップ中は出撃・扉前の判断だけを出す。
+		foreach (var week in weeks.Where(w => w.Orders.Any(e => e.Action != SquadOrderAction.Waiting) || w.Settlement.DungeonMissionResolutions.Count > 0))
+		{
+			LogSquadOrders(week.Orders.Where(e => e.Action != SquadOrderAction.Waiting).ToList());
+			LogWeeklySettlement(week.Settlement);
+			while (_bossLogQueue.Count > 0)
+				AppendLog(_bossLogQueue.Dequeue());
+		}
 
 		AppendLog($"[color=cyan][b]≫≫ 自動スキップ：{GameCalendar.Format(startWeek)}から{results.Count}週分を処理した。[/b][/color]");
 
@@ -696,7 +714,19 @@ public partial class MainDashboard : Control
 		int satisfactionCount = results.Count(r => r.SatisfactionWarningOccurred);
 		int recruitmentCount = results.Count(r => r.RecruitmentTrialOccurred);
 		int defeatCount = results.Count(r => r.DefeatOccurred);
+		var lastFlags = results.Count > 0 ? results[^1] : null;
 
+		if (lastFlags != null)
+		{
+			// 止まった理由（§0.63で増えた条件を含む）
+			var reasons = new List<string>();
+			if (lastFlags.BossDoorReached) reasons.Add("扉前に着いた部隊がいる");
+			if (lastFlags.BossDefeated) reasons.Add("階層ボスを倒した");
+			if (lastFlags.SevereInjuryOccurred) reasons.Add("重傷者が出た");
+			if (lastFlags.SoulFusionBirthOccurred) reasons.Add("娘が誕生した");
+			if (lastFlags.GameCleared) reasons.Add("深淵100Fを制覇した");
+			if (reasons.Count > 0) AppendLog($"[color=cyan]・止まった理由：{string.Join("・", reasons)}[/color]");
+		}
 		if (facilityCount > 0) AppendLog($"[color=lime]・施設建設が完了した週：{facilityCount}回[/color]");
 		if (deathCount > 0) AppendLog($"[color=red][b]・強制除籍または不可逆の障害が発生した週：{deathCount}回[/b][/color]");
 		if (satisfactionCount > 0) AppendLog($"[color=orange]・契約交渉（満足度警告）が新たに発生した週：{satisfactionCount}回[/color]");
@@ -709,20 +739,11 @@ public partial class MainDashboard : Control
 		_saveLoadService.Save(_state);
 		RefreshAll();
 
-		var last = results.Count > 0 ? results[^1] : null;
-		if (last != null && last.DefeatOccurred)
-		{
-			DisableWeekAdvancement(); // ゲームオーバー：これ以上週を進められない
-		}
-		else if (last != null && last.RecruitmentTrialOccurred)
-		{
-			// 新春採用試験：ポップアップが閉じるまで次週へ進めさせない（→ 03 §9）。
-			_recruitmentPopup.Open(_state, _recruitmentSystem);
-		}
+		// 最後の週の割り込み（ゲームオーバー・クリアのエンディング・新春採用試験）は「次週へ」と同じ処理に任せる。
+		if (weeks.Count > 0)
+			HandlePostSettlementInterruptions(weeks[^1].Settlement);
 		else
-		{
 			EnableWeekAdvancement();
-		}
 	}
 
 	/// <summary>施設管理画面の「👔 顧問を任命」ボタン。顧問役職割り当てポップアップを開く（いつでも自由に開閉できる）。</summary>
@@ -1153,6 +1174,30 @@ public partial class MainDashboard : Control
 				? $"〔最大HP{adv.MaxHP}×{p:F1}%〕"
 				: "";
 			sb.AppendLine($" - {adv.Name}: HP -{kv.Value}{pct}（残りHP {adv.CurrentHP}/{adv.MaxHP}）");
+		}
+	}
+
+	/// <summary>部隊の方針による自動の行動（→ SquadOrderSystem、03 §0.63）を週報ログに出す。待機は灰色で短く。</summary>
+	private void LogSquadOrders(List<SquadOrderEvent> events)
+	{
+		foreach (var ev in events)
+		{
+			switch (ev.Action)
+			{
+				case SquadOrderAction.Dispatched:
+					AppendLog($"[color=cyan]📋 「{ev.Party.Name}」が方針どおり出撃：{ev.Detail}。[/color]");
+					break;
+				case SquadOrderAction.Engaged:
+					AppendLog($"[color=cyan][b]📋 「{ev.Party.Name}」は扉前で見込みありと判断し、{ev.Detail}。[/b][/color]");
+					break;
+				case SquadOrderAction.Retreated:
+					string deposited = ev.Resolution == null ? "" : $"（持ち帰り：{ev.Resolution.DepositedGold}G）";
+					AppendLog($"[color=orange]📋 「{ev.Party.Name}」は扉前から撤退した：{ev.Detail}{deposited}。[/color]");
+					break;
+				default:
+					AppendLog($"[color=gray]📋 「{ev.Party.Name}」は待機：{ev.Detail}。[/color]");
+					break;
+			}
 		}
 	}
 

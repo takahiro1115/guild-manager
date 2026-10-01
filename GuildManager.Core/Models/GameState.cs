@@ -355,6 +355,7 @@ namespace GuildManager.Core.Models
                     WeeksElapsed = mission.WeeksElapsed,
                     CarriedGold = mission.CarriedGold,
                     CarriedMaterials = new Dictionary<string, int>(mission.CarriedMaterials),
+                    SavedPartyId = mission.SavedPartyId,
                 });
             }
 
@@ -535,6 +536,7 @@ namespace GuildManager.Core.Models
                     WeeksElapsed = record.WeeksElapsed,
                     CarriedGold = record.CarriedGold,
                     CarriedMaterials = new Dictionary<string, int>(record.CarriedMaterials ?? new Dictionary<string, int>()),
+                    SavedPartyId = record.SavedPartyId,
                 });
             }
 

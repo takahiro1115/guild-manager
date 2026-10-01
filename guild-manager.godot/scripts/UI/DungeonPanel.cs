@@ -196,6 +196,100 @@ public partial class DungeonPanel : ScrollContainer
 		PopulatePouchSlot(_pouchSlot2);
 		_pouchSlot1.ItemSelected += OnPouchSlot1Selected;
 		_pouchSlot2.ItemSelected += OnPouchSlot2Selected;
+
+		BuildOrderRow();
+	}
+
+	// ==================== 部隊の方針（自動出撃、→ 03 §4.0.3・§0.63） ====================
+
+	private OptionButton _orderOption = null!;
+	private CheckBox _autoEngageCheck = null!;
+	private RichTextLabel _orderInfoLabel = null!;
+	private bool _refreshingOrderRow;
+
+	private static readonly string[] OrderLabels = { "なし（手動で出撃）", "🏃 潜行を続ける", "🔍 調査を続ける", "🌿 採取を続ける" };
+	private static readonly string[] OrderNames = { "方針なし", "潜行を続ける", "調査を続ける", "採取を続ける" };
+
+	/// <summary>出撃欄の下に「📋 方針」の行を足す（シーンは変えずにコードで組む）。</summary>
+	private void BuildOrderRow()
+	{
+		var box = new VBoxContainer();
+		var row = new HBoxContainer();
+		row.AddChild(new Label { Text = "📋 選んだ部隊の方針：" });
+		_orderOption = new OptionButton();
+		foreach (var label in OrderLabels)
+			_orderOption.AddItem(label);
+		_orderOption.TooltipText = "方針を決めると、週送りの前に空いていれば自動で出撃し続ける（全員のHPが70%以上で重傷者がいないとき）。対象は今選んでいるフィールド";
+		_orderOption.ItemSelected += OnOrderSelected;
+		row.AddChild(_orderOption);
+		_autoEngageCheck = new CheckBox { Text = "扉前で見込みがあれば挑む（無ければ撤退）" };
+		_autoEngageCheck.TooltipText = "潜行の方針だけ。討伐火力が要求以上・ギミックをすべて対策できる（携行品は自動で買う）・全員のHPが60%以上なら挑む。外すと扉前で止まって聞く";
+		_autoEngageCheck.Toggled += OnAutoEngageToggled;
+		row.AddChild(_autoEngageCheck);
+		box.AddChild(row);
+		_orderInfoLabel = new RichTextLabel { BbcodeEnabled = true, FitContent = true, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+		box.AddChild(_orderInfoLabel);
+
+		var parent = _dispatchStatusLabel.GetParent();
+		parent.AddChild(box);
+		parent.MoveChild(box, _dispatchStatusLabel.GetIndex() + 1);
+	}
+
+	private void RefreshOrderRow()
+	{
+		_refreshingOrderRow = true;
+		var saved = SelectedSavedParty();
+		_orderOption.Disabled = saved == null;
+		_orderOption.Selected = (int)(saved?.Order ?? SquadOrder.None);
+		_autoEngageCheck.Visible = saved?.Order == SquadOrder.Dive;
+		_autoEngageCheck.ButtonPressed = saved?.AutoEngage == true;
+		_refreshingOrderRow = false;
+
+		_orderInfoLabel.Clear();
+		var ordered = _state.SavedParties.Where(p => p.Order != SquadOrder.None).ToList();
+		if (ordered.Count == 0)
+		{
+			_orderInfoLabel.AppendText("[color=gray]方針つきの部隊はない。部隊を選んで方針を決めると、週送りのたびに自動で出撃する。[/color]");
+			return;
+		}
+		var parts = ordered.Select(p =>
+		{
+			string field = _state.DungeonFields.FirstOrDefault(f => f.Id == p.OrderFieldId)?.Name ?? "？";
+			string door = p.Order == SquadOrder.Dive ? (p.AutoEngage ? "・扉前は自動判断" : "・扉前で止まる") : "";
+			string wait = SquadOrderSystem.IsOut(_state, p) ? "出撃中" : SquadOrderSystem.GetWaitReason(_state, p) is { } w ? $"待機：{w}" : "次の週送りで出撃";
+			return $"「{p.Name}」＝{field}で{OrderNames[(int)p.Order]}{door}（{wait}）";
+		});
+		_orderInfoLabel.AppendText($"[color=cyan]📋 {string.Join("／", parts)}[/color]");
+	}
+
+	private void OnOrderSelected(long index)
+	{
+		if (_refreshingOrderRow) return;
+		var saved = SelectedSavedParty();
+		if (saved == null) return;
+		var order = (SquadOrder)(int)index;
+		if (order != SquadOrder.None)
+		{
+			if (_selectedField == null) { RefreshOrderRow(); return; }
+			saved.OrderFieldId = _selectedField.Id;
+		}
+		saved.Order = order;
+		if (order != SquadOrder.Dive)
+			saved.AutoEngage = false;
+		LogRequested.Invoke(order == SquadOrder.None
+			? $"[color=cyan]📋 「{saved.Name}」の方針を解除した（手動で出撃する）。[/color]"
+			: $"[color=cyan]📋 「{saved.Name}」の方針を「{_selectedField!.Name}で{OrderNames[(int)order]}」にした。週送りの前に、空いていれば自動で出撃する。[/color]");
+		StateChanged.Invoke();
+	}
+
+	private void OnAutoEngageToggled(bool pressed)
+	{
+		if (_refreshingOrderRow) return;
+		var saved = SelectedSavedParty();
+		if (saved == null || saved.Order != SquadOrder.Dive) return;
+		saved.AutoEngage = pressed;
+		LogRequested.Invoke($"[color=cyan]📋 「{saved.Name}」は扉前で{(pressed ? "見込みがあれば挑み、無ければ撤退する" : "止まって指示を待つ")}。[/color]");
+		StateChanged.Invoke();
 	}
 
 	/// <summary>出撃の派遣・取り消しに使うシステムを受け取る（MainDashboard._Readyから1回呼ぶ）。</summary>
@@ -1080,6 +1174,7 @@ public partial class DungeonPanel : ScrollContainer
 	private void RefreshDispatchSection(FloorBoss? boss)
 	{
 		RefreshSquadMemberCards();
+		RefreshOrderRow();
 		foreach (var label in new[] { _traversalPreviewLabel, _surveyPreviewLabel, _gatheringPreviewLabel })
 		{
 			label.Clear();

@@ -267,6 +267,9 @@ namespace GuildManager.Core.Models
         public int WeeksElapsed { get; set; }
         public int CarriedGold { get; set; }
         public Dictionary<string, int> CarriedMaterials { get; set; } = new();
+
+        /// <summary>方針で自動出撃した部隊の Id（→ ActiveDungeonMission.SavedPartyId、§0.63）。手動の出撃・旧セーブは null。</summary>
+        public Guid? SavedPartyId { get; set; }
     }
 
     public class CompatibilityPairRecord

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using GuildManager.Core.Models;
 
 namespace GuildManager.Core.Systems
@@ -23,10 +24,16 @@ namespace GuildManager.Core.Systems
         public const int DefaultMaxWeeks = 1000;
 
         private readonly WeekProcessingSystem _weekProcessingSystem;
+        private readonly SquadOrderSystem? _squadOrderSystem;
 
-        public AutoSkipService(WeekProcessingSystem weekProcessingSystem)
+        /// <param name="squadOrderSystem">
+        /// 部隊の方針（→ SquadOrderSystem、§0.63）。渡すと、毎週の決算の前に方針の部隊を自動で出撃・扉前判断させる。
+        /// 省略すると従来どおり派遣操作を一切行わない。
+        /// </param>
+        public AutoSkipService(WeekProcessingSystem weekProcessingSystem, SquadOrderSystem? squadOrderSystem = null)
         {
             _weekProcessingSystem = weekProcessingSystem;
+            _squadOrderSystem = squadOrderSystem;
         }
 
         /// <summary>
@@ -34,20 +41,37 @@ namespace GuildManager.Core.Systems
         /// 進めた各週のWeekResult（停止判定フラグ一式）を、進めた順に返す
         /// （最後の要素が停止した週、または上限到達時の最終週）。
         /// </summary>
-        public List<WeekResult> AutoSkip(GameState state, int maxWeeks = DefaultMaxWeeks)
+        public List<WeekResult> AutoSkip(GameState state, int maxWeeks = DefaultMaxWeeks) =>
+            AutoSkipDetailed(state, maxWeeks).Select(w => w.Settlement.Flags).ToList();
+
+        /// <summary>
+        /// AutoSkip と同じだが、各週の方針による行動（決算の前）と決算の詳細をそのまま返す（週報を省略せず出すため、§0.63）。
+        /// </summary>
+        public List<AutoSkipWeek> AutoSkipDetailed(GameState state, int maxWeeks = DefaultMaxWeeks)
         {
-            var results = new List<WeekResult>();
+            var weeks = new List<AutoSkipWeek>();
 
             for (int i = 0; i < maxWeeks; i++)
             {
+                var orders = _squadOrderSystem?.Execute(state) ?? new List<SquadOrderEvent>();
                 var settlement = _weekProcessingSystem.ProcessWeek(state);
-                results.Add(settlement.Flags);
+                weeks.Add(new AutoSkipWeek(orders, settlement));
 
                 if (settlement.Flags.ShouldStopAutoSkip)
                     break;
             }
 
-            return results;
+            return weeks;
         }
+
+        /// <summary>
+        /// 自動スキップできるか：出撃中の部隊がすべて方針の自動出撃（→ ActiveDungeonMission.SavedPartyId）であること。
+        /// 手動で出した部隊が残っていると、その決着を見落とさないよう先に「次週へ」で決着させてもらう。
+        /// </summary>
+        public static bool CanAutoSkip(GameState state) =>
+            state.ActiveDungeonMissions.All(m => SquadOrderSystem.FindOrderedParty(state, m) != null);
     }
+
+    /// <summary>自動スキップの1週分：決算の前の方針による行動と、決算の結果。</summary>
+    public sealed record AutoSkipWeek(List<SquadOrderEvent> Orders, WeeklySettlementResult Settlement);
 }

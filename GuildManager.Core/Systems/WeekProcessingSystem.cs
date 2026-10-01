@@ -97,8 +97,14 @@ namespace GuildManager.Core.Systems
             {
                 if (resolution.DungeonResult != null && resolution.DungeonResult.ForceRetiredAdventurerIds.Count > 0)
                     result.Flags.DeathOrPermanentInjuryOccurred = true;
-                if (resolution.ArrivedAtBossDoor)
+                // 扉前の到達：方針で自動判断する部隊（→ SquadOrderSystem.DecidesAtDoor、§0.63）は止めない。
+                if (resolution.ArrivedAtBossDoor && !SquadOrderSystem.DecidesAtDoor(state, resolution.Party))
                     result.Flags.BossDoorReached = true;
+                // 自動出撃のための停止条件（§0.63）：重傷者が出た週・ボスを倒した週。
+                if (resolution.InjuryEvents.Any(e => e.Severity == InjurySeverity.Severe))
+                    result.Flags.SevereInjuryOccurred = true;
+                if (resolution.DungeonResult?.Outcome == DungeonOutcome.Victory)
+                    result.Flags.BossDefeated = true;
             }
 
             // マスターの機嫌（→ 03 §8.1・§8.1.1）：大迷宮での成果で上げ、成果ゼロなら退屈減衰。
