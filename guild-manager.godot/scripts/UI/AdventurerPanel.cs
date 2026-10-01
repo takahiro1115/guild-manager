@@ -352,17 +352,32 @@ public partial class AdventurerPanel : VBoxContainer
 				var def = TraitCatalog.FindById(traitId);
 				string traitName = def?.DisplayName ?? traitId;
 				bool isCurse = def?.IsCurseOrInjury == true;
-				_traitSlotLabels[i].Text = isCurse ? $"{i + 1}: 【{traitName}】🔒" : $"{i + 1}: 【{traitName}】";
+				bool isFlaw = def?.IsFlaw == true; // 生まれつきの欠点（§0.56）
+				bool isRare = def?.IsRare == true; // レア特性（§0.57）
+				_traitSlotLabels[i].Text = isCurse ? $"{i + 1}: 【{traitName}】🔒"
+					: isFlaw ? $"{i + 1}: 【{traitName}】▼"
+					: isRare ? $"{i + 1}: ★【{traitName}】"
+					: $"{i + 1}: 【{traitName}】";
 				_traitSlotLabels[i].TooltipText = def?.Description ?? "";
 				_traitSlotLabels[i].AddThemeColorOverride("font_color", isCurse
 					? new Color(1.0f, 0.55f, 0.45f)  // 障害特性: 赤みのある橙
-					: new Color(0.9f, 0.9f, 0.4f));  // 習得済み: 明るい黄色
+					: isFlaw
+						? new Color(0.75f, 0.6f, 0.95f)  // 生まれつきの欠点: 薄い紫
+						: isRare
+							? new Color(1.0f, 0.75f, 0.2f)  // レア特性: 金色
+							: new Color(0.9f, 0.9f, 0.4f));  // 習得済み: 明るい黄色
 
-				// 忘却ボタン：障害特性と出撃中は押せない（→ Adventurer.CanRemoveTrait、03 §5.3.2）。
+				// 忘却ボタン：障害特性・生まれつきの欠点と出撃中は押せない（→ Adventurer.CanRemoveTrait、03 §5.3.2）。
+				string? overcomeBy = isFlaw && def!.OvercomeByTraitId != null
+					? TraitCatalog.FindById(def.OvercomeByTraitId)?.DisplayName
+					: null;
 				var forget = _forgetButtons[i];
 				forget.Visible = true;
-				forget.Disabled = isCurse || a.IsDispatched || !a.CanRemoveTrait(traitId);
+				forget.Disabled = isCurse || isFlaw || a.IsDispatched || !a.CanRemoveTrait(traitId);
 				forget.TooltipText = isCurse ? "不可逆障害のため忘却不可"
+					: isFlaw ? (overcomeBy != null
+						? $"生まれつきの欠点のため忘却不可。教官から『{overcomeBy}』を教われば克服できる"
+						: "生まれつきの欠点のため忘却不可（克服できない）")
 					: a.IsDispatched ? "出撃中は忘却できない"
 					: $"『{traitName}』を忘却して枠を空ける（取り消し不可）";
 			}

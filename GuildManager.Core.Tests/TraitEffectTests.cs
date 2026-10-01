@@ -358,7 +358,8 @@ namespace GuildManager.Core.Tests
             var traits = offers[0].Candidate.TraitIds;
 
             Assert.Equal(Adventurer.MaxTraitCount, traits.Count);
-            Assert.All(traits, t => Assert.Contains(t, RecruitmentSystem.InnateTraitPool));
+            // §0.57：全判定が当たる乱数では、先にレア特性（天才）が1枠を取る。
+            Assert.All(traits, t => Assert.Contains(t, RecruitmentSystem.InnateTraitPool.Concat(RecruitmentSystem.RareTraitPool)));
         }
 
         [Fact]
@@ -367,7 +368,7 @@ namespace GuildManager.Core.Tests
             // ドラフトの候補も同じ抽選を通る（→ RecruitmentSystem.GenerateOne）。
             var draft = new RecruitmentSystem(new AlwaysMinRng()).StartInitialDraft(new GameState());
 
-            Assert.All(draft.Offers, o => Assert.All(o.Candidate.TraitIds, t => Assert.Contains(t, RecruitmentSystem.InnateTraitPool)));
+            Assert.All(draft.Offers, o => Assert.All(o.Candidate.TraitIds, t => Assert.Contains(t, RecruitmentSystem.InnateTraitPool.Concat(RecruitmentSystem.RareTraitPool))));
         }
     }
 }

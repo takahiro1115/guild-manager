@@ -71,7 +71,8 @@ namespace GuildManager.Core.Tests
             var grant = CriticalInjury.RollOldWound(a, new FixedRng(roll));
 
             Assert.Equal(expectGrant, grant != null);
-            Assert.Equal(expectGrant, a.HasTrait(TraitCatalog.OldWoundId));
+            // §0.56：当選したら古傷・足の古傷・腕の古傷のどれかが付く（FixedRng(10) は部位の抽選で最後の腕の古傷を引く）。
+            Assert.Equal(expectGrant, a.TraitIds.Any(id => TraitCatalog.OldWoundVariantIds.Contains(id)));
         }
 
         [Theory]
@@ -88,11 +89,14 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void RollOldWound_DoesNotDoubleGrant()
         {
+            // §0.56：部位はまだ持っていないものから選ぶ。3部位とも持てば、それ以上は付かない。
             var a = WithHp(1);
-            Assert.NotNull(CriticalInjury.RollOldWound(a, new AlwaysMinRng()));
+            Assert.Equal(TraitCatalog.OldWoundId, CriticalInjury.RollOldWound(a, new AlwaysMinRng())!.TraitId);
+            Assert.Equal(TraitCatalog.LegWoundId, CriticalInjury.RollOldWound(a, new AlwaysMinRng())!.TraitId);
+            Assert.Equal(TraitCatalog.ArmWoundId, CriticalInjury.RollOldWound(a, new AlwaysMinRng())!.TraitId);
 
             Assert.Null(CriticalInjury.RollOldWound(a, new AlwaysMinRng()));
-            Assert.Single(a.TraitIds, TraitCatalog.OldWoundId);
+            Assert.Equal(new[] { TraitCatalog.OldWoundId, TraitCatalog.LegWoundId, TraitCatalog.ArmWoundId }, a.TraitIds);
         }
 
         [Fact]

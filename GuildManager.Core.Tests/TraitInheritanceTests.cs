@@ -147,11 +147,12 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
-        public void AllNonCurseTraitsExceptBeautiful_AreTransmittable()
+        public void AllNormalTraitsExceptBeautifulAndRare_AreTransmittable()
         {
             foreach (var def in TraitCatalog.GetAll())
             {
-                bool expected = !def.IsCurseOrInjury && def.Id != TraitCatalog.BeautifulId;
+                // 障害特性・生まれつきの欠点（§0.56）・容姿秀麗は伝授されない。
+                bool expected = !def.IsCurseOrInjury && !def.IsFlaw && !def.IsRare && def.Id != TraitCatalog.BeautifulId; // レア特性（§0.57）も伝授されない
                 Assert.True(expected == def.IsTransmittable, $"{def.Id} の IsTransmittable が想定と違う");
             }
         }

@@ -39,15 +39,31 @@ namespace GuildManager.Core.Systems
             if (!FacilityBalance.IsTrainingFacility(facility)) return false;
             if (state.GetFacilityLevel(facility) < 1) return false; // Lv0（未建設）は配置不可（→ 03 §6）
             if (!IsRetiredCandidate(state, candidateId)) return false;
+            if (state.AssignedTrainers.TryGetValue(facility, out var current) && current == candidateId)
+                return true; // 同じ人を同じ施設へ任命し直しても、在任週数・重点伝授特性は保つ
 
             UnassignFromAllPosts(state, candidateId);
+            ClearTrainerPostRecords(state, facility); // 交代：前任者の在任週数・重点伝授特性を消す
             state.AssignedTrainers[facility] = candidateId;
             return true;
         }
 
         /// <summary>指定した施設の教官配置を解除する。</summary>
-        public void UnassignTrainer(GameState state, FacilityType facility) =>
+        public void UnassignTrainer(GameState state, FacilityType facility)
+        {
             state.AssignedTrainers.Remove(facility);
+            ClearTrainerPostRecords(state, facility);
+        }
+
+        /// <summary>
+        /// 教官ポストに付く記録（在任週数・重点伝授特性、教官深化 Step 3、→ 03 §7.1）を消す。
+        /// 教官が替わる・外れるときに呼ぶ（在任週数は0から数え直し、重点伝授特性は自動に戻る）。
+        /// </summary>
+        private static void ClearTrainerPostRecords(GameState state, FacilityType facility)
+        {
+            state.TrainerTenureWeeks.Remove(facility);
+            state.TrainerFocusTraits.Remove(facility);
+        }
 
         /// <summary>
         /// 参謀を配置する（作戦資料室＝参謀本部に1名まで。既に配置済みなら上書きで交代）。
@@ -98,6 +114,7 @@ namespace GuildManager.Core.Systems
                          .ToList())
             {
                 state.AssignedTrainers.Remove(facility);
+                ClearTrainerPostRecords(state, facility);
             }
 
             if (state.AssignedAdvisor == candidateId) state.AssignedAdvisor = null;

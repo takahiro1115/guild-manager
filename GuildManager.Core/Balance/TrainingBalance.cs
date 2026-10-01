@@ -45,5 +45,17 @@ namespace GuildManager.Core.Balance
 
         /// <summary>教官が師匠肌（Mentor）を持つときに伝授確率へ加算する値（0〜1）。</summary>
         public static readonly double MentorTraitInheritanceBonus = BalanceData.GetDouble(FileName, "MentorTraitInheritanceBonus");
+
+        /// <summary>
+        /// 教官の在任ボーナス（教官深化 Step 3、→ TrainingSystem.GetTenureBonus、03 §7.1）：
+        /// 同じ訓練施設に続けて在任した週数がこの週数に達するごとに、伝授確率が1段上がる（12＝1季節）。
+        /// </summary>
+        public static readonly int TrainerTenureBonusStepWeeks = BalanceData.GetInt(FileName, "TrainerTenureBonusStepWeeks");
+
+        /// <summary>教官の在任ボーナス：1段あたり伝授確率へ加算する値（0〜1）。</summary>
+        public static readonly double TrainerTenureBonusPerStep = BalanceData.GetDouble(FileName, "TrainerTenureBonusPerStep");
+
+        /// <summary>教官の在任ボーナスの上限（0〜1）。</summary>
+        public static readonly double TrainerTenureBonusMax = BalanceData.GetDouble(FileName, "TrainerTenureBonusMax");
     }
 }

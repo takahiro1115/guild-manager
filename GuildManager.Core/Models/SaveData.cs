@@ -151,6 +151,18 @@ namespace GuildManager.Core.Models
         /// </summary>
         public Dictionary<string, Guid?> AdvisorAssignments { get; set; } = new();
 
+        /// <summary>
+        /// 教官の在任週数（施設種別名→週数。教官深化 Step 3、→ GameState.TrainerTenureWeeks）。
+        /// 旧セーブには無く、空のまま読まれて在任0週から数える。
+        /// </summary>
+        public Dictionary<string, int> TrainerTenureWeeks { get; set; } = new();
+
+        /// <summary>
+        /// 教官の重点伝授特性（施設種別名→特性Id。教官深化 Step 3、→ GameState.TrainerFocusTraits）。
+        /// 旧セーブには無く、空のまま読まれて自動（特性枠の並び順）になる。
+        /// </summary>
+        public Dictionary<string, string> TrainerFocusTraits { get; set; } = new();
+
 
         // ---- 大迷宮（ダンジョン攻略システム） ----
 

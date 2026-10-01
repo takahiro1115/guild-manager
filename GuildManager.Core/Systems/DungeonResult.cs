@@ -43,6 +43,12 @@ namespace GuildManager.Core.Systems
         /// <summary>耐毒体質（→ TraitCatalog.ResistPoison）で未対策の猛毒の被ダメージ加算を軽減したか（週報の開示用）。</summary>
         public bool ResistPoisonApplied { get; set; }
 
+        /// <summary>鷹の目（→ TraitCatalog.HawkEye、§0.55）で未対策の飛行の被ダメージ加算を軽減したか（週報の開示用）。</summary>
+        public bool HawkEyeApplied { get; set; }
+
+        /// <summary>未対策の即死級を危機察知（→ TraitCatalog.SixthSense、§0.55）でしのいだ冒険者ID（週報の開示用）。</summary>
+        public List<Guid> SixthSenseAdventurerIds { get; set; } = new();
+
         /// <summary>重装甲ボスに対して巨獣狩り（→ TraitCatalog.GiantHunter）の上乗せが効いた冒険者ID（週報の開示用）。</summary>
         public List<Guid> GiantHunterAdventurerIds { get; set; } = new();
 

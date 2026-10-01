@@ -45,10 +45,22 @@ namespace GuildManager.Core.Balance
         public static readonly double OldestGrowthRatio = BalanceData.GetDouble(FileName, "OldestGrowthRatio");
 
         /// <summary>
-        /// 先天特性（豪胆・注意深い・容姿秀麗）各々の付与確率（%）。→ 03 §5.3.2。
+        /// 先天の長所（→ RecruitmentSystem.InnateTraitPool）各々の付与確率（%）。→ 03 §5.3.2。
         /// → BAL: 採用/先天特性付与率
         /// </summary>
         public static readonly int InnateTraitChancePercent = BalanceData.GetInt(FileName, "InnateTraitChancePercent");
+
+        /// <summary>生まれつきの欠点（→ RecruitmentSystem.InnateFlawPool）各々の付与確率（%）。→ 03 §5.3.2・§0.56。</summary>
+        public static readonly int InnateFlawChancePercent = BalanceData.GetInt(FileName, "InnateFlawChancePercent");
+
+        /// <summary>レア特性（→ RecruitmentSystem.RareTraitPool）を持つ確率（%、採用候補1人につき1回）。→ 03 §5.3.2・§0.57。</summary>
+        public static readonly int RareTraitChancePercent = BalanceData.GetInt(FileName, "RareTraitChancePercent");
+
+        /// <summary>レア特性に当たったとき天才が選ばれる重み。</summary>
+        public static readonly int RareTraitWeightGenius = BalanceData.GetInt(FileName, "RareTraitWeight_Genius");
+
+        /// <summary>レア特性に当たったとき単能力のレア特性（7種それぞれ）が選ばれる重み。</summary>
+        public static readonly int RareTraitWeightSingleStat = BalanceData.GetInt(FileName, "RareTraitWeight_SingleStat");
 
         /// <summary>
         /// 第1週の新春ドラフト（→ RecruitmentSystem.StartInitialDraft、03 §2.4、2026年9月）で提示する候補者数。

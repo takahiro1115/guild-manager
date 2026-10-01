@@ -35,6 +35,9 @@ namespace GuildManager.Core.Systems
         /// </summary>
         public List<TraitTransmissionEvent> TraitTransmissionEvents { get; } = new();
 
+        /// <summary>任務の外で後天的に付いた特性（燃え尽き、→ SatisfactionSystem.ProcessWeeklyBurnout、03 §0.56）。任務中のものは DungeonMissionResolutions 側。</summary>
+        public List<TraitGrantEvent> TraitGrantEvents { get; } = new();
+
         /// <summary>契約交渉の猶予切れで契約解除された冒険者一覧（→ SatisfactionSystem.ProcessWeeklyNegotiation）。</summary>
         public List<Adventurer> NegotiationTerminated { get; } = new();
 

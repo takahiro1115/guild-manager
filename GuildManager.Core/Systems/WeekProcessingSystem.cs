@@ -117,6 +117,7 @@ namespace GuildManager.Core.Systems
 
             _trainingSystem.ProcessWeeklyTraining(state, dispatchedIds); // → 03 §3.1〜3.4・§3.5改：訓練場の週次費用・HP微減
             result.TraitTransmissionEvents.AddRange(_trainingSystem.ProcessWeeklyTraitTransmission(state)); // → 特性伝授刷新仕様：教官からの週次伝授ロール
+            _trainingSystem.ProcessWeeklyTrainerTenure(state); // → 03 §7.1：教官の在任週数（伝授ロールの後に数える）
             // 今週の任務で負傷した隊員は、今週の回復を進めない（→ InjuryRecoverySystem、§0.53）。
             var justInjured = result.DungeonMissionResolutions.SelectMany(r => r.InjuryEvents).Select(e => e.AdventurerId).ToHashSet();
             _injuryRecoverySystem.ProcessWeeklyRecovery(state, justInjured);
@@ -124,6 +125,7 @@ namespace GuildManager.Core.Systems
             result.TrainingGrowthEvents.AddRange(_growthSystem.ProcessTrainingGrowth(state, dispatchedIds)); // → 03 §3.1〜3.4：成長トリガー経路2
 
             _satisfactionSystem.ProcessWeeklySatisfaction(state, dispatchedIds); // → 03 §5.1：満足度変動
+            result.TraitGrantEvents.AddRange(_satisfactionSystem.ProcessWeeklyBurnout(state)); // → 03 §5.3.2・§0.56：燃え尽き（連続出撃）
             result.NegotiationTerminated.AddRange(_satisfactionSystem.ProcessWeeklyNegotiation(state)); // → 03 §5.2：契約交渉・退団
             // 満足度警告（契約交渉）が今週「新たに」発生したか（→ 03 §1.3自動スキップ停止条件2）。
             // 既に警告中で対応待ちのまま変化がないだけの週では発火させない。

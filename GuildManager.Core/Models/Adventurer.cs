@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json.Serialization;
 using GuildManager.Core.Balance;
 
@@ -127,8 +128,26 @@ namespace GuildManager.Core.Models
 
         public bool HasTrait(string traitId) => TraitIds.Contains(traitId);
 
-        /// <summary>特性を追加できるか：未所持で、かつ所持数が上限（MaxTraitCount）未満。</summary>
-        public bool CanAddTrait(string traitId) => !TraitIds.Contains(traitId) && TraitIds.Count < MaxTraitCount;
+        /// <summary>
+        /// 特性を追加できるか：未所持で、かつ所持数が上限（MaxTraitCount）未満。
+        /// 生まれつきの欠点（§0.56）を克服させる長所なら、満杯でも追加できる（欠点の枠に入る、→ FlawsOvercomeBy）。
+        /// 欠点は、それを克服させる長所を既に持っていれば付かない（臆病な豪胆家にはならない）。
+        /// </summary>
+        public bool CanAddTrait(string traitId)
+        {
+            if (TraitIds.Contains(traitId)) return false;
+            var def = TraitCatalog.FindById(traitId);
+            if (def?.IsFlaw == true && def.OvercomeByTraitId != null && TraitIds.Contains(def.OvercomeByTraitId)) return false;
+            if (FlawsOvercomeBy(traitId).Count > 0) return true;
+            return TraitIds.Count < MaxTraitCount;
+        }
+
+        /// <summary>
+        /// traitId の長所を得たときに克服される、所持中の欠点のId（枠の並び順。§0.56）。
+        /// 例：臆病・猪突猛進を持つ者が豪胆を得ると、両方が克服される。
+        /// </summary>
+        public IReadOnlyList<string> FlawsOvercomeBy(string traitId) =>
+            TraitIds.Where(id => TraitCatalog.FindById(id) is { IsFlaw: true } def && def.OvercomeByTraitId == traitId).ToList();
 
         /// <summary>
         /// 特性を付与する。既に持っている、またはスロットが満杯（→ MaxTraitCount）の場合は
@@ -141,10 +160,25 @@ namespace GuildManager.Core.Models
                 ? TryAddCurseTrait(traitId, out _)
                 : TryAddNormalTrait(traitId);
 
+        /// <summary>
+        /// 通常の特性を付ける。克服される欠点（→ FlawsOvercomeBy）があれば、先頭の欠点の枠を長所で上書きし、
+        /// 残りの欠点は外す（§0.56）。無ければ末尾に足す。
+        /// </summary>
         private bool TryAddNormalTrait(string traitId)
         {
             if (!CanAddTrait(traitId)) return false;
-            TraitIds.Add(traitId);
+            var overcome = FlawsOvercomeBy(traitId);
+            if (overcome.Count > 0)
+            {
+                TraitIds[TraitIds.IndexOf(overcome[0])] = traitId;
+                foreach (var flaw in overcome.Skip(1))
+                    TraitIds.Remove(flaw);
+            }
+            else
+            {
+                TraitIds.Add(traitId);
+            }
+            ClampCurrentHpToMax(); // 病弱（§0.56）は最大HPを下げる
             return true;
         }
 
@@ -165,6 +199,7 @@ namespace GuildManager.Core.Models
             if (TraitIds.Count < MaxTraitCount)
             {
                 TraitIds.Add(traitId);
+                ClampCurrentHpToMax(); // 古傷はVITを下げ、最大HPも下がる
                 return true;
             }
 
@@ -173,6 +208,7 @@ namespace GuildManager.Core.Models
                 if (!CanRemoveTrait(TraitIds[i])) continue;
                 erodedTraitId = TraitIds[i];
                 TraitIds[i] = traitId;
+                ClampCurrentHpToMax();
                 return true;
             }
 
@@ -181,14 +217,26 @@ namespace GuildManager.Core.Models
 
         /// <summary>
         /// 特性を外せる（忘却・上書きの削除側にできる）か：所持しており、障害・呪い特性
-        /// （TraitDefinition.IsCurseOrInjury）でないこと。障害特性は枠を恒久的に占有する。
+        /// （TraitDefinition.IsCurseOrInjury）でも生まれつきの欠点（IsFlaw、§0.56。対の長所を得たときだけ消える）でもないこと。
+        /// 障害特性は枠を恒久的に占有する。侵食（→ TryAddCurseTrait）もこの判定を使うため、欠点は侵食されない。
         /// カタログから引けない特性（旧データ）は障害扱いにせず、外せるものとして扱う。
         /// </summary>
         public bool CanRemoveTrait(string traitId) =>
-            TraitIds.Contains(traitId) && TraitCatalog.FindById(traitId)?.IsCurseOrInjury != true;
+            TraitIds.Contains(traitId) && TraitCatalog.FindById(traitId) is not { IsCurseOrInjury: true } and not { IsFlaw: true };
 
         /// <summary>特性を忘却する。CanRemoveTrait を満たさなければ何もせず false。</summary>
-        public bool TryRemoveTrait(string traitId) => CanRemoveTrait(traitId) && TraitIds.Remove(traitId);
+        public bool TryRemoveTrait(string traitId)
+        {
+            if (!CanRemoveTrait(traitId) || !TraitIds.Remove(traitId)) return false;
+            ClampCurrentHpToMax(); // 頑強（§0.55）を忘れると最大HPが下がる
+            return true;
+        }
+
+        /// <summary>現在HPが最大HPを超えていれば最大HPまで下げる（特性で最大HPが下がったとき用）。</summary>
+        private void ClampCurrentHpToMax()
+        {
+            if (CurrentHP > MaxHP) CurrentHP = MaxHP;
+        }
 
         /// <summary>
         /// 特性を差し替える（oldTraitId の枠を newTraitId で上書きする）。旧特性が外せて（→ CanRemoveTrait）、
@@ -202,6 +250,7 @@ namespace GuildManager.Core.Models
             if (TraitIds.Contains(newTraitId)) return false;
 
             TraitIds[TraitIds.IndexOf(oldTraitId)] = newTraitId;
+            ClampCurrentHpToMax();
             return true;
         }
 
@@ -232,6 +281,8 @@ namespace GuildManager.Core.Models
             };
 
             double totalReduction = SumTraitEffect(TraitEffectType.StatPercentReduction, statName);
+            if (SwordMasterApplies && (statName == "STR" || statName == "AGI"))
+                totalReduction += TraitBalance.SwordMasterStatBonus; // ソードマスター（§0.55）：剣を装備しているときだけ
             if (includeInjury && Injury == InjurySeverity.Light)
                 totalReduction -= CombatBalance.LightInjuryStatPenaltyRate;
 
@@ -325,7 +376,19 @@ namespace GuildManager.Core.Models
         /// （05技術メモ§3の方針違反。他のSystemクラスへの直書きと同様の問題）。
         /// CombatBalance（combat.csv）へ集約した。
         /// </summary>
-        public int MaxHP => (int)(EffectiveStat("VIT", includeInjury: false) * CombatBalance.MaxHpVitCoefficient) + CombatBalance.MaxHpBase + GetEquipmentHpBonus();
+        /// 頑強（→ TraitCatalog.Sturdy、§0.55）は装備の加算を除いた基礎部分に (1＋SturdyMaxHpBonus) を掛ける。
+        public int MaxHP =>
+            (int)((EffectiveStat("VIT", includeInjury: false) * CombatBalance.MaxHpVitCoefficient + CombatBalance.MaxHpBase)
+                  * (1.0 + (HasTrait(TraitCatalog.SturdyId) ? TraitBalance.SturdyMaxHpBonus : 0)
+                       + (HasTrait(TraitCatalog.SicklyId) ? TraitBalance.SicklyMaxHpPenalty : 0)))
+            + GetEquipmentHpBonus();
+
+        /// <summary>ソードマスター（§0.55）の補正が効くか：本人が保有し、剣（→ TraitCatalog.SwordWeaponItemIds）を装備している。</summary>
+        [JsonIgnore]
+        public bool SwordMasterApplies =>
+            EquippedWeapon != null
+            && TraitCatalog.SwordWeaponItemIds.Contains(EquippedWeapon.ItemId)
+            && HasTrait(TraitCatalog.SwordMasterId);
 
         // ---- 装備（Weapon/Armor/Accessory1/Accessory2）。仕様書 03 §4.2.2 参照。 ----
         //
@@ -483,6 +546,12 @@ namespace GuildManager.Core.Models
 
         /// <summary>直近出撃してからの連続週数（出撃した週に0へリセット）。出場機会ペナルティ判定に使う（§5.1）。</summary>
         public int WeeksSinceLastDeployment { get; set; } = 0;
+
+        /// <summary>
+        /// 休まず続けて出撃している週数（出撃しなかった週に0へリセット。→ SatisfactionSystem、§0.56）。
+        /// BurnoutConsecutiveWeeks 以上で燃え尽きのロール対象になる。旧セーブには無く0から数える。
+        /// </summary>
+        public int ConsecutiveDeploymentWeeks { get; set; } = 0;
 
         /// <summary>満足度20未満で立つ交渉警告フラグ（§5.2「昇給要求」「移籍検討」）。</summary>
         public bool NeedsNegotiation { get; set; } = false;

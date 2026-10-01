@@ -10,7 +10,11 @@ HighPotentialMinPa,70,pt,有望新人のPA生成レンジ下限
 HighPotentialMaxPa,100,pt,有望新人のPA生成レンジ上限
 YoungestGrowthRatio,0.3,倍,"加入時の初期実効値/PA比率（伸びしろ最大）。加入年齢を18歳に統一したため、現在は常にこちらが使われる"
 OldestGrowthRatio,0.7,倍,"年齢レンジ上限側の初期実効値/PA比率（即戦力寄り）。加入年齢統一により現在は未使用（レンジを復活させる場合に効く）"
-InnateTraitChancePercent,5,%,先天特性（豪胆・注意深い・容姿秀麗）各々の付与確率
+InnateTraitChancePercent,3,%,先天の長所の候補（→ RecruitmentSystem.InnateTraitPool、20種。§0.56で地図読みを追加）それぞれの付与確率。各候補を独立に判定する（1人あたり平均約0.6個）。2026年10月・§0.55で特性を10種増やしたのに合わせて5→3に下げた（旧：9種×5%＝平均0.45個）
+InnateFlawChancePercent,2,%,生まれつきの欠点の候補（→ RecruitmentSystem.InnateFlawPool、9種）それぞれの付与確率。長所の判定の後に独立に判定する（1人あたり平均約0.18個。§0.56で新設）。反対の長所を持っていれば付かない
+RareTraitChancePercent,1,%,レア特性（→ RecruitmentSystem.RareTraitPool、8種）を持つ確率：採用候補1人につき1回判定し、当たればレア特性を1つ付ける（長所・欠点の判定より先。§0.57）
+RareTraitWeight_Genius,1,重み,当たったときに天才が選ばれる重み（他のレア特性の半分の出やすさ）
+RareTraitWeight_SingleStat,2,重み,当たったときに大魔導士・剣聖・聖人・カリスマ・不滅の肉体・韋駄天・百発百中がそれぞれ選ばれる重み
 WesternCultureChancePercent,80,%,氏名生成における洋名の出現率（残りは和名）
 UniqueNameRetryLimit,50,回,氏名重複回避のリトライ上限
 DraftCandidateCount,5,名,第1週(ゲーム開始週)の新春ドラフトで提示する候補者数（魔導士・学者・騎士・盗賊の4名は必ず含む＝4が下限。5名目以降は全職業から通常抽選）

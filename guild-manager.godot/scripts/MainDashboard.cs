@@ -564,7 +564,10 @@ public partial class MainDashboard : Control
 
 		// 待機お手伝い（→ 03 §8.1）：出撃せず残った健康な冒険者ごとに1行。
 		foreach (var help in settlement.IdleHelpEntries)
-			AppendLog($"[color=lime]☕ {help.Name} はギルドでアルベールの内職を手伝い、{help.Gold} G とマスターの機嫌（+{help.Mood}）に貢献した。[/color]");
+			AppendLog(help.Gold > 0
+				? $"[color=lime]☕ {help.Name} はギルドでアルベールの内職を手伝い、{help.Gold} G とマスターの機嫌（+{help.Mood}）に貢献した。[/color]"
+				// 怠惰（→ 03 §0.56）：手伝わずにだらけていたが、マスターの話し相手にはなった。
+				: $"[color=gray]☕ {help.Name} はギルドでだらけて内職を手伝わなかった（0 G）。マスターの話し相手にはなった（機嫌 +{help.Mood}）。[/color]");
 
 		// アルベールの市販薬・内職売上（→ 03 §8.1。4週に1回、機嫌に応じた倍率。旧・月次助成金）。
 		if (settlement.SideJobIncome != null)
@@ -579,6 +582,9 @@ public partial class MainDashboard : Control
 		// 教官からの特性伝授（奥義継承、→ 03 §7.1・§0.34）。
 		foreach (var transmission in settlement.TraitTransmissionEvents)
 			AppendLog($"[color=gold]📜 {transmission.ToLogText()}[/color]");
+		// 任務の外で付いた後天の障害（燃え尽き、→ 03 §5.3.2・§0.56）。
+		foreach (var grant in settlement.TraitGrantEvents)
+			AppendLog($"[color=orange]⚠ {grant.ToLogText()}[/color]");
 		LogNegotiationStatus(settlement.NegotiationTerminated); // → 03 §5.2：契約交渉・退団
 
 		if (settlement.CompletedFacility != null)
@@ -989,6 +995,15 @@ public partial class MainDashboard : Control
 		// 耐毒体質・巨獣狩り（→ 03 §4.5.4・§5.3.2）：効いた戦闘のみ開示する。
 		if (assault.ResistPoisonApplied)
 			sb.AppendLine($"[color=cyan]🧪 耐毒体質の隊員が毒に耐え、猛毒による被害の上乗せを{CombatBalance.ResistPoisonDamageReductionRate * 100:0}%抑えた。[/color]");
+		// 鷹の目・危機察知（→ 03 §0.55・§5.3.2）
+		if (assault.HawkEyeApplied)
+			sb.AppendLine($"[color=cyan]🦅 鷹の目の隊員が空の敵の動きを見切り、飛行による被害の上乗せを{TraitBalance.HawkEyeFlyingDamageReductionRate * 100:0}%抑えた。[/color]");
+		foreach (var senseId in assault.SixthSenseAdventurerIds)
+		{
+			var sensor = _state.Adventurers.FirstOrDefault(a => a.Id == senseId);
+			if (sensor != null)
+				sb.AppendLine($"[color=cyan]⚡ {sensor.Name}は危機察知で致命の一撃を寸前でかわした（損耗{TraitBalance.SixthSenseInstantKillHpLossPct}%で止まった）。[/color]");
+		}
 		foreach (var hunterId in assault.GiantHunterAdventurerIds)
 		{
 			var hunter = _state.Adventurers.FirstOrDefault(a => a.Id == hunterId);

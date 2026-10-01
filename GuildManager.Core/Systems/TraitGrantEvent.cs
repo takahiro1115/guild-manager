@@ -14,6 +14,15 @@ namespace GuildManager.Core.Systems
 
         /// <summary>重装甲ボスの撃破を経た後天開眼（巨獣狩り。→ DungeonResolver、2026年9月・§0.35）。障害特性ではない。</summary>
         Awakening,
+
+        /// <summary>対策していない猛毒でHPが大きく削れた生還（毒の後遺症。→ DungeonResolver、§0.56）。</summary>
+        PoisonAftereffect,
+
+        /// <summary>対策していない即死級を生き延びた恐怖（戦慄。→ DungeonResolver、§0.56）。</summary>
+        Dread,
+
+        /// <summary>休まず続けた出撃による消耗（燃え尽き。→ SatisfactionSystem、§0.56）。</summary>
+        Burnout,
     }
 
     /// <summary>
@@ -35,6 +44,9 @@ namespace GuildManager.Core.Systems
             {
                 TraitGrantCause.CriticalInjury => $"【不可逆障害】{AdventurerName} は重傷の後遺症により『{traitName}』を負った",
                 TraitGrantCause.Awakening => $"【実績開眼】{AdventurerName} は強敵との死闘を経て特性『{traitName}』を開眼した！",
+                TraitGrantCause.PoisonAftereffect => $"【不可逆障害】{AdventurerName} は猛毒に深く侵され『{traitName}』が残った",
+                TraitGrantCause.Dread => $"【精神的打撃】{AdventurerName} は致命の一撃の恐怖から『{traitName}』を負った",
+                TraitGrantCause.Burnout => $"【精神的打撃】{AdventurerName} は休みなく戦い続け『{traitName}』に陥った",
                 _ => $"【精神的打撃】{AdventurerName} は仲間除籍の衝撃により『{traitName}』を負った",
             };
             return ErodedTraitId == null ? text : $"{text}（特性枠満杯のため『{DisplayName(ErodedTraitId)}』を忘却）";

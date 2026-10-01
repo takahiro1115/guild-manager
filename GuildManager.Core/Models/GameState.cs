@@ -78,6 +78,19 @@ namespace GuildManager.Core.Models
         /// </summary>
         public Dictionary<FacilityType, Guid?> AssignedTrainers { get; set; } = new();
 
+        /// <summary>
+        /// 教官が今の訓練施設に続けて在任している週数（教官深化 Step 3、→ 03 §7.1）。
+        /// 週次決算の伝授ロールの後に1増える（→ TrainingSystem.ProcessWeeklyTrainerTenure）。
+        /// 任命・交代・解除・別ポストへの異動で0に戻る（→ AdvisorSystem）。キーが無ければ0週。
+        /// </summary>
+        public Dictionary<FacilityType, int> TrainerTenureWeeks { get; set; } = new();
+
+        /// <summary>
+        /// 教官が重点的に伝授する特性のId（施設ごとに1つ、教官深化 Step 3、→ 03 §7.1）。
+        /// キーが無ければ自動（教官の特性枠の並び順）。教官が替わると解除される（→ AdvisorSystem）。
+        /// </summary>
+        public Dictionary<FacilityType, string> TrainerFocusTraits { get; set; } = new();
+
         /// <summary>作戦資料室に配置されている参謀（引退済み冒険者。仕様書 03 §7.2）。1名まで。null＝未配置。</summary>
         public Guid? AssignedAdvisor { get; set; }
 
@@ -298,6 +311,10 @@ namespace GuildManager.Core.Models
             // 参謀・スカウトも施設に紐づくポストになったため。→ SaveData.AdvisorAssignments）。
             foreach (var kv in AssignedTrainers)
                 data.AdvisorAssignments[kv.Key.ToString()] = kv.Value;
+            foreach (var kv in TrainerTenureWeeks)
+                data.TrainerTenureWeeks[kv.Key.ToString()] = kv.Value;
+            foreach (var kv in TrainerFocusTraits)
+                data.TrainerFocusTraits[kv.Key.ToString()] = kv.Value;
             if (AssignedAdvisor.HasValue)
                 data.AdvisorAssignments[FacilityType.WarRoom.ToString()] = AssignedAdvisor;
             if (AssignedScoutMaster.HasValue)
@@ -403,6 +420,22 @@ namespace GuildManager.Core.Models
                     state.AssignedScoutMaster = kv.Value;
                 else
                     state.AssignedTrainers[facilityType] = kv.Value;
+            }
+
+            // 教官の在任週数・重点伝授特性（教官深化 Step 3）。旧セーブには無いので空＝在任0週・自動のまま読む。
+            // 教官のいない施設の記録は捨てる（任命が外れた記録が残らないように）。
+            foreach (var kv in data.TrainerTenureWeeks)
+            {
+                var facilityType = ParseEnum<FacilityType>(kv.Key, nameof(FacilityType));
+                if (state.AssignedTrainers.TryGetValue(facilityType, out var trainerId) && trainerId != null)
+                    state.TrainerTenureWeeks[facilityType] = Math.Max(0, kv.Value);
+            }
+            foreach (var kv in data.TrainerFocusTraits)
+            {
+                var facilityType = ParseEnum<FacilityType>(kv.Key, nameof(FacilityType));
+                if (state.AssignedTrainers.TryGetValue(facilityType, out var trainerId) && trainerId != null
+                    && !string.IsNullOrEmpty(kv.Value))
+                    state.TrainerFocusTraits[facilityType] = kv.Value;
             }
 
             // 大迷宮へ出撃中の部隊の復元：同一のAdventurerインスタンスを使い回すため

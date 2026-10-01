@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using GuildManager.Core.Balance;
 using GuildManager.Core.Models;
+using GuildManager.Core.Rng;
 
 namespace GuildManager.Core.Systems
 {
@@ -17,6 +18,19 @@ namespace GuildManager.Core.Systems
     /// </summary>
     public class SatisfactionSystem
     {
+        /// <summary>既定の乱数シード（燃え尽きのロール専用。→ TrainingSystem と同じ考え方の決定論的な既定値）。</summary>
+        private const int DefaultRngSeed = 517;
+
+        private readonly IRng _rng;
+
+        /// <summary>既定コンストラクタ。乱数は燃え尽きのロール（→ ProcessWeeklyBurnout、§0.56）にだけ使う。</summary>
+        public SatisfactionSystem() : this(new SeededRng(DefaultRngSeed)) { }
+
+        public SatisfactionSystem(IRng rng)
+        {
+            _rng = rng;
+        }
+
         /// <summary>
         /// 毎週の決算処理。出場機会・賃金妥当性・自然回復・相性険悪ペアによる満足度の増減と、
         /// 出撃履歴（連続不出撃週数）の更新を行う。
@@ -37,10 +51,12 @@ namespace GuildManager.Core.Systems
                 if (dispatchedAdventurerIds.Contains(adventurer.Id))
                 {
                     adventurer.WeeksSinceLastDeployment = 0;
+                    adventurer.ConsecutiveDeploymentWeeks++; // 燃え尽き（§0.56）の判定に使う
                 }
                 else
                 {
                     adventurer.WeeksSinceLastDeployment++;
+                    adventurer.ConsecutiveDeploymentWeeks = 0;
 
                     // 出場機会：全盛期（23〜26歳）が「4週連続で遠征なし」なら毎週-5（→ 03 §5.1）。
                     if (IsPeakAgeForOuting(adventurer.Age) &&
@@ -61,6 +77,15 @@ namespace GuildManager.Core.Systems
 
                 // 自然回復（→ 03 §5.1・§6）。ギルド酒場（Tavern）の現在Lvに連動する。
                 delta += FacilityBalance.GetTavernSatisfactionRecovery(state.GetFacilityLevel(FacilityType.Tavern));
+
+                // 快活（§0.55）：本人だけ毎週上がる。
+                if (adventurer.HasTrait(TraitCatalog.CheerfulId))
+                    delta += TraitBalance.CheerfulSatisfactionBonus;
+                // 気難しい・燃え尽き（§0.56）：本人だけ毎週下がる。
+                if (adventurer.HasTrait(TraitCatalog.MoodyId))
+                    delta += TraitBalance.MoodySatisfactionPenalty;
+                if (adventurer.HasTrait(TraitCatalog.BurnoutId))
+                    delta += TraitBalance.BurnoutSatisfactionPenalty;
 
                 Adjust(adventurer, delta);
             }
@@ -244,8 +269,30 @@ namespace GuildManager.Core.Systems
         private static bool IsPeakAgeForOuting(int age) =>
             age >= SatisfactionBalance.OpportunityPenaltyMinAge && age <= SatisfactionBalance.OpportunityPenaltyMaxAge;
 
+        /// <summary>適正週給＝総合PA×係数。浪費家（§0.56）は SpendthriftWageMultiplier 倍。</summary>
         private static double GetAppropriateWage(Adventurer adventurer) =>
-            adventurer.TotalPA * SatisfactionBalance.AppropriateWageCoefficient;
+            adventurer.TotalPA * SatisfactionBalance.AppropriateWageCoefficient
+            * (adventurer.HasTrait(TraitCatalog.SpendthriftId) ? TraitBalance.SpendthriftWageMultiplier : 1.0);
+
+        /// <summary>
+        /// 燃え尽き（後天の障害、§0.56）の週次ロール。休まず続けて出撃した週数（→ Adventurer.ConsecutiveDeploymentWeeks）が
+        /// BurnoutConsecutiveWeeks 以上の冒険者ごとに NextInt(1, 100) を1回引き、round(BurnoutChance×100) 以下で付ける
+        /// （満杯なら通常特性を侵食）。ProcessWeeklySatisfaction（連続出撃の数え直し）の後に呼ぶ。
+        /// </summary>
+        public List<TraitGrantEvent> ProcessWeeklyBurnout(GameState state)
+        {
+            var events = new List<TraitGrantEvent>();
+            int threshold = (int)Math.Round(TraitBalance.BurnoutChance * 100);
+            foreach (var adventurer in state.Adventurers)
+            {
+                if (adventurer.ConsecutiveDeploymentWeeks < TraitBalance.BurnoutConsecutiveWeeks) continue;
+                if (adventurer.HasTrait(TraitCatalog.BurnoutId)) continue;
+                if (_rng.NextInt(1, 100) > threshold) continue;
+                if (adventurer.TryAddCurseTrait(TraitCatalog.BurnoutId, out var eroded))
+                    events.Add(new TraitGrantEvent(adventurer.Id, adventurer.Name, TraitCatalog.BurnoutId, eroded, TraitGrantCause.Burnout));
+            }
+            return events;
+        }
 
         private static void Adjust(Adventurer adventurer, int delta) =>
             adventurer.Satisfaction = Math.Clamp(adventurer.Satisfaction + delta, SatisfactionBalance.Min, SatisfactionBalance.Max);

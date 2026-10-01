@@ -1,3 +1,4 @@
+using System.Linq;
 using GuildManager.Core.Balance;
 using GuildManager.Core.Models;
 using GuildManager.Core.Rng;
@@ -23,20 +24,24 @@ namespace GuildManager.Core.Systems
             System.Math.Max(CriticalHp, (int)System.Math.Floor(adventurer.MaxHP * CombatBalance.OldWoundRetreatHpThresholdPct));
 
         /// <summary>
-        /// 古傷のロール。HPが hpThreshold（既定＝CriticalHp＝1）より上、既に古傷持ち、のいずれかならロールせず null。
+        /// 古傷のロール。HPが hpThreshold（既定＝CriticalHp＝1）より上ならロールせず null。
         /// 当選すれば古傷を付け（5枠満杯なら通常特性を侵食、→ Adventurer.TryAddCurseTrait）、その出来事を返す。
-        /// 乱数は NextInt(1, 100) を1回だけ引き、round(OldWoundCriticalChance×100) 以下で当選。
+        /// 乱数は NextInt(1, 100) を引き、round(OldWoundCriticalChance×100) 以下で当選。
+        /// 2026年10月・§0.56：当選したら部位（古傷・足の古傷・腕の古傷、→ TraitCatalog.OldWoundVariantIds）を、まだ持っていない
+        /// ものから等確率で選ぶ（NextInt(0, 候補数−1) をもう1回引く。候補が1つなら引かない）。3つとも持っていればロールしない。
         /// </summary>
         public static TraitGrantEvent? RollOldWound(Adventurer adventurer, IRng rng, int hpThreshold = CriticalHp)
         {
             if (adventurer.CurrentHP > hpThreshold) return null;
-            if (adventurer.HasTrait(TraitCatalog.OldWoundId)) return null;
+            var candidates = TraitCatalog.OldWoundVariantIds.Where(id => !adventurer.HasTrait(id)).ToList();
+            if (candidates.Count == 0) return null;
 
             int threshold = (int)System.Math.Round(CombatBalance.OldWoundCriticalChance * 100);
             if (rng.NextInt(1, 100) > threshold) return null;
 
-            if (!adventurer.TryAddCurseTrait(TraitCatalog.OldWoundId, out var eroded)) return null;
-            return new TraitGrantEvent(adventurer.Id, adventurer.Name, TraitCatalog.OldWoundId, eroded, TraitGrantCause.CriticalInjury);
+            string traitId = candidates.Count == 1 ? candidates[0] : candidates[rng.NextInt(0, candidates.Count - 1)];
+            if (!adventurer.TryAddCurseTrait(traitId, out var eroded)) return null;
+            return new TraitGrantEvent(adventurer.Id, adventurer.Name, traitId, eroded, TraitGrantCause.CriticalInjury);
         }
 
         // ---------------- 負傷（→ 03 §4.3、2026年10月・§0.53で大迷宮へ復活） ----------------

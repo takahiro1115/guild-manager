@@ -37,8 +37,15 @@ namespace GuildManager.Core.Systems
 
             if (GiantHunterApplies(a, boss))
                 statSum *= 1.0 + CombatBalance.GiantHunterDamageBonusRate;
+            // 猪突猛進（上乗せ）・戦慄（減少）（§0.56）。ボスを問わず効く。
+            statSum *= 1.0 + TraitPowerModifier(a);
             return statSum * hpRatio;
         }
+
+        /// <summary>特性による火力の補正率（猪突猛進＋、戦慄−。§0.56）。0＝補正なし。</summary>
+        public static double TraitPowerModifier(Adventurer a) =>
+            (a.HasTrait(TraitCatalog.RecklessId) ? TraitBalance.RecklessPowerBonus : 0)
+            + (a.HasTrait(TraitCatalog.DreadId) ? TraitBalance.DreadPowerPenalty : 0);
 
         /// <summary>巨獣狩りの上乗せが効くか：本人が保有し、かつボスが「重装甲」ギミックを持つ。</summary>
         public static bool GiantHunterApplies(Adventurer a, FloorBoss? boss) =>

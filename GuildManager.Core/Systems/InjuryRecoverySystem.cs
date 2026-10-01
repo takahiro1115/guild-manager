@@ -35,7 +35,9 @@ namespace GuildManager.Core.Systems
 
                 if (adventurer.InjuryWeeksRemaining > 0)
                 {
-                    adventurer.InjuryWeeksRemaining = Math.Max(0, adventurer.InjuryWeeksRemaining - recoverySpeed);
+                    // 治りが早い（§0.55）は医務室の回復速度に加算する。
+                    int speed = recoverySpeed + (adventurer.HasTrait(TraitCatalog.QuickHealerId) ? TraitBalance.QuickHealerInjuryRecoveryBonus : 0);
+                    adventurer.InjuryWeeksRemaining = Math.Max(0, adventurer.InjuryWeeksRemaining - speed);
                 }
 
                 if (adventurer.InjuryWeeksRemaining <= 0)

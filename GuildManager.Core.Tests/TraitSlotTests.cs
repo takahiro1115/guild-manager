@@ -177,11 +177,11 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
-        public void Catalog_ListsAllTwelveTraits_FindableById()
+        public void Catalog_ListsAllFortyFiveTraits_FindableById()
         {
             var all = TraitCatalog.GetAll();
 
-            Assert.Equal(12, all.Count);
+            Assert.Equal(45, all.Count); // §0.55で10種、§0.56で15種、§0.57で8種追加
             Assert.Equal(all.Count, all.Select(t => t.Id).Distinct().Count());
             Assert.All(all, t => Assert.Same(t, TraitCatalog.FindById(t.Id)));
         }

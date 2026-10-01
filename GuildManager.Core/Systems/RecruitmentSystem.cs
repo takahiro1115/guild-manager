@@ -139,6 +139,48 @@ namespace GuildManager.Core.Systems
             TraitCatalog.BraveId, TraitCatalog.AttentiveId, TraitCatalog.BeautifulId,
             TraitCatalog.CountryBredId, TraitCatalog.ScholarId,
             TraitCatalog.ResistPoisonId, TraitCatalog.NightVisionId, TraitCatalog.DiligentId, TraitCatalog.MentorId,
+            // 2026年10月・§0.55で新設した10種（確率は recruitment.csv InnateTraitChancePercent を5→3に下げた）。
+            TraitCatalog.HawkEyeId, TraitCatalog.SixthSenseId, TraitCatalog.GuardianId, TraitCatalog.PathfinderId,
+            TraitCatalog.SturdyId, TraitCatalog.QuickHealerId, TraitCatalog.CheerfulId, TraitCatalog.HardworkerId,
+            TraitCatalog.FireMageId, TraitCatalog.SwordMasterId,
+            TraitCatalog.MapReaderId, // §0.56
+        };
+
+        /// <summary>
+        /// レア特性の候補（§0.57、→ 03 §5.3.2）。先頭の天才だけ重み RareTraitWeight_Genius、残りは RareTraitWeight_SingleStat
+        /// （recruitment.csv）。構造値のためCSV化しない。
+        /// </summary>
+        public static readonly string[] RareTraitPool =
+        {
+            TraitCatalog.GeniusId,
+            TraitCatalog.ArchmageId, TraitCatalog.SwordSaintId, TraitCatalog.SaintId, TraitCatalog.CharismaId,
+            TraitCatalog.ImmortalBodyId, TraitCatalog.IdatenId, TraitCatalog.MarksmanId,
+        };
+
+        /// <summary>レア特性1つの重み（天才だけ別）。</summary>
+        public static int RareTraitWeight(string traitId) =>
+            traitId == TraitCatalog.GeniusId ? RecruitmentBalance.RareTraitWeightGenius : RecruitmentBalance.RareTraitWeightSingleStat;
+
+        /// <summary>重み付きでレア特性を1つ選ぶ。乱数は NextInt(1, 重みの合計) を1回引く。</summary>
+        private string PickRareTrait()
+        {
+            int roll = _rng.NextInt(1, RareTraitPool.Sum(RareTraitWeight));
+            foreach (var traitId in RareTraitPool)
+            {
+                roll -= RareTraitWeight(traitId);
+                if (roll <= 0) return traitId;
+            }
+            return RareTraitPool[^1];
+        }
+
+        /// <summary>
+        /// 採用時の生まれつきの欠点の候補（§0.56、→ 03 §5.3.2）。長所の判定の後に、この順で
+        /// recruitment.csv InnateFlawChancePercent の確率で独立判定する。構造値のためCSV化しない。
+        /// </summary>
+        public static readonly string[] InnateFlawPool =
+        {
+            TraitCatalog.CowardId, TraitCatalog.ClumsyId, TraitCatalog.PoorDirectionId, TraitCatalog.RecklessId,
+            TraitCatalog.SicklyId, TraitCatalog.FickleId, TraitCatalog.MoodyId, TraitCatalog.SlothfulId, TraitCatalog.SpendthriftId,
         };
 
         /// <summary>現役枠の上限（→ 03 §2.4「雇用枠」）。宿舎（Dormitory）の現在Lvに連動する。</summary>
@@ -298,11 +340,24 @@ namespace GuildManager.Core.Systems
             // 先天特性の付与判定（→ 03 §5.3.2）。プールの各特性を独立判定（1人が複数持つこともありうる。
             // 5枠を超える分は付かない）。付与確率は全特性で共通の定数（特性ごとに出現率を変える必要が出た時点で、
             // recruitment.csv側にキーを分ければよい）。
+            // レア特性（§0.57）：長所・欠点より先に、1人につき1回だけ判定する（当たれば必ず枠に入る）。
+            if (_rng.NextInt(1, 100) <= RecruitmentBalance.RareTraitChancePercent)
+                candidate.TryAddTrait(PickRareTrait());
             foreach (var traitId in InnateTraitPool)
             {
                 if (_rng.NextInt(1, 100) <= RecruitmentBalance.InnateTraitChancePercent)
                     candidate.TryAddTrait(traitId);
             }
+            // 生まれつきの欠点（§0.56）：長所の後に別の確率で判定する。克服させる長所を持っていれば付かない（→ Adventurer.CanAddTrait）。
+            foreach (var traitId in InnateFlawPool)
+            {
+                if (_rng.NextInt(1, 100) <= RecruitmentBalance.InnateFlawChancePercent)
+                    candidate.TryAddTrait(traitId);
+            }
+            // 頑強・病弱は最大HPを変えるため、特性が決まってから満タンにする。浪費家は求める週給が高い（§0.56）。
+            candidate.CurrentHP = candidate.MaxHP;
+            if (candidate.HasTrait(TraitCatalog.SpendthriftId))
+                candidate.WeeklyWage = Math.Max(1, (int)(candidate.WeeklyWage * TraitBalance.SpendthriftWageMultiplier));
 
             int signingBonus = (int)(candidate.TotalPA * candidate.Age * EconomyBalance.SigningBonusCoefficient);
 

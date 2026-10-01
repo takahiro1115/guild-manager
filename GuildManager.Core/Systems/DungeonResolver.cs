@@ -152,6 +152,7 @@ namespace GuildManager.Core.Systems
         {
             double multiplier = 1.0;
             bool resistPoison = party.Members.Any(m => m.HasTrait(TraitCatalog.ResistPoisonId));
+            bool hawkEye = party.Members.Any(m => m.HasTrait(TraitCatalog.HawkEyeId));
 
             foreach (var gimmick in boss.Gimmicks)
             {
@@ -163,6 +164,12 @@ namespace GuildManager.Core.Systems
                 {
                     term *= 1.0 - CombatBalance.ResistPoisonDamageReductionRate;
                     result.ResistPoisonApplied = true;
+                }
+                // 鷹の目（§0.55）：耐毒体質の飛行版。
+                if (gimmick.Type == BossGimmickType.Flying && hawkEye)
+                {
+                    term *= 1.0 - TraitBalance.HawkEyeFlyingDamageReductionRate;
+                    result.HawkEyeApplied = true;
                 }
                 multiplier += term;
             }
@@ -195,6 +202,18 @@ namespace GuildManager.Core.Systems
         }
 
         /// <summary>
+        /// 後天の障害（毒の後遺症・戦慄、§0.56）のロール。既に持っていればロールしない。乱数は NextInt(1, 100) を1回引き、
+        /// round(chance×100) 以下で当選。満杯なら通常特性を侵食して付く（→ Adventurer.TryAddCurseTrait）。
+        /// </summary>
+        private TraitGrantEvent? RollAcquiredCurse(Adventurer member, string traitId, double chance, TraitGrantCause cause)
+        {
+            if (member.HasTrait(traitId)) return null;
+            if (_rng.NextInt(1, 100) > (int)Math.Round(chance * 100)) return null;
+            if (!member.TryAddCurseTrait(traitId, out var eroded)) return null;
+            return new TraitGrantEvent(member.Id, member.Name, traitId, eroded, cause);
+        }
+
+        /// <summary>
         /// HP消費の適用。撃破できたかどうかでベースのレンジが変わり、未対策ギミックの
         /// 倍率が乗る。即死級を未対策で踏んだ場合はレンジを無視して全損させる。
         ///
@@ -220,7 +239,16 @@ namespace GuildManager.Core.Systems
                 if (instantKillTriggered)
                 {
                     // 即死級ギミックは対策の有無が生死を分ける（倍率ではなく固定で全損させる）。
-                    lossPct = DungeonBalance.InstantKillUncounteredHpLossPct;
+                    // 危機察知（§0.55）の保有者だけは全損を免れ、SixthSenseInstantKillHpLossPct で止まる。
+                    if (member.HasTrait(TraitCatalog.SixthSenseId))
+                    {
+                        lossPct = Math.Min(DungeonBalance.InstantKillUncounteredHpLossPct, TraitBalance.SixthSenseInstantKillHpLossPct);
+                        result.SixthSenseAdventurerIds.Add(member.Id);
+                    }
+                    else
+                    {
+                        lossPct = DungeonBalance.InstantKillUncounteredHpLossPct;
+                    }
                 }
                 else
                 {
@@ -230,7 +258,8 @@ namespace GuildManager.Core.Systems
 
                 // 研究の生存ボーナス（部隊全員）と豪胆（本人のみ、→ TraitEffectType.SurvivalThresholdModifier、§0.53）を差し引く。
                 double braveBonus = member.SumTraitEffect(TraitEffectType.SurvivalThresholdModifier);
-                lossPct = (int)Math.Max(0, lossPct - survivalBonus - braveBonus);
+                // 臆病・猪突猛進（§0.56）は同じ効果種別の負の値なので、ここで損耗が増える（100%で頭打ち）。
+                lossPct = (int)Math.Clamp(lossPct - survivalBonus - braveBonus, 0, 100);
 
                 int hpLoss = member.MaxHP * lossPct / 100;
                 int newHp = Math.Max(0, member.CurrentHP - hpLoss);
@@ -247,6 +276,15 @@ namespace GuildManager.Core.Systems
                     if (result.Outcome == DungeonOutcome.Retreat
                         && CriticalInjury.RollOldWound(member, _rng, CriticalInjury.RetreatHpThreshold(member)) is { } grant)
                         result.TraitGrantEvents.Add(grant);
+                    // 後天の障害（§0.56）：対策していない猛毒でHPが大きく削れた生還者に毒の後遺症、
+                    // 対策していない即死級を生き延びた隊員に戦慄。
+                    if (result.UncounteredGimmicks.Contains(BossGimmickType.Poison)
+                        && member.CurrentHP < member.MaxHP * TraitBalance.PoisonAftereffectHpThresholdPct
+                        && RollAcquiredCurse(member, TraitCatalog.PoisonAftereffectId, TraitBalance.PoisonAftereffectChance, TraitGrantCause.PoisonAftereffect) is { } poisonGrant)
+                        result.TraitGrantEvents.Add(poisonGrant);
+                    if (instantKillTriggered
+                        && RollAcquiredCurse(member, TraitCatalog.DreadId, TraitBalance.DreadChance, TraitGrantCause.Dread) is { } dreadGrant)
+                        result.TraitGrantEvents.Add(dreadGrant);
                     // 重傷（§0.53）：撃破・撤退とも、生き残った隊員のHPが最大HPの一定割合未満なら出撃不可の重傷になる。
                     if (CriticalInjury.TryInflictSevere(member, _rng) is { } injury)
                         result.InjuryEvents.Add(injury);

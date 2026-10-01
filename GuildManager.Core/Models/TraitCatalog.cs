@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Collections.Generic;
 using GuildManager.Core.Balance;
 
@@ -26,6 +27,51 @@ namespace GuildManager.Core.Models
         public const string NightVisionId = "NightVision";
         public const string GiantHunterId = "GiantHunter";
         public const string DiligentId = "Diligent";
+        public const string HawkEyeId = "HawkEye";
+        public const string SixthSenseId = "SixthSense";
+        public const string GuardianId = "Guardian";
+        public const string PathfinderId = "Pathfinder";
+        public const string SturdyId = "Sturdy";
+        public const string QuickHealerId = "QuickHealer";
+        public const string CheerfulId = "Cheerful";
+        public const string HardworkerId = "Hardworker";
+        public const string FireMageId = "FireMage";
+        public const string SwordMasterId = "SwordMaster";
+        public const string MapReaderId = "MapReader";
+        // 生まれつきの欠点（§0.56）
+        public const string CowardId = "Coward";
+        public const string ClumsyId = "Clumsy";
+        public const string PoorDirectionId = "PoorDirection";
+        public const string RecklessId = "Reckless";
+        public const string SicklyId = "Sickly";
+        public const string FickleId = "Fickle";
+        public const string MoodyId = "Moody";
+        public const string SlothfulId = "Slothful";
+        public const string SpendthriftId = "Spendthrift";
+        // 後天の障害（§0.56）
+        public const string PoisonAftereffectId = "PoisonAftereffect";
+        public const string LegWoundId = "LegWound";
+        public const string ArmWoundId = "ArmWound";
+        public const string DreadId = "Dread";
+        public const string BurnoutId = "Burnout";
+        // レア特性（§0.57）
+        public const string GeniusId = "Genius";
+        public const string ArchmageId = "Archmage";
+        public const string SwordSaintId = "SwordSaint";
+        public const string SaintId = "Saint";
+        public const string CharismaId = "Charisma";
+        public const string ImmortalBodyId = "ImmortalBody";
+        public const string IdatenId = "Idaten";
+        public const string MarksmanId = "Marksman";
+
+        /// <summary>
+        /// ソードマスター（→ SwordMaster）が「剣」とみなす武器のカタログId。鑑定で出た個体もカタログIdで判定する。
+        /// 短剣は盗賊の武器のため含めない（2026年10月・§0.55）。構造値のためCSV化しない。
+        /// </summary>
+        public static readonly IReadOnlyCollection<string> SwordWeaponItemIds = new HashSet<string>
+        {
+            ItemCatalog.IronSwordId, ItemCatalog.GreatSwordId,
+        };
 
         /// <summary>
         /// 古傷（不可逆障害）。STR/VIT/AGI/DEXを恒久的に低下させる（減少率→ BAL: 戦闘/古傷減少率）。
@@ -195,7 +241,190 @@ namespace GuildManager.Core.Models
             Effects = new List<TraitEffect>(),
         });
 
-        // 将来ここに「頑強」等を追加していく（post-MVP）。
+        // ---- 2026年10月・§0.55で新設：効いていなかった場所を埋める10種（→ 03 §5.3.2） ----
+        // 表示名・説明・障害フラグ・効果の数値は trait.csv。火の魔術師だけは能力値の割合補正（StatPercentReduction の正の値）として
+        // Effects に持ち、残りは各システムが HasTrait で判定する（Effects は空）。すべて先天プール（→ RecruitmentSystem.InnateTraitPool）に入り、伝授できる。
+
+        /// <summary>鷹の目：部隊に1人いれば、未対策の「飛行」による被ダメージの上乗せを軽減する（→ DungeonResolver.CalculateDamageMultiplier）。</summary>
+        public static readonly TraitDefinition HawkEye = Define(new TraitDefinition { Id = HawkEyeId, IsTransmittable = true, Effects = new List<TraitEffect>() });
+
+        /// <summary>危機察知：未対策の「即死級」を受けても、本人のHP消費率を全損ではなく SixthSenseInstantKillHpLossPct にする（→ DungeonResolver.ApplyHpLoss）。</summary>
+        public static readonly TraitDefinition SixthSense = Define(new TraitDefinition { Id = SixthSenseId, IsTransmittable = true, Effects = new List<TraitEffect>() });
+
+        /// <summary>守り手：本人の護衛値が上がる（→ ScoutingResolver.GetGuardValue）。</summary>
+        public static readonly TraitDefinition Guardian = Define(new TraitDefinition { Id = GuardianId, IsTransmittable = true, Effects = new List<TraitEffect>() });
+
+        /// <summary>健脚：本人の走破への寄与が上がる（→ DungeonTraversalResolver.GetMemberTraversalValue）。</summary>
+        public static readonly TraitDefinition Pathfinder = Define(new TraitDefinition { Id = PathfinderId, IsTransmittable = true, Effects = new List<TraitEffect>() });
+
+        /// <summary>頑強：最大HPの基礎部分が上がる（→ Adventurer.MaxHP）。</summary>
+        public static readonly TraitDefinition Sturdy = Define(new TraitDefinition { Id = SturdyId, IsTransmittable = true, Effects = new List<TraitEffect>() });
+
+        /// <summary>治りが早い：負傷の回復と静養のHP回復が速い（→ InjuryRecoverySystem・RestRecoverySystem）。</summary>
+        public static readonly TraitDefinition QuickHealer = Define(new TraitDefinition { Id = QuickHealerId, IsTransmittable = true, Effects = new List<TraitEffect>() });
+
+        /// <summary>快活：本人の満足度が毎週上がる（→ SatisfactionSystem.ProcessWeeklySatisfaction）。</summary>
+        public static readonly TraitDefinition Cheerful = Define(new TraitDefinition { Id = CheerfulId, IsTransmittable = true, Effects = new List<TraitEffect>() });
+
+        /// <summary>働き者：待機お手伝いで稼ぐ額が増える（→ MasterMoodSystem.ProcessIdleHelp）。</summary>
+        public static readonly TraitDefinition Hardworker = Define(new TraitDefinition { Id = HardworkerId, IsTransmittable = true, Effects = new List<TraitEffect>() });
+
+        /// <summary>
+        /// 火の魔術師：INTの素の値部分が上がる（古傷などの割合減と合算）。火炎特攻（火に弱いボスへの上乗せ）は、
+        /// 大迷宮のボスに弱点を足すときに接続する（→ 06）。
+        /// </summary>
+        public static readonly TraitDefinition FireMage = Define(new TraitDefinition
+        {
+            Id = FireMageId,
+            IsTransmittable = true,
+            Effects = new List<TraitEffect>
+            {
+                new TraitEffect { EffectType = TraitEffectType.StatPercentReduction, TargetStat = "INT", Value = TraitBalance.FireMageIntBonus },
+            },
+        });
+
+        /// <summary>ソードマスター：剣（→ SwordWeaponItemIds）を装備しているときだけ、STR・AGIの素の値部分が上がる（→ Adventurer.EffectiveStat）。</summary>
+        public static readonly TraitDefinition SwordMaster = Define(new TraitDefinition { Id = SwordMasterId, IsTransmittable = true, Effects = new List<TraitEffect>() });
+
+        // ---- 2026年10月・§0.56：地図読み・生まれつきの欠点9種・後天の障害5種（→ 03 §5.3.2） ----
+
+        /// <summary>地図読み：本人の走破への寄与が上がる。方向音痴を克服する長所（→ DungeonTraversalResolver.GetMemberTraversalValue）。</summary>
+        public static readonly TraitDefinition MapReader = Define(new TraitDefinition { Id = MapReaderId, IsTransmittable = true, Effects = new List<TraitEffect>() });
+
+        // 生まれつきの欠点：手動で忘却できず、侵食もされない。OvercomeByTraitId の長所を得ると置き換わる（→ Adventurer.TryAddTrait）。伝授されない。
+
+        /// <summary>臆病：階層ボス戦で本人の損耗が増える（豪胆の逆。SurvivalThresholdModifier の負の値）。豪胆で克服。</summary>
+        public static readonly TraitDefinition Coward = Define(new TraitDefinition
+        {
+            Id = CowardId, IsFlaw = true, OvercomeByTraitId = BraveId,
+            Effects = new List<TraitEffect>
+            {
+                new TraitEffect { EffectType = TraitEffectType.SurvivalThresholdModifier, TargetStat = "", Value = -TraitBalance.CowardBossHpLossPenalty },
+            },
+        });
+
+        /// <summary>不器用：隠密への本人の寄与が下がる（注意深いの逆。ScoutingModifier の負の値）。注意深いで克服。</summary>
+        public static readonly TraitDefinition Clumsy = Define(new TraitDefinition
+        {
+            Id = ClumsyId, IsFlaw = true, OvercomeByTraitId = AttentiveId,
+            Effects = new List<TraitEffect>
+            {
+                new TraitEffect { EffectType = TraitEffectType.ScoutingModifier, TargetStat = "", Value = TraitBalance.ClumsyStealthPenalty },
+            },
+        });
+
+        /// <summary>方向音痴：走破への本人の寄与が下がる（→ DungeonTraversalResolver.GetMemberTraversalValue）。地図読みで克服。</summary>
+        public static readonly TraitDefinition PoorDirection = Define(new TraitDefinition { Id = PoorDirectionId, IsFlaw = true, OvercomeByTraitId = MapReaderId, Effects = new List<TraitEffect>() });
+
+        /// <summary>猪突猛進：討伐火力が上がる（→ DungeonPowerCalculator.MemberPower）が、階層ボス戦の損耗も増える。豪胆で克服。</summary>
+        public static readonly TraitDefinition Reckless = Define(new TraitDefinition
+        {
+            Id = RecklessId, IsFlaw = true, OvercomeByTraitId = BraveId,
+            Effects = new List<TraitEffect>
+            {
+                new TraitEffect { EffectType = TraitEffectType.SurvivalThresholdModifier, TargetStat = "", Value = -TraitBalance.RecklessBossHpLossPenalty },
+            },
+        });
+
+        /// <summary>病弱：最大HPの基礎部分が下がる（→ Adventurer.MaxHP）。頑強で克服。</summary>
+        public static readonly TraitDefinition Sickly = Define(new TraitDefinition { Id = SicklyId, IsFlaw = true, OvercomeByTraitId = SturdyId, Effects = new List<TraitEffect>() });
+
+        /// <summary>飽きっぽい：訓練施設での成長判定の基礎確率が下がる（→ GrowthSystem）。勤勉で克服。</summary>
+        public static readonly TraitDefinition Fickle = Define(new TraitDefinition { Id = FickleId, IsFlaw = true, OvercomeByTraitId = DiligentId, Effects = new List<TraitEffect>() });
+
+        /// <summary>気難しい：本人の満足度が毎週下がる（→ SatisfactionSystem）。快活で克服。</summary>
+        public static readonly TraitDefinition Moody = Define(new TraitDefinition { Id = MoodyId, IsFlaw = true, OvercomeByTraitId = CheerfulId, Effects = new List<TraitEffect>() });
+
+        /// <summary>怠惰：待機お手伝いで稼がない（機嫌は上がる、→ MasterMoodSystem.GetIdleHelpGold）。働き者で克服。</summary>
+        public static readonly TraitDefinition Slothful = Define(new TraitDefinition { Id = SlothfulId, IsFlaw = true, OvercomeByTraitId = HardworkerId, Effects = new List<TraitEffect>() });
+
+        /// <summary>浪費家：採用時の週給と適正週給が高い（→ RecruitmentSystem・SatisfactionSystem）。克服できない。</summary>
+        public static readonly TraitDefinition Spendthrift = Define(new TraitDefinition { Id = SpendthriftId, IsFlaw = true, OvercomeByTraitId = null, Effects = new List<TraitEffect>() });
+
+        // 後天の障害（IsCurseOrInjury は trait.csv で true）：古傷・トラウマと同じく忘却できず、満杯なら通常特性を侵食して付く。
+
+        /// <summary>毒の後遺症：VITが恒久的に下がる。対策していない猛毒のボス戦で、HPが大きく削れて生還した隊員に付く（→ DungeonResolver）。</summary>
+        public static readonly TraitDefinition PoisonAftereffect = Define(new TraitDefinition
+        {
+            Id = PoisonAftereffectId,
+            Effects = new List<TraitEffect>
+            {
+                new TraitEffect { EffectType = TraitEffectType.StatPercentReduction, TargetStat = "VIT", Value = TraitBalance.PoisonAftereffectVitReduction },
+            },
+        });
+
+        /// <summary>足の古傷：AGIが恒久的に大きく下がる。古傷の判定に当たったとき部位として選ばれる（→ CriticalInjury.RollOldWound）。</summary>
+        public static readonly TraitDefinition LegWound = Define(new TraitDefinition
+        {
+            Id = LegWoundId,
+            Effects = new List<TraitEffect>
+            {
+                new TraitEffect { EffectType = TraitEffectType.StatPercentReduction, TargetStat = "AGI", Value = TraitBalance.LegWoundAgiReduction },
+            },
+        });
+
+        /// <summary>腕の古傷：STR・DEXが恒久的に下がる。古傷の判定に当たったとき部位として選ばれる。</summary>
+        public static readonly TraitDefinition ArmWound = Define(new TraitDefinition
+        {
+            Id = ArmWoundId,
+            Effects = new List<TraitEffect>
+            {
+                new TraitEffect { EffectType = TraitEffectType.StatPercentReduction, TargetStat = "STR", Value = TraitBalance.ArmWoundStatReduction },
+                new TraitEffect { EffectType = TraitEffectType.StatPercentReduction, TargetStat = "DEX", Value = TraitBalance.ArmWoundStatReduction },
+            },
+        });
+
+        /// <summary>戦慄：討伐火力が下がる（→ DungeonPowerCalculator.MemberPower）。対策していない即死級を受けて生き残った隊員に付く。</summary>
+        public static readonly TraitDefinition Dread = Define(new TraitDefinition { Id = DreadId, Effects = new List<TraitEffect>() });
+
+        /// <summary>燃え尽き：満足度が毎週下がる。休まず続けて出撃した冒険者に付く（→ SatisfactionSystem）。</summary>
+        public static readonly TraitDefinition Burnout = Define(new TraitDefinition { Id = BurnoutId, Effects = new List<TraitEffect>() });
+
+        // ---- 2026年10月・§0.57：レア特性8種（採用時に別枠の低確率、→ RecruitmentSystem.RareTraitPool。伝授されない） ----
+
+        /// <summary>天才：7能力すべての素の値が上がる（StatPercentReduction の正の値）。</summary>
+        public static readonly TraitDefinition Genius = Define(new TraitDefinition
+        {
+            Id = GeniusId,
+            IsRare = true,
+            Effects = new[] { "STR", "VIT", "AGI", "DEX", "INT", "MND", "LDR" }
+                .Select(stat => new TraitEffect { EffectType = TraitEffectType.StatPercentReduction, TargetStat = stat, Value = TraitBalance.GeniusStatBonus })
+                .ToList(),
+        });
+
+        /// <summary>大魔導士：INTが大きく上がる。</summary>
+        public static readonly TraitDefinition Archmage = DefineRareSingleStat(ArchmageId, "INT");
+
+        /// <summary>剣聖：STRが大きく上がる。</summary>
+        public static readonly TraitDefinition SwordSaint = DefineRareSingleStat(SwordSaintId, "STR");
+
+        /// <summary>聖人：MNDが大きく上がる。</summary>
+        public static readonly TraitDefinition Saint = DefineRareSingleStat(SaintId, "MND");
+
+        /// <summary>カリスマ：LDRが大きく上がる。</summary>
+        public static readonly TraitDefinition Charisma = DefineRareSingleStat(CharismaId, "LDR");
+
+        /// <summary>不滅の肉体：VITが大きく上がる（最大HPも上がる）。</summary>
+        public static readonly TraitDefinition ImmortalBody = DefineRareSingleStat(ImmortalBodyId, "VIT");
+
+        /// <summary>韋駄天：AGIが大きく上がる。</summary>
+        public static readonly TraitDefinition Idaten = DefineRareSingleStat(IdatenId, "AGI");
+
+        /// <summary>百発百中：DEXが大きく上がる。</summary>
+        public static readonly TraitDefinition Marksman = DefineRareSingleStat(MarksmanId, "DEX");
+
+        private static TraitDefinition DefineRareSingleStat(string id, string stat) => Define(new TraitDefinition
+        {
+            Id = id,
+            IsRare = true,
+            Effects = new List<TraitEffect>
+            {
+                new TraitEffect { EffectType = TraitEffectType.StatPercentReduction, TargetStat = stat, Value = TraitBalance.RareSingleStatBonus },
+            },
+        });
+
+        /// <summary>古傷の判定に当たったときの部位の候補（→ CriticalInjury.RollOldWound）。この順で等確率に選ぶ（未所持のものから）。</summary>
+        public static readonly IReadOnlyList<string> OldWoundVariantIds = new[] { OldWoundId, LegWoundId, ArmWoundId };
 
         /// <summary>
         /// 構造だけを書いた定義へ、trait.csv の表示名・説明・障害フラグを流し込む
@@ -215,6 +444,11 @@ namespace GuildManager.Core.Models
         {
             OldWound, Trauma, Brave, Attentive, Beautiful, CountryBred, Scholar, Mentor,
             ResistPoison, NightVision, GiantHunter, Diligent,
+            HawkEye, SixthSense, Guardian, Pathfinder, Sturdy, QuickHealer, Cheerful, Hardworker, FireMage, SwordMaster,
+            MapReader,
+            Coward, Clumsy, PoorDirection, Reckless, Sickly, Fickle, Moody, Slothful, Spendthrift,
+            PoisonAftereffect, LegWound, ArmWound, Dread, Burnout,
+            Genius, Archmage, SwordSaint, Saint, Charisma, ImmortalBody, Idaten, Marksman,
         };
 
         public static TraitDefinition? FindById(string id) => id switch
@@ -231,6 +465,39 @@ namespace GuildManager.Core.Models
             CountryBredId => CountryBred,
             ScholarId => Scholar,
             MentorId => Mentor,
+            HawkEyeId => HawkEye,
+            SixthSenseId => SixthSense,
+            GuardianId => Guardian,
+            PathfinderId => Pathfinder,
+            SturdyId => Sturdy,
+            QuickHealerId => QuickHealer,
+            CheerfulId => Cheerful,
+            HardworkerId => Hardworker,
+            FireMageId => FireMage,
+            SwordMasterId => SwordMaster,
+            MapReaderId => MapReader,
+            CowardId => Coward,
+            ClumsyId => Clumsy,
+            PoorDirectionId => PoorDirection,
+            RecklessId => Reckless,
+            SicklyId => Sickly,
+            FickleId => Fickle,
+            MoodyId => Moody,
+            SlothfulId => Slothful,
+            SpendthriftId => Spendthrift,
+            PoisonAftereffectId => PoisonAftereffect,
+            LegWoundId => LegWound,
+            ArmWoundId => ArmWound,
+            DreadId => Dread,
+            BurnoutId => Burnout,
+            GeniusId => Genius,
+            ArchmageId => Archmage,
+            SwordSaintId => SwordSaint,
+            SaintId => Saint,
+            CharismaId => Charisma,
+            ImmortalBodyId => ImmortalBody,
+            IdatenId => Idaten,
+            MarksmanId => Marksman,
             _ => null,
         };
     }

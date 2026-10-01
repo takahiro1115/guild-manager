@@ -125,10 +125,13 @@ namespace GuildManager.Core.Systems
         /// 障害特性でなく（→ TraitDefinition.IsCurseOrInjury）・伝授可能（→ TraitDefinition.IsTransmittable）で・
         /// 生徒が未所持のものを伝授候補とし、候補があれば1回ロールする（ポロッと覚える形式：狙って伝授先を選べない）。
         ///
-        /// 伝授確率＝TrainingBalance.TraitInheritanceBaseChance（5%）＋教官が師匠肌なら MentorTraitInheritanceBonus（+15%）。
-        /// 候補が複数あれば教官の特性枠の並び順で最初の1つ（1週1件まで）。
-        /// 特性スロットが満杯（→ Adventurer.MaxTraitCount）の生徒はロールしない（伝授は通常特性の侵食をしない。
-        /// 手動忘却で枠を空けてもらう、→ 03 §5.3.2）。
+        /// 伝授確率＝TrainingBalance.TraitInheritanceBaseChance（5%）＋教官が師匠肌なら MentorTraitInheritanceBonus（+15%）
+        /// ＋在任ボーナス（教官深化 Step 3：在任12週ごとに+2.5%、上限+10%、→ GetTenureBonus）。
+        /// 伝授する特性は、施設に重点伝授特性が設定されていて生徒が未所持ならそれ、そうでなければ
+        /// 教官の特性枠の並び順で最初の1つ（1週1件まで、→ SelectTeachableTraitId）。
+        /// 特性スロットが満杯（→ Adventurer.MaxTraitCount）なら、生まれつきの欠点を克服させる長所だけが候補になる
+        /// （§0.56：欠点の枠が長所に置き換わる、→ Adventurer.CanAddTrait）。伝授は通常特性の侵食をしない
+        /// （それ以外は手動忘却で枠を空けてもらう、→ 03 §5.3.2）。
         /// </summary>
         public List<TraitTransmissionEvent> ProcessWeeklyTraitTransmission(GameState state)
         {
@@ -140,9 +143,6 @@ namespace GuildManager.Core.Systems
             {
                 if (adventurer.Age < TraitTransmissionMinAge || adventurer.Age > TraitTransmissionMaxAge)
                     continue;
-                if (adventurer.TraitIds.Count >= Adventurer.MaxTraitCount)
-                    continue; // 特性スロット満杯
-
                 if (!state.TrainingAssignments.TryGetValue(adventurer.Id, out var facility))
                     continue; // 訓練施設未配置
 
@@ -153,18 +153,20 @@ namespace GuildManager.Core.Systems
                 if (trainer == null)
                     continue;
 
-                string? teachableTraitId = GetTransmittableTraitIds(trainer)
-                    .FirstOrDefault(id => !adventurer.HasTrait(id));
+                state.TrainerFocusTraits.TryGetValue(facility, out var focusTraitId);
+                string? teachableTraitId = SelectTeachableTraitId(trainer, adventurer, focusTraitId);
 
                 if (teachableTraitId == null)
                     continue; // 教官が伝授可能な特性を（生徒が未所持な形で）持っていない
 
+                double chance = GetInheritanceChance(trainer, GetTrainerTenureWeeks(state, facility));
                 int roll = _rng.NextInt(1, 100);
-                if (roll > (int)Math.Round(GetInheritanceChance(trainer) * 100))
+                if (roll > (int)Math.Round(chance * 100))
                     continue;
 
+                var overcome = adventurer.FlawsOvercomeBy(teachableTraitId);
                 if (adventurer.TryAddTrait(teachableTraitId))
-                    events.Add(new TraitTransmissionEvent(adventurer, trainer, teachableTraitId));
+                    events.Add(new TraitTransmissionEvent(adventurer, trainer, teachableTraitId, overcome));
             }
 
             return events;
@@ -189,5 +191,97 @@ namespace GuildManager.Core.Systems
         public static double GetInheritanceChance(Adventurer trainer) =>
             TrainingBalance.TraitInheritanceBaseChance
             + (trainer.HasTrait(TraitCatalog.MentorId) ? TrainingBalance.MentorTraitInheritanceBonus : 0);
+
+        // ---------------- 教官深化 Step 3（重点伝授特性・在任ボーナス、→ 03 §7.1） ----------------
+
+        /// <summary>
+        /// 在任週数を含めた伝授確率（0〜1）＝基礎確率＋師匠肌ボーナス＋在任ボーナス（→ GetTenureBonus）。
+        /// </summary>
+        public static double GetInheritanceChance(Adventurer trainer, int tenureWeeks) =>
+            GetInheritanceChance(trainer) + GetTenureBonus(tenureWeeks);
+
+        /// <summary>
+        /// 在任ボーナス（0〜1）：在任週数が TrainerTenureBonusStepWeeks（12週＝1季節）に達するごとに
+        /// TrainerTenureBonusPerStep（+2.5%）ずつ上がり、TrainerTenureBonusMax（+10%）で頭打ち。
+        /// </summary>
+        public static double GetTenureBonus(int tenureWeeks)
+        {
+            if (tenureWeeks <= 0 || TrainingBalance.TrainerTenureBonusStepWeeks <= 0)
+                return 0;
+            int steps = tenureWeeks / TrainingBalance.TrainerTenureBonusStepWeeks;
+            return Math.Min(steps * TrainingBalance.TrainerTenureBonusPerStep, TrainingBalance.TrainerTenureBonusMax);
+        }
+
+        /// <summary>教官が今の施設に続けて在任している週数（未記録なら0）。</summary>
+        public static int GetTrainerTenureWeeks(GameState state, FacilityType facility) =>
+            state.TrainerTenureWeeks.TryGetValue(facility, out var weeks) ? weeks : 0;
+
+        /// <summary>
+        /// 生徒1人に伝授する特性を決める。重点伝授特性（→ GameState.TrainerFocusTraits）が教官の伝授可能特性にあり、
+        /// 生徒が未所持ならそれを選ぶ。重点が未設定・生徒が所持済み・教官の伝授可能特性に無いときは、
+        /// 教官の特性枠の並び順で生徒が未所持の最初の1つ（＝自動）。候補が無ければnull。
+        /// </summary>
+        public static string? SelectTeachableTraitId(Adventurer trainer, Adventurer student, string? focusTraitId)
+        {
+            var transmittable = GetTransmittableTraitIds(trainer);
+            // 生徒が付けられる（未所持で枠が空いている、または欠点を克服させる、→ Adventurer.CanAddTrait）ものだけが候補。
+            if (focusTraitId != null && transmittable.Contains(focusTraitId) && student.CanAddTrait(focusTraitId))
+                return focusTraitId;
+            return transmittable.FirstOrDefault(student.CanAddTrait);
+        }
+
+        /// <summary>
+        /// 施設の教官が重点的に伝授する特性を設定する（null で自動に戻す）。教官が未任命、または
+        /// 指定した特性が教官の伝授可能特性（→ GetTransmittableTraitIds）に無ければ失敗（false）。
+        /// </summary>
+        public static bool SetTrainerFocusTrait(GameState state, FacilityType facility, string? traitId)
+        {
+            var trainer = GetAssignedTrainer(state, facility);
+            if (trainer == null)
+                return false;
+
+            if (traitId == null)
+            {
+                state.TrainerFocusTraits.Remove(facility);
+                return true;
+            }
+
+            if (!GetTransmittableTraitIds(trainer).Contains(traitId))
+                return false;
+
+            state.TrainerFocusTraits[facility] = traitId;
+            return true;
+        }
+
+        /// <summary>
+        /// 重点伝授特性のId。未設定、または教官の伝授可能特性に無くなっていればnull（＝自動）。
+        /// </summary>
+        public static string? GetTrainerFocusTrait(GameState state, FacilityType facility)
+        {
+            var trainer = GetAssignedTrainer(state, facility);
+            if (trainer == null || !state.TrainerFocusTraits.TryGetValue(facility, out var traitId))
+                return null;
+            return GetTransmittableTraitIds(trainer).Contains(traitId) ? traitId : null;
+        }
+
+        /// <summary>
+        /// 週次決算：教官が就いている訓練施設ごとに在任週数を1増やす（生徒の有無は問わない）。
+        /// 伝授ロール（→ ProcessWeeklyTraitTransmission）の後に呼ぶ。任命した週の決算のロールは在任0週で行い、
+        /// 在任12週を終えた次の決算（13回目）のロールから在任ボーナスが付く。
+        /// </summary>
+        public void ProcessWeeklyTrainerTenure(GameState state)
+        {
+            foreach (var facility in state.AssignedTrainers.Keys.ToList())
+            {
+                if (GetAssignedTrainer(state, facility) == null)
+                    continue;
+                state.TrainerTenureWeeks[facility] = GetTrainerTenureWeeks(state, facility) + 1;
+            }
+        }
+
+        private static Adventurer? GetAssignedTrainer(GameState state, FacilityType facility) =>
+            state.AssignedTrainers.TryGetValue(facility, out var trainerId) && trainerId is Guid id
+                ? state.RetiredAdventurers.FirstOrDefault(a => a.Id == id)
+                : null;
     }
 }

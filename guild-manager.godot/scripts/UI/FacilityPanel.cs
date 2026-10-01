@@ -52,8 +52,15 @@ public partial class FacilityPanel : VBoxContainer
 		public Label CostLabel { get; set; } = null!;
 		public PanelContainer? InstructorPanel { get; set; }
 		public RichTextLabel? InstructorLabel { get; set; }
+		/// <summary>訓練施設の「伝授する特性」ボタン（教官欄の下。教官が任命されているときだけ表示、→ 03 §7.1・§0.54）。</summary>
+		public Button? FocusTraitButton { get; set; }
 		public Button ActionButton { get; set; } = null!;
 	}
+
+	/// <summary>重点伝授特性を選ぶメニュー（全訓練施設で共用。開いた施設は _focusMenuFacility で覚える）。</summary>
+	private PopupMenu _focusTraitMenu = null!;
+	private FacilityType _focusMenuFacility;
+	private readonly List<string?> _focusMenuTraitIds = new();
 
 	public override void _Ready()
 	{
@@ -76,6 +83,10 @@ public partial class FacilityPanel : VBoxContainer
 		BindCard(FacilityType.RecruitmentOffice, "%Card_RecruitmentOffice");
 
 		BuildAdvisorRow();
+
+		_focusTraitMenu = new PopupMenu();
+		_focusTraitMenu.IdPressed += OnFocusTraitMenuIdPressed;
+		AddChild(_focusTraitMenu);
 	}
 
 	/// <summary>
@@ -119,6 +130,16 @@ public partial class FacilityPanel : VBoxContainer
 			instructorLabel = instructorPanel.GetNode<RichTextLabel>("InstructorMargin/InstructorLabel");
 		}
 
+		// 訓練施設だけ、教官欄の直下に「伝授する特性」ボタンを置く（コードで構築、シーン変更なし）。
+		Button? focusTraitButton = null;
+		if (instructorPanel != null && FacilityBalance.IsTrainingFacility(type))
+		{
+			focusTraitButton = new Button { Visible = false };
+			focusTraitButton.Pressed += () => OpenFocusTraitMenu(type, focusTraitButton);
+			vbox.AddChild(focusTraitButton);
+			vbox.MoveChild(focusTraitButton, instructorPanel.GetIndex() + 1);
+		}
+
 		var binding = new FacilityCardBinding
 		{
 			Type = type,
@@ -130,6 +151,7 @@ public partial class FacilityPanel : VBoxContainer
 			CostLabel = vbox.GetNode<Label>("CostLabel"),
 			InstructorPanel = instructorPanel,
 			InstructorLabel = instructorLabel,
+			FocusTraitButton = focusTraitButton,
 			ActionButton = vbox.GetNode<Button>("ActionButton"),
 		};
 
@@ -234,6 +256,8 @@ public partial class FacilityPanel : VBoxContainer
 			binding.InstructorLabel.Clear();
 			binding.InstructorLabel.AppendText(GetInstructorSlotText(binding.Type, currentLevel));
 		}
+		if (binding.FocusTraitButton != null)
+			RefreshFocusTraitButton(binding.FocusTraitButton, binding.Type, currentLevel);
 
 		// 着工ボタンの防御的ガード制御
 		if (isMaxLevel)
@@ -271,6 +295,64 @@ public partial class FacilityPanel : VBoxContainer
 			binding.ActionButton.Text = $"🔨 {actText} ({cost}G / {weeks}週)";
 			binding.ActionButton.TooltipText = $"{FacilityLabel(binding.Type)}の{actText}を行います。着工時に費用{cost}Gを前払いします。";
 		}
+	}
+
+	private Adventurer? GetAssignedTrainer(FacilityType type) =>
+		_state.AssignedTrainers.TryGetValue(type, out var trainerId) && trainerId.HasValue
+			? _state.RetiredAdventurers.FirstOrDefault(a => a.Id == trainerId.Value)
+			: null;
+
+	private static string TraitName(string traitId) => TraitCatalog.FindById(traitId)?.DisplayName ?? traitId;
+
+	/// <summary>「伝授する特性」ボタン：教官がいるときだけ表示し、今の選択（未設定なら自動）を出す（→ 03 §7.1・§0.54）。</summary>
+	private void RefreshFocusTraitButton(Button button, FacilityType type, int level)
+	{
+		var trainer = level < 1 ? null : GetAssignedTrainer(type);
+		button.Visible = trainer != null;
+		if (trainer == null)
+			return;
+
+		bool hasCandidates = TrainingSystem.GetTransmittableTraitIds(trainer).Count > 0;
+		string? focus = TrainingSystem.GetTrainerFocusTrait(_state, type);
+		button.Disabled = !hasCandidates;
+		button.Text = $"📜 伝授する特性：{(focus == null ? "自動" : TraitName(focus))}";
+		button.TooltipText = hasCandidates
+			? "教官が重点的に伝授する特性を選ぶ。生徒がすでに持っていれば、ほかの特性を特性枠の順に伝授する。\n「自動」は教官の特性枠の順。教官が替わると自動に戻る。"
+			: "この教官には伝授できる特性が無い。";
+	}
+
+	private void OpenFocusTraitMenu(FacilityType type, Button anchor)
+	{
+		var trainer = GetAssignedTrainer(type);
+		if (trainer == null)
+			return;
+
+		_focusMenuFacility = type;
+		_focusMenuTraitIds.Clear();
+		_focusTraitMenu.Clear();
+
+		string? focus = TrainingSystem.GetTrainerFocusTrait(_state, type);
+		_focusMenuTraitIds.Add(null);
+		_focusTraitMenu.AddRadioCheckItem("自動（教官の特性枠の順）", 0);
+		_focusTraitMenu.SetItemChecked(0, focus == null);
+		foreach (var traitId in TrainingSystem.GetTransmittableTraitIds(trainer))
+		{
+			int id = _focusMenuTraitIds.Count;
+			_focusMenuTraitIds.Add(traitId);
+			_focusTraitMenu.AddRadioCheckItem(TraitName(traitId), id);
+			_focusTraitMenu.SetItemChecked(_focusTraitMenu.GetItemIndex(id), traitId == focus);
+		}
+
+		var rect = anchor.GetGlobalRect();
+		_focusTraitMenu.Popup(new Rect2I((Vector2I)(rect.Position + new Vector2(0, rect.Size.Y)), new Vector2I((int)rect.Size.X, 0)));
+	}
+
+	private void OnFocusTraitMenuIdPressed(long id)
+	{
+		if (id < 0 || id >= _focusMenuTraitIds.Count)
+			return;
+		if (TrainingSystem.SetTrainerFocusTrait(_state, _focusMenuFacility, _focusMenuTraitIds[(int)id]))
+			StateChanged.Invoke();
 	}
 
 	private void OnStartConstructionPressed(FacilityType type)
@@ -392,14 +474,22 @@ public partial class FacilityPanel : VBoxContainer
 					var stats = FacilityBalance.GetTrainingTargetStats(type);
 					string statsStr = string.Join("・", stats);
 					// 教官から生徒へ受け継がれうる特性（→ TrainingSystem.GetTransmittableTraitIds、03 §7.1・§0.35）。
+					// 重点伝授特性（→ 03 §0.54）には★を付ける。
+					string? focus = TrainingSystem.GetTrainerFocusTrait(_state, type);
 					var transmittable = TrainingSystem.GetTransmittableTraitIds(trainer)
-						.Select(id => TraitCatalog.FindById(id)?.DisplayName ?? id)
+						.Select(id => id == focus ? $"★{TraitName(id)}" : TraitName(id))
 						.ToList();
 					string traitLine = transmittable.Count > 0
 						? $"伝授可能: [color=cyan]{string.Join(", ", transmittable)}[/color]"
 						: "[color=gray]伝授可能特性なし[/color]";
+					// 在任週数と今の伝授確率（基礎＋師匠肌＋在任ボーナス、→ TrainingSystem.GetInheritanceChance、03 §7.1・§0.54）。
+					int tenureWeeks = TrainingSystem.GetTrainerTenureWeeks(_state, type);
+					double tenureBonus = TrainingSystem.GetTenureBonus(tenureWeeks);
+					double chance = TrainingSystem.GetInheritanceChance(trainer, tenureWeeks);
+					string tenureLine = $"在任 {tenureWeeks}週（伝授確率 +{tenureBonus * 100:0.#}%）・伝授確率 [color=lime]{chance * 100:0.#}%[/color]/週";
 					return $"[color=gold]🎖️ 教官：{trainer.Name}（元{trainer.JobClass}）[/color]\n" +
 					       $"伝授：[color=lime]{statsStr}成長率 +{bonus * 100:F1}%[/color]\n" +
+					       tenureLine + "\n" +
 					       traitLine;
 				}
 			}

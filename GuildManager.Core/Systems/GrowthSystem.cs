@@ -81,7 +81,8 @@ namespace GuildManager.Core.Systems
                 double multiplier = GrowthBalance.TrainingFacilityMultiplier + GetTrainerBonus(state, facility);
 
                 // 勤勉（→ TraitCatalog.Diligent、03 §5.3.2・§6.2）：基礎確率に DiligentGrowthRateBonus を加算してから倍率を掛ける。
-                double baseBonus = adventurer.HasTrait(TraitCatalog.DiligentId) ? TrainingBalance.DiligentGrowthRateBonus : 0;
+                double baseBonus = (adventurer.HasTrait(TraitCatalog.DiligentId) ? TrainingBalance.DiligentGrowthRateBonus : 0)
+                    + (adventurer.HasTrait(TraitCatalog.FickleId) ? TraitBalance.FickleGrowthRatePenalty : 0); // 飽きっぽい（§0.56）
                 var growthEvent = TryGrowOne(adventurer, multiplier, _ => targetStats[_rng.NextInt(0, targetStats.Length - 1)], baseBonus);
                 if (growthEvent != null)
                     events.Add(growthEvent);

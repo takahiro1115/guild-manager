@@ -194,10 +194,11 @@ namespace GuildManager.Core.Systems
                 if (a.CurrentHP < a.MaxHP) continue;
                 if (a.Injury != InjurySeverity.None || a.InjuryWeeksRemaining != 0) continue;
 
-                state.Gold += MasterMoodBalance.IdleAdventurerHelpGold;
+                int gold = GetIdleHelpGold(a);
+                state.Gold += gold;
                 int applied = Adjust(state, MasterMoodBalance.IdleAdventurerHelpMood);
                 moodApplied += applied;
-                entries.Add(new IdleHelpEntry(a.Id, a.Name, MasterMoodBalance.IdleAdventurerHelpGold, MasterMoodBalance.IdleAdventurerHelpMood, applied));
+                entries.Add(new IdleHelpEntry(a.Id, a.Name, gold, MasterMoodBalance.IdleAdventurerHelpMood, applied));
             }
 
             if (entries.Count > 0)
@@ -210,6 +211,16 @@ namespace GuildManager.Core.Systems
 
             return entries;
         }
+
+        /// <summary>
+        /// 待機お手伝い1名が稼ぐ額＝IdleAdventurerHelpGold。働き者（→ TraitCatalog.Hardworker、§0.55）なら
+        /// HardworkerIdleHelpGoldMultiplier 倍（四捨五入）。
+        /// </summary>
+        public static int GetIdleHelpGold(Adventurer a) =>
+            a.HasTrait(TraitCatalog.SlothfulId) ? 0 // 怠惰（§0.56）：手伝わない（機嫌の上昇はそのまま）
+            : a.HasTrait(TraitCatalog.HardworkerId)
+                ? (int)Math.Round(MasterMoodBalance.IdleAdventurerHelpGold * TraitBalance.HardworkerIdleHelpGoldMultiplier, MidpointRounding.AwayFromZero)
+                : MasterMoodBalance.IdleAdventurerHelpGold;
 
         private static void Record(GameState state, MasterMoodReport report, string reason, int delta) =>
             report.Entries.Add(new MasterMoodEntry(reason, delta, Adjust(state, delta)));

@@ -35,5 +35,21 @@ namespace GuildManager.Core.Models
         /// 不自然なため）。既定はfalse＝明示的にtrueにした特性のみ伝授対象になる。
         /// </summary>
         public bool IsTransmittable { get; set; } = false;
+
+        /// <summary>
+        /// 生まれつきの欠点か（2026年10月・§0.56）。true の特性は手動で忘却・入替できず（→ Adventurer.CanRemoveTrait）、
+        /// 障害特性の侵食でも消えない。OvercomeByTraitId の長所を得ると、その枠が長所に置き換わる（克服、→ Adventurer.TryAddTrait）。
+        /// 障害特性（IsCurseOrInjury）とは別で、伝授の対象にもならない（IsTransmittable＝false）。
+        /// </summary>
+        public bool IsFlaw { get; set; } = false;
+
+        /// <summary>
+        /// レア特性か（2026年10月・§0.57）。採用時に別枠の低い確率でだけ付く生まれつきの才能（天才・大魔導士など）。
+        /// 伝授されない（IsTransmittable＝false）。手動の忘却はできる（長所なので、外すかどうかはプレイヤーが決める）。
+        /// </summary>
+        public bool IsRare { get; set; } = false;
+
+        /// <summary>この欠点を克服させる長所の特性Id（例：臆病→豪胆）。null＝克服できない（浪費家）。</summary>
+        public string? OvercomeByTraitId { get; set; }
     }
 }

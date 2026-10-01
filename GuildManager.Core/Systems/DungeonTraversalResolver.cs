@@ -362,8 +362,12 @@ namespace GuildManager.Core.Systems
         /// CalculateTraversalScore が合計し、編成画面の「走破貢献」列（→ PartyFormationPanel）も同じ値を使う。
         /// </summary>
         public static double GetMemberTraversalValue(Adventurer member) =>
-            member.GetEffectiveStat("VIT") * DungeonTraversalBalance.WeightVit
-            + member.GetEffectiveStat("MND") * DungeonTraversalBalance.WeightMnd;
+            (member.GetEffectiveStat("VIT") * DungeonTraversalBalance.WeightVit
+             + member.GetEffectiveStat("MND") * DungeonTraversalBalance.WeightMnd)
+            * (1.0
+               + (member.HasTrait(TraitCatalog.PathfinderId) ? TraitBalance.PathfinderTraversalBonus : 0)    // 健脚（§0.55）
+               + (member.HasTrait(TraitCatalog.MapReaderId) ? TraitBalance.MapReaderTraversalBonus : 0)     // 地図読み（§0.56）
+               + (member.HasTrait(TraitCatalog.PoorDirectionId) ? TraitBalance.PoorDirectionTraversalPenalty : 0)); // 方向音痴（§0.56）
 
         /// <summary>道中進軍の要求値＝現在到達階層×係数×フィールド倍率（深く潜るほど道中も険しくなる）。</summary>
         public static double CurrentFloorRequirement(DungeonField field) => FloorRequirement(field, field.ReachedFloor);

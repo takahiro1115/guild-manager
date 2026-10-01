@@ -255,9 +255,13 @@ namespace GuildManager.Core.Systems
         public static double CalculateGuardPower(Party party) =>
             party.IsEmpty ? 0 : FindGuardCarrier(party).Value + CalculateGuardSupportPower(party);
 
-        /// <summary>隊員1名の護衛値＝max(STR, VIT, INT)（装備補正込みの実効値）。</summary>
+        /// <summary>隊員1名の護衛値＝max(STR, VIT, INT)（装備補正込みの実効値）×守り手の補正（→ GuardianMultiplier）。</summary>
         public static double GetGuardValue(Adventurer member) =>
-            Math.Max(member.GetEffectiveStat("STR"), Math.Max(member.GetEffectiveStat("VIT"), member.GetEffectiveStat("INT")));
+            Math.Max(member.GetEffectiveStat("STR"), Math.Max(member.GetEffectiveStat("VIT"), member.GetEffectiveStat("INT"))) * GuardianMultiplier(member);
+
+        /// <summary>守り手（→ TraitCatalog.Guardian、§0.55）の護衛値の倍率。保有していなければ1.0。</summary>
+        public static double GuardianMultiplier(Adventurer member) =>
+            member.HasTrait(TraitCatalog.GuardianId) ? 1.0 + TraitBalance.GuardianGuardBonus : 1.0;
 
         /// <summary>
         /// 支援分＝主護衛以外の隊員の護衛値の合計 × GuardSupportRatio（→ CalculateGuardPower の内訳）。
@@ -282,7 +286,7 @@ namespace GuildManager.Core.Systems
             {
                 foreach (var stat in new[] { "STR", "VIT", "INT" })
                 {
-                    double value = m.GetEffectiveStat(stat);
+                    double value = m.GetEffectiveStat(stat) * GuardianMultiplier(m);
                     if (best.Member == null || value > best.Value)
                         best = (m, stat, value);
                 }
