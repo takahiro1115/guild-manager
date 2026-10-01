@@ -224,6 +224,12 @@ namespace GuildManager.Core.Models
         /// </summary>
         public HashSet<string> CompletedResearchIds { get; set; } = new();
 
+        /// <summary>
+        /// 培養槽で育っている子（→ GameState.SoulFusionCultures、03 §5.4・§0.58）。SoulFusionCulture は
+        /// Guid・整数・文字列・列挙・Adventurer だけで構成されるため直接JSON化する。旧セーブでは空で復元される。
+        /// </summary>
+        public List<SoulFusionCulture>? SoulFusionCultures { get; set; } = new();
+
         // 装備カタログは静的コード定義のため保存不要（Adventurer側は装備IDの
         // 文字列のみ保持しているため、カタログさえコード内にあれば復元できる）
     }

@@ -150,10 +150,9 @@ namespace GuildManager.Core.Tests
             Assert.Equal(15, RecruitmentSystem.RareTraitPool.Sum(RecruitmentSystem.RareTraitWeight));
 
             var method = typeof(RecruitmentSystem).GetMethod("PickRareTrait",
-                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
-            var picker = new RecruitmentSystem(new SequenceRng(weightRoll));
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
 
-            Assert.Equal(expected, method.Invoke(picker, null));
+            Assert.Equal(expected, method.Invoke(null, new object[] { new SequenceRng(weightRoll) }));
         }
 
         [Fact]

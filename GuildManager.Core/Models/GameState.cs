@@ -250,6 +250,18 @@ namespace GuildManager.Core.Models
         /// <summary>指定した研究が完了済みか。</summary>
         public bool IsResearchCompleted(string researchId) => CompletedResearchIds.Contains(researchId);
 
+        /// <summary>
+        /// 培養槽で育っている子（→ SoulFusionCulture・Systems.SoulFusionSystem、03 §5.4・§0.58）。
+        /// 旧セーブには無く、空のまま読まれる。
+        /// </summary>
+        public List<SoulFusionCulture> SoulFusionCultures { get; set; } = new();
+
+        /// <summary>現役・引退者・除籍者のどこかにいる冒険者をIdで引く（魂魄融和の親の表示など）。見つからなければ null。</summary>
+        public Adventurer? FindAdventurer(Guid id) =>
+            Adventurers.FirstOrDefault(a => a.Id == id)
+            ?? RetiredAdventurers.FirstOrDefault(a => a.Id == id)
+            ?? FallenAdventurers.FirstOrDefault(a => a.Id == id);
+
         /// <summary>指定した種類の施設の現在Lvを返す。該当データが無い場合は1を返す（防御的フォールバック）。</summary>
         public int GetFacilityLevel(FacilityType type)
         {
@@ -288,6 +300,7 @@ namespace GuildManager.Core.Models
                 Armory = new List<EquipmentItem>(Armory),
                 ObtainedUniqueIds = new HashSet<string>(ObtainedUniqueIds),
                 CompletedResearchIds = new HashSet<string>(CompletedResearchIds),
+                SoulFusionCultures = new List<SoulFusionCulture>(SoulFusionCultures),
             };
 
             foreach (var kv in Compatibility)
@@ -378,6 +391,10 @@ namespace GuildManager.Core.Models
                 Armory = new List<EquipmentItem>(data.Armory ?? new List<EquipmentItem>()),
                 ObtainedUniqueIds = new HashSet<string>(data.ObtainedUniqueIds ?? new HashSet<string>()),
                 CompletedResearchIds = new HashSet<string>(data.CompletedResearchIds),
+                // 培養中の子（§0.58）。キーを持たない旧セーブ、または null が書かれていても空で始める。
+                // 子の Adventurer が欠けた記録（壊れたデータ）は捨てる。
+                SoulFusionCultures = (data.SoulFusionCultures ?? new List<SoulFusionCulture>())
+                    .Where(c => c?.Child != null).ToList(),
                 Facilities = new List<Facility>(),
             };
 

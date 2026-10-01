@@ -48,6 +48,12 @@ namespace GuildManager.Core.Models
         /// その合計にマスターの機嫌の売上倍率を掛ける。同種の研究は加算で重複できる。
         /// </summary>
         SideBusinessGoldBonus,
+
+        /// <summary>
+        /// 魂魄融和の秘薬の解禁（→ Systems.SoulFusionSystem、03 §5.4・§0.58、2026年10月新設）。数値の効果は持たず
+        /// （EffectValue は 0）、完了すると研究室の培養槽で秘薬を処方できるようになる。
+        /// </summary>
+        SoulFusionUnlock,
     }
 
     /// <summary>
@@ -120,5 +126,8 @@ namespace GuildManager.Core.Models
 
         /// <summary>不老長生薬の密売：内職の基本売上+600G（峡谷の素材）。</summary>
         public const string VitalityElixir = "res_vitality_elixir";
+
+        /// <summary>魂魄融和の秘薬：研究室の培養槽を開く（→ SoulFusionUnlock、§0.58）。</summary>
+        public const string SoulFusion = "res_soul_fusion";
     }
 }

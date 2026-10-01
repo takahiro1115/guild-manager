@@ -162,9 +162,9 @@ namespace GuildManager.Core.Systems
             traitId == TraitCatalog.GeniusId ? RecruitmentBalance.RareTraitWeightGenius : RecruitmentBalance.RareTraitWeightSingleStat;
 
         /// <summary>重み付きでレア特性を1つ選ぶ。乱数は NextInt(1, 重みの合計) を1回引く。</summary>
-        private string PickRareTrait()
+        private static string PickRareTrait(IRng rng)
         {
-            int roll = _rng.NextInt(1, RareTraitPool.Sum(RareTraitWeight));
+            int roll = rng.NextInt(1, RareTraitPool.Sum(RareTraitWeight));
             foreach (var traitId in RareTraitPool)
             {
                 roll -= RareTraitWeight(traitId);
@@ -188,13 +188,17 @@ namespace GuildManager.Core.Systems
             FacilityBalance.GetDormitoryCapacity(state.GetFacilityLevel(FacilityType.Dormitory));
 
         /// <summary>現役枠の空き数。引退済み（顧問化予定）の者は占有しない（→ 03 §2.4・§7）。</summary>
-        public int GetOpenSlotCount(GameState state)
+        public int GetOpenSlotCount(GameState state) => CountOpenSlots(state);
+
+        /// <summary>現役枠の空き数（乱数を使わない判定。魂魄融和の誕生（→ SoulFusionSystem）も使う）。</summary>
+        public static int CountOpenSlots(GameState state)
         {
             int activeCount = 0;
             foreach (var a in state.Adventurers)
                 if (!a.IsRetired) activeCount++;
 
-            return Math.Max(0, GetActiveSlotCap(state) - activeCount);
+            int cap = FacilityBalance.GetDormitoryCapacity(state.GetFacilityLevel(FacilityType.Dormitory));
+            return Math.Max(0, cap - activeCount);
         }
 
         /// <summary>
@@ -334,34 +338,47 @@ namespace GuildManager.Core.Systems
                 AdventurerStatAccessor.SetStat(candidate, stat, actual);
             }
 
-            candidate.CurrentHP = candidate.MaxHP;
-            candidate.WeeklyWage = Math.Max(1, (int)(candidate.TotalPA * EconomyBalance.WeeklyWageCoefficient));
+            RollInnateTraits(candidate, _rng);
+            FinishNewcomer(candidate);
 
-            // 先天特性の付与判定（→ 03 §5.3.2）。プールの各特性を独立判定（1人が複数持つこともありうる。
-            // 5枠を超える分は付かない）。付与確率は全特性で共通の定数（特性ごとに出現率を変える必要が出た時点で、
-            // recruitment.csv側にキーを分ければよい）。
-            // レア特性（§0.57）：長所・欠点より先に、1人につき1回だけ判定する（当たれば必ず枠に入る）。
-            if (_rng.NextInt(1, 100) <= RecruitmentBalance.RareTraitChancePercent)
-                candidate.TryAddTrait(PickRareTrait());
+            int signingBonus = (int)(candidate.TotalPA * candidate.Age * EconomyBalance.SigningBonusCoefficient);
+
+            return new RecruitmentOffer(candidate, signingBonus);
+        }
+
+        /// <summary>
+        /// 先天特性の付与判定（→ 03 §5.3.2）。採用の候補と、魂魄融和で生まれる子（→ SoulFusionSystem、§0.58）が共用する。
+        /// プールの各特性を独立判定（1人が複数持つこともありうる。5枠を超える分は付かない）。付与確率は全特性で共通の定数
+        /// （特性ごとに出現率を変える必要が出た時点で、recruitment.csv側にキーを分ければよい）。
+        /// レア特性（§0.57）：長所・欠点より先に、1人につき1回だけ判定する（当たれば必ず枠に入る）。
+        /// </summary>
+        internal static void RollInnateTraits(Adventurer candidate, IRng rng)
+        {
+            if (rng.NextInt(1, 100) <= RecruitmentBalance.RareTraitChancePercent)
+                candidate.TryAddTrait(PickRareTrait(rng));
             foreach (var traitId in InnateTraitPool)
             {
-                if (_rng.NextInt(1, 100) <= RecruitmentBalance.InnateTraitChancePercent)
+                if (rng.NextInt(1, 100) <= RecruitmentBalance.InnateTraitChancePercent)
                     candidate.TryAddTrait(traitId);
             }
             // 生まれつきの欠点（§0.56）：長所の後に別の確率で判定する。克服させる長所を持っていれば付かない（→ Adventurer.CanAddTrait）。
             foreach (var traitId in InnateFlawPool)
             {
-                if (_rng.NextInt(1, 100) <= RecruitmentBalance.InnateFlawChancePercent)
+                if (rng.NextInt(1, 100) <= RecruitmentBalance.InnateFlawChancePercent)
                     candidate.TryAddTrait(traitId);
             }
-            // 頑強・病弱は最大HPを変えるため、特性が決まってから満タンにする。浪費家は求める週給が高い（§0.56）。
+        }
+
+        /// <summary>
+        /// 特性が決まった新人の仕上げ：週給（総合PA×係数）を決め、HPを満タンにする。頑強・病弱は最大HPを変えるため、
+        /// 特性が決まってから満タンにする。浪費家は求める週給が高い（§0.56）。魂魄融和の子（→ SoulFusionSystem）も使う。
+        /// </summary>
+        internal static void FinishNewcomer(Adventurer candidate)
+        {
+            candidate.WeeklyWage = Math.Max(1, (int)(candidate.TotalPA * EconomyBalance.WeeklyWageCoefficient));
             candidate.CurrentHP = candidate.MaxHP;
             if (candidate.HasTrait(TraitCatalog.SpendthriftId))
                 candidate.WeeklyWage = Math.Max(1, (int)(candidate.WeeklyWage * TraitBalance.SpendthriftWageMultiplier));
-
-            int signingBonus = (int)(candidate.TotalPA * candidate.Age * EconomyBalance.SigningBonusCoefficient);
-
-            return new RecruitmentOffer(candidate, signingBonus);
         }
     }
 }

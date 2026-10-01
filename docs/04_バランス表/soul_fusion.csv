@@ -1,0 +1,16 @@
+key,value,unit,note
+RequiredCompatibility,100,pt,秘薬を処方できるペアの相性（→ compatibility_advisor.csv。100＝最大値）。主力の4人部隊なら2年目の途中で全ペアが届く（balance_sim で確認）
+PrescriptionGold,2500,G,秘薬1回の処方費用（触媒の素材は別）。採用の契約金（総合PA×1.0、約1000〜1500G）より高い
+CultureWeeks,12,週,処方から誕生までの培養の週数。その間も親は出撃できる
+CultureTankCount,1,基,同時に培養できる数（培養槽の数）
+PaVarianceMin,-5,pt,子のPA＝両親のPAの平均＋この範囲の乱数（能力ごと）。下限
+PaVarianceMax,10,pt,同・上限。限界突破しない能力は100で止める
+BreakthroughChance_Destined,30,%,百合相性「運命の一対」（重戦士か騎士×神官＝勇者と聖女）の限界突破の確率（子1人につき1回）
+BreakthroughChance_Complementary,15,%,百合相性「好一対」（前衛×後衛）の限界突破の確率
+BreakthroughChance_Ordinary,5,%,それ以外の組み合わせの限界突破の確率
+BreakthroughBonusMin,5,pt,限界突破した能力（子の最も高い能力）のPAに足す量の下限
+BreakthroughBonusMax,15,pt,同・上限
+BreakthroughPaCap,120,pt,限界突破した能力のPAの上限（通常の能力は100）
+TraitInheritChancePercent,30,%,親の長所（障害・欠点・レア以外）を子が受け継ぐ確率（親ひとりの特性1つごと。両親とも持つ特性は2回判定）
+RareTraitInheritChancePercent,15,%,親のレア特性を子が受け継ぐ確率
+FlawInheritChancePercent,20,%,親の生まれつきの欠点を子が受け継ぐ確率（障害特性は受け継がない）

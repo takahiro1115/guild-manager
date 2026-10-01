@@ -1,3 +1,4 @@
+#nullable enable
 using Godot;
 using System;
 using System.Linq;
@@ -23,6 +24,12 @@ public partial class ResearchPanel : ScrollContainer
 
 	private GameState _state = null!;
 
+	// ---- 培養槽（魂魄融和の秘薬、→ 03 §5.4・§0.58） ----
+	private SoulFusionSystem? _soulFusionSystem;
+	private int _selectedPairIndex;
+	private int _selectedJobIndex;
+	private string? _selectedCatalystId;
+
 	/// <summary>週報ログ（右ペイン）への追記を依頼する（BBCode文字列）。</summary>
 	public event Action<string> LogRequested = delegate { };
 
@@ -33,6 +40,12 @@ public partial class ResearchPanel : ScrollContainer
 	{
 		_resourcesLabel = GetNode<RichTextLabel>("%ResourcesLabel");
 		_researchCards = GetNode<VBoxContainer>("%ResearchCards");
+	}
+
+	/// <summary>秘薬の処方に使う System を受け取る（MainDashboard._Ready から1回呼ぶ）。</summary>
+	public void Initialize(SoulFusionSystem soulFusionSystem)
+	{
+		_soulFusionSystem = soulFusionSystem;
 	}
 
 	/// <summary>最新のゲーム状態でタブ全体を再描画する（MainDashboard.RefreshAllから毎回呼ぶ）。</summary>
@@ -53,6 +66,7 @@ public partial class ResearchPanel : ScrollContainer
 		// （まだ研究で使わない素材も、採取済みなら在庫として見えるようにする）。
 		var knownIds = ResearchBalance.GetAll()
 			.SelectMany(r => r.RequiredMaterials.Keys)
+			.Union(SoulFusionSystem.IsUnlocked(_state) ? SoulFusionBalance.Catalysts.Select(c => c.MaterialId) : Enumerable.Empty<string>())
 			.Union(_state.Materials.Keys)
 			.Distinct()
 			.OrderBy(id => id)
@@ -81,8 +95,164 @@ public partial class ResearchPanel : ScrollContainer
 			child.QueueFree();
 		}
 
+		if (SoulFusionSystem.IsUnlocked(_state))
+			_researchCards.AddChild(BuildCultureTankCard());
+
 		foreach (var research in ResearchBalance.GetAll())
 			_researchCards.AddChild(BuildResearchCard(research));
+	}
+
+	// ==================== 培養槽（魂魄融和の秘薬） ====================
+
+	/// <summary>
+	/// 培養槽のカード（研究「魂魄融和の秘薬」の完了後、研究一覧の先頭に出す）。培養中の子の様子と、
+	/// 空きがあれば処方の欄（相性100のペア・子の職業・触媒・費用・処方ボタン）を並べる。
+	/// </summary>
+	private Control BuildCultureTankCard()
+	{
+		var card = new PanelContainer();
+		var vbox = new VBoxContainer();
+		card.AddChild(vbox);
+
+		vbox.AddChild(MakeRichLabel("[font_size=18][b]🧪 培養槽（魂魄融和の秘薬）[/b][/font_size]"));
+		vbox.AddChild(MakeRichLabel(
+			$"[color=gray]相性{SoulFusionBalance.RequiredCompatibility}のペアに秘薬を処方すると、2人の素質を受け継ぐ娘が{SoulFusionBalance.CultureWeeks}週で18歳まで育ち、新人として加わる。" +
+			"親になれるのは1人1回まで。引退した者も親になれる。[/color]"));
+
+		foreach (var culture in _state.SoulFusionCultures)
+			vbox.AddChild(MakeRichLabel(CultureStatusText(culture)));
+
+		if (!SoulFusionSystem.HasFreeTank(_state))
+			return card;
+
+		var pairs = SoulFusionSystem.GetEligiblePairs(_state);
+		if (pairs.Count == 0)
+		{
+			vbox.AddChild(MakeRichLabel($"[color=gray]相性{SoulFusionBalance.RequiredCompatibility}のペアがいない（同じ部隊で任務を達成すると相性が上がる）。[/color]"));
+			return card;
+		}
+
+		_selectedPairIndex = Math.Clamp(_selectedPairIndex, 0, pairs.Count - 1);
+		var (a, b) = pairs[_selectedPairIndex];
+		var jobs = new[] { a.JobClass, b.JobClass }.Distinct().ToList();
+		_selectedJobIndex = Math.Clamp(_selectedJobIndex, 0, jobs.Count - 1);
+		var job = jobs[_selectedJobIndex];
+		if (_selectedCatalystId != null && SoulFusionBalance.FindCatalyst(_selectedCatalystId) == null)
+			_selectedCatalystId = null;
+
+		// 親のペア
+		var pairOption = new OptionButton();
+		foreach (var (pa, pb) in pairs)
+		{
+			var tier = SoulFusionSystem.GetNyxTier(pa.JobClass, pb.JobClass);
+			pairOption.AddItem($"{MemberLabel(pa)} × {MemberLabel(pb)}　百合相性：{SoulFusionSystem.GetNyxTierLabel(tier)}");
+		}
+		pairOption.Selected = _selectedPairIndex;
+		pairOption.ItemSelected += index => { _selectedPairIndex = (int)index; _selectedJobIndex = 0; RefreshDeferred(); };
+		vbox.AddChild(MakeRow("親", pairOption));
+
+		// 子の職業
+		var jobOption = new OptionButton();
+		foreach (var j in jobs)
+			jobOption.AddItem(AdventurerPanel.JobLabel(j));
+		jobOption.Selected = _selectedJobIndex;
+		jobOption.ItemSelected += index => { _selectedJobIndex = (int)index; RefreshDeferred(); };
+		vbox.AddChild(MakeRow("娘の職業", jobOption));
+
+		// 触媒
+		var catalystOption = new OptionButton();
+		catalystOption.AddItem("なし");
+		foreach (var c in SoulFusionBalance.Catalysts)
+		{
+			int stock = _state.Materials.TryGetValue(c.MaterialId, out int count) ? count : 0;
+			catalystOption.AddItem($"{MaterialBalance.GetName(c.MaterialId)}×{c.Count}（所持{stock}）：{c.Note}");
+		}
+		int catalystIndex = _selectedCatalystId == null ? 0
+			: SoulFusionBalance.Catalysts.ToList().FindIndex(c => c.MaterialId == _selectedCatalystId) + 1;
+		catalystOption.Selected = catalystIndex;
+		catalystOption.ItemSelected += index =>
+		{
+			_selectedCatalystId = index == 0 ? null : SoulFusionBalance.Catalysts[(int)index - 1].MaterialId;
+			RefreshDeferred();
+		};
+		vbox.AddChild(MakeRow("触媒", catalystOption));
+
+		var nyx = SoulFusionSystem.GetNyxTier(a.JobClass, b.JobClass);
+		string goldPart = $"{_state.Gold}/{SoulFusionBalance.PrescriptionGold}G";
+		if (_state.Gold < SoulFusionBalance.PrescriptionGold)
+			goldPart = $"[color=red]{goldPart}[/color]";
+		vbox.AddChild(MakeRichLabel(
+			$"費用：{goldPart}　能力限界突破の確率：{SoulFusionSystem.GetBreakthroughChance(nyx, _selectedCatalystId)}%"));
+
+		var check = SoulFusionSystem.CheckPrescription(_state, a, b, job, _selectedCatalystId);
+		var button = new Button { Text = "秘薬を処方する", Disabled = check != SoulFusionCheck.Ok || _soulFusionSystem == null };
+		if (check != SoulFusionCheck.Ok)
+			button.TooltipText = CheckLabel(check);
+		button.Pressed += () => OnPrescribePressed(a, b, job, _selectedCatalystId);
+		vbox.AddChild(button);
+
+		return card;
+	}
+
+	private string CultureStatusText(SoulFusionCulture culture)
+	{
+		string parentA = _state.FindAdventurer(culture.ParentAId)?.Name ?? "？";
+		string parentB = _state.FindAdventurer(culture.ParentBId)?.Name ?? "？";
+		string progress = SoulFusionSystem.IsWaitingForRoom(culture)
+			? "[color=orange]育ちきった。宿舎に空きができしだい加わる[/color]"
+			: $"誕生まで残り{culture.WeeksRemaining}週";
+		return $"🫧 培養中：[b]{culture.Child.Name}[/b]（{AdventurerPanel.JobLabel(culture.Child.JobClass)}）" +
+			$"　{parentA}と{parentB}の娘・百合相性：{SoulFusionSystem.GetNyxTierLabel(culture.NyxTier)}　{progress}";
+	}
+
+	/// <summary>候補の表示名。引退者は（引退）を付ける。</summary>
+	private static string MemberLabel(Adventurer a) =>
+		$"{a.Name}（{AdventurerPanel.JobLabel(a.JobClass)}{(a.IsRetired ? "・引退" : "")}）";
+
+	private static string CheckLabel(SoulFusionCheck check) => check switch
+	{
+		SoulFusionCheck.NotUnlocked => "研究「魂魄融和の秘薬」が必要",
+		SoulFusionCheck.TankBusy => "培養槽が使用中",
+		SoulFusionCheck.NotEligiblePair => "このペアは親になれない",
+		SoulFusionCheck.InvalidJob => "娘の職業はどちらかの親の職業から選ぶ",
+		SoulFusionCheck.UnknownCatalyst => "触媒にならない素材",
+		SoulFusionCheck.NotEnoughGold => "所持金が足りない",
+		SoulFusionCheck.NotEnoughCatalyst => "触媒の素材が足りない",
+		_ => "",
+	};
+
+	private void OnPrescribePressed(Adventurer a, Adventurer b, JobClass job, string? catalystId)
+	{
+		var culture = _soulFusionSystem?.TryPrescribe(_state, a, b, job, catalystId);
+		if (culture == null)
+			return;
+
+		string catalystText = catalystId == null ? "" : $"（触媒：{MaterialBalance.GetName(catalystId)}）";
+		LogRequested.Invoke($"[color=violet][b]🧪 {a.Name}と{b.Name}に魂魄融和の秘薬を処方した{catalystText}。[/b][/color]\n" +
+			$"[color=gray]培養槽で娘の{culture.Child.Name}が育ちはじめた。誕生まで{culture.WeeksRemaining}週。[/color]");
+		_selectedPairIndex = 0;
+		_selectedJobIndex = 0;
+		_selectedCatalystId = null;
+		StateChanged.Invoke();
+	}
+
+	/// <summary>OptionButton のシグナルの中でカードを作り直すと発信元を解放してしまうため、次のフレームで描き直す。</summary>
+	private void RefreshDeferred() => Callable.From(RefreshResearchCards).CallDeferred();
+
+	private static RichTextLabel MakeRichLabel(string bbcode)
+	{
+		var label = new RichTextLabel { BbcodeEnabled = true, FitContent = true, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+		label.AppendText(bbcode);
+		return label;
+	}
+
+	private static HBoxContainer MakeRow(string caption, Control control)
+	{
+		var row = new HBoxContainer();
+		row.AddChild(new Label { Text = caption, CustomMinimumSize = new Vector2(96, 0) });
+		control.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		row.AddChild(control);
+		return row;
 	}
 
 	/// <summary>

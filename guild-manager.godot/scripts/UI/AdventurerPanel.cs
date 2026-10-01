@@ -297,6 +297,16 @@ public partial class AdventurerPanel : VBoxContainer
 		else
 			_statusLabel.AppendText("[color=lime]待機中[/color]");
 
+		// 魂魄融和で生まれた娘なら両親を出す（→ 03 §5.4・§0.58）。秘薬の親になった者には印を付ける。
+		if (a.ParentIds.Count == 2)
+		{
+			string parentA = _state.FindAdventurer(a.ParentIds[0])?.Name ?? "？";
+			string parentB = _state.FindAdventurer(a.ParentIds[1])?.Name ?? "？";
+			_statusLabel.AppendText($"　[color=violet]🧪 {parentA}と{parentB}の娘[/color]");
+		}
+		if (a.HasUsedSoulFusion)
+			_statusLabel.AppendText("　[color=violet]🫧 秘薬の親[/color]");
+
 		if (a.NeedsNegotiation)
 		{
 			int remaining = Math.Max(0, SatisfactionBalance.NegotiationGraceWeeks - a.NegotiationWeeksElapsed);

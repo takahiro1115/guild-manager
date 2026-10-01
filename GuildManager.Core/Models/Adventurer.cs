@@ -361,6 +361,19 @@ namespace GuildManager.Core.Models
         /// <summary>退職金（週給×12週。仕様書 03 §7）が支給済みか。</summary>
         public bool SeverancePaid { get; set; } = false;
 
+        // ---- 魂魄融和の秘薬（→ Systems.SoulFusionSystem、03 §5.4・§0.58） ----
+
+        /// <summary>
+        /// 魂魄融和で生まれた子なら、両親のId（2つ）。採用・初期メンバーは空。旧セーブには無く、空のまま読まれる。
+        /// 親はロースター・引退者・除籍者のいずれかにいる（→ GameState.FindAdventurer）。
+        /// </summary>
+        public List<Guid> ParentIds { get; set; } = new();
+
+        /// <summary>
+        /// 秘薬の親になったことがあるか（1人が親になれるのは生涯1回まで）。処方した時点で true になる。旧セーブには無く false で読まれる。
+        /// </summary>
+        public bool HasUsedSoulFusion { get; set; } = false;
+
         /// <summary>戦死した週番号（GameState.WeekNumber）。null＝戦死していない（仕様書 03 §4.3.1）。
         /// 戦死者記録として保持し、GameState.Adventurers から GameState.FallenAdventurers へ移される。</summary>
         public int? FellAtWeek { get; set; }

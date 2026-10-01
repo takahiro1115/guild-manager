@@ -37,9 +37,12 @@ namespace GuildManager.Core.Systems
         /// </summary>
         public bool BossDoorReached { get; set; }
 
+        /// <summary>魂魄融和の子が今週誕生したか（→ SoulFusionSystem、03 §5.4・§0.58）。新しい仲間を見てもらうため自動スキップを止める。</summary>
+        public bool SoulFusionBirthOccurred { get; set; }
+
         public bool ShouldStopAutoSkip =>
             RecruitmentTrialOccurred || SatisfactionWarningOccurred ||
-            FacilityConstructionCompleted ||
+            FacilityConstructionCompleted || SoulFusionBirthOccurred ||
             DeathOrPermanentInjuryOccurred ||
             FinalQuestNewlyUnlocked ||
             DefeatOccurred || BossDoorReached;

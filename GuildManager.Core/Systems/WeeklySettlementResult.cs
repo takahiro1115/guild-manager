@@ -50,6 +50,9 @@ namespace GuildManager.Core.Systems
         /// <summary>今週の待機お手伝い（→ MasterMoodSystem.ProcessIdleHelp、03 §8.1）。対象0名なら空。</summary>
         public List<IdleHelpEntry> IdleHelpEntries { get; } = new();
 
+        /// <summary>今週、培養槽から誕生した子（→ SoulFusionSystem.ProcessWeeklyCultures、03 §5.4・§0.58）。子はロースターに加わっている。</summary>
+        public List<SoulFusionCulture> SoulFusionBirths { get; } = new();
+
         /// <summary>今週完成した施設（無ければnull）。</summary>
         public Facility? CompletedFacility { get; set; }
 

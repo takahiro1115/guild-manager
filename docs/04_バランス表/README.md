@@ -36,7 +36,9 @@
 | `affixes.csv` | 03 §4.7.3・§4.2.2 | AffixBalance（鑑定品のランダムアフィックス＝接頭辞・接尾辞の一覧。**テーブル形式** `Id,Type,Name,TargetStat,MinValue,MaxValue,Tier,AllowedSlots,Weight`、2026年9月・§0.39） |
 | `portraits.csv` | 03 §2.1 | PortraitBalance（採用の応募者に割り当てる顔グラフィックの一覧。**テーブル形式** `Id,Jobs,HairColor,EyeColor`。Id＝`assets/portraits/{Id}.png`、Jobs＝似合う職業の `\|` 区切りまたは `All`。2026年9月・§0.46） |
 | `uniques.csv` | 03 §4.7.5 | UniqueBalance（固有武具＝固定アーティファクト〈紫〉・伝説級〈金〉の一覧。**テーブル形式** `Id,Grade,Name,BaseItemId,HpBonus,BonusStr〜BonusLdr,CounterGimmick,DropFieldId,DropFloor,SellPrice`。伝説級は入手元のボス〈フィールドId・階層〉と対策ギミック、売値0＝売却不可。2026年9月・§0.45） |
-| `research.csv` | 03 §4.6 | ResearchBalance（アルベール研究室の12プロジェクト（うち内職強化 SideBusinessGoldBonus 4種）・必要素材・ゴールド・効果種別・効果値） |
+| `research.csv` | 03 §4.6 | ResearchBalance（アルベール研究室の13プロジェクト（うち内職強化 SideBusinessGoldBonus 4種、魂魄融和の秘薬の解禁 `res_soul_fusion`＝SoulFusionUnlock・効果値0、§0.58）・必要素材・ゴールド・効果種別・効果値） |
+| `soul_fusion.csv` | 03 §5.4 | SoulFusionBalance（魂魄融和の秘薬、2026年10月・§0.58）：処方できる相性 `RequiredCompatibility`（100）・費用 `PrescriptionGold`（2500G）・培養 `CultureWeeks`（12週）・培養槽の数 `CultureTankCount`（1）・娘のPAのばらつき `PaVarianceMin/Max`（−5〜+10）・百合相性ごとの能力限界突破の確率 `BreakthroughChance_Destined/Complementary/Ordinary`（30/15/5%）・突破の上乗せ `BreakthroughBonusMin/Max`（5〜15）と上限 `BreakthroughPaCap`（120）・特性の継承確率 `TraitInheritChancePercent`（30）・`RareTraitInheritChancePercent`（15）・`FlawInheritChancePercent`（20）。すべて仮の値 |
+| `soul_fusion_catalysts.csv` | 03 §5.4 | SoulFusionBalance.Catalysts（秘薬の触媒。**テーブル形式** `MaterialId,Count,EffectType,EffectValue,Note`。EffectType は `PaVarianceMinBonus`・`TraitInheritBonus`・`FlawInheritBonus`・`BreakthroughChanceBonus`・`RareTraitInheritBonus`。各フィールドの素材を1種ずつ、§0.58） |
 | `relic.csv` | 03 §4.7・§4.8.2 | RelicBalance（未鑑定遺物の希少度4段階＝鑑定費用・鑑定結果比率・換金額と獲得個数の幅・武具の抽選プール・**売却額**、採取ドロップ確率、希少度ロール閾値、ボス撃破ドロップの補正）。**アフィックスの付与率・Tier範囲**（`Affix*`、→ AffixBalance） |
 
 `trait.csv`・`equipment.csv` は項目58（バランス値のCSV外部化）の時点では対応CSVが

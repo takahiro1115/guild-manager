@@ -11,3 +11,4 @@ res_beauty_lotion,潤い美肌液の調合,森の薬草で作る貴族女性向�
 res_energy_tonic,滋養強壮アンプル,洞窟の鉱物抽出液を用いた強壮トニック。内職の基本売上+250G,mat_cave_moss:5;mat_cave_ore:3,200,SideBusinessGoldBonus,250
 res_trade_route,古代香料の王都外販,古代芳香の再現による王都商館への販路拡大。内職の基本売上+400G,mat_ruins_scrap:6;mat_ruins_rune:3,300,SideBusinessGoldBonus,400
 res_vitality_elixir,不老長生薬の密売,峡谷の熱源を活かしたエルフの秘薬。内職の基本売上+600G,mat_canyon_ash:8;mat_canyon_gem:4,500,SideBusinessGoldBonus,600
+res_soul_fusion,魂魄融和の秘薬,アルベールの悲願。相性が極まった2人の魂と血統を溶け合わせ、培養槽で娘を育てる秘薬の製法。研究室に培養槽が開く,mat_forest_spore:5;mat_forest_herb:10,1500,SoulFusionUnlock,0

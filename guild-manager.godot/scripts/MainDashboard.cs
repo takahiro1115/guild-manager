@@ -251,6 +251,8 @@ public partial class MainDashboard : Control
 			_satisfactionSystem, _compatibilitySystem);
 		_dungeonPanel.Initialize(_dungeonExpeditionSystem);
 		_adventurerPanel.Initialize(_satisfactionSystem, _agingSystem);
+		// 魂魄融和の秘薬（→ 03 §5.4・§0.58）。子の能力・特性の抽選は他と別シードにする。
+		_researchPanel.Initialize(new SoulFusionSystem(new SeededRng(1123)));
 		// 週次決算のオーケストレーション（→ 03 §1.3・自動スキップ）。既存の各Systemインスタンスを
 		// そのまま共有し、二重管理（別インスタンスによる状態不整合）を避ける。
 		_weekProcessingSystem = new WeekProcessingSystem(
@@ -586,6 +588,10 @@ public partial class MainDashboard : Control
 		foreach (var grant in settlement.TraitGrantEvents)
 			AppendLog($"[color=orange]⚠ {grant.ToLogText()}[/color]");
 		LogNegotiationStatus(settlement.NegotiationTerminated); // → 03 §5.2：契約交渉・退団
+
+		// 魂魄融和の誕生（→ 03 §5.4・§0.58）。
+		foreach (var birth in settlement.SoulFusionBirths)
+			LogSoulFusionBirth(birth);
 
 		if (settlement.CompletedFacility != null)
 			AppendLog($"[color=lime][b]🏗 {FacilityLabel(settlement.CompletedFacility.Type)}がLv{settlement.CompletedFacility.CurrentLevel}に完成した！[/b][/color]");
@@ -1135,6 +1141,28 @@ public partial class MainDashboard : Control
 			sb.AppendLine($" - {adv.Name}: HP -{kv.Value}{pct}（残りHP {adv.CurrentHP}/{adv.MaxHP}）");
 		}
 	}
+
+	/// <summary>
+	/// 魂魄融和の娘の誕生を週報ログに報告する（→ 03 §5.4・§0.58）。能力限界突破した能力と、受け継いだ・生まれ持った特性も出す。
+	/// </summary>
+	private void LogSoulFusionBirth(SoulFusionCulture birth)
+	{
+		var child = birth.Child;
+		string parentA = _state.FindAdventurer(birth.ParentAId)?.Name ?? "？";
+		string parentB = _state.FindAdventurer(birth.ParentBId)?.Name ?? "？";
+		AppendLog($"[color=violet][b]🧪 培養槽から{parentA}と{parentB}の娘、{child.Name}（{AdventurerPanel.JobLabel(child.JobClass)}）が誕生し、ギルドに加わった！[/b][/color]" +
+			$"\n[color=gray]百合相性：{SoulFusionSystem.GetNyxTierLabel(birth.NyxTier)}・総合PA {child.TotalPA:F0}・週給 {child.WeeklyWage}G[/color]");
+		foreach (var stat in birth.BreakthroughStats)
+			AppendLog($"[color=gold]✨ 能力限界突破！ {child.Name}の{stat}の潜在能力が {StatPa(child, stat)} に達した。[/color]");
+		if (child.TraitIds.Count > 0)
+			AppendLog($"[color=gray]特性：{string.Join("・", child.TraitIds.Select(id => TraitCatalog.FindById(id)?.DisplayName ?? id))}[/color]");
+	}
+
+	private static int StatPa(Adventurer a, string stat) => stat switch
+	{
+		"STR" => a.PA_STR, "AGI" => a.PA_AGI, "VIT" => a.PA_VIT, "MND" => a.PA_MND,
+		"DEX" => a.PA_DEX, "LDR" => a.PA_LDR, _ => a.PA_INT,
+	};
 
 	/// <summary>
 	/// 契約交渉の状況を週報ログに報告する（→ 03 §5.2）。

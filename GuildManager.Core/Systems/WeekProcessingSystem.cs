@@ -8,7 +8,7 @@ namespace GuildManager.Core.Systems
     /// <summary>
     /// 週次決算処理のオーケストレーション。仕様書 03 §1.3（自動スキップ）参照（v1.10改訂で新設）。
     ///
-    /// 「大迷宮の出撃の解決→マスターの機嫌→経済（週給・内職売上）→訓練→回復→成長→満足度→加齢→施設→敗北判定」という
+    /// 「大迷宮の出撃の解決→マスターの機嫌→経済（週給・内職売上）→訓練→回復→成長→満足度→加齢→魂魄融和の培養→施設→敗北判定」という
     /// 一連の週次決算処理を、GuildManager.Core側の1つのメソッドに集約する
     /// （→ 05技術メモ「GuildManager.CoreはGodotに依存しない」方針に沿う）。
     ///
@@ -138,6 +138,10 @@ namespace GuildManager.Core.Systems
             if (state.MasterMood != moodBeforeAging)
                 result.MoodReport.Entries.Add(new MasterMoodEntry("退職金の不足", state.MasterMood - moodBeforeAging, state.MasterMood - moodBeforeAging));
             result.MoodReport.MoodAfter = state.MasterMood;
+
+            // 魂魄融和の培養（→ 03 §5.4・§0.58）：満期引退で宿舎が空いた週に誕生できるよう、加齢の後に進める。
+            result.SoulFusionBirths.AddRange(SoulFusionSystem.ProcessWeeklyCultures(state));
+            result.Flags.SoulFusionBirthOccurred = result.SoulFusionBirths.Count > 0;
 
             result.CompletedFacility = _facilitySystem.ProcessWeeklyConstruction(state); // → 03 §6.1：施設Lv投資
             result.Flags.FacilityConstructionCompleted = result.CompletedFacility != null;

@@ -1,0 +1,6 @@
+MaterialId,Count,EffectType,EffectValue,Note
+mat_forest_herb,5,PaVarianceMinBonus,5,子のPAのばらつきの下限を上げる（-5→0＝両親の平均を下回らない）
+mat_cave_ore,3,TraitInheritBonus,20,親の長所を受け継ぐ確率を上げる（30→50%）
+mat_ruins_rune,3,FlawInheritBonus,-20,親の欠点を受け継ぐ確率を下げる（20→0%）
+mat_canyon_gem,3,BreakthroughChanceBonus,15,限界突破の確率を上げる（%ポイント）
+mat_abyss_crystal,2,RareTraitInheritBonus,35,親のレア特性を受け継ぐ確率を上げる（15→50%）
