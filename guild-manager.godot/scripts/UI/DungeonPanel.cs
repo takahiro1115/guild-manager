@@ -353,8 +353,11 @@ public partial class DungeonPanel : ScrollContainer
 		for (int i = 0; i < fields.Count; i++)
 		{
 			var field = fields[i];
+			// 異変のあるフィールドには［異変］、受けている依頼の対象には［依頼］を付ける（§0.64）
+			string marks = (_state.Anomaly is { } anomaly && anomaly.FieldId == field.Id ? "　［異変］" : "") +
+				(_state.Commissions.Any(c => c.Accepted && c.FieldId == field.Id) ? "　［依頼］" : "");
 			_fieldSelector.AddItem(field.IsUnlocked
-				? $"{field.Name}（到達: {field.ReachedFloor}/{DungeonField.MaxFloor}F）"
+				? $"{field.Name}（到達: {field.ReachedFloor}/{DungeonField.MaxFloor}F）{marks}"
 				: "？？？（未開放）");
 			_fieldSelector.SetItemDisabled(i, !field.IsUnlocked);
 
@@ -423,7 +426,11 @@ public partial class DungeonPanel : ScrollContainer
 			.Where(m => m.Field.Id == _selectedField.Id && m.MissionType == DungeonMissionType.Scouting)
 			.ToList();
 		var pins = missions.Select(m => (m.CurrentFloor, $"{MissionPartyName(m)} {MissionStatusPlain(m)}")).ToList();
-		_depthBar.SetData(_selectedField, boss?.Id, _viewedBossId, pins);
+		var commissionBossIds = _state.Commissions
+			.Where(c => c.Accepted && c.BossId.HasValue && c.FieldId == _selectedField.Id)
+			.Select(c => c.BossId!.Value).ToHashSet();
+		Guid? anomalyBossId = _state.Anomaly is { } anomalyOfField && anomalyOfField.FieldId == _selectedField.Id ? anomalyOfField.BossId : null;
+		_depthBar.SetData(_selectedField, boss?.Id, _viewedBossId, pins, commissionBossIds, anomalyBossId);
 
 		var sb = new StringBuilder();
 		sb.AppendLine($"最高到達 [color=cyan][b]{_selectedField.ReachedFloor}F[/b][/color]／{DungeonField.MaxFloor}F　" +

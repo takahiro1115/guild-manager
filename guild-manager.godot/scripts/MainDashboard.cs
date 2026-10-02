@@ -1295,7 +1295,7 @@ public partial class MainDashboard : Control
 			{
 				BbcodeEnabled = true,
 				FitContent = true,
-				CustomMinimumSize = new Vector2(860, 0),
+				CustomMinimumSize = new Vector2(820, 0),
 				SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
 			};
 			label.AppendText(bbcode);
@@ -1318,11 +1318,53 @@ public partial class MainDashboard : Control
 			margin.AddThemeConstantOverride($"margin_{side}", 20);
 		margin.AddChild(column);
 
-		var scroll = new ScrollContainer { CustomMinimumSize = new Vector2(920, 620), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+		var scroll = new ScrollContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, SizeFlagsVertical = Control.SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
 		scroll.AddChild(margin);
 
+		// 舞台：ギルドの広間の背景に暗幕を重ね、左にアルベールの立ち絵、右に語りと記録の板
+		var stage = new Control { CustomMinimumSize = new Vector2(1400, 720) };
+		var background = new TextureRect
+		{
+			Texture = GD.Load<Texture2D>("res://assets/ending/ending_bg.jpg"),
+			ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+			StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered,
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+		};
+		background.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		stage.AddChild(background);
+		var dim = new ColorRect { Color = new Color(0, 0, 0, 0.35f), MouseFilter = Control.MouseFilterEnum.Ignore };
+		dim.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		stage.AddChild(dim);
+
+		var layout = new HBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
+		layout.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		layout.AddThemeConstantOverride("separation", 16);
+		var albert = new TextureRect
+		{
+			Texture = GD.Load<Texture2D>("res://assets/ending/albert_standing.png"),
+			ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+			StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+			CustomMinimumSize = new Vector2(440, 0),
+			SizeFlagsVertical = Control.SizeFlags.ExpandFill,
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+			Modulate = new Color(1, 1, 1, 0),
+		};
+		layout.AddChild(albert);
+		var plate = new PanelContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, SizeFlagsVertical = Control.SizeFlags.ExpandFill };
+		var plateStyle = new StyleBoxFlat { BgColor = new Color(0.04f, 0.04f, 0.06f, 0.82f), BorderColor = new Color(0.55f, 0.42f, 0.2f) };
+		plateStyle.SetBorderWidthAll(2);
+		plateStyle.SetCornerRadiusAll(6);
+		plate.AddThemeStyleboxOverride("panel", plateStyle);
+		plate.AddChild(scroll);
+		var plateMargin = new MarginContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+		foreach (var side in new[] { "top", "right", "bottom" })
+			plateMargin.AddThemeConstantOverride($"margin_{side}", 20);
+		plateMargin.AddChild(plate);
+		layout.AddChild(plateMargin);
+		stage.AddChild(layout);
+
 		var dialog = new AcceptDialog { Title = "エンディング ― 失われた理想郷", OkButtonText = "ギルドを続ける" };
-		dialog.AddChild(scroll);
+		dialog.AddChild(stage);
 		dialog.Confirmed += () => CloseDialogThenRun(dialog, () => afterClose?.Invoke());
 		dialog.Canceled += () => CloseDialogThenRun(dialog, () => afterClose?.Invoke());
 		AddChild(dialog);
@@ -1330,6 +1372,7 @@ public partial class MainDashboard : Control
 
 		double revealSeconds = Math.Clamp(narration.GetTotalCharacterCount() * 0.06, 3.0, 14.0);
 		var tween = dialog.CreateTween();
+		dialog.CreateTween().TweenProperty(albert, "modulate:a", 1.0, 1.5);
 		tween.TweenProperty(narration, "visible_ratio", 1.0, revealSeconds);
 		tween.TweenProperty(record, "modulate:a", 1.0, 1.2);
 		void Skip(InputEvent e)
@@ -1339,10 +1382,12 @@ public partial class MainDashboard : Control
 				tween.Kill();
 				narration.VisibleRatio = 1f;
 				record.Modulate = Colors.White;
+				albert.Modulate = Colors.White;
 			}
 		}
 		narration.GuiInput += Skip;
 		scroll.GuiInput += Skip;
+		stage.GuiInput += Skip;
 	}
 
 	/// <summary>エンディングの語り（世界観は 01_コンセプト.md）。</summary>

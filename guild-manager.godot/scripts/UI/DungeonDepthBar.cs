@@ -55,6 +55,15 @@ public partial class DungeonDepthBar : Control
 	private Guid? _viewedBossId;
 	private List<(int Floor, string Label)> _pins = new();
 
+	/// <summary>受けている依頼の対象のボス（名前の後ろに［依頼］を付ける、§0.64）。</summary>
+	private ISet<Guid> _commissionBossIds = new HashSet<Guid>();
+
+	/// <summary>異変の対象のボス（［異変］を付ける）。</summary>
+	private Guid? _anomalyBossId;
+
+	private static readonly Color CommissionColor = new("#e0c060");
+	private static readonly Color AnomalyColor = new("#fb923c");
+
 	/// <summary>区間（のボス）がクリックされた（→ DungeonPanel が階層ボス欄にそのボスを表示する）。</summary>
 	public event Action<Guid> BossClicked = delegate { };
 
@@ -68,11 +77,14 @@ public partial class DungeonDepthBar : Control
 	}
 
 	/// <summary>表示する迷宮と、目標・閲覧中のボス、潜行中の部隊の位置（階層と表示名）を渡して再描画する。</summary>
-	public void SetData(DungeonField? field, Guid? targetBossId, Guid? viewedBossId, IEnumerable<(int Floor, string Label)> pins)
+	public void SetData(DungeonField? field, Guid? targetBossId, Guid? viewedBossId, IEnumerable<(int Floor, string Label)> pins,
+		ISet<Guid>? commissionBossIds = null, Guid? anomalyBossId = null)
 	{
 		_field = field;
 		_targetBossId = targetBossId;
 		_viewedBossId = viewedBossId;
+		_commissionBossIds = commissionBossIds ?? new HashSet<Guid>();
+		_anomalyBossId = anomalyBossId;
 		_pins = pins.ToList();
 		QueueRedraw();
 	}
@@ -142,8 +154,22 @@ public partial class DungeonDepthBar : Control
 			bool known = boss.IsDefeated || boss.Id == _targetBossId || boss.IntelRate > 0;
 			string name = known ? boss.Name : "？？？";
 			string intel = boss.IntelRate > 0 ? $" 解析{boss.IntelRate * 100:F0}%" : "";
-			DrawString(font, new Vector2(markerX, y + ascent / 2 - 1), $"{icon} {name}{intel}",
+			string text = $"{icon} {name}{intel}";
+			DrawString(font, new Vector2(markerX, y + ascent / 2 - 1), text,
 				HorizontalAlignment.Left, Size.X - markerX, FontSize, boss.Id == _viewedBossId ? ViewedOutlineColor : color);
+
+			// 依頼・異変の印：名前のすぐ後ろに色つきの札を置く（撃破済みのボスには付けない）
+			if (!boss.IsDefeated)
+			{
+				float tagX = markerX + font.GetStringSize(text, HorizontalAlignment.Left, -1, FontSize).X + 8;
+				if (_commissionBossIds.Contains(boss.Id))
+				{
+					DrawString(font, new Vector2(tagX, y + ascent / 2 - 1), "［依頼］", HorizontalAlignment.Left, -1, FontSize, CommissionColor);
+					tagX += font.GetStringSize("［依頼］", HorizontalAlignment.Left, -1, FontSize).X + 6;
+				}
+				if (_anomalyBossId == boss.Id)
+					DrawString(font, new Vector2(tagX, y + ascent / 2 - 1), "［異変］", HorizontalAlignment.Left, -1, FontSize, AnomalyColor);
+			}
 		}
 
 		// 到達階層の線

@@ -324,7 +324,7 @@ public partial class FacilityPanel : VBoxContainer
 		bool hasCandidates = TrainingSystem.GetTransmittableTraitIds(trainer).Count > 0;
 		string? focus = TrainingSystem.GetTrainerFocusTrait(_state, type);
 		button.Disabled = !hasCandidates;
-		button.Text = $"📜 伝授する特性：{(focus == null ? "自動" : TraitName(focus))}";
+		button.Text = $"📜 伝授する特性：{(focus == null ? "自動" : TraitName(focus))} ▼";
 		button.TooltipText = hasCandidates
 			? "教官が重点的に伝授する特性を選ぶ。生徒がすでに持っていれば、ほかの特性を特性枠の順に伝授する。\n「自動」は教官の特性枠の順。教官が替わると自動に戻る。"
 			: "この教官には伝授できる特性が無い。";
@@ -344,16 +344,21 @@ public partial class FacilityPanel : VBoxContainer
 		_focusMenuTraitIds.Add(null);
 		_focusTraitMenu.AddRadioCheckItem("自動（教官の特性枠の順）", 0);
 		_focusTraitMenu.SetItemChecked(0, focus == null);
+		_focusTraitMenu.SetItemTooltip(0, "教官の特性枠の順に伝授する。");
 		foreach (var traitId in TrainingSystem.GetTransmittableTraitIds(trainer))
 		{
 			int id = _focusMenuTraitIds.Count;
 			_focusMenuTraitIds.Add(traitId);
-			_focusTraitMenu.AddRadioCheckItem(TraitName(traitId), id);
-			_focusTraitMenu.SetItemChecked(_focusTraitMenu.GetItemIndex(id), traitId == focus);
+			var def = TraitCatalog.FindById(traitId);
+			// レアは★を付ける。説明はツールチップ（選ぶ前に効果を確かめられるように）
+			_focusTraitMenu.AddRadioCheckItem($"{(def?.IsRare == true ? "★" : "")}{TraitName(traitId)}", id);
+			int itemIndex = _focusTraitMenu.GetItemIndex(id);
+			_focusTraitMenu.SetItemChecked(itemIndex, traitId == focus);
+			_focusTraitMenu.SetItemTooltip(itemIndex, def?.Description ?? "");
 		}
 
 		var rect = anchor.GetGlobalRect();
-		_focusTraitMenu.Popup(new Rect2I((Vector2I)(rect.Position + new Vector2(0, rect.Size.Y)), new Vector2I((int)rect.Size.X, 0)));
+		_focusTraitMenu.Popup(new Rect2I((Vector2I)(rect.Position + new Vector2(0, rect.Size.Y)), new Vector2I(Math.Max((int)rect.Size.X, 320), 0)));
 	}
 
 	private void OnFocusTraitMenuIdPressed(long id)
@@ -496,7 +501,7 @@ public partial class FacilityPanel : VBoxContainer
 					double tenureBonus = TrainingSystem.GetTenureBonus(tenureWeeks);
 					double chance = TrainingSystem.GetInheritanceChance(trainer, tenureWeeks);
 					string tenureLine = $"在任 {tenureWeeks}週（伝授確率 +{tenureBonus * 100:0.#}%）・伝授確率 [color=lime]{chance * 100:0.#}%[/color]/週";
-					return $"[color=gold]🎖️ 教官：{trainer.Name}（元{trainer.JobClass}）[/color]\n" +
+					return $"[color=gold]🎖️ 教官：{trainer.Name}（元{AdventurerPanel.JobLabel(trainer.JobClass)}）[/color]\n" +
 					       $"伝授：[color=lime]{statsStr}成長率 +{bonus * 100:F1}%[/color]\n" +
 					       tenureLine + "\n" +
 					       traitLine;
@@ -519,7 +524,7 @@ public partial class FacilityPanel : VBoxContainer
 				{
 					double intelBonus = AdvisorSystem.GetAdvisorSurveyIntelBonus(_state);
 					double travelBonus = AdvisorSystem.GetAdvisorTraversalPowerBonus(_state);
-					return $"[color=cyan]🖋 参謀：{advisor.Name}（元{advisor.JobClass}）[/color]\n" +
+					return $"[color=cyan]🖋 参謀：{advisor.Name}（元{AdventurerPanel.JobLabel(advisor.JobClass)}）[/color]\n" +
 					       $"支援：[color=lime]解析 +{intelBonus * 100:F0}% ／ 走破 +{travelBonus:F1}pt[/color]";
 				}
 			}
@@ -539,7 +544,7 @@ public partial class FacilityPanel : VBoxContainer
 				if (scout != null)
 				{
 					double bonus = AdvisorSystem.GetScoutMasterBonus(scout);
-					return $"[color=cyan]🧭 スカウト：{scout.Name}（元{scout.JobClass}）[/color]\n" +
+					return $"[color=cyan]🧭 スカウト：{scout.Name}（元{AdventurerPanel.JobLabel(scout.JobClass)}）[/color]\n" +
 					       $"補正：[color=lime]有望新人応募率 +{bonus * 100:F1}%[/color]";
 				}
 			}
