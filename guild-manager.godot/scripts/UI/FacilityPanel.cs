@@ -53,6 +53,8 @@ public partial class FacilityPanel : VBoxContainer
 		public PanelContainer? InstructorPanel { get; set; }
 		public RichTextLabel? InstructorLabel { get; set; }
 		/// <summary>訓練施設の「伝授する特性」ボタン（教官欄の下。教官が任命されているときだけ表示、→ 03 §7.1・§0.54）。</summary>
+		/// <summary>顧問の任命ボタン（顧問欄の下。顧問管理ポップアップを開く）。</summary>
+		public Button? AppointButton { get; set; }
 		public Button? FocusTraitButton { get; set; }
 		public Button ActionButton { get; set; } = null!;
 	}
@@ -82,37 +84,9 @@ public partial class FacilityPanel : VBoxContainer
 		BindCard(FacilityType.WarRoom, "%Card_WarRoom");
 		BindCard(FacilityType.RecruitmentOffice, "%Card_RecruitmentOffice");
 
-		BuildAdvisorRow();
-
 		_focusTraitMenu = new PopupMenu();
 		_focusTraitMenu.IdPressed += OnFocusTraitMenuIdPressed;
 		AddChild(_focusTraitMenu);
-	}
-
-	/// <summary>
-	/// 画面の先頭に「👔 顧問を任命」の行を置く（→ AdvisorRequested）。教官（4訓練所）・参謀（作戦資料室）・スカウト（冒険者支援室）は
-	/// いずれも施設に紐づく役職のため、各カードの顧問欄と同じ画面から任命できるようにする（2026年9月、個人詳細の右肩から移設）。
-	/// </summary>
-	private void BuildAdvisorRow()
-	{
-		var row = new HBoxContainer();
-		row.AddThemeConstantOverride("separation", 12);
-
-		var note = new Label
-		{
-			Text = "引退した冒険者を、教官（4訓練所）・参謀（作戦資料室）・スカウト（冒険者支援室）に任命できる。",
-			SizeFlagsHorizontal = SizeFlags.ExpandFill,
-			VerticalAlignment = VerticalAlignment.Center,
-		};
-		note.AddThemeColorOverride("font_color", new Color(0.7f, 0.72f, 0.78f));
-		row.AddChild(note);
-
-		var button = new Button { Text = "👔 顧問を任命", CustomMinimumSize = new Vector2(140, 32) };
-		button.Pressed += () => AdvisorRequested.Invoke();
-		row.AddChild(button);
-
-		AddChild(row);
-		MoveChild(row, 0);
 	}
 
 	private void BindCard(FacilityType type, string cardUniqueName)
@@ -130,14 +104,32 @@ public partial class FacilityPanel : VBoxContainer
 			instructorLabel = instructorPanel.GetNode<RichTextLabel>("InstructorMargin/InstructorLabel");
 		}
 
-		// 訓練施設だけ、教官欄の直下に「伝授する特性」ボタンを置く（コードで構築、シーン変更なし）。
+		// 顧問（教官・参謀・スカウト）の任命は、配属先の施設カードの顧問欄の直下から行う（コードで構築、シーン変更なし）。
+		// 顧問管理ポップアップを開く（役職の選択はポップアップ側）。施設が未建設の間は押せない。
+		Button? appointButton = null;
+		if (instructorPanel != null)
+		{
+			// 顧問欄の中（文面の右）に置く：文面とボタンを横に並べ、欄を1つにまとめる
+			var margin = instructorLabel!.GetParent();
+			var inner = new HBoxContainer();
+			inner.AddThemeConstantOverride("separation", 10);
+			margin.RemoveChild(instructorLabel);
+			margin.AddChild(inner);
+			instructorLabel.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+			inner.AddChild(instructorLabel);
+			appointButton = new Button { SizeFlagsVertical = SizeFlags.ShrinkCenter };
+			appointButton.Pressed += () => AdvisorRequested.Invoke();
+			inner.AddChild(appointButton);
+		}
+
+		// 訓練施設だけ、顧問欄の下に「伝授する特性」ボタンを置く。
 		Button? focusTraitButton = null;
 		if (instructorPanel != null && FacilityBalance.IsTrainingFacility(type))
 		{
 			focusTraitButton = new Button { Visible = false };
 			focusTraitButton.Pressed += () => OpenFocusTraitMenu(type, focusTraitButton);
 			vbox.AddChild(focusTraitButton);
-			vbox.MoveChild(focusTraitButton, instructorPanel.GetIndex() + 1);
+			vbox.MoveChild(focusTraitButton, instructorPanel!.GetIndex() + 1);
 		}
 
 		var binding = new FacilityCardBinding
@@ -151,6 +143,7 @@ public partial class FacilityPanel : VBoxContainer
 			CostLabel = vbox.GetNode<Label>("CostLabel"),
 			InstructorPanel = instructorPanel,
 			InstructorLabel = instructorLabel,
+			AppointButton = appointButton,
 			FocusTraitButton = focusTraitButton,
 			ActionButton = vbox.GetNode<Button>("ActionButton"),
 		};
@@ -256,6 +249,8 @@ public partial class FacilityPanel : VBoxContainer
 			binding.InstructorLabel.Clear();
 			binding.InstructorLabel.AppendText(GetInstructorSlotText(binding.Type, currentLevel));
 		}
+		if (binding.AppointButton != null)
+			RefreshAppointButton(binding.AppointButton, binding.Type, currentLevel);
 		if (binding.FocusTraitButton != null)
 			RefreshFocusTraitButton(binding.FocusTraitButton, binding.Type, currentLevel);
 
@@ -295,6 +290,20 @@ public partial class FacilityPanel : VBoxContainer
 			binding.ActionButton.Text = $"🔨 {actText} ({cost}G / {weeks}週)";
 			binding.ActionButton.TooltipText = $"{FacilityLabel(binding.Type)}の{actText}を行います。着工時に費用{cost}Gを前払いします。";
 		}
+	}
+
+	/// <summary>顧問の任命ボタン：役職名と、任命済みなら「交代」と出す。施設が未建設なら押せない。</summary>
+	private void RefreshAppointButton(Button button, FacilityType type, int level)
+	{
+		string role = type == FacilityType.WarRoom ? "参謀" : type == FacilityType.RecruitmentOffice ? "スカウト" : "教官";
+		bool assigned = type == FacilityType.WarRoom ? _state.AssignedAdvisor.HasValue
+			: type == FacilityType.RecruitmentOffice ? _state.AssignedScoutMaster.HasValue
+			: GetAssignedTrainer(type) != null;
+		button.Disabled = level < 1;
+		button.Text = assigned ? "👔 交代" : "👔 任命";
+		button.TooltipText = level < 1
+			? $"施設をLv1まで建設すると、引退した冒険者を{role}に任命できる。"
+			: $"引退した冒険者を{role}に{(assigned ? "任命し直す・解任する" : "任命する")}（顧問管理を開く）。1人が担当できるのは1つの役職まで。";
 	}
 
 	private Adventurer? GetAssignedTrainer(FacilityType type) =>
@@ -494,7 +503,7 @@ public partial class FacilityPanel : VBoxContainer
 				}
 			}
 
-			return "[color=gray]教官：未任命（上の「👔 顧問を任命」から任命できる）[/color]";
+			return "[color=gray]教官：未任命（右のボタンから任命できる）[/color]";
 		}
 
 		// 作戦資料室（参謀）
@@ -515,7 +524,7 @@ public partial class FacilityPanel : VBoxContainer
 				}
 			}
 
-			return "[color=gray]参謀：未任命（上の「👔 顧問を任命」から任命できる）[/color]";
+			return "[color=gray]参謀：未任命（右のボタンから任命できる）[/color]";
 		}
 
 		// 冒険者支援室（スカウト）
@@ -535,7 +544,7 @@ public partial class FacilityPanel : VBoxContainer
 				}
 			}
 
-			return "[color=gray]スカウト：未任命（上の「👔 顧問を任命」から任命できる）[/color]";
+			return "[color=gray]スカウト：未任命（右のボタンから任命できる）[/color]";
 		}
 
 		return "";
