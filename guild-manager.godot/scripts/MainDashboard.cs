@@ -618,7 +618,7 @@ public partial class MainDashboard : Control
 		foreach (var help in settlement.IdleHelpEntries)
 			AppendLog(help.Gold > 0
 				? $"[color=lime]☕ {help.Name} はギルドでアルベールの内職を手伝い、{help.Gold} G とマスターの機嫌（+{help.Mood}）に貢献した。[/color]"
-				// 怠惰（→ 03 §0.56）：手伝わずにだらけていたが、マスターの話し相手にはなった。
+				// 怠け者（→ 03 §0.56）：手伝わずにだらけていたが、マスターの話し相手にはなった。
 				: $"[color=gray]☕ {help.Name} はギルドでだらけて内職を手伝わなかった（0 G）。マスターの話し相手にはなった（機嫌 +{help.Mood}）。[/color]");
 
 		// アルベールの市販薬・内職売上（→ 03 §8.1。4週に1回、機嫌に応じた倍率。旧・月次助成金）。

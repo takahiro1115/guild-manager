@@ -341,7 +341,7 @@ namespace GuildManager.Core.Models
         /// <summary>気難しい：本人の満足度が毎週下がる（→ SatisfactionSystem）。快活で克服。</summary>
         public static readonly TraitDefinition Moody = Define(new TraitDefinition { Id = MoodyId, IsFlaw = true, OvercomeByTraitId = CheerfulId, Effects = new List<TraitEffect>() });
 
-        /// <summary>怠惰：待機お手伝いで稼がない（機嫌は上がる、→ MasterMoodSystem.GetIdleHelpGold）。働き者で克服。</summary>
+        /// <summary>怠け者：待機お手伝いで稼がない（機嫌は上がる、→ MasterMoodSystem.GetIdleHelpGold）。働き者で克服。</summary>
         public static readonly TraitDefinition Slothful = Define(new TraitDefinition { Id = SlothfulId, IsFlaw = true, OvercomeByTraitId = HardworkerId, Effects = new List<TraitEffect>() });
 
         /// <summary>浪費家：採用時の週給と適正週給が高い（→ RecruitmentSystem・SatisfactionSystem）。克服できない。</summary>

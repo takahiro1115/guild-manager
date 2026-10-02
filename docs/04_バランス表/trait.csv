@@ -127,7 +127,7 @@ Fickle_IsCurseOrInjury,false,真偽,障害・呪い特性か
 Moody_DisplayName,気難しい,名称,特性の表示名（生まれつきの欠点、§0.56）
 Moody_Description,生まれつきの欠点。不満を溜めやすく、満足度が毎週少しずつ下がる。快活を教われば克服できる,説明,特性の説明文
 Moody_IsCurseOrInjury,false,真偽,障害・呪い特性か
-Slothful_DisplayName,怠惰,名称,特性の表示名（生まれつきの欠点、§0.56）
+Slothful_DisplayName,怠け者,名称,特性の表示名（生まれつきの欠点、§0.56）
 Slothful_Description,生まれつきの欠点。ギルドに残った週も内職を手伝わず、お金を稼がない（機嫌は上がる）。働き者を教われば克服できる,説明,特性の説明文
 Slothful_IsCurseOrInjury,false,真偽,障害・呪い特性か
 Spendthrift_DisplayName,浪費家,名称,特性の表示名（生まれつきの欠点、§0.56）

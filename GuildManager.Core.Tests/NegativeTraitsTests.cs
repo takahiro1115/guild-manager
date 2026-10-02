@@ -111,7 +111,7 @@ namespace GuildManager.Core.Tests
         public void DisplayNames_MatchSpec()
         {
             Assert.Equal(
-                new[] { "臆病", "不器用", "方向音痴", "猪突猛進", "病弱", "飽きっぽい", "気難しい", "怠惰", "浪費家" },
+                new[] { "臆病", "不器用", "方向音痴", "猪突猛進", "病弱", "飽きっぽい", "気難しい", "怠け者", "浪費家" },
                 Flaws.Select(f => TraitCatalog.FindById(f.Flaw)!.DisplayName));
             Assert.Equal(
                 new[] { "毒の後遺症", "足の古傷", "腕の古傷", "戦慄", "燃え尽き" },

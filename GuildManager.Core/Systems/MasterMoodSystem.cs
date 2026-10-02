@@ -217,7 +217,7 @@ namespace GuildManager.Core.Systems
         /// HardworkerIdleHelpGoldMultiplier 倍（四捨五入）。
         /// </summary>
         public static int GetIdleHelpGold(Adventurer a) =>
-            a.HasTrait(TraitCatalog.SlothfulId) ? 0 // 怠惰（§0.56）：手伝わない（機嫌の上昇はそのまま）
+            a.HasTrait(TraitCatalog.SlothfulId) ? 0 // 怠け者（§0.56）：手伝わない（機嫌の上昇はそのまま）
             : a.HasTrait(TraitCatalog.HardworkerId)
                 ? (int)Math.Round(MasterMoodBalance.IdleAdventurerHelpGold * TraitBalance.HardworkerIdleHelpGoldMultiplier, MidpointRounding.AwayFromZero)
                 : MasterMoodBalance.IdleAdventurerHelpGold;
