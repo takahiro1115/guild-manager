@@ -512,6 +512,9 @@ public partial class MainDashboard : Control
 	{
 		int thisWeek = _state.WeekNumber;
 
+		// 週の区切り（自動スキップの週ごとのログは出さないため、手動の週送りだけ）
+		AppendLog("[color=#4b5563]────────────────────[/color]");
+
 		// 部隊の方針（§0.63）：決算の前に、扉前の自動判断と空いている部隊の自動出撃を行う。
 		LogSquadOrders(_squadOrderSystem.Execute(_state));
 
@@ -709,7 +712,7 @@ public partial class MainDashboard : Control
 				$"{string.Join("・", arrivals.Offered.Select(c => $"{CommissionSystem.ClientName(c)}の{CommissionSystem.TypeLabel(c.Type)}"))}）。" +
 				$"大迷宮画面の「📜 依頼掲示板」で受けるか選ぶ（{CommissionBalance.MaxAccepted}件まで）。[/b][/color]");
 		if (arrivals.AnnouncedAnomaly != null)
-			AppendLog($"[color=orange][b]🌫 迷宮の異変の予告：{DungeonAnomalySystem.GetName(arrivals.AnnouncedAnomaly)}[/b] " +
+			AppendLog($"[color=orange][b]⚠ 迷宮の異変の予告：{DungeonAnomalySystem.GetName(arrivals.AnnouncedAnomaly)}[/b] " +
 				$"{DungeonAnomalySystem.Describe(_state, arrivals.AnnouncedAnomaly)}[/color]");
 		foreach (var c in arrivals.DeadlineNear)
 			AppendLog($"[color=orange]⏳ {CommissionSystem.ClientName(c)}の依頼（{CommissionSystem.TypeLabel(c.Type)}）の期限まで残り{c.WeeksLeft(_state.WeekNumber)}週：" +
@@ -786,7 +789,7 @@ public partial class MainDashboard : Control
 			if (lastFlags.CommissionsOffered) reasons.Add("依頼が届いた");
 			if (lastFlags.AnomalyAnnounced) reasons.Add("迷宮の異変が予告された");
 			if (lastFlags.CommissionDeadlineNear) reasons.Add("依頼の期限が近い");
-			if (reasons.Count > 0) AppendLog($"[color=cyan]・止まった理由：{string.Join("・", reasons)}[/color]");
+			if (reasons.Count > 0) AppendLog($"[bgcolor=#1e3a4a][color=cyan][b] 止まった理由 [/b][/color][/bgcolor] [color=cyan]{string.Join("・", reasons)}[/color]");
 		}
 		if (facilityCount > 0) AppendLog($"[color=lime]・施設建設が完了した週：{facilityCount}回[/color]");
 		if (deathCount > 0) AppendLog($"[color=red][b]・強制除籍または不可逆の障害が発生した週：{deathCount}回[/b][/color]");
@@ -1286,17 +1289,37 @@ public partial class MainDashboard : Control
 	{
 		var chronicle = GuildChronicle.Build(_state);
 
-		var text = new RichTextLabel
+		RichTextLabel MakeText(string bbcode)
 		{
-			BbcodeEnabled = true,
-			FitContent = true,
-			CustomMinimumSize = new Vector2(860, 0),
-			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-		};
-		text.AppendText(EndingNarration() + "\n\n" + EndingRecord(chronicle));
+			var label = new RichTextLabel
+			{
+				BbcodeEnabled = true,
+				FitContent = true,
+				CustomMinimumSize = new Vector2(860, 0),
+				SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+			};
+			label.AppendText(bbcode);
+			return label;
+		}
 
-		var scroll = new ScrollContainer { CustomMinimumSize = new Vector2(900, 620), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
-		scroll.AddChild(text);
+		// 語りは文字送りで出し、終わるとギルドの記録がふっと現れる。クリックで飛ばせる。
+		var narration = MakeText(EndingNarration());
+		var record = MakeText(EndingRecord(chronicle));
+		narration.VisibleRatio = 0f;
+		record.Modulate = new Color(1, 1, 1, 0);
+
+		var column = new VBoxContainer();
+		column.AddThemeConstantOverride("separation", 28);
+		column.AddChild(narration);
+		column.AddChild(new HSeparator());
+		column.AddChild(record);
+		var margin = new MarginContainer();
+		foreach (var side in new[] { "left", "top", "right", "bottom" })
+			margin.AddThemeConstantOverride($"margin_{side}", 20);
+		margin.AddChild(column);
+
+		var scroll = new ScrollContainer { CustomMinimumSize = new Vector2(920, 620), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+		scroll.AddChild(margin);
 
 		var dialog = new AcceptDialog { Title = "エンディング ― 失われた理想郷", OkButtonText = "ギルドを続ける" };
 		dialog.AddChild(scroll);
@@ -1304,6 +1327,22 @@ public partial class MainDashboard : Control
 		dialog.Canceled += () => CloseDialogThenRun(dialog, () => afterClose?.Invoke());
 		AddChild(dialog);
 		dialog.PopupCentered();
+
+		double revealSeconds = Math.Clamp(narration.GetTotalCharacterCount() * 0.06, 3.0, 14.0);
+		var tween = dialog.CreateTween();
+		tween.TweenProperty(narration, "visible_ratio", 1.0, revealSeconds);
+		tween.TweenProperty(record, "modulate:a", 1.0, 1.2);
+		void Skip(InputEvent e)
+		{
+			if (e is InputEventMouseButton { Pressed: true } && tween.IsValid())
+			{
+				tween.Kill();
+				narration.VisibleRatio = 1f;
+				record.Modulate = Colors.White;
+			}
+		}
+		narration.GuiInput += Skip;
+		scroll.GuiInput += Skip;
 	}
 
 	/// <summary>エンディングの語り（世界観は 01_コンセプト.md）。</summary>

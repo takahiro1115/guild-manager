@@ -13,6 +13,7 @@ using GuildManager.Core.Models;
 ///  - アフィックス2枠（接頭辞＋接尾辞＝当たり個体） … 黄緑 <see cref="TwoAffixHex"/>
 ///
 ///  - 固定アーティファクト（固有武具、→ uniques.csv Grade=Artifact） … 紫 <see cref="ArtifactHex"/>
+///  - 依頼人の固有武具（→ uniques.csv Grade=Patron） … 薔薇色 <see cref="PatronHex"/>
 ///  - 伝説級（固有武具、→ uniques.csv Grade=Legendary） … 金 <see cref="UniqueHex"/>
 /// 固有武具の2段は2026年9月・§0.45（ハクスラ Step 3）で使い始めた。固有武具にアフィックスは付かないため、判定は固有が優先。
 /// CSVから消えた固有Id（定義を引けない個体）は通常の個体として扱う。
@@ -26,6 +27,9 @@ public static class ItemColorHelper
 	/// <summary>固定アーティファクト（固有武具・紫）。</summary>
 	public const string ArtifactHex = "#c084fc";
 
+	/// <summary>依頼人の固有武具（固有武具・薔薇色、→ 03 §4.9、§0.64）。</summary>
+	public const string PatronHex = "#fb7185";
+
 	/// <summary>伝説級（固有武具・金）。</summary>
 	public const string UniqueHex = "#fbbf24";
 
@@ -36,6 +40,7 @@ public static class ItemColorHelper
 		OneAffix,
 		TwoAffix,
 		Artifact,
+		Patron,
 		Unique,
 	}
 
@@ -47,6 +52,7 @@ public static class ItemColorHelper
 		{
 			case UniqueGrade.Legendary: return ItemColorTier.Unique;
 			case UniqueGrade.Artifact: return ItemColorTier.Artifact;
+			case UniqueGrade.Patron: return ItemColorTier.Patron;
 		}
 		int affixCount = (string.IsNullOrEmpty(item.PrefixId) ? 0 : 1) + (string.IsNullOrEmpty(item.SuffixId) ? 0 : 1);
 		return affixCount switch
@@ -63,6 +69,7 @@ public static class ItemColorHelper
 		ItemColorTier.TwoAffix => TwoAffixHex,
 		ItemColorTier.OneAffix => OneAffixHex,
 		ItemColorTier.Artifact => ArtifactHex,
+			ItemColorTier.Patron => PatronHex,
 		ItemColorTier.Unique => UniqueHex,
 		_ => NormalHex,
 	};

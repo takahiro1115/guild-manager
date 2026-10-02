@@ -59,8 +59,8 @@ public partial class CommissionPopup : PopupPanel
 
 		_anomalyLabel.Clear();
 		_anomalyLabel.AppendText(_state.Anomaly is { } anomaly
-			? $"[color=orange]🌫 迷宮の異変：{DungeonAnomalySystem.DescribeStatus(_state, anomaly)}[/color]\n[color=gray]{DungeonAnomalySystem.Describe(_state, anomaly)}[/color]"
-			: "[color=gray]🌫 迷宮の異変：今は無い（季節の4週目に予告される）。[/color]");
+			? $"[color=orange]⚠ 迷宮の異変：{DungeonAnomalySystem.DescribeStatus(_state, anomaly)}[/color]\n[color=gray]{DungeonAnomalySystem.Describe(_state, anomaly)}[/color]"
+			: "[color=gray]⚠ 迷宮の異変：今は無い（季節の4週目に予告される）。[/color]");
 
 		// 押したボタンの行もここで作り直すため、外してから解放する（QueueFree だけだと同じフレームの間は古い行が残る）。
 		foreach (var child in _commissionList.GetChildren())
@@ -76,6 +76,7 @@ public partial class CommissionPopup : PopupPanel
 			return;
 		}
 
+		_commissionList.AddThemeConstantOverride("separation", 8);
 		foreach (var c in commissions)
 			_commissionList.AddChild(BuildRow(c));
 	}
@@ -83,9 +84,10 @@ public partial class CommissionPopup : PopupPanel
 	private Control BuildRow(GuildCommission c)
 	{
 		var panel = new PanelContainer();
+		panel.AddThemeStyleboxOverride("panel", BuildRowStyle(c));
 		var margin = new MarginContainer();
 		foreach (var side in new[] { "left", "top", "right", "bottom" })
-			margin.AddThemeConstantOverride($"margin_{side}", 6);
+			margin.AddThemeConstantOverride($"margin_{side}", 8);
 		panel.AddChild(margin);
 		var vbox = new VBoxContainer();
 		margin.AddChild(vbox);
@@ -161,8 +163,19 @@ public partial class CommissionPopup : PopupPanel
 					ReportCompletion(done);
 				Refresh();
 			};
+			// 候補の6能力をまとめて見せる（条件の能力だけでは、誰を送るか選びにくいため）
+			var detail = new Label { Modulate = new Color(0.7f, 0.7f, 0.7f), AutowrapMode = TextServer.AutowrapMode.WordSmart };
+			void ShowDetail(long index)
+			{
+				detail.Text = index >= 0 && index < candidates.Count
+					? $"STR {candidates[(int)index].STR}／AGI {candidates[(int)index].AGI}／VIT {candidates[(int)index].VIT}／MND {candidates[(int)index].MND}／DEX {candidates[(int)index].DEX}／INT {candidates[(int)index].INT}／LDR {candidates[(int)index].LDR}"
+					: "";
+			}
+			picker.ItemSelected += ShowDetail;
+			ShowDetail(picker.Selected);
 			buttons.AddChild(picker);
 			buttons.AddChild(tribute);
+			vbox.AddChild(detail);
 		}
 		else
 		{
@@ -171,6 +184,28 @@ public partial class CommissionPopup : PopupPanel
 		}
 
 		return panel;
+	}
+
+	private static readonly Color[] ClientPalette =
+	{
+		new("#60a5fa"), new("#f472b6"), new("#fbbf24"), new("#34d399"), new("#c084fc"), new("#fb923c"),
+	};
+
+	/// <summary>行の背景：依頼人ごとの色の左帯。受けている依頼は帯を太く明るく、掲示中は細く暗くする。</summary>
+	private static StyleBoxFlat BuildRowStyle(GuildCommission c)
+	{
+		int hash = 0;
+		foreach (char ch in c.ClientId)
+			hash = hash * 31 + ch;
+		var color = ClientPalette[(hash & 0x7fffffff) % ClientPalette.Length];
+		var style = new StyleBoxFlat
+		{
+			BgColor = new Color(1, 1, 1, c.Accepted ? 0.07f : 0.03f),
+			BorderColor = c.Accepted ? color : color.Darkened(0.45f),
+			BorderWidthLeft = c.Accepted ? 5 : 3,
+		};
+		style.SetCornerRadiusAll(3);
+		return style;
 	}
 
 	/// <summary>献上の候補の表示用に、条件の能力の素の値を引く（Core の素の値＝装備の補正なし）。</summary>

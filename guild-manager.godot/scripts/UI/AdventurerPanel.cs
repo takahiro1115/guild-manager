@@ -364,8 +364,10 @@ public partial class AdventurerPanel : VBoxContainer
 				bool isCurse = def?.IsCurseOrInjury == true;
 				bool isFlaw = def?.IsFlaw == true; // 生まれつきの欠点（§0.56）
 				bool isRare = def?.IsRare == true; // レア特性（§0.57）
+				bool isSoulChild = traitId == "SoulChild"; // 魂魄の申し子（§0.62）。レアの中でも別の色にする
 				_traitSlotLabels[i].Text = isCurse ? $"{i + 1}: 【{traitName}】🔒"
 					: isFlaw ? $"{i + 1}: 【{traitName}】▼"
+					: isSoulChild ? $"{i + 1}: ✦【{traitName}】"
 					: isRare ? $"{i + 1}: ★【{traitName}】"
 					: $"{i + 1}: 【{traitName}】";
 				_traitSlotLabels[i].TooltipText = def?.Description ?? "";
@@ -373,9 +375,11 @@ public partial class AdventurerPanel : VBoxContainer
 					? new Color(1.0f, 0.55f, 0.45f)  // 障害特性: 赤みのある橙
 					: isFlaw
 						? new Color(0.75f, 0.6f, 0.95f)  // 生まれつきの欠点: 薄い紫
-						: isRare
-							? new Color(1.0f, 0.75f, 0.2f)  // レア特性: 金色
-							: new Color(0.9f, 0.9f, 0.4f));  // 習得済み: 明るい黄色
+						: isSoulChild
+							? new Color(0.45f, 0.9f, 1.0f)  // 魂魄の申し子: 水色
+							: isRare
+								? new Color(1.0f, 0.75f, 0.2f)  // レア特性: 金色
+								: new Color(0.9f, 0.9f, 0.4f));  // 習得済み: 明るい黄色
 
 				// 忘却ボタン：障害特性・生まれつきの欠点と出撃中は押せない（→ Adventurer.CanRemoveTrait、03 §5.3.2）。
 				string? overcomeBy = isFlaw && def!.OvercomeByTraitId != null

@@ -275,10 +275,26 @@ public partial class RecruitmentPopup : PopupPanel
 			new Color(0.85f, 0.85f, 0.85f)));
 
 		// 3行目：先天特性
-		string traits = c.TraitIds.Count == 0
-			? "なし"
-			: string.Join("・", c.TraitIds.Select(t => TraitCatalog.FindById(t)?.DisplayName ?? t));
-		info.AddChild(MakeLabel($"特性: {traits}", 15, new Color(0.9f, 0.9f, 0.4f)));
+		// 欠点（▼・薄い紫）とレア（★・金）は個人詳細の特性スロットと同じ印・色で見分けられるようにする（§0.56・§0.57）
+		string TraitText(string id)
+		{
+			var def = TraitCatalog.FindById(id);
+			string name = def?.DisplayName ?? id;
+			if (def?.IsFlaw == true) return $"[color=#bf99f2]{name}▼[/color]";
+			if (def?.IsRare == true) return $"[color=#ffbf33]★{name}[/color]";
+			return $"[color=#e6e666]{name}[/color]";
+		}
+		var traitLabel = new RichTextLabel
+		{
+			BbcodeEnabled = true,
+			FitContent = true,
+			ScrollActive = false,
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+		};
+		traitLabel.AppendText("[font_size=15][color=#e6e666]特性:[/color] " +
+			(c.TraitIds.Count == 0 ? "[color=#e6e666]なし[/color]" : string.Join("[color=#e6e666]・[/color]", c.TraitIds.Select(TraitText))) + "[/font_size]");
+		info.AddChild(traitLabel);
 
 		return card;
 	}

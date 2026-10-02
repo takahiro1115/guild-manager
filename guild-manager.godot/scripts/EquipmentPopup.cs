@@ -155,21 +155,15 @@ public partial class EquipmentPopup : PopupPanel
 
 		foreach (var slot in Adventurer.AllSlots)
 		{
-			foreach (var item in ItemCatalog.GetBySlot(slot))
+			var items = ItemCatalog.GetBySlot(slot).ToList();
+			foreach (var item in items.Where(i => EquipmentSystem.IsInShop(_state, i)))
 			{
 				_catalogOrder.Add(item);
 				int index = _itemList.ItemCount;
 				string equippedMark = _adventurer.GetEquippedId(slot) == item.Id ? "　【装備中】" : "";
 				_itemList.AddItem($"[{SlotLabel(slot)}] {item.Name}　{EffectText(item)}　{item.Price}G{equippedMark}");
 
-				if (!EquipmentSystem.IsInShop(_state, item))
-				{
-					// 上位装備（§0.61）：倒した階層ボスの総数で入荷する
-					int need = ProgressionBalance.ShopTierUnlockBosses[item.ShopTier - 1];
-					_itemList.SetItemDisabled(index, true);
-					_itemList.SetItemTooltip(index, $"未入荷：倒した階層ボスが{need}体になると店に並ぶ（現在 {EquipmentSystem.CountDefeatedBosses(_state)}体）。");
-				}
-				else if (!item.IsAllowedFor(_adventurer.JobClass))
+				if (!item.IsAllowedFor(_adventurer.JobClass))
 				{
 					_itemList.SetItemDisabled(index, true);
 					_itemList.SetItemTooltip(index, $"{AdventurerPanel.JobLabel(_adventurer.JobClass)}は装備できません。");
@@ -178,6 +172,18 @@ public partial class EquipmentPopup : PopupPanel
 				{
 					_itemList.SetItemTooltip(index, $"資金不足（必要 {item.Price}G、所持 {_state.Gold}G）。");
 				}
+			}
+
+			// 未入荷の上位装備（§0.61）は1品ずつ並べず、段ごとに1行にまとめる（倒した階層ボスの総数で入荷する）
+			foreach (var tierGroup in items.Where(i => !EquipmentSystem.IsInShop(_state, i)).GroupBy(i => i.ShopTier).OrderBy(g => g.Key))
+			{
+				int need = ProgressionBalance.ShopTierUnlockBosses[tierGroup.Key - 1];
+				// 並びの対応（_catalogOrder と行の番号）を保つため、まとめ行はその段の先頭の品を持つ。無効行なので選べない。
+				_catalogOrder.Add(tierGroup.First());
+				int index = _itemList.ItemCount;
+				_itemList.AddItem($"[{SlotLabel(slot)}] 上位装備 {tierGroup.Count()}品　未入荷（倒した階層ボス {need}体で入荷、現在 {EquipmentSystem.CountDefeatedBosses(_state)}体）");
+				_itemList.SetItemDisabled(index, true);
+				_itemList.SetItemTooltip(index, string.Join("\n", tierGroup.Select(i => $"{i.Name}　{EffectText(i)}　{i.Price}G")));
 			}
 		}
 	}

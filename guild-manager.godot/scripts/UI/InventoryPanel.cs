@@ -498,6 +498,7 @@ public partial class InventoryPanel : VBoxContainer
 		{
 			UniqueGrade.Legendary => $"　{ItemColorHelper.GetColoredBBCode(sample, "［伝説級］")}",
 			UniqueGrade.Artifact => $"　{ItemColorHelper.GetColoredBBCode(sample, "［固定アーティファクト］")}",
+			UniqueGrade.Patron => $"　{ItemColorHelper.GetColoredBBCode(sample, "［依頼人の証］")}",
 			_ => "",
 		};
 		string priceText = EquipmentSystem.CanSell(sample) ? $"[color=yellow]{unitPrice}G/点[/color]" : "[color=gray]売却不可[/color]";

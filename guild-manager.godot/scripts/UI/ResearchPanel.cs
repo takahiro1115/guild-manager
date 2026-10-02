@@ -100,7 +100,12 @@ public partial class ResearchPanel : ScrollContainer
 		if (ElixirSystem.IsUnlocked(_state))
 			_researchCards.AddChild(BuildElixirCard());
 
-		foreach (var research in ResearchBalance.GetAll())
+		// 着手できるもの → まだ足りないもの → 済んだもの（1行）の順に並べる
+		var researches = ResearchBalance.GetAll()
+			.Select((r, i) => (r, i))
+			.OrderBy(x => _state.IsResearchCompleted(x.r.Id) ? 2 : ResearchSystem.CanStartResearch(_state, x.r) ? 0 : 1)
+			.ThenBy(x => x.i);
+		foreach (var (research, _) in researches)
 			_researchCards.AddChild(BuildResearchCard(research));
 	}
 
@@ -112,7 +117,7 @@ public partial class ResearchPanel : ScrollContainer
 	/// </summary>
 	private Control BuildCultureTankCard()
 	{
-		var card = new PanelContainer();
+		var card = NewCard(new Color("#2dd4bf"));
 		var vbox = new VBoxContainer();
 		card.AddChild(vbox);
 
@@ -207,7 +212,7 @@ public partial class ResearchPanel : ScrollContainer
 	/// </summary>
 	private Control BuildElixirCard()
 	{
-		var card = new PanelContainer();
+		var card = NewCard(new Color("#2dd4bf"));
 		var vbox = new VBoxContainer();
 		card.AddChild(vbox);
 		vbox.AddChild(MakeRichLabel("[font_size=18][b]⚗ 霊薬の調合[/b][/font_size]"));
@@ -317,6 +322,20 @@ public partial class ResearchPanel : ScrollContainer
 	/// <summary>OptionButton のシグナルの中でカードを作り直すと発信元を解放してしまうため、次のフレームで描き直す。</summary>
 	private void RefreshDeferred() => Callable.From(RefreshResearchCards).CallDeferred();
 
+	/// <summary>カードの枠：余白と左帯の色（緑＝済み、黄＝着手できる、灰＝まだ、青緑＝研究室の設備）。</summary>
+	private static PanelContainer NewCard(Color accent)
+	{
+		var style = new StyleBoxFlat { BgColor = new Color(1, 1, 1, 0.04f), BorderColor = accent, BorderWidthLeft = 4 };
+		style.SetCornerRadiusAll(3);
+		style.ContentMarginLeft = 14;
+		style.ContentMarginRight = 12;
+		style.ContentMarginTop = 8;
+		style.ContentMarginBottom = 8;
+		var card = new PanelContainer();
+		card.AddThemeStyleboxOverride("panel", style);
+		return card;
+	}
+
 	private static RichTextLabel MakeRichLabel(string bbcode)
 	{
 		var label = new RichTextLabel { BbcodeEnabled = true, FitContent = true, SizeFlagsHorizontal = SizeFlags.ExpandFill };
@@ -342,9 +361,18 @@ public partial class ResearchPanel : ScrollContainer
 		bool completed = _state.IsResearchCompleted(research.Id);
 		bool canStart = !completed && ResearchSystem.CanStartResearch(_state, research);
 
-		var card = new PanelContainer();
+		var card = NewCard(completed ? new Color("#4ade80") : canStart ? new Color("#fbbf24") : new Color("#6b7280"));
 		var vbox = new VBoxContainer();
 		card.AddChild(vbox);
+
+		// 済んだ研究は1行にたたむ（名前と効果だけ）。数が増えても一覧が長くならないように
+		if (completed)
+		{
+			vbox.AddChild(MakeRichLabel($"[b]{research.Name}[/b]　[bgcolor=#2a5a2a][color=lime] ✔ 研究完了 [/color][/bgcolor]　[color=gray]{research.Description}[/color]"));
+			return card;
+		}
+		if (!ResearchSystem.IsPrerequisiteMet(_state, research))
+			card.Modulate = new Color(1, 1, 1, 0.65f);
 
 		var titleLabel = new RichTextLabel { BbcodeEnabled = true, FitContent = true, SizeFlagsHorizontal = SizeFlags.ExpandFill };
 		titleLabel.AppendText($"[font_size=18][b]{research.Name}[/b][/font_size]" +

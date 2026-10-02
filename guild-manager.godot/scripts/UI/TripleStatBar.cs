@@ -44,17 +44,24 @@ public partial class TripleStatBar : Control
 	/// <summary>潜在能力 PA（灰）。</summary>
 	public int Potential { get; private set; }
 
+	/// <summary>いずれかの値が上限100を超えている（秘薬の能力限界突破でPAが最大120まで伸びる）。右端に金の印を描く。</summary>
+	public bool Overflow { get; private set; }
+
+	private static readonly Color OverflowColor = new("#fbbf24");
+
 	/// <summary>
 	/// 値を設定して再描画する。いずれも 0〜100 にクランプして描く（100を超える実効値は右端で止まる）。
 	/// </summary>
 	public void SetValues(int raw, int traitAdjusted, int effective, int potential)
 	{
+		Overflow = Math.Max(Math.Max(raw, traitAdjusted), Math.Max(effective, potential)) > MaxStatValue;
 		Raw = Math.Clamp(raw, 0, MaxStatValue);
 		TraitAdjusted = Math.Clamp(traitAdjusted, 0, MaxStatValue);
 		Effective = Math.Clamp(effective, 0, MaxStatValue);
 		Potential = Math.Clamp(potential, 0, MaxStatValue);
 		TooltipText = $"素の値 {raw} ／ 特性 {FormatSigned(traitAdjusted - raw)} ／ 装備 {FormatSigned(effective - traitAdjusted)} ／ " +
-			$"実効値 {effective} ／ PA {potential} ／ 上限 {MaxStatValue}";
+			$"実効値 {effective} ／ PA {potential} ／ 上限 {MaxStatValue}" +
+			(Overflow ? "\n金の印＝上限100を超えている（秘薬の能力限界突破）。バーは100で止め、数値で読む" : "");
 		QueueRedraw();
 	}
 
@@ -97,6 +104,9 @@ public partial class TripleStatBar : Control
 		Segment(TraitAdjusted, Raw, TraitPenaltyColor);
 		// 装備補正：特性補正後から実効値まで（特性で失われた区間に重なっても上に描く）
 		Segment(TraitAdjusted, Effective, EquipmentBonusColor);
+
+		if (Overflow)
+			DrawRect(new Rect2(size.X - 4, 0, 4, size.Y), OverflowColor);
 
 		DrawRect(new Rect2(Vector2.Zero, size), BorderColor, filled: false, width: 1f);
 	}

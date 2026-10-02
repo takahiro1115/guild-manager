@@ -259,14 +259,22 @@ public partial class DungeonPanel : ScrollContainer
 			_orderInfoLabel.AppendText("[color=gray]方針つきの部隊はない。部隊を選んで方針を決めると、週送りのたびに自動で出撃する。[/color]");
 			return;
 		}
-		var parts = ordered.Select(p =>
+		// 部隊ごとに1行。状態で色分け（出撃中＝シアン、待機＝橙、次の週送りで出撃＝緑）
+		var lines = ordered.Select(p =>
 		{
-			string field = _state.DungeonFields.FirstOrDefault(f => f.Id == p.OrderFieldId)?.Name ?? "？";
-			string door = p.Order == SquadOrder.Dive ? (p.AutoEngage ? "・扉前は自動判断" : "・扉前で止まる") : "";
-			string wait = SquadOrderSystem.IsOut(_state, p) ? "出撃中" : SquadOrderSystem.GetWaitReason(_state, p) is { } w ? $"待機：{w}" : "次の週送りで出撃";
-			return $"「{p.Name}」＝{field}で{OrderNames[(int)p.Order]}{door}（{wait}）";
+			bool isOut = SquadOrderSystem.IsOut(_state, p);
+			string? reason = isOut ? null : SquadOrderSystem.GetWaitReason(_state, p);
+			(string color, string status) = isOut ? ("cyan", "出撃中") : reason != null ? ("orange", $"待機：{reason}") : ("lime", "次の週送りで出撃");
+			return $"[color=cyan]📋 {OrderSummary(p)}[/color]　[color={color}]（{status}）[/color]";
 		});
-		_orderInfoLabel.AppendText($"[color=cyan]📋 {string.Join("／", parts)}[/color]");
+		_orderInfoLabel.AppendText(string.Join("\n", lines));
+	}
+
+	private string OrderSummary(SavedParty p)
+	{
+		string field = _state.DungeonFields.FirstOrDefault(f => f.Id == p.OrderFieldId)?.Name ?? "？";
+		string door = p.Order == SquadOrder.Dive ? (p.AutoEngage ? "・扉前は自動判断" : "・扉前で止まる") : "";
+		return $"「{p.Name}」＝{field}で{OrderNames[(int)p.Order]}{door}";
 	}
 
 	private void OnOrderSelected(long index)
@@ -532,7 +540,7 @@ public partial class DungeonPanel : ScrollContainer
 		if (_state.Anomaly is { } anomaly)
 		{
 			string color = anomaly.IsUpcoming(_state.WeekNumber) ? "khaki" : "orange";
-			lines.Add($"[color={color}]🌫 {DungeonAnomalySystem.DescribeStatus(_state, anomaly)}[/color]");
+			lines.Add($"[color={color}]⚠ {DungeonAnomalySystem.DescribeStatus(_state, anomaly)}[/color]");
 		}
 
 		var accepted = _state.Commissions.Where(c => c.Accepted).ToList();
@@ -877,11 +885,12 @@ public partial class DungeonPanel : ScrollContainer
 				CustomMinimumSize = new Vector2(0, 30),
 				ClipText = true,
 				TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis,
-				Text = isLocked ? $"第{i + 1}部隊（未開放）" : mission != null ? $"{MissionIcon(mission)} {saved.Name}" : saved.Name,
+				Text = isLocked ? $"第{i + 1}部隊（未開放）" : (mission != null ? $"{MissionIcon(mission)} {saved.Name}" : saved.Name) + (saved.Order != SquadOrder.None ? " 📋" : ""),
 				Disabled = isLocked || (available == 0 && mission == null),
 				TooltipText = isLocked
 					? "出撃枠が未開放の部隊（森の節目ボス撃破で開放）"
 					: (mission != null ? $"{MissionLabel(mission)}\n" + (mission.WeeksElapsed == 0 ? "（もう一度押すと出撃を取り消す）\n" : "") : "") +
+					  (saved.Order != SquadOrder.None ? $"📋 方針：{OrderSummary(saved)}\n" : "") +
 					  $"{saved.Name}\n{(members.Count == 0 ? "（編成が空）" : string.Join("・", members.Select(a => a!.Name)))}" +
 					  (available == 0 && members.Count > 0 ? "\n全員が出撃中・負傷などで出撃できない" : ""),
 			};
