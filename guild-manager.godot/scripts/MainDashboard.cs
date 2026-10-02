@@ -811,10 +811,10 @@ public partial class MainDashboard : Control
 	}
 
 	/// <summary>施設管理画面の「👔 顧問を任命」ボタン。顧問役職割り当てポップアップを開く（いつでも自由に開閉できる）。</summary>
-	private void OnAdvisorButtonPressed()
+	private void OnAdvisorButtonPressed(FacilityType focus)
 	{
 		if (_state == null) return;
-		_advisorPopup.Open(_state, _advisorSystem);
+		_advisorPopup.Open(_state, _advisorSystem, focus);
 	}
 
 	/// <summary>顧問管理ポップアップが閉じた時のコールバック。役職配置の変化を反映する。</summary>

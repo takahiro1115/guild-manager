@@ -39,7 +39,7 @@ public partial class FacilityPanel : VBoxContainer
 	/// 顧問（教官・参謀・スカウト）の任命ポップアップの開放を依頼する（MainDashboard がポップアップを所有するため）。
 	/// 2026年9月：任命の入口を「部隊・冒険者」画面の個人詳細の右肩から、顧問の配属先である施設の画面へ移した。
 	/// </summary>
-	public event Action AdvisorRequested = delegate { };
+	public event Action<FacilityType> AdvisorRequested = delegate { };
 
 	private class FacilityCardBinding
 	{
@@ -118,7 +118,7 @@ public partial class FacilityPanel : VBoxContainer
 			instructorLabel.SizeFlagsHorizontal = SizeFlags.ExpandFill;
 			inner.AddChild(instructorLabel);
 			appointButton = new Button { SizeFlagsVertical = SizeFlags.ShrinkCenter };
-			appointButton.Pressed += () => AdvisorRequested.Invoke();
+			appointButton.Pressed += () => AdvisorRequested.Invoke(type);
 			inner.AddChild(appointButton);
 		}
 

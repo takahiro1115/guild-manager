@@ -45,16 +45,45 @@ public partial class AdvisorPopup : PopupPanel
 		_assignScoutPostButton.Pressed += () => OnAssignTrainerPressed(FacilityType.ScoutPost);
 		_assignAdvisorButton.Pressed += OnAssignAdvisorPressed;
 		_assignScoutMasterButton.Pressed += OnAssignScoutMasterPressed;
+		// 背景が透けて読みにくいため、他のポップアップと同じ不透明な面にする
+		var panelStyle = new StyleBoxFlat { BgColor = new Color(0.1f, 0.1f, 0.12f), BorderColor = new Color(0.35f, 0.35f, 0.42f) };
+		panelStyle.SetBorderWidthAll(2);
+		panelStyle.SetCornerRadiusAll(6);
+		panelStyle.SetContentMarginAll(10);
+		AddThemeStyleboxOverride("panel", panelStyle);
 		PopupHide += () => Closed.Invoke();
 	}
 
-	public void Open(GameState state, AdvisorSystem advisorSystem)
+	/// <summary>
+	/// focus を渡すと（施設カードの「任命」から開いたとき）、その施設の役職のボタンにフォーカスを置き、
+	/// 状態欄で「どの役職に誰を任命するか」を案内する。
+	/// </summary>
+	public void Open(GameState state, AdvisorSystem advisorSystem, FacilityType? focus = null)
 	{
 		_state = state;
 		_advisorSystem = advisorSystem;
 
 		RefreshList();
 		PopupCentered();
+
+		if (focus is { } facility)
+		{
+			var button = facility switch
+			{
+				FacilityType.WarriorHall => _assignWarriorHallButton,
+				FacilityType.Church => _assignChurchButton,
+				FacilityType.MageLab => _assignMageLabButton,
+				FacilityType.ScoutPost => _assignScoutPostButton,
+				FacilityType.WarRoom => _assignAdvisorButton,
+				FacilityType.RecruitmentOffice => _assignScoutMasterButton,
+				_ => null,
+			};
+			if (button != null)
+			{
+				button.GrabFocus();
+				_statusLabel.Text = $"▶ 候補を選んで、枠のついた「{button.Text}」を押す。\n" + _statusLabel.Text;
+			}
+		}
 	}
 
 	private void RefreshList()
