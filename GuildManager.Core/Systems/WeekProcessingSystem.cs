@@ -33,6 +33,7 @@ namespace GuildManager.Core.Systems
         private readonly DefeatSystem _defeatSystem;
         private readonly RecruitmentSystem _recruitmentSystem;
         private readonly DungeonExpeditionSystem _dungeonExpeditionSystem;
+        private readonly CommissionSystem _commissionSystem;
 
         public WeekProcessingSystem(
             MasterMoodSystem masterMoodSystem,
@@ -48,8 +49,11 @@ namespace GuildManager.Core.Systems
             RecruitmentSystem recruitmentSystem,
             // 省略可能：大迷宮への出撃の週次解決（→ DungeonExpeditionSystem）。省略時は固定シードの
             // 既定構成を組み立てる（出撃が無ければ何も起きない）。
-            DungeonExpeditionSystem? dungeonExpeditionSystem = null)
+            DungeonExpeditionSystem? dungeonExpeditionSystem = null,
+            // 省略可能：依頼と迷宮の異変（→ CommissionSystem、§0.64）。省略時は固定シードの既定構成。
+            CommissionSystem? commissionSystem = null)
         {
+            _commissionSystem = commissionSystem ?? new CommissionSystem();
             _masterMoodSystem = masterMoodSystem;
             _economySystem = economySystem;
             _trainingSystem = trainingSystem;
@@ -111,6 +115,14 @@ namespace GuildManager.Core.Systems
             // 内職売上の倍率は「決算時点の機嫌」で決まるため、内職売上より先に済ませる。
             result.MoodReport = _masterMoodSystem.ProcessWeeklyMood(state, result.DungeonMissionResolutions);
 
+            // 依頼（→ CommissionSystem、03 §4.9・§0.64）：大迷宮の結果で撃破・完全解析の達成を判定し、受けた依頼の期限切れを処理する。
+            // 機嫌の増減は内訳に載せる（内職売上の倍率に効くよう、内職売上より先に済ませる）。
+            result.Commissions = _commissionSystem.ProcessSettlement(state);
+            foreach (var done in result.Commissions.Completed)
+                result.MoodReport.Entries.Add(new MasterMoodEntry($"依頼の達成（{done.ClientName}）", CommissionBalance.CompletionMoodGain, done.MoodApplied));
+            foreach (var failed in result.Commissions.Failed)
+                result.MoodReport.Entries.Add(new MasterMoodEntry($"依頼の失敗（{failed.ClientName}・{failed.Reason}）", -CommissionBalance.FailureMoodLoss, failed.MoodApplied));
+
             // 待機お手伝い（→ 03 §8.1）：出撃せず残った健康な冒険者がアルベールの内職を手伝う（1名ごとに少額G＋機嫌）。
             // HP判定は訓練・静養でHPが動く前の時点で行う。機嫌が内職売上の倍率に効くよう、内職売上より先に済ませる。
             result.IdleHelpEntries.AddRange(MasterMoodSystem.ProcessIdleHelp(state, dispatchedIds, result.MoodReport));
@@ -161,6 +173,16 @@ namespace GuildManager.Core.Systems
             result.Flags.DefeatOccurred = result.NewDefeatReason != null;
 
             state.WeekNumber++;
+
+            // 新しい週の依頼と迷宮の異変（→ CommissionSystem.ProcessNewWeek、§0.64）。届いた週・予告の週・期限の近い週は
+            // 自動スキップを止める（受けるか、どこへ行くかを決めてもらう）。ゲームオーバー後は何も届けない。
+            if (state.DefeatReason == null)
+            {
+                result.Arrivals = _commissionSystem.ProcessNewWeek(state);
+                result.Flags.CommissionsOffered = result.Arrivals.Offered.Count > 0;
+                result.Flags.AnomalyAnnounced = result.Arrivals.AnnouncedAnomaly != null;
+                result.Flags.CommissionDeadlineNear = result.Arrivals.DeadlineNear.Count > 0;
+            }
 
             // 新春採用試験（2年目以降の新年第1週のみ）。ゲームオーバー後は発生させない。
             result.Flags.RecruitmentTrialOccurred =

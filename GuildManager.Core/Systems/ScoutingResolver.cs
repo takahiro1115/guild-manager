@@ -97,6 +97,8 @@ namespace GuildManager.Core.Systems
                 result.AdvisorIntelBonus = AdvisorSystem.GetAdvisorSurveyIntelBonus(state);
                 result.AdvisorName = result.AdvisorIntelBonus > 0 ? AdvisorSystem.GetAssignedAdvisor(state)?.Name : null;
                 gain *= 1 + ResearchBalance.GetTotalEffectValue(state, ResearchEffectType.IntelRateBonus) + result.AdvisorIntelBonus;
+                // 迷宮の異変「霧が晴れる」（→ DungeonAnomalySystem、§0.64）：上がり幅に倍率を掛ける。
+                gain *= DungeonAnomalySystem.IntelMultiplier(state, boss);
             }
 
             // ---- 判定3：護衛（段階ごとに解析成果へ倍率。不足なら成果0＝調査隊が潰走） ----

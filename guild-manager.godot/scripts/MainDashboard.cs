@@ -39,6 +39,10 @@ public partial class MainDashboard : Control
 	private WeekProcessingSystem _weekProcessingSystem = null!;
 	private AutoSkipService _autoSkipService = null!;
 	private SquadOrderSystem _squadOrderSystem = null!;
+	private CommissionSystem _commissionSystem = null!;
+
+	/// <summary>依頼が届いた週に採用試験が重なったとき、採用試験を閉じてから依頼掲示板を開く（§0.64）。</summary>
+	private bool _openCommissionsAfterRecruitment;
 
 	private Label _weekLabel = null!;
 	private Label _goldLabel = null!;
@@ -61,6 +65,7 @@ public partial class MainDashboard : Control
 	private RecruitmentPopup _recruitmentPopup = null!;
 	private AdvisorPopup _advisorPopup = null!;
 	private EquipmentPopup _equipmentPopup = null!;
+	private CommissionPopup _commissionPopup = null!;
 
 	// ---- メニューナビゲーションバー & ペイン制御 ----
 	private enum DashboardView
@@ -145,6 +150,7 @@ public partial class MainDashboard : Control
 		_recruitmentPopup = GetNode<RecruitmentPopup>("%RecruitmentPopup");
 		_advisorPopup = GetNode<AdvisorPopup>("%AdvisorPopup");
 		_equipmentPopup = GetNode<EquipmentPopup>("%EquipmentPopup");
+		_commissionPopup = GetNode<CommissionPopup>("%CommissionPopup");
 
 		_centerPanel = GetNode<TabContainer>("%CenterPanel");
 		_centerPanel.TabsVisible = false;
@@ -169,6 +175,7 @@ public partial class MainDashboard : Control
 		_dungeonPanel = GetNode<DungeonPanel>("%DungeonTab");
 		_dungeonPanel.LogRequested += AppendLog;
 		_dungeonPanel.StateChanged += RefreshAll;
+		_dungeonPanel.CommissionsRequested += OpenCommissionPopup;
 
 		_adventurerPanel = GetNode<AdventurerPanel>("%AdventurerDetailTab");
 		_adventurerPanel.LogRequested += AppendLog;
@@ -223,6 +230,8 @@ public partial class MainDashboard : Control
 		_recruitmentPopup.Closed += OnRecruitmentPopupClosed;
 		_advisorPopup.Closed += OnAdvisorPopupClosed;
 		_equipmentPopup.Closed += OnEquipmentPopupClosed;
+		_commissionPopup.Closed += RefreshAll;
+		_commissionPopup.LogRequested += AppendLog;
 
 		// シード固定の乱数。同じシードなら毎回同じ結果になる（デバッグしやすくするため）。
 		// 戦闘用と加齢用で別インスタンス・別シードにし、互いの抽選回数が結果に影響しないようにする。
@@ -257,11 +266,13 @@ public partial class MainDashboard : Control
 		_researchPanel.Initialize(new SoulFusionSystem(new SeededRng(1123)));
 		// 週次決算のオーケストレーション（→ 03 §1.3・自動スキップ）。既存の各Systemインスタンスを
 		// そのまま共有し、二重管理（別インスタンスによる状態不整合）を避ける。
+		// 依頼と迷宮の異変（→ 03 §4.9・§4.10・§0.64）。依頼の生成・報酬の遺物の抽選は他と別シードにする。
+		_commissionSystem = new CommissionSystem(new SeededRng(2718));
 		_weekProcessingSystem = new WeekProcessingSystem(
 			_masterMoodSystem, _economySystem, _trainingSystem, _injuryRecoverySystem,
 			_restRecoverySystem, _growthSystem, _satisfactionSystem, _agingSystem,
 			_facilitySystem, _defeatSystem, _recruitmentSystem,
-			_dungeonExpeditionSystem);
+			_dungeonExpeditionSystem, _commissionSystem);
 		// 部隊の方針（自動出撃、→ 03 §4.0.3・§0.63）。週送り・自動スキップの決算の前に実行する。
 		_squadOrderSystem = new SquadOrderSystem(_dungeonExpeditionSystem);
 		_autoSkipService = new AutoSkipService(_weekProcessingSystem, _squadOrderSystem);
@@ -441,6 +452,19 @@ public partial class MainDashboard : Control
 	{
 		EnableWeekAdvancement();
 		RefreshAll();
+		if (_openCommissionsAfterRecruitment)
+		{
+			// 採用試験と依頼の到着が同じ週（新年＝春のはじめ）：ポップアップが閉じ切ってから開く（排他ウィンドウの重なりを避ける）。
+			_openCommissionsAfterRecruitment = false;
+			Callable.From(OpenCommissionPopup).CallDeferred();
+		}
+	}
+
+	/// <summary>依頼掲示板を開く（依頼が届いた週は自動で、大迷宮画面の「📜 依頼掲示板」からはいつでも。§0.64）。</summary>
+	private void OpenCommissionPopup()
+	{
+		if (_state == null) return;
+		_commissionPopup.Open(_state, _commissionSystem);
 	}
 
 	/// <summary>
@@ -539,6 +563,8 @@ public partial class MainDashboard : Control
 		else if (settlement.Flags.RecruitmentTrialOccurred)
 		{
 			// 新春採用試験（2年目以降の新年第1週のみ）。ポップアップが閉じるまで次週へ進めさせない（→ 03 §9）。
+			// 春のはじめは依頼も届くので、採用試験を閉じた後に依頼掲示板を開く（§0.64）。
+			_openCommissionsAfterRecruitment = settlement.Flags.CommissionsOffered;
 			DisableWeekAdvancement();
 			_recruitmentPopup.Open(_state, _recruitmentSystem);
 		}
@@ -548,6 +574,9 @@ public partial class MainDashboard : Control
 			// 止めているため、ここで戻さないとボタンが無効のまま操作不能になる
 			// （敗北確定後だけは、意図的に無効のまま据え置く）。
 			EnableWeekAdvancement();
+			// 季節のはじめに依頼が届いた（§0.64）：受けるかどうかを選んでもらう（閉じても週は進められる）。
+			if (settlement.Flags.CommissionsOffered)
+				OpenCommissionPopup();
 		}
 	}
 
@@ -579,6 +608,7 @@ public partial class MainDashboard : Control
 					: $"[color=orange]🩹 {injury.Name} が軽傷を負った（全治{injury.Weeks}週。治るまで能力値−{CombatBalance.LightInjuryStatPenaltyRate * 100:0}%）。[/color]");
 		}
 
+		LogCommissions(settlement); // → 03 §4.9・§4.10・§0.64：依頼の達成・失敗（機嫌の内訳より先に）
 		LogMasterMood(settlement.MoodReport); // → 03 §8.1・§8.1.1：マスターの機嫌の変動内訳
 
 		// 待機お手伝い（→ 03 §8.1）：出撃せず残った健康な冒険者ごとに1行。
@@ -616,6 +646,8 @@ public partial class MainDashboard : Control
 
 		if (settlement.CompletedFacility != null)
 			AppendLog($"[color=lime][b]🏗 {FacilityLabel(settlement.CompletedFacility.Type)}がLv{settlement.CompletedFacility.CurrentLevel}に完成した！[/b][/color]");
+
+		LogCommissionArrivals(settlement.Arrivals); // → §0.64：新しい週に届いた依頼・異変の予告・期限の近い依頼
 
 		// 敗北条件判定（→ 03 §8.3）：副官解雇（マスターの機嫌0、猶予なし即時敗北）／
 		// 破産（所持金マイナス4週連続、猶予あり）。期限による敗北は無い。
@@ -656,6 +688,32 @@ public partial class MainDashboard : Control
 			AppendLog($"[color=orange]大迷宮での成果がなく、アルベールは退屈して機嫌を損ねている (機嫌 -{MasterMoodBalance.BoredomMoodDecay})" +
 				$"〔成果なし {report.WeeksSinceLastGuildActivity}週連続〕[/color]");
 		}
+	}
+
+	/// <summary>依頼の達成・失敗を週報に記録する（→ CommissionSystem.ProcessSettlement、§0.64）。</summary>
+	private void LogCommissions(WeeklySettlementResult settlement)
+	{
+		foreach (var done in settlement.Commissions.Completed)
+			foreach (var line in CommissionLog.CompletionLines(done))
+				AppendLog(line);
+		foreach (var failed in settlement.Commissions.Failed)
+			AppendLog($"[color=orange]📜 {failed.ClientName}の依頼（{CommissionSystem.TypeLabel(failed.Commission.Type)}）を果たせなかった（{failed.Reason}）。" +
+				$"マスターの機嫌 {failed.MoodApplied:+0;-0;+0}[/color]");
+	}
+
+	/// <summary>決算後の新しい週に届いたもの（→ CommissionSystem.ProcessNewWeek、§0.64）を週報に記録する。</summary>
+	private void LogCommissionArrivals(CommissionArrivals arrivals)
+	{
+		if (arrivals.Offered.Count > 0)
+			AppendLog($"[color=khaki][b]📜 {GameCalendar.Format(_state.WeekNumber)}：依頼が{arrivals.Offered.Count}件届いた（" +
+				$"{string.Join("・", arrivals.Offered.Select(c => $"{CommissionSystem.ClientName(c)}の{CommissionSystem.TypeLabel(c.Type)}"))}）。" +
+				$"大迷宮画面の「📜 依頼掲示板」で受けるか選ぶ（{CommissionBalance.MaxAccepted}件まで）。[/b][/color]");
+		if (arrivals.AnnouncedAnomaly != null)
+			AppendLog($"[color=orange][b]🌫 迷宮の異変の予告：{DungeonAnomalySystem.GetName(arrivals.AnnouncedAnomaly)}[/b] " +
+				$"{DungeonAnomalySystem.Describe(_state, arrivals.AnnouncedAnomaly)}[/color]");
+		foreach (var c in arrivals.DeadlineNear)
+			AppendLog($"[color=orange]⏳ {CommissionSystem.ClientName(c)}の依頼（{CommissionSystem.TypeLabel(c.Type)}）の期限まで残り{c.WeeksLeft(_state.WeekNumber)}週：" +
+				$"{CommissionSystem.DescribeCondition(_state, c)}[/color]");
 	}
 
 	/// <summary>機嫌の段階名（→ MasterMoodSystem.GetTier）。</summary>
@@ -725,6 +783,9 @@ public partial class MainDashboard : Control
 			if (lastFlags.SevereInjuryOccurred) reasons.Add("重傷者が出た");
 			if (lastFlags.SoulFusionBirthOccurred) reasons.Add("娘が誕生した");
 			if (lastFlags.GameCleared) reasons.Add("深淵100Fを制覇した");
+			if (lastFlags.CommissionsOffered) reasons.Add("依頼が届いた");
+			if (lastFlags.AnomalyAnnounced) reasons.Add("迷宮の異変が予告された");
+			if (lastFlags.CommissionDeadlineNear) reasons.Add("依頼の期限が近い");
 			if (reasons.Count > 0) AppendLog($"[color=cyan]・止まった理由：{string.Join("・", reasons)}[/color]");
 		}
 		if (facilityCount > 0) AppendLog($"[color=lime]・施設建設が完了した週：{facilityCount}回[/color]");

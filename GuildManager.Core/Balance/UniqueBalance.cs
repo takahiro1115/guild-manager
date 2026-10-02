@@ -16,6 +16,11 @@ namespace GuildManager.Core.Balance
         Artifact,
         /// <summary>伝説級（金）。特定の階層ボスの初回撃破で確定入手。ボスギミックの対策効果を持ちうる。売却できない。</summary>
         Legendary,
+        /// <summary>
+        /// 依頼人の固有武具（2026年10月・§0.64）。同じ依頼人の依頼を一定件数達成すると届く（→ CommissionSystem）。
+        /// 入手元は PatronId（→ commission_clients.csv）。売却できない（信頼の証）。
+        /// </summary>
+        Patron,
     }
 
     /// <summary>
@@ -33,7 +38,8 @@ namespace GuildManager.Core.Balance
         BossGimmickType? CounterGimmick,
         string? DropFieldId,
         int DropFloor,
-        int SellPrice)
+        int SellPrice,
+        string? PatronId = null)
     {
         /// <summary>指定能力値への固有補正（無ければ0）。</summary>
         public int GetStatBonus(string statName) => StatBonuses.TryGetValue(statName, out int v) ? v : 0;
@@ -100,6 +106,10 @@ namespace GuildManager.Core.Balance
         public static UniqueDefinition? FindBossDrop(string fieldId, int floor) =>
             All.FirstOrDefault(d => d.Grade == UniqueGrade.Legendary && d.DropFieldId == fieldId && d.DropFloor == floor);
 
+        /// <summary>指定の依頼人の固有武具（→ UniqueGrade.Patron）。割り当てが無ければnull。</summary>
+        public static UniqueDefinition? FindPatronReward(string clientId) =>
+            All.FirstOrDefault(d => d.Grade == UniqueGrade.Patron && d.PatronId == clientId);
+
         /// <summary>固定アーティファクトの全件（鑑定の抽選の母集団。CSVの行順）。</summary>
         public static IReadOnlyList<UniqueDefinition> Artifacts => All.Where(d => d.Grade == UniqueGrade.Artifact).ToList();
 
@@ -109,6 +119,9 @@ namespace GuildManager.Core.Balance
         public static IReadOnlyList<UniqueDefinition> Parse(string[] header, IReadOnlyList<string[]> rows)
         {
             var col = RequiredColumns.ToDictionary(name => name, name => RequireColumn(header, name));
+            // 依頼人の固有武具（§0.64）で足した列。依頼人の固有武具を含まない表では省略できる。
+            int patronCol = Array.IndexOf(header, "PatronId");
+            var patronIds = new HashSet<string>();
 
             var result = new List<UniqueDefinition>();
             var ids = new HashSet<string>();
@@ -128,7 +141,7 @@ namespace GuildManager.Core.Balance
 
                 string rawGrade = row[col["Grade"]].Trim();
                 if (!Enum.TryParse<UniqueGrade>(rawGrade, ignoreCase: false, out var grade) || !Enum.IsDefined(grade))
-                    throw new BalanceDataException($"{FileName} の{line}行目の Grade「{rawGrade}」は Artifact / Legendary のいずれかにしてください。");
+                    throw new BalanceDataException($"{FileName} の{line}行目の Grade「{rawGrade}」は Artifact / Legendary / Patron のいずれかにしてください。");
 
                 string name = row[col["Name"]].Trim();
                 if (name.Length == 0)
@@ -160,8 +173,23 @@ namespace GuildManager.Core.Balance
                 string fieldId = row[col["DropFieldId"]].Trim();
                 int floor = ParseInt(row[col["DropFloor"]], line, "DropFloor");
                 int sellPrice = ParseInt(row[col["SellPrice"]], line, "SellPrice");
+                string patronId = patronCol >= 0 ? row[patronCol].Trim() : "";
 
-                if (grade == UniqueGrade.Legendary)
+                if (grade != UniqueGrade.Patron && patronId.Length > 0)
+                    throw new BalanceDataException($"{FileName} の{line}行目：PatronId は依頼人の固有武具（Patron）にだけ書いてください。");
+
+                if (grade == UniqueGrade.Patron)
+                {
+                    if (patronId.Length == 0)
+                        throw new BalanceDataException($"{FileName} の{line}行目：依頼人の固有武具には PatronId（commission_clients.csv の Id）が必要です。");
+                    if (!patronIds.Add(patronId))
+                        throw new BalanceDataException($"{FileName} の{line}行目：依頼人「{patronId}」には既に固有武具が割り当てられています。");
+                    if (fieldId.Length > 0 || floor != 0)
+                        throw new BalanceDataException($"{FileName} の{line}行目：依頼人の固有武具は DropFieldId を空欄・DropFloor を0にしてください。");
+                    if (sellPrice != 0)
+                        throw new BalanceDataException($"{FileName} の{line}行目：依頼人の固有武具は売却できないため SellPrice は0にしてください。");
+                }
+                else if (grade == UniqueGrade.Legendary)
                 {
                     if (fieldId.Length == 0)
                         throw new BalanceDataException($"{FileName} の{line}行目：伝説級には入手元の DropFieldId が必要です。");
@@ -183,7 +211,8 @@ namespace GuildManager.Core.Balance
 
                 result.Add(new UniqueDefinition(
                     id, grade, name, baseItemId, hp, stats, counter,
-                    fieldId.Length == 0 ? null : fieldId, floor, sellPrice));
+                    fieldId.Length == 0 ? null : fieldId, floor, sellPrice,
+                    patronId.Length == 0 ? null : patronId));
             }
 
             return result;

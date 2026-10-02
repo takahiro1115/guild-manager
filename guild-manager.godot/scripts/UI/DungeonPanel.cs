@@ -114,6 +114,11 @@ public partial class DungeonPanel : ScrollContainer
 	/// <summary>出撃・取り消し等でゲーム状態が変わったことを通知する。</summary>
 	public event Action StateChanged = delegate { };
 
+	/// <summary>「📜 依頼掲示板」が押された（MainDashboard が依頼のポップアップを開く。§0.64）。</summary>
+	public event Action CommissionsRequested = delegate { };
+
+	private RichTextLabel _commissionSummaryLabel = null!;
+
 	public override void _Ready()
 	{
 		// Zone A
@@ -124,6 +129,8 @@ public partial class DungeonPanel : ScrollContainer
 		_expeditionLootContainer = GetNode<PanelContainer>("%ExpeditionLootContainer");
 		_expeditionLootLabel = GetNode<RichTextLabel>("%ExpeditionLootLabel");
 		_materialsLabel = GetNode<RichTextLabel>("%MaterialsLabel");
+		_commissionSummaryLabel = GetNode<RichTextLabel>("%CommissionSummaryLabel");
+		GetNode<Button>("%OpenCommissionsButton").Pressed += () => CommissionsRequested.Invoke();
 
 		// Zone B
 		_bossProfileCard = GetNode<PanelContainer>("%BossProfileCard");
@@ -308,6 +315,7 @@ public partial class DungeonPanel : ScrollContainer
 		RefreshProgress(boss);
 		RefreshExpeditionLoot();
 		RefreshMaterialsInfo();
+		RefreshCommissionSummary();
 		RefreshBossInfo(DisplayedBoss(boss), boss);
 		RefreshPouchCost();
 		RefreshPartyOptions();
@@ -511,6 +519,38 @@ public partial class DungeonPanel : ScrollContainer
 		}));
 
 		_materialsLabel.AppendText($"[b]獲得可能な素材[/b]：{parts}");
+	}
+
+	/// <summary>
+	/// 受けている依頼と迷宮の異変の一覧（→ 03 §4.9・§4.10・§0.64）。文言・条件の判定は Core（CommissionSystem・DungeonAnomalySystem）から取る。
+	/// </summary>
+	private void RefreshCommissionSummary()
+	{
+		_commissionSummaryLabel.Clear();
+		var lines = new List<string>();
+
+		if (_state.Anomaly is { } anomaly)
+		{
+			string color = anomaly.IsUpcoming(_state.WeekNumber) ? "khaki" : "orange";
+			lines.Add($"[color={color}]🌫 {DungeonAnomalySystem.DescribeStatus(_state, anomaly)}[/color]");
+		}
+
+		var accepted = _state.Commissions.Where(c => c.Accepted).ToList();
+		foreach (var c in accepted)
+		{
+			int left = c.WeeksLeft(_state.WeekNumber);
+			string done = CommissionSystem.IsAchieved(_state, c) ? "　[color=lime]達成できる[/color]" : "";
+			lines.Add($"・{CommissionSystem.TypeLabel(c.Type)}：{CommissionSystem.DescribeCondition(_state, c)}" +
+				$"　[color={(left <= CommissionBalance.DeadlineWarningWeeks ? "orange" : "gray")}]残り{left}週[/color]{done}");
+		}
+
+		int offered = _state.Commissions.Count(c => !c.Accepted);
+		if (accepted.Count == 0)
+			lines.Add("[color=gray]受けている依頼は無い。[/color]");
+		if (offered > 0)
+			lines.Add($"[color=khaki]掲示中の依頼が{offered}件ある（受けられるのは{CommissionBalance.MaxAccepted}件まで）。[/color]");
+
+		_commissionSummaryLabel.AppendText(string.Join("\n", lines));
 	}
 
 	// ==================== Zone B: ボス警戒・ポーチ ====================
@@ -1305,7 +1345,7 @@ public partial class DungeonPanel : ScrollContainer
 		var segments = DungeonTraversalResolver.DescribeSegments(_selectedField, 1, boss.Floor, _selectedField.ReachedFloor);
 
 		double power = DungeonResolver.CalculateBossPower(party, boss);
-		double requiredPower = DungeonResolver.RequiredPower(boss);
+		double requiredPower = DungeonResolver.RequiredPower(boss, _state); // 迷宮の異変（主の衰え・猛り、§0.64）込み
 
 		sb.Append($"\n目標：第{boss.Floor}層「{boss.Name}」扉前");
 		sb.Append($"\n走破力 [b]{score:F0}[/b] ／ 扉前の要求 {requirement:F0}（×{FormatRatio(ratio)}）");

@@ -1,0 +1,31 @@
+key,value,unit,note
+FirstOfferWeek,13,週,最初に依頼が届く週（1年目の夏のはじめ。春は遊び方に慣れてもらうため届けない）。迷宮の異変もこの週以降に起きる（→ 03 §4.9・§0.64）
+OffersPerSeason,3,件,季節のはじめ（季節の1週目）に届く依頼の数。依頼人は重ならない
+MaxAccepted,2,件,同時に受けられる依頼の数
+DeadlineWarningWeeks,2,週,受けた依頼の期限の残りがこの週数になった週に自動スキップを止めて知らせる（今週を含めて数える）
+DeadlineWeeks_Defeat,24,週,撃破の期限（掲示の週から数える。受けるのを遅らせても延びない）
+DeadlineWeeks_Survey,12,週,完全解析の期限
+DeadlineWeeks_Deliver,12,週,納品の期限
+DeadlineWeeks_Tribute,12,週,献上の期限
+DeliverCountBase,6,個,納品の個数の基本
+DeliverFloorsPerExtra,20,階,納品の個数は素材の産地の最高到達階層がこの階数ごとに1個増える
+TributeRank,3,番目,献上の基準：現役の中でその能力が何番目に高い者の素の値を基準にする（人数が足りなければ最も低い者）
+TributeMinThreshold,20,pt,献上の基準の下限
+RewardMultiplier_Defeat,0.2,倍,撃破の報酬ゴールド＝対象のボスの撃破報酬×この倍率（撃破報酬そのものは別にもらえる。1.0だとシミュレーターでクリアが16年目→11年目に早まったため0.2）
+RewardMultiplier_Survey,0.15,倍,完全解析の報酬ゴールド＝対象のボスの撃破報酬×この倍率
+RewardMultiplier_Deliver,0.15,倍,納品の報酬ゴールド＝攻略の最前線のボス（要求火力が最も低い次のボス）の撃破報酬×この倍率
+RewardMultiplier_Tribute,0.3,倍,献上の報酬ゴールド＝攻略の最前線のボスの撃破報酬×この倍率（育てた冒険者を手放す分、他の依頼より大きい）
+CompletionMoodGain,10,pt,依頼を達成したときの機嫌の上昇
+FailureMoodLoss,10,pt,受けた依頼が期限切れ・達成できなくなったときの機嫌の低下（断った依頼・受けずに流れた依頼は罰なし）
+RewardRelicRollBonus,25,pt,報酬の未鑑定遺物の希少度ロールへの上乗せ（階層ボス撃破のドロップと同じ）
+RewardRelicMinRarity,Epic,ItemRarity,報酬の未鑑定遺物の最低保証の希少度（金以上）
+PatronUniqueCompletions,5,件,同じ依頼人の依頼をこの件数達成すると、その依頼人の固有武具（uniques.csv の Patron）が届く
+AnomalyAnnounceWeekOfSeason,4,週目,季節の何週目に迷宮の異変を予告するか（翌週から効く）
+AnomalyDurationWeeks,4,週,迷宮の異変の続く週数
+Anomaly_MiasmaDamageMultiplier,1.5,倍,瘴気：そのフィールドの道中・討伐・採取のHP消費の倍率
+Anomaly_MiasmaMaterialMultiplier,2.0,倍,瘴気：そのフィールドの採取の素材の個数の倍率（四捨五入）
+Anomaly_RelicVeinDropMultiplier,3.0,倍,遺物の鉱脈：そのフィールドの採取の遺物の出る確率の倍率（100%で頭打ち）
+Anomaly_ClearMistIntelMultiplier,2.0,倍,霧が晴れる：そのフィールドのボスの解析の上がり幅の倍率（迷宮調査・扉前の偵察）
+Anomaly_WeakenedLordRequirementMultiplier,0.85,倍,主の衰え：対象のボスの要求火力の倍率
+Anomaly_EnragedLordRequirementMultiplier,1.2,倍,主の猛り：対象のボスの要求火力の倍率
+Anomaly_EnragedLordRewardMultiplier,2.0,倍,主の猛り：対象のボスの撃破報酬ゴールドの倍率

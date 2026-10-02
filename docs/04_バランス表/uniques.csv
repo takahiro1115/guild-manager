@@ -1,11 +1,16 @@
-Id,Grade,Name,BaseItemId,HpBonus,BonusStr,BonusVit,BonusAgi,BonusDex,BonusInt,BonusMnd,BonusLdr,CounterGimmick,DropFieldId,DropFloor,SellPrice,note
-ArtifactElvenBlade,Artifact,古代エルフの双刃,IronSword,0,5,0,2,5,0,0,0,,,0,1500,固定アーティファクト（紫）。金・虹の遺物の鑑定で武具が出たとき低確率で化ける（→ relic.csv ArtifactRate*）。性能は土台の鉄の剣に加算
-ArtifactSageBranch,Artifact,賢者の枯れ枝,MageStaff,0,0,0,0,0,8,4,0,,,0,1500,固定アーティファクト（紫）。土台は魔導士の杖（魔導士・学者）
-ArtifactWardenShell,Artifact,番人の鋼殻,HeavyArmor,30,0,6,0,0,0,3,0,,,0,1500,固定アーティファクト（紫）。土台は重装鎧（重装ペナルティ対象のまま）
-ArtifactWindCloak,Artifact,風詠みの外套,LeatherArmor,10,0,0,6,4,0,0,0,,,0,1500,固定アーティファクト（紫）。土台は革鎧（全職）
-ArtifactKingSeal,Artifact,古王の印章,PowerRing,0,0,0,0,0,0,3,7,,,0,1500,固定アーティファクト（紫）。土台は力の指輪（装飾1）
-LegendForestSigil,Legendary,翠葉の聖印,GuardCharm,20,0,0,0,0,0,5,0,Poison,forest,40,0,伝説級（金）。翠緑の原生林40Fボスの初回撃破で確定入手。装備者が部隊にいれば猛毒を対策済みにする。売却不可
-LegendCaveCleaver,Legendary,穿岩の大剣,GreatSword,0,8,3,0,0,0,0,0,HeavyArmor,cave,40,0,伝説級（金）。嘆きの鍾乳洞40F。重装甲を対策済みにする。売却不可
-LegendRuinsBow,Legendary,天穿ちの長弓,HuntingBow,0,0,0,4,7,0,0,0,Flying,ruins,40,0,伝説級（金）。忘却の古代廃墟40F。飛行を対策済みにする。売却不可
-LegendCanyonCrown,Legendary,身代わりの金冠,LifeAmulet,40,0,4,0,0,0,0,0,InstantKill,canyon,40,0,伝説級（金）。焦熱の峡谷40F。即死級攻撃を対策済みにする。売却不可
-LegendAbyssScepter,Legendary,特異点の王笏,Grimoire,0,0,0,0,0,8,6,4,,abyss,50,0,伝説級（金）。深淵の特異点50F。ギミック対策は持たない代わりに能力値が最も高い。売却不可
+Id,Grade,Name,BaseItemId,HpBonus,BonusStr,BonusVit,BonusAgi,BonusDex,BonusInt,BonusMnd,BonusLdr,CounterGimmick,DropFieldId,DropFloor,SellPrice,PatronId,note
+ArtifactElvenBlade,Artifact,古代エルフの双刃,IronSword,0,5,0,2,5,0,0,0,,,0,1500,,固定アーティファクト（紫）。金・虹の遺物の鑑定で武具が出たとき低確率で化ける（→ relic.csv ArtifactRate*）。性能は土台の鉄の剣に加算
+ArtifactSageBranch,Artifact,賢者の枯れ枝,MageStaff,0,0,0,0,0,8,4,0,,,0,1500,,固定アーティファクト（紫）。土台は魔導士の杖（魔導士・学者）
+ArtifactWardenShell,Artifact,番人の鋼殻,HeavyArmor,30,0,6,0,0,0,3,0,,,0,1500,,固定アーティファクト（紫）。土台は重装鎧（重装ペナルティ対象のまま）
+ArtifactWindCloak,Artifact,風詠みの外套,LeatherArmor,10,0,0,6,4,0,0,0,,,0,1500,,固定アーティファクト（紫）。土台は革鎧（全職）
+ArtifactKingSeal,Artifact,古王の印章,PowerRing,0,0,0,0,0,0,3,7,,,0,1500,,固定アーティファクト（紫）。土台は力の指輪（装飾1）
+LegendForestSigil,Legendary,翠葉の聖印,GuardCharm,20,0,0,0,0,0,5,0,Poison,forest,40,0,,伝説級（金）。翠緑の原生林40Fボスの初回撃破で確定入手。装備者が部隊にいれば猛毒を対策済みにする。売却不可
+LegendCaveCleaver,Legendary,穿岩の大剣,GreatSword,0,8,3,0,0,0,0,0,HeavyArmor,cave,40,0,,伝説級（金）。嘆きの鍾乳洞40F。重装甲を対策済みにする。売却不可
+LegendRuinsBow,Legendary,天穿ちの長弓,HuntingBow,0,0,0,4,7,0,0,0,Flying,ruins,40,0,,伝説級（金）。忘却の古代廃墟40F。飛行を対策済みにする。売却不可
+LegendCanyonCrown,Legendary,身代わりの金冠,LifeAmulet,40,0,4,0,0,0,0,0,InstantKill,canyon,40,0,,伝説級（金）。焦熱の峡谷40F。即死級攻撃を対策済みにする。売却不可
+LegendAbyssScepter,Legendary,特異点の王笏,Grimoire,0,0,0,0,0,8,6,4,,abyss,50,0,,伝説級（金）。深淵の特異点50F。ギミック対策は持たない代わりに能力値が最も高い。売却不可
+PatronKnightsBlade,Patron,騎士団の宝剣,MithrilSword,0,6,3,0,2,0,0,2,,,0,0,Knights,依頼人の固有武具。王都の騎士団の依頼を5件達成すると届く。売却不可
+PatronMerchantsRing,Patron,黄金の天秤,MithrilRing,0,0,0,3,4,0,0,5,,,0,0,Merchants,依頼人の固有武具。商人ギルドの依頼を5件達成すると届く。売却不可
+PatronAcademyStaff,Patron,学院長の杖,MithrilStaff,0,0,0,0,0,7,5,0,,,0,0,Academy,依頼人の固有武具。魔導学院の依頼を5件達成すると届く。売却不可
+PatronNobleMail,Patron,辺境伯の銀甲,MithrilMail,25,0,5,0,0,0,4,0,,,0,0,Noble,依頼人の固有武具。辺境伯家の依頼を5件達成すると届く。売却不可
+PatronElvesEarring,Patron,星詠みの耳飾り,MithrilEarring,10,0,0,4,4,0,2,0,,,0,0,Elves,依頼人の固有武具。エルフの里の依頼を5件達成すると届く。売却不可

@@ -67,6 +67,40 @@ text = "挑戦するダンジョン（フィールド）"
 unique_name_in_owner = true
 layout_mode = 2
 
+[node name="CommissionCard" type="PanelContainer" parent="Margin/MainHBox/ZoneA/ZoneAMargin/ZoneAVBox"]
+layout_mode = 2
+
+[node name="Margin" type="MarginContainer" parent="Margin/MainHBox/ZoneA/ZoneAMargin/ZoneAVBox/CommissionCard"]
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 6
+
+[node name="VBox" type="VBoxContainer" parent="Margin/MainHBox/ZoneA/ZoneAMargin/ZoneAVBox/CommissionCard/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="TitleRow" type="HBoxContainer" parent="Margin/MainHBox/ZoneA/ZoneAMargin/ZoneAVBox/CommissionCard/Margin/VBox"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="Margin/MainHBox/ZoneA/ZoneAMargin/ZoneAVBox/CommissionCard/Margin/VBox/TitleRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.95, 0.85, 0.55, 1)
+text = "依頼と迷宮の異変"
+
+[node name="OpenCommissionsButton" type="Button" parent="Margin/MainHBox/ZoneA/ZoneAMargin/ZoneAVBox/CommissionCard/Margin/VBox/TitleRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "📜 依頼掲示板"
+
+[node name="CommissionSummaryLabel" type="RichTextLabel" parent="Margin/MainHBox/ZoneA/ZoneAMargin/ZoneAVBox/CommissionCard/Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+bbcode_enabled = true
+fit_content = true
+
 [node name="ProgressCard" type="PanelContainer" parent="Margin/MainHBox/ZoneA/ZoneAMargin/ZoneAVBox"]
 layout_mode = 2
 size_flags_vertical = 3

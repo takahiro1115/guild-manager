@@ -11,6 +11,7 @@
 [ext_resource type="PackedScene" path="res://scenes/AdventurerPanel.tscn" id="10_adventurer"]
 [ext_resource type="PackedScene" path="res://scenes/InventoryPanel.tscn" id="11_inventory"]
 [ext_resource type="PackedScene" path="res://scenes/SystemPanel.tscn" id="12_system"]
+[ext_resource type="PackedScene" path="res://commission_popup.tscn" id="13_commission"]
 
 [node name="MainDashboard" type="Control" unique_id=210796005]
 layout_mode = 3
@@ -239,4 +240,7 @@ unique_name_in_owner = true
 unique_name_in_owner = true
 
 [node name="EquipmentPopup" parent="." unique_id=1423716623 instance=ExtResource("5_equipment")]
+unique_name_in_owner = true
+
+[node name="CommissionPopup" parent="." instance=ExtResource("13_commission")]
 unique_name_in_owner = true

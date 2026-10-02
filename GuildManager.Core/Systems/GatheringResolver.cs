@@ -59,13 +59,20 @@ namespace GuildManager.Core.Systems
             result.ResearchYield = ResearchYield(state);
             materialCount += result.ResearchYield;
 
+            // 迷宮の異変（→ DungeonAnomalySystem、§0.64）：瘴気で素材が増え（四捨五入）、遺物の鉱脈で遺物が出やすい。
+            double materialMultiplier = DungeonAnomalySystem.MaterialMultiplier(state, field.Id);
+            if (materialMultiplier != 1.0)
+                materialCount = (int)Math.Round(materialCount * materialMultiplier, MidpointRounding.AwayFromZero);
+
             result.MaterialId = materialId;
             result.MaterialCount = materialCount;
             result.GoldEarned = (int)Math.Round(score * GatheringBalance.GoldPerScore);
-            result.RelicDropPercent = RelicBalance.GetGatheringDropPercent(score, field.ReachedFloor);
+            result.RelicDropPercent = Math.Min(100, (int)Math.Round(
+                RelicBalance.GetGatheringDropPercent(score, field.ReachedFloor) * DungeonAnomalySystem.RelicDropMultiplier(state, field.Id),
+                MidpointRounding.AwayFromZero));
             result.UnidentifiedItemFound = RollRelic(field, result.RelicDropPercent);
 
-            ApplyHpLoss(result, party);
+            ApplyHpLoss(result, party, DungeonAnomalySystem.DamageMultiplier(state, field.Id));
 
             return result;
         }
@@ -172,11 +179,13 @@ namespace GuildManager.Core.Systems
         /// 採取のHP消費。ランクの区別はなく一律（→ BAL: gathering.csv）。
         /// HPは下限1で止まり、致死判定には接続しない。今回HPが1まで落ちた隊員は軽傷になる（§0.53）。
         /// </summary>
-        private void ApplyHpLoss(GatheringResult result, Party party)
+        private void ApplyHpLoss(GatheringResult result, Party party, double damageMultiplier)
         {
             foreach (var member in party.Members)
             {
                 int lossPct = _rng.NextInt(GatheringBalance.HpLossPctMin, GatheringBalance.HpLossPctMax);
+                if (damageMultiplier != 1.0) // 迷宮の異変「瘴気」（§0.64）
+                    lossPct = (int)Math.Round(lossPct * damageMultiplier, MidpointRounding.AwayFromZero);
                 int hpLoss = member.MaxHP * lossPct / 100;
                 int newHp = Math.Max(MinHp, member.CurrentHP - hpLoss);
                 bool fellToCritical = member.CurrentHP > MinHp && newHp <= MinHp;

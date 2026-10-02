@@ -47,6 +47,12 @@ namespace GuildManager.Core.Systems
         /// <summary>今週のマスターの機嫌の変動（→ MasterMoodSystem.ProcessWeeklyMood）。</summary>
         public MasterMoodReport MoodReport { get; set; } = new();
 
+        /// <summary>今週の依頼の達成・失敗（→ CommissionSystem.ProcessSettlement、§0.64）。</summary>
+        public CommissionSettlement Commissions { get; set; } = new();
+
+        /// <summary>決算後の新しい週に届いた依頼・予告された異変・期限の近い依頼（→ CommissionSystem.ProcessNewWeek、§0.64）。</summary>
+        public CommissionArrivals Arrivals { get; set; } = new();
+
         /// <summary>今週の待機お手伝い（→ MasterMoodSystem.ProcessIdleHelp、03 §8.1）。対象0名なら空。</summary>
         public List<IdleHelpEntry> IdleHelpEntries { get; } = new();
 

@@ -698,7 +698,9 @@ namespace GuildManager.Core.Systems
                 return; // フィールドに属さないボス（旧セーブ・テスト等）は対象外。防御的に何もしない。
 
             // ①撃破報酬（→ FloorBoss.RewardGold/RewardMaterialId・RewardMaterialCount。機嫌の上昇は週次決算の MasterMoodSystem が担う）。
-            state.Gold += defeatedBoss.RewardGold;
+            // 迷宮の異変「主の猛り」（→ DungeonAnomalySystem、§0.64）の対象なら報奨金が増える。
+            state.Gold += (int)Math.Round(defeatedBoss.RewardGold * DungeonAnomalySystem.BossRewardMultiplier(state, defeatedBoss),
+                MidpointRounding.AwayFromZero);
             if (!string.IsNullOrEmpty(defeatedBoss.RewardMaterialId))
                 state.AddMaterial(defeatedBoss.RewardMaterialId, defeatedBoss.RewardMaterialCount);
 

@@ -184,7 +184,7 @@ namespace GuildManager.Core.Systems
             }
 
             double power = DungeonResolver.CalculateBossPower(trial, boss);
-            double required = DungeonResolver.RequiredPower(boss);
+            double required = DungeonResolver.RequiredPower(boss, state); // 迷宮の異変（主の衰え・猛り、§0.64）込み
             if (power < required * SquadOrderBalance.AutoEngagePowerMargin)
                 return (false, items, $"討伐火力が足りない見込み（{power:F0}／要求{required:F0}）のため撤退");
 

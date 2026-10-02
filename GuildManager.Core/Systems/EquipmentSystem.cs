@@ -224,11 +224,11 @@ namespace GuildManager.Core.Systems
             !item.HasAffix && !item.IsUnique && item.Rarity is not (ItemRarity.Epic or ItemRarity.Legendary);
 
         /// <summary>
-        /// 売却できる個体か（→ 03 §4.8.3・§4.7.5、2026年9月・§0.45）。**伝説級の固有武具だけが売却不可**
+        /// 売却できる個体か（→ 03 §4.8.3・§4.7.5、2026年9月・§0.45）。**伝説級と依頼人の固有武具（§0.64）だけが売却不可**
         /// （ボスの初回撃破でしか得られず、二度と手に入らない「ギルドの宝」のため。誤売却の取り返しがつかない）。
         /// </summary>
         public static bool CanSell(EquipmentItem item) =>
-            item.GetUniqueDefinition()?.Grade != UniqueGrade.Legendary;
+            item.GetUniqueDefinition()?.Grade is not (UniqueGrade.Legendary or UniqueGrade.Patron);
 
         /// <summary>
         /// 保管庫の武具をまとめて売却する（→ 03 §4.8）。itemIds は個体Id（→ EquipmentItem.Id）の
@@ -318,10 +318,10 @@ namespace GuildManager.Core.Systems
                 .ThenBy(e => e.DisplayName, StringComparer.Ordinal)
                 .ToList();
 
-        /// <summary>並べ替えの格：伝説級＝2、固定アーティファクト＝1、それ以外（CSVから消えた固有Idを含む）＝0。</summary>
+        /// <summary>並べ替えの格：伝説級・依頼人の固有武具＝2、固定アーティファクト＝1、それ以外（CSVから消えた固有Idを含む）＝0。</summary>
         private static int UniqueSortKey(EquipmentItem item) => item.GetUniqueDefinition()?.Grade switch
         {
-            UniqueGrade.Legendary => 2,
+            UniqueGrade.Legendary or UniqueGrade.Patron => 2,
             UniqueGrade.Artifact => 1,
             _ => 0,
         };

@@ -1,0 +1,6 @@
+Type,Name,Text,note
+Miasma,瘴気,{field}に濃い瘴気が満ちつつある。来週から{weeks}週、損耗が増えるが、採れる素材も増える。,倍率は commissions.csv の Anomaly_Miasma*
+RelicVein,遺物の鉱脈,{field}で古い地層が崩れ、遺物の鉱脈が顔を出した。来週から{weeks}週、採取で遺物が出やすい。,Anomaly_RelicVeinDropMultiplier
+ClearMist,霧が晴れる,{field}の霧が晴れていく。来週から{weeks}週、ボスの解析が進みやすい。,Anomaly_ClearMistIntelMultiplier
+WeakenedLord,主の衰え,{field}{floor}Fの主「{boss}」が弱っているらしい。来週から{weeks}週、討伐の要求火力が下がる。,Anomaly_WeakenedLordRequirementMultiplier
+EnragedLord,主の猛り,{field}{floor}Fの主「{boss}」が猛っている。来週から{weeks}週、討伐の要求火力が上がるが、撃破報酬も増える。,Anomaly_EnragedLord*

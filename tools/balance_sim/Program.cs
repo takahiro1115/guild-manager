@@ -41,9 +41,16 @@ if (mode is "campaign")
     int runs = args.Length > 1 ? int.Parse(args[1]) : 10;
     int weeks = args.Length > 2 ? int.Parse(args[2]) : 48 * 30;
     GameSim.Campaign = true;
-    GameSim.UseSoulFusion = !(args.Length > 3 && args[3] == "nosf");
-    GameSim.Trace = args.Length > 3 && args[3] == "trace";
-    GameSim.UseElixirs = !(args.Length > 3 && args[3] == "noelixir");
+    var opts = args.Skip(3).ToHashSet();
+    GameSim.UseSoulFusion = !opts.Contains("nosf");
+    GameSim.Trace = opts.Contains("trace");
+    GameSim.UseElixirs = !opts.Contains("noelixir");
+    // 依頼（§0.64）：nocomm＝依頼を受けない、old＝依頼も迷宮の異変も無し（§0.63までと同じ条件で比べる）
+    GameSim.UseCommissions = !opts.Contains("nocomm") && !opts.Contains("old");
+    GameSim.NoAnomaly = opts.Contains("old");
+    GameSim.SteerSurvey = !opts.Contains("nosteer");
+    GameSim.SeedFrom = int.Parse(opts.FirstOrDefault(o => o.StartsWith("from="))?.Substring(5) ?? "0");
+    GameSim.AcceptTypes = opts.FirstOrDefault(o => o.StartsWith("types="))?.Substring(6);
     GameSim.RunCampaign(runs, weeks);
 }
 
@@ -157,6 +164,16 @@ class GameSim
     public static bool UseLoot = true;
     public static bool Grind = true;
     public static bool FreeMoney;
+    // 依頼（§0.64）：受けるか（campaign の既定は受ける）と、迷宮の異変を消して比べるか
+    public static bool UseCommissions;
+    public static bool NoAnomaly;
+    public static bool SteerSurvey = true;
+    /// <summary>campaign の最初のシード（from=N。1回だけ詳しく見るとき用）。</summary>
+    public static int SeedFrom;
+    /// <summary>受ける依頼の種類を絞る（例：types=Defeat,Survey）。null なら全種類。</summary>
+    public static string? AcceptTypes;
+    readonly CommissionSystem commissions;
+    public int CommDone, CommFailed, CommGold, Tributes, PatronUniques, Anomalies;
     public readonly List<BossKill> Kills = new();
     public readonly List<string> Yearly = new();
     public readonly List<int> RosterByYear = new();
@@ -183,9 +200,10 @@ class GameSim
             satisfaction, compat,
             new DungeonTraversalResolver(new SeededRng(1719 + k)), new GatheringResolver(new SeededRng(1848 + k)),
             new GrowthSystem(new SeededRng(1907 + k)), new SeededRng(1969 + k));
+        commissions = new CommissionSystem(new SeededRng(2718 + k));
         week = new WeekProcessingSystem(new MasterMoodSystem(), new EconomySystem(), training, new InjuryRecoverySystem(),
             new RestRecoverySystem(), growth, satisfaction, new AgingSystem(new SeededRng(99 + k)), facility,
-            new DefeatSystem(), recruitment, expedition);
+            new DefeatSystem(), recruitment, expedition, commissions);
 
         s = new GameState { Adventurers = SampleData.CreateStarterAdventurers(), DungeonFields = SampleData.CreateDefaultFields() };
         var draft = recruitment.StartInitialDraft(s);
@@ -253,7 +271,13 @@ class GameSim
             int goldBefore = s.Gold;
             int wages = s.Adventurers.Sum(a => a.WeeklyWage);
             int trainees = s.TrainingAssignments.Count;
+            if (NoAnomaly) s.Anomaly = null;
             var result = week.ProcessWeek(s);
+            CommDone += result.Commissions.Completed.Count;
+            CommFailed += result.Commissions.Failed.Count;
+            CommGold += result.Commissions.Completed.Sum(c => c.Gold);
+            PatronUniques += result.Commissions.Completed.Count(c => c.PatronUnique != null);
+            if (result.Arrivals.AnnouncedAnomaly != null && !NoAnomaly) Anomalies++;
             BookSettlement(result, s.Gold - goldBefore, wages, trainees);
             DaughtersBorn += result.SoulFusionBirths.Count;
             TrainerWeeks += s.AssignedTrainers.Count(kv => kv.Value != null);
@@ -317,6 +341,7 @@ class GameSim
     void ActInner()
     {
         int g0 = s.Gold;
+        HandleCommissions();
         HandleLoot();
         BookAct("遺物・素材の売却（鑑定代差引）", s.Gold - g0);
         g0 = s.Gold;
@@ -334,7 +359,7 @@ class GameSim
             var items = boss.Gimmicks.Where(g => !DungeonResolver.IsCountered(g, m.Party) && g.RequiredItemId != null)
                 .Select(g => g.RequiredItemId!).Take(2).ToList();
             double power = DungeonResolver.CalculateBossPower(m.Party, boss);
-            double req = DungeonResolver.RequiredPower(boss);
+            double req = DungeonResolver.RequiredPower(boss, s);
             double minHp = m.Party.Members.Min(HpRatio);
             bool safe = minHp > DungeonBalance.BaseHpLossPctMax / 100.0 + 0.02;
             if (Trace) Console.WriteLine($"  扉前{boss.Floor}F: 火力{power:F0}/要求{req:F0} 満タン時{m.Party.Members.Sum(StatSum):F0} 解析{boss.IntelRate:P0} 最低HP{minHp:P0} 装備[{string.Join(",", m.Party.Members.Select(a => $"{a.EquippedWeapon?.ItemId}/{a.EquippedArmor?.ItemId}/{a.EquippedAccessory1?.ItemId}"))}] G{s.Gold}");
@@ -393,11 +418,14 @@ class GameSim
             if (pool.Count < 1) break;
             bool surveyOut = s.ActiveDungeonMissions.Any(m => m.MissionType == DungeonMissionType.Survey);
             var party = new Party();
-            if (!surveyOut && pool.Count >= 2 && target != null && ScoutingResolver.GetTier(target.IntelRate) != IntelTier.Complete)
+            // 受けた完全解析の依頼があれば、その対象を先に調べる（§0.64）
+            var surveyTarget = CommissionSurveyTarget()
+                ?? (target != null && ScoutingResolver.GetTier(target.IntelRate) != IntelTier.Complete ? target : null);
+            if (!surveyOut && pool.Count >= 2 && surveyTarget != null)
             {
                 foreach (var a in pool.OrderByDescending(a => ScoutingResolver.GetAnalysisValue(a) + ScoutingResolver.GetGuardValue(a) + ScoutingResolver.GetStealthValue(a)).Take(3))
                 { training.Unassign(s, a.Id); party.TryAdd(a); }
-                if (!expedition.TryDispatchSurvey(s, party, target)) break;
+                if (!expedition.TryDispatchSurvey(s, party, surveyTarget)) break;
             }
             else
             {
@@ -422,7 +450,57 @@ class GameSim
         }
     }
 
-    static readonly FacilityType[] TrainingFacilities = { FacilityType.WarriorHall, FacilityType.Church, FacilityType.MageLab, FacilityType.ScoutPost };
+    /// <summary>
+    /// 依頼（§0.64）の機械的な方針：
+    ///  - 撃破：主力が狙っているボス（要求火力の最も低い次のボス）なら受ける
+    ///  - 完全解析：受ける（2・3枠目の調査がその対象へ向かう）
+    ///  - 納品：受ける（その素材は売らずに残し、揃ったら納める）
+    ///  - 献上：主力の上位4名以外に条件を満たす者がいれば受け、その中で最も弱い者を譲る
+    /// </summary>
+    void HandleCommissions()
+    {
+        if (!UseCommissions) return;
+        var top4 = Active.OrderByDescending(StatSum).Take(4).Select(a => a.Id).ToHashSet();
+        var target = PickTarget()?.Boss;
+        foreach (var c in s.Commissions.Where(c => !c.Accepted).ToList())
+        {
+            bool want = c.Type switch
+            {
+                CommissionType.Defeat => c.BossId == target?.Id,
+                CommissionType.Survey => true,
+                // 納品は在庫が揃っているときだけ受けてすぐ納める（素材を売らずに溜めると序盤の資金繰りが詰まる）
+                CommissionType.Deliver => c.MaterialId != null && s.Materials.GetValueOrDefault(c.MaterialId) >= c.Count,
+                // 献上は現役が8名以上いるときだけ（少ない人数で譲ると2・3枠目が出せず、退屈で機嫌が尽きる）
+                _ => Active.Count() >= 8 && CommissionSystem.GetTributeCandidates(s, c).Any(a => !top4.Contains(a.Id)),
+            };
+            if (AcceptTypes != null && !AcceptTypes.Split(',').Contains(c.Type.ToString())) want = false;
+            if (want) CommissionSystem.TryAccept(s, c);
+        }
+        foreach (var c in s.Commissions.Where(c => c.Accepted).ToList())
+        {
+            CommissionCompletion? done = null;
+            if (c.Type == CommissionType.Deliver)
+                done = commissions.TryDeliver(s, c);
+            else if (c.Type == CommissionType.Tribute && Active.Count() >= 8
+                     && CommissionSystem.GetTributeCandidates(s, c).Where(a => !top4.Contains(a.Id)).OrderBy(StatSum).FirstOrDefault() is { } who)
+            {
+                done = commissions.TryTribute(s, c, who);
+                if (done != null) Tributes++;
+            }
+            if (done == null) continue;
+            CommDone++;
+            CommGold += done.Gold;
+            if (done.PatronUnique != null) PatronUniques++;
+        }
+    }
+
+    /// <summary>受けた完全解析の依頼の対象（まだ解析が済んでいない・倒していない）。無ければnull。</summary>
+    FloorBoss? CommissionSurveyTarget() => !UseCommissions || !SteerSurvey ? null : s.Commissions
+        .Where(c => c.Accepted && c.Type == CommissionType.Survey)
+        .Select(c => CommissionSystem.FindBoss(s, c))
+        .FirstOrDefault(b => b != null && !b.IsDefeated && ScoutingResolver.GetTier(b.IntelRate) != IntelTier.Complete);
+
+    static readonly FacilityType[] TrainingFacilities ={ FacilityType.WarriorHall, FacilityType.Church, FacilityType.MageLab, FacilityType.ScoutPost };
     static readonly FacilityType[] BuildOrder =
     {
         FacilityType.WarriorHall, FacilityType.ScoutPost, FacilityType.Church, FacilityType.MageLab,
@@ -440,7 +518,9 @@ class GameSim
     {
         if (!UseLoot) return;
         foreach (var relic in s.UnidentifiedItems.ToList())
-            appraisal.Appraise(s, relic.Id);
+            // campaign では週給4週分＋500Gを残せるときだけ鑑定する（依頼の報酬の金・虹の遺物は鑑定代が高く、序盤に一度に鑑定すると破産する）
+            if (!Campaign || s.Gold - relic.AppraisalCost >= Active.Sum(a => a.WeeklyWage) * 4 + 500)
+                appraisal.Appraise(s, relic.Id);
         foreach (var item in s.Armory.ToList())
         {
             var slot = item.GetSlot();
@@ -470,7 +550,8 @@ class GameSim
         var keep = Campaign
             ? ResearchBalance.GetAll().Where(r => !s.IsResearchCompleted(r.Id)).SelectMany(r => r.RequiredMaterials.Keys)
                 .Concat(UseElixirs ? ElixirBalance.Recipes.SelectMany(r => r.RequiredMaterials.Keys) : Enumerable.Empty<string>())
-                .Append("mat_canyon_gem").ToHashSet()
+                .Append("mat_canyon_gem")
+                .Concat(s.Commissions.Where(c => c.Accepted && c.MaterialId != null).Select(c => c.MaterialId!)).ToHashSet()
             : new HashSet<string>();
         foreach (var id in s.Materials.Keys.Where(id => !keep.Contains(id)).ToList())
             economy.TrySellAllOfMaterial(s, id, out _);
@@ -643,7 +724,7 @@ class GameSim
         var sims = new List<GameSim>();
         for (int i = 0; i < runs; i++)
         {
-            var sim = new GameSim(i);
+            var sim = new GameSim(i + SeedFrom);
             sim.Run(weeks);
             sims.Add(sim);
         }
@@ -676,6 +757,8 @@ class GameSim
         Console.WriteLine($"秘薬で生まれた娘：{string.Join(", ", sims.Select(x => x.DaughtersBorn))}");
         Console.WriteLine($"飲ませた霊薬：{string.Join(", ", sims.Select(x => x.ElixirsGiven))}　上位装備の段（最終）：{string.Join(", ", sims.Select(x => EquipmentSystem.GetUnlockedShopTier(x.s)))}");
         Console.WriteLine($"強制除籍：{string.Join(", ", sims.Select(x => x.ForcedRetired))}　敗北：{string.Join(", ", sims.Select(x => x.Defeat ?? "なし"))}");
+        Console.WriteLine($"依頼（§0.64、{(UseCommissions ? "受ける" : "受けない")}・異変{(NoAnomaly ? "なし" : "あり")}）：達成 {string.Join(", ", sims.Select(x => x.CommDone))}　失敗 {string.Join(", ", sims.Select(x => x.CommFailed))}　" +
+            $"報酬G（千） {string.Join(", ", sims.Select(x => x.CommGold / 1000))}　献上 {string.Join(", ", sims.Select(x => x.Tributes))}　依頼人の固有武具 {string.Join(", ", sims.Select(x => x.PatronUniques))}　異変 {string.Join(", ", sims.Select(x => x.Anomalies))}");
         Console.WriteLine();
         Console.WriteLine("### 1回目の最後の状態：各フィールドの次のボスと、上位4名の部隊の値");
         sims[0].Diagnose();
@@ -696,7 +779,7 @@ class GameSim
             var boss = f.GetNextActiveBoss();
             if (boss == null) { Console.WriteLine($"- {FieldShort(f.Order)}：制覇"); continue; }
             double power = DungeonResolver.CalculateBossPower(party, boss);
-            double req = DungeonResolver.RequiredPower(boss);
+            double req = DungeonResolver.RequiredPower(boss, s);
             string gimmicks = string.Join("・", boss.Gimmicks.Select(g => $"{g.Type}{(DungeonResolver.IsCountered(g, party) ? "(対策済)" : g.RequiredItemId != null ? $"(携行品{g.RequiredItemId})" : "(対策なし)")}"));
             Console.WriteLine($"- {FieldShort(f.Order)} {boss.Floor}F：要求火力 {req:F0}／上位4名の火力 {power:F0}（解析{boss.IntelRate:P0}）・ギミック {gimmicks}・" +
                 $"走破力 {trav:F0}／{boss.Floor}Fの走破要求 {DungeonTraversalResolver.FloorRequirement(f, boss.Floor):F1}・最高到達 {f.ReachedFloor}F");

@@ -100,6 +100,8 @@ namespace GuildManager.Core.Systems
             result.FrontFloor = plan.FrontFloor;
 
             var startSegmentBoss = SegmentBoss(field, startFloor, stopper);
+            // 迷宮の異変「瘴気」（→ DungeonAnomalySystem、§0.64）：その週の損耗を区間の被ダメージ倍率に上乗せする。
+            double miasma = DungeonAnomalySystem.DamageMultiplier(state, field.Id);
 
             int exploredRecord = field.ReachedFloor; // 進軍前の最高到達階層（これより深い階層が未踏破）
             var steps = new List<TraversalStep>();
@@ -112,7 +114,7 @@ namespace GuildManager.Core.Systems
                 bool unexplored = floor > exploredRecord;
                 if (unexplored)
                     result.EnteredUnexplored = true;
-                steps.Add(new TraversalStep(floor, segmentBoss, unexplored, IntelSpeedMultiplier(segmentBoss), DamageTakenMultiplier(segmentBoss)));
+                steps.Add(new TraversalStep(floor, segmentBoss, unexplored, IntelSpeedMultiplier(segmentBoss), DamageTakenMultiplier(segmentBoss) * miasma));
                 CollectLoot(result, field, floor);
             }
 
@@ -127,9 +129,9 @@ namespace GuildManager.Core.Systems
 
             // 進軍全体の実効倍率（階層数で重み付けした平均）。1階層も進めなかった場合は出発区間の値。
             result.IntelSpeedMultiplier = steps.Count > 0 ? steps.Average(s => s.Speed) : IntelSpeedMultiplier(startSegmentBoss);
-            result.DamageTakenMultiplier = steps.Count > 0 ? steps.Average(s => s.Damage) : DamageTakenMultiplier(startSegmentBoss);
+            result.DamageTakenMultiplier = steps.Count > 0 ? steps.Average(s => s.Damage) : DamageTakenMultiplier(startSegmentBoss) * miasma;
 
-            ApplyHpLoss(result, party, rank, steps, startSegmentBoss);
+            ApplyHpLoss(result, party, rank, steps, startSegmentBoss, miasma);
 
             return result;
         }
@@ -429,7 +431,7 @@ namespace GuildManager.Core.Systems
         /// HPは下限1で止まり、致死判定・負傷状態には一切接続しない。
         /// 1階層も進めなかった場合は従来どおり、進軍ランクの率×出発区間の被ダメージ倍率を1回分受ける。
         /// </summary>
-        private void ApplyHpLoss(TraversalResult result, Party party, TraversalRank rank, List<TraversalStep> steps, FloorBoss? startSegmentBoss)
+        private void ApplyHpLoss(TraversalResult result, Party party, TraversalRank rank, List<TraversalStep> steps, FloorBoss? startSegmentBoss, double miasma)
         {
             var (rankMin, rankMax) = RankHpLossRange(rank);
             bool needRank = steps.Count == 0 || steps.Any(s => !s.Unexplored);
@@ -451,7 +453,7 @@ namespace GuildManager.Core.Systems
                 unexploredPctSum += unexploredPct;
 
                 double effectivePct = steps.Count == 0
-                    ? rankPct * DamageTakenMultiplier(startSegmentBoss)
+                    ? rankPct * DamageTakenMultiplier(startSegmentBoss) * miasma
                     : steps.Sum(s => (s.Unexplored ? unexploredPct : rankPct) * s.Damage) / steps.Count;
 
                 int hpLoss = (int)Math.Floor(member.MaxHP * effectivePct / 100.0 + LossEpsilon);

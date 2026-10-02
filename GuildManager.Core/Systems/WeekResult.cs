@@ -47,7 +47,17 @@ namespace GuildManager.Core.Systems
         /// <summary>階層ボスを倒したか（§0.63。進み具合を見てもらうため止める）。</summary>
         public bool BossDefeated { get; set; }
 
+        /// <summary>季節のはじめに依頼が届いたか（§0.64。受けるかどうかを決めてもらうため止める）。</summary>
+        public bool CommissionsOffered { get; set; }
+
+        /// <summary>迷宮の異変が予告されたか（§0.64。来週からどこへ行くかを考えてもらうため止める）。</summary>
+        public bool AnomalyAnnounced { get; set; }
+
+        /// <summary>受けた依頼の期限が近づいたか（§0.64、→ CommissionBalance.DeadlineWarningWeeks）。</summary>
+        public bool CommissionDeadlineNear { get; set; }
+
         public bool ShouldStopAutoSkip =>
+            CommissionsOffered || AnomalyAnnounced || CommissionDeadlineNear ||
             RecruitmentTrialOccurred || SatisfactionWarningOccurred ||
             FacilityConstructionCompleted || SoulFusionBirthOccurred ||
             SevereInjuryOccurred || BossDefeated ||

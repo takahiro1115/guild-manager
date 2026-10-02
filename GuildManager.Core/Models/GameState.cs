@@ -261,6 +261,18 @@ namespace GuildManager.Core.Models
         /// </summary>
         public List<SoulFusionCulture> SoulFusionCultures { get; set; } = new();
 
+        /// <summary>
+        /// 掲示中・受けた依頼（→ GuildCommission・Systems.CommissionSystem、03 §4.9・§0.64）。
+        /// 旧セーブには無く、空のまま読まれる（次の季節のはじめから届く）。
+        /// </summary>
+        public List<GuildCommission> Commissions { get; set; } = new();
+
+        /// <summary>依頼人ごとの達成件数（依頼人Id→件数。固有武具が届く条件、→ CommissionBalance.PatronUniqueCompletions）。</summary>
+        public Dictionary<string, int> CommissionCompletions { get; set; } = new();
+
+        /// <summary>予告中・発生中の迷宮の異変（→ DungeonAnomaly・Systems.DungeonAnomalySystem、03 §4.10・§0.64）。無ければnull。</summary>
+        public DungeonAnomaly? Anomaly { get; set; }
+
         /// <summary>現役・引退者・除籍者のどこかにいる冒険者をIdで引く（魂魄融和の親の表示など）。見つからなければ null。</summary>
         public Adventurer? FindAdventurer(Guid id) =>
             Adventurers.FirstOrDefault(a => a.Id == id)
@@ -308,6 +320,9 @@ namespace GuildManager.Core.Models
                 ObtainedUniqueIds = new HashSet<string>(ObtainedUniqueIds),
                 CompletedResearchIds = new HashSet<string>(CompletedResearchIds),
                 SoulFusionCultures = new List<SoulFusionCulture>(SoulFusionCultures),
+                Commissions = new List<GuildCommission>(Commissions),
+                CommissionCompletions = new Dictionary<string, int>(CommissionCompletions),
+                Anomaly = Anomaly,
             };
 
             foreach (var kv in Compatibility)
@@ -406,6 +421,10 @@ namespace GuildManager.Core.Models
                 // 子の Adventurer が欠けた記録（壊れたデータ）は捨てる。
                 SoulFusionCultures = (data.SoulFusionCultures ?? new List<SoulFusionCulture>())
                     .Where(c => c?.Child != null).ToList(),
+                // 依頼と迷宮の異変（§0.64）。キーを持たない旧セーブ、または null が書かれていても空・無しで始める。
+                Commissions = (data.Commissions ?? new List<GuildCommission>()).Where(c => c != null).ToList(),
+                CommissionCompletions = new Dictionary<string, int>(data.CommissionCompletions ?? new Dictionary<string, int>()),
+                Anomaly = data.Anomaly,
                 Facilities = new List<Facility>(),
             };
 

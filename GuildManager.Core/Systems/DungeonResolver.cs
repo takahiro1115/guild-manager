@@ -58,7 +58,8 @@ namespace GuildManager.Core.Systems
                     result.UncounteredGimmicks.Add(gimmick.Type);
             }
 
-            result.DamageMultiplier = CalculateDamageMultiplier(boss, result, party);
+            // 迷宮の異変「瘴気」（→ DungeonAnomalySystem、§0.64）は損耗の倍率に掛ける。
+            result.DamageMultiplier = CalculateDamageMultiplier(boss, result, party) * DungeonAnomalySystem.DamageMultiplier(state, boss);
 
             // ---- 火力判定（ボスのHPを削り切れるか） ----
             // 重装甲ボスなら巨獣狩りの保有者の火力に上乗せが効く（→ DungeonPowerCalculator.MemberPower）。
@@ -69,7 +70,7 @@ namespace GuildManager.Core.Systems
             result.FullIntelBonusApplied = ScoutingResolver.GetTier(boss.IntelRate) == IntelTier.Complete;
 
             result.PartyPower = partyPower;
-            result.RequiredPower = RequiredPower(boss);
+            result.RequiredPower = RequiredPower(boss, state);
             result.Outcome = partyPower >= result.RequiredPower ? DungeonOutcome.Victory : DungeonOutcome.Retreat;
 
             if (result.Outcome == DungeonOutcome.Victory)
@@ -97,6 +98,13 @@ namespace GuildManager.Core.Systems
         /// </summary>
         public static double RequiredPower(FloorBoss boss) =>
             DungeonBalance.ScaleRequirement(DungeonBalance.PartyPowerRequirementBase, DungeonBalance.PartyPowerRequirementPerFloor, boss.Floor, boss.FieldOrder);
+
+        /// <summary>
+        /// 迷宮の異変（主の衰え・主の猛り、→ DungeonAnomalySystem、§0.64）を含めた要求火力。
+        /// state が null なら異変なし（＝RequiredPower(boss)）。決戦の判定・出撃前の見立て・扉前の自動判断はこちらを使う。
+        /// </summary>
+        public static double RequiredPower(FloorBoss boss, GameState? state) =>
+            RequiredPower(boss) * DungeonAnomalySystem.RequirementMultiplier(state, boss);
 
         /// <summary>
         /// そのボスに挑んだ場合の部隊火力（巨獣狩りの上乗せ・完全解析の弱点ボーナス込み）。

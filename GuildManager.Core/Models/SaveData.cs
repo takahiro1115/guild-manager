@@ -238,6 +238,18 @@ namespace GuildManager.Core.Models
         /// </summary>
         public List<SoulFusionCulture>? SoulFusionCultures { get; set; } = new();
 
+        /// <summary>
+        /// 掲示中・受けた依頼（→ GameState.Commissions、03 §4.9・§0.64）。GuildCommission は Guid・整数・文字列・列挙だけで
+        /// 構成されるため直接JSON化する。旧セーブでは空で復元される。
+        /// </summary>
+        public List<GuildCommission>? Commissions { get; set; } = new();
+
+        /// <summary>依頼人ごとの達成件数（→ GameState.CommissionCompletions）。旧セーブでは空で復元される。</summary>
+        public Dictionary<string, int>? CommissionCompletions { get; set; } = new();
+
+        /// <summary>予告中・発生中の迷宮の異変（→ GameState.Anomaly）。旧セーブ・異変の無い週は null。</summary>
+        public DungeonAnomaly? Anomaly { get; set; }
+
         // 装備カタログは静的コード定義のため保存不要（Adventurer側は装備IDの
         // 文字列のみ保持しているため、カタログさえコード内にあれば復元できる）
     }
