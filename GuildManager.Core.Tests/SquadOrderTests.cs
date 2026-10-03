@@ -89,6 +89,84 @@ namespace GuildManager.Core.Tests
             Assert.Equal(DungeonMissionType.Gathering, Assert.Single(state.ActiveDungeonMissions).MissionType);
         }
 
+        // ---------------- おまかせ（方針の対象ダンジョンを自動で選ぶ） ----------------
+
+        /// <summary>森（ボス10F）と洞窟（ボス10F）の2フィールドと、「おまかせ」の方針つき2人部隊。</summary>
+        private static (GameState State, SavedParty Saved, FloorBoss ForestBoss, FloorBoss CaveBoss) SetupAuto(SquadOrder order, int stat = 40)
+        {
+            var (state, saved, forestBoss) = Setup(order, stat);
+            var caveBoss = new FloorBoss { Name = "洞窟の主", Floor = 10, MaxHp = 100, CurrentHp = 100, FieldOrder = 2 };
+            state.DungeonFields.Add(new DungeonField { Id = "cave", Name = "洞窟", Order = 2, IsUnlocked = true, ReachedFloor = 1, Bosses = { caveBoss } });
+            saved.OrderFieldId = SavedParty.AutoFieldId;
+            return (state, saved, forestBoss, caveBoss);
+        }
+
+        [Fact]
+        public void Auto_ConcreteField_IsReturnedAsIs_AndUnknownFieldIsNull()
+        {
+            var (state, saved, _, _) = SetupAuto(SquadOrder.Dive);
+            saved.OrderFieldId = "cave";
+            Assert.Equal("cave", SquadOrderSystem.ResolveField(state, saved)!.Id);
+            saved.OrderFieldId = "nowhere";
+            Assert.Null(SquadOrderSystem.ResolveField(state, saved));
+        }
+
+        [Fact]
+        public void Auto_Survey_PicksTheBossWithTheLowestAnalysis()
+        {
+            var (state, saved, forestBoss, caveBoss) = SetupAuto(SquadOrder.Survey);
+            forestBoss.IntelRate = 0.6;
+            caveBoss.IntelRate = 0.1;
+            Assert.Equal("cave", SquadOrderSystem.ResolveField(state, saved)!.Id);
+
+            // 洞窟が完全解析済みなら、残る森を調べる
+            caveBoss.IntelRate = 1.0;
+            Assert.Equal("forest", SquadOrderSystem.ResolveField(state, saved)!.Id);
+        }
+
+        [Fact]
+        public void Auto_Dive_PicksTheFieldWhereTheBossLooksMostWinnable()
+        {
+            var (state, saved, forestBoss, caveBoss) = SetupAuto(SquadOrder.Dive);
+            forestBoss.Floor = 90; // 深いほど要求火力が高い
+            caveBoss.Floor = 10;
+            Assert.Equal("cave", SquadOrderSystem.ResolveField(state, saved)!.Id);
+            forestBoss.Floor = 10;
+            caveBoss.Floor = 90;
+            Assert.Equal("forest", SquadOrderSystem.ResolveField(state, saved)!.Id);
+        }
+
+        [Fact]
+        public void Auto_Gather_PrefersTheDeeperField_WhenTheGuardIsTheSame()
+        {
+            var (state, saved, _, _) = SetupAuto(SquadOrder.Gather, stat: 200);
+            state.DungeonFields.First(f => f.Id == "cave").ReachedFloor = 5;
+            state.DungeonFields.First(f => f.Id == "forest").ReachedFloor = 3;
+            Assert.Equal("cave", SquadOrderSystem.ResolveField(state, saved)!.Id);
+        }
+
+        [Fact]
+        public void Auto_DispatchesToTheChosenField_AndSkipsLockedFields()
+        {
+            var (state, saved, forestBoss, caveBoss) = SetupAuto(SquadOrder.Survey);
+            forestBoss.IntelRate = 0.5;
+            caveBoss.IntelRate = 0.0;
+            state.DungeonFields.First(f => f.Id == "cave").IsUnlocked = false; // 洞窟は未開放なので選ばれない
+
+            new SquadOrderSystem(Expedition()).Execute(state);
+
+            var mission = Assert.Single(state.ActiveDungeonMissions);
+            Assert.Equal("forest", mission.Field.Id);
+        }
+
+        [Fact]
+        public void Auto_WithNoUsableField_Waits()
+        {
+            var (state, saved, _, _) = SetupAuto(SquadOrder.Gather);
+            foreach (var field in state.DungeonFields) field.IsUnlocked = false;
+            Assert.Contains("ダンジョンがない", SquadOrderSystem.GetWaitReason(state, saved));
+        }
+
         [Fact]
         public void NoOrder_IsIgnored()
         {

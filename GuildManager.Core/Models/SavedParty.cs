@@ -36,6 +36,12 @@ namespace GuildManager.Core.Models
         /// <summary>方針の対象フィールドのId（→ DungeonField.Id）。方針が None なら使わない。</summary>
         public string? OrderFieldId { get; set; }
 
+        /// <summary>
+        /// <see cref="OrderFieldId"/> にこの値を入れると「おまかせ」：出撃のたびに、方針に合うダンジョンを自動で選ぶ
+        /// （→ SquadOrderSystem.ResolveField）。旧セーブの具体的なフィールドIdはそのまま読まれる。
+        /// </summary>
+        public const string AutoFieldId = "auto";
+
         /// <summary>潜行の方針で、扉前に着いたとき見込みがあれば自動で挑み、無ければ撤退するか（false＝止まって聞く）。</summary>
         public bool AutoEngage { get; set; }
     }

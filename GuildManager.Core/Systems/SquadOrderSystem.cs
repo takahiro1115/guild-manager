@@ -78,8 +78,8 @@ namespace GuildManager.Core.Systems
                     continue;
                 }
 
-                var field = state.DungeonFields.First(f => f.Id == saved.OrderFieldId);
                 var party = PartyFormationSystem.BuildDispatchParty(state, saved.MemberIds);
+                var field = ResolveField(state, saved)!; // 待機理由が無い＝対象が決まっている（→ GetWaitReason）
                 var (ok, detail) = DispatchByOrder(state, saved, field, party);
                 if (!ok)
                 {
@@ -121,6 +121,63 @@ namespace GuildManager.Core.Systems
             }
         }
 
+        /// <summary>
+        /// 方針の対象ダンジョン。具体的なフィールドIdならそれ、「おまかせ」（<see cref="SavedParty.AutoFieldId"/>）なら方針に合うものを選ぶ。
+        /// 選べるフィールドが無ければ null。乱数は使わない。
+        ///  - 潜行：次のボスに対する討伐火力÷要求火力が最も高いダンジョン（勝てそうなところから）
+        ///  - 調査：解析が完全でない次のボスのうち、解析率が最も低いダンジョン（無ければ最も深いダンジョン＝その週は採取）
+        ///  - 採取：護衛の段階が最も良く（同じなら）最高到達階層が深いダンジョン
+        /// 同点は、フィールドの並び順が先のもの。
+        /// </summary>
+        public static DungeonField? ResolveField(GameState state, SavedParty saved)
+        {
+            if (saved.OrderFieldId != SavedParty.AutoFieldId)
+                return state.DungeonFields.FirstOrDefault(f => f.Id == saved.OrderFieldId);
+
+            var unlocked = state.DungeonFields.Where(f => f.IsUnlocked).OrderBy(f => f.Order).ToList();
+            if (unlocked.Count == 0) return null;
+
+            var party = PartyFormationSystem.BuildDispatchParty(state, saved.MemberIds);
+            if (party.IsEmpty)
+            {
+                // 出撃できる人がいない間は、表示のために最も深いダンジョンを仮の対象にする（実際の出撃は待機理由で止まる）
+                return unlocked.OrderByDescending(f => f.ReachedFloor).First();
+            }
+
+            switch (saved.Order)
+            {
+                case SquadOrder.Dive:
+                {
+                    var candidates = unlocked.Select(f => (Field: f, Boss: f.GetNextActiveBoss())).Where(x => x.Boss != null).ToList();
+                    if (candidates.Count == 0) return null;
+                    return candidates
+                        .OrderByDescending(x => DungeonResolver.CalculateBossPower(party, x.Boss!) / Math.Max(1.0, DungeonResolver.RequiredPower(x.Boss!, state)))
+                        .First().Field;
+                }
+                case SquadOrder.Survey:
+                {
+                    var open = unlocked.Select(f => (Field: f, Boss: f.GetNextActiveBoss()))
+                        .Where(x => x.Boss != null && ScoutingResolver.GetTier(x.Boss.IntelRate) != IntelTier.Complete)
+                        .OrderBy(x => x.Boss!.IntelRate)
+                        .ToList();
+                    return open.Count > 0 ? open[0].Field : unlocked.OrderByDescending(f => f.ReachedFloor).First();
+                }
+                default:
+                    return unlocked
+                        .OrderByDescending(f => GuardRank(GatheringResolver.PreviewGuardTier(party, f)))
+                        .ThenByDescending(f => f.ReachedFloor)
+                        .First();
+            }
+        }
+
+        private static int GuardRank(GuardTier tier) => tier switch
+        {
+            GuardTier.Abundant => 3,
+            GuardTier.Sufficient => 2,
+            GuardTier.Marginal => 1,
+            _ => 0,
+        };
+
         /// <summary>その部隊が出撃中か：方針で出た出撃が残っているか、メンバーの誰かが出撃中。</summary>
         public static bool IsOut(GameState state, SavedParty saved) =>
             state.ActiveDungeonMissions.Any(m => m.SavedPartyId == saved.Id)
@@ -133,8 +190,8 @@ namespace GuildManager.Core.Systems
         /// </summary>
         public static string? GetWaitReason(GameState state, SavedParty saved)
         {
-            var field = state.DungeonFields.FirstOrDefault(f => f.Id == saved.OrderFieldId);
-            if (field == null) return "方針の対象フィールドが見つからない";
+            var field = ResolveField(state, saved);
+            if (field == null) return saved.OrderFieldId == SavedParty.AutoFieldId ? "おまかせで選べるダンジョンがない" : "方針の対象フィールドが見つからない";
             if (!field.IsUnlocked) return $"{field.Name}がまだ開放されていない";
             var members = saved.MemberIds.Select(id => state.Adventurers.FirstOrDefault(a => a.Id == id)).OfType<Adventurer>().ToList();
             if (members.Count == 0) return "部隊にメンバーがいない";

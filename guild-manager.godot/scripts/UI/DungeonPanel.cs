@@ -296,6 +296,9 @@ public partial class DungeonPanel : ScrollContainer
 		// 「どこで」：開放済みのフィールド。方針なしでも、前回選んだ場所（無ければ今見ているフィールド）を出しておく
 		_orderFieldOption.Clear();
 		_orderFieldIds.Clear();
+		// 先頭は「おまかせ」：出撃のたびに、方針に合うダンジョンを自動で選ぶ（→ SquadOrderSystem.ResolveField）
+		_orderFieldOption.AddItem("おまかせ");
+		_orderFieldIds.Add(SavedParty.AutoFieldId);
 		foreach (var field in _state.DungeonFields.Where(f => f.IsUnlocked).OrderBy(f => f.Order))
 		{
 			_orderFieldOption.AddItem(field.Name);
@@ -343,11 +346,14 @@ public partial class DungeonPanel : ScrollContainer
 
 	private string OrderSummary(SavedParty p)
 	{
-		string field = _state.DungeonFields.FirstOrDefault(f => f.Id == p.OrderFieldId)?.Name ?? "？";
+		var resolved = SquadOrderSystem.ResolveField(_state, p);
+		string field = p.OrderFieldId == SavedParty.AutoFieldId
+			? $"おまかせ（今は{resolved?.Name ?? "選べるダンジョンなし"}）"
+			: resolved?.Name ?? "？";
 		string door = p.Order == SquadOrder.Dive ? (p.AutoEngage ? "・扉前は自動判断" : "・扉前で止まる") : "";
 		// 調査の方針は、調べるボスが完全解析済みなら、その週は同じフィールドで探索（採取）を行う（→ SquadOrderSystem.DispatchByOrder）
 		string survey = "";
-		if (p.Order == SquadOrder.Survey && _state.DungeonFields.FirstOrDefault(f => f.Id == p.OrderFieldId)?.GetNextActiveBoss() is { } boss
+		if (p.Order == SquadOrder.Survey && resolved?.GetNextActiveBoss() is { } boss
 			&& ScoutingResolver.GetTier(boss.IntelRate) == IntelTier.Complete)
 			survey = "（解析済みのため探索を行う）";
 		return $"「{p.Name}」＝{field}で{OrderNames[(int)p.Order]}{door}{survey}";
@@ -363,18 +369,19 @@ public partial class DungeonPanel : ScrollContainer
 		// 場所は「どこで」のプルダウンの選択（無ければ今見ているフィールド）を使う
 		int fieldIndex = _orderFieldOption.Selected;
 		string? fieldId = fieldIndex >= 0 && fieldIndex < _orderFieldIds.Count ? _orderFieldIds[fieldIndex] : _selectedFieldId;
-		var orderField = fieldId == null ? null : _state.DungeonFields.FirstOrDefault(f => f.Id == fieldId);
+		bool isAuto = fieldId == SavedParty.AutoFieldId;
+		var orderField = fieldId == null || isAuto ? null : _state.DungeonFields.FirstOrDefault(f => f.Id == fieldId);
 		if (order != SquadOrder.None)
 		{
-			if (orderField == null) { RefreshOrderRow(); return; }
-			saved.OrderFieldId = orderField.Id;
+			if (orderField == null && !isAuto) { RefreshOrderRow(); return; }
+			saved.OrderFieldId = isAuto ? SavedParty.AutoFieldId : orderField!.Id;
 		}
 		saved.Order = order;
 		if (order != SquadOrder.Dive)
 			saved.AutoEngage = false;
 		LogRequested.Invoke(order == SquadOrder.None
 			? $"[color=cyan]📋 「{saved.Name}」の方針を解除した（手動で出撃する）。[/color]"
-			: $"[color=cyan]📋 「{saved.Name}」の方針を「{orderField!.Name}で{OrderNames[(int)order]}」にした。週送りの前に、空いていれば自動で出撃する。[/color]");
+			: $"[color=cyan]📋 「{saved.Name}」の方針を「{(isAuto ? "おまかせ" : orderField!.Name)}で{OrderNames[(int)order]}」にした。週送りの前に、空いていれば自動で出撃する。[/color]");
 		StateChanged.Invoke();
 	}
 
@@ -384,10 +391,19 @@ public partial class DungeonPanel : ScrollContainer
 		if (_refreshingOrderRow) return;
 		var saved = SelectedSavedParty();
 		if (saved == null || index < 0 || index >= _orderFieldIds.Count) return;
-		var field = _state.DungeonFields.FirstOrDefault(f => f.Id == _orderFieldIds[(int)index]);
-		if (field == null) return;
+		string chosenId = _orderFieldIds[(int)index];
+		var field = _state.DungeonFields.FirstOrDefault(f => f.Id == chosenId);
+		if (field == null && chosenId != SavedParty.AutoFieldId) return;
 
-		saved.OrderFieldId = field.Id;
+		saved.OrderFieldId = chosenId;
+		if (field == null)
+		{
+			// おまかせ：左ペインは動かさない。方針があれば、今おまかせで選ばれるダンジョンを週報に出す
+			if (saved.Order != SquadOrder.None)
+				LogRequested.Invoke($"[color=cyan]📋 「{saved.Name}」の方針の場所を「おまかせ」にした（{OrderNames[(int)saved.Order]}。出撃のたびに方針に合うダンジョンを選ぶ）。[/color]");
+			StateChanged.Invoke();
+			return;
+		}
 
 		// 選んだダンジョンを、すぐ左ペインの表示にも反映する
 		int fieldIndex = _state.DungeonFields.OrderBy(f => f.Order).ToList().FindIndex(f => f.Id == field.Id);
@@ -1096,7 +1112,7 @@ public partial class DungeonPanel : ScrollContainer
 		if (_selectedPartyId != null && SelectedSavedParty() is { } picked)
 		{
 			string? activeFieldId = MissionOfParty(picked)?.Field.Id
-				?? (picked.Order != SquadOrder.None ? picked.OrderFieldId : null);
+				?? (picked.Order != SquadOrder.None ? SquadOrderSystem.ResolveField(_state, picked)?.Id : null);
 			if (activeFieldId != null && activeFieldId != _selectedFieldId)
 			{
 				var fields = _state.DungeonFields.OrderBy(f => f.Order).ToList();
