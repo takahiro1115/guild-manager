@@ -241,6 +241,8 @@ public partial class EquipmentPopup : PopupPanel
 			return;
 		}
 
+		// 装飾品は1と2を区別しない：空いている装飾枠へ（どちらも埋まっていれば、その品の本来の枠と入れ替える）
+		slot = EquipmentSystem.ResolveSlot(_adventurer, slot.Value);
 		var previous = _adventurer.GetEquipped(slot.Value);
 		if (!_equipmentSystem.TryEquip(_state, _adventurer, slot.Value, entry))
 		{
@@ -326,8 +328,8 @@ public partial class EquipmentPopup : PopupPanel
 	{
 		EquipmentSlot.Weapon => "武器",
 		EquipmentSlot.Armor => "防具",
-		EquipmentSlot.Accessory1 => "装飾1",
-		EquipmentSlot.Accessory2 => "装飾2",
+		EquipmentSlot.Accessory1 => "装飾品",
+		EquipmentSlot.Accessory2 => "装飾品",
 		_ => slot.ToString()
 	};
 }

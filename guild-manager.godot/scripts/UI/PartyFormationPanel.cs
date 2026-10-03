@@ -88,7 +88,7 @@ public partial class PartyFormationPanel : VBoxContainer
 	private static readonly (ContributionKind Kind, string Label, string Tooltip)[] ContributionKinds =
 	{
 		(ContributionKind.Traversal, "走破", "進軍の走破力への寄与＝VIT×重み＋MND×重み（隊長LDR・研究・参謀の加算は別）"),
-		(ContributionKind.Power, "火力", "討伐火力への寄与（→ 各能力値×重み×HP比率。ボスを特定しない試算）"),
+		(ContributionKind.Power, "討伐", "討伐火力への寄与（→ 各能力値×重み×HP比率。ボスを特定しない試算）"),
 		(ContributionKind.Guard, "護衛", "迷宮調査の護衛値＝max(STR, VIT, INT)。部隊で最大の人が主護衛、他は×支援係数で加わる"),
 		(ContributionKind.Stealth, "隠密", "隠密の素点＝AGI＋DEX（部隊ではこの平均×人数倍率。斥候・盗賊・重装の補正は別）"),
 		(ContributionKind.Analysis, "解析", "迷宮調査の解析への寄与＝INT×係数（部隊では合計）"),
@@ -184,6 +184,7 @@ public partial class PartyFormationPanel : VBoxContainer
 	public void Refresh(GameState state)
 	{
 		_state = state;
+		PartyFormationSystem.PruneStaleMembers(_state); // 引退などで抜けた隊員の古いIdを外す（空いた枠に追加できるように）
 		EnsureSquads();
 
 		int unlocked = Math.Max(1, _state.UnlockedSquadSlots);

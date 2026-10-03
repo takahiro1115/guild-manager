@@ -494,8 +494,8 @@ public partial class AdventurerPanel : VBoxContainer
 		// 性能の内訳（アフィックス分を含む）はツールチップに出す。
 		BindEquipmentSlot(_weaponLabel, "武器", a.EquippedWeapon);
 		BindEquipmentSlot(_armorLabel, "防具", a.EquippedArmor);
-		BindEquipmentSlot(_accessory1Label, "装飾1", a.EquippedAccessory1);
-		BindEquipmentSlot(_accessory2Label, "装飾2", a.EquippedAccessory2);
+		BindEquipmentSlot(_accessory1Label, "装飾品", a.EquippedAccessory1);
+		BindEquipmentSlot(_accessory2Label, "装飾品", a.EquippedAccessory2);
 
 		// ---- 操作ボタン群の個別ガード ----
 		_raiseWageButton.Disabled = false;

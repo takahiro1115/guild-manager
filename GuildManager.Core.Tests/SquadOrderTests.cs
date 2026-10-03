@@ -41,7 +41,7 @@ namespace GuildManager.Core.Tests
         {
             var boss = new FloorBoss { Name = "森の主", Floor = 10, MaxHp = 100, CurrentHp = 100 };
             boss.Gimmicks.AddRange(gimmicks);
-            var forest = new DungeonField { Id = "forest", Name = "森", Order = 1, IsUnlocked = true, Bosses = { boss } };
+            var forest = new DungeonField { Id = "forest", Name = "森", Order = 1, IsUnlocked = true, ReachedFloor = 10, Bosses = { boss } };
             var a = Make("アリス", stat);
             var b = Make("セリア", stat);
             var saved = new SavedParty { Name = "第一部隊", MemberIds = { a.Id, b.Id }, Order = order, OrderFieldId = "forest", AutoEngage = autoEngage };
@@ -96,7 +96,7 @@ namespace GuildManager.Core.Tests
         {
             var (state, saved, forestBoss) = Setup(order, stat);
             var caveBoss = new FloorBoss { Name = "洞窟の主", Floor = 10, MaxHp = 100, CurrentHp = 100, FieldOrder = 2 };
-            state.DungeonFields.Add(new DungeonField { Id = "cave", Name = "洞窟", Order = 2, IsUnlocked = true, ReachedFloor = 1, Bosses = { caveBoss } });
+            state.DungeonFields.Add(new DungeonField { Id = "cave", Name = "洞窟", Order = 2, IsUnlocked = true, ReachedFloor = 10, Bosses = { caveBoss } });
             saved.OrderFieldId = SavedParty.AutoFieldId;
             return (state, saved, forestBoss, caveBoss);
         }

@@ -26,6 +26,66 @@ namespace GuildManager.Core.Tests
             Assert.Equal(1000 - ItemCatalog.IronSword.Price, state.Gold);
         }
 
+        // ---------------- 装飾品は1と2を区別しない ----------------
+
+        [Fact]
+        public void Accessories_GoIntoAnyFreeAccessorySlot_RegardlessOfTheCatalogSlot()
+        {
+            var adventurer = new Adventurer { JobClass = JobClass.Warrior };
+            var state = new GameState { Gold = 100000 };
+            var system = new EquipmentSystem();
+
+            // 指輪（カタログ上は装飾1）を2つ買っても、2つ目は空いている装飾2に入る
+            Assert.True(system.TryPurchaseAndEquip(state, adventurer, ItemCatalog.PowerRingId));
+            Assert.True(system.TryPurchaseAndEquip(state, adventurer, ItemCatalog.PowerRingId));
+
+            Assert.Equal(ItemCatalog.PowerRingId, adventurer.EquippedAccessory1Id);
+            Assert.Equal(ItemCatalog.PowerRingId, adventurer.EquippedAccessory2Id);
+            Assert.Empty(state.Armory);
+        }
+
+        [Fact]
+        public void Accessories_WhenBothSlotsAreFull_ReplaceTheItemsOwnSlot_AndTheOldOneReturnsToTheArmory()
+        {
+            var adventurer = new Adventurer { JobClass = JobClass.Warrior };
+            var state = new GameState { Gold = 100000 };
+            var system = new EquipmentSystem();
+            system.TryPurchaseAndEquip(state, adventurer, ItemCatalog.PowerRingId);
+            system.TryPurchaseAndEquip(state, adventurer, ItemCatalog.QuickBroochId);
+
+            system.TryPurchaseAndEquip(state, adventurer, ItemCatalog.LifeAmuletId); // 本来の枠は装飾1
+
+            Assert.Equal(ItemCatalog.LifeAmuletId, adventurer.EquippedAccessory1Id);
+            Assert.Equal(ItemCatalog.QuickBroochId, adventurer.EquippedAccessory2Id);
+            Assert.Single(state.Armory);
+        }
+
+        [Fact]
+        public void TryEquip_AcceptsAnAccessoryIntoEitherAccessorySlot_ButNotIntoOtherSlots()
+        {
+            var adventurer = new Adventurer { JobClass = JobClass.Warrior };
+            var state = new GameState();
+            var brooch = EquipmentItem.FromCatalog(ItemCatalog.QuickBrooch, 1, "テスト"); // カタログ上は装飾2
+            state.Armory.Add(brooch);
+            var system = new EquipmentSystem();
+
+            Assert.False(system.TryEquip(state, adventurer, EquipmentSlot.Weapon, brooch));
+            Assert.True(system.TryEquip(state, adventurer, EquipmentSlot.Accessory1, brooch)); // 装飾1にも着けられる
+            Assert.Same(brooch, adventurer.EquippedAccessory1);
+        }
+
+        [Fact]
+        public void ResolveSlot_PicksTheFirstFreeAccessorySlot()
+        {
+            var adventurer = new Adventurer { JobClass = JobClass.Warrior };
+            Assert.Equal(EquipmentSlot.Weapon, EquipmentSystem.ResolveSlot(adventurer, EquipmentSlot.Weapon));
+            Assert.Equal(EquipmentSlot.Accessory1, EquipmentSystem.ResolveSlot(adventurer, EquipmentSlot.Accessory2));
+            adventurer.EquippedAccessory1 = EquipmentItem.FromCatalog(ItemCatalog.PowerRing, 1, "テスト");
+            Assert.Equal(EquipmentSlot.Accessory2, EquipmentSystem.ResolveSlot(adventurer, EquipmentSlot.Accessory1));
+            adventurer.EquippedAccessory2 = EquipmentItem.FromCatalog(ItemCatalog.QuickBrooch, 1, "テスト");
+            Assert.Equal(EquipmentSlot.Accessory1, EquipmentSystem.ResolveSlot(adventurer, EquipmentSlot.Accessory1));
+        }
+
         [Fact]
         public void TryPurchaseAndEquip_Fails_WhenGoldInsufficient()
         {

@@ -14,7 +14,7 @@ TributeMinThreshold,20,pt,献上の基準の下限
 RewardMultiplier_Defeat,0.2,倍,撃破の報酬ゴールド＝対象のボスの撃破報酬×この倍率（撃破報酬そのものは別にもらえる。1.0だとシミュレーターでクリアが16年目→11年目に早まったため0.2）
 RewardMultiplier_Survey,0.15,倍,完全解析の報酬ゴールド＝対象のボスの撃破報酬×この倍率
 RewardMultiplier_Deliver,0.15,倍,納品の報酬ゴールド＝攻略の最前線のボス（要求火力が最も低い次のボス）の撃破報酬×この倍率
-RewardMultiplier_Tribute,0.3,倍,献上の報酬ゴールド＝攻略の最前線のボスの撃破報酬×この倍率（育てた冒険者を手放す分、他の依頼より大きい）
+RewardMultiplier_Tribute,3,倍,献上の報酬ゴールド＝攻略の最前線のボスの撃破報酬×この倍率（育てた冒険者を手放す分、他の依頼より大きい）
 CompletionMoodGain,10,pt,依頼を達成したときの機嫌の上昇
 FailureMoodLoss,10,pt,受けた依頼が期限切れ・達成できなくなったときの機嫌の低下（断った依頼・受けずに流れた依頼は罰なし）
 RewardRelicRollBonus,25,pt,報酬の未鑑定遺物の希少度ロールへの上乗せ（階層ボス撃破のドロップと同じ）

@@ -296,6 +296,34 @@ namespace GuildManager.Core.Systems
             return best;
         }
 
+        /// <summary>
+        /// 迷宮調査の対象：そのフィールドで解析が完全でない最も浅いボス（撃破済みでもよい）。調査は必ず低い階層から進め、
+        /// 低層に解析が済んでいない階が残っていれば、潜行や討伐が先の階へ進んでいても、そちらを調べる（§0.67）。
+        /// すべて完全解析なら null。
+        /// </summary>
+        public static FloorBoss? FindSurveyTarget(DungeonField field) =>
+            field.Bosses.Where(b => GetTier(b.IntelRate) != IntelTier.Complete).OrderBy(b => b.Floor).FirstOrDefault();
+
+        /// <summary>
+        /// そのボスの階層まで潜行が進んでいるか（フィールドの最高到達階層が、ボスの階層以上）。
+        /// 潜行が進んでいない階層は調査できない（§0.67）。
+        /// </summary>
+        public static bool IsFloorReached(DungeonField field, FloorBoss boss) => field.ReachedFloor >= boss.Floor;
+
+        /// <summary>
+        /// そのボスが担当する区間の最初の階（＝ひとつ浅いボスの階層＋1。最も浅いボスなら1F）。
+        /// 解析はボス個人ではなく、その区間の階層すべてを解析するものとして扱う（走破の加速・損耗の軽減は、区間の担当ボスの解析率で決まる）。
+        /// </summary>
+        public static int SegmentStartFloor(DungeonField field, FloorBoss boss) =>
+            field.Bosses.Where(b => b.Floor < boss.Floor).Select(b => b.Floor).DefaultIfEmpty(0).Max() + 1;
+
+        /// <summary>区間の表記（例：「11〜20F」）。</summary>
+        public static string SegmentLabel(DungeonField field, FloorBoss boss) => $"{SegmentStartFloor(field, boss)}〜{boss.Floor}F";
+
+        /// <summary>今、調査に出せるボス（解析が完全でない最も浅いボスが、潜行の済んだ階層にあるとき。無ければ null）。</summary>
+        public static FloorBoss? FindSurveyableBoss(DungeonField field) =>
+            FindSurveyTarget(field) is { } target && IsFloorReached(field, target) ? target : null;
+
         /// <summary>要求護衛値＝(基礎値＋階層×増分)×フィールド倍率（§0.47で旧「基準値×ボス階層÷10」を置き換え）。</summary>
         public static double RequiredGuardPower(FloorBoss boss) =>
             DungeonBalance.ScaleRequirement(ScoutingBalance.GuardRequirementBase, ScoutingBalance.GuardRequirementPerFloor, boss.Floor, boss.FieldOrder);

@@ -186,9 +186,10 @@ namespace GuildManager.Core.Systems
                 return false;
 
             var field = state.DungeonFields.FirstOrDefault(f => f.Bosses.Contains(boss));
-            if (field == null || !field.IsUnlocked || boss.IsDefeated)
+            if (field == null || !field.IsUnlocked)
                 return false;
-            if (ScoutingResolver.GetTier(boss.IntelRate) == IntelTier.Complete)
+            // 調査は、解析が完全でない最も浅いボスだけを対象にし（撃破済みでもよい）、潜行の済んでいない階層は調べられない（§0.67）。
+            if (ScoutingResolver.FindSurveyableBoss(field) != boss)
                 return false;
 
             state.ActiveDungeonMissions.Add(new ActiveDungeonMission
@@ -477,7 +478,8 @@ namespace GuildManager.Core.Systems
         private DungeonMissionResolution ResolveSurvey(GameState state, ActiveDungeonMission mission)
         {
             var boss = mission.TargetedBoss ?? mission.Boss;
-            if (boss == null || boss.IsDefeated)
+            // 撃破済みのボスの調査もある（低層の解析が未完のまま先へ進んだ場合、§0.67）ので、倒されていても調べる
+            if (boss == null)
                 return ReturnHomeWithoutAction(state, mission);
 
             double intelBefore = boss.IntelRate;

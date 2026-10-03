@@ -101,6 +101,13 @@ layout_mode = 2
 toggle_mode = true
 text = "📦 倉庫・遺物"
 
+[node name="NavShopBtn" type="Button" parent="Root/NavigationBar"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(130, 36)
+layout_mode = 2
+toggle_mode = true
+text = "🛒 お抱え商"
+
 [node name="NavSystemBtn" type="Button" parent="Root/NavigationBar" unique_id=450192838]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(130, 36)

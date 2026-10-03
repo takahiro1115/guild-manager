@@ -417,7 +417,7 @@ namespace GuildManager.Core.Tests
         public void Expedition_Survey_RaisesCompatibility_OnlyWhenNotRouted(int stat, bool expectRaise)
         {
             var boss = new FloorBoss { Name = "調査対象", Floor = 10, MaxHp = 1, CurrentHp = 1 };
-            var field = new DungeonField { Id = "forest", Name = "森", Order = 1, IsUnlocked = true, Bosses = { boss } };
+            var field = new DungeonField { Id = "forest", Name = "森", Order = 1, IsUnlocked = true, ReachedFloor = 10, Bosses = { boss } };
             var (state, a, b) = StateWithPair(stat, field);
             var system = BuildSystem();
             Assert.True(system.TryDispatchSurvey(state, PartyOf(a, b), boss));
@@ -1325,6 +1325,8 @@ namespace GuildManager.Core.Tests
             // 迷宮調査・採取（いずれも1週で帰還）。
             var boss10 = new FloorBoss { Name = "第10階層の主", Floor = 10, MaxHp = 999_999, CurrentHp = 999_999 };
             field.Bosses.Add(boss10);
+            field.ReachedFloor = boss10.Floor;
+            boss.IntelRate = 1.0; // 浅い階（撃破済みの5階）は解析済みにして、次の10階を調べる（§0.67）
             Assert.True(system.TryDispatchSurvey(state, PartyOf(a, b), boss10));
             var survey = Assert.Single(system.ProcessWeeklyMissions(state));
             Assert.Equal(2 * DungeonBalance.GrowthRollsSurvey, survey.GrowthEvents.Count);
@@ -1385,6 +1387,7 @@ namespace GuildManager.Core.Tests
         public void ExpeditionSatisfaction_IsWiredInto_SurveyAndGathering()
         {
             var (state, field, boss, a, b) = MakeDeepDiveState(bossFloor: 10);
+            field.ReachedFloor = boss.Floor; // 調査はその階層まで潜行が進んでいることが前提（§0.67）
             a.Satisfaction = 50; b.Satisfaction = 50;
             var system = BuildSystem();
 
@@ -1436,6 +1439,7 @@ namespace GuildManager.Core.Tests
             // 「🔍 迷宮調査に出撃」：潜行（1Fから）とは別の1週任務。次週の決算で対象ボスを調査し、
             // 解析率を加算して帰還する（出撃枠も空く）。
             var (state, field, boss, a, b) = MakeDeepDiveState(bossFloor: 10);
+            field.ReachedFloor = boss.Floor; // 調査はその階層まで潜行が進んでいることが前提（§0.67）
             var system = BuildSystem();
 
             Assert.True(system.TryDispatchSurvey(state, PartyOf(a, b), boss));
@@ -1457,13 +1461,14 @@ namespace GuildManager.Core.Tests
             Assert.Empty(state.ActiveDungeonMissions);
             Assert.False(a.IsDispatched);
             Assert.True(DungeonExpeditionSystem.CanDispatch(state));
-            Assert.Equal(1, field.ReachedFloor); // 調査では潜行しない＝到達階層は動かない
+            Assert.Equal(boss.Floor, field.ReachedFloor); // 調査では潜行しない＝到達階層は動かない（調査の前提として届いている値のまま）
         }
 
         [Fact]
         public void DispatchSurvey_ClampsIntelRateAtOne_AndRefusesFullyAnalyzedBoss()
         {
-            var (state, _, boss, a, b) = MakeDeepDiveState(bossFloor: 10);
+            var (state, field, boss, a, b) = MakeDeepDiveState(bossFloor: 10);
+            field.ReachedFloor = boss.Floor;
             var system = BuildSystem();
             boss.IntelRate = 0.95;
 
@@ -1478,8 +1483,12 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void DispatchSurvey_Fails_WhenSlotFull_BossDefeated_OrPartyUnavailable()
         {
-            var (state, _, boss, a, b) = MakeDeepDiveState(bossFloor: 10);
+            var (state, field, boss, a, b) = MakeDeepDiveState(bossFloor: 10);
             var system = BuildSystem();
+
+            // 潜行がまだその階層に届いていない間は調査できない（§0.67）
+            Assert.False(system.TryDispatchSurvey(state, PartyOf(a, b), boss));
+            field.ReachedFloor = boss.Floor;
 
             Assert.False(system.TryDispatchSurvey(state, new Party(), boss));
             a.IsDispatched = true;
@@ -1489,15 +1498,17 @@ namespace GuildManager.Core.Tests
             Assert.True(system.TryDispatchSurvey(state, PartyOf(a), boss));
             Assert.False(system.TryDispatchSurvey(state, PartyOf(b), boss)); // 枠が埋まっている
 
+            // 撃破済みでも、解析が完全でない最も浅いボスなら調査できる（§0.67）
             boss.IsDefeated = true;
             state.UnlockedSquadSlots = 2;
-            Assert.False(system.TryDispatchSurvey(state, PartyOf(b), boss));
+            Assert.True(system.TryDispatchSurvey(state, PartyOf(b), boss));
         }
 
         [Fact]
         public void RoundTrip_PreservesSurveyMission_ThroughJson()
         {
-            var (state, _, boss, a, b) = MakeDeepDiveState(bossFloor: 10);
+            var (state, field, boss, a, b) = MakeDeepDiveState(bossFloor: 10);
+            field.ReachedFloor = boss.Floor;
             BuildSystem().TryDispatchSurvey(state, PartyOf(a, b), boss);
 
             var json = JsonSerializer.Serialize(state.ToSaveData());

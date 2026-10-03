@@ -41,8 +41,23 @@ namespace GuildManager.Core.Systems
             if (state.Gold < item.Price) return false;
 
             state.Gold -= item.Price;
-            Attach(state, adventurer, item.Slot, EquipmentItem.FromCatalog(item, state.WeekNumber, "カタログから購入"));
+            Attach(state, adventurer, ResolveSlot(adventurer, item.Slot), EquipmentItem.FromCatalog(item, state.WeekNumber, "カタログから購入"));
             return true;
+        }
+
+        /// <summary>アクセサリー（装飾品）の枠か。装飾品は2枠あるが、どの装飾品もどちらの枠にも着けられる（1と2の区別はしない）。</summary>
+        public static bool IsAccessory(EquipmentSlot slot) => slot is EquipmentSlot.Accessory1 or EquipmentSlot.Accessory2;
+
+        /// <summary>
+        /// 装備品を着ける枠を決める。装飾品なら、空いている装飾枠（1→2の順）を使い、どちらも埋まっていれば、その品の本来の枠を入れ替える。
+        /// 武器・防具はそのままの枠。UI は、装備する前にこれで枠を決めて TryEquip に渡す。
+        /// </summary>
+        public static EquipmentSlot ResolveSlot(Adventurer adventurer, EquipmentSlot itemSlot)
+        {
+            if (!IsAccessory(itemSlot)) return itemSlot;
+            if (adventurer.EquippedAccessory1 == null) return EquipmentSlot.Accessory1;
+            if (adventurer.EquippedAccessory2 == null) return EquipmentSlot.Accessory2;
+            return itemSlot;
         }
 
         /// <summary>倒した階層ボスの総数（全フィールドの合計）。上位装備の入荷の判定に使う（§0.61）。</summary>
@@ -77,7 +92,8 @@ namespace GuildManager.Core.Systems
 
             var definition = item.GetDefinition();
             if (definition == null) return false;
-            if (definition.Slot != slot) return false;
+            // 装飾品は、1と2のどちらの枠にも着けられる
+            if (definition.Slot != slot && !(IsAccessory(definition.Slot) && IsAccessory(slot))) return false;
             if (!definition.IsAllowedFor(adventurer.JobClass)) return false;
             if (!state.Armory.Contains(item)) return false;
 

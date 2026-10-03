@@ -104,13 +104,16 @@ namespace GuildManager.Core.Systems
                         ? (true, $"{field.Name}の第1層から潜行を始める（目標：第{boss.Floor}層の扉前）")
                         : (false, "出撃できなかった");
                 case SquadOrder.Survey:
-                    // 完全解析済み（またはボスがいない）なら、その週は同じフィールドで採取して稼ぐ。
-                    if (boss != null && ScoutingResolver.GetTier(boss.IntelRate) != IntelTier.Complete)
-                        return _expedition.TryDispatchSurvey(state, party, boss)
-                            ? (true, $"{field.Name}第{boss.Floor}層「{boss.Name}」の迷宮調査へ出発する")
+                    // 解析が完全でない最も浅いボスを調べる（潜行の済んだ階層のみ。§0.67）。
+                    // 調べるボスがいない（すべて完全解析済み・まだ潜行が進んでいない）なら、その週は同じフィールドで採取して稼ぐ。
+                    if (ScoutingResolver.FindSurveyableBoss(field) is { } surveyBoss)
+                        return _expedition.TryDispatchSurvey(state, party, surveyBoss)
+                            ? (true, $"{field.Name}の{ScoutingResolver.SegmentLabel(field, surveyBoss)}の区間の迷宮調査へ出発する")
                             : (false, "出撃できなかった");
                     return _expedition.TryDispatchGathering(state, party, field)
-                        ? (true, $"調べるボスが完全解析済みのため、{field.Name}で採取する")
+                        ? (true, ScoutingResolver.FindSurveyTarget(field) == null
+                            ? $"調べるボスが完全解析済みのため、{field.Name}で採取する"
+                            : $"調べる階層まで潜行が進んでいないため、{field.Name}で採取する")
                         : (false, "出撃できなかった");
                 case SquadOrder.Gather:
                     return _expedition.TryDispatchGathering(state, party, field)
@@ -125,7 +128,7 @@ namespace GuildManager.Core.Systems
         /// 方針の対象ダンジョン。具体的なフィールドIdならそれ、「おまかせ」（<see cref="SavedParty.AutoFieldId"/>）なら方針に合うものを選ぶ。
         /// 選べるフィールドが無ければ null。乱数は使わない。
         ///  - 潜行：次のボスに対する討伐火力÷要求火力が最も高いダンジョン（勝てそうなところから）
-        ///  - 調査：解析が完全でない次のボスのうち、解析率が最も低いダンジョン（無ければ最も深いダンジョン＝その週は採取）
+        ///  - 調査：今調べられるボス（解析が完全でない最も浅いボスで、潜行の済んだ階層。→ ScoutingResolver.FindSurveyableBoss）のうち、解析率が最も低いダンジョン（無ければ最も深いダンジョン＝その週は採取）
         ///  - 採取：護衛の段階が最も良く（同じなら）最高到達階層が深いダンジョン
         /// 同点は、フィールドの並び順が先のもの。
         /// </summary>
@@ -156,8 +159,8 @@ namespace GuildManager.Core.Systems
                 }
                 case SquadOrder.Survey:
                 {
-                    var open = unlocked.Select(f => (Field: f, Boss: f.GetNextActiveBoss()))
-                        .Where(x => x.Boss != null && ScoutingResolver.GetTier(x.Boss.IntelRate) != IntelTier.Complete)
+                    var open = unlocked.Select(f => (Field: f, Boss: ScoutingResolver.FindSurveyableBoss(f)))
+                        .Where(x => x.Boss != null)
                         .OrderBy(x => x.Boss!.IntelRate)
                         .ToList();
                     return open.Count > 0 ? open[0].Field : unlocked.OrderByDescending(f => f.ReachedFloor).First();

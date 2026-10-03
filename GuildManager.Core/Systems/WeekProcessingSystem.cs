@@ -188,6 +188,9 @@ namespace GuildManager.Core.Systems
             result.Flags.RecruitmentTrialOccurred =
                 state.DefeatReason == null && _recruitmentSystem.IsRecruitmentWeek(state.WeekNumber);
 
+            // 引退・除籍などで抜けた隊員のIdを編成から外し、空いた枠に新しい隊員を足せるようにする
+            PartyFormationSystem.PruneStaleMembers(state);
+
             return result;
         }
     }

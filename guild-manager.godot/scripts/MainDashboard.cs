@@ -81,7 +81,10 @@ public partial class MainDashboard : Control
 		Warehouse = 4,
 
 		/// <summary>システム（セーブ・将来のロード／環境設定。ナビ行の最右端。→ 03 §9・§12）。</summary>
-		System = 5
+		System = 5,
+
+		/// <summary>お抱え商（武具の購入。タブはコードで末尾に足すため、ナビ行の並びとタブの番号は別。§0.67）。</summary>
+		Shop = 6
 	}
 
 	private TabContainer _centerPanel = null!;
@@ -91,6 +94,8 @@ public partial class MainDashboard : Control
 	private Button _navResearchBtn = null!;
 	private Button _navFacilityBtn = null!;
 	private Button _navWarehouseBtn = null!;
+	private Button _navShopBtn = null!;
+	private ShopPanel _shopPanel = null!;
 	private Button _navSystemBtn = null!;
 
 	// ---- 大迷宮（ダンジョン攻略システム：調査・討伐・採取。出撃の主画面） ----
@@ -166,6 +171,7 @@ public partial class MainDashboard : Control
 		_navResearchBtn = GetNode<Button>("%NavResearchBtn");
 		_navFacilityBtn = GetNode<Button>("%NavFacilityBtn");
 		_navWarehouseBtn = GetNode<Button>("%NavWarehouseBtn");
+		_navShopBtn = GetNode<Button>("%NavShopBtn");
 		_navSystemBtn = GetNode<Button>("%NavSystemBtn");
 
 		_navDungeonBtn.Pressed += () => SwitchView(DashboardView.Dungeon);
@@ -173,6 +179,7 @@ public partial class MainDashboard : Control
 		_navResearchBtn.Pressed += () => SwitchView(DashboardView.Research);
 		_navFacilityBtn.Pressed += () => SwitchView(DashboardView.Facility);
 		_navWarehouseBtn.Pressed += () => SwitchView(DashboardView.Warehouse);
+		_navShopBtn.Pressed += () => SwitchView(DashboardView.Shop);
 		_navSystemBtn.Pressed += () => SwitchView(DashboardView.System);
 		GetNode<Button>("%NavCloseBtn").Pressed += ShowQuitPrompt;
 
@@ -254,6 +261,13 @@ public partial class MainDashboard : Control
 		_defeatSystem = new DefeatSystem();
 		_advisorSystem = new AdvisorSystem();
 		_equipmentSystem = new EquipmentSystem();
+
+		// お抱え商（武具の購入画面）：タブはコードで末尾に足す（番号＝DashboardView.Shop）
+		_shopPanel = new ShopPanel();
+		_shopPanel.Initialize(_equipmentSystem);
+		_shopPanel.LogRequested += AppendLog;
+		_shopPanel.StateChanged += RefreshAll;
+		_centerPanel.AddChild(_shopPanel);
 		_partyFormationSystem = new PartyFormationSystem();
 		_partyFormationPanel.Initialize(_partyFormationSystem);
 		_facilityPanel.Initialize(_facilitySystem);
@@ -1520,6 +1534,7 @@ public partial class MainDashboard : Control
 			(DashboardView.Research, _navResearchBtn),
 			(DashboardView.Facility, _navFacilityBtn),
 			(DashboardView.Warehouse, _navWarehouseBtn),
+			(DashboardView.Shop, _navShopBtn),
 			(DashboardView.System, _navSystemBtn)
 		};
 
@@ -1584,6 +1599,7 @@ public partial class MainDashboard : Control
 		_facilityPanel.Refresh(_state);
 		_inventoryPanel.Refresh(_state);
 		_systemPanel.SetEndingAvailable(_state.IsGameCleared);
+		_shopPanel.Refresh(_state);
 
 		// 扉前で討伐か撤退かの判断を待っている部隊がいるあいだは、「大迷宮」タブと「次週へ」を赤くして知らせる。
 		UpdateButtonHighlights((DashboardView)_centerPanel.CurrentTab);

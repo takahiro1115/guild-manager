@@ -46,6 +46,7 @@ namespace GuildManager.Core.Systems
         public bool TryAssignMember(GameState state, SavedParty party, Guid adventurerId)
         {
             if (party.MemberIds.Contains(adventurerId)) return true;
+            PruneStaleMembers(state);
             if (ActiveMemberCount(state, party) >= Party.MaxSlots) return false;
 
             RemoveFromAllParties(state, adventurerId);
@@ -105,6 +106,17 @@ namespace GuildManager.Core.Systems
         /// </summary>
         private static int ActiveMemberCount(GameState state, SavedParty party) =>
             party.MemberIds.Count(id => state.Adventurers.Any(a => a.Id == id));
+
+        /// <summary>
+        /// 現役ロースターにいない冒険者（引退・除籍・戦死）のIdを、すべての保存された編成から取り除く。
+        /// 古いIdが残ると、空いた枠が埋まったままに見え、新しい隊員を足せなかった（枠の並びも崩れる）。
+        /// 週次決算の最後・編成の追加・編成画面の再描画から呼ぶ。
+        /// </summary>
+        public static void PruneStaleMembers(GameState state)
+        {
+            foreach (var party in state.SavedParties)
+                party.MemberIds.RemoveAll(id => !state.Adventurers.Any(a => a.Id == id));
+        }
 
         private static void RemoveFromAllParties(GameState state, Guid adventurerId)
         {

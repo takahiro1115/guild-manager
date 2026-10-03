@@ -87,6 +87,33 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
+        public void RetiredMember_FreesTheSlot_ForANewMember()
+        {
+            // 4人の部隊から1人が引退（現役ロースターから消える）しても、その枠に新しい隊員を足せる
+            var (state, party, m) = MakeParty(4);
+            state.Adventurers.Remove(m[1]);
+            var newcomer = Make("新人");
+            state.Adventurers.Add(newcomer);
+
+            Assert.True(new PartyFormationSystem().TryAssignMember(state, party, newcomer.Id));
+
+            Assert.Equal(4, party.MemberIds.Count); // 古いIdは外れ、枠の並びが崩れない
+            Assert.DoesNotContain(m[1].Id, party.MemberIds);
+            Assert.Contains(newcomer.Id, party.MemberIds);
+        }
+
+        [Fact]
+        public void PruneStaleMembers_RemovesOnlyThoseWhoLeftTheRoster()
+        {
+            var (state, party, m) = MakeParty(3);
+            state.Adventurers.Remove(m[0]);
+
+            PartyFormationSystem.PruneStaleMembers(state);
+
+            Assert.Equal(new[] { m[1].Id, m[2].Id }, party.MemberIds);
+        }
+
+        [Fact]
         public void Metrics_AtFullHp_IgnoreCurrentHp_AndRestoreIt()
         {
             // 負傷・消耗中でも、編成画面の数字は最大HPのものとして出る。算出のあいだだけHPを最大にし、終わったら戻す。

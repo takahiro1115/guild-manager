@@ -401,7 +401,11 @@ class GameSim
                 if (Grind && hopeless && ScoutingResolver.GetTier(target.IntelRate) == IntelTier.Complete)
                     expedition.TryDispatchGathering(s, party, Forest); // 勝ち目が無い間は採取で稼ぎ、機嫌と成長を保つ
                 else if (Grind && hopeless)
-                    expedition.TryDispatchSurvey(s, party, target);
+                {
+                    // 調査は解析が完全でない最も浅いボスで、潜行の済んだ階層だけ（§0.67）。無理なら採取で稼ぐ
+                    if (SurveyableOf(target) is { } surveyBoss) expedition.TryDispatchSurvey(s, party, surveyBoss);
+                    else expedition.TryDispatchGathering(s, party, Forest);
+                }
                 else if (expedition.TryDispatch(s, party, target, DungeonMissionType.Scouting))
                 {
                     lastMain = s.ActiveDungeonMissions.Last();
@@ -419,8 +423,8 @@ class GameSim
             bool surveyOut = s.ActiveDungeonMissions.Any(m => m.MissionType == DungeonMissionType.Survey);
             var party = new Party();
             // 受けた完全解析の依頼があれば、その対象を先に調べる（§0.64）
-            var surveyTarget = CommissionSurveyTarget()
-                ?? (target != null && ScoutingResolver.GetTier(target.IntelRate) != IntelTier.Complete ? target : null);
+            var surveyTarget = SurveyableOf(CommissionSurveyTarget())
+                ?? (target != null ? SurveyableOf(target) : null);
             if (!surveyOut && pool.Count >= 2 && surveyTarget != null)
             {
                 foreach (var a in pool.OrderByDescending(a => ScoutingResolver.GetAnalysisValue(a) + ScoutingResolver.GetGuardValue(a) + ScoutingResolver.GetStealthValue(a)).Take(3))
@@ -494,6 +498,14 @@ class GameSim
         }
     }
 
+    /// <summary>そのボスのフィールドで今調べられるボス（解析が完全でない最も浅いボスで、潜行の済んだ階層。→ ScoutingResolver.FindSurveyableBoss、§0.67）。無ければ null。</summary>
+    FloorBoss? SurveyableOf(FloorBoss? boss)
+    {
+        if (boss == null) return null;
+        var field = s.DungeonFields.FirstOrDefault(f => f.Bosses.Contains(boss));
+        return field == null ? null : ScoutingResolver.FindSurveyableBoss(field); // 低層に未解析の階が残っていれば、そちらを調べる
+    }
+
     /// <summary>受けた完全解析の依頼の対象（まだ解析が済んでいない・倒していない）。無ければnull。</summary>
     FloorBoss? CommissionSurveyTarget() => !UseCommissions || !SteerSurvey ? null : s.Commissions
         .Where(c => c.Accepted && c.Type == CommissionType.Survey)
@@ -535,13 +547,7 @@ class GameSim
                 }
             if (who != null)
             {
-                var def = item.GetDefinition();
-                if (def != null && def.Slot != at && slot is EquipmentSlot.Accessory1 or EquipmentSlot.Accessory2)
-                {
-                    // アクセサリの定義スロットに合わせる（TryEquip はスロット一致を要求）
-                    at = def.Slot;
-                }
-                equipment.TryEquip(s, who, at, item);
+                equipment.TryEquip(s, who, at, item); // 装飾品は1と2のどちらの枠にも着けられる
             }
         }
         var sellable = s.Armory.Where(EquipmentSystem.CanSell).Select(e => e.Id.ToString()).ToList();

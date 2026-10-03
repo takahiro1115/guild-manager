@@ -353,9 +353,10 @@ public partial class DungeonPanel : ScrollContainer
 		string door = p.Order == SquadOrder.Dive ? (p.AutoEngage ? "・扉前は自動判断" : "・扉前で止まる") : "";
 		// 調査の方針は、調べるボスが完全解析済みなら、その週は同じフィールドで探索（採取）を行う（→ SquadOrderSystem.DispatchByOrder）
 		string survey = "";
-		if (p.Order == SquadOrder.Survey && resolved?.GetNextActiveBoss() is { } boss
-			&& ScoutingResolver.GetTier(boss.IntelRate) == IntelTier.Complete)
-			survey = "（解析済みのため探索を行う）";
+		if (p.Order == SquadOrder.Survey && resolved != null && ScoutingResolver.FindSurveyableBoss(resolved) == null)
+			survey = ScoutingResolver.FindSurveyTarget(resolved) == null
+				? "（解析済みのため探索を行う）"
+				: "（まだ潜行が届いていないので探索を行う）";
 		return $"「{p.Name}」＝{field}で{OrderNames[(int)p.Order]}{door}{survey}";
 	}
 
@@ -1428,10 +1429,13 @@ public partial class DungeonPanel : ScrollContainer
 
 		string? blockedReason = GetDispatchBlockedReason(boss, saved, party);
 		_scoutingButton.Disabled = blockedReason != null;
-		bool fullyAnalyzed = boss != null && ScoutingResolver.GetTier(boss.IntelRate) == IntelTier.Complete;
-		_surveyButton.Disabled = blockedReason != null || fullyAnalyzed;
-		if (fullyAnalyzed)
-			_surveyButton.TooltipText = "対象ボスは完全解析済み。これ以上の調査は不要。";
+		// 調査は、解析が完全でない最も浅いボス（撃破済みでもよい）を、潜行の済んだ階層に限って調べる（§0.67）
+		var surveyBoss = _selectedField == null ? null : ScoutingResolver.FindSurveyableBoss(_selectedField);
+		var surveyTarget = _selectedField == null ? null : ScoutingResolver.FindSurveyTarget(_selectedField);
+		string? surveyBlocked = GetSurveyBlockedReason(surveyTarget, surveyBoss, saved, party);
+		_surveyButton.Disabled = surveyBlocked != null;
+		if (surveyBlocked != null)
+			_surveyButton.TooltipText = surveyBlocked;
 
 		string? gatheringBlockedReason = GetGatheringBlockedReason(saved, party);
 		_gatheringButton.Disabled = gatheringBlockedReason != null;
@@ -1441,11 +1445,11 @@ public partial class DungeonPanel : ScrollContainer
 		if (commonReason)
 			_dispatchStatusLabel.AppendText($"[color=gray]{blockedReason}[/color]");
 		SetCardReason(_traversalReasonLabel, commonReason ? null : blockedReason);
-		SetCardReason(_surveyReasonLabel, commonReason ? null : blockedReason ?? (fullyAnalyzed ? "完全解析済みのため調査は不要" : null));
+		SetCardReason(_surveyReasonLabel, commonReason ? null : surveyBlocked);
 		SetCardReason(_gatheringReasonLabel, commonReason ? null : gatheringBlockedReason);
 
 		var traversal = FillTraversalPreview(boss, party);
-		var survey = FillSurveyPreview(boss, party, fullyAnalyzed);
+		var survey = FillSurveyPreview(surveyBoss, surveyTarget, party);
 		var gathering = FillGatheringPreview(party);
 		SetCardVerdict(_traversalCard, _scoutingButton.Disabled ? CardVerdict.Unavailable : traversal);
 		SetCardVerdict(_surveyCard, _surveyButton.Disabled ? CardVerdict.Unavailable : survey);
@@ -1546,21 +1550,26 @@ public partial class DungeonPanel : ScrollContainer
 	}
 
 	/// <summary>🔍 迷宮調査：護衛 ／ 要求 → 護衛評価、隠密 ／ 要求、解析 ／ 要求 → 成果。</summary>
-	private CardVerdict FillSurveyPreview(FloorBoss? boss, Party party, bool fullyAnalyzed)
+	private CardVerdict FillSurveyPreview(FloorBoss? boss, FloorBoss? target, Party party)
 	{
 		var sb = new StringBuilder("[b]🔍 迷宮調査[/b]");
+		if (target == null)
+		{
+			sb.Append(_selectedField == null
+				? "\n[color=gray]調べる階層ボスがいない[/color]"
+				: "\n[color=gold]このフィールドの階層はすべて完全解析済み（調査不要）[/color]");
+			_surveyPreviewLabel.AppendText(sb.ToString());
+			return CardVerdict.Unavailable;
+		}
 		if (boss == null)
 		{
-			sb.Append("\n[color=gray]調べる階層ボスがいない[/color]");
+			sb.Append($"\n{ScoutingResolver.SegmentLabel(_selectedField!, target)}の区間\n[color=orange]まだ潜行がその階まで届いていないので調べられない（最高到達 {_selectedField?.ReachedFloor}F）[/color]");
 			_surveyPreviewLabel.AppendText(sb.ToString());
 			return CardVerdict.Unavailable;
 		}
-		if (fullyAnalyzed)
-		{
-			sb.Append($"\n第{boss.Floor}層「{boss.Name}」\n[color=gold]完全解析済み（調査不要）[/color]");
-			_surveyPreviewLabel.AppendText(sb.ToString());
-			return CardVerdict.Unavailable;
-		}
+		// 低層に未解析の階が残っていれば、先へ進んでいてもそちらから調べる
+		// 解析は区間の階層すべてを対象にする（走破の加速・損耗の軽減は、その区間の解析率で決まる）。ボスを倒した区間でも、解析が100%でなければ調べる
+		sb.Append($"\n[color=gray]調べる区間：{(_selectedField == null ? "" : ScoutingResolver.SegmentLabel(_selectedField, boss))}（{boss.Name}の区間）{(boss.IsDefeated ? "・踏破済み" : "")} 解析{boss.IntelRate * 100:F0}%[/color]");
 
 		var tier = ScoutingResolver.PreviewGuardTier(party, boss);
 		double guardPower = ScoutingResolver.CalculateGuardPower(party);
@@ -1649,6 +1658,31 @@ public partial class DungeonPanel : ScrollContainer
 		return eligible.Count == 0 ? CardVerdict.Bad : CardVerdict.Good;
 	}
 
+	/// <summary>
+	/// 迷宮調査に出せない理由（出せるなら null）。調べるボスは「解析が完全でない最も浅いボス」で、潜行の済んだ階層に限る（§0.67）。
+	/// target＝解析が完全でない最も浅いボス（すべて完全解析なら null）、surveyable＝そのうち今調べられるもの。
+	/// </summary>
+	private string? GetSurveyBlockedReason(FloorBoss? target, FloorBoss? surveyable, SavedParty? saved, Party party)
+	{
+		if (_state.DefeatReason != null) return "ギルドは既に解散した。";
+		if (_selectedField == null) return "調査するダンジョン（フィールド）が選択されていない。";
+		if (!_selectedField.IsUnlocked) return $"「{_selectedField.Name}」はまだ開放されていない。";
+		if (target == null) return "このフィールドの階層はすべて完全解析済み。これ以上の調査は不要。";
+		if (surveyable == null)
+			return $"{ScoutingResolver.SegmentLabel(_selectedField, target)}の区間の解析が未完だが、まだその階まで潜行が進んでいない（最高到達 {_selectedField.ReachedFloor}F）。先に潜行すること。";
+		if (saved == null) return "出撃部隊が選択されていない。上の部隊ボタンから選ぶこと。";
+		if (party.IsEmpty)
+		{
+			var unavailable = PartyFormationSystem.GetUnavailableMembers(_state, saved.MemberIds);
+			return unavailable.Count > 0
+				? $"この部隊は全員出撃できない状態（重傷・派遣中など）：{string.Join("、", unavailable.Select(m => m.Name))}"
+				: "この部隊には出撃できるメンバーがいない（編成が空）。";
+		}
+		if (!DungeonExpeditionSystem.CanDispatch(_state))
+			return $"同時出撃枠（{_state.UnlockedSquadSlots}枠）がすべて埋まっている。帰還を待つか、出撃予定を取り消すこと。";
+		return null;
+	}
+
 	private string? GetDispatchBlockedReason(FloorBoss? boss, SavedParty? saved, Party party)
 	{
 		if (boss == null) return "挑むべき階層ボスがいない。";
@@ -1728,26 +1762,22 @@ public partial class DungeonPanel : ScrollContainer
 
 	private void OnSurveyDispatchPressed()
 	{
-		var boss = _selectedField?.GetNextActiveBoss();
 		var saved = SelectedSavedParty();
 		if (_expeditionSystem == null)
 			return;
 
-		if (_selectedField == null || boss == null || saved == null)
+		if (_selectedField == null || saved == null)
 		{
 			ShowDispatchFailure(_selectedField == null
 				? "調査するダンジョン（フィールド）が選択されていない。"
-				: boss == null
-					? "このフィールドは完全制覇済みで、調査すべき階層ボスがいない。"
-					: "出撃部隊が選択されていない。上の部隊ボタンから選ぶこと。");
+				: "出撃部隊が選択されていない。上の部隊ボタンから選ぶこと。");
 			return;
 		}
 
 		var party = PartyFormationSystem.BuildDispatchParty(_state, saved.MemberIds);
-		string? blockedReason = GetDispatchBlockedReason(boss, saved, party);
-		if (blockedReason == null && ScoutingResolver.GetTier(boss.IntelRate) == IntelTier.Complete)
-			blockedReason = "対象ボスは完全解析済み。これ以上の調査は不要。";
-		if (blockedReason != null || !_expeditionSystem.TryDispatchSurvey(_state, party, boss))
+		var boss = ScoutingResolver.FindSurveyableBoss(_selectedField);
+		string? blockedReason = GetSurveyBlockedReason(ScoutingResolver.FindSurveyTarget(_selectedField), boss, saved, party);
+		if (boss == null || blockedReason != null || !_expeditionSystem.TryDispatchSurvey(_state, party, boss))
 		{
 			ShowDispatchFailure(blockedReason ?? "出撃条件を満たしていない（同時出撃枠・部隊の状態・フィールドの開放状況を確認）。");
 			return;
@@ -1755,8 +1785,8 @@ public partial class DungeonPanel : ScrollContainer
 
 		var tier = ScoutingResolver.PreviewGuardTier(party, boss);
 		string members = string.Join("・", party.Members.Select(m => m.Name));
-		LogRequested.Invoke($"[color=cyan]{GameCalendar.Format(_state.WeekNumber)}：「{saved.Name}」（{members}）が{_selectedField.Name} 第{boss.Floor}層" +
-			$"「{boss.Name}」の迷宮調査へ出発する（護衛評価：{GuardTierLabel(tier)}、次週の決算で帰還）。[/color]");
+		LogRequested.Invoke($"[color=cyan]{GameCalendar.Format(_state.WeekNumber)}：「{saved.Name}」（{members}）が{_selectedField.Name} {ScoutingResolver.SegmentLabel(_selectedField, boss)}" +
+			$"の区間の迷宮調査へ出発する（護衛評価：{GuardTierLabel(tier)}、次週の決算で帰還）。[/color]");
 
 		_selectedPartyId = null;
 		StateChanged.Invoke();

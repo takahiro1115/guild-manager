@@ -470,7 +470,7 @@ public partial class InventoryPanel : VBoxContainer
 			for (int i = 0; i < candidates.Count; i++)
 			{
 				var a = candidates[i];
-				var current = a.GetEquipped(definition.Slot);
+				var current = a.GetEquipped(EquipmentSystem.ResolveSlot(a, definition.Slot)); // 装飾品は空いている枠（無ければ入れ替える方）
 				menu.AddItem($"{a.Name}（{JobLabel(a.JobClass)}）　今：{(current == null ? "なし" : current.DisplayName)}{(a.IsDispatched ? "　出撃中" : "")}", i);
 				menu.SetItemDisabled(i, !EquipmentSystem.CanChangeEquipment(a));
 			}
@@ -483,8 +483,9 @@ public partial class InventoryPanel : VBoxContainer
 			{
 				if (id < 0 || id >= candidates.Count) return;
 				var target = candidates[(int)id];
-				var previous = target.GetEquipped(definition.Slot);
-				if (!new EquipmentSystem().TryEquip(_state, target, definition.Slot, item))
+				var targetSlot = EquipmentSystem.ResolveSlot(target, definition.Slot);
+				var previous = target.GetEquipped(targetSlot);
+				if (!new EquipmentSystem().TryEquip(_state, target, targetSlot, item))
 					return;
 				LogRequested.Invoke($"[color=cyan]⚔ {target.Name}に「{ItemColorHelper.GetColoredBBCode(item)}」を装備させた。[/color]" +
 					(previous == null ? "" : $"[color=gray]（「{ItemColorHelper.GetColoredBBCode(previous)}」は保管庫へ戻した）[/color]"));
@@ -665,8 +666,8 @@ public partial class InventoryPanel : VBoxContainer
 	{
 		EquipmentSlot.Weapon => "武器",
 		EquipmentSlot.Armor => "防具",
-		EquipmentSlot.Accessory1 => "装飾1",
-		EquipmentSlot.Accessory2 => "装飾2",
+		EquipmentSlot.Accessory1 => "装飾品",
+		EquipmentSlot.Accessory2 => "装飾品",
 		_ => slot.ToString(),
 	};
 

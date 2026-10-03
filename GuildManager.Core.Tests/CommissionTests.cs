@@ -82,7 +82,7 @@ namespace GuildManager.Core.Tests
             Assert.Equal(3, CommissionBalance.OffersPerSeason);
             Assert.Equal(2, CommissionBalance.MaxAccepted);
             Assert.Equal(24, CommissionBalance.GetDeadlineWeeks(CommissionType.Defeat));
-            Assert.Equal(0.3, CommissionBalance.GetRewardMultiplier(CommissionType.Tribute), precision: 6);
+            Assert.Equal(3.0, CommissionBalance.GetRewardMultiplier(CommissionType.Tribute), precision: 6);
             Assert.Equal(ItemRarity.Epic, CommissionBalance.RewardRelicMinRarity);
             Assert.Equal(5, CommissionBalance.PatronUniqueCompletions);
             Assert.Equal(5, CommissionBalance.Clients.Count);
