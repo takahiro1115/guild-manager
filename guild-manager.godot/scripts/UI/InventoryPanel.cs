@@ -72,6 +72,14 @@ public partial class InventoryPanel : VBoxContainer
 
 		_relicList.ItemSelected += OnRelicSelected;
 		_appraiseButton.Pressed += OnAppraiseButtonPressed;
+
+		// 前回の鑑定結果は、タブ（内側・画面上部とも）を切り替えたら消す
+		_tabs.TabChanged += _ => ClearAppraisalResult();
+		VisibilityChanged += () =>
+		{
+			if (!IsVisibleInTree())
+				ClearAppraisalResult();
+		};
 	}
 
 	/// <summary>
@@ -82,6 +90,16 @@ public partial class InventoryPanel : VBoxContainer
 	{
 		_appraisalSystem = appraisalSystem;
 		_economySystem = economySystem;
+	}
+
+	/// <summary>直近の鑑定結果の表示を消す（アルベールのコメント欄は通常の一言に戻る）。</summary>
+	private void ClearAppraisalResult()
+	{
+		if (_lastAppraisalText.Length == 0)
+			return;
+		_lastAppraisalText = "";
+		if (_state != null)
+			RefreshAlbertComment();
 	}
 
 	/// <summary>最新のゲーム状態でタブ全体を再描画する（MainDashboard.RefreshAllから毎回呼ぶ）。</summary>
@@ -190,7 +208,9 @@ public partial class InventoryPanel : VBoxContainer
 			return;
 
 		_selectedRelicId = _displayedRelics[(int)index].Id;
+		_lastAppraisalText = ""; // 次の遺物を選んだら、前回の結果は消す
 		RefreshRelicDetail();
+		RefreshAlbertComment();
 	}
 
 	private void OnAppraiseButtonPressed()

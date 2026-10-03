@@ -175,6 +175,7 @@ public partial class MainDashboard : Control
 		_dungeonPanel = GetNode<DungeonPanel>("%DungeonTab");
 		_dungeonPanel.LogRequested += AppendLog;
 		_dungeonPanel.StateChanged += RefreshAll;
+		_dungeonPanel.EngageIssued += OnEngageIssued;
 		_dungeonPanel.CommissionsRequested += OpenCommissionPopup;
 
 		_adventurerPanel = GetNode<AdventurerPanel>("%AdventurerDetailTab");
@@ -478,6 +479,21 @@ public partial class MainDashboard : Control
 		_autoSkipButton.Disabled = true;
 	}
 
+	/// <summary>扉前でプレイヤーの判断（討伐か撤退）を待っている部隊がいるか。方針で自動判断する部隊（→ SquadOrderSystem.DecidesAtDoor）は含めない。</summary>
+	private bool HasPendingDoorDecision() =>
+		_state.ActiveDungeonMissions.Any(m => m.Status == ExpeditionStatus.AwaitingBossDecision
+			&& !SquadOrderSystem.DecidesAtDoor(_state, m.Party));
+
+	/// <summary>
+	/// 「ボス討伐に挑む」を指令した直後：ほかに判断待ちの部隊がいなければ、そのまま次週へ進める
+	/// （討伐は週の決算で決着するため、続けて「次週へ」を押す手間を省く）。
+	/// </summary>
+	private void OnEngageIssued()
+	{
+		if (!HasPendingDoorDecision())
+			OnNextWeekPressed();
+	}
+
 	/// <summary>「次週へ」「自動スキップ」の両方を再び有効化する（→ DisableWeekAdvancementの対）。</summary>
 	private void EnableWeekAdvancement()
 	{
@@ -493,6 +509,23 @@ public partial class MainDashboard : Control
 	{
 		if (_noDungeonDispatchDialog.Visible)
 			return;
+
+		// 扉前で判断待ちの部隊（方針で自動判断するものを除く）がいるあいだは週を進めない。
+		// 扉前では「討伐」か「撤退」のどちらかを選ぶ（待っているだけでは解析率は上がらない）。
+		if (HasPendingDoorDecision())
+		{
+			SwitchView(DashboardView.Dungeon);
+			var notice = new AcceptDialog
+			{
+				Title = "扉前で判断待ちの部隊がいる",
+				DialogText = "ボスの扉前で待機している部隊がいます。\n大迷宮画面で「ボス討伐に挑む」か「撤退・帰還する」を選んでください。\n（待機しているだけでは、解析率は上がりません）",
+			};
+			notice.Confirmed += () => notice.QueueFree();
+			notice.Canceled += () => notice.QueueFree();
+			AddChild(notice);
+			notice.PopupCentered();
+			return;
+		}
 
 		// 方針つきの部隊（§0.63）があれば、週送りの前に自動で出撃するので確認しない。
 		if (_state.ActiveDungeonMissions.Count == 0 && !_state.SavedParties.Any(p => p.Order != SquadOrder.None))
@@ -1497,6 +1530,10 @@ public partial class MainDashboard : Control
 				btn.Modulate = new Color(0.9f, 0.9f, 0.9f, 1.0f);
 			}
 		}
+
+		// 扉前の判断待ちがあるあいだ、「大迷宮」タブは赤（別のタブを見ていても気づけるように）
+		if (_state != null && HasPendingDoorDecision())
+			_navDungeonBtn.Modulate = new Color(1f, 0.4f, 0.35f);
 	}
 
 	/// <summary>季節のアイコン（ヘッダーの暦表示用）。</summary>
@@ -1541,6 +1578,11 @@ public partial class MainDashboard : Control
 		_facilityPanel.Refresh(_state);
 		_inventoryPanel.Refresh(_state);
 		_systemPanel.SetEndingAvailable(_state.IsGameCleared);
+
+		// 扉前で討伐か撤退かの判断を待っている部隊がいるあいだは、「大迷宮」タブと「次週へ」を赤くして知らせる。
+		UpdateButtonHighlights((DashboardView)_centerPanel.CurrentTab);
+		bool pendingDecision = HasPendingDoorDecision();
+		_nextWeekButton.Modulate = pendingDecision ? new Color(1f, 0.45f, 0.4f) : Colors.White;
 	}
 
 

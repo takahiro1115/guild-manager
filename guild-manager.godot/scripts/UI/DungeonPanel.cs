@@ -114,6 +114,9 @@ public partial class DungeonPanel : ScrollContainer
 	/// <summary>出撃・取り消し等でゲーム状態が変わったことを通知する。</summary>
 	public event Action StateChanged = delegate { };
 
+	/// <summary>「ボス討伐に挑む」を指令した（→ MainDashboard が、ほかに判断待ちが無ければ次週へ進める）。</summary>
+	public event Action EngageIssued = delegate { };
+
 	/// <summary>「📜 依頼掲示板」が押された（MainDashboard が依頼のポップアップを開く。§0.64）。</summary>
 	public event Action CommissionsRequested = delegate { };
 
@@ -217,6 +220,17 @@ public partial class DungeonPanel : ScrollContainer
 	private static readonly string[] OrderLabels = { "なし（手動で出撃）", "🏃 潜行を続ける", "🔍 調査を続ける", "🌿 採取を続ける" };
 	private static readonly string[] OrderNames = { "方針なし", "潜行を続ける", "調査を続ける", "採取を続ける" };
 
+	/// <summary>方針の絵文字（部隊名の前に付ける。方針なしは空）。</summary>
+	public static string OrderIcon(SquadOrder order) => order switch
+	{
+		SquadOrder.Dive => "🏃",
+		SquadOrder.Survey => "🔍",
+		SquadOrder.Gather => "🌿",
+		_ => "",
+	};
+
+	public static string OrderName(SquadOrder order) => OrderNames[(int)order];
+
 	/// <summary>出撃欄の下に「📋 方針」の行を足す（シーンは変えずにコードで組む）。</summary>
 	private void BuildOrderRow()
 	{
@@ -274,7 +288,12 @@ public partial class DungeonPanel : ScrollContainer
 	{
 		string field = _state.DungeonFields.FirstOrDefault(f => f.Id == p.OrderFieldId)?.Name ?? "？";
 		string door = p.Order == SquadOrder.Dive ? (p.AutoEngage ? "・扉前は自動判断" : "・扉前で止まる") : "";
-		return $"「{p.Name}」＝{field}で{OrderNames[(int)p.Order]}{door}";
+		// 調査の方針は、調べるボスが完全解析済みなら、その週は同じフィールドで探索（採取）を行う（→ SquadOrderSystem.DispatchByOrder）
+		string survey = "";
+		if (p.Order == SquadOrder.Survey && _state.DungeonFields.FirstOrDefault(f => f.Id == p.OrderFieldId)?.GetNextActiveBoss() is { } boss
+			&& ScoutingResolver.GetTier(boss.IntelRate) == IntelTier.Complete)
+			survey = "（解析済みのため探索を行う）";
+		return $"「{p.Name}」＝{field}で{OrderNames[(int)p.Order]}{door}{survey}";
 	}
 
 	private void OnOrderSelected(long index)
@@ -892,7 +911,7 @@ public partial class DungeonPanel : ScrollContainer
 				CustomMinimumSize = new Vector2(0, 30),
 				ClipText = true,
 				TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis,
-				Text = isLocked ? $"第{i + 1}部隊（未開放）" : (mission != null ? $"{MissionIcon(mission)} {saved.Name}" : saved.Name) + (saved.Order != SquadOrder.None ? " 📋" : ""),
+				Text = isLocked ? $"第{i + 1}部隊（未開放）" : $"{OrderIcon(saved.Order)}{(mission != null ? MissionIcon(mission) : "")} {saved.Name}".TrimStart(),
 				Disabled = isLocked || (available == 0 && mission == null),
 				TooltipText = isLocked
 					? "出撃枠が未開放の部隊（森の節目ボス撃破で開放）"
@@ -918,6 +937,7 @@ public partial class DungeonPanel : ScrollContainer
 				else if (_selectedPartyId == partyId && _squadButtonGroup.GetPressedButton() == null)
 					OnPartyUnpressed(partyId);
 			};
+			UiStyles.ApplySelectedToggleStyle(button);
 			var column = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
 			column.AddThemeConstantOverride("separation", 6);
 			column.AddChild(button);
@@ -1873,6 +1893,7 @@ public partial class DungeonPanel : ScrollContainer
 			$"討伐へ突入する（次週の決算で決着）。[/b]{pouchNote}[/color]");
 		ResetPouchSelection();
 		StateChanged.Invoke();
+		EngageIssued.Invoke();
 	}
 
 	private void OnRetreatPressed()

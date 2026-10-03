@@ -40,6 +40,27 @@ public partial class ResearchPanel : ScrollContainer
 	{
 		_resourcesLabel = GetNode<RichTextLabel>("%ResourcesLabel");
 		_researchCards = GetNode<VBoxContainer>("%ResearchCards");
+		BuildSplitLayout();
+		}
+
+		/// <summary>右半分に培養槽の欄（誕生した娘の履歴つき）。左は研究と霊薬。画面が横に広すぎて間延びするため、左右に分ける。</summary>
+		private VBoxContainer _cultureColumn = null!;
+
+		private void BuildSplitLayout()
+		{
+			var left = GetNode<VBoxContainer>("VBox");
+			RemoveChild(left);
+
+			var split = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+			split.AddThemeConstantOverride("separation", 16);
+			left.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+			left.SizeFlagsStretchRatio = 1f;
+			split.AddChild(left);
+
+			_cultureColumn = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ShrinkBegin, SizeFlagsStretchRatio = 1f };
+			_cultureColumn.AddThemeConstantOverride("separation", 8);
+			split.AddChild(_cultureColumn);
+			AddChild(split);
 	}
 
 	/// <summary>秘薬の処方に使う System を受け取る（MainDashboard._Ready から1回呼ぶ）。</summary>
@@ -95,8 +116,22 @@ public partial class ResearchPanel : ScrollContainer
 			child.QueueFree();
 		}
 
+		foreach (var child in _cultureColumn.GetChildren())
+		{
+			_cultureColumn.RemoveChild(child);
+			child.QueueFree();
+		}
 		if (SoulFusionSystem.IsUnlocked(_state))
-			_researchCards.AddChild(BuildCultureTankCard());
+		{
+			_cultureColumn.AddChild(BuildCultureTankCard());
+			_cultureColumn.AddChild(BuildBirthHistoryCard());
+		}
+		else
+		{
+			var locked = NewCard(new Color("#6b7280"));
+			locked.AddChild(MakeRichLabel("[font_size=18][b]🧪 培養槽[/b][/font_size]\n[color=gray]研究「魂魄融和の秘薬」を済ませると、ここに培養槽が開く。培養中の娘と、これまでに生まれた娘（親・使った触媒）を一覧できる。[/color]"));
+			_cultureColumn.AddChild(locked);
+		}
 		if (ElixirSystem.IsUnlocked(_state))
 			_researchCards.AddChild(BuildElixirCard());
 
@@ -274,6 +309,42 @@ public partial class ResearchPanel : ScrollContainer
 			StateChanged.Invoke();
 		};
 		vbox.AddChild(button);
+		return card;
+	}
+
+	/// <summary>
+	/// 生まれた娘の履歴：魂魄融和で生まれた娘（ロースター・引退者）を、親・百合相性・使った触媒・能力限界突破とともに並べる。
+	/// 生まれの記録（→ Adventurer.FusionCatalystId ほか）は誕生後も娘に残る。旧セーブの娘は触媒「なし」・突破なしで出る。
+	/// </summary>
+	private Control BuildBirthHistoryCard()
+	{
+		var card = NewCard(new Color("#f472b6"));
+		var vbox = new VBoxContainer();
+		vbox.AddThemeConstantOverride("separation", 6);
+		card.AddChild(vbox);
+
+		var daughters = _state.Adventurers.Concat(_state.RetiredAdventurers)
+			.Where(a => a.ParentIds.Count == 2)
+			.ToList();
+		vbox.AddChild(MakeRichLabel($"[font_size=18][b]🫧 生まれた娘（{daughters.Count}名）[/b][/font_size]"));
+		if (daughters.Count == 0)
+		{
+			vbox.AddChild(MakeRichLabel("[color=gray]まだ誰も生まれていない。[/color]"));
+			return card;
+		}
+
+		foreach (var d in daughters)
+		{
+			string parentA = _state.FindAdventurer(d.ParentIds[0])?.Name ?? "？";
+			string parentB = _state.FindAdventurer(d.ParentIds[1])?.Name ?? "？";
+			string catalyst = d.FusionCatalystId == null ? "なし" : MaterialBalance.GetName(d.FusionCatalystId);
+			string breakthrough = d.FusionBreakthroughStats.Count == 0 ? "" : $"　[color=gold]✨ 能力限界突破：{string.Join("・", d.FusionBreakthroughStats)}[/color]";
+			string state = d.IsRetired ? "[color=gray]（引退）[/color]" : "";
+			vbox.AddChild(MakeRichLabel(
+				$"[b]{d.Name}[/b]（{AdventurerPanel.JobLabel(d.JobClass)}・{d.Age}歳）{state}\n" +
+				$"　親：{parentA} × {parentB}　百合相性：{SoulFusionSystem.GetNyxTierLabel(d.FusionNyxTier)}\n" +
+				$"　使った触媒：{catalyst}{breakthrough}"));
+		}
 		return card;
 	}
 

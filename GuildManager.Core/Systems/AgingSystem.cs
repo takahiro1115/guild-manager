@@ -48,6 +48,18 @@ namespace GuildManager.Core.Systems
             _rng = rng;
         }
 
+        /// <summary>
+        /// 満期引退（年齢が <c>RetirementAge</c> に達する年度末）までの残り週数。年齢で決まるため、
+        /// 18歳で加入した者は384週、24歳の者は96週（今が年の第1週のとき）になる。
+        /// 今の週（週次処理はまだ）から数え、年度末の週の処理で引退するものとして、その週も含める。
+        /// </summary>
+        public static int GetRemainingActiveWeeks(Adventurer adventurer, int currentWeek)
+        {
+            int yearEndsLeft = Math.Max(0, RetirementAge - adventurer.Age - 1);
+            int weeksLeftThisYear = GameCalendar.WeeksPerYear - GameCalendar.WeekOfYear(currentWeek) + 1;
+            return adventurer.Age >= RetirementAge ? 0 : yearEndsLeft * GameCalendar.WeeksPerYear + weeksLeftThisYear;
+        }
+
         public void ProcessWeeklyAging(GameState state)
         {
             bool isYearEnd = GameCalendar.IsLastWeekOfYear(state.WeekNumber);

@@ -235,6 +235,40 @@ namespace GuildManager.Core.Tests
             Assert.Empty(state.SoulFusionCultures);
         }
 
+        [Fact]
+        public void CreateChild_RecordsOrigin_OnTheChild_ForTheLabHistory()
+        {
+            var (state, a, b) = Setup(JobClass.Warrior, JobClass.Cleric); // 運命の一対
+            string catalyst = SoulFusionBalance.Catalysts.First().MaterialId;
+
+            var culture = new SoulFusionSystem(new AlwaysMaxRng()).CreateChild(state, a, b, JobClass.Warrior, catalyst);
+
+            Assert.Equal(catalyst, culture.Child.FusionCatalystId);
+            Assert.Equal(SoulFusionNyxTier.Destined, culture.Child.FusionNyxTier);
+            Assert.Equal(culture.BreakthroughStats, culture.Child.FusionBreakthroughStats);
+            Assert.Equal(new[] { a.Id, b.Id }, culture.Child.ParentIds);
+        }
+
+        [Fact]
+        public void Origin_SurvivesSaveAndLoad_AndOldDaughtersReadAsUnknown()
+        {
+            var (state, a, b) = Setup(JobClass.Warrior, JobClass.Cleric);
+            var child = new SoulFusionSystem(new AlwaysMaxRng()).CreateChild(state, a, b, JobClass.Warrior, null).Child;
+            child.FusionBreakthroughStats = new List<string> { "STR" };
+            state.Adventurers.Add(child);
+
+            var loaded = GameState.FromSaveData(state.ToSaveData()).Adventurers.First(x => x.Id == child.Id);
+            Assert.Equal(SoulFusionNyxTier.Destined, loaded.FusionNyxTier);
+            Assert.Equal(new[] { "STR" }, loaded.FusionBreakthroughStats);
+            Assert.Null(loaded.FusionCatalystId);
+
+            // 旧セーブの娘（生まれの記録なし）は既定値で読まれ、壊れない
+            var old = new Adventurer { ParentIds = new List<Guid> { a.Id, b.Id } };
+            Assert.Null(old.FusionCatalystId);
+            Assert.Equal(SoulFusionNyxTier.Ordinary, old.FusionNyxTier);
+            Assert.Empty(old.FusionBreakthroughStats);
+        }
+
         // ---------------- 子の能力（PA）と能力限界突破 ----------------
 
         [Fact]

@@ -52,6 +52,7 @@ public partial class PartyFormationPanel : VBoxContainer
 	private readonly ProgressBar[] _slotHpBars = new ProgressBar[4];
 	private readonly Button[] _slotRemoveButtons = new Button[4];
 	private readonly Button[] _slotPromoteButtons = new Button[4];
+	private Button _removeAllButton = null!;
 
 	// 冒険者一覧（表）
 	private VBoxContainer _candidateListContainer = null!;
@@ -163,6 +164,10 @@ public partial class PartyFormationPanel : VBoxContainer
 			_slotPanels[i].GuiInput += e => OnSlotGuiInput(e, slotIndex);
 		}
 
+		BuildRemoveAllButton();
+		foreach (var squadButton in _squadButtons)
+			UiStyles.ApplySelectedToggleStyle(squadButton);
+
 		_candidateListContainer = GetNode<VBoxContainer>("%CandidateListContainer");
 		_candidateScroll = GetNode<ScrollContainer>("%CandidateScroll");
 		BuildCandidateToolbarAndHeader();
@@ -250,7 +255,8 @@ public partial class PartyFormationPanel : VBoxContainer
 				int memberCount = party.MemberIds.Count(id => _state.Adventurers.Any(a => a.Id == id));
 				bool dispatched = IsPartyDispatched(party);
 				string tag = dispatched ? "出撃中" : $"{memberCount}/4名";
-				btn.Text = $"{party.Name} ({tag})";
+				btn.Text = $"{DungeonPanel.OrderIcon(party.Order)}{party.Name} ({tag})";
+				btn.TooltipText = party.Order == SquadOrder.None ? "" : $"方針：{DungeonPanel.OrderName(party.Order)}（大迷宮画面で変える）";
 			}
 		}
 	}
@@ -279,6 +285,7 @@ public partial class PartyFormationPanel : VBoxContainer
 
 		bool isDispatched = IsPartyDispatched(currentParty);
 		_dispatchedBadge.Visible = isDispatched;
+		_removeAllButton.Disabled = isDispatched || currentParty.MemberIds.Count == 0;
 		_squadNameEdit.Text = currentParty.Name;
 		_squadNameEdit.Editable = !isDispatched;
 		_squadRenameButton.Disabled = isDispatched;
@@ -518,7 +525,8 @@ public partial class PartyFormationPanel : VBoxContainer
 	{
 		var currentParty = GetCurrentParty();
 		if (currentParty == null || _state == null) return;
-		if (!IsAssignable(a) || IsPartyDispatched(currentParty)) return;
+		// 別の部隊に入っている冒険者も、入れた場合の変化を見られる（配属ボタンは押せない）
+		if (!IsPreviewable(a) || IsPartyDispatched(currentParty)) return;
 
 		var ids = currentParty.MemberIds.Where(id => _state.Adventurers.Any(x => x.Id == id)).ToList();
 		if (ids.Count < Party.MaxSlots)
@@ -780,6 +788,14 @@ public partial class PartyFormationPanel : VBoxContainer
 		_ => StatValue(a, _sortKey.ToString()),
 	};
 
+	/// <summary>当部隊の編成に入れた場合の試算を出せるか（別部隊に所属中でもよい。出撃中・負傷・引退・当部隊の隊員は除く）。</summary>
+	private bool IsPreviewable(Adventurer a)
+	{
+		var current = GetCurrentParty();
+		return _state != null && !a.IsDispatched && a.Injury == InjurySeverity.None && !a.IsRetired
+			&& (current == null || !current.MemberIds.Contains(a.Id));
+	}
+
 	/// <summary>配属できる状態か（出撃中・負傷・引退でなく、どの部隊にも属していない）。</summary>
 	private bool IsAssignable(Adventurer a) =>
 		_state != null && !a.IsDispatched && a.Injury == InjurySeverity.None && !a.IsRetired
@@ -832,8 +848,9 @@ public partial class PartyFormationPanel : VBoxContainer
 			bool isAvailable = !isDispatched && !isInjured && !isRetired && !isInCurrentParty && !isInOtherParty;
 			bool canAssign = isAvailable && !isCurrentPartyDispatched && !isCurrentPartyFull;
 
+			bool canPreviewSwap = (isAvailable || (isInOtherParty && !isDispatched && !isInjured && !isRetired)) && isCurrentPartyFull && !isCurrentPartyDispatched;
 			var row = CreateCandidateRow(adventurer, isDispatched, isInCurrentParty, isInOtherParty, memberInParty,
-				canAssign, isAvailable && isCurrentPartyFull && !isCurrentPartyDispatched, topStats, topContribution);
+				canAssign, canPreviewSwap, topStats, topContribution);
 			_candidateListContainer.AddChild(row);
 		}
 
@@ -899,12 +916,24 @@ public partial class PartyFormationPanel : VBoxContainer
 		hbox.AddChild(Cell(statusText, StatusWidth, statusColor, alignRight: false));
 
 		// 配属ボタン
+		// 当部隊の隊員の行は「解除 －」（押すと編成から外す）、それ以外は「配属 ＋」
 		var assignButton = new Button();
-		assignButton.Text = "配属 ＋";
 		assignButton.CustomMinimumSize = new Vector2(AssignWidth, 22);
 		assignButton.AddThemeFontSizeOverride("font_size", 15);
-		assignButton.Disabled = !canAssign;
-		assignButton.Pressed += () => OnAssignAdventurerClicked(a);
+		if (isInCurrentParty)
+		{
+			var party = GetCurrentParty();
+			assignButton.Text = "解除 －";
+			assignButton.Disabled = party == null || IsPartyDispatched(party);
+			assignButton.TooltipText = assignButton.Disabled ? "出撃中の部隊からは外せません。" : $"{a.Name} を編成から外す。";
+			assignButton.Pressed += () => OnRemoveAdventurerClicked(a);
+		}
+		else
+		{
+			assignButton.Text = "配属 ＋";
+			assignButton.Disabled = !canAssign;
+			assignButton.Pressed += () => OnAssignAdventurerClicked(a);
+		}
 		assignButton.MouseEntered += () => PreviewCandidate(a, panel);
 		hbox.AddChild(assignButton);
 
@@ -1071,6 +1100,59 @@ public partial class PartyFormationPanel : VBoxContainer
 
 		_statusLabel.Text = "";
 		StateChanged.Invoke();
+	}
+
+	private void OnRemoveAdventurerClicked(Adventurer a)
+	{
+		var currentParty = GetCurrentParty();
+		if (currentParty == null || _state == null) return;
+		if (IsPartyDispatched(currentParty))
+		{
+			_statusLabel.Text = "出撃中の部隊からは除名できません。";
+			return;
+		}
+
+		_partyFormationSystem.RemoveMember(currentParty, a.Id);
+		_statusLabel.Text = "";
+		StateChanged.Invoke();
+	}
+
+	/// <summary>編成メンバー欄の右上の「全員解除」：当部隊の全員を編成から外す。</summary>
+	private void OnRemoveAllClicked()
+	{
+		var currentParty = GetCurrentParty();
+		if (currentParty == null || _state == null) return;
+		if (IsPartyDispatched(currentParty))
+		{
+			_statusLabel.Text = "出撃中の部隊からは除名できません。";
+			return;
+		}
+
+		foreach (var id in currentParty.MemberIds.ToList())
+			_partyFormationSystem.RemoveMember(currentParty, id);
+		_statusLabel.Text = "";
+		StateChanged.Invoke();
+	}
+
+	/// <summary>見出しの行を横に割って、右端に「全員解除」を置く（シーンは変えずにコードで組む）。</summary>
+	private void BuildRemoveAllButton()
+	{
+		var header = GetNode<Label>("MemberSlotsPanel/Margin/VBox/SlotsHeader");
+		var parent = header.GetParent();
+		int index = header.GetIndex();
+
+		var row = new HBoxContainer();
+		parent.RemoveChild(header);
+		header.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		row.AddChild(header);
+
+		_removeAllButton = new Button { Text = "全員解除", TooltipText = "この部隊の全員を編成から外す（出撃中は不可）。" };
+		_removeAllButton.AddThemeFontSizeOverride("font_size", 15);
+		_removeAllButton.Pressed += OnRemoveAllClicked;
+		row.AddChild(_removeAllButton);
+
+		parent.AddChild(row);
+		parent.MoveChild(row, index);
 	}
 
 	private void OnRemoveMemberClicked(int slotIndex)

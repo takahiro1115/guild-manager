@@ -260,6 +260,11 @@ namespace GuildManager.Core.Systems
 
             AssignPortrait(state, child, a, b);
 
+            // 生まれの記録（誕生後も残る。研究室の培養槽画面の履歴に出す）
+            child.FusionCatalystId = catalystMaterialId;
+            child.FusionNyxTier = tier;
+            child.FusionBreakthroughStats = breakthroughStats.ToList();
+
             return new SoulFusionCulture
             {
                 ParentAId = a.Id,

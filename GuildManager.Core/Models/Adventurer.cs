@@ -375,6 +375,18 @@ namespace GuildManager.Core.Models
         public bool HasUsedSoulFusion { get; set; } = false;
 
         /// <summary>
+        /// 魂魄融和で生まれた子の、生まれの記録（研究室の培養槽画面の「生まれた娘」の履歴に出す）：投入した触媒の素材Id（null＝触媒なし）。
+        /// 旧セーブの娘と採用・初期メンバーでは null のまま（記録なし）。
+        /// </summary>
+        public string? FusionCatalystId { get; set; }
+
+        /// <summary>生まれの記録：両親の百合相性の段階。<see cref="ParentIds"/> が空でなければ意味を持つ。旧セーブでは既定の Ordinary。</summary>
+        public SoulFusionNyxTier FusionNyxTier { get; set; } = SoulFusionNyxTier.Ordinary;
+
+        /// <summary>生まれの記録：能力限界突破した能力名（突破しなければ空）。旧セーブでは空。</summary>
+        public List<string> FusionBreakthroughStats { get; set; } = new();
+
+        /// <summary>
         /// これまでに飲んだ霊薬の数（→ Systems.ElixirSystem、03 §4.6.2・§0.61）。elixir.csv MaxPerAdventurer まで飲める。
         /// 旧セーブには無く0で読まれる。
         /// </summary>

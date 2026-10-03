@@ -91,6 +91,7 @@ public partial class AdventurerPanel : VBoxContainer
 	private Button _payBonusButton = null!;
 	private Button _retireButton = null!;
 	private Button _renameButton = null!;
+	private Button _compatButton = null!;
 
 	// 改名ダイアログ（→ 03 §2.1、2026年9月新設。コードで組み立てる）
 	private ConfirmationDialog _renameDialog = null!;
@@ -185,6 +186,7 @@ public partial class AdventurerPanel : VBoxContainer
 		_retireButton.Pressed += OnRetirePressed;
 		_renameButton.Pressed += OnRenamePressed;
 		BuildRenameDialog();
+		BuildCompatibilityButton();
 
 		// 初期状態は未選択
 		ShowNoAdventurerSelected();
@@ -233,6 +235,7 @@ public partial class AdventurerPanel : VBoxContainer
 		GetNode<Control>("Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox/LifecycleCard").Visible = false;
 		GetNode<Control>("Body/RightPane/DetailVBox/DetailContainer/ActionButtonsCard").Visible = false;
 		_renameButton.Visible = false;
+		_compatButton.Visible = false;
 		_negotiationWarning.Visible = false;
 		_satisfactionLabel.Visible = false;
 		_satisfactionBar.Visible = false;
@@ -246,6 +249,76 @@ public partial class AdventurerPanel : VBoxContainer
 			_weaponLabel.Text = "武器: なし（平服）";
 		if (candidate.EquippedArmor == null)
 			_armorLabel.Text = "防具: なし（平服）";
+	}
+
+	// ==================== 相性ウィンドウ ====================
+
+	/// <summary>名前の行（改名ボタンの右）に「💞 相性」を置く。押すと、この冒険者と他の現役冒険者との相性の一覧を別ウィンドウで開く。</summary>
+	private void BuildCompatibilityButton()
+	{
+		_compatButton = new Button
+		{
+			Text = "💞 相性",
+			SizeFlagsVertical = SizeFlags.ShrinkCenter,
+			TooltipText = "この冒険者と、ほかの現役冒険者との相性の一覧を開く。",
+		};
+		_compatButton.Pressed += OnCompatibilityPressed;
+		var row = _renameButton.GetParent();
+		row.AddChild(_compatButton);
+		row.MoveChild(_compatButton, _renameButton.GetIndex() + 1);
+	}
+
+	private void OnCompatibilityPressed()
+	{
+		var target = CurrentDetailAdventurer();
+		if (target == null || _state == null) return;
+
+		var list = new VBoxContainer { CustomMinimumSize = new Vector2(620, 0) };
+		list.AddThemeConstantOverride("separation", 4);
+		var others = _state.Adventurers.Where(o => o.Id != target.Id)
+			.Select(o => (Adventurer: o, Value: CompatibilitySystem.GetCompatibility(_state, target.Id, o.Id)))
+			.OrderByDescending(x => x.Value)
+			.ToList();
+
+		list.AddChild(new Label
+		{
+			Text = $"険悪（{CompatibilityBalance.HostileThreshold}未満）は同じ部隊に入れると不利。{SoulFusionBalance.RequiredCompatibility}で魂魄融和の秘薬の親になれる。",
+			Modulate = new Color(0.7f, 0.72f, 0.78f),
+			AutowrapMode = TextServer.AutowrapMode.WordSmart,
+		});
+
+		foreach (var (other, value) in others)
+		{
+			var row = new HBoxContainer();
+			row.AddThemeConstantOverride("separation", 10);
+			bool sameSquad = _state.SavedParties.Any(p => p.MemberIds.Contains(target.Id) && p.MemberIds.Contains(other.Id));
+			row.AddChild(new Label { Text = $"{other.Name}（{JobLabel(other.JobClass)}・{other.Age}歳）{(sameSquad ? "　同じ部隊" : "")}", CustomMinimumSize = new Vector2(260, 0) });
+			var bar = new ProgressBar
+			{
+				MinValue = 0, MaxValue = CompatibilityBalance.MaxValue, Value = value, ShowPercentage = false,
+				CustomMinimumSize = new Vector2(200, 16), SizeFlagsVertical = SizeFlags.ShrinkCenter,
+			};
+			row.AddChild(bar);
+			var (color, note) = value < CompatibilityBalance.HostileThreshold ? (new Color(1f, 0.45f, 0.4f), "険悪")
+				: value >= SoulFusionBalance.RequiredCompatibility ? (new Color(1f, 0.6f, 0.85f), "★秘薬可")
+				: value >= 70 ? (new Color(0.5f, 1f, 0.6f), "良好")
+				: (new Color(0.85f, 0.87f, 0.9f), "");
+			var valueLabel = new Label { Text = $"{value} {note}".TrimEnd() };
+			valueLabel.AddThemeColorOverride("font_color", color);
+			row.AddChild(valueLabel);
+			list.AddChild(row);
+		}
+		if (others.Count == 0)
+			list.AddChild(new Label { Text = "ほかの現役冒険者がいない。" });
+
+		var scroll = new ScrollContainer { CustomMinimumSize = new Vector2(640, 380), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+		scroll.AddChild(list);
+		var dialog = new AcceptDialog { Title = $"{target.Name} の相性", OkButtonText = "閉じる" };
+		dialog.AddChild(scroll);
+		dialog.Confirmed += () => dialog.QueueFree();
+		dialog.Canceled += () => dialog.QueueFree();
+		AddChild(dialog);
+		dialog.PopupCentered();
 	}
 
 	// ==== 詳細表示 ====
@@ -341,11 +414,12 @@ public partial class AdventurerPanel : VBoxContainer
 		BindStatRow(_barLDR, _valLDR, a, "LDR", a.PA_LDR);
 
 		// ---- 8年稼働タイムライン ----
-		int maxWeeks = AgingSystem.MaxActiveWeeks;
+		// 満期は年齢で決まる（24歳なら残り2年）ため、残り週数は Core が年齢と今の週から出し、在籍期間の全体はその分に合わせる
+		int remainingWeeks = AgingSystem.GetRemainingActiveWeeks(a, _state?.WeekNumber ?? 1);
+		int maxWeeks = Math.Max(1, a.ActiveWeeks + remainingWeeks);
 		_timelineBar.MaxValue = maxWeeks;
 		_timelineBar.Value = Math.Min(a.ActiveWeeks, maxWeeks);
 
-		int remainingWeeks = Math.Max(0, maxWeeks - a.ActiveWeeks);
 		int severanceEstimate = AgingSystem.CalculateSeverancePay(a);
 
 		_activeWeeksLabel.Text = $"在籍期間: {a.ActiveWeeks} / {maxWeeks}週";
@@ -416,6 +490,7 @@ public partial class AdventurerPanel : VBoxContainer
 		_raiseWageButton.Disabled = false;
 		_payBonusButton.Disabled = false;
 		_renameButton.Disabled = false; // 改名は名前だけの変更のため、出撃中でも行える
+		_compatButton.Visible = true;
 
 		// 出撃中は装備変更・引退をガード
 		_equipmentButton.Disabled = a.IsDispatched;

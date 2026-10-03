@@ -25,6 +25,41 @@ namespace GuildManager.Core.Tests
         private static GameState CreateState(Adventurer adventurer, int weekNumber) =>
             new GameState { WeekNumber = weekNumber, Adventurers = { adventurer } };
 
+        // ---------------- 満期までの残り週数（年齢で決まる） ----------------
+
+        [Theory]
+        [InlineData(18, 1, 384)]   // 18歳で年の第1週＝8年フル
+        [InlineData(18, 48, 337)]  // 年の最終週＝この週の処理で加齢するので、その後7年分＋この週
+        [InlineData(24, 1, 96)]    // 24歳：25歳・26歳の年度末で満期（2年）
+        [InlineData(25, 1, 48)]
+        [InlineData(25, 48, 1)]    // 満期の年度末の週：この週で引退
+        [InlineData(26, 1, 0)]     // すでに満期年齢
+        public void GetRemainingActiveWeeks_DependsOnAgeAndWeekOfYear(int age, int week, int expected)
+        {
+            var adventurer = new Adventurer { Age = age };
+            Assert.Equal(expected, AgingSystem.GetRemainingActiveWeeks(adventurer, week));
+        }
+
+        [Fact]
+        public void GetRemainingActiveWeeks_MatchesActualRetirementWeek()
+        {
+            // 24歳・第1週の冒険者を実際に回して、予告どおりの週数で引退することを確かめる
+            var adventurer = new Adventurer { Age = 24 };
+            var state = CreateState(adventurer, 1);
+            var aging = new AgingSystem(new AlwaysMinRng());
+            int predicted = AgingSystem.GetRemainingActiveWeeks(adventurer, state.WeekNumber);
+
+            int weeks = 0;
+            while (!adventurer.IsRetired && weeks < 500)
+            {
+                aging.ProcessWeeklyAging(state);
+                state.WeekNumber++;
+                weeks++;
+            }
+
+            Assert.Equal(predicted, weeks);
+        }
+
         // ---------------- AgeBand 境界（仕様書 03 §3.0） ----------------
 
         [Theory]
