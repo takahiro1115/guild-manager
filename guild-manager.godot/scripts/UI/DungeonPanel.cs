@@ -217,8 +217,14 @@ public partial class DungeonPanel : ScrollContainer
 	private RichTextLabel _orderInfoLabel = null!;
 	private bool _refreshingOrderRow;
 
-	/// <summary>方針の選択肢（0＝方針なし、以降は「開放済みのフィールド × 潜行・調査・採取」）。RefreshOrderRow で作り直す。</summary>
-	private readonly List<(string? FieldId, SquadOrder Order)> _orderEntries = new();
+	/// <summary>方針の「どこで」：開放済みのフィールド（RefreshOrderRow で作り直す。添字は _orderFieldIds と対応）。</summary>
+	private OptionButton _orderFieldOption = null!;
+	private readonly List<string> _orderFieldIds = new();
+
+	/// <summary>方針の「何を」の選択肢（添字＋1＝SquadOrder の値：潜行・調査・採取）。方針の解除は選択肢ではなく専用のボタン。</summary>
+	private static readonly string[] OrderChoiceLabels = { "🏃 潜行を続ける", "🔍 調査を続ける", "🌿 採取を続ける" };
+
+	private Button _orderClearButton = null!;
 	private static readonly string[] OrderNames = { "方針なし", "潜行を続ける", "調査を続ける", "採取を続ける" };
 
 	/// <summary>方針の絵文字（部隊名の前に付ける。方針なしは空）。</summary>
@@ -238,9 +244,20 @@ public partial class DungeonPanel : ScrollContainer
 		var box = new VBoxContainer();
 		var row = new HBoxContainer();
 		row.AddChild(new Label { Text = "📋 選んだ部隊の方針：" });
-		_orderOption = new OptionButton { TooltipText = "方針と、その場所（ダンジョン）をここで一緒に選ぶ。決めると、週送りの前に空いていれば自動で出撃し続ける（全員のHPが70%以上で重傷者がいないとき）" };
+		// 「どこで」「何を」を別のプルダウンで選ぶ
+		row.AddChild(new Label { Text = "どこで" });
+		_orderFieldOption = new OptionButton { TooltipText = "方針で出撃する場所（ダンジョン）" };
+		_orderFieldOption.ItemSelected += OnOrderFieldSelected;
+		row.AddChild(_orderFieldOption);
+		row.AddChild(new Label { Text = "何を" });
+		_orderOption = new OptionButton { TooltipText = "決めると、週送りの前に空いていれば自動で出撃し続ける（全員のHPが70%以上で重傷者がいないとき）" };
+		foreach (var label in OrderChoiceLabels)
+			_orderOption.AddItem(label);
 		_orderOption.ItemSelected += OnOrderSelected;
 		row.AddChild(_orderOption);
+		_orderClearButton = new Button { Text = "方針を解除", TooltipText = "この部隊の方針を解除する（手動で出撃する）" };
+		_orderClearButton.Pressed += OnOrderCleared;
+		row.AddChild(_orderClearButton);
 		_autoEngageCheck = new CheckBox { Text = "扉前で見込みがあれば挑む（無ければ撤退）" };
 		_autoEngageCheck.TooltipText = "潜行の方針だけ。討伐火力が要求以上・ギミックをすべて対策できる（携行品は自動で買う）・全員のHPが60%以上なら挑む。外すと扉前で止まって聞く";
 		_autoEngageCheck.Toggled += OnAutoEngageToggled;
@@ -259,25 +276,32 @@ public partial class DungeonPanel : ScrollContainer
 		_refreshingOrderRow = true;
 		var saved = SelectedSavedParty();
 
-		// 方針と場所を一括で選べるように、開放済みのフィールドごとに「潜行・調査・採取を続ける」を並べる
-		_orderOption.Clear();
-		_orderEntries.Clear();
-		_orderOption.AddItem("なし（手動で出撃）");
-		_orderEntries.Add((null, SquadOrder.None));
+		// 「どこで」：開放済みのフィールド。方針なしでも、前回選んだ場所（無ければ今見ているフィールド）を出しておく
+		_orderFieldOption.Clear();
+		_orderFieldIds.Clear();
 		foreach (var field in _state.DungeonFields.Where(f => f.IsUnlocked).OrderBy(f => f.Order))
 		{
-			foreach (var order in new[] { SquadOrder.Dive, SquadOrder.Survey, SquadOrder.Gather })
-			{
-				_orderOption.AddItem($"{OrderIcon(order)} {field.Name}：{OrderNames[(int)order]}");
-				_orderEntries.Add((field.Id, order));
-			}
+			_orderFieldOption.AddItem(field.Name);
+			_orderFieldIds.Add(field.Id);
 		}
+		string? shownFieldId = saved != null && _orderFieldIds.Contains(saved.OrderFieldId ?? "") ? saved.OrderFieldId : _selectedFieldId;
+		_orderFieldOption.Selected = Math.Max(0, _orderFieldIds.IndexOf(shownFieldId ?? ""));
+		_orderFieldOption.Disabled = saved == null || _orderFieldIds.Count == 0;
 
+		// 「何を」
 		_orderOption.Disabled = saved == null;
-		int selectedEntry = saved == null || saved.Order == SquadOrder.None
-			? 0
-			: _orderEntries.FindIndex(e => e.Order == saved.Order && e.FieldId == saved.OrderFieldId);
-		_orderOption.Selected = Math.Max(0, selectedEntry);
+		// 方針なしのときは何も選ばれていない状態にする（解除は専用のボタン）
+		var currentOrder = saved?.Order ?? SquadOrder.None;
+		if (currentOrder == SquadOrder.None)
+		{
+			_orderOption.Selected = -1;
+			_orderOption.Text = "（方針なし）";
+		}
+		else
+		{
+			_orderOption.Selected = (int)currentOrder - 1;
+		}
+		_orderClearButton.Disabled = saved == null || currentOrder == SquadOrder.None;
 		_autoEngageCheck.Visible = saved?.Order == SquadOrder.Dive;
 		_autoEngageCheck.ButtonPressed = saved?.AutoEngage == true;
 		_refreshingOrderRow = false;
@@ -317,8 +341,11 @@ public partial class DungeonPanel : ScrollContainer
 		if (_refreshingOrderRow) return;
 		var saved = SelectedSavedParty();
 		if (saved == null) return;
-		if (index < 0 || index >= _orderEntries.Count) return;
-		var (fieldId, order) = _orderEntries[(int)index];
+		if (index < 0 || index >= OrderChoiceLabels.Length) return;
+		var order = (SquadOrder)((int)index + 1);
+		// 場所は「どこで」のプルダウンの選択（無ければ今見ているフィールド）を使う
+		int fieldIndex = _orderFieldOption.Selected;
+		string? fieldId = fieldIndex >= 0 && fieldIndex < _orderFieldIds.Count ? _orderFieldIds[fieldIndex] : _selectedFieldId;
 		var orderField = fieldId == null ? null : _state.DungeonFields.FirstOrDefault(f => f.Id == fieldId);
 		if (order != SquadOrder.None)
 		{
@@ -331,6 +358,34 @@ public partial class DungeonPanel : ScrollContainer
 		LogRequested.Invoke(order == SquadOrder.None
 			? $"[color=cyan]📋 「{saved.Name}」の方針を解除した（手動で出撃する）。[/color]"
 			: $"[color=cyan]📋 「{saved.Name}」の方針を「{orderField!.Name}で{OrderNames[(int)order]}」にした。週送りの前に、空いていれば自動で出撃する。[/color]");
+		StateChanged.Invoke();
+	}
+
+	/// <summary>「どこで」を変えた：方針があればその場所へ向け直す。方針なしなら場所だけ覚えておく。</summary>
+	private void OnOrderFieldSelected(long index)
+	{
+		if (_refreshingOrderRow) return;
+		var saved = SelectedSavedParty();
+		if (saved == null || index < 0 || index >= _orderFieldIds.Count) return;
+		var field = _state.DungeonFields.FirstOrDefault(f => f.Id == _orderFieldIds[(int)index]);
+		if (field == null) return;
+
+		saved.OrderFieldId = field.Id;
+		if (saved.Order != SquadOrder.None)
+			LogRequested.Invoke($"[color=cyan]📋 「{saved.Name}」の方針の場所を「{field.Name}」にした（{OrderNames[(int)saved.Order]}）。[/color]");
+		StateChanged.Invoke();
+	}
+
+	/// <summary>「方針を解除」：選んだ部隊の方針をなくし、手動で出撃する部隊に戻す。</summary>
+	private void OnOrderCleared()
+	{
+		if (_refreshingOrderRow) return;
+		var saved = SelectedSavedParty();
+		if (saved == null || saved.Order == SquadOrder.None) return;
+
+		saved.Order = SquadOrder.None;
+		saved.AutoEngage = false;
+		LogRequested.Invoke($"[color=cyan]📋 「{saved.Name}」の方針を解除した（手動で出撃する）。[/color]");
 		StateChanged.Invoke();
 	}
 
