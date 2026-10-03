@@ -483,13 +483,13 @@ public partial class InventoryPanel : VBoxContainer
 			{
 				if (id < 0 || id >= candidates.Count) return;
 				var target = candidates[(int)id];
-				var targetSlot = EquipmentSystem.ResolveSlot(target, definition.Slot);
-				var previous = target.GetEquipped(targetSlot);
-				if (!new EquipmentSystem().TryEquip(_state, target, targetSlot, item))
+				// 装飾枠が2つとも埋まっているときは、どちらと入れ替えるかを選ばせる
+				if (EquipmentSystem.NeedsAccessoryChoice(target, definition.Slot))
+				{
+					AccessoryChoice.Ask(this, target, item.DisplayName, chosen => Equip(target, definition.Slot, chosen, item));
 					return;
-				LogRequested.Invoke($"[color=cyan]⚔ {target.Name}に「{ItemColorHelper.GetColoredBBCode(item)}」を装備させた。[/color]" +
-					(previous == null ? "" : $"[color=gray]（「{ItemColorHelper.GetColoredBBCode(previous)}」は保管庫へ戻した）[/color]"));
-				StateChanged.Invoke();
+				}
+				Equip(target, definition.Slot, EquipmentSystem.ResolveSlot(target, definition.Slot), item);
 			};
 			menu.PopupHide += () => menu.QueueFree();
 			AddChild(menu);
@@ -497,6 +497,17 @@ public partial class InventoryPanel : VBoxContainer
 			menu.Popup(new Rect2I((Vector2I)(rect.Position + new Vector2(0, rect.Size.Y)), new Vector2I(0, 0)));
 		};
 		return button;
+	}
+
+	/// <summary>保管庫の武具を、決まった枠に装備させる（装飾品の枠はここへ来る前に決めてある）。</summary>
+	private void Equip(Adventurer target, EquipmentSlot itemSlot, EquipmentSlot targetSlot, EquipmentItem item)
+	{
+		var previous = target.GetEquipped(targetSlot);
+		if (!new EquipmentSystem().TryEquip(_state, target, targetSlot, item))
+			return;
+		LogRequested.Invoke($"[color=cyan]⚔ {target.Name}に「{ItemColorHelper.GetColoredBBCode(item)}」を装備させた。[/color]" +
+			(previous == null ? "" : $"[color=gray]（「{ItemColorHelper.GetColoredBBCode(previous)}」は保管庫へ戻した）[/color]"));
+		StateChanged.Invoke();
 	}
 
 	/// <summary>汎用武具1群（同じカタログId・同じ希少度、アフィックスなし）の行。まとめ売りの操作部つき。</summary>

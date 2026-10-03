@@ -151,7 +151,7 @@ namespace GuildManager.Core.Models
             VisualPartId = "armor_plate",
         });
 
-        // ---- アクセサリー1（Accessory1）：最大HP加算または能力値補正、見た目に反映される ----
+        // ---- 装飾品（アクセサリー）：最大HP加算または能力値補正。装飾品は1と2の区別が無く、どれもどちらの枠にも着けられる（§0.67）。カタログ上は Accessory1 に統一 ----
         public const string PowerRingId = "PowerRing";
         public const string LifeAmuletId = "LifeAmulet";
 
@@ -167,24 +167,23 @@ namespace GuildManager.Core.Models
             VisualPartId = "accessory_life_amulet",
         });
 
-        // ---- アクセサリー2（Accessory2）：最大HP加算または能力値補正、見た目には反映されない ----
-        public const string QuickBroochId = "QuickBrooch";
+                public const string QuickBroochId = "QuickBrooch";
         public const string GuardCharmId = "GuardCharm";
 
         public static readonly Item QuickBrooch = Define(new Item
         {
-            Id = QuickBroochId, Name = "俊敏のブローチ", Slot = EquipmentSlot.Accessory2,
-            // アクセサリー2は立ち絵側の対応枠が無いためVisualPartIdを設定しない（→ 03 §4.2.2・§11）。
+            Id = QuickBroochId, Name = "俊敏のブローチ", Slot = EquipmentSlot.Accessory1,
+            // 立ち絵側の対応する部品が無いためVisualPartIdを設定しない（→ 03 §4.2.2・§11）。
         });
 
         public static readonly Item GuardCharm = Define(new Item
         {
-            Id = GuardCharmId, Name = "守りのお守り", Slot = EquipmentSlot.Accessory2,
+            Id = GuardCharmId, Name = "守りのお守り", Slot = EquipmentSlot.Accessory1,
         });
 
         // ---- 店の上位装備（2026年10月・§0.61）：ミスリル（段1）・オリハルコン（段2）・星鉄（段3） ----
         // 倒した階層ボスの総数で店に並ぶ（→ Item.ShopTier・EquipmentSystem.GetUnlockedShopTier）。各段7品：
-        // 剣（力）・短剣（器用）・杖（知力）・鎧（体力）・法衣（知力・精神）・指輪（アクセサリー1）・耳飾り（アクセサリー2）。
+        // 剣（力）・短剣（器用）・杖（知力）・鎧（体力）・法衣（知力・精神）・指輪と耳飾り（どちらも装飾品）。
         // 見た目（VisualPartId）は既存の品の絵を流用する。
 
         private static readonly List<JobClass> BladeJobs = new() { JobClass.Warrior, JobClass.Knight, JobClass.Ranger, JobClass.Cleric };
@@ -210,7 +209,7 @@ namespace GuildManager.Core.Models
                 Make("Mail", $"{material}の鎧", EquipmentSlot.Armor, MailJobs, "armor_chainmail"), // 中装（重装ペナルティなし）
                 Make("Vestment", $"{clothMaterial}の法衣", EquipmentSlot.Armor, VestmentJobs, "armor_robe"),
                 Make("Ring", $"{material}の指輪", EquipmentSlot.Accessory1, null, "accessory_power_ring"),
-                Make("Earring", $"{material}の耳飾り", EquipmentSlot.Accessory2, null, null),
+                Make("Earring", $"{material}の耳飾り", EquipmentSlot.Accessory1, null, null),
             };
         }
 

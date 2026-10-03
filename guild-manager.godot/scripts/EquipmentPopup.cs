@@ -241,10 +241,19 @@ public partial class EquipmentPopup : PopupPanel
 			return;
 		}
 
-		// 装飾品は1と2を区別しない：空いている装飾枠へ（どちらも埋まっていれば、その品の本来の枠と入れ替える）
-		slot = EquipmentSystem.ResolveSlot(_adventurer, slot.Value);
-		var previous = _adventurer.GetEquipped(slot.Value);
-		if (!_equipmentSystem.TryEquip(_state, _adventurer, slot.Value, entry))
+		// 装飾品は1と2を区別しない：空いている装飾枠へ。どちらも埋まっていれば、どちらと入れ替えるかを選ばせる
+		if (EquipmentSystem.NeedsAccessoryChoice(_adventurer, slot.Value))
+		{
+			AccessoryChoice.Ask(this, _adventurer, entry.DisplayName, chosen => EquipFromArmory(entry, chosen));
+			return;
+		}
+		EquipFromArmory(entry, EquipmentSystem.ResolveSlot(_adventurer, slot.Value));
+	}
+
+	private void EquipFromArmory(EquipmentItem entry, EquipmentSlot slot)
+	{
+		var previous = _adventurer.GetEquipped(slot);
+		if (!_equipmentSystem.TryEquip(_state, _adventurer, slot, entry))
 		{
 			_message = $"[color=orange]「{ItemColorHelper.GetColoredBBCode(entry)}」は装備できません" +
 				$"（{AdventurerPanel.JobLabel(_adventurer.JobClass)}の職業制限、または出撃中）。[/color]";
@@ -252,7 +261,7 @@ public partial class EquipmentPopup : PopupPanel
 			return;
 		}
 
-		_message = $"[color=lime]{SlotLabel(slot.Value)}に「{ItemColorHelper.GetColoredBBCode(entry)}」を装備した。[/color]" +
+		_message = $"[color=lime]{SlotLabel(slot)}に「{ItemColorHelper.GetColoredBBCode(entry)}」を装備した。[/color]" +
 			(previous == null ? "" : $"[color=gray]（「{ItemColorHelper.GetColoredBBCode(previous)}」は保管庫へ戻した）[/color]");
 		RefreshAll();
 	}
@@ -281,8 +290,18 @@ public partial class EquipmentPopup : PopupPanel
 			return;
 		}
 
-		var previous = _adventurer.GetEquipped(item.Slot);
-		if (!_equipmentSystem.TryPurchaseAndEquip(_state, _adventurer, item.Id))
+		if (EquipmentSystem.NeedsAccessoryChoice(_adventurer, item.Slot))
+		{
+			AccessoryChoice.Ask(this, _adventurer, item.Name, chosen => PurchaseAndEquip(item, chosen));
+			return;
+		}
+		PurchaseAndEquip(item, null);
+	}
+
+	private void PurchaseAndEquip(Item item, EquipmentSlot? accessorySlot)
+	{
+		var previous = _adventurer.GetEquipped(accessorySlot ?? EquipmentSystem.ResolveSlot(_adventurer, item.Slot));
+		if (!_equipmentSystem.TryPurchaseAndEquip(_state, _adventurer, item.Id, accessorySlot))
 		{
 			_message = $"[color=orange]「{item.Name}」を購入・装備できませんでした。[/color]";
 			RefreshStatus();

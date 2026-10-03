@@ -248,7 +248,9 @@ public partial class ShopPanel : HBoxContainer
 		var current = buyer?.GetEquipped(EquipmentSystem.ResolveSlot(buyer, item.Slot));
 		text.AppendText($"[b][color={nameColor}]{item.Name}[/color][/b]　[color=gray]{item.DescribeEffects()}[/color]\n" +
 			(inShop
-				? $"[color=gray]今：{(current == null ? "なし" : current.DisplayName)}[/color]"
+				? (buyer != null && EquipmentSystem.NeedsAccessoryChoice(buyer, item.Slot)
+					? $"[color=gray]今：{buyer.EquippedAccessory1!.DisplayName}／{buyer.EquippedAccessory2!.DisplayName}（買うとき、どちらと入れ替えるか選ぶ）[/color]"
+					: $"[color=gray]今：{(current == null ? "なし" : current.DisplayName)}[/color]")
 				: $"[color=gray]{blocked}[/color]"));
 		row.AddChild(text);
 
@@ -263,9 +265,21 @@ public partial class ShopPanel : HBoxContainer
 	{
 		var buyer = Selected();
 		if (buyer == null) return;
-		var slot = EquipmentSystem.ResolveSlot(buyer, item.Slot);
+
+		// 装飾枠が2つとも埋まっているときは、どちらと入れ替えるかを選ばせる
+		if (EquipmentSystem.NeedsAccessoryChoice(buyer, item.Slot))
+		{
+			AccessoryChoice.Ask(this, buyer, item.Name, chosen => Purchase(buyer, item, chosen));
+			return;
+		}
+		Purchase(buyer, item, null);
+	}
+
+	private void Purchase(Adventurer buyer, Item item, EquipmentSlot? accessorySlot)
+	{
+		var slot = accessorySlot ?? EquipmentSystem.ResolveSlot(buyer, item.Slot);
 		var previous = buyer.GetEquipped(slot);
-		if (!_equipmentSystem.TryPurchaseAndEquip(_state, buyer, item.Id))
+		if (!_equipmentSystem.TryPurchaseAndEquip(_state, buyer, item.Id, accessorySlot))
 			return;
 
 		LogRequested.Invoke($"[color=gold]🛒 お抱え商：{buyer.Name}が「{item.Name}」を買って装備した（-{item.Price}G）。[/color]" +

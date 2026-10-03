@@ -51,8 +51,7 @@ namespace GuildManager.Core.Tests
                 Assert.Equal(7, items.Count);
                 Assert.Equal(3, items.Count(i => i.Slot == EquipmentSlot.Weapon));
                 Assert.Equal(2, items.Count(i => i.Slot == EquipmentSlot.Armor));
-                Assert.Single(items, i => i.Slot == EquipmentSlot.Accessory1);
-                Assert.Single(items, i => i.Slot == EquipmentSlot.Accessory2);
+                Assert.Equal(2, items.Count(i => i.Slot == EquipmentSlot.Accessory1)); // 指輪と耳飾り。装飾品は1と2の区別が無い（§0.67）
                 Assert.All(items, i => Assert.False(i.IsHeavyArmor));
             }
             Assert.Equal(0, ItemCatalog.IronSword.ShopTier);

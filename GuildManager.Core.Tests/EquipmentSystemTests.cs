@@ -79,7 +79,7 @@ namespace GuildManager.Core.Tests
         {
             var adventurer = new Adventurer { JobClass = JobClass.Warrior };
             Assert.Equal(EquipmentSlot.Weapon, EquipmentSystem.ResolveSlot(adventurer, EquipmentSlot.Weapon));
-            Assert.Equal(EquipmentSlot.Accessory1, EquipmentSystem.ResolveSlot(adventurer, EquipmentSlot.Accessory2));
+            Assert.Equal(EquipmentSlot.Accessory1, EquipmentSystem.ResolveSlot(adventurer, EquipmentSlot.Accessory1));
             adventurer.EquippedAccessory1 = EquipmentItem.FromCatalog(ItemCatalog.PowerRing, 1, "テスト");
             Assert.Equal(EquipmentSlot.Accessory2, EquipmentSystem.ResolveSlot(adventurer, EquipmentSlot.Accessory1));
             adventurer.EquippedAccessory2 = EquipmentItem.FromCatalog(ItemCatalog.QuickBrooch, 1, "テスト");
@@ -374,11 +374,31 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
-        public void ItemCatalog_Accessory2Items_HaveNoVisualPartId()
+        public void ItemCatalog_HasNoAccessory2Items_AccessoriesAreOneKind()
         {
-            // アクセサリー2は立ち絵側の対応枠が無いため見た目に反映されない（→ 03 §4.2.2）。
-            foreach (var item in ItemCatalog.GetBySlot(EquipmentSlot.Accessory2))
-                Assert.Null(item.VisualPartId);
+            // 装飾品は1と2の区別が無い：カタログ上はすべて同じ種類（Accessory1）で、2つの装飾枠のどちらにも着けられる（§0.67）。
+            Assert.Empty(ItemCatalog.GetBySlot(EquipmentSlot.Accessory2));
+            Assert.True(ItemCatalog.GetBySlot(EquipmentSlot.Accessory1).Count() >= 4);
+        }
+
+        [Fact]
+        public void BothAccessorySlotsFull_NeedsAChoice_AndThePurchaseReplacesTheChosenSlot()
+        {
+            var adventurer = new Adventurer { JobClass = JobClass.Warrior };
+            var state = new GameState { Gold = 100000 };
+            var system = new EquipmentSystem();
+            Assert.False(EquipmentSystem.NeedsAccessoryChoice(adventurer, EquipmentSlot.Accessory1));
+            system.TryPurchaseAndEquip(state, adventurer, ItemCatalog.PowerRingId);
+            system.TryPurchaseAndEquip(state, adventurer, ItemCatalog.QuickBroochId);
+            Assert.True(EquipmentSystem.NeedsAccessoryChoice(adventurer, EquipmentSlot.Accessory1));
+            Assert.False(EquipmentSystem.NeedsAccessoryChoice(adventurer, EquipmentSlot.Weapon));
+
+            // 装飾枠2の方と入れ替える（選んだ枠が使われ、入れ替えられた品は保管庫へ戻る）
+            Assert.True(system.TryPurchaseAndEquip(state, adventurer, ItemCatalog.LifeAmuletId, EquipmentSlot.Accessory2));
+
+            Assert.Equal(ItemCatalog.PowerRingId, adventurer.EquippedAccessory1Id);
+            Assert.Equal(ItemCatalog.LifeAmuletId, adventurer.EquippedAccessory2Id);
+            Assert.Contains(state.Armory, i => i.ItemId == ItemCatalog.QuickBroochId);
         }
     }
 }

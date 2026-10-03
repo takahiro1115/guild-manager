@@ -31,7 +31,7 @@ namespace GuildManager.Core.Systems
         /// 以前は上書きで消滅していた。保管庫ができた以降は、個体を黙って破棄しないのが本クラスの
         /// 不変条件）。購入代金の返金はしない（従来どおり）。
         /// </summary>
-        public bool TryPurchaseAndEquip(GameState state, Adventurer adventurer, string itemId)
+        public bool TryPurchaseAndEquip(GameState state, Adventurer adventurer, string itemId, EquipmentSlot? accessorySlot = null)
         {
             var item = ItemCatalog.FindById(itemId);
             if (item == null) return false;
@@ -41,7 +41,7 @@ namespace GuildManager.Core.Systems
             if (state.Gold < item.Price) return false;
 
             state.Gold -= item.Price;
-            Attach(state, adventurer, ResolveSlot(adventurer, item.Slot), EquipmentItem.FromCatalog(item, state.WeekNumber, "カタログから購入"));
+            Attach(state, adventurer, ChooseSlot(adventurer, item.Slot, accessorySlot), EquipmentItem.FromCatalog(item, state.WeekNumber, "カタログから購入"));
             return true;
         }
 
@@ -49,16 +49,25 @@ namespace GuildManager.Core.Systems
         public static bool IsAccessory(EquipmentSlot slot) => slot is EquipmentSlot.Accessory1 or EquipmentSlot.Accessory2;
 
         /// <summary>
-        /// 装備品を着ける枠を決める。装飾品なら、空いている装飾枠（1→2の順）を使い、どちらも埋まっていれば、その品の本来の枠を入れ替える。
-        /// 武器・防具はそのままの枠。UI は、装備する前にこれで枠を決めて TryEquip に渡す。
+        /// 装備品を着ける枠を決める。装飾品なら、空いている装飾枠（1→2の順）を使う。どちらも埋まっているときは、
+        /// 入れ替え先をプレイヤーに選ばせる（→ NeedsAccessoryChoice）ので、選ぶ前の仮の答えとして装飾枠1を返す。
+        /// 武器・防具はそのままの枠。
         /// </summary>
         public static EquipmentSlot ResolveSlot(Adventurer adventurer, EquipmentSlot itemSlot)
         {
             if (!IsAccessory(itemSlot)) return itemSlot;
             if (adventurer.EquippedAccessory1 == null) return EquipmentSlot.Accessory1;
             if (adventurer.EquippedAccessory2 == null) return EquipmentSlot.Accessory2;
-            return itemSlot;
+            return EquipmentSlot.Accessory1;
         }
+
+        /// <summary>装飾品を着けようとして、装飾枠が2つとも埋まっている（＝どちらと入れ替えるかを選ばせる必要がある）か。</summary>
+        public static bool NeedsAccessoryChoice(Adventurer adventurer, EquipmentSlot itemSlot) =>
+            IsAccessory(itemSlot) && adventurer.EquippedAccessory1 != null && adventurer.EquippedAccessory2 != null;
+
+        /// <summary>着ける枠。装飾品で枠が指定されていればその枠（装飾枠のどちらか）、無ければ <see cref="ResolveSlot"/>。</summary>
+        private static EquipmentSlot ChooseSlot(Adventurer adventurer, EquipmentSlot itemSlot, EquipmentSlot? accessorySlot) =>
+            accessorySlot is { } chosen && IsAccessory(itemSlot) && IsAccessory(chosen) ? chosen : ResolveSlot(adventurer, itemSlot);
 
         /// <summary>倒した階層ボスの総数（全フィールドの合計）。上位装備の入荷の判定に使う（§0.61）。</summary>
         public static int CountDefeatedBosses(GameState state) => state.DungeonFields.Sum(f => f.Bosses.Count(b => b.IsDefeated));
