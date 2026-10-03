@@ -52,6 +52,13 @@ namespace GuildManager.Core.Systems
         /// <summary>獲得数の内訳：研究（GatheringYieldBonus）による加算。</summary>
         public int ResearchYield { get; set; }
 
+        /// <summary>護衛の判定（§0.66、→ GatheringResolver.RequiredGuardPower・調査と同じ4段階）：部隊の護衛力・要求値・段階。</summary>
+        public double GuardPower { get; set; }
+
+        public double GuardRequirement { get; set; }
+
+        public GuardTier GuardTier { get; set; } = GuardTier.Sufficient;
+
         /// <summary>未鑑定遺物の発見率（%、→ RelicBalance.GetGatheringDropPercent）。</summary>
         public int RelicDropPercent { get; set; }
     }

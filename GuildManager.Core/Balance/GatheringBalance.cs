@@ -31,5 +31,20 @@ namespace GuildManager.Core.Balance
         // ---- HP消費（採取は低リスク経路：致死判定には接続しない） ----
         public static readonly int HpLossPctMin = BalanceData.GetInt(FileName, "HpLossPctMin");
         public static readonly int HpLossPctMax = BalanceData.GetInt(FileName, "HpLossPctMax");
+
+        // ---- 護衛判定（§0.66：調査と同じ4段階、→ Systems.GuardTier。段階の境目は scouting.csv GuardRatio_*） ----
+
+        /// <summary>採取の要求護衛値＝調査の要求護衛値の式に（フィールドの最高到達階層）を入れた値×この倍率。</summary>
+        public static readonly double GuardRequirementRatio = BalanceData.GetDouble(FileName, "GuardRequirementRatio");
+
+        public static readonly double GuardYieldMultiplierAbundant = BalanceData.GetDouble(FileName, "GuardEffect_YieldMultiplier_Abundant");
+        public static readonly double GuardYieldMultiplierSufficient = BalanceData.GetDouble(FileName, "GuardEffect_YieldMultiplier_Sufficient");
+        public static readonly double GuardYieldMultiplierMarginal = BalanceData.GetDouble(FileName, "GuardEffect_YieldMultiplier_Marginal");
+        public static readonly double GuardYieldMultiplierDeficient = BalanceData.GetDouble(FileName, "GuardEffect_YieldMultiplier_Deficient");
+
+        public static readonly double GuardHpLossMultiplierAbundant = BalanceData.GetDouble(FileName, "GuardEffect_HpLossMultiplier_Abundant");
+        public static readonly double GuardHpLossMultiplierSufficient = BalanceData.GetDouble(FileName, "GuardEffect_HpLossMultiplier_Sufficient");
+        public static readonly double GuardHpLossMultiplierMarginal = BalanceData.GetDouble(FileName, "GuardEffect_HpLossMultiplier_Marginal");
+        public static readonly double GuardHpLossMultiplierDeficient = BalanceData.GetDouble(FileName, "GuardEffect_HpLossMultiplier_Deficient");
     }
 }

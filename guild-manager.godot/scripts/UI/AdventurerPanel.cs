@@ -292,7 +292,11 @@ public partial class AdventurerPanel : VBoxContainer
 			var row = new HBoxContainer();
 			row.AddThemeConstantOverride("separation", 10);
 			bool sameSquad = _state.SavedParties.Any(p => p.MemberIds.Contains(target.Id) && p.MemberIds.Contains(other.Id));
-			row.AddChild(new Label { Text = $"{other.Name}（{JobLabel(other.JobClass)}・{other.Age}歳）{(sameSquad ? "　同じ部隊" : "")}", CustomMinimumSize = new Vector2(260, 0) });
+			// 列を固定幅にして、バーと数値が縦にそろうようにする（名前・「同じ部隊」・バー・数値の4列）
+		row.AddChild(new Label { Text = $"{other.Name}（{JobLabel(other.JobClass)}・{other.Age}歳）", CustomMinimumSize = new Vector2(250, 0), ClipText = true });
+		var squadTag = new Label { Text = sameSquad ? "同じ部隊" : "", CustomMinimumSize = new Vector2(80, 0) };
+		squadTag.AddThemeColorOverride("font_color", new Color(0.6f, 0.8f, 1f));
+		row.AddChild(squadTag);
 			var bar = new ProgressBar
 			{
 				MinValue = 0, MaxValue = CompatibilityBalance.MaxValue, Value = value, ShowPercentage = false,
@@ -303,7 +307,7 @@ public partial class AdventurerPanel : VBoxContainer
 				: value >= SoulFusionBalance.RequiredCompatibility ? (new Color(1f, 0.6f, 0.85f), "★秘薬可")
 				: value >= 70 ? (new Color(0.5f, 1f, 0.6f), "良好")
 				: (new Color(0.85f, 0.87f, 0.9f), "");
-			var valueLabel = new Label { Text = $"{value} {note}".TrimEnd() };
+			var valueLabel = new Label { Text = $"{value} {note}".TrimEnd(), CustomMinimumSize = new Vector2(100, 0) };
 			valueLabel.AddThemeColorOverride("font_color", color);
 			row.AddChild(valueLabel);
 			list.AddChild(row);
@@ -391,7 +395,14 @@ public partial class AdventurerPanel : VBoxContainer
 			_negotiationWarning.Visible = false;
 		}
 
-		_hpLabel.Text = $"HP: {a.CurrentHP} / {a.MaxHP}";
+		// 最大HPは素の値・装備の加算・特性や装備の能力値補正で決まる。能力値のバーと同じく、補正の分を見せる
+		int hpBase = (int)(a.VIT * CombatBalance.MaxHpVitCoefficient + CombatBalance.MaxHpBase);
+		int hpEquipment = a.GetEquipmentHpBonus();
+		int hpOther = a.MaxHP - hpBase - hpEquipment; // 特性（頑強・病弱・古傷など）と、装備の能力値（VIT）補正
+		string hpParts = (hpEquipment != 0 ? $" 装備{hpEquipment:+0;-0}" : "") + (hpOther != 0 ? $" 特性・補正{hpOther:+0;-0}" : "");
+		_hpLabel.Text = $"HP: {a.CurrentHP} / {a.MaxHP}" + (hpParts.Length > 0 ? $"（素の値 {hpBase}{hpParts}）" : "");
+		_hpLabel.TooltipText = $"最大HP＝素のVIT×{CombatBalance.MaxHpVitCoefficient:0.#}＋{CombatBalance.MaxHpBase:0.#}（{hpBase}）＋装備の加算（{hpEquipment:+0;-0;0}）＋特性・装備の能力値による補正（{hpOther:+0;-0;0}）";
+		_hpLabel.MouseFilter = Control.MouseFilterEnum.Pass;
 		_hpBar.MaxValue = a.MaxHP > 0 ? a.MaxHP : 100;
 		_hpBar.Value = Math.Clamp(a.CurrentHP, 0, _hpBar.MaxValue);
 

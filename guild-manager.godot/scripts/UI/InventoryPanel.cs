@@ -406,7 +406,7 @@ public partial class InventoryPanel : VBoxContainer
 		var summary = new RichTextLabel { BbcodeEnabled = true, FitContent = true, SizeFlagsHorizontal = SizeFlags.ExpandFill };
 		summary.AppendText($"[b]ギルド保管庫[/b]：{_state.Armory.Count} 点　／　[b]所持金[/b]：{_state.Gold} G\n" +
 			"[color=gray]鑑定で掘り当てた武具や、冒険者から外した武具の在庫（＝誰も装備していない現物）。" +
-			"装備させるには「部隊・冒険者」画面で対象を選び、[装備変更]から換装すること（→ 03 §4.2.2）。" +
+			"各行の［装備させる］から冒険者を選んで換装できる（「部隊・冒険者」画面の［装備変更］からも可、→ 03 §4.2.2）。" +
 			"余剰分はここで換金できる（→ 03 §4.8）。[/color]");
 		_armoryListBox.AddChild(summary);
 		_armoryListBox.AddChild(new HSeparator());
@@ -447,6 +447,57 @@ public partial class InventoryPanel : VBoxContainer
 		return label;
 	}
 
+	/// <summary>
+	/// 保管庫の武具を冒険者に装備させるボタン（「部隊・冒険者」画面の［装備変更］まで行かずに済むように）。
+	/// 押すと、その武具を装備できる冒険者（職業制限に合い、出撃中でない人）を一覧し、選んだ人へ換装する
+	/// （同じ枠に今の装備があれば保管庫へ戻る、→ EquipmentSystem.TryEquip）。
+	/// </summary>
+	private Control BuildEquipButton(EquipmentItem item)
+	{
+		var definition = item.GetDefinition();
+		var button = new Button { Text = "🧍 装備させる", Disabled = definition == null };
+		if (definition == null)
+			return button;
+
+		button.Pressed += () =>
+		{
+			var menu = new PopupMenu();
+			var candidates = _state.Adventurers
+				.Where(a => definition.IsAllowedFor(a.JobClass))
+				.OrderBy(a => a.IsDispatched)
+				.ThenBy(a => a.Name)
+				.ToList();
+			for (int i = 0; i < candidates.Count; i++)
+			{
+				var a = candidates[i];
+				var current = a.GetEquipped(definition.Slot);
+				menu.AddItem($"{a.Name}（{JobLabel(a.JobClass)}）　今：{(current == null ? "なし" : current.DisplayName)}{(a.IsDispatched ? "　出撃中" : "")}", i);
+				menu.SetItemDisabled(i, !EquipmentSystem.CanChangeEquipment(a));
+			}
+			if (candidates.Count == 0)
+			{
+				menu.AddItem("装備できる冒険者がいない（職業制限）", 0);
+				menu.SetItemDisabled(0, true);
+			}
+			menu.IdPressed += id =>
+			{
+				if (id < 0 || id >= candidates.Count) return;
+				var target = candidates[(int)id];
+				var previous = target.GetEquipped(definition.Slot);
+				if (!new EquipmentSystem().TryEquip(_state, target, definition.Slot, item))
+					return;
+				LogRequested.Invoke($"[color=cyan]⚔ {target.Name}に「{ItemColorHelper.GetColoredBBCode(item)}」を装備させた。[/color]" +
+					(previous == null ? "" : $"[color=gray]（「{ItemColorHelper.GetColoredBBCode(previous)}」は保管庫へ戻した）[/color]"));
+				StateChanged.Invoke();
+			};
+			menu.PopupHide += () => menu.QueueFree();
+			AddChild(menu);
+			var rect = button.GetGlobalRect();
+			menu.Popup(new Rect2I((Vector2I)(rect.Position + new Vector2(0, rect.Size.Y)), new Vector2I(0, 0)));
+		};
+		return button;
+	}
+
 	/// <summary>汎用武具1群（同じカタログId・同じ希少度、アフィックスなし）の行。まとめ売りの操作部つき。</summary>
 	private Control BuildBulkArmoryRow(List<EquipmentItem> stock)
 	{
@@ -454,6 +505,7 @@ public partial class InventoryPanel : VBoxContainer
 
 		var row = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
 		row.AddChild(BuildArmoryInfoLabel(stock, unitPrice));
+		row.AddChild(BuildEquipButton(stock[0]));
 		row.AddChild(BuildSellControls(
 			stock.Count,
 			unitPrice,
@@ -469,6 +521,7 @@ public partial class InventoryPanel : VBoxContainer
 
 		var row = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
 		row.AddChild(BuildArmoryInfoLabel(new List<EquipmentItem> { item }, price));
+		row.AddChild(BuildEquipButton(item));
 
 		if (!EquipmentSystem.CanSell(item))
 		{

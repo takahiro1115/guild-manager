@@ -46,6 +46,11 @@ namespace GuildManager.Core.Systems
             result.Score = score;
             result.ScoreBreakdown = BreakDownGatheringScore(party);
 
+            // 護衛（§0.66）：調査と同じ護衛力（部隊で最大の人が主護衛、他は支援）を、フィールドの深さの要求と比べて4段階に分ける
+            result.GuardRequirement = RequiredGuardPower(field);
+            result.GuardPower = ScoutingResolver.CalculateGuardPower(party);
+            result.GuardTier = PreviewGuardTier(party, field);
+
             string materialId = RollMaterial(field);
             int baseYield = MaterialBalance.Find(materialId)?.BaseYield ?? 0;
             result.BaseYield = baseYield;
@@ -58,6 +63,9 @@ namespace GuildManager.Core.Systems
             // 加算する（→ アルベールの研究室）。
             result.ResearchYield = ResearchYield(state);
             materialCount += result.ResearchYield;
+
+            // 護衛が薄いほど持ち帰れる量が減る（余裕なら少し増える）。1個未満にはならない。
+            materialCount = Math.Max(1, (int)Math.Round(materialCount * GuardYieldMultiplier(result.GuardTier), MidpointRounding.AwayFromZero));
 
             // 迷宮の異変（→ DungeonAnomalySystem、§0.64）：瘴気で素材が増え（四捨五入）、遺物の鉱脈で遺物が出やすい。
             double materialMultiplier = DungeonAnomalySystem.MaterialMultiplier(state, field.Id);
@@ -72,7 +80,7 @@ namespace GuildManager.Core.Systems
                 MidpointRounding.AwayFromZero));
             result.UnidentifiedItemFound = RollRelic(field, result.RelicDropPercent);
 
-            ApplyHpLoss(result, party, DungeonAnomalySystem.DamageMultiplier(state, field.Id));
+            ApplyHpLoss(result, party, DungeonAnomalySystem.DamageMultiplier(state, field.Id) * GuardHpLossMultiplier(result.GuardTier));
 
             return result;
         }
@@ -149,6 +157,34 @@ namespace GuildManager.Core.Systems
                 double rate = m.SumTraitEffect(TraitEffectType.GatheringScoreBonus);
                 return rate == 0 ? 0 : GetMemberGatheringValue(m) * rate;
             });
+
+        /// <summary>採取の要求護衛値＝調査の式（基礎値＋最高到達階層×増分）×フィールド倍率×GuardRequirementRatio。</summary>
+        public static double RequiredGuardPower(DungeonField field) =>
+            DungeonBalance.ScaleRequirement(ScoutingBalance.GuardRequirementBase, ScoutingBalance.GuardRequirementPerFloor, field.ReachedFloor, field.Order)
+            * GatheringBalance.GuardRequirementRatio;
+
+        /// <summary>部隊とフィールドから護衛段階を求める（UIの事前プレビューと Resolve で共通）。</summary>
+        public static GuardTier PreviewGuardTier(Party party, DungeonField field)
+        {
+            double requirement = RequiredGuardPower(field);
+            return ScoutingResolver.ClassifyGuard(requirement <= 0 ? double.MaxValue : ScoutingResolver.CalculateGuardPower(party) / requirement);
+        }
+
+        public static double GuardYieldMultiplier(GuardTier tier) => tier switch
+        {
+            GuardTier.Abundant => GatheringBalance.GuardYieldMultiplierAbundant,
+            GuardTier.Sufficient => GatheringBalance.GuardYieldMultiplierSufficient,
+            GuardTier.Marginal => GatheringBalance.GuardYieldMultiplierMarginal,
+            _ => GatheringBalance.GuardYieldMultiplierDeficient,
+        };
+
+        public static double GuardHpLossMultiplier(GuardTier tier) => tier switch
+        {
+            GuardTier.Abundant => GatheringBalance.GuardHpLossMultiplierAbundant,
+            GuardTier.Sufficient => GatheringBalance.GuardHpLossMultiplierSufficient,
+            GuardTier.Marginal => GatheringBalance.GuardHpLossMultiplierMarginal,
+            _ => GatheringBalance.GuardHpLossMultiplierDeficient,
+        };
 
         /// <summary>獲得数のうち採取スコア由来の枠＝(int)(採取スコア÷MaterialYieldDivisor)。</summary>
         public static int ScoreYield(double score) => (int)(score / GatheringBalance.MaterialYieldDivisor);

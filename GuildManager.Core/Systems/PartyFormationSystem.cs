@@ -88,8 +88,8 @@ namespace GuildManager.Core.Systems
         /// 仮の編成（Id一覧）での部隊指標（→ CalculateMetrics。BuildDispatchParty と同じく出撃できない隊員は除く）。
         /// 編成画面の増減プレビュー（候補を入れたら・入れ替えたら・リーダーにしたら）に使う。保存された編成は変更しない。
         /// </summary>
-        public static SquadMetrics PreviewMetrics(GameState state, IEnumerable<Guid> memberIds) =>
-            CalculateMetrics(BuildDispatchParty(state, memberIds), state);
+        public static SquadMetrics PreviewMetrics(GameState state, IEnumerable<Guid> memberIds, bool atFullHp = false) =>
+            CalculateMetrics(BuildDispatchParty(state, memberIds), state, atFullHp);
 
         /// <summary>
         /// どのパーティーにも属さない現役冒険者（＝「未編成」）を返す。専用データ構造は
@@ -179,7 +179,30 @@ namespace GuildManager.Core.Systems
         /// 省略可能。渡した場合、走破力に研究ボーナス・参謀のルート指導ボーナスが乗る
         /// （→ DungeonTraversalResolver.CalculateTraversalScore）。
         /// </param>
-        public static SquadMetrics CalculateMetrics(Party party, GameState? state = null)
+        /// <param name="atFullHp">
+        /// true なら、全員のHPが最大のものとして算出する（編成画面の表示用：負傷や消耗で数字が揺れず、編成そのものの強さを比べられる）。
+        /// 隊員のHPは算出のあいだだけ最大にし、終わったら元に戻す。出撃時の解決は false（今のHPのまま）。
+        /// </param>
+        public static SquadMetrics CalculateMetrics(Party party, GameState? state = null, bool atFullHp = false)
+        {
+            if (!atFullHp)
+                return CalculateMetricsCore(party, state);
+
+            var saved = party.Members.Select(m => (m, m.CurrentHP)).ToList();
+            try
+            {
+                foreach (var m in party.Members)
+                    m.CurrentHP = m.MaxHP;
+                return CalculateMetricsCore(party, state);
+            }
+            finally
+            {
+                foreach (var (m, hp) in saved)
+                    m.CurrentHP = hp;
+            }
+        }
+
+        private static SquadMetrics CalculateMetricsCore(Party party, GameState? state)
         {
             var carrier = ScoutingResolver.FindGuardCarrier(party);
             return new(

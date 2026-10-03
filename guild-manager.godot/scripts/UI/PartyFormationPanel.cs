@@ -255,7 +255,7 @@ public partial class PartyFormationPanel : VBoxContainer
 				int memberCount = party.MemberIds.Count(id => _state.Adventurers.Any(a => a.Id == id));
 				bool dispatched = IsPartyDispatched(party);
 				string tag = dispatched ? "出撃中" : $"{memberCount}/4名";
-				btn.Text = $"{DungeonPanel.OrderIcon(party.Order)}{party.Name} ({tag})";
+				btn.Text = $"{party.Name}{(party.Order != SquadOrder.None ? " " + DungeonPanel.OrderIcon(party.Order) : "")} ({tag})";
 				btn.TooltipText = party.Order == SquadOrder.None ? "" : $"方針：{DungeonPanel.OrderName(party.Order)}（大迷宮画面で変える）";
 			}
 		}
@@ -353,8 +353,9 @@ public partial class PartyFormationPanel : VBoxContainer
 		if (_state == null) return;
 
 		var party = PartyFormationSystem.BuildDispatchParty(_state, currentParty.MemberIds);
-		var m = PartyFormationSystem.CalculateMetrics(party, _state);
-		var p = _previewIds == null ? null : PartyFormationSystem.PreviewMetrics(_state, _previewIds);
+		// 編成画面の数字は、全員のHPが最大のものとして算出する（負傷・消耗で揺れず、編成そのものを比べられる）。部隊健全度だけが今のHPを映す
+		var m = PartyFormationSystem.CalculateMetrics(party, _state, atFullHp: true);
+		var p = _previewIds == null ? null : PartyFormationSystem.PreviewMetrics(_state, _previewIds, atFullHp: true);
 
 		// 🏃 進軍 → ⚔️ 討伐
 		SetBody(_traversalBody,
@@ -387,7 +388,7 @@ public partial class PartyFormationPanel : VBoxContainer
 				: $"AGI{breakdown.AgiPart:F0}＋DEX{breakdown.DexPart:F0}＋隊長{breakdown.LdrPart:F0}" +
 				  (breakdown.ClassBonus > 0 ? $"＋斥候/盗賊{breakdown.ClassBonus:F0}" : "") +
 				  (breakdown.RuralBonus > 0 ? $"＋田舎育ち{breakdown.RuralBonus:F0}" : "") +
-				  $"　×HP{breakdown.HpRatio * 100:F0}%"));
+				  "　（最大HPで算出）"));
 
 		// 平均HP割合
 		if (party.IsEmpty)
@@ -552,14 +553,14 @@ public partial class PartyFormationPanel : VBoxContainer
 		var ids = currentParty.MemberIds.Where(id => _state.Adventurers.Any(x => x.Id == id)).ToList();
 		if (ids.Count < Party.MaxSlots) return "";
 
-		var now = PartyFormationSystem.PreviewMetrics(_state, ids);
+		var now = PartyFormationSystem.PreviewMetrics(_state, ids, atFullHp: true);
 		var lines = new List<string> { "部隊は満員。入れ替えた場合の変化（スロットで隊員を選んでから行に重ねると上にも表示）：" };
 		for (int i = 0; i < ids.Count; i++)
 		{
 			var outgoing = _state.Adventurers.First(x => x.Id == ids[i]);
 			var swapped = ids.ToList();
 			swapped[i] = a.Id;
-			var after = PartyFormationSystem.PreviewMetrics(_state, swapped);
+			var after = PartyFormationSystem.PreviewMetrics(_state, swapped, atFullHp: true);
 			lines.Add($"・{outgoing.Name}と交代：走破{Signed(after.TraversalPower - now.TraversalPower)} 火力{Signed(after.BossPower - now.BossPower)}" +
 				$" 護衛{Signed(after.GuardPower - now.GuardPower)} 隠密{Signed(after.StealthScore - now.StealthScore)}" +
 				$" 解析{Signed(after.AnalysisScore - now.AnalysisScore)} 採取{Signed(after.GatheringScore - now.GatheringScore)}");
@@ -920,13 +921,14 @@ public partial class PartyFormationPanel : VBoxContainer
 		var assignButton = new Button();
 		assignButton.CustomMinimumSize = new Vector2(AssignWidth, 22);
 		assignButton.AddThemeFontSizeOverride("font_size", 15);
-		if (isInCurrentParty)
+		if (isInCurrentParty || isInOtherParty)
 		{
-			var party = GetCurrentParty();
+			// どの部隊を選んでいても、所属している部隊（別の部隊でも）から外せる
+			var party = isInCurrentParty ? GetCurrentParty() : otherParty;
 			assignButton.Text = "解除 －";
 			assignButton.Disabled = party == null || IsPartyDispatched(party);
-			assignButton.TooltipText = assignButton.Disabled ? "出撃中の部隊からは外せません。" : $"{a.Name} を編成から外す。";
-			assignButton.Pressed += () => OnRemoveAdventurerClicked(a);
+			assignButton.TooltipText = assignButton.Disabled ? "出撃中の部隊からは外せません。" : $"{a.Name} を「{party!.Name}」の編成から外す。";
+			assignButton.Pressed += () => OnRemoveAdventurerClicked(a, party);
 		}
 		else
 		{
@@ -1102,17 +1104,16 @@ public partial class PartyFormationPanel : VBoxContainer
 		StateChanged.Invoke();
 	}
 
-	private void OnRemoveAdventurerClicked(Adventurer a)
+	private void OnRemoveAdventurerClicked(Adventurer a, SavedParty? party)
 	{
-		var currentParty = GetCurrentParty();
-		if (currentParty == null || _state == null) return;
-		if (IsPartyDispatched(currentParty))
+		if (party == null || _state == null) return;
+		if (IsPartyDispatched(party))
 		{
 			_statusLabel.Text = "出撃中の部隊からは除名できません。";
 			return;
 		}
 
-		_partyFormationSystem.RemoveMember(currentParty, a.Id);
+		_partyFormationSystem.RemoveMember(party, a.Id);
 		_statusLabel.Text = "";
 		StateChanged.Invoke();
 	}

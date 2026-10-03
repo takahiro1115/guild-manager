@@ -217,7 +217,8 @@ public partial class DungeonPanel : ScrollContainer
 	private RichTextLabel _orderInfoLabel = null!;
 	private bool _refreshingOrderRow;
 
-	private static readonly string[] OrderLabels = { "なし（手動で出撃）", "🏃 潜行を続ける", "🔍 調査を続ける", "🌿 採取を続ける" };
+	/// <summary>方針の選択肢（0＝方針なし、以降は「開放済みのフィールド × 潜行・調査・採取」）。RefreshOrderRow で作り直す。</summary>
+	private readonly List<(string? FieldId, SquadOrder Order)> _orderEntries = new();
 	private static readonly string[] OrderNames = { "方針なし", "潜行を続ける", "調査を続ける", "採取を続ける" };
 
 	/// <summary>方針の絵文字（部隊名の前に付ける。方針なしは空）。</summary>
@@ -237,10 +238,7 @@ public partial class DungeonPanel : ScrollContainer
 		var box = new VBoxContainer();
 		var row = new HBoxContainer();
 		row.AddChild(new Label { Text = "📋 選んだ部隊の方針：" });
-		_orderOption = new OptionButton();
-		foreach (var label in OrderLabels)
-			_orderOption.AddItem(label);
-		_orderOption.TooltipText = "方針を決めると、週送りの前に空いていれば自動で出撃し続ける（全員のHPが70%以上で重傷者がいないとき）。対象は今選んでいるフィールド";
+		_orderOption = new OptionButton { TooltipText = "方針と、その場所（ダンジョン）をここで一緒に選ぶ。決めると、週送りの前に空いていれば自動で出撃し続ける（全員のHPが70%以上で重傷者がいないとき）" };
 		_orderOption.ItemSelected += OnOrderSelected;
 		row.AddChild(_orderOption);
 		_autoEngageCheck = new CheckBox { Text = "扉前で見込みがあれば挑む（無ければ撤退）" };
@@ -260,8 +258,26 @@ public partial class DungeonPanel : ScrollContainer
 	{
 		_refreshingOrderRow = true;
 		var saved = SelectedSavedParty();
+
+		// 方針と場所を一括で選べるように、開放済みのフィールドごとに「潜行・調査・採取を続ける」を並べる
+		_orderOption.Clear();
+		_orderEntries.Clear();
+		_orderOption.AddItem("なし（手動で出撃）");
+		_orderEntries.Add((null, SquadOrder.None));
+		foreach (var field in _state.DungeonFields.Where(f => f.IsUnlocked).OrderBy(f => f.Order))
+		{
+			foreach (var order in new[] { SquadOrder.Dive, SquadOrder.Survey, SquadOrder.Gather })
+			{
+				_orderOption.AddItem($"{OrderIcon(order)} {field.Name}：{OrderNames[(int)order]}");
+				_orderEntries.Add((field.Id, order));
+			}
+		}
+
 		_orderOption.Disabled = saved == null;
-		_orderOption.Selected = (int)(saved?.Order ?? SquadOrder.None);
+		int selectedEntry = saved == null || saved.Order == SquadOrder.None
+			? 0
+			: _orderEntries.FindIndex(e => e.Order == saved.Order && e.FieldId == saved.OrderFieldId);
+		_orderOption.Selected = Math.Max(0, selectedEntry);
 		_autoEngageCheck.Visible = saved?.Order == SquadOrder.Dive;
 		_autoEngageCheck.ButtonPressed = saved?.AutoEngage == true;
 		_refreshingOrderRow = false;
@@ -301,18 +317,20 @@ public partial class DungeonPanel : ScrollContainer
 		if (_refreshingOrderRow) return;
 		var saved = SelectedSavedParty();
 		if (saved == null) return;
-		var order = (SquadOrder)(int)index;
+		if (index < 0 || index >= _orderEntries.Count) return;
+		var (fieldId, order) = _orderEntries[(int)index];
+		var orderField = fieldId == null ? null : _state.DungeonFields.FirstOrDefault(f => f.Id == fieldId);
 		if (order != SquadOrder.None)
 		{
-			if (_selectedField == null) { RefreshOrderRow(); return; }
-			saved.OrderFieldId = _selectedField.Id;
+			if (orderField == null) { RefreshOrderRow(); return; }
+			saved.OrderFieldId = orderField.Id;
 		}
 		saved.Order = order;
 		if (order != SquadOrder.Dive)
 			saved.AutoEngage = false;
 		LogRequested.Invoke(order == SquadOrder.None
 			? $"[color=cyan]📋 「{saved.Name}」の方針を解除した（手動で出撃する）。[/color]"
-			: $"[color=cyan]📋 「{saved.Name}」の方針を「{_selectedField!.Name}で{OrderNames[(int)order]}」にした。週送りの前に、空いていれば自動で出撃する。[/color]");
+			: $"[color=cyan]📋 「{saved.Name}」の方針を「{orderField!.Name}で{OrderNames[(int)order]}」にした。週送りの前に、空いていれば自動で出撃する。[/color]");
 		StateChanged.Invoke();
 	}
 
@@ -911,7 +929,8 @@ public partial class DungeonPanel : ScrollContainer
 				CustomMinimumSize = new Vector2(0, 30),
 				ClipText = true,
 				TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis,
-				Text = isLocked ? $"第{i + 1}部隊（未開放）" : $"{OrderIcon(saved.Order)}{(mission != null ? MissionIcon(mission) : "")} {saved.Name}".TrimStart(),
+				Text = isLocked ? $"第{i + 1}部隊（未開放）" : // 左＝いま何をしているか（出撃中の任務）、右＝方針（方針のある部隊だけ）
+					$"{(mission != null ? MissionIcon(mission) + " " : "")}{saved.Name}{(saved.Order != SquadOrder.None ? " " + OrderIcon(saved.Order) : "")}",
 				Disabled = isLocked || (available == 0 && mission == null),
 				TooltipText = isLocked
 					? "出撃枠が未開放の部隊（森の節目ボス撃破で開放）"
@@ -938,6 +957,13 @@ public partial class DungeonPanel : ScrollContainer
 					OnPartyUnpressed(partyId);
 			};
 			UiStyles.ApplySelectedToggleStyle(button);
+			// ボスの扉前で判断（討伐か撤退）を待っている部隊は、名前を赤にして気づけるようにする
+			if (mission?.Status == ExpeditionStatus.AwaitingBossDecision)
+			{
+				var red = new Color(1f, 0.4f, 0.35f);
+				foreach (var colorName in new[] { "font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color", "font_focus_color" })
+					button.AddThemeColorOverride(colorName, red);
+			}
 			var column = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
 			column.AddThemeConstantOverride("separation", 6);
 			column.AddChild(button);
@@ -970,7 +996,8 @@ public partial class DungeonPanel : ScrollContainer
 		DungeonMissionType.Gathering => "🌿",
 		DungeonMissionType.Survey => "🔍",
 		DungeonMissionType.BossAssault => "⚔️",
-		_ => mission.Status == ExpeditionStatus.EngagingBoss ? "⚔️" : "🏃",
+		// 扉前の判断待ち（討伐か撤退かを問わず）と討伐中は、討伐の絵文字で統一する
+		_ => mission.Status is ExpeditionStatus.EngagingBoss or ExpeditionStatus.AwaitingBossDecision ? "⚔️" : "🏃",
 	};
 
 	private void SelectParty(Guid? partyId)
@@ -982,8 +1009,21 @@ public partial class DungeonPanel : ScrollContainer
 
 		_selectedPartyId = partyId;
 
-		if (_selectedPartyId != null)
+		// 部隊を選んだら、その部隊が活動中のダンジョン（出撃中の任務のフィールド、無ければ方針の対象）へ左のフィールド選択を切り替える
+		if (_selectedPartyId != null && SelectedSavedParty() is { } picked)
 		{
+			string? activeFieldId = MissionOfParty(picked)?.Field.Id
+				?? (picked.Order != SquadOrder.None ? picked.OrderFieldId : null);
+			if (activeFieldId != null && activeFieldId != _selectedFieldId)
+			{
+				var fields = _state.DungeonFields.OrderBy(f => f.Order).ToList();
+				int fieldIndex = fields.FindIndex(f => f.Id == activeFieldId && f.IsUnlocked);
+				if (fieldIndex >= 0)
+				{
+					_fieldSelector.Select(fieldIndex);
+					OnFieldSelected(fieldIndex);
+				}
+			}
 		}
 
 		var boss = _selectedField?.GetNextActiveBoss();
@@ -1490,12 +1530,20 @@ public partial class DungeonPanel : ScrollContainer
 			? "\n[color=#f87171]✖ この到達階層で採れる素材なし[/color]"
 			: $"\n素材の枠：基礎{baseYieldText}＋スコア{scoreYield}＋階層{floorYield}＋研究{researchYield}");
 		sb.Append($"\n遺物発見 {relicPct}%・換金 {Math.Round(gatheringScore * GatheringBalance.GoldPerScore):F0}G");
-		sb.Append($"\n[color=gray]損耗 {GatheringBalance.HpLossPctMin}〜{GatheringBalance.HpLossPctMax}%[/color]");
+		// 護衛（§0.66）：調査と同じ護衛力を、フィールドの深さの要求と比べる。薄いと持ち帰る量が減り、損耗が増える
+		var guardTier = GatheringResolver.PreviewGuardTier(party, _selectedField);
+		double guardPower = ScoutingResolver.CalculateGuardPower(party);
+		double guardReq = GatheringResolver.RequiredGuardPower(_selectedField);
+		sb.Append($"\n護衛 [b]{guardPower:F0}[/b] ／ 要求 {guardReq:F0} → [color={GuardTierColor(guardTier)}][b]{GuardTierLabel(guardTier)}[/b][/color]");
+		double hpMult = GatheringResolver.GuardHpLossMultiplier(guardTier);
+		sb.Append($"\n[color=gray]損耗 {Math.Round(GatheringBalance.HpLossPctMin * hpMult)}〜{Math.Round(GatheringBalance.HpLossPctMax * hpMult)}%　素材 ×{GatheringResolver.GuardYieldMultiplier(guardTier):0.##}[/color]");
 		_gatheringPreviewLabel.AppendText(sb.ToString());
 
 		string tooltip =
 			$"採取スコア（AGI+DEX合計＋部隊長LDR補正、部隊のHP比率で減衰）：{gatheringScore:F0}〔{GatheringBreakdownText(breakdown)}〕\n" +
 			$"素材の枠：素材ごとの基礎＋スコア枠（{gatheringScore:F0}÷{GatheringBalance.MaterialYieldDivisor}）＋階層枠（{_selectedField.ReachedFloor}F÷{GatheringBalance.ReachedFloorDivisor}）＋研究\n" +
+			$"護衛：{guardPower:F0}（部隊で最大の人が主護衛、他は支援）／ 要求 {guardReq:F0}（調査の要求式×{GatheringBalance.GuardRequirementRatio:0.##}、最高到達{_selectedField.ReachedFloor}F）→ {GuardTierLabel(guardTier)}。" +
+			$"素材の獲得数 ×{GatheringResolver.GuardYieldMultiplier(guardTier):0.##}、HP損耗 ×{hpMult:0.##}。\n" +
 			"探索は低リスク：HPは減っても強制除籍にはならない。";
 		_gatheringPreviewLabel.TooltipText = tooltip;
 		_gatheringButton.TooltipText = tooltip;

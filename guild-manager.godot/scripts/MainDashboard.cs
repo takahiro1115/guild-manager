@@ -984,6 +984,8 @@ public partial class MainDashboard : Control
 				$" → 採取枠{gathering.MaterialCount}個（素材基礎{gathering.BaseYield}＋スコア枠{gathering.ScoreYield}〔÷{GatheringBalance.MaterialYieldDivisor}〕" +
 				$"＋階層枠{gathering.FloorYield}〔{resolution.Field.ReachedFloor}F÷{GatheringBalance.ReachedFloorDivisor}〕＋研究{gathering.ResearchYield}）" +
 				$" / 遺物発見率{gathering.RelicDropPercent}% / 換金{gathering.Score:F0}×{GatheringBalance.GoldPerScore:0.0#}={gathering.GoldEarned}G[/color]");
+			sb.AppendLine($"[color=gray]【護衛】護衛{gathering.GuardPower:F0}／要求{gathering.GuardRequirement:F0} → {DungeonPanel.GuardTierLabel(gathering.GuardTier)}" +
+				$"（素材 ×{GatheringResolver.GuardYieldMultiplier(gathering.GuardTier):0.##}・損耗 ×{GatheringResolver.GuardHpLossMultiplier(gathering.GuardTier):0.##}）[/color]");
 			sb.AppendLine("[color=cyan]探索部隊は全員生還した。[/color]");
 			AppendRelicLines(sb, resolution);
 			AppendBondLine(sb, resolution);

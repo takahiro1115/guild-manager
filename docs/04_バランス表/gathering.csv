@@ -8,3 +8,12 @@ ReachedFloorDivisor,10,層,到達階層による獲得数ボーナスの除数�
 GoldPerScore,0.5,G/pt,換金ゴールド＝採取スコア×この係数（少量の一時金）
 HpLossPctMin,5,%,採取任務のHP消費率下限
 HpLossPctMax,15,%,採取任務のHP消費率上限
+GuardRequirementRatio,0.6,倍,採取の要求護衛値＝調査の要求護衛値の式（scouting.csv GuardRequirementBase・PerFloor）に「フィールドの最高到達階層」を入れた値×この倍率（採取は低リスク経路のため調査より軽くする）。§0.66
+GuardEffect_YieldMultiplier_Abundant,1.1,倍,護衛「余裕」時の素材獲得数への倍率（四捨五入。1個未満にはならない）
+GuardEffect_YieldMultiplier_Sufficient,1.0,倍,護衛「十分」時の素材獲得数への倍率
+GuardEffect_YieldMultiplier_Marginal,0.8,倍,護衛「充足」時の素材獲得数への倍率
+GuardEffect_YieldMultiplier_Deficient,0.5,倍,護衛「不足」時の素材獲得数への倍率（採取隊が魔物に追われ、持ち帰れる量が減る）
+GuardEffect_HpLossMultiplier_Abundant,0.5,倍,護衛「余裕」時のHP消費率（HpLossPctMin〜Max）への倍率
+GuardEffect_HpLossMultiplier_Sufficient,1.0,倍,護衛「十分」時のHP消費率への倍率
+GuardEffect_HpLossMultiplier_Marginal,1.5,倍,護衛「充足」時のHP消費率への倍率
+GuardEffect_HpLossMultiplier_Deficient,2.5,倍,護衛「不足」時のHP消費率への倍率（HP下限1、致死・除籍には接続しない）

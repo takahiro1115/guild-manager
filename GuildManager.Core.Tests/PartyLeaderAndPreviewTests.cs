@@ -87,6 +87,27 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
+        public void Metrics_AtFullHp_IgnoreCurrentHp_AndRestoreIt()
+        {
+            // 負傷・消耗中でも、編成画面の数字は最大HPのものとして出る。算出のあいだだけHPを最大にし、終わったら戻す。
+            var (state, party, m) = MakeParty(3);
+            var healthy = PartyFormationSystem.PreviewMetrics(state, party.MemberIds);
+            m[0].CurrentHP = m[0].MaxHP / 2;
+            m[1].CurrentHP = m[1].MaxHP / 3;
+            int hp0 = m[0].CurrentHP, hp1 = m[1].CurrentHP;
+
+            var worn = PartyFormationSystem.PreviewMetrics(state, party.MemberIds);
+            var atFull = PartyFormationSystem.PreviewMetrics(state, party.MemberIds, atFullHp: true);
+
+            Assert.True(worn.GatheringScore < healthy.GatheringScore);
+            Assert.True(worn.BossPower < healthy.BossPower);
+            Assert.Equal(healthy.GatheringScore, atFull.GatheringScore, precision: 6);
+            Assert.Equal(healthy.BossPower, atFull.BossPower, precision: 6);
+            Assert.Equal(hp0, m[0].CurrentHP);
+            Assert.Equal(hp1, m[1].CurrentHP);
+        }
+
+        [Fact]
         public void TryPromoteToLeader_ChangesLeaderLdrInMetrics()
         {
             // 隊員のLDRは 10・30・50。リーダーを3人目（LDR50）にすると、隊長LDRが効く指標が上がる。

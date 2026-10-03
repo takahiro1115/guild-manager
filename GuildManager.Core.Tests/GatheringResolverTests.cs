@@ -1,3 +1,4 @@
+using System.Linq;
 using GuildManager.Core.Balance;
 using GuildManager.Core.Models;
 using GuildManager.Core.Rng;
@@ -172,6 +173,57 @@ namespace GuildManager.Core.Tests
 
             int expectedMaxLoss = member.MaxHP * GatheringBalance.HpLossPctMax / 100;
             Assert.InRange(result.HpLostByAdventurer[member.Id], 0, expectedMaxLoss);
+        }
+
+        // ---------------- 護衛（§0.66） ----------------
+
+        private static Adventurer MakeGuard(int vit)
+        {
+            var a = new Adventurer { STR = 10, AGI = 40, VIT = vit, MND = 10, DEX = 40, LDR = 0, INT = 10 };
+            a.CurrentHP = a.MaxHP;
+            return a;
+        }
+
+        [Fact]
+        public void Guard_RequirementGrowsWithReachedFloor_AndTierFollowsTheRatio()
+        {
+            var party = PartyOf(MakeGuard(vit: 50));
+            var shallow = MakeField("forest", reachedFloor: 1);
+            var deep = MakeField("forest", reachedFloor: 90);
+
+            Assert.True(GatheringResolver.RequiredGuardPower(deep) > GatheringResolver.RequiredGuardPower(shallow));
+            Assert.Equal(GuardTier.Abundant, GatheringResolver.PreviewGuardTier(party, shallow));
+            Assert.NotEqual(GuardTier.Abundant, GatheringResolver.PreviewGuardTier(PartyOf(MakeGuard(vit: 10)), deep));
+        }
+
+        [Fact]
+        public void Guard_WeakGuardAtDepth_CutsYield_AndCostsMoreHp()
+        {
+            var deep = MakeField("forest", reachedFloor: 90);
+            var strong = PartyOf(MakeGuard(vit: 400));
+            var weak = PartyOf(MakeGuard(vit: 5));
+
+            var strongResult = new GatheringResolver(new AlwaysMaxRng()).Resolve(strong, deep);
+            var weakResult = new GatheringResolver(new AlwaysMaxRng()).Resolve(weak, deep);
+
+            Assert.Equal(GuardTier.Abundant, strongResult.GuardTier);
+            Assert.Equal(GuardTier.Deficient, weakResult.GuardTier);
+            Assert.True(weakResult.GuardRequirement > weakResult.GuardPower);
+            // 護衛が足りないと、HPは最大HPに対する割合で多く削られる（同じ乱数・同じ割合の基準で比べる）
+            double strongLossRate = (double)strongResult.HpLostByAdventurer.Values.Sum() / strong.Members[0].MaxHP;
+            double weakLossRate = (double)weakResult.HpLostByAdventurer.Values.Sum() / weak.Members[0].MaxHP;
+            Assert.True(weakLossRate > strongLossRate);
+        }
+
+        [Fact]
+        public void Guard_Multipliers_AreOrderedFromAbundantToDeficient()
+        {
+            Assert.True(GatheringResolver.GuardYieldMultiplier(GuardTier.Abundant) >= GatheringResolver.GuardYieldMultiplier(GuardTier.Sufficient));
+            Assert.True(GatheringResolver.GuardYieldMultiplier(GuardTier.Sufficient) > GatheringResolver.GuardYieldMultiplier(GuardTier.Marginal));
+            Assert.True(GatheringResolver.GuardYieldMultiplier(GuardTier.Marginal) > GatheringResolver.GuardYieldMultiplier(GuardTier.Deficient));
+            Assert.True(GatheringResolver.GuardHpLossMultiplier(GuardTier.Deficient) > GatheringResolver.GuardHpLossMultiplier(GuardTier.Marginal));
+            Assert.True(GatheringResolver.GuardHpLossMultiplier(GuardTier.Marginal) > GatheringResolver.GuardHpLossMultiplier(GuardTier.Sufficient));
+            Assert.True(GatheringResolver.GuardHpLossMultiplier(GuardTier.Sufficient) > GatheringResolver.GuardHpLossMultiplier(GuardTier.Abundant));
         }
 
         // ---------------- フィールド固有の素材抽選 ----------------
