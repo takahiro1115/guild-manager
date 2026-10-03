@@ -92,6 +92,7 @@ public partial class FacilityPanel : VBoxContainer
 	private void BindCard(FacilityType type, string cardUniqueName)
 	{
 		var card = GetNode<PanelContainer>(cardUniqueName);
+		UiStyles.ApplyPanelArt(card, innerMargin: 4); // 施設カード（大きなパネル）にアートの枠
 		var vbox = card.GetNode<VBoxContainer>("Margin/VBox");
 		var headerRow = vbox.GetNode<HBoxContainer>("HeaderRow");
 

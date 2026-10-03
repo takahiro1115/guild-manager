@@ -145,6 +145,10 @@ public partial class MainDashboard : Control
 		_rankLabel = GetNode<Label>("%RankLabel");
 		_squadSlotLabel = GetNode<Label>("%SquadSlotLabel");
 		_resultLog = GetNode<RichTextLabel>("%ResultLog");
+		// 作戦週報にもアートの枠を付ける（文字が枠に掛からないよう、枠の厚み＋少しの余白）
+		var logFrame = UiStyles.PanelArt();
+		logFrame.SetContentMarginAll(34);
+		_resultLog.AddThemeStyleboxOverride("normal", logFrame);
 		_nextWeekButton = GetNode<Button>("%NextWeekButton");
 		_autoSkipButton = GetNode<Button>("%AutoSkipButton");
 		_recruitmentPopup = GetNode<RecruitmentPopup>("%RecruitmentPopup");

@@ -208,6 +208,25 @@ public partial class DungeonPanel : ScrollContainer
 		_pouchSlot2.ItemSelected += OnPouchSlot2Selected;
 
 		BuildOrderRow();
+
+		// 大きな3つの区画（左の探索状況・中央のボス欄・部隊と指令の欄）にアートの枠を付ける
+		_zoneA = GetNode<PanelContainer>("Margin/MainHBox/ZoneA");
+		_zoneC = GetNode<PanelContainer>("Margin/MainHBox/RightColumn/ZoneC");
+		UiStyles.ApplyPanelArt(_zoneA);
+		_zoneA.CustomMinimumSize = new Vector2(430, 0); // 枠の厚みの分だけ広げる
+		UiStyles.ApplyPanelArt(GetNode<PanelContainer>("Margin/MainHBox/RightColumn/ZoneB"));
+		UiStyles.ApplyPanelArt(_zoneC);
+	}
+
+	private PanelContainer _zoneA = null!;
+	private PanelContainer _zoneC = null!;
+
+	/// <summary>扉前で討伐か撤退かの判断を待つ部隊がいるあいだ、部隊と指令の欄の枠を赤にする（それ以外は通常）。</summary>
+	private void RefreshZoneFrames()
+	{
+		bool pending = _state.ActiveDungeonMissions.Any(m => m.Status == ExpeditionStatus.AwaitingBossDecision
+			&& !SquadOrderSystem.DecidesAtDoor(_state, m.Party));
+		_zoneC.AddThemeStyleboxOverride("panel", UiStyles.PanelArt(pending ? "danger" : "normal"));
 	}
 
 	// ==================== 部隊の方針（自動出撃、→ 03 §4.0.3・§0.63） ====================
@@ -243,13 +262,11 @@ public partial class DungeonPanel : ScrollContainer
 	{
 		var box = new VBoxContainer();
 		var row = new HBoxContainer();
-		row.AddChild(new Label { Text = "📋 選んだ部隊の方針：" });
+		row.AddChild(new Label { Text = "📋 部隊の方針：" });
 		// 「どこで」「何を」を別のプルダウンで選ぶ
-		row.AddChild(new Label { Text = "どこで" });
 		_orderFieldOption = new OptionButton { TooltipText = "方針で出撃する場所（ダンジョン）" };
 		_orderFieldOption.ItemSelected += OnOrderFieldSelected;
 		row.AddChild(_orderFieldOption);
-		row.AddChild(new Label { Text = "何を" });
 		_orderOption = new OptionButton { TooltipText = "決めると、週送りの前に空いていれば自動で出撃し続ける（全員のHPが70%以上で重傷者がいないとき）" };
 		foreach (var label in OrderChoiceLabels)
 			_orderOption.AddItem(label);
@@ -371,6 +388,15 @@ public partial class DungeonPanel : ScrollContainer
 		if (field == null) return;
 
 		saved.OrderFieldId = field.Id;
+
+		// 選んだダンジョンを、すぐ左ペインの表示にも反映する
+		int fieldIndex = _state.DungeonFields.OrderBy(f => f.Order).ToList().FindIndex(f => f.Id == field.Id);
+		if (fieldIndex >= 0 && field.Id != _selectedFieldId)
+		{
+			_fieldSelector.Select(fieldIndex);
+			OnFieldSelected(fieldIndex);
+		}
+
 		if (saved.Order != SquadOrder.None)
 			LogRequested.Invoke($"[color=cyan]📋 「{saved.Name}」の方針の場所を「{field.Name}」にした（{OrderNames[(int)saved.Order]}）。[/color]");
 		StateChanged.Invoke();
@@ -411,6 +437,7 @@ public partial class DungeonPanel : ScrollContainer
 		_state = state;
 
 		RefreshFieldOptions();
+		RefreshZoneFrames();
 		var boss = _selectedField?.GetNextActiveBoss();
 		RefreshProgress(boss);
 		RefreshExpeditionLoot();
@@ -984,7 +1011,8 @@ public partial class DungeonPanel : ScrollContainer
 				CustomMinimumSize = new Vector2(0, 30),
 				ClipText = true,
 				TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis,
-				Text = isLocked ? $"第{i + 1}部隊（未開放）" : // 左＝いま何をしているか（出撃中の任務）、右＝方針（方針のある部隊だけ）
+				// 左＝いま何をしているか（出撃中の任務）、右＝方針（方針のある部隊だけ）
+				Text = isLocked ? $"第{i + 1}部隊（未開放）" :
 					$"{(mission != null ? MissionIcon(mission) + " " : "")}{saved.Name}{(saved.Order != SquadOrder.None ? " " + OrderIcon(saved.Order) : "")}",
 				Disabled = isLocked || (available == 0 && mission == null),
 				TooltipText = isLocked
