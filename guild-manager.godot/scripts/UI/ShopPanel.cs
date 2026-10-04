@@ -245,13 +245,9 @@ public partial class ShopPanel : HBoxContainer
 
 		var text = new RichTextLabel { BbcodeEnabled = true, FitContent = true, SizeFlagsHorizontal = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Ignore };
 		string nameColor = inShop ? "#e2e8f0" : "#6b7280";
-		var current = buyer?.GetEquipped(EquipmentSystem.ResolveSlot(buyer, item.Slot));
-		text.AppendText($"[b][color={nameColor}]{item.Name}[/color][/b]　[color=gray]{item.DescribeEffects()}[/color]\n" +
-			(inShop
-				? (buyer != null && EquipmentSystem.NeedsAccessoryChoice(buyer, item.Slot)
-					? $"[color=gray]今：{buyer.EquippedAccessory1!.DisplayName}／{buyer.EquippedAccessory2!.DisplayName}（買うとき、どちらと入れ替えるか選ぶ）[/color]"
-					: $"[color=gray]今：{(current == null ? "なし" : current.DisplayName)}[/color]")
-				: $"[color=gray]{blocked}[/color]"));
+		// 今の装備は右上のペインに出ているので、商品の行には出さない（未入荷のときだけ、並ぶ条件を添える）
+		text.AppendText($"[b][color={nameColor}]{item.Name}[/color][/b]　[color=gray]{item.DescribeEffects()}[/color]" +
+			(inShop ? "" : $"\n[color=gray]{blocked}[/color]"));
 		row.AddChild(text);
 
 		var button = new Button { Text = $"購入 {item.Price}G", CustomMinimumSize = new Vector2(120, 34), SizeFlagsVertical = SizeFlags.ShrinkCenter, Disabled = blocked != null };
