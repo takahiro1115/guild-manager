@@ -31,14 +31,29 @@ namespace GuildManager.Core.Systems
         /// <summary>完全解析（→ IntelTier.Complete）による与ダメージ補正が乗ったか。</summary>
         public bool FullIntelBonusApplied { get; set; }
 
-        /// <summary>対策できていたギミック。</summary>
+        /// <summary>ギミックごとの部隊の備え（0〜1、→ DungeonResolver.Readiness、§0.68）。</summary>
+        public Dictionary<BossGimmickType, double> Readiness { get; set; } = new();
+
+        /// <summary>そのギミックへの備えの不足（1−備え）。ボスがその種類を持たなければ0。</summary>
+        public double ShortfallOf(BossGimmickType type) => Readiness.TryGetValue(type, out var r) ? 1.0 - r : 0;
+
+        /// <summary>万全の備え（備え1）で臨めたギミック。</summary>
         public List<BossGimmickType> CounteredGimmicks { get; set; } = new();
 
-        /// <summary>対策できずに踏んだギミック（被害が跳ね上がる原因）。</summary>
+        /// <summary>備えが足りなかったギミック（一部・無策。罰が不足に応じて効いた）。</summary>
         public List<BossGimmickType> UncounteredGimmicks { get; set; } = new();
 
-        /// <summary>未対策ギミックによる被ダメージ倍率（1.0＝すべて対策済み）。</summary>
+        /// <summary>備えの不足による被ダメージ倍率（1.0＝加算なし）。</summary>
         public double DamageMultiplier { get; set; } = 1.0;
+
+        /// <summary>魅了に備えが足りず、操られた隊員（部隊で一番火力の高い隊員、§0.68）。魅了が無い・万全なら null。</summary>
+        public Guid? CharmedAdventurerId { get; set; }
+
+        /// <summary>猛毒に備えが足りず毒状態になった隊員と、その週数（§0.68、週報の開示用）。</summary>
+        public Dictionary<Guid, int> PoisonWeeksByAdventurer { get; set; } = new();
+
+        /// <summary>この戦闘で付いた毒状態の全能力の低下率（0＝毒なし）。</summary>
+        public double PoisonStatPenalty { get; set; }
 
         /// <summary>耐毒体質（→ TraitCatalog.ResistPoison）で未対策の猛毒の被ダメージ加算を軽減したか（週報の開示用）。</summary>
         public bool ResistPoisonApplied { get; set; }

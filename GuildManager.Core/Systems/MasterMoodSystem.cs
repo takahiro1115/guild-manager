@@ -87,6 +87,7 @@ namespace GuildManager.Core.Systems
         ///    （「充足」は増減なし。解析は進むため成果には数える）
         ///  - 探索採取：素材を1個以上獲得して帰還で+GatheringMoodGain
         ///  - 扉前待機中の偵察：増減なし。護衛判定が「不足」でなければ成果に数える
+        ///  - 潜行で扉前に到達（挑んでも撤退しても）：増減なし。成果に数える（§0.69：扉前での偵察を撤去した代わり）
         /// 成果（上記のうち潰走以外）が1件もなければ WeeksSinceLastGuildActivity を+1し、
         /// 機嫌を BoredomMoodDecay だけ下げる（退屈減衰）。成果が1件でもあれば0にリセットする。
         /// </summary>
@@ -114,6 +115,9 @@ namespace GuildManager.Core.Systems
                     hadActivity = true;
                     Record(state, report, $"階層ボス撃破「{r.Boss?.Name}」", MasterMoodBalance.BossDefeatMoodGain);
                 }
+
+                if (r.ArrivedAtBossDoor)
+                    hadActivity = true; // 扉前に到達した（増減なし、§0.69）
 
                 if (r.TraversalResult != null && r.TraversalResult.UnexploredFloorsAdvanced > 0)
                 {

@@ -42,8 +42,24 @@ namespace GuildManager.Core.Models
         /// </summary>
         public const string AutoFieldId = "auto";
 
-        /// <summary>潜行の方針で、扉前に着いたとき見込みがあれば自動で挑み、無ければ撤退するか（false＝止まって聞く）。</summary>
-        public bool AutoEngage { get; set; }
+        /// <summary>
+        /// 潜行の方針で扉前に着いたときの構え（§0.68）。構えの条件（→ SquadOrderBalance.For）を満たせば、着いた週のうちに挑み、
+        /// 満たさなければ撤退する（→ SquadOrderSystem.JudgeEngage、§0.69）。
+        /// </summary>
+        public DoorStance Stance { get; set; } = DoorStance.Standard;
+    }
+
+    /// <summary>扉前の構え（→ SavedParty.Stance、Systems.SquadOrderSystem.JudgeEngage、03 §4.0.3・§0.68・§0.69）。</summary>
+    public enum DoorStance
+    {
+        /// <summary>慎重：火力に余裕があり、すべてのギミックに万全の備えがあるときだけ挑む。</summary>
+        Cautious,
+
+        /// <summary>標準：撃破の見込みがあり、即死級に半分以上の備えがあれば挑む。</summary>
+        Standard,
+
+        /// <summary>強気：火力が少し足りなくても、備えが無くても挑む。</summary>
+        Bold,
     }
 
     /// <summary>部隊の方針（→ SavedParty.Order、Systems.SquadOrderSystem、03 §4.0.3・§0.63）。</summary>

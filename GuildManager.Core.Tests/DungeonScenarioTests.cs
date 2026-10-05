@@ -42,7 +42,8 @@ namespace GuildManager.Core.Tests
             return party;
         }
 
-        /// <summary>猛毒（神官で対策）と即死級（護符で対策）を持つ階層ボス。</summary>
+
+        /// <summary>猛毒（神官＋MND）と即死級（騎士＋LDR）を持つ階層ボス（§0.68：備えは職業0.5＋能力の合計÷300）。</summary>
         private static FloorBoss MakeGuardian(int floor = 2) => new FloorBoss
         {
             Name = "階層の守護者",
@@ -54,21 +55,22 @@ namespace GuildManager.Core.Tests
                 new BossGimmick
                 {
                     Type = BossGimmickType.Poison,
-                    RequiredCounterRole = JobClass.Cleric,
-                    RequiredItemId = ConsumableCatalog.AntidoteId,
+                    CounterRoles = { JobClass.Cleric },
+                    RequiredCounterStat = "MND", RequiredCounterStatThreshold = 300,
                     DangerLevel = 2,
                 },
                 new BossGimmick
                 {
                     Type = BossGimmickType.InstantKill,
-                    RequiredItemId = ConsumableCatalog.CharmId,
+                    CounterRoles = { JobClass.Knight },
+                    RequiredCounterStat = "LDR", RequiredCounterStatThreshold = 300,
                     DangerLevel = 5,
                 },
             },
         };
 
         [Fact]
-        public void Scenario_ScoutThenCounterEquipThenDefeatTheFloorBoss()
+        public void Scenario_ScoutThenFormCounterPartyThenDefeatTheFloorBoss()
         {
             var scout = new ScoutingResolver(new AlwaysMinRng());
             var dungeon = new DungeonResolver(new AlwaysMinRng());
@@ -88,17 +90,16 @@ namespace GuildManager.Core.Tests
             Assert.Equal(IntelTier.Complete, ScoutingResolver.GetTier(boss.IntelRate));
             Assert.Equal(1.0, boss.IntelRate, precision: 10);
 
-            // ---- 第2段階：判明したギミックへ対策を組んだ討伐部隊を編成する ----
-            // 猛毒 → 神官を入れる／即死級 → 護符を携行する。
+            // ---- 第2段階：判明したギミックに備える部隊を編成する ----
+            // 猛毒 → 神官（0.5）＋MND合計180÷300（0.6）／即死級 → 騎士（0.5）＋LDR合計180÷300（0.6）。どちらも万全。
             var strikeParty = PartyOf(
-                MakeAdventurer(JobClass.Warrior, 60),
+                MakeAdventurer(JobClass.Knight, 60),
                 MakeAdventurer(JobClass.Ranger, 60),
                 MakeAdventurer(JobClass.Cleric, 60, Placement.Back));
-            strikeParty.TryAddConsumable(ConsumableCatalog.CharmId);
 
             var result = dungeon.Resolve(strikeParty, boss);
 
-            // ---- 検証：対策が揃っていれば撃破でき、全員が生還する ----
+            // ---- 検証：備えが揃っていれば撃破でき、全員が生還する ----
             Assert.Equal(DungeonOutcome.Victory, result.Outcome);
             Assert.True(boss.IsDefeated);
 
@@ -110,30 +111,31 @@ namespace GuildManager.Core.Tests
             Assert.True(result.FullIntelBonusApplied, "完全解析の与ダメージ補正が乗るはず");
             Assert.Empty(result.ForceRetiredAdventurerIds);
             Assert.All(strikeParty.Members, m => Assert.True(m.CurrentHP > 0));
-
-            // 携行した護符は使い切り。
-            Assert.Empty(strikeParty.ConsumableItemIds);
+            Assert.All(strikeParty.Members, m => Assert.False(m.IsPoisoned));
         }
 
         [Fact]
-        public void Scenario_RecklessAssaultWithoutScouting_WipesOutTheParty()
+        public void Scenario_RecklessAssaultWithoutAnyReadiness_WipesOutTheParty()
         {
-            // 同じボスへ、調査も対策もせずに突撃した場合。
+            // 同じボスへ、騎士も指揮（LDR）も無い部隊で突撃した場合。即死級への備えが0になる。
             var dungeon = new DungeonResolver(new AlwaysMinRng());
             var boss = MakeGuardian(floor: 2);
 
-            var recklessParty = PartyOf(
-                MakeAdventurer(JobClass.Warrior, 60),
-                MakeAdventurer(JobClass.Ranger, 60));
+            var warrior = MakeAdventurer(JobClass.Warrior, 60);
+            var ranger = MakeAdventurer(JobClass.Ranger, 60);
+            warrior.LDR = 0;
+            ranger.LDR = 0;
+            var recklessParty = PartyOf(warrior, ranger);
 
             var result = dungeon.Resolve(recklessParty, boss);
 
-            // 未対策の即死級を踏んで全滅し、全員が強制除籍（恒久ロスト）になる。
+            // 備えの無い即死級を踏んで全滅し、全員が強制除籍（恒久ロスト）になる。
             Assert.Contains(BossGimmickType.InstantKill, result.UncounteredGimmicks);
             Assert.Contains(BossGimmickType.Poison, result.UncounteredGimmicks);
             Assert.Equal(recklessParty.Members.Count, result.ForceRetiredAdventurerIds.Count);
             Assert.All(recklessParty.Members, m => Assert.Equal(0, m.CurrentHP));
         }
+
 
         [Fact]
         public void Scenario_EightYearCareer_EndsInMaturityRetirementWithContributionPay()

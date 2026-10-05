@@ -27,7 +27,7 @@ namespace GuildManager.Core.Tests
         [InlineData("aging.csv")]
         [InlineData("combat.csv")]
         [InlineData("compatibility_advisor.csv")]
-        [InlineData("consumables.csv")]
+        [InlineData("boss_gimmicks.csv")]
         [InlineData("economy.csv")]
         [InlineData("progression.csv")]
         [InlineData("equipment.csv")]

@@ -186,7 +186,6 @@ public partial class MainDashboard : Control
 		_dungeonPanel = GetNode<DungeonPanel>("%DungeonTab");
 		_dungeonPanel.LogRequested += AppendLog;
 		_dungeonPanel.StateChanged += RefreshAll;
-		_dungeonPanel.EngageIssued += OnEngageIssued;
 		_dungeonPanel.CommissionsRequested += OpenCommissionPopup;
 
 		_adventurerPanel = GetNode<AdventurerPanel>("%AdventurerDetailTab");
@@ -497,21 +496,6 @@ public partial class MainDashboard : Control
 		_autoSkipButton.Disabled = true;
 	}
 
-	/// <summary>扉前でプレイヤーの判断（討伐か撤退）を待っている部隊がいるか。方針で自動判断する部隊（→ SquadOrderSystem.DecidesAtDoor）は含めない。</summary>
-	private bool HasPendingDoorDecision() =>
-		_state.ActiveDungeonMissions.Any(m => m.Status == ExpeditionStatus.AwaitingBossDecision
-			&& !SquadOrderSystem.DecidesAtDoor(_state, m.Party));
-
-	/// <summary>
-	/// 「ボス討伐に挑む」を指令した直後：ほかに判断待ちの部隊がいなければ、そのまま次週へ進める
-	/// （討伐は週の決算で決着するため、続けて「次週へ」を押す手間を省く）。
-	/// </summary>
-	private void OnEngageIssued()
-	{
-		if (!HasPendingDoorDecision())
-			OnNextWeekPressed();
-	}
-
 	/// <summary>「次週へ」「自動スキップ」の両方を再び有効化する（→ DisableWeekAdvancementの対）。</summary>
 	private void EnableWeekAdvancement()
 	{
@@ -527,23 +511,6 @@ public partial class MainDashboard : Control
 	{
 		if (_noDungeonDispatchDialog.Visible)
 			return;
-
-		// 扉前で判断待ちの部隊（方針で自動判断するものを除く）がいるあいだは週を進めない。
-		// 扉前では「討伐」か「撤退」のどちらかを選ぶ（待っているだけでは解析率は上がらない）。
-		if (HasPendingDoorDecision())
-		{
-			SwitchView(DashboardView.Dungeon);
-			var notice = new AcceptDialog
-			{
-				Title = "扉前で判断待ちの部隊がいる",
-				DialogText = "ボスの扉前で待機している部隊がいます。\n大迷宮画面で「ボス討伐に挑む」か「撤退・帰還する」を選んでください。\n（待機しているだけでは、解析率は上がりません）",
-			};
-			notice.Confirmed += () => notice.QueueFree();
-			notice.Canceled += () => notice.QueueFree();
-			AddChild(notice);
-			notice.PopupCentered();
-			return;
-		}
 
 		// 方針つきの部隊（§0.63）があれば、週送りの前に自動で出撃するので確認しない。
 		if (_state.ActiveDungeonMissions.Count == 0 && !_state.SavedParties.Any(p => p.Order != SquadOrder.None))
@@ -832,7 +799,6 @@ public partial class MainDashboard : Control
 		{
 			// 止まった理由（§0.63で増えた条件を含む）
 			var reasons = new List<string>();
-			if (lastFlags.BossDoorReached) reasons.Add("扉前に着いた部隊がいる");
 			if (lastFlags.BossDefeated) reasons.Add("階層ボスを倒した");
 			if (lastFlags.SevereInjuryOccurred) reasons.Add("重傷者が出た");
 			if (lastFlags.SoulFusionBirthOccurred) reasons.Add("娘が誕生した");
@@ -1119,9 +1085,18 @@ public partial class MainDashboard : Control
 				sb.AppendLine($"道中で拾った：{LootText(traversal.LootGold, traversal.LootMaterials)}（帰還時にギルドへ格納）");
 			if (resolution.ArrivedAtBossDoor && traversal.TargetBoss != null)
 			{
-				sb.AppendLine($"[color=gold][b]【扉前到達】部隊は第{traversal.TargetBoss.Floor}層ボスの扉前に到達。" +
-					"突入準備を整えて指令を待機中[/b][/color]");
-				sb.AppendLine("[color=gray]大迷宮タブで「ボス討伐に挑む」か「撤退・帰還する」かを指令すること。[/color]");
+				// 扉前の判断は、着いた週のうちに構えで済む（§0.69）。挑むなら続く決戦の行で結果を出す。
+				var orderedParty = _state.SavedParties.FirstOrDefault(p => p.MemberIds.Any(id => resolution.Party.Members.Any(m => m.Id == id)));
+				string stance = SquadOrderSystem.StanceLabel(orderedParty?.Stance ?? DoorStance.Standard);
+				if (resolution.DoorRetreatReason == null)
+				{
+					sb.AppendLine($"[color=gold][b]【扉前到達】部隊は第{traversal.TargetBoss.Floor}層ボスの扉前に到達し、構え「{stance}」で挑んだ。[/b][/color]");
+				}
+				else
+				{
+					sb.AppendLine($"[color=orange][b]【扉前到達】部隊は第{traversal.TargetBoss.Floor}層ボスの扉前に到達したが、構え「{stance}」で撤退した：{resolution.DoorRetreatReason}。[/b][/color]");
+					AppendDepositLine(sb, resolution);
+				}
 			}
 			else if (resolution.ReturnedHome)
 			{
@@ -1146,8 +1121,22 @@ public partial class MainDashboard : Control
 		sb.AppendLine($"[color=gold][b]⚔ {GameCalendar.Format(weekNumber)}：大迷宮 第{boss.Floor}層「{boss.Name}」討伐戦[/b][/color]");
 		foreach (var type in assault.CounteredGimmicks)
 			sb.AppendLine($"[color=lime]✔ {DungeonPanel.GimmickLabel(type)}への備えが機能した。[/color]");
+		// 備えが一部（橙）・無策（赤）のギミック（§0.68）。足りない分だけ罰が効いた。
 		foreach (var type in assault.UncounteredGimmicks)
-			sb.AppendLine($"[color=red]✖ {DungeonPanel.GimmickLabel(type)}に対抗できず、部隊が大きな損害を受けた。[/color]");
+		{
+			bool none = assault.ShortfallOf(type) >= 1.0;
+			sb.AppendLine(none
+				? $"[color=red]✖ {DungeonPanel.GimmickLabel(type)}に備えが無く、{GimmickPenaltyText(type)}。[/color]"
+				: $"[color=orange]△ {DungeonPanel.GimmickLabel(type)}への備えが足りず、{GimmickPenaltyText(type)}。[/color]");
+		}
+		if (assault.CharmedAdventurerId is { } charmedId && _state.Adventurers.FirstOrDefault(a => a.Id == charmedId) is { } charmed)
+			sb.AppendLine($"[color=orange]💫 {charmed.Name}が魅了に囚われ、仲間に刃を向けかけた。[/color]");
+		foreach (var (poisonedId, weeks) in assault.PoisonWeeksByAdventurer)
+		{
+			var poisoned = _state.Adventurers.FirstOrDefault(a => a.Id == poisonedId);
+			if (poisoned != null)
+				sb.AppendLine($"[color=orange]🟣 {poisoned.Name}は毒に冒された（{weeks}週ほど全能力が{assault.PoisonStatPenalty * 100:0}%下がる）。[/color]");
+		}
 		if (assault.FullIntelBonusApplied)
 			sb.AppendLine("[color=gold]◆ 完全解析の成果：弱点を正確に突いた。[/color]");
 		// 耐毒体質・巨獣狩り（→ 03 §4.5.4・§5.3.2）：効いた戦闘のみ開示する。
@@ -1259,6 +1248,19 @@ public partial class MainDashboard : Control
 			sb.AppendLine($"[color=lime]📦 道中の拾得物を格納：{LootText(resolution.DepositedGold, resolution.DepositedMaterials)}[/color]");
 	}
 
+	/// <summary>ギミックに備えが足りなかったときに起きたこと（週報の決戦の行、§0.68）。</summary>
+	private static string GimmickPenaltyText(BossGimmickType type) => type switch
+	{
+		BossGimmickType.Poison => "毒で部隊が削られた",
+		BossGimmickType.HeavyArmor => "攻撃が装甲に阻まれた",
+		BossGimmickType.Flying => "空からの攻撃に部隊が削られた",
+		BossGimmickType.InstantKill => "致命の一撃を受けた",
+		BossGimmickType.Regeneration => "削った傷が塞がっていった",
+		BossGimmickType.Swarm => "取り巻きに後衛を襲われた",
+		BossGimmickType.Charm => "一番の使い手が惑わされた",
+		_ => "部隊が損害を受けた",
+	};
+
 	private static string LootText(int gold, Dictionary<string, int> materials)
 	{
 		var parts = new List<string> { $"{gold}G" };
@@ -1303,13 +1305,6 @@ public partial class MainDashboard : Control
 			{
 				case SquadOrderAction.Dispatched:
 					AppendLog($"[color=cyan]📋 「{ev.Party.Name}」が方針どおり出撃：{ev.Detail}。[/color]");
-					break;
-				case SquadOrderAction.Engaged:
-					AppendLog($"[color=cyan][b]📋 「{ev.Party.Name}」は扉前で見込みありと判断し、{ev.Detail}。[/b][/color]");
-					break;
-				case SquadOrderAction.Retreated:
-					string deposited = ev.Resolution == null ? "" : $"（持ち帰り：{ev.Resolution.DepositedGold}G）";
-					AppendLog($"[color=orange]📋 「{ev.Party.Name}」は扉前から撤退した：{ev.Detail}{deposited}。[/color]");
 					break;
 				default:
 					AppendLog($"[color=gray]📋 「{ev.Party.Name}」は待機：{ev.Detail}。[/color]");
@@ -1551,10 +1546,6 @@ public partial class MainDashboard : Control
 				btn.Modulate = new Color(0.9f, 0.9f, 0.9f, 1.0f);
 			}
 		}
-
-		// 扉前の判断待ちがあるあいだ、「大迷宮」タブは赤（別のタブを見ていても気づけるように）
-		if (_state != null && HasPendingDoorDecision())
-			_navDungeonBtn.Modulate = new Color(1f, 0.4f, 0.35f);
 	}
 
 	/// <summary>季節のアイコン（ヘッダーの暦表示用）。</summary>
@@ -1601,10 +1592,7 @@ public partial class MainDashboard : Control
 		_systemPanel.SetEndingAvailable(_state.IsGameCleared);
 		_shopPanel.Refresh(_state);
 
-		// 扉前で討伐か撤退かの判断を待っている部隊がいるあいだは、「大迷宮」タブと「次週へ」を赤くして知らせる。
 		UpdateButtonHighlights((DashboardView)_centerPanel.CurrentTab);
-		bool pendingDecision = HasPendingDoorDecision();
-		_nextWeekButton.Modulate = pendingDecision ? new Color(1f, 0.45f, 0.4f) : Colors.White;
 	}
 
 

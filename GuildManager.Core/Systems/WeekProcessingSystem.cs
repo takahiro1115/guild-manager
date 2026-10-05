@@ -93,17 +93,14 @@ namespace GuildManager.Core.Systems
             // 出撃中（今週出発した分も含む）の冒険者は、HP自然回復・訓練場成長の対象から外す（→ 03 §4.0.1）。
             var dispatchedIds = state.Adventurers.Where(a => a.IsDispatched).Select(a => a.Id).ToHashSet();
 
-            // 大迷宮への出撃（道中進軍・扉前待機・ボス討伐・採取・迷宮調査）を1週分進める
+            // 大迷宮への出撃（道中進軍・ボス討伐・採取・迷宮調査）を1週分進める
             // （→ DungeonExpeditionSystem）。潜行は複数週にわたって進み、未撃破ボスの扉前に
-            // 着いたら判断待ちで止まる（→ 毎回1Fリセット・複数週潜行型）。扉前到達は自動スキップの停止条件。
+            // 着いたらその週のうちに構えで判断して決戦か撤退をする（§0.69。扉前で止まることは無い）。
             result.DungeonMissionResolutions.AddRange(_dungeonExpeditionSystem.ProcessWeeklyMissions(state));
             foreach (var resolution in result.DungeonMissionResolutions)
             {
                 if (resolution.DungeonResult != null && resolution.DungeonResult.ForceRetiredAdventurerIds.Count > 0)
                     result.Flags.DeathOrPermanentInjuryOccurred = true;
-                // 扉前の到達：方針で自動判断する部隊（→ SquadOrderSystem.DecidesAtDoor、§0.63）は止めない。
-                if (resolution.ArrivedAtBossDoor && !SquadOrderSystem.DecidesAtDoor(state, resolution.Party))
-                    result.Flags.BossDoorReached = true;
                 // 自動出撃のための停止条件（§0.63）：重傷者が出た週・ボスを倒した週。
                 if (resolution.InjuryEvents.Any(e => e.Severity == InjurySeverity.Severe))
                     result.Flags.SevereInjuryOccurred = true;
@@ -136,8 +133,10 @@ namespace GuildManager.Core.Systems
             _trainingSystem.ProcessWeeklyTraining(state, dispatchedIds); // → 03 §3.1〜3.4・§3.5改：訓練場の週次費用・HP微減
             result.TraitTransmissionEvents.AddRange(_trainingSystem.ProcessWeeklyTraitTransmission(state)); // → 特性伝授刷新仕様：教官からの週次伝授ロール
             _trainingSystem.ProcessWeeklyTrainerTenure(state); // → 03 §7.1：教官の在任週数（伝授ロールの後に数える）
-            // 今週の任務で負傷した隊員は、今週の回復を進めない（→ InjuryRecoverySystem、§0.53）。
-            var justInjured = result.DungeonMissionResolutions.SelectMany(r => r.InjuryEvents).Select(e => e.AdventurerId).ToHashSet();
+            // 今週の任務で負傷した・毒状態になった隊員は、今週の回復を進めない（→ InjuryRecoverySystem、§0.53・§0.68）。
+            var justInjured = result.DungeonMissionResolutions.SelectMany(r => r.InjuryEvents).Select(e => e.AdventurerId)
+                .Concat(result.DungeonMissionResolutions.SelectMany(r => r.DungeonResult?.PoisonWeeksByAdventurer.Keys ?? Enumerable.Empty<Guid>()))
+                .ToHashSet();
             _injuryRecoverySystem.ProcessWeeklyRecovery(state, justInjured);
             _restRecoverySystem.ProcessWeeklyRest(state, dispatchedIds); // → 03 §3.5改：静養・HP自然回復（訓練場配置中は対象外）
             result.TrainingGrowthEvents.AddRange(_growthSystem.ProcessTrainingGrowth(state, dispatchedIds)); // → 03 §3.1〜3.4：成長トリガー経路2

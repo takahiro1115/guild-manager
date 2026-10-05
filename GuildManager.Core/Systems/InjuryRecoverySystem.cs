@@ -28,6 +28,14 @@ namespace GuildManager.Core.Systems
 
             foreach (var adventurer in state.Adventurers)
             {
+                // 毒状態（§0.68）も医務室の回復速度で抜ける。その週に毒を受けたばかりの隊員（justInjured）は進めない。
+                if (adventurer.PoisonWeeksRemaining > 0 && (justInjured == null || !justInjured.Contains(adventurer.Id)))
+                {
+                    adventurer.PoisonWeeksRemaining = Math.Max(0, adventurer.PoisonWeeksRemaining - recoverySpeed);
+                    if (adventurer.PoisonWeeksRemaining == 0)
+                        adventurer.PoisonStatPenalty = 0;
+                }
+
                 if (adventurer.Injury == InjurySeverity.None)
                     continue;
                 if (justInjured != null && justInjured.Contains(adventurer.Id))

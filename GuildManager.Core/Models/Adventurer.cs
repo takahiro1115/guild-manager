@@ -285,6 +285,8 @@ namespace GuildManager.Core.Models
                 totalReduction += TraitBalance.SwordMasterStatBonus; // ソードマスター（§0.55）：剣を装備しているときだけ
             if (includeInjury && Injury == InjurySeverity.Light)
                 totalReduction -= CombatBalance.LightInjuryStatPenaltyRate;
+            if (includeInjury && IsPoisoned)
+                totalReduction -= PoisonStatPenalty; // 毒状態（§0.68）：軽傷と同じく素の値にだけ掛かる
 
             // 減少しすぎて0以下にならないよう下限をクランプ（暫定：最大80%減まで）
             double multiplier = Math.Max(1.0 + totalReduction, 0.2);
@@ -592,6 +594,20 @@ namespace GuildManager.Core.Models
 
         /// <summary>負傷が治るまでの残り週数。0ならNoneに戻る（→ 03 §3.6 負傷回復処理）。</summary>
         public int InjuryWeeksRemaining { get; set; } = 0;
+
+        /// <summary>
+        /// 毒状態が抜けるまでの残り週数（2026年10月・§0.68）。猛毒のボスに備えが足りないまま戦って生還すると付く
+        /// （→ DungeonResolver）。0より大きい間は全能力（素の値）が PoisonStatPenalty だけ下がる。出撃はできるが、
+        /// 方針の自動出撃は抜けるまで待つ（→ SquadOrderSystem.GetWaitReason）。医務室の回復速度で減る（→ InjuryRecoverySystem）。
+        /// 旧セーブには無く0（毒なし）で読まれる。
+        /// </summary>
+        public int PoisonWeeksRemaining { get; set; } = 0;
+
+        /// <summary>毒状態の全能力の低下率（0〜1。→ BossGimmickBalance.PoisonStatusStatPenalty×備えの不足）。毒が抜けると0に戻る。</summary>
+        public double PoisonStatPenalty { get; set; } = 0;
+
+        /// <summary>毒状態か（→ PoisonWeeksRemaining）。</summary>
+        [JsonIgnore] public bool IsPoisoned => PoisonWeeksRemaining > 0 && PoisonStatPenalty > 0;
 
         public int WeeklyWage { get; set; }
 

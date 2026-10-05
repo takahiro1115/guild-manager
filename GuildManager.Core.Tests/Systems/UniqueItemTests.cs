@@ -112,24 +112,24 @@ namespace GuildManager.Core.Tests.Systems
         // ---------------- ギミック対策（第4の対策口） ----------------
 
         [Fact]
-        public void IsCountered_TrueWhenAMemberEquipsMatchingLegendary()
+        public void Readiness_IsFullWhenAMemberEquipsMatchingLegendary()
         {
-            // アイテムしか対策口の無い即死級。ポーチは空。
-            var gimmick = new BossGimmick { Type = BossGimmickType.InstantKill, RequiredItemId = ConsumableCatalog.CharmId, DangerLevel = 5 };
+            // 対策口の無い即死級（備えは常に0）。
+            var gimmick = new BossGimmick { Type = BossGimmickType.InstantKill, DangerLevel = 5 };
             var knight = MakeAdventurer(JobClass.Knight);
             var state = new GameState { Adventurers = { knight } };
             var party = new Party();
             party.TryAdd(knight);
 
-            Assert.False(DungeonResolver.IsCountered(gimmick, party));
+            Assert.Equal(0, DungeonResolver.Readiness(gimmick, party.Members));
 
             var crown = UniqueItemSystem.Grant(state, Def("LegendCanyonCrown"), "テスト")!;
             Assert.True(new EquipmentSystem().TryEquip(state, knight, EquipmentSlot.Accessory1, crown));
-            Assert.True(DungeonResolver.IsCountered(gimmick, party));
+            Assert.Equal(1.0, DungeonResolver.Readiness(gimmick, party.Members));
 
             // 別のギミックには効かない
             var poison = new BossGimmick { Type = BossGimmickType.Poison, RequiredCounterStat = "MND", RequiredCounterStatThreshold = 9999 };
-            Assert.False(DungeonResolver.IsCountered(poison, party));
+            Assert.True(DungeonResolver.Readiness(poison, party.Members) < 1.0);
         }
 
         // ---------------- 入手：1セーブ1本 ----------------

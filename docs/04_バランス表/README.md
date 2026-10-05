@@ -26,7 +26,7 @@
 | `training.csv` | 03 §3.1〜3.4・§3.5改・§7.1 | TrainingBalance（勤勉 `DiligentGrowthRateBonus`、→ 03 §0.32。教官からの特性伝授 `TraitInheritanceBaseChance`・師匠肌ボーナス `MentorTraitInheritanceBonus`、→ 03 §0.34。教官の在任ボーナス `TrainerTenureBonusStepWeeks`・`TrainerTenureBonusPerStep`・`TrainerTenureBonusMax`、→ 03 §0.54） |
 | `trait.csv` | 03 §4.3・§5.3.2・§4.2.3 | TraitBalance（→ TraitCatalog。豪胆 `BraveSurvivalThresholdBonus`＝ボス戦の損耗−pt・注意深い `AttentiveScoutingBonus`＝隠密の寄与×(1＋値)・知識人 `ScholarAnalysisBonus`＝解析の寄与×(1＋値)、→ 03 §0.53。ペアシナジーの緩和係数は§0.53で削除）。全特性の表示名・説明・障害フラグ（`{Id}_DisplayName`・`{Id}_Description`・`{Id}_IsCurseOrInjury`、§0.31）。旧 `TraitTransmission*` 3キーは §0.34 で削除（→ training.csv）。§0.55で足した10種の効果量（`HawkEyeFlyingDamageReductionRate`・`SixthSenseInstantKillHpLossPct`・`GuardianGuardBonus`・`PathfinderTraversalBonus`・`SturdyMaxHpBonus`・`QuickHealerInjuryRecoveryBonus`・`QuickHealerRestRecoveryBonus`・`CheerfulSatisfactionBonus`・`HardworkerIdleHelpGoldMultiplier`・`FireMageIntBonus`・`SwordMasterStatBonus`、すべて仮の値、→ 03 §5.3.2）。§0.56のマイナスの特性（地図読み `MapReaderTraversalBonus`、欠点の `Coward*`・`Reckless*`・`ClumsyStealthPenalty`・`PoorDirectionTraversalPenalty`・`SicklyMaxHpPenalty`・`FickleGrowthRatePenalty`・`MoodySatisfactionPenalty`・`SpendthriftWageMultiplier`、障害の `PoisonAftereffect*`・`LegWoundAgiReduction`・`ArmWoundStatReduction`・`Dread*`・`Burnout*`。すべて仮の値）。§0.57のレア特性（`GeniusStatBonus`＝0.15・`RareSingleStatBonus`＝0.30、仮の値） |
 | `equipment.csv` | 03 §4.2.2 | EquipmentBalance（→ ItemCatalog）。**テーブル形式**（`Id,Price,HpBonus,BonusStr〜BonusLdr,note`、2026年9月に key,value 形式から移行）。`HpBonus`＝最大HP加算（武器は0）。§0.37で旧 `EffectValue`（個人CP／最大HPの二義）を個人CPの撤廃に伴い `HpBonus` へ改名 |
-| `consumables.csv` | 03 §4.5.4 | ConsumableBalance（→ ConsumableCatalog。大迷宮ボスギミック対策4種の価格） |
+| `boss_gimmicks.csv` | 03 §4.5.4 | BossGimmickBalance（ボスのギミック7種への備えと罰、毒状態、ギミックの数。2026年10月・§0.68。旧 `consumables.csv` は撤去） |
 | `progression.csv` | 03 §4.5.1・§4.2.2 | ProgressionBalance（初期の同時出撃枠、店の上位装備が入荷する倒したボスの数 `ShopTierUnlockBosses_1〜3`＝§0.61） |
 | `dungeon.csv` | 03 §4.5.1・§4.5.4 | DungeonBalance（ボス能力重み・未踏破重損耗・ボス間隔・撃破実績点・出撃成長回数） |
 | `dungeon_traversal.csv` | 03 §4.5.3 | DungeonTraversalBalance（**走破力の重み（VIT/MND/隊長LDR）**・**1歩の消費の尺度 `FloorsPerRatio`**（比率1.0の深さで週に進める階層数、4.0。進軍ランクの段 `RankRatioScale` は別。1歩の消費＝その階層の要求値÷(走破力×この値)÷解析倍率、週の予算1、→ 03 §0.49。旧リニア進軍は §0.25）・進軍ランク別の既踏損耗率・調査度連動走破倍率・夜目 `NightVisionUnexploredDamageReductionRate`（→ 03 §0.32）） |
@@ -37,7 +37,7 @@
 | `portraits.csv` | 03 §2.1 | PortraitBalance（採用の応募者に割り当てる顔グラフィックの一覧。**テーブル形式** `Id,Jobs,HairColor,EyeColor`。Id＝`assets/portraits/{Id}.png`、Jobs＝似合う職業の `\|` 区切りまたは `All`。2026年9月・§0.46） |
 | `uniques.csv` | 03 §4.7.5 | UniqueBalance（固有武具＝固定アーティファクト〈紫〉・伝説級〈金〉・依頼人の固有武具〈§0.64〉の一覧。**テーブル形式** `Id,Grade,Name,BaseItemId,HpBonus,BonusStr〜BonusLdr,CounterGimmick,DropFieldId,DropFloor,SellPrice,PatronId`。伝説級は入手元のボス〈フィールドId・階層〉と対策ギミック、売値0＝売却不可。2026年9月・§0.45。§0.64で Grade `Patron` と列 `PatronId`〈commission_clients.csv の Id。Patron 以外は空〉を追加。依頼人の固有武具は売値0＝売却不可） |
 | `research.csv` | 03 §4.6 | ResearchBalance（アルベール研究室の24プロジェクト（うち内職強化 SideBusinessGoldBonus 4種、魂魄融和の秘薬の解禁 `res_soul_fusion`＝SoulFusionUnlock・効果値0、§0.58、段階研究11種＝RecruitPaBonus・GrowthRateBonus・SoulFusionPaBonus・CultureTankBonus、§0.60）・必要素材・ゴールド・効果種別・効果値・**前提 `Prerequisite`**（§0.60で列を追加。空＝前提なし、段階研究のII・IIIは前の段のId）） |
-| `squad_orders.csv` | 03 §4.0.3 | SquadOrderBalance（部隊の方針と自動出撃、2026年10月・§0.63）：自動出撃の条件 `AutoDispatchMinHpPercent`（70）・扉前で自動で挑む条件 `AutoEngageMinHpPercent`（60）・`AutoEngagePowerMargin`（1.0＝火力が要求以上） |
+| `squad_orders.csv` | 03 §4.0.3 | SquadOrderBalance（部隊の方針と自動出撃、2026年10月・§0.63）：自動出撃の条件 `AutoDispatchMinHpPercent`（70）・扉前の構え（慎重・標準・強気、§0.68）ごとの火力の倍率・HP・備えの条件 |
 | `commissions.csv` | 03 §4.9・§4.10 | CommissionBalance（依頼と迷宮の異変、2026年10月・§0.64）：依頼の届き方（`FirstOfferWeek`＝13・`OffersPerSeason`＝3・`MaxAccepted`＝2・期限 `DeadlineWeeks_*`＝撃破24／他12・期限の知らせ `DeadlineWarningWeeks`＝2）、条件（納品の個数 `DeliverCountBase`・`DeliverFloorsPerExtra`、献上の基準 `TributeRank`＝3番目・`TributeMinThreshold`＝20）、報酬（`RewardMultiplier_*`＝撃破0.2・完全解析0.15・納品0.15・献上0.3、`CompletionMoodGain`＝10、`FailureMoodLoss`＝10、遺物 `RewardRelicRollBonus`＝25・`RewardRelicMinRarity`＝Epic、依頼人の固有武具 `PatronUniqueCompletions`＝5件）、異変（`AnomalyAnnounceWeekOfSeason`＝4・`AnomalyDurationWeeks`＝4・倍率 `Anomaly_*`） |
 | `commission_clients.csv` | 03 §4.9 | CommissionBalance.Clients（依頼人5人。**テーブル形式** `Id,Name,Types,BonusMaterialId,BonusMaterialCount,AlbertLine`。Types は `Defeat\|Survey\|Deliver\|Tribute` の `\|` 区切り、BonusMaterial はおまけの素材〈空＝なし〉、AlbertLine は掲示中の依頼に添えるアルベールの一言） |
 | `commission_texts.csv` | 03 §4.9 | CommissionBalance（依頼文の文例。**テーブル形式** `ClientId,Type,Text`。{field}{boss}{floor}{material}{count}{stat}{value}{weeks} を差し込む。依頼人が扱う種類ごとに1本以上ないと起動失敗） |
@@ -107,16 +107,28 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 `GimmickBalance`・`GimmickMitigationLevel`）と共に削除した。大迷宮のボスギミック
 （`dungeon.csv`・`BossGimmickType`）は現役の別システムであり、影響を受けない。
 
-`consumables.csv`はパーティ携行アイテム刷新仕様で新設した。**大迷宮のボスギミック対策
-4種の価格のみ**を持つ（→ 03 §4.5.4・`ConsumableCatalog`）。効果は「対策済みならその
-ギミックのペナルティを受けない」で固定のため、効果量のキーは持たない。
+**携行ポーチの撤去（2026年10月、→ 03 §0.68）：** `consumables.csv`（大迷宮のボスギミック対策4種〈解毒薬15G・溶解液25G・捕縛網20G・
+身代わりの護符20G〉の価格）は、携行ポーチと `ConsumableBalance`・`ConsumableCatalog` と共に削除した。旧セーブの返金に使う
+撤去時の価格は `GameState.LegacyConsumablePrice` にだけ残している。
 
-| キー | アイテム | 対策するギミック |
+**ボスのギミック（2026年10月、→ 03 §0.68）：** `boss_gimmicks.csv`（`BossGimmickBalance`）を新設した。ギミックへの対策は
+「備え」（0〜1）＝そのボスで効く職業の同行 `GimmickRoleReadiness`＋対策の能力の部隊合計÷基準の値（上限1）として段階的に効き、
+足りない分（不足＝1−備え）だけ下の罰が効く。能力の基準の値と危険度の式は `SampleData.CreateBossGimmicks`（§0.68以前と同じ）。
+
+| キー | 値 | 意味 |
 |---|---|---|
-| `Antidote_Price` | 解毒薬 | 猛毒（Poison） |
-| `AcidFlask_Price` | 溶解液 | 重装甲（HeavyArmor） |
-| `Net_Price` | 捕縛網 | 飛行（Flying） |
-| `Charm_Price` | 身代わりの護符 | 即死級攻撃（InstantKill） |
+| `GimmickRoleReadiness` | 0.5 | 効く職業が1人でも同行しているときの備え |
+| `GimmickCountStep`・`GimmickCountMax` | 5・3 | ギミックの数＝1＋(何体目＋(フィールド順−1)×2)÷5、上限3 |
+| `ExtraGimmickDangerReduction` | 1 | 2個目以降の危険度を下げる段 |
+| `HeavyArmorPowerPenalty` | 0.30 | 重装甲：部隊火力×(1−0.30×不足) |
+| `RegenerationRequirementBonus` | 0.30 | 再生：要求火力×(1＋0.30×不足) |
+| `SwarmRearPowerPenalty`・`SwarmDamageFactor` | 0.40・0.5 | 群れ：後衛の火力×(1−0.40×不足)、損耗の加算は他の損耗型の半分 |
+| `CharmExtraHpLossPct` | 40 | 魅了：操られた隊員の損耗に40%×不足を足す（火力は×備え） |
+| `PoisonStatusStatPenalty`・`PoisonStatusWeeks`・`ResistPoisonStatusWeeksRate` | 0.30・4・0.5 | 猛毒の毒状態：全能力−30%×不足が4週。耐毒体質の本人は週数半分 |
+
+`squad_orders.csv` の扉前の自動判断のキー（`AutoEngageMinHpPercent`・`AutoEngagePowerMargin`）は、扉前の構え（慎重・標準・強気）の
+`{構え}PowerMargin`・`{構え}MinHpPercent`・`{構え}MinReadiness`・`{構え}MinInstantKillReadiness` に置き換えた
+（慎重 1.2・80・1.0・1.0／標準 1.0・60・0・0.5／強気 0.9・40・0・0）。
 
 旧・環境ギミックの相殺アイテム（聖水・松明・登攀具）と効果アイテム（煙幕弾・高品質傷薬・
 携帯糧食）のキーは、参照元を失っていたため2026年9月に削除した（→ 03 §0.13）。

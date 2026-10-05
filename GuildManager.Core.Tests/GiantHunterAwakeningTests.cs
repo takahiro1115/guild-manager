@@ -46,7 +46,7 @@ namespace GuildManager.Core.Tests
         {
             var boss = new FloorBoss { Name = "甲殻の大猪", Floor = floor, MaxHp = 500, CurrentHp = 500 };
             if (heavyArmor)
-                boss.Gimmicks.Add(new BossGimmick { Type = BossGimmickType.HeavyArmor, DangerLevel = 1, RequiredCounterRole = JobClass.Warrior });
+                boss.Gimmicks.Add(new BossGimmick { Type = BossGimmickType.HeavyArmor, DangerLevel = 1, CounterRoles = { JobClass.Warrior } });
             return boss;
         }
 

@@ -81,6 +81,22 @@ namespace GuildManager.Core.Tests
             Assert.Equal(3, report.Entries.Count);
         }
 
+        [Fact]
+        public void ProcessWeeklyMood_ReachingBossDoor_CountsAsActivity_WithoutGain()
+        {
+            // 既に踏破した階層だけを潜り、扉前で撤退した週でも、退屈はしない（§0.69：扉前での偵察を撤去した代わり）。
+            var state = new GameState { MasterMood = 50, WeeksSinceLastGuildActivity = 3 };
+            var door = Traversal(unexploredFloors: 0);
+            door.ArrivedAtBossDoor = true;
+            door.DoorRetreatReason = "討伐火力が足りない見込みのため撤退";
+
+            var report = new MasterMoodSystem().ProcessWeeklyMood(state, new[] { door });
+
+            Assert.Equal(50, state.MasterMood);
+            Assert.Equal(0, state.WeeksSinceLastGuildActivity);
+            Assert.False(report.Bored);
+        }
+
         // ---------------- 成果ゼロの週：退屈減衰 ----------------
 
         [Fact]

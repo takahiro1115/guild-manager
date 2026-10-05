@@ -37,14 +37,14 @@ namespace GuildManager.Core.Tests
         }
 
         /// <summary>森（ボス1体）と、方針つきの2人部隊。</summary>
-        private static (GameState State, SavedParty Saved, FloorBoss Boss) Setup(SquadOrder order, int stat = 40, bool autoEngage = false, params BossGimmick[] gimmicks)
+        private static (GameState State, SavedParty Saved, FloorBoss Boss) Setup(SquadOrder order, int stat = 40, DoorStance stance = DoorStance.Standard, params BossGimmick[] gimmicks)
         {
             var boss = new FloorBoss { Name = "森の主", Floor = 10, MaxHp = 100, CurrentHp = 100 };
             boss.Gimmicks.AddRange(gimmicks);
             var forest = new DungeonField { Id = "forest", Name = "森", Order = 1, IsUnlocked = true, ReachedFloor = 10, Bosses = { boss } };
             var a = Make("アリス", stat);
             var b = Make("セリア", stat);
-            var saved = new SavedParty { Name = "第一部隊", MemberIds = { a.Id, b.Id }, Order = order, OrderFieldId = "forest", AutoEngage = autoEngage };
+            var saved = new SavedParty { Name = "第一部隊", MemberIds = { a.Id, b.Id }, Order = order, OrderFieldId = "forest", Stance = stance };
             var state = new GameState { Gold = 10000, Adventurers = { a, b }, DungeonFields = { forest }, SavedParties = { saved } };
             return (state, saved, boss);
         }
@@ -53,8 +53,11 @@ namespace GuildManager.Core.Tests
         public void CsvValues_AreLoaded()
         {
             Assert.Equal(70, SquadOrderBalance.AutoDispatchMinHpPercent);
-            Assert.Equal(60, SquadOrderBalance.AutoEngageMinHpPercent);
-            Assert.Equal(1.0, SquadOrderBalance.AutoEngagePowerMargin, precision: 6);
+            Assert.Equal(new SquadOrderBalance.StanceRule(1.2, 80, 1.0, 1.0), SquadOrderBalance.Cautious);
+            Assert.Equal(new SquadOrderBalance.StanceRule(1.0, 60, 0, 0.5), SquadOrderBalance.Standard);
+            Assert.Equal(new SquadOrderBalance.StanceRule(0.9, 40, 0, 0), SquadOrderBalance.Bold);
+            Assert.Same(SquadOrderBalance.Cautious, SquadOrderBalance.For(DoorStance.Cautious));
+            Assert.Same(SquadOrderBalance.Bold, SquadOrderBalance.For(DoorStance.Bold));
         }
 
         // ---------------- 自動出撃 ----------------
@@ -208,99 +211,159 @@ namespace GuildManager.Core.Tests
             Assert.Empty(state.ActiveDungeonMissions);
         }
 
-        // ---------------- 扉前の自動判断 ----------------
+        // ---------------- 扉前の構え（§0.68・§0.69：着いた週のうちに判断） ----------------
 
+        /// <summary>方針どおりに出撃させ、扉前に着いた状態にする（JudgeEngage を直接確かめる用）。</summary>
         private static ActiveDungeonMission AtDoor(GameState state, SavedParty saved, FloorBoss boss)
         {
             new SquadOrderSystem(Expedition()).Execute(state);
             var mission = state.ActiveDungeonMissions.Single();
-            mission.Status = ExpeditionStatus.AwaitingBossDecision;
             mission.TargetedBoss = boss;
             mission.CurrentFloor = boss.Floor;
             mission.WeeksElapsed = 2;
             return mission;
         }
 
-        [Fact]
-        public void AutoEngage_Engages_WhenPromising_AndBuysCounterItems()
+        /// <summary>方針の潜行を、扉前に着く週まで進める。その週の解決の一覧を返す。</summary>
+        private static List<DungeonMissionResolution> DiveToDoor(GameState state, DungeonExpeditionSystem expedition)
         {
-            var poison = new BossGimmick { Type = BossGimmickType.Poison, RequiredItemId = ConsumableCatalog.AntidoteId, DangerLevel = 2 };
-            var (state, saved, boss) = Setup(SquadOrder.Dive, stat: 200, autoEngage: true, poison);
-            var mission = AtDoor(state, saved, boss);
-            int gold = state.Gold;
-
-            var ev = Assert.Single(new SquadOrderSystem(Expedition()).Execute(state));
-
-            Assert.Equal(SquadOrderAction.Engaged, ev.Action);
-            Assert.Equal(ExpeditionStatus.EngagingBoss, mission.Status);
-            Assert.Contains(ConsumableCatalog.AntidoteId, mission.Party.ConsumableItemIds);
-            Assert.Equal(gold - ConsumableCatalog.FindById(ConsumableCatalog.AntidoteId)!.Price, state.Gold);
+            new SquadOrderSystem(expedition).Execute(state);
+            for (int week = 0; week < 20; week++)
+            {
+                var results = expedition.ProcessWeeklyMissions(state);
+                if (results.Any(r => r.ArrivedAtBossDoor)) return results;
+            }
+            throw new Xunit.Sdk.XunitException("扉前に着かなかった");
         }
 
         [Fact]
-        public void AutoEngage_Retreats_WhenTooWeak()
+        public void OrderedDive_FightsAtDoorTheSameWeek_WithoutCost()
         {
-            var (state, saved, boss) = Setup(SquadOrder.Dive, stat: 10, autoEngage: true);
+            // MND合計400÷100 → 備え万全。火力も十分なので、扉前に着いた週のうちに決戦して撃破する。
+            var poison = new BossGimmick { Type = BossGimmickType.Poison, RequiredCounterStat = "MND", RequiredCounterStatThreshold = 100, DangerLevel = 2 };
+            var (state, _, boss) = Setup(SquadOrder.Dive, stat: 200, stance: DoorStance.Standard, poison);
+            var expedition = Expedition();
+
+            var results = DiveToDoor(state, expedition);
+
+            Assert.Equal(2, results.Count);
+            Assert.Null(results[0].DoorRetreatReason);
+            Assert.Equal(DungeonOutcome.Victory, results[1].DungeonResult!.Outcome);
+            Assert.True(boss.IsDefeated);
+        }
+
+        [Theory]
+        [InlineData(DoorStance.Cautious, false)] // 慎重：すべて万全でないと挑まない
+        [InlineData(DoorStance.Standard, true)]  // 標準：即死級以外は備えを問わない
+        [InlineData(DoorStance.Bold, true)]
+        public void Stance_DecidesOnPartialReadiness(DoorStance stance, bool expectedGo)
+        {
+            // 飛行・DEX合計400÷1000 → 備え0.4（一部）。火力は十分。
+            var flying = new BossGimmick { Type = BossGimmickType.Flying, RequiredCounterStat = "DEX", RequiredCounterStatThreshold = 1000, DangerLevel = 1 };
+            var (state, saved, boss) = Setup(SquadOrder.Dive, stat: 200, stance: stance, flying);
             var mission = AtDoor(state, saved, boss);
 
-            var events = new SquadOrderSystem(Expedition()).Execute(state);
+            var judge = SquadOrderSystem.JudgeEngage(state, mission, stance);
 
-            // 扉前から撤退して帰還し、HPが足りていれば同じ週にまた1階層から潜り直す（道中で鍛えながら機会を待つ）。
-            var ev = Assert.Single(events, e => e.Action == SquadOrderAction.Retreated);
-            Assert.Contains("討伐火力", ev.Detail);
-            Assert.NotNull(ev.Resolution);
-            Assert.DoesNotContain(mission, state.ActiveDungeonMissions);
+            Assert.Equal(expectedGo, judge.Go);
+            if (!expectedGo) Assert.Contains("飛行", judge.Reason);
+        }
+
+        [Theory]
+        [InlineData(DoorStance.Standard, false)] // 標準：即死級の備えが半分未満なら撤退（戦死を避ける）
+        [InlineData(DoorStance.Bold, true)]      // 強気：それでも挑む
+        public void Stance_InstantKillThreshold(DoorStance stance, bool expectedGo)
+        {
+            var instantKill = new BossGimmick { Type = BossGimmickType.InstantKill, RequiredCounterStat = "LDR", RequiredCounterStatThreshold = 1000, DangerLevel = 5 };
+            var (state, saved, boss) = Setup(SquadOrder.Dive, stat: 200, stance: stance, instantKill);
+            var mission = AtDoor(state, saved, boss);
+
+            Assert.Equal(expectedGo, SquadOrderSystem.JudgeEngage(state, mission, stance).Go);
+        }
+
+        [Fact]
+        public void Stance_Bold_EngagesSlightlyBelowRequirement_ButStandardDoesNot()
+        {
+            var (state, saved, boss) = Setup(SquadOrder.Dive, stat: 40, stance: DoorStance.Bold);
+            var mission = AtDoor(state, saved, boss);
+            double required = DungeonResolver.RequiredPower(boss, state, mission.Party);
+            // 火力を要求の95%に合わせる：2人とも同じ能力なので、全能力を同じ割合で縮める
+            double ratio = 0.95 * required / DungeonResolver.CalculateBossPower(mission.Party, boss);
+            foreach (var m in mission.Party.Members)
+            {
+                m.STR = (int)(m.STR * ratio); m.AGI = (int)(m.AGI * ratio); m.VIT = (int)(m.VIT * ratio); m.MND = (int)(m.MND * ratio);
+                m.DEX = (int)(m.DEX * ratio); m.LDR = (int)(m.LDR * ratio); m.INT = (int)(m.INT * ratio);
+                m.CurrentHP = m.MaxHP;
+            }
+            double power = DungeonResolver.CalculateBossPower(mission.Party, boss);
+            Assert.InRange(power / required, 0.9, 1.0);
+
+            Assert.True(SquadOrderSystem.JudgeEngage(state, mission, DoorStance.Bold).Go);
+            Assert.False(SquadOrderSystem.JudgeEngage(state, mission, DoorStance.Standard).Go);
+        }
+
+        [Fact]
+        public void OrderedDive_RetreatsAtDoor_WhenTooWeak_AndDivesAgainNextWeek()
+        {
+            var (state, _, boss) = Setup(SquadOrder.Dive, stat: 10, stance: DoorStance.Standard);
+            var expedition = Expedition();
+
+            var results = DiveToDoor(state, expedition);
+
+            // 扉前から撤退して帰還する。HPが足りていれば次の週送りでまた1階層から潜り直す（道中で鍛えながら機会を待つ）。
+            var door = Assert.Single(results);
+            Assert.Contains("討伐火力", door.DoorRetreatReason);
+            Assert.True(door.ReturnedHome);
+            Assert.False(boss.IsDefeated);
+            Assert.Empty(state.ActiveDungeonMissions);
+            var events = new SquadOrderSystem(expedition).Execute(state);
             Assert.Single(events, e => e.Action == SquadOrderAction.Dispatched);
             Assert.Equal(1, Assert.Single(state.ActiveDungeonMissions).CurrentFloor);
         }
 
         [Fact]
-        public void AutoEngage_Retreats_WhenGimmickCannotBeCountered()
+        public void Judge_Retreats_WhenGimmickCannotBeCountered()
         {
             var noCounter = new BossGimmick { Type = BossGimmickType.InstantKill, DangerLevel = 5 }; // 対策口が無い
-            var (state, saved, boss) = Setup(SquadOrder.Dive, stat: 200, autoEngage: true, noCounter);
-            AtDoor(state, saved, boss);
+            var (state, saved, boss) = Setup(SquadOrder.Dive, stat: 200, stance: DoorStance.Standard, noCounter);
+            var mission = AtDoor(state, saved, boss);
 
-            var ev = new SquadOrderSystem(Expedition()).Execute(state).First();
-            Assert.Equal(SquadOrderAction.Retreated, ev.Action);
-            Assert.Contains("即死級", ev.Detail);
+            var judge = SquadOrderSystem.JudgeEngage(state, mission, DoorStance.Standard);
+            Assert.False(judge.Go);
+            Assert.Contains("即死級", judge.Reason);
         }
 
         [Fact]
-        public void AutoEngage_Retreats_WhenHpLow()
+        public void Judge_Retreats_WhenHpLow()
         {
-            var (state, saved, boss) = Setup(SquadOrder.Dive, stat: 200, autoEngage: true);
+            var (state, saved, boss) = Setup(SquadOrder.Dive, stat: 200, stance: DoorStance.Standard);
             AtDoor(state, saved, boss);
             var a = state.Adventurers[0];
             a.CurrentHP = a.MaxHP / 2;
 
-            var judge = SquadOrderSystem.JudgeEngage(state, state.ActiveDungeonMissions.Single());
+            var judge = SquadOrderSystem.JudgeEngage(state, state.ActiveDungeonMissions.Single(), DoorStance.Standard);
             Assert.False(judge.Go);
             Assert.Contains("HP", judge.Reason);
         }
 
         [Fact]
-        public void WithoutAutoEngage_DoorIsLeftToPlayer()
+        public void Recall_CancelsBeforeDeparture_AndRetreatsMidDive()
         {
-            var (state, saved, boss) = Setup(SquadOrder.Dive, stat: 200, autoEngage: false);
-            var mission = AtDoor(state, saved, boss);
+            var (state, saved, _) = Setup(SquadOrder.Dive, stat: 3, stance: DoorStance.Standard);
+            var expedition = Expedition();
+            var orders = new SquadOrderSystem(expedition);
 
-            Assert.False(SquadOrderSystem.DecidesAtDoor(state, mission.Party));
-            Assert.Empty(new SquadOrderSystem(Expedition()).Execute(state));
-            Assert.Equal(ExpeditionStatus.AwaitingBossDecision, mission.Status);
+            orders.Execute(state);
+            Assert.True(orders.Recall(state, saved)); // 出発前：取り消し
+            Assert.Empty(state.ActiveDungeonMissions);
+            Assert.False(orders.Recall(state, saved)); // 出撃していなければ何もしない
 
-            saved.AutoEngage = true;
-            Assert.True(SquadOrderSystem.DecidesAtDoor(state, mission.Party));
-        }
-
-        [Fact]
-        public void ManualMission_IsNeverDecided()
-        {
-            var (state, saved, boss) = Setup(SquadOrder.Dive, stat: 200, autoEngage: true);
-            var mission = AtDoor(state, saved, boss);
-            mission.SavedPartyId = null; // 手動の出撃
-            Assert.False(SquadOrderSystem.DecidesAtDoor(state, mission.Party));
-            Assert.Null(SquadOrderSystem.FindOrderedParty(state, mission));
+            orders.Execute(state);
+            expedition.ProcessWeeklyMissions(state); // 1週潜る（扉前にはまだ着かない）
+            Assert.Equal(ExpeditionStatus.Advancing, Assert.Single(state.ActiveDungeonMissions).Status);
+            Assert.True(orders.Recall(state, saved)); // 潜行中：即時撤退
+            Assert.Empty(state.ActiveDungeonMissions);
+            Assert.All(state.Adventurers, a => Assert.False(a.IsDispatched));
         }
 
         // ---------------- 自動スキップ ----------------
@@ -346,7 +409,7 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void Orders_SurviveSave_AndOldSaveDefaultsToNone()
         {
-            var (state, saved, _) = Setup(SquadOrder.Dive, autoEngage: true);
+            var (state, saved, _) = Setup(SquadOrder.Dive, stance: DoorStance.Standard);
             new SquadOrderSystem(Expedition()).Execute(state);
 
             var json = JsonSerializer.Serialize(state.ToSaveData());
@@ -354,14 +417,25 @@ namespace GuildManager.Core.Tests
             var rs = restored.SavedParties.Single();
             Assert.Equal(SquadOrder.Dive, rs.Order);
             Assert.Equal("forest", rs.OrderFieldId);
-            Assert.True(rs.AutoEngage);
+            Assert.Equal(DoorStance.Standard, rs.Stance);
             Assert.Equal(saved.Id, restored.ActiveDungeonMissions.Single().SavedPartyId);
 
-            var oldJson = System.Text.RegularExpressions.Regex.Replace(json, ",\"(Order|OrderFieldId|AutoEngage|SavedPartyId)\":(\\d+|\"[^\"]*\"|true|false|null)", "");
+            var oldJson = System.Text.RegularExpressions.Regex.Replace(json, ",\"(Order|OrderFieldId|Stance|SavedPartyId)\":(\\d+|\"[^\"]*\"|true|false|null)", "");
             Assert.DoesNotContain("SavedPartyId", oldJson);
             var old = GameState.FromSaveData(JsonSerializer.Deserialize<SaveData>(oldJson)!);
             Assert.Equal(SquadOrder.None, old.SavedParties.Single().Order);
             Assert.Null(old.ActiveDungeonMissions.Single().SavedPartyId);
+            Assert.Equal(DoorStance.Standard, old.SavedParties.Single().Stance);
+        }
+
+        [Fact]
+        public void PoisonedMember_KeepsPartyWaiting()
+        {
+            var (state, saved, _) = Setup(SquadOrder.Gather, stat: 80);
+            state.Adventurers[0].PoisonWeeksRemaining = 2;
+            state.Adventurers[0].PoisonStatPenalty = 0.15;
+
+            Assert.Contains("毒状態", SquadOrderSystem.GetWaitReason(state, saved));
         }
     }
 }

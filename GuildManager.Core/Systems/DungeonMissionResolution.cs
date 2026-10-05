@@ -62,10 +62,16 @@ namespace GuildManager.Core.Systems
         public int CurrentFloor { get; set; }
 
         /// <summary>
-        /// 今週の進軍で未撃破ボスの扉前に到達し、判断待ち（AwaitingBossDecision）になったか。
-        /// 自動スキップの停止条件（→ WeekResult.BossDoorReached）。
+        /// 今週の進軍で未撃破ボスの扉前に到達したか。到達した週のうちに構えで判断し（→ DoorDecision）、
+        /// 挑むなら同じ週の決戦の解決（DungeonResult を持つ別の DungeonMissionResolution）が続く（§0.69）。
         /// </summary>
         public bool ArrivedAtBossDoor { get; set; }
+
+        /// <summary>
+        /// 扉前での判断（§0.69、→ SquadOrderSystem.JudgeEngage）：挑んだなら null、撤退したならその理由。
+        /// ArrivedAtBossDoor が false なら使わない。
+        /// </summary>
+        public string? DoorRetreatReason { get; set; }
 
         /// <summary>今週の解決で部隊がギルドへ帰還したか（勝利・撤退・全滅・採取完了）。</summary>
         public bool ReturnedHome { get; set; }

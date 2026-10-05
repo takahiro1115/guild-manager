@@ -323,46 +323,6 @@ columns = 1
 theme_override_constants/h_separation = 6
 theme_override_constants/v_separation = 4
 
-[node name="PouchCard" type="PanelContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/StatsColumn"]
-layout_mode = 2
-
-[node name="Margin" type="MarginContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/StatsColumn/PouchCard"]
-layout_mode = 2
-theme_override_constants/margin_left = 8
-theme_override_constants/margin_top = 4
-theme_override_constants/margin_right = 8
-theme_override_constants/margin_bottom = 4
-
-[node name="VBox" type="VBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/StatsColumn/PouchCard/Margin"]
-layout_mode = 2
-theme_override_constants/separation = 2
-
-[node name="PouchTitle" type="Label" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/StatsColumn/PouchCard/Margin/VBox"]
-layout_mode = 2
-theme_override_colors/font_color = Color(1, 0.85, 0.4, 1)
-text = "部隊携行ポーチ（最大2枠・重複不可）"
-
-[node name="PouchRow" type="HBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/StatsColumn/PouchCard/Margin/VBox"]
-layout_mode = 2
-theme_override_constants/separation = 6
-
-[node name="PouchSlot1" type="OptionButton" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/StatsColumn/PouchCard/Margin/VBox/PouchRow"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="PouchSlot2" type="OptionButton" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/StatsColumn/PouchCard/Margin/VBox/PouchRow"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="PouchCostLabel" type="RichTextLabel" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox/StatsGimmickRow/StatsColumn/PouchCard/Margin/VBox"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(150, 0)
-layout_mode = 2
-bbcode_enabled = true
-fit_content = true
-
 [node name="ZoneC" type="PanelContainer" parent="Margin/MainHBox/RightColumn"]
 layout_mode = 2
 size_flags_vertical = 3
@@ -442,12 +402,6 @@ scroll_active = false
 theme_override_font_sizes/normal_font_size = 15
 theme_override_font_sizes/bold_font_size = 15
 
-[node name="ScoutingButton" type="Button" parent="Margin/MainHBox/RightColumn/ZoneC/ZoneCMargin/ZoneCVBox/ActionCommandContainer/Margin/CommandAreaStandby/TraversalPreviewCard/Margin/VBox"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 34)
-layout_mode = 2
-text = "▶ 潜行に出撃"
-
 [node name="SurveyPreviewCard" type="PanelContainer" parent="Margin/MainHBox/RightColumn/ZoneC/ZoneCMargin/ZoneCVBox/ActionCommandContainer/Margin/CommandAreaStandby"]
 unique_name_in_owner = true
 layout_mode = 2
@@ -484,12 +438,6 @@ fit_content = true
 scroll_active = false
 theme_override_font_sizes/normal_font_size = 15
 theme_override_font_sizes/bold_font_size = 15
-
-[node name="SurveyButton" type="Button" parent="Margin/MainHBox/RightColumn/ZoneC/ZoneCMargin/ZoneCVBox/ActionCommandContainer/Margin/CommandAreaStandby/SurveyPreviewCard/Margin/VBox"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 34)
-layout_mode = 2
-text = "▶ 調査に出撃"
 
 [node name="GatheringPreviewCard" type="PanelContainer" parent="Margin/MainHBox/RightColumn/ZoneC/ZoneCMargin/ZoneCVBox/ActionCommandContainer/Margin/CommandAreaStandby"]
 unique_name_in_owner = true
@@ -528,12 +476,6 @@ scroll_active = false
 theme_override_font_sizes/normal_font_size = 15
 theme_override_font_sizes/bold_font_size = 15
 
-[node name="GatheringButton" type="Button" parent="Margin/MainHBox/RightColumn/ZoneC/ZoneCMargin/ZoneCVBox/ActionCommandContainer/Margin/CommandAreaStandby/GatheringPreviewCard/Margin/VBox"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 34)
-layout_mode = 2
-text = "▶ 探索に出撃"
-
 [node name="CommandAreaAdvancing" type="VBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneC/ZoneCMargin/ZoneCVBox/ActionCommandContainer/Margin"]
 unique_name_in_owner = true
 visible = false
@@ -550,34 +492,4 @@ fit_content = true
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 36)
 layout_mode = 2
-text = "🏃 緊急帰還指示（即時帰還）"
-
-[node name="CommandAreaBossDecision" type="VBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneC/ZoneCMargin/ZoneCVBox/ActionCommandContainer/Margin"]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
-theme_override_constants/separation = 6
-
-[node name="BossDecisionLabel" type="RichTextLabel" parent="Margin/MainHBox/RightColumn/ZoneC/ZoneCMargin/ZoneCVBox/ActionCommandContainer/Margin/CommandAreaBossDecision"]
-unique_name_in_owner = true
-layout_mode = 2
-bbcode_enabled = true
-fit_content = true
-
-[node name="BossDecisionRow" type="HBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneC/ZoneCMargin/ZoneCVBox/ActionCommandContainer/Margin/CommandAreaBossDecision"]
-layout_mode = 2
-theme_override_constants/separation = 8
-
-[node name="EngageBossButton" type="Button" parent="Margin/MainHBox/RightColumn/ZoneC/ZoneCMargin/ZoneCVBox/ActionCommandContainer/Margin/CommandAreaBossDecision/BossDecisionRow"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 36)
-layout_mode = 2
-size_flags_horizontal = 3
-text = "⚔️ ボス討伐に挑む"
-
-[node name="RetreatButton" type="Button" parent="Margin/MainHBox/RightColumn/ZoneC/ZoneCMargin/ZoneCVBox/ActionCommandContainer/Margin/CommandAreaBossDecision/BossDecisionRow"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 36)
-layout_mode = 2
-size_flags_horizontal = 3
-text = "🏃 撤退・帰還する"
+text = "🏃 呼び戻す（即時帰還）"

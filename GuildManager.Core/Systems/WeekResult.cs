@@ -32,12 +32,6 @@ namespace GuildManager.Core.Systems
         /// </summary>
         public bool DefeatOccurred { get; set; }
 
-        /// <summary>
-        /// 大迷宮へ潜行中の部隊が、今週未撃破ボスの扉前に到達したか（→ ExpeditionStatus.AwaitingBossDecision、
-        /// 2026年9月新設）。「挑む／撤退」の判断をプレイヤーに委ねるため、自動スキップを止める。
-        /// </summary>
-        public bool BossDoorReached { get; set; }
-
         /// <summary>魂魄融和の子が今週誕生したか（→ SoulFusionSystem、03 §5.4・§0.58）。新しい仲間を見てもらうため自動スキップを止める。</summary>
         public bool SoulFusionBirthOccurred { get; set; }
 
@@ -63,6 +57,6 @@ namespace GuildManager.Core.Systems
             SevereInjuryOccurred || BossDefeated ||
             DeathOrPermanentInjuryOccurred ||
             GameCleared ||
-            DefeatOccurred || BossDoorReached;
+            DefeatOccurred;
     }
 }

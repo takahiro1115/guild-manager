@@ -18,9 +18,9 @@ namespace GuildManager.Core.Systems
     ///
     /// 毎回1Fリセット・複数週潜行型（2026年9月改訂、→ ExpeditionStatus）：
     ///  - 道中調査（Scouting）の部隊は毎回1階層から潜り、週ごとに進軍する（Advancing）。
-    ///  - 未撃破ボスの階層に着くと自動では突入せず、扉前で指令を待つ（AwaitingBossDecision、
-    ///    自動スキップも止める）。指令が無いまま週を越すと、扉前でボスの偵察（解析）を続ける。
-    ///  - プレイヤーは「挑む」（→ TryEngageBoss：次週に決戦）か「撤退」（→ TryRetreat：即時帰還）を選ぶ。
+    ///  - 未撃破ボスの階層に着いたら、その週の決算のうちに部隊の構え（→ SavedParty.Stance、方針の無い出撃は標準）で
+    ///    挑むか撤退するかを決め（→ SquadOrderSystem.JudgeEngage）、挑むならそのまま決戦する（§0.69。扉前で指令は待たない）。
+    ///  - プレイヤーができるのは呼び戻し（→ TryRecall：即時帰還）だけ。
     ///  - 帰還（撤退・勝利・全滅）で出撃は解除され、道中の拾得物をギルドへ格納する。次回はまた1階層から。
     ///    ボスの撃破状況・解析率はフィールド側に残るため、解析済みの区間は電撃的に抜けられる
     ///    （→ DungeonTraversalResolver.IntelSpeedMultiplier）。
@@ -77,19 +77,13 @@ namespace GuildManager.Core.Systems
         /// <summary>
         /// 大迷宮へ出撃させる。以下のいずれかに該当すれば何もせずfalseを返す（Try*系の共通パターン）：
         /// 同時出撃枠が埋まっている／部隊が空／ボスがGameState上に存在しない・撃破済み／
-        /// ボスの所属フィールドが未開放／出撃不可（重傷・派遣中等）のメンバーが含まれている／
-        /// ボス討伐（BossAssault）で携行アイテム（→ Party.ConsumableItemIds）の代金が足りない。
+        /// ボスの所属フィールドが未開放／出撃不可（重傷・派遣中等）のメンバーが含まれている。
         ///
         /// フィールド未開放のチェック（→ 大迷宮フィールド選択UI仕様）はCore層で行う：
         /// UI（DungeonPanel）は未開放フィールドを選択できないようにしているが、それはUI側の
         /// 制約に過ぎない。出撃の可否そのものはCore層で自己完結して判定すべきという方針
         /// （→ CanDispatch等、既存のTry*系メソッドと同じ考え方）により、
         /// ここでも独立して検査する。
-        ///
-        /// 携行アイテムの代金（2026年9月新設、→ パーティ携行アイテムポーチ）：ボス討伐のみ、
-        /// 出撃時点でpartyが携行している消耗品（→ Party.ConsumableItemIds）の合計代金を
-        /// GameState.Goldから即座に引き落とす。調査・採取（Gathering、別メソッド）は対象外
-        /// （携行品はDungeonResolverのギミック対策判定でのみ意味を持つため）。
         /// </summary>
         public bool TryDispatch(GameState state, Party party, FloorBoss boss, DungeonMissionType missionType)
         {
@@ -102,17 +96,10 @@ namespace GuildManager.Core.Systems
             if (field == null || !field.IsUnlocked || boss.IsDefeated)
                 return false;
 
-            int itemCost = missionType == DungeonMissionType.BossAssault
-                ? CalculateConsumableCost(party.ConsumableItemIds)
-                : 0;
-            if (state.Gold < itemCost)
-                return false;
-
-            state.Gold -= itemCost;
 
             // 道中調査は必ず1階層から潜り始める（→ 1Fリセットルール）。
-            // ボス討伐の直接出撃は、扉前から即座に決戦へ臨む扱い（UIはこの経路を使わず、
-            // 道中調査→扉前到達→TryEngageBossの手順を踏む）。
+            // ボス討伐の直接出撃は、扉前から即座に決戦へ臨む扱い（テスト・シミュレーター用。
+            // 方針の出撃は道中調査→扉前到達→構えで判断の手順を踏む）。
             bool directAssault = missionType == DungeonMissionType.BossAssault;
             state.ActiveDungeonMissions.Add(new ActiveDungeonMission
             {
@@ -138,10 +125,6 @@ namespace GuildManager.Core.Systems
         /// </summary>
         public static bool CanDispatch(GameState state) =>
             state.ActiveDungeonMissions.Count < state.UnlockedSquadSlots;
-
-        /// <summary>携行アイテム一覧の合計代金（→ Models.ConsumableCatalog）。UIの費用表示からも使う。</summary>
-        public static int CalculateConsumableCost(IEnumerable<string> itemIds) =>
-            itemIds.Sum(id => ConsumableCatalog.FindById(id)?.Price ?? 0);
 
         /// <summary>
         /// 大迷宮へ探索（採取）に出撃させる。特定のボスではなくフィールドそのものを対象にする点が
@@ -211,62 +194,34 @@ namespace GuildManager.Core.Systems
         /// 出撃予定を取り消す。出発前（まだ一度も週次決算を経ていない＝WeeksElapsed==0）の
         /// 出撃のみが対象で、判定は行われていないため何も失わない。潜行を始めた部隊を
         /// 呼び戻すには TryRetreat を使う。対象が存在しない・既に出発済みならfalse。
-        /// 討伐待ち（EngagingBoss）なら、引き落とした携行アイテムの代金（→ TryDispatch）を全額返金する
-        /// （判定が行われていないため何も失わない、という既存方針をゴールドにも適用する）。
         /// </summary>
         public bool TryCancel(GameState state, ActiveDungeonMission mission)
         {
             if (mission.WeeksElapsed > 0 || !state.ActiveDungeonMissions.Remove(mission))
                 return false;
 
-            if (mission.Status == ExpeditionStatus.EngagingBoss)
-                state.Gold += CalculateConsumableCost(mission.Party.ConsumableItemIds);
-
             ReleaseMembers(mission.Party);
             return true;
         }
 
         /// <summary>
-        /// 扉前で判断待ち（AwaitingBossDecision）の部隊に、ボス討伐を指令する（→ 【⚔️ ボス討伐に挑む】）。
-        /// 指定した携行ポーチのアイテム（→ Party.ConsumableItemIds）を積み込み、その代金を即座に引き落とし、
-        /// 状態を EngagingBoss にする。決戦判定（→ DungeonResolver）は次週の決算で行う。
-        /// 判断待ちでない・ボスが既に撃破済み・代金が足りない場合は何もせずfalse。
+        /// 出撃中の部隊を呼び戻す（§0.69、→ 大迷宮画面の【呼び戻す】・方針の解除や変更）。出発前の出撃は取り消し
+        /// （→ TryCancel。何も失わない）、潜行中は即時撤退（→ TryRetreat。道中の拾得物は持ち帰る）。
+        /// 呼び戻せたら true。出発済みの調査・採取（1週で必ず帰る）・決戦中は呼び戻せない。
         /// </summary>
-        public bool TryEngageBoss(GameState state, ActiveDungeonMission mission, IEnumerable<string> pouchItemIds)
-        {
-            if (!state.ActiveDungeonMissions.Contains(mission) ||
-                mission.Status != ExpeditionStatus.AwaitingBossDecision ||
-                mission.TargetedBoss == null || mission.TargetedBoss.IsDefeated)
-                return false;
-
-            var previousItems = new List<string>(mission.Party.ConsumableItemIds);
-            mission.Party.ConsumableItemIds.Clear();
-            foreach (var itemId in pouchItemIds)
-                mission.Party.TryAddConsumable(itemId);
-
-            int itemCost = CalculateConsumableCost(mission.Party.ConsumableItemIds);
-            if (state.Gold < itemCost)
-            {
-                mission.Party.ConsumableItemIds = previousItems;
-                return false;
-            }
-
-            state.Gold -= itemCost;
-            mission.Status = ExpeditionStatus.EngagingBoss;
-            return true;
-        }
+        public bool TryRecall(GameState state, ActiveDungeonMission mission) =>
+            TryCancel(state, mission) || TryRetreat(state, mission) != null;
 
         /// <summary>
-        /// 潜行中の部隊を即時撤退・帰還させる（→ 【🏃 撤退・帰還する】）。討伐は行わず、道中で拾い集めた
+        /// 潜行中の部隊を即時撤退・帰還させる（→ TryRecall）。討伐は行わず、道中で拾い集めた
         /// 素材・ゴールドをギルドへ格納し、部隊全員を待機中へ戻す（出撃は解除され、次回は1階層から）。
-        /// 対象は出発済みで進軍中（Advancing）または判断待ち（AwaitingBossDecision）の出撃のみ。
+        /// 対象は出発済みで進軍中（Advancing）の潜行のみ。
         /// 帰還の内訳（→ DungeonMissionResolution.DepositedGold等）を返す。撤退できなければnull。
         /// </summary>
         public DungeonMissionResolution? TryRetreat(GameState state, ActiveDungeonMission mission)
         {
             bool retreatable = mission.MissionType == DungeonMissionType.Scouting &&
-                (mission.Status == ExpeditionStatus.AwaitingBossDecision ||
-                 (mission.Status == ExpeditionStatus.Advancing && mission.WeeksElapsed > 0));
+                mission.Status == ExpeditionStatus.Advancing && mission.WeeksElapsed > 0;
             if (!retreatable || !state.ActiveDungeonMissions.Contains(mission))
                 return null;
 
@@ -304,6 +259,16 @@ namespace GuildManager.Core.Systems
                     resolution.StatusAfter = mission.Status;
                     resolution.CurrentFloor = mission.CurrentFloor;
                     resolutions.Add(resolution);
+
+                    // 扉前に着いて挑むと決めた部隊は、同じ週のうちに決戦する（§0.69）。
+                    if (resolution.ArrivedAtBossDoor && mission.Status == ExpeditionStatus.EngagingBoss
+                        && state.ActiveDungeonMissions.Contains(mission))
+                    {
+                        var fight = EngageBoss(state, mission);
+                        fight.StatusAfter = mission.Status;
+                        fight.CurrentFloor = mission.CurrentFloor;
+                        resolutions.Add(fight);
+                    }
                 }
                 catch
                 {
@@ -379,15 +344,14 @@ namespace GuildManager.Core.Systems
             return mission.Status switch
             {
                 ExpeditionStatus.Advancing => Advance(state, mission),
-                ExpeditionStatus.AwaitingBossDecision => WaitAtBossDoor(state, mission),
-                ExpeditionStatus.EngagingBoss => EngageBoss(state, mission),
+                ExpeditionStatus.EngagingBoss => EngageBoss(state, mission), // ボス討伐の直接出撃（TryDispatch(…, BossAssault)）
                 _ => ReturnHomeWithoutAction(state, mission), // Retreating
             };
         }
 
         /// <summary>
         /// 道中進軍（Advancing）。現在階層から次の未撃破ボスへ向けて進み（→ DungeonTraversalResolver）、
-        /// 拾得物を部隊に持たせる。ボス階層に着いたら進軍を止めて判断待ちにする（自動では突入しない）。
+        /// 拾得物を部隊に持たせる。ボス階層に着いたら進軍を止め、構えで挑むか撤退するかを決める（§0.69）。
         /// 未撃破ボスが1体も残っていないフィールドを最深部まで踏破した場合は、そのまま帰還する。
         /// </summary>
         private DungeonMissionResolution Advance(GameState state, ActiveDungeonMission mission)
@@ -436,9 +400,22 @@ namespace GuildManager.Core.Systems
 
             if (traversal.StopperTriggered && traversal.TargetBoss != null)
             {
-                mission.Status = ExpeditionStatus.AwaitingBossDecision;
+                // 扉前に着いた：部隊の構え（方針の無い出撃は標準）で、挑むか撤退するかをこの週のうちに決める（§0.69）。
+                // 挑むなら EngagingBoss にして、ProcessWeeklyMissions が同じ週のうちに決戦を解決する。
                 mission.TargetedBoss = traversal.TargetBoss;
                 resolution.ArrivedAtBossDoor = true;
+                var stance = SquadOrderSystem.FindOrderedParty(state, mission)?.Stance ?? DoorStance.Standard;
+                var (go, reason) = SquadOrderSystem.JudgeEngage(state, mission, stance);
+                if (go)
+                {
+                    mission.Status = ExpeditionStatus.EngagingBoss;
+                }
+                else
+                {
+                    resolution.DoorRetreatReason = reason;
+                    mission.Status = ExpeditionStatus.Retreating;
+                    ReturnHome(state, mission, resolution);
+                }
             }
             else if (stopper == null && mission.CurrentFloor >= DungeonField.MaxFloor)
             {
@@ -446,29 +423,6 @@ namespace GuildManager.Core.Systems
             }
 
             return resolution;
-        }
-
-        /// <summary>
-        /// 扉前で判断待ちのまま週を越した部隊（AwaitingBossDecision）。突入の指令を待つ間、
-        /// 扉の向こうのボスを偵察して解析率を上げる（→ ScoutingResolver。完全解析済みなら何もしない）。
-        /// 待機中に他の部隊がそのボスを倒していた場合は、判断待ちを解いて先へ進軍する。
-        /// </summary>
-        private DungeonMissionResolution? WaitAtBossDoor(GameState state, ActiveDungeonMission mission)
-        {
-            var boss = mission.TargetedBoss;
-            if (boss == null || boss.IsDefeated)
-            {
-                mission.Status = ExpeditionStatus.Advancing;
-                mission.TargetedBoss = null;
-                return Advance(state, mission);
-            }
-
-            if (ScoutingResolver.GetTier(boss.IntelRate) == IntelTier.Complete)
-                return null;
-
-            double intelBefore = boss.IntelRate;
-            var scouting = _scoutingResolver.Resolve(mission.Party, boss, state);
-            return new DungeonMissionResolution(mission.Party, boss, mission.Field, intelBefore, scouting);
         }
 
         /// <summary>
@@ -500,17 +454,13 @@ namespace GuildManager.Core.Systems
         /// <summary>
         /// ボス討伐（EngagingBoss）の決戦判定。勝敗にかかわらず決着後は帰還する
         /// （勝利・撤退・全滅のいずれも出撃は解除され、次回は1階層から）。
-        /// 討伐に向かったボスが既に他部隊に倒されていた場合は、判定を行わずに帰還し、
-        /// 使われなかった携行アイテムの代金を返金する。
+        /// 討伐に向かったボスが既に他部隊に倒されていた場合は、判定を行わずに帰還する。
         /// </summary>
         private DungeonMissionResolution EngageBoss(GameState state, ActiveDungeonMission mission)
         {
             var boss = mission.TargetedBoss ?? mission.Boss;
             if (boss == null || boss.IsDefeated)
-            {
-                state.Gold += CalculateConsumableCost(mission.Party.ConsumableItemIds);
                 return ReturnHomeWithoutAction(state, mission);
-            }
 
             double intelBefore = boss.IntelRate;
             var assault = _dungeonResolver.Resolve(mission.Party, boss, state);

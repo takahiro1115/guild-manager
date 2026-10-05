@@ -76,7 +76,7 @@ namespace GuildManager.Core.Tests
 
         private static BossGimmick Uncounterable(BossGimmickType type, int danger = 2) => new()
         {
-            Type = type, DangerLevel = danger, RequiredCounterRole = JobClass.Cleric,
+            Type = type, DangerLevel = danger, CounterRoles = { JobClass.Cleric },
         };
 
         // ==================== 定義 ====================

@@ -363,7 +363,6 @@ namespace GuildManager.Core.Models
                     BossId = mission.Boss?.Id,
                     MissionType = mission.MissionType.ToString(),
                     PartyMemberIds = mission.Party.Members.Select(m => m.Id).ToList(),
-                    ConsumableItemIds = new List<string>(mission.Party.ConsumableItemIds),
                     Status = mission.Status.ToString(),
                     CurrentFloor = mission.CurrentFloor,
                     TargetedBossId = mission.TargetedBoss?.Id,
@@ -523,8 +522,6 @@ namespace GuildManager.Core.Models
                         throw new FormatException($"セーブデータが破損しています：大迷宮出撃中のメンバーId {memberId} が見つかりません。");
                     party.TryAdd(member);
                 }
-                party.ConsumableItemIds = new List<string>(record.ConsumableItemIds);
-
                 var missionType = ParseEnum<DungeonMissionType>(record.MissionType, nameof(DungeonMissionType));
 
                 // 複数週潜行の状態（→ ActiveDungeonMission.Status等）。項目の無い旧セーブは、

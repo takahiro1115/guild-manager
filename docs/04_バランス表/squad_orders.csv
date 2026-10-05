@@ -1,4 +1,14 @@
 key,value,unit,note
-AutoDispatchMinHpPercent,70,%,方針で自動出撃する条件：部隊の全員のHPがこの割合以上（満たさなければその週は静養して待つ。重傷者がいても待つ。→ 03 §4.0.3・§0.63）
-AutoEngageMinHpPercent,60,%,潜行の方針で「扉前で見込みがあれば挑む」とき：全員のHPがこの割合以上でないと撤退する
-AutoEngagePowerMargin,1.0,倍,同：討伐火力が要求火力のこの倍率以上なら挑む（1.0＝大迷宮画面の見立てで「撃破見込み」）。ギミックはすべて対策できること（携行品は自動で買う）
+AutoDispatchMinHpPercent,70,%,方針で自動出撃する条件：部隊の全員のHPがこの割合以上（満たさなければその週は静養して待つ。重傷者・毒状態の者がいても待つ。→ 03 §4.0.3・§0.63・§0.68）
+CautiousPowerMargin,1.2,倍,扉前の構え「慎重」：討伐火力（ギミック込み）が要求火力（ギミック込み）のこの倍率以上なら挑む（§0.68）
+CautiousMinHpPercent,80,%,構え「慎重」：全員のHPがこの割合以上でないと撤退する
+CautiousMinReadiness,1.0,備え,構え「慎重」：すべてのギミックの備えがこの値以上（1.0＝すべて万全）
+CautiousMinInstantKillReadiness,1.0,備え,構え「慎重」：即死級の備えがこの値以上
+StandardPowerMargin,1.0,倍,扉前の構え「標準」：討伐火力が要求火力のこの倍率以上なら挑む（1.0＝大迷宮画面の見立てで「撃破見込み」）
+StandardMinHpPercent,60,%,構え「標準」：全員のHPがこの割合以上
+StandardMinReadiness,0,備え,構え「標準」：すべてのギミックの備えがこの値以上（0＝問わない）
+StandardMinInstantKillReadiness,0.5,備え,構え「標準」：即死級の備えがこの値以上（半分＝戦死しない）
+BoldPowerMargin,0.9,倍,扉前の構え「強気」：討伐火力が要求火力のこの倍率以上なら挑む
+BoldMinHpPercent,40,%,構え「強気」：全員のHPがこの割合以上
+BoldMinReadiness,0,備え,構え「強気」：すべてのギミックの備えがこの値以上（問わない）
+BoldMinInstantKillReadiness,0,備え,構え「強気」：即死級の備えがこの値以上（問わない）

@@ -49,11 +49,11 @@ namespace GuildManager.Core.Tests
             return party;
         }
 
-        /// <summary>即死級（護符でしか対策できない）を持つボス。無対策で突撃すると全員が強制除籍になる。</summary>
+        /// <summary>即死級（対策口が無く、備えは常に0）を持つボス。突撃すると全員が強制除籍になる。</summary>
         private static FloorBoss MakeDeadlyBoss() => new()
         {
             Name = "試験用の番人", Floor = 1, MaxHp = 500, CurrentHp = 500,
-            Gimmicks = { new BossGimmick { Type = BossGimmickType.InstantKill, RequiredItemId = ConsumableCatalog.CharmId, DangerLevel = 5 } },
+            Gimmicks = { new BossGimmick { Type = BossGimmickType.InstantKill, DangerLevel = 5 } },
         };
 
         /// <summary>単体テスト用の使い捨てフィールド（→ DungeonField）に、指定した1体だけを収める。</summary>
@@ -124,11 +124,9 @@ namespace GuildManager.Core.Tests
             var state = new GameState { DungeonFields = { forest, cave }, UnlockedSquadSlots = 2 };
             var system = BuildSystem();
 
-            // ①調査派遣：洞窟を指定 → 1週目で洞窟1Fボスの扉前に着き、2週目に扉前で偵察して
-            // 洞窟のIntelRateだけが上がる。森は無傷。偵察後は撤退させて枠を空ける。
+            // ①迷宮調査：洞窟を指定 → 洞窟のIntelRateだけが上がり、1週で帰還する。森は無傷。
             var scoutParty = PartyOf(MakeAdventurer(JobClass.Ranger, 40), MakeAdventurer(JobClass.Scholar, 40));
-            Assert.True(system.TryDispatch(state, scoutParty, caveBoss, DungeonMissionType.Scouting));
-            Assert.True(Assert.Single(system.ProcessWeeklyMissions(state)).ArrivedAtBossDoor);
+            Assert.True(system.TryDispatchSurvey(state, scoutParty, caveBoss));
             var scoutResolution = Assert.Single(system.ProcessWeeklyMissions(state));
 
             Assert.Same(caveBoss, scoutResolution.Boss);
@@ -136,7 +134,7 @@ namespace GuildManager.Core.Tests
             Assert.True(caveBoss.IntelRate > 0.0);
             Assert.Equal(0.0, forestBoss.IntelRate);
             Assert.Equal(1, forest.ReachedFloor); // 森は一切進行していない
-            Assert.NotNull(system.TryRetreat(state, state.ActiveDungeonMissions[0]));
+            Assert.Empty(state.ActiveDungeonMissions);
 
             // ②討伐派遣：洞窟を指定 → 洞窟のボスだけが撃破され、ReachedFloorも洞窟だけが進む。森は無傷。
             var assaultParty = PartyOf(MakeAdventurer(JobClass.Warrior, 300), MakeAdventurer(JobClass.Knight, 300));
@@ -218,31 +216,25 @@ namespace GuildManager.Core.Tests
         // ---------------- 週次解決 ----------------
 
         [Fact]
-        public void ProcessWeeklyMissions_Scouting_RaisesIntel_AndBringsEveryoneHome()
+        public void ProcessWeeklyMissions_Scouting_DecidesAtDoorTheSameWeek_AndRetreatsWhenTooWeak()
         {
-            // 1Fボスなので1週目は出発直後に扉前へ到着し、2週目に扉前で偵察する。撤退で全員帰還する。
+            // 1Fボスなので1週目は出発直後に扉前へ着き、その週のうちに構え（方針の無い出撃は標準）で判断する（§0.69）。
+            // 2名×全能力40の火力（336）は1Fの要求（約351）に届かないので撤退し、全員帰還する。扉前で待つことは無い。
             var (state, a, b, boss) = MakeState();
             var system = BuildSystem();
             system.TryDispatch(state, PartyOf(a, b), boss, DungeonMissionType.Scouting);
-            Assert.True(Assert.Single(system.ProcessWeeklyMissions(state)).ArrivedAtBossDoor);
 
-            var resolutions = system.ProcessWeeklyMissions(state);
+            var resolution = Assert.Single(system.ProcessWeeklyMissions(state));
 
-            var resolution = Assert.Single(resolutions);
             Assert.Equal(DungeonMissionType.Scouting, resolution.MissionType);
-            Assert.NotNull(resolution.ScoutingResult);
+            Assert.True(resolution.ArrivedAtBossDoor);
+            Assert.Contains("火力", resolution.DoorRetreatReason);
             Assert.Null(resolution.DungeonResult);
-            Assert.Equal(0.0, resolution.IntelRateBefore);
-            Assert.True(boss.IntelRate > 0.0);
-            Assert.Equal(boss.IntelRate, resolution.ScoutingResult!.IntelRateAfter);
-            Assert.Equal(ExpeditionStatus.AwaitingBossDecision, resolution.StatusAfter);
-            Assert.Equal(0, state.TotalDispatchCount); // 帰還するまでは数えない
-
-            Assert.NotNull(system.TryRetreat(state, state.ActiveDungeonMissions[0]));
+            Assert.True(resolution.ReturnedHome);
+            Assert.False(boss.IsDefeated);
             Assert.Empty(state.ActiveDungeonMissions);
             Assert.False(a.IsDispatched);
             Assert.False(b.IsDispatched);
-            Assert.Equal(2, state.Adventurers.Count);
             Assert.Equal(1, state.TotalDispatchCount);
         }
 
@@ -299,10 +291,10 @@ namespace GuildManager.Core.Tests
             var system = BuildSystem();
             system.TryDispatch(state, party, boss5F, DungeonMissionType.Scouting);
 
-            var resolution = Assert.Single(system.ProcessWeeklyMissions(state));
+            var resolution = system.ProcessWeeklyMissions(state)[0]; // 扉前に着いたら、強い部隊はその週のうちに決戦する（§0.69）
 
             Assert.Equal(5, resolution.TraversalResult!.FloorAfter);
-            Assert.Equal(5, field.ReachedFloor);
+            Assert.Equal(boss5F.IsDefeated ? 6 : 5, field.ReachedFloor); // 同じ週に撃破すれば記録は1つ先へ
             Assert.True(resolution.TraversalResult.StopperTriggered);
             Assert.Same(boss5F, resolution.TraversalResult.TargetBoss);
         }
@@ -318,40 +310,15 @@ namespace GuildManager.Core.Tests
             var system = BuildSystem();
             system.TryDispatch(state, party, boss10F, DungeonMissionType.Scouting);
 
-            var resolution = Assert.Single(system.ProcessWeeklyMissions(state));
+            var resolution = system.ProcessWeeklyMissions(state)[0]; // 10Fに着いたら、その週のうちに決戦が続くことがある（§0.69）
 
             Assert.NotNull(resolution.TraversalResult);
             Assert.Equal(1, resolution.TraversalResult!.FloorBefore);
             Assert.True(resolution.TraversalResult.FloorAfter > 5, "5Fで止まらず、その先へ進めるはず");
             Assert.True(resolution.TraversalResult.FloorAfter <= 10); // 10Fボスでストッパーがかかる可能性はある
-            Assert.Equal(Math.Max(6, resolution.TraversalResult.FloorAfter), field.ReachedFloor);
+            Assert.Equal(boss10F.IsDefeated ? 11 : Math.Max(6, resolution.TraversalResult.FloorAfter), field.ReachedFloor);
         }
 
-        [Fact]
-        public void DungeonScouting_AtBossFloor_PerformsIntelAnalysis()
-        {
-            // 扉前で判断待ちのまま週を越した部隊は、道中進軍ではなく既存のボス解析
-            // （ScoutingResolver）を行い、IntelRateが上昇すること。到達階層・現在階層は動かない。
-            var (state, field, boss) = MakeTraversalState(reachedFloor: 10, nextBossFloor: 10);
-            var party = PartyOf(MakeAdventurer(JobClass.Ranger, 40), MakeAdventurer(JobClass.Scholar, 40));
-            var system = BuildSystem();
-            system.TryDispatch(state, party, boss, DungeonMissionType.Scouting);
-            var mission = state.ActiveDungeonMissions[0];
-            mission.Status = ExpeditionStatus.AwaitingBossDecision;
-            mission.CurrentFloor = 10;
-            mission.TargetedBoss = boss;
-            mission.WeeksElapsed = 3;
-
-            var resolution = Assert.Single(system.ProcessWeeklyMissions(state));
-
-            Assert.NotNull(resolution.ScoutingResult);
-            Assert.Null(resolution.TraversalResult);
-            Assert.Null(resolution.DungeonResult);
-            Assert.True(boss.IntelRate > 0.0);
-            Assert.Equal(10, field.ReachedFloor);
-            Assert.Equal(10, mission.CurrentFloor);
-            Assert.Equal(ExpeditionStatus.AwaitingBossDecision, mission.Status);
-        }
 
         // ---------------- 部隊の結束：任務達成で生還者同士の相性が上がる（2026年9月再配線） ----------------
 
@@ -599,14 +566,14 @@ namespace GuildManager.Core.Tests
         }
 
         /// <summary>
-        /// 道中進軍→扉前到達→撤退、扉前偵察→撤退、ボス討伐の3種を、出撃から帰還まで進める
-        /// （→ 毎回1Fリセット・複数週潜行型）。調査出撃は扉前に着くまで週を進め、
-        /// scoutAtDoor なら扉前でさらに1週偵察させてから撤退する。討伐は1週で決着して帰還する。
+        /// 道中進軍→扉前到達→その週のうちに決戦、ボス討伐の直接出撃を、出撃から帰還まで進める
+        /// （→ 毎回1Fリセット・複数週潜行型、§0.69）。調査出撃は帰還するまで週を進める。
+        /// unanalyzed なら解析0%のボス（完全解析の上乗せが無い）。
         /// </summary>
         private static (GameState State, Adventurer A, Adventurer B, DungeonExpeditionSystem System, FloorBoss Boss)
-            DispatchAndResolve(DungeonMissionType missionType, int reachedFloor, bool scoutAtDoor = false)
+            DispatchAndResolve(DungeonMissionType missionType, int reachedFloor, bool unanalyzed = false)
         {
-            var boss = new FloorBoss { Name = "第5階層の主", Floor = 5, MaxHp = 999_999, CurrentHp = 999_999, IntelRate = scoutAtDoor ? 0.0 : 1.0 };
+            var boss = new FloorBoss { Name = "第5階層の主", Floor = 5, MaxHp = 999_999, CurrentHp = 999_999, IntelRate = unanalyzed ? 0.0 : 1.0 };
             var field = new DungeonField
             {
                 Id = "test", Name = "テスト用フィールド", Order = 1, IsUnlocked = true, ReachedFloor = reachedFloor,
@@ -628,23 +595,19 @@ namespace GuildManager.Core.Tests
             }
 
             var mission = state.ActiveDungeonMissions[0];
-            for (int week = 0; week < 10 && mission.Status == ExpeditionStatus.Advancing; week++)
+            for (int week = 0; week < 10 && state.ActiveDungeonMissions.Contains(mission); week++)
                 system.ProcessWeeklyMissions(state);
-            Assert.Equal(ExpeditionStatus.AwaitingBossDecision, mission.Status);
-            if (scoutAtDoor)
-                Assert.NotNull(Assert.Single(system.ProcessWeeklyMissions(state)).ScoutingResult);
-
-            Assert.True(system.TryRetreat(state, mission)!.ReturnedHome);
+            Assert.DoesNotContain(mission, state.ActiveDungeonMissions);
             return (state, a, b, system, boss);
         }
 
         [Theory]
-        [InlineData(DungeonMissionType.Scouting, 5, true)]     // 扉前でボス解析→撤退
-        [InlineData(DungeonMissionType.Scouting, 1, false)]    // 道中進軍→扉前到達→撤退
+        [InlineData(DungeonMissionType.Scouting, 5, true)]     // 解析0%のボス：扉前→その週に決戦
+        [InlineData(DungeonMissionType.Scouting, 1, false)]    // 道中進軍→扉前到達→その週に決戦
         [InlineData(DungeonMissionType.BossAssault, 5, false)] // ボス討伐
-        public void Expedition_Resolve_RestoresAdventurerStateToIdle(DungeonMissionType missionType, int reachedFloor, bool scoutAtDoor)
+        public void Expedition_Resolve_RestoresAdventurerStateToIdle(DungeonMissionType missionType, int reachedFloor, bool unanalyzed)
         {
-            var (state, a, b, _, _) = DispatchAndResolve(missionType, reachedFloor, scoutAtDoor);
+            var (state, a, b, _, _) = DispatchAndResolve(missionType, reachedFloor, unanalyzed);
 
             // 生還者（＝ロースターに残っている者）は全員が待機中へ戻り、出撃可能になっている。
             foreach (var member in new[] { a, b }.Where(m => state.Adventurers.Contains(m)))
@@ -661,9 +624,9 @@ namespace GuildManager.Core.Tests
         [InlineData(DungeonMissionType.Scouting, 5, true)]
         [InlineData(DungeonMissionType.Scouting, 1, false)]
         [InlineData(DungeonMissionType.BossAssault, 5, false)]
-        public void Expedition_Resolve_FreesSquadSlot(DungeonMissionType missionType, int reachedFloor, bool scoutAtDoor)
+        public void Expedition_Resolve_FreesSquadSlot(DungeonMissionType missionType, int reachedFloor, bool unanalyzed)
         {
-            var (state, a, b, system, _) = DispatchAndResolve(missionType, reachedFloor, scoutAtDoor);
+            var (state, a, b, system, _) = DispatchAndResolve(missionType, reachedFloor, unanalyzed);
 
             // 解決済みの出撃はリストから消え、使用中の枠は0に戻る。
             Assert.Empty(state.ActiveDungeonMissions);
@@ -728,7 +691,7 @@ namespace GuildManager.Core.Tests
             var system = BuildSystem();
 
             Assert.True(system.TryDispatch(state, party, boss10F, DungeonMissionType.Scouting));
-            var resolution = Assert.Single(system.ProcessWeeklyMissions(state));
+            var resolution = system.ProcessWeeklyMissions(state)[0];
 
             Assert.NotNull(resolution.TraversalResult);
             Assert.True(field.ReachedFloor > 5, "完全解析済みでも道中進軍で深度は前進するはず");
@@ -803,89 +766,6 @@ namespace GuildManager.Core.Tests
             Assert.False(a.IsDispatched);
         }
 
-        // ---------------- パーティ携行アイテムポーチ（2026年9月新設） ----------------
-
-        [Fact]
-        public void AssaultDispatch_DeductsGold_ForCarriedItems()
-        {
-            var (state, a, b, boss) = MakeState();
-            state.Gold = 1000;
-            var party = PartyOf(a, b);
-            party.TryAddConsumable(ConsumableCatalog.AntidoteId);
-            party.TryAddConsumable(ConsumableCatalog.CharmId);
-            int expectedCost = ConsumableCatalog.Antidote.Price + ConsumableCatalog.Charm.Price;
-
-            Assert.True(BuildSystem().TryDispatch(state, party, boss, DungeonMissionType.BossAssault));
-
-            Assert.Equal(1000 - expectedCost, state.Gold);
-        }
-
-        [Fact]
-        public void AssaultCancel_RefundsGold_ForCarriedItems()
-        {
-            var (state, a, b, boss) = MakeState();
-            state.Gold = 1000;
-            var party = PartyOf(a, b);
-            party.TryAddConsumable(ConsumableCatalog.AntidoteId);
-            party.TryAddConsumable(ConsumableCatalog.CharmId);
-            int expectedCost = ConsumableCatalog.Antidote.Price + ConsumableCatalog.Charm.Price;
-            var system = BuildSystem();
-            Assert.True(system.TryDispatch(state, party, boss, DungeonMissionType.BossAssault));
-            Assert.Equal(1000 - expectedCost, state.Gold);
-
-            var mission = Assert.Single(state.ActiveDungeonMissions);
-            Assert.True(system.TryCancel(state, mission));
-
-            Assert.Equal(1000, state.Gold);
-        }
-
-        [Fact]
-        public void AssaultDispatch_Fails_WhenInsufficientGoldForItems()
-        {
-            var (state, a, b, boss) = MakeState();
-            state.Gold = ConsumableCatalog.Charm.Price - 1;
-            var party = PartyOf(a, b);
-            party.TryAddConsumable(ConsumableCatalog.CharmId);
-
-            Assert.False(BuildSystem().TryDispatch(state, party, boss, DungeonMissionType.BossAssault));
-
-            Assert.Empty(state.ActiveDungeonMissions);
-            Assert.Equal(ConsumableCatalog.Charm.Price - 1, state.Gold); // 失敗時は減算されない
-            Assert.False(a.IsDispatched);
-        }
-
-        [Fact]
-        public void GimmickMitigation_Satisfied_ByCarriedItem()
-        {
-            // 対策職・対策ステータスのどちらも足りない部隊でも、対応する携行アイテムがあれば
-            // ギミック対策が成立し、未対策ペナルティ（大ダメージ・即死）を回避できる
-            // （→ DungeonResolver.IsCountered、OR条件の3つ目の対策口）。
-            var boss = new FloorBoss
-            {
-                Name = "重装甲の番人", Floor = 1, MaxHp = 1, CurrentHp = 1,
-                Gimmicks = { new BossGimmick
-                {
-                    Type = BossGimmickType.HeavyArmor, DangerLevel = 5,
-                    RequiredCounterRole = JobClass.Mage, RequiredCounterStat = "STR", RequiredCounterStatThreshold = 9999,
-                    RequiredItemId = ConsumableCatalog.AcidFlaskId,
-                }},
-            };
-            var field = new DungeonField { Id = "f1", Name = "テスト用フィールド", Order = 1, IsUnlocked = true, Bosses = { boss } };
-            // Warrior1名：Mageでもなく、STR合算は要求値(9999)に遠く届かない（職業・ステータス双方の対策口が不成立）。
-            var weakling = MakeAdventurer(JobClass.Warrior, 10);
-            var state = new GameState { Adventurers = { weakling }, DungeonFields = { field }, Gold = 1000 };
-            var party = PartyOf(weakling);
-            party.TryAddConsumable(ConsumableCatalog.AcidFlaskId);
-            var system = BuildSystem();
-
-            Assert.True(system.TryDispatch(state, party, boss, DungeonMissionType.BossAssault));
-            var resolution = Assert.Single(system.ProcessWeeklyMissions(state));
-
-            Assert.Contains(BossGimmickType.HeavyArmor, resolution.DungeonResult!.CounteredGimmicks);
-            Assert.Empty(resolution.DungeonResult.UncounteredGimmicks);
-            Assert.Equal(1.0, resolution.DungeonResult.DamageMultiplier); // 全対策済みなので倍率は据え置き
-        }
-
         [Fact]
         public void WeekProcessingSystem_ResolvesDungeonMissions_AndStopsAutoSkipOnForcedRetirement()
         {
@@ -948,8 +828,9 @@ namespace GuildManager.Core.Tests
         /// </summary>
         private const int SlowDiverStat = 3;
 
+
         [Fact]
-        public void Expedition_StopsAtBossFloor_AndSetsAwaitingDecision()
+        public void Expedition_ArrivesAtBossFloor_AndRetreatsTheSameWeek_WhenTooWeak()
         {
             var (state, field, boss, a, b) = MakeDeepDiveState(bossFloor: 6, stat: SlowDiverStat);
             var system = BuildSystem();
@@ -962,78 +843,127 @@ namespace GuildManager.Core.Tests
             Assert.Equal(ExpeditionStatus.Advancing, mission.Status);
             Assert.Equal(5, mission.CurrentFloor);
 
-            // 2週目：5F→6F（未撃破ボス階層でストップし、判断待ちになる）。
+            // 2週目：5F→6F。扉前に着き、その週のうちに構え（標準）で判断する。火力が足りないので撤退して帰還（§0.69）。
+            int goldBefore = state.Gold;
             var week2 = Assert.Single(system.ProcessWeeklyMissions(state));
             Assert.True(week2.ArrivedAtBossDoor);
-            Assert.Equal(ExpeditionStatus.AwaitingBossDecision, mission.Status);
-            Assert.Equal(ExpeditionStatus.AwaitingBossDecision, week2.StatusAfter);
-            Assert.Equal(6, mission.CurrentFloor);
+            Assert.Contains("火力", week2.DoorRetreatReason);
+            Assert.True(week2.ReturnedHome);
+            Assert.Null(week2.DungeonResult);
             Assert.Same(boss, mission.TargetedBoss);
-            Assert.Null(week2.DungeonResult); // 自動では突入しない
             Assert.False(boss.IsDefeated);
-            Assert.True(a.IsDispatched);      // 部隊は扉前に留まったまま
-
-            // 指令が無いまま週を越しても突入はせず、扉前で偵察を続ける。
-            var week3 = Assert.Single(system.ProcessWeeklyMissions(state));
-            Assert.Null(week3.DungeonResult);
-            Assert.NotNull(week3.ScoutingResult);
-            Assert.Equal(6, mission.CurrentFloor);
-            Assert.Equal(ExpeditionStatus.AwaitingBossDecision, mission.Status);
+            Assert.Empty(state.ActiveDungeonMissions);
+            Assert.False(a.IsDispatched);
+            Assert.Equal(goldBefore + week2.DepositedGold, state.Gold); // 道中の拾得物は持ち帰る
+            Assert.Equal(6, field.ReachedFloor);
         }
 
         [Fact]
-        public void Expedition_AutoSkip_StopsWhenAwaitingBossDecision()
+        public void Expedition_ArrivesAtBossFloor_AndFightsTheSameWeek()
+        {
+            var (state, field, boss, a, b) = MakeDeepDiveState(bossFloor: 5, bossHp: 1);
+            var system = BuildSystem();
+            Assert.True(system.TryDispatch(state, PartyOf(a, b), boss, DungeonMissionType.Scouting));
+            int goldBefore = state.Gold;
+
+            // 1週目のうちに扉前へ着き、構え（標準）の条件を満たすので、同じ週の決算で決戦する（§0.69）。
+            var results = system.ProcessWeeklyMissions(state);
+
+            Assert.Equal(2, results.Count);
+            Assert.True(results[0].ArrivedAtBossDoor);
+            Assert.Null(results[0].DoorRetreatReason);
+            Assert.False(results[0].ReturnedHome);
+            int carriedGold = results[0].TraversalResult!.LootGold;
+            var fight = results[1];
+            Assert.NotNull(fight.DungeonResult);
+            Assert.Equal(DungeonOutcome.Victory, fight.DungeonResult!.Outcome);
+            Assert.True(boss.IsDefeated);
+            Assert.True(fight.ReturnedHome);
+            Assert.Empty(state.ActiveDungeonMissions);
+            Assert.False(a.IsDispatched);
+            Assert.Equal(carriedGold, fight.DepositedGold);
+            Assert.Equal(goldBefore + carriedGold + boss.RewardGold, state.Gold);
+            Assert.Equal(6, field.ReachedFloor); // 撃破で記録が更新される
+        }
+
+        [Fact]
+        public void Expedition_OrderedParty_UsesItsStance()
+        {
+            // 慎重は火力に1.2倍の余裕が要る：ぎりぎり勝てる部隊でも、慎重なら撤退する。
+            var (state, _, boss, a, b) = MakeDeepDiveState(bossFloor: 5, bossHp: 1);
+            var saved = new SavedParty { Name = "第一部隊", MemberIds = { a.Id, b.Id }, Order = SquadOrder.Dive, OrderFieldId = "forest", Stance = DoorStance.Cautious };
+            state.SavedParties.Add(saved);
+            var system = BuildSystem();
+            var party = PartyOf(a, b);
+            double ratio = 1.1 * DungeonResolver.RequiredPower(boss, state, party) / DungeonResolver.CalculateBossPower(party, boss);
+            foreach (var m in new[] { a, b })
+            {
+                m.STR = (int)(m.STR * ratio); m.AGI = (int)(m.AGI * ratio); m.VIT = (int)(m.VIT * ratio); m.MND = (int)(m.MND * ratio);
+                m.DEX = (int)(m.DEX * ratio); m.LDR = (int)(m.LDR * ratio); m.INT = (int)(m.INT * ratio);
+                m.CurrentHP = m.MaxHP;
+            }
+            Assert.True(system.TryDispatch(state, party, boss, DungeonMissionType.Scouting));
+            state.ActiveDungeonMissions[0].SavedPartyId = saved.Id;
+            for (int week = 0; week < 10 && state.ActiveDungeonMissions.Count > 0; week++)
+            {
+                var results = system.ProcessWeeklyMissions(state);
+                if (results.Any(r => r.ArrivedAtBossDoor))
+                {
+                    Assert.Contains("火力", Assert.Single(results).DoorRetreatReason);
+                    break;
+                }
+            }
+            Assert.False(boss.IsDefeated);
+        }
+
+        [Fact]
+        public void Expedition_AutoSkip_DoesNotStopAtBossDoor()
         {
             var (state, _, boss, a, b) = MakeDeepDiveState(bossFloor: 6, stat: SlowDiverStat);
             var expedition = BuildSystem();
             Assert.True(expedition.TryDispatch(state, PartyOf(a, b), boss, DungeonMissionType.Scouting));
 
-            var results = new AutoSkipService(BuildWeekSystem(expedition)).AutoSkip(state, maxWeeks: 50);
+            var results = new AutoSkipService(BuildWeekSystem(expedition)).AutoSkip(state, maxWeeks: 2);
 
-            // 1週目（1F→5F）では止まらず、2週目（5F→6F、扉前到達）で止まる。
+            // 2週目に扉前へ着いても止まらない（§0.69：扉前の判断はその週のうちに済む）。
             Assert.Equal(2, results.Count);
             Assert.False(results[0].ShouldStopAutoSkip);
-            Assert.True(results[1].BossDoorReached);
-            Assert.True(results[1].ShouldStopAutoSkip);
-            Assert.Equal(ExpeditionStatus.AwaitingBossDecision, state.ActiveDungeonMissions[0].Status);
+            Assert.False(results[1].ShouldStopAutoSkip);
+            Assert.Empty(state.ActiveDungeonMissions); // 扉前で撤退して帰還している
         }
 
         [Fact]
-        public void Expedition_Retreat_ReturnsPartyToIdle_AndResetsFloorToOneOnNextDispatch()
+        public void Recall_MidDive_BringsLootHome_AndNextDiveStartsFromFloorOne()
         {
-            var (state, field, boss, a, b) = MakeDeepDiveState(bossFloor: 9);
+            var (state, field, boss, a, b) = MakeDeepDiveState(bossFloor: 9, stat: SlowDiverStat);
             var system = BuildSystem();
             Assert.True(system.TryDispatch(state, PartyOf(a, b), boss, DungeonMissionType.Scouting));
             var mission = state.ActiveDungeonMissions[0];
-            system.ProcessWeeklyMissions(state);
-            system.ProcessWeeklyMissions(state);
-            Assert.Equal(ExpeditionStatus.AwaitingBossDecision, mission.Status);
+            system.ProcessWeeklyMissions(state); // 1F→5F
+            Assert.Equal(ExpeditionStatus.Advancing, mission.Status);
 
             int carriedGold = mission.CarriedGold;
             var carriedMaterials = new Dictionary<string, int>(mission.CarriedMaterials);
-            Assert.Equal(8 * DungeonTraversalBalance.LootGoldPerFloor, carriedGold); // 1F→9Fの8階層分
-            Assert.NotEmpty(carriedMaterials);
+            Assert.Equal(4 * DungeonTraversalBalance.LootGoldPerFloor, carriedGold); // 1F→5Fの4階層分
             int goldBefore = state.Gold;
+            int hpA = a.CurrentHP;
 
-            var retreat = system.TryRetreat(state, mission);
+            Assert.True(system.TryRecall(state, mission));
 
             // 討伐は行わずに即時帰還：拾得物をギルドへ格納し、全員が待機中へ戻り、枠も空く。
-            Assert.NotNull(retreat);
-            Assert.True(retreat!.ReturnedHome);
-            Assert.Null(retreat.DungeonResult);
             Assert.False(boss.IsDefeated);
             Assert.Equal(goldBefore + carriedGold, state.Gold);
-            Assert.Equal(carriedGold, retreat.DepositedGold);
             foreach (var kv in carriedMaterials)
                 Assert.Equal(kv.Value, state.Materials[kv.Key]);
             Assert.Empty(state.ActiveDungeonMissions);
             Assert.False(a.IsDispatched);
             Assert.False(b.IsDispatched);
             Assert.True(a.IsAvailable);
+            Assert.Equal(hpA, a.CurrentHP); // 呼び戻し自体ではHPを失わない
             Assert.True(DungeonExpeditionSystem.CanDispatch(state));
-            Assert.Equal(9, field.ReachedFloor); // 最高到達階層の記録は残る
+            Assert.Equal(5, field.ReachedFloor); // 最高到達階層の記録は残る
 
-            // 次回の出撃は、記録（9F）に関係なく必ず1階層から再スタートする。
+            // 次回の出撃は、記録（5F）に関係なく必ず1階層から再スタートする。
             Assert.True(system.TryDispatch(state, PartyOf(a, b), boss, DungeonMissionType.Scouting));
             var next = state.ActiveDungeonMissions[0];
             Assert.Equal(1, next.CurrentFloor);
@@ -1043,143 +973,28 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
-        public void Expedition_FightBoss_ResolvesCombatNextWeek()
+        public void Recall_BeforeDeparture_Cancels_AndGatheringAfterDepartureCannotBeRecalled()
         {
-            var (state, field, boss, a, b) = MakeDeepDiveState(bossFloor: 5, bossHp: 1);
+            var (state, _, boss, a, b) = MakeDeepDiveState(bossFloor: 9, stat: SlowDiverStat);
             var system = BuildSystem();
             Assert.True(system.TryDispatch(state, PartyOf(a, b), boss, DungeonMissionType.Scouting));
-            var mission = state.ActiveDungeonMissions[0];
-            Assert.True(Assert.Single(system.ProcessWeeklyMissions(state)).ArrivedAtBossDoor);
-            int carriedGold = mission.CarriedGold;
 
-            // 挑む指令：携行ポーチの代金を即座に支払い、EngagingBossへ。この時点ではまだ判定しない。
-            int goldBefore = state.Gold;
-            Assert.True(system.TryEngageBoss(state, mission, new[] { ConsumableCatalog.CharmId }));
-            Assert.Equal(ExpeditionStatus.EngagingBoss, mission.Status);
-            Assert.Equal(goldBefore - ConsumableCatalog.FindById(ConsumableCatalog.CharmId)!.Price, state.Gold);
-            Assert.Contains(ConsumableCatalog.CharmId, mission.Party.ConsumableItemIds);
-            Assert.False(boss.IsDefeated);
-
-            // 次週の決算で決戦判定が行われ、決着後は帰還する。
-            int goldBeforeFight = state.Gold;
-            var fight = Assert.Single(system.ProcessWeeklyMissions(state));
-
-            Assert.NotNull(fight.DungeonResult);
-            Assert.Equal(DungeonOutcome.Victory, fight.DungeonResult!.Outcome);
-            Assert.True(boss.IsDefeated);
-            Assert.True(fight.ReturnedHome);
+            Assert.True(system.TryRecall(state, state.ActiveDungeonMissions[0])); // 出発前は取り消し
             Assert.Empty(state.ActiveDungeonMissions);
-            Assert.False(a.IsDispatched);
-            Assert.Equal(carriedGold, fight.DepositedGold);
-            Assert.Equal(goldBeforeFight + carriedGold + boss.RewardGold, state.Gold);
-            Assert.Equal(6, field.ReachedFloor); // 撃破で記録が更新される
-        }
+            Assert.Equal(0, state.TotalDispatchCount);
 
-        [Fact]
-        public void TryEngageBoss_Fails_WhenNotAwaitingDecision_OrGoldShort()
-        {
-            var (state, _, boss, a, b) = MakeDeepDiveState(bossFloor: 9);
-            var system = BuildSystem();
-            system.TryDispatch(state, PartyOf(a, b), boss, DungeonMissionType.Scouting);
-            var mission = state.ActiveDungeonMissions[0];
-
-            Assert.False(system.TryEngageBoss(state, mission, Array.Empty<string>())); // まだ進軍中
-            Assert.Null(system.TryRetreat(state, mission));                          // 出発前は撤退ではなく取り消し
-
-            system.ProcessWeeklyMissions(state);
-            system.ProcessWeeklyMissions(state);
-            state.Gold = 0;
-            Assert.False(system.TryEngageBoss(state, mission, new[] { ConsumableCatalog.CharmId }));
-            Assert.Equal(ExpeditionStatus.AwaitingBossDecision, mission.Status);
-            Assert.Empty(mission.Party.ConsumableItemIds);
-            Assert.False(system.TryCancel(state, mission)); // 出発済みの部隊は取り消せない
-        }
-
-        /// <summary>9Fボスの扉前まで潜行させた状態（2週）を作る。</summary>
-        private static (GameState State, FloorBoss Boss, Adventurer A, Adventurer B, DungeonExpeditionSystem System, ActiveDungeonMission Mission)
-            ReachBossDoor()
-        {
-            var (state, _, boss, a, b) = MakeDeepDiveState(bossFloor: 9);
-            var system = BuildSystem();
-            Assert.True(system.TryDispatch(state, PartyOf(a, b), boss, DungeonMissionType.Scouting));
-            var mission = state.ActiveDungeonMissions[0];
-            system.ProcessWeeklyMissions(state);
-            system.ProcessWeeklyMissions(state);
-            Assert.Equal(ExpeditionStatus.AwaitingBossDecision, mission.Status);
-            return (state, boss, a, b, system, mission);
-        }
-
-        [Fact]
-        public void TryEngageBoss_DeductsPouchCost_And_TransitionsToEngaging()
-        {
-            var (state, boss, a, _, system, mission) = ReachBossDoor();
-            var pouch = new[] { ConsumableCatalog.AntidoteId, ConsumableCatalog.CharmId };
-            int expectedCost = DungeonExpeditionSystem.CalculateConsumableCost(pouch);
-            int goldBefore = state.Gold;
-
-            Assert.True(system.TryEngageBoss(state, mission, pouch));
-
-            Assert.True(expectedCost > 0);
-            Assert.Equal(goldBefore - expectedCost, state.Gold);
-            Assert.Equal(ExpeditionStatus.EngagingBoss, mission.Status);
-            Assert.Equal(pouch, mission.Party.ConsumableItemIds);
-            Assert.Same(boss, mission.TargetedBoss);
-            Assert.True(a.IsDispatched);          // 突入待ち：まだ帰還していない
-            Assert.False(boss.IsDefeated);        // 決戦は次週の決算
-        }
-
-        [Fact]
-        public void TryEngageBoss_Fails_WhenInsufficientGold()
-        {
-            var (state, _, _, _, system, mission) = ReachBossDoor();
-            var pouch = new[] { ConsumableCatalog.AntidoteId, ConsumableCatalog.CharmId };
-            state.Gold = DungeonExpeditionSystem.CalculateConsumableCost(pouch) - 1;
-            int goldBefore = state.Gold;
-
-            Assert.False(system.TryEngageBoss(state, mission, pouch));
-
-            Assert.Equal(goldBefore, state.Gold);                           // 引き落とされない
-            Assert.Equal(ExpeditionStatus.AwaitingBossDecision, mission.Status); // 扉前で待機のまま
-            Assert.Empty(mission.Party.ConsumableItemIds);                   // ポーチも積まれない
-
-            // ポーチを空にすれば（0G）同じ所持金でも挑める。
-            Assert.True(system.TryEngageBoss(state, mission, Array.Empty<string>()));
-            Assert.Equal(goldBefore, state.Gold);
-        }
-
-        [Fact]
-        public void TryRetreat_AddsLootToGuild_And_ResetsPartyToIdle()
-        {
-            var (state, _, a, b, system, mission) = ReachBossDoor();
-            int carriedGold = mission.CarriedGold;
-            var carriedMaterials = new Dictionary<string, int>(mission.CarriedMaterials);
-            int hpA = a.CurrentHP;
-            int goldBefore = state.Gold;
-            Assert.True(carriedGold > 0);
-            Assert.NotEmpty(carriedMaterials);
-
-            var resolution = system.TryRetreat(state, mission);
-
-            Assert.NotNull(resolution);
-            Assert.Equal(goldBefore + carriedGold, state.Gold);
-            foreach (var kv in carriedMaterials)
-                Assert.Equal(kv.Value, state.Materials[kv.Key]);
-            Assert.Equal(carriedGold, resolution!.DepositedGold);
-            Assert.Empty(state.ActiveDungeonMissions);
-            Assert.False(a.IsDispatched);
-            Assert.False(b.IsDispatched);
-            Assert.True(a.IsAvailable && b.IsAvailable);
-            Assert.Equal(hpA, a.CurrentHP);                 // 撤退自体ではHPを失わない
-            Assert.True(DungeonExpeditionSystem.CanDispatch(state)); // 出撃枠も即座に空く
+            Assert.True(system.TryDispatchGathering(state, PartyOf(a, b), state.DungeonFields[0]));
+            var gathering = state.ActiveDungeonMissions[0];
+            gathering.WeeksElapsed = 1; // 出発済みの採取（1週で必ず帰る）
+            Assert.False(system.TryRecall(state, gathering));
         }
 
         [Fact]
         public void RoundTrip_PreservesExpeditionProgress_ThroughJson()
         {
-            var (state, _, boss, a, b) = MakeDeepDiveState(bossFloor: 9);
+            var (state, _, boss, a, b) = MakeDeepDiveState(bossFloor: 9, stat: SlowDiverStat);
             var system = BuildSystem();
             system.TryDispatch(state, PartyOf(a, b), boss, DungeonMissionType.Scouting);
-            system.ProcessWeeklyMissions(state);
             system.ProcessWeeklyMissions(state);
             var original = state.ActiveDungeonMissions[0];
 
@@ -1187,9 +1002,9 @@ namespace GuildManager.Core.Tests
             var restored = GameState.FromSaveData(JsonSerializer.Deserialize<SaveData>(json)!);
 
             var mission = Assert.Single(restored.ActiveDungeonMissions);
-            Assert.Equal(ExpeditionStatus.AwaitingBossDecision, mission.Status);
-            Assert.Equal(9, mission.CurrentFloor);
-            Assert.Same(restored.DungeonFields[0].Bosses[0], mission.TargetedBoss);
+            Assert.Equal(ExpeditionStatus.Advancing, mission.Status);
+            Assert.Equal(5, mission.CurrentFloor);
+            Assert.Same(restored.DungeonFields[0].Bosses[0], mission.Boss);
             Assert.Equal(original.WeeksElapsed, mission.WeeksElapsed);
             Assert.Equal(original.CarriedGold, mission.CarriedGold);
             Assert.Equal(original.CarriedMaterials, mission.CarriedMaterials);
@@ -1223,16 +1038,13 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void DungeonExpedition_DefeatingBoss_AddsContributionScore_ToMembers()
         {
-            // 5Fボス（HP1）：1週目で扉前（1F→5F、+4階層）、挑む指令で2週目に撃破。
+            // 5Fボス（HP1）：1週目で扉前（1F→5F、+4階層）に着き、同じ週のうちに撃破（§0.69）。
             var (state, _, boss, a, b) = MakeDeepDiveState(bossFloor: 5, bossHp: 1);
             var system = BuildSystem();
             system.TryDispatch(state, PartyOf(a, b), boss, DungeonMissionType.Scouting);
-            var mission = state.ActiveDungeonMissions[0];
-            system.ProcessWeeklyMissions(state);
-            int afterTraversal = a.TotalContributionScore;
-            Assert.True(system.TryEngageBoss(state, mission, Array.Empty<string>()));
+            int afterTraversal = 4 * DungeonBalance.ContributionPerTraversedFloor;
 
-            var fight = Assert.Single(system.ProcessWeeklyMissions(state));
+            var fight = system.ProcessWeeklyMissions(state)[1];
 
             Assert.Equal(DungeonOutcome.Victory, fight.DungeonResult!.Outcome);
             int bossPoints = boss.Floor * DungeonBalance.ContributionPerBossFloor;
@@ -1312,13 +1124,13 @@ namespace GuildManager.Core.Tests
             SetPa(a, 400); SetPa(b, 400);
             var system = BuildSystemWithGuaranteedGrowth();
             system.TryDispatch(state, PartyOf(a, b), boss, DungeonMissionType.Scouting);
-            var mission = state.ActiveDungeonMissions[0];
 
-            var traversal = Assert.Single(system.ProcessWeeklyMissions(state));
+            // 扉前に着いた週のうちに決戦する（§0.69）：道中の解決と決戦の解決が同じ週に並ぶ。
+            var week = system.ProcessWeeklyMissions(state);
+            var traversal = week[0];
             Assert.Equal(2 * DungeonBalance.GrowthRollsTraversal, traversal.GrowthEvents.Count);
 
-            system.TryEngageBoss(state, mission, Array.Empty<string>());
-            var victory = Assert.Single(system.ProcessWeeklyMissions(state));
+            var victory = week[1];
             Assert.Equal(DungeonOutcome.Victory, victory.DungeonResult!.Outcome);
             Assert.Equal(2 * DungeonBalance.GrowthRollsBossVictory, victory.GrowthEvents.Count);
 
@@ -1365,18 +1177,13 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void ExpeditionSatisfaction_IsWiredInto_TraversalAndBossVictory()
         {
-            // 1週目：1F→5F の道中進軍で +1、2週目：撃破で +10。
+            // 1週目：1F→5F の道中進軍で +1、同じ週のうちに撃破で +10（§0.69）。
             var (state, _, boss, a, b) = MakeDeepDiveState(bossFloor: 5, bossHp: 1);
             a.Satisfaction = 50; b.Satisfaction = 50;
             var system = BuildSystem();
             system.TryDispatch(state, PartyOf(a, b), boss, DungeonMissionType.Scouting);
-            var mission = state.ActiveDungeonMissions[0];
 
-            system.ProcessWeeklyMissions(state);
-            Assert.Equal(50 + SatisfactionBalance.ExpeditionTraversalSuccess, a.Satisfaction);
-
-            system.TryEngageBoss(state, mission, Array.Empty<string>());
-            var victory = Assert.Single(system.ProcessWeeklyMissions(state));
+            var victory = system.ProcessWeeklyMissions(state)[1];
 
             Assert.Equal(DungeonOutcome.Victory, victory.DungeonResult!.Outcome);
             Assert.Equal(50 + SatisfactionBalance.ExpeditionTraversalSuccess + SatisfactionBalance.ExpeditionBossVictory, a.Satisfaction);
@@ -1539,14 +1346,18 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
-        public void DefaultFields_EveryGimmickHasRoleOrStatCounter()
+        public void DefaultFields_EveryGimmickHasRoleAndStatCounter()
         {
-            // 携行アイテムをUIから持ち込む手段がまだ無いため、アイテムだけが対策口のギミックは攻略不能になる。
+            // どのギミックにも職業と能力の両方の対策口がある（§0.68。携行アイテムの対策口は撤去）。
             var bosses = SampleData.CreateDefaultFields().SelectMany(f => f.Bosses).ToList();
 
             Assert.Equal(50, bosses.Count); // 5フィールド × 10体（→ BAL: dungeon.csv BossIntervalFloors）
             Assert.All(bosses.SelectMany(b => b.Gimmicks), g =>
-                Assert.True(g.RequiredCounterRole.HasValue || !string.IsNullOrEmpty(g.RequiredCounterStat)));
+            {
+                Assert.NotEmpty(g.CounterRoles);
+                Assert.All(g.CounterRoles, r => Assert.Contains(r, BossGimmickInfo.RoleCandidates(g.Type)));
+                Assert.Equal(BossGimmickInfo.CounterStat(g.Type), g.RequiredCounterStat);
+            });
             Assert.All(bosses, b => Assert.Equal(b.MaxHp, b.CurrentHp));
         }
 
@@ -1558,7 +1369,6 @@ namespace GuildManager.Core.Tests
             var cleared = new FloorBoss { Name = "踏破済み", Floor = 0, MaxHp = 100, IsDefeated = true };
             state.DungeonFields[0].Bosses.Add(cleared);
             var party = PartyOf(a, b);
-            party.TryAddConsumable(ConsumableCatalog.CharmId);
             BuildSystem().TryDispatch(state, party, boss, DungeonMissionType.BossAssault);
 
             var json = JsonSerializer.Serialize(state.ToSaveData());
@@ -1575,7 +1385,6 @@ namespace GuildManager.Core.Tests
             Assert.Equal(DungeonMissionType.BossAssault, mission.MissionType);
             Assert.Same(restoredBoss, mission.Boss); // 解決時にDungeonField.Bosses側の状態が更新されるよう同一インスタンス
             Assert.All(mission.Party.Members, m => Assert.Contains(m, restored.Adventurers));
-            Assert.Equal(new[] { ConsumableCatalog.CharmId }, mission.Party.ConsumableItemIds);
         }
 
         [Fact]

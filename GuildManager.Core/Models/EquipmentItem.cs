@@ -185,13 +185,7 @@ namespace GuildManager.Core.Models
         }
 
         /// <summary>ボスギミックの表示名（→ 03 §4.5.4）。</summary>
-        public static string GimmickLabel(BossGimmickType type) => type switch
-        {
-            BossGimmickType.Poison => "猛毒",
-            BossGimmickType.HeavyArmor => "重装甲",
-            BossGimmickType.Flying => "飛行",
-            _ => "即死級攻撃",
-        };
+        public static string GimmickLabel(BossGimmickType type) => BossGimmickInfo.Label(type);
 
         private static string DescribeAffix(string? id, int value)
         {

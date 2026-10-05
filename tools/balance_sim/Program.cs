@@ -218,6 +218,39 @@ class GameSim
     static double StatSum(Adventurer a) => DungeonBalance.BossPowerWeights.Sum(w => a.GetEffectiveStat(w.Stat) * w.Weight);
     static double WeightSum => DungeonBalance.BossPowerWeights.Sum(w => w.Weight);
     static double HpRatio(Adventurer a) => (double)a.CurrentHP / a.MaxHP;
+
+    /// <summary>
+    /// 狙うボスに合わせて主力4名を選ぶ（§0.68：ギミックへの備えは編成で決まる）。火力上位8名から4名の組を総当たりし、
+    /// 討伐火力÷要求火力（ギミック込み）が最も高い組を選ぶ。即死級の備えが半分未満の組は避け、備えの平均を少しだけ加点する。
+    /// </summary>
+    List<Adventurer> PickForBoss(FloorBoss boss, List<Adventurer> pool)
+    {
+        var top = pool.OrderByDescending(StatSum).Take(8).ToList();
+        int k = Math.Min(4, top.Count);
+        List<Adventurer> best = top.Take(k).ToList();
+        double bestScore = double.MinValue;
+        foreach (var combo in Combinations(top, k))
+        {
+            var party = new Party();
+            foreach (var a in combo) party.TryAdd(a);
+            double score = DungeonResolver.CalculateBossPower(party, boss) / DungeonResolver.RequiredPower(boss, s, party);
+            if (boss.Gimmicks.Any(g => g.Type == BossGimmickType.InstantKill && DungeonResolver.Readiness(g, combo) < 0.5)) score -= 10;
+            if (boss.Gimmicks.Count > 0) score += 0.05 * boss.Gimmicks.Average(g => DungeonResolver.Readiness(g, combo));
+            if (score > bestScore) { bestScore = score; best = combo; }
+        }
+        return best;
+    }
+
+    static IEnumerable<List<Adventurer>> Combinations(List<Adventurer> items, int k, int start = 0)
+    {
+        if (k == 0) { yield return new List<Adventurer>(); yield break; }
+        for (int i = start; i <= items.Count - k; i++)
+            foreach (var rest in Combinations(items, k - 1, i + 1))
+            {
+                rest.Insert(0, items[i]);
+                yield return rest;
+            }
+    }
     DungeonField Forest => s.DungeonFields.First(f => f.Order == 1);
     IEnumerable<Adventurer> Active => s.Adventurers.Where(a => !a.IsRetired);
 
@@ -259,10 +292,7 @@ class GameSim
         for (int w = 0; w < weeks; w++)
         {
             if (Campaign ? s.IsGameCleared : Forest.Bosses.All(b => b.IsDefeated))
-            {
-                RecordFinishedAssaults(); // 最後の撃破（クリアの決戦など）を記録してから止める
                 break;
-            }
             int actBefore = s.Gold;
             Act();
             Book("その他の行動", s.Gold - actBefore - actBooked);
@@ -290,7 +320,12 @@ class GameSim
                 foreach (var inj in r.InjuryEvents)
                     if (inj.Severity == InjurySeverity.Severe) SevereInjuries++; else LightInjuries++;
                 if (r.DungeonResult != null)
+                {
                     ForcedRetired += r.DungeonResult.ForceRetiredAdventurerIds.Count;
+                    RecordAssault(result.Flags.Week, r);
+                }
+                if (Trace && r.ArrivedAtBossDoor)
+                    Console.WriteLine($"  扉前{r.CurrentFloor}F: {r.DoorRetreatReason ?? "挑んだ"}");
                 if (r.ArrivedAtBossDoor && r.Field.Order == 1)
                 {
                     var m = lastMain;
@@ -311,31 +346,18 @@ class GameSim
 
     ActiveDungeonMission? lastMain;
     readonly HashSet<Guid> mainIds = new();
-    readonly Dictionary<ActiveDungeonMission, (double Margin, double Avg, double W, double Intel)> pendingAssault = new();
 
-    void Act()
-    {
-        RecordFinishedAssaults();
-        ActInner();
-    }
+    void Act() => ActInner();
 
-    /// <summary>前週に討伐指令を出した部隊の決着を記録（ProcessWeek の後で IsDefeated を見る）。</summary>
-    void RecordFinishedAssaults()
+    /// <summary>決戦の決着を記録（§0.69：扉前に着いた週の決算のうちに決戦するので、その週の解決から拾う）。</summary>
+    void RecordAssault(int week, DungeonMissionResolution r)
     {
-        foreach (var kv in pendingAssault.ToList())
-        {
-            if (!s.ActiveDungeonMissions.Contains(kv.Key))
-            {
-                var boss = kv.Key.TargetedBoss!;
-                if (boss.IsDefeated)
-                {
-                    Kills.Add(new BossKill(s.WeekNumber - 1, boss.Floor, kv.Value.Avg, kv.Value.W, kv.Value.Margin, kv.Value.Intel,
-                        divesPerBoss.GetValueOrDefault(boss.Floor)));
-                    FieldKills.Add((kv.Key.Field.Order, boss.Floor, s.WeekNumber - 1));
-                }
-                pendingAssault.Remove(kv.Key);
-            }
-        }
+        var boss = r.Boss;
+        if (boss == null || r.DungeonResult!.Outcome != DungeonOutcome.Victory) return;
+        Kills.Add(new BossKill(week, boss.Floor, r.Party.Members.Average(a => Acc.All.Average(n => a.GetEffectiveStat(n))),
+            r.Party.Members.Average(a => StatSum(a) / WeightSum), r.DungeonResult.PartyPower / r.DungeonResult.RequiredPower, r.IntelRateBefore,
+            divesPerBoss.GetValueOrDefault(boss.Floor)));
+        FieldKills.Add((r.Field.Order, boss.Floor, week));
     }
 
     void ActInner()
@@ -351,34 +373,7 @@ class GameSim
         BuildFacility();
         BookAct("施設の建設", s.Gold - g0);
 
-        // 扉前の判断
-        foreach (var m in s.ActiveDungeonMissions.Where(m => m.Status == ExpeditionStatus.AwaitingBossDecision).ToList())
-        {
-            var boss = m.TargetedBoss!;
-            m.Party.ConsumableItemIds.Clear();
-            var items = boss.Gimmicks.Where(g => !DungeonResolver.IsCountered(g, m.Party) && g.RequiredItemId != null)
-                .Select(g => g.RequiredItemId!).Take(2).ToList();
-            double power = DungeonResolver.CalculateBossPower(m.Party, boss);
-            double req = DungeonResolver.RequiredPower(boss, s);
-            double minHp = m.Party.Members.Min(HpRatio);
-            bool safe = minHp > DungeonBalance.BaseHpLossPctMax / 100.0 + 0.02;
-            if (Trace) Console.WriteLine($"  扉前{boss.Floor}F: 火力{power:F0}/要求{req:F0} 満タン時{m.Party.Members.Sum(StatSum):F0} 解析{boss.IntelRate:P0} 最低HP{minHp:P0} 装備[{string.Join(",", m.Party.Members.Select(a => $"{a.EquippedWeapon?.ItemId}/{a.EquippedArmor?.ItemId}/{a.EquippedAccessory1?.ItemId}"))}] G{s.Gold}");
-            if (power >= req && safe && s.Gold >= DungeonExpeditionSystem.CalculateConsumableCost(items))
-            {
-                int gp = s.Gold;
-                expedition.TryEngageBoss(s, m, items);
-                BookAct("携行品", s.Gold - gp);
-                pendingAssault[m] = (power / req, m.Party.Members.Average(a => Acc.All.Average(n => a.GetEffectiveStat(n))),
-                    m.Party.Members.Average(a => StatSum(a) / WeightSum), boss.IntelRate);
-            }
-            else if (ScoutingResolver.GetTier(boss.IntelRate) != IntelTier.Complete && minHp > 0.4
-                     && m.Party.Members.Sum(StatSum) * (1 + DungeonBalance.FullIntelDamageBonus) >= req)
-            {
-                // 扉前で偵察を続ける（何もしない）
-            }
-            else
-                expedition.TryRetreat(s, m);
-        }
+        // 扉前の判断は、着いた週の決算のうちに Core が構え「標準」（方針の無い出撃）で行う（§0.69）。
 
         if (Campaign)
             CampaignUpkeep();
@@ -390,7 +385,7 @@ class GameSim
             .OrderByDescending(StatSum).Take(4).Select(a => a.Id).ToHashSet();
         if (!mainOut && target != null && DungeonExpeditionSystem.CanDispatch(s))
         {
-            var ready = Active.Where(a => a.IsAvailable && HpRatio(a) >= 0.8).OrderByDescending(StatSum).Take(4).ToList();
+            var ready = PickForBoss(target, Active.Where(a => a.IsAvailable && HpRatio(a) >= 0.8).ToList());
             if (ready.Count == 4 || (ready.Count >= 3 && Active.Count(a => a.IsAvailable) < 4))
             {
                 var leader = ready.OrderByDescending(a => a.GetEffectiveStat("LDR")).First();
@@ -398,7 +393,14 @@ class GameSim
                 var party = new Party();
                 foreach (var a in ready) { training.Unassign(s, a.Id); party.TryAdd(a); }
                 bool hopeless = ready.Sum(StatSum) * (1 + DungeonBalance.FullIntelDamageBonus) * 0.85 < DungeonResolver.RequiredPower(target);
-                if (Grind && hopeless && ScoutingResolver.GetTier(target.IntelRate) == IntelTier.Complete)
+                // 扉前まで潜ったことがあり、今の解析では火力が届かないなら、潜り直す前に迷宮調査で解析を進める
+                // （§0.69：扉前で待って偵察することは無くなった。完全解析の+20%で届くかを調べる）
+                var targetField = s.DungeonFields.First(f => f.Bosses.Contains(target));
+                bool shortNow = DungeonResolver.CalculateBossPower(party, target) < DungeonResolver.RequiredPower(target, s, party);
+                if (!hopeless && shortNow && targetField.ReachedFloor >= target.Floor
+                    && ScoutingResolver.GetTier(target.IntelRate) != IntelTier.Complete && SurveyableOf(target) is { } analyse)
+                    expedition.TryDispatchSurvey(s, party, analyse);
+                else if (Grind && hopeless && ScoutingResolver.GetTier(target.IntelRate) == IntelTier.Complete)
                     expedition.TryDispatchGathering(s, party, Forest); // 勝ち目が無い間は採取で稼ぎ、機嫌と成長を保つ
                 else if (Grind && hopeless)
                 {
@@ -785,8 +787,8 @@ class GameSim
             var boss = f.GetNextActiveBoss();
             if (boss == null) { Console.WriteLine($"- {FieldShort(f.Order)}：制覇"); continue; }
             double power = DungeonResolver.CalculateBossPower(party, boss);
-            double req = DungeonResolver.RequiredPower(boss, s);
-            string gimmicks = string.Join("・", boss.Gimmicks.Select(g => $"{g.Type}{(DungeonResolver.IsCountered(g, party) ? "(対策済)" : g.RequiredItemId != null ? $"(携行品{g.RequiredItemId})" : "(対策なし)")}"));
+            double req = DungeonResolver.RequiredPower(boss, s, party);
+            string gimmicks = string.Join("・", boss.Gimmicks.Select(g => $"{g.Type}(備え{DungeonResolver.Readiness(g, party.Members):F1}・{string.Join("/", g.CounterRoles)})"));
             Console.WriteLine($"- {FieldShort(f.Order)} {boss.Floor}F：要求火力 {req:F0}／上位4名の火力 {power:F0}（解析{boss.IntelRate:P0}）・ギミック {gimmicks}・" +
                 $"走破力 {trav:F0}／{boss.Floor}Fの走破要求 {DungeonTraversalResolver.FloorRequirement(f, boss.Floor):F1}・最高到達 {f.ReachedFloor}F");
         }

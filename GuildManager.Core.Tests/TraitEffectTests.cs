@@ -214,7 +214,7 @@ namespace GuildManager.Core.Tests
 
         private static BossGimmick UncounterablePoison(int danger = 2) => new()
         {
-            Type = BossGimmickType.Poison, DangerLevel = danger, RequiredCounterRole = JobClass.Cleric,
+            Type = BossGimmickType.Poison, DangerLevel = danger, CounterRoles = { JobClass.Cleric },
         };
 
         [Fact]
@@ -240,9 +240,9 @@ namespace GuildManager.Core.Tests
         {
             var holder = MakeRanger();
             holder.TryAddTrait(TraitCatalog.ResistPoisonId);
-            var heavy = new BossGimmick { Type = BossGimmickType.HeavyArmor, DangerLevel = 2, RequiredCounterRole = JobClass.Cleric };
+            var flying = new BossGimmick { Type = BossGimmickType.Flying, DangerLevel = 2, CounterRoles = { JobClass.Cleric } };
 
-            var result = new DungeonResolver(new AlwaysMaxRng()).Resolve(PartyOf(holder), MakeBoss(heavy));
+            var result = new DungeonResolver(new AlwaysMaxRng()).Resolve(PartyOf(holder), MakeBoss(flying));
 
             Assert.False(result.ResistPoisonApplied);
             Assert.Equal(1.0 + 2 * DungeonBalance.UncounteredDamageMultiplierPerDangerLevel, result.DamageMultiplier, precision: 6);
@@ -256,7 +256,7 @@ namespace GuildManager.Core.Tests
             var cleric = MakeRanger();
             cleric.JobClass = JobClass.Cleric;
 
-            var result = new DungeonResolver(new AlwaysMaxRng()).Resolve(PartyOf(holder, cleric), MakeBoss(UncounterablePoison()));
+            var result = new DungeonResolver(new AlwaysMaxRng()).Resolve(PartyOf(holder, cleric), MakeBoss(new BossGimmick { Type = BossGimmickType.Poison, DangerLevel = 2, CounterRoles = { JobClass.Cleric }, RequiredCounterStat = "MND", RequiredCounterStatThreshold = 1 }));
 
             Assert.Contains(BossGimmickType.Poison, result.CounteredGimmicks);
             Assert.False(result.ResistPoisonApplied);
@@ -269,7 +269,7 @@ namespace GuildManager.Core.Tests
             Assert.Equal(0.15, CombatBalance.GiantHunterDamageBonusRate, precision: 6);
             var hunter = MakeRanger();
             hunter.TryAddTrait(TraitCatalog.GiantHunterId);
-            var heavyBoss = MakeBoss(new BossGimmick { Type = BossGimmickType.HeavyArmor, DangerLevel = 1, RequiredCounterRole = JobClass.Ranger });
+            var heavyBoss = MakeBoss(new BossGimmick { Type = BossGimmickType.HeavyArmor, DangerLevel = 1, CounterRoles = { JobClass.Ranger } });
 
             double basePower = DungeonPowerCalculator.MemberPower(hunter);
 
@@ -284,7 +284,7 @@ namespace GuildManager.Core.Tests
             hunter.TryAddTrait(TraitCatalog.GiantHunterId);
             var plain = MakeRanger();
             var poisonBoss = MakeBoss(UncounterablePoison());
-            var heavyBoss = MakeBoss(new BossGimmick { Type = BossGimmickType.HeavyArmor, DangerLevel = 1, RequiredCounterRole = JobClass.Ranger });
+            var heavyBoss = MakeBoss(new BossGimmick { Type = BossGimmickType.HeavyArmor, DangerLevel = 1, CounterRoles = { JobClass.Ranger } });
 
             Assert.Equal(DungeonPowerCalculator.MemberPower(hunter), DungeonPowerCalculator.MemberPower(hunter, poisonBoss), precision: 6);
             Assert.Equal(DungeonPowerCalculator.MemberPower(plain), DungeonPowerCalculator.MemberPower(plain, heavyBoss), precision: 6);
@@ -293,7 +293,7 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void GiantHunter_RaisesPartyPower_InBossResolution()
         {
-            var heavy = new BossGimmick { Type = BossGimmickType.HeavyArmor, DangerLevel = 1, RequiredCounterRole = JobClass.Ranger };
+            var heavy = new BossGimmick { Type = BossGimmickType.HeavyArmor, DangerLevel = 1, CounterRoles = { JobClass.Ranger }, RequiredCounterStat = "STR", RequiredCounterStatThreshold = 1 }; // 備え万全（火力の低下なし）
             var hunter = MakeRanger();
             hunter.TryAddTrait(TraitCatalog.GiantHunterId);
             var other = MakeRanger();

@@ -265,7 +265,6 @@ namespace GuildManager.Core.Models
         public Guid? BossId { get; set; }
         public string MissionType { get; set; } = ""; // enum→文字列で保存
         public List<Guid> PartyMemberIds { get; set; } = new();
-        public List<string> ConsumableItemIds { get; set; } = new();
 
         // ---- 複数週潜行（2026年9月新設、→ ActiveDungeonMission）。旧セーブでは未設定 ----
 

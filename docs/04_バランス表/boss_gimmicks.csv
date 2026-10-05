@@ -1,0 +1,13 @@
+key,value,unit,note
+GimmickRoleReadiness,0.5,備え,対策の職業（そのボスで効く職業、→ BossGimmick.CounterRoles）が1人でも同行しているときに備えへ足す値。能力の部隊合計÷基準の値と足して上限1（§0.68）
+GimmickCountStep,5,段,ギミックの数＝1＋(フィールド内の何体目〈0〜9〉＋(フィールド順−1)×2)÷この値（切り捨て）。森は前半1個・後半2個、峡谷・深淵は2〜3個（§0.68）
+GimmickCountMax,3,個,1体のボスが持つギミックの上限
+ExtraGimmickDangerReduction,1,段,2個目以降のギミックの危険度を、一番の特徴のギミックよりこの段だけ下げる（下限1）
+HeavyArmorPowerPenalty,0.30,割合,重装甲：部隊火力に (1−この値×(1−備え)) を掛ける（§0.68で損耗型から火力型へ変更）
+RegenerationRequirementBonus,0.30,割合,再生：要求火力に (1＋この値×(1−備え)) を掛ける
+SwarmRearPowerPenalty,0.40,割合,群れ：後衛（魔導士・神官・学者）の火力に (1−この値×(1−備え)) を掛ける
+SwarmDamageFactor,0.5,倍,群れ：損耗の加算を、ほかの損耗型（危険度×UncounteredDamageMultiplierPerDangerLevel×(1−備え)）のこの倍にする
+CharmExtraHpLossPct,40,%,魅了：操られた隊員（部隊で一番火力の高い隊員）の損耗にこの値×(1−備え)を足す。火力は (1−(1−備え)) 倍＝備えの分だけ戦う
+PoisonStatusStatPenalty,0.30,割合,猛毒：備えが足りないと、生還した隊員が毒状態になり、全能力（素の値）がこの値×(1−備え)だけ下がる
+PoisonStatusWeeks,4,週,毒状態の続く週数。医務室の回復速度・治りが早いで早く抜ける
+ResistPoisonStatusWeeksRate,0.5,倍,耐毒体質の本人は毒状態の週数をこの倍にする（切り上げ、最低1週）
