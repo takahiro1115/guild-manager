@@ -95,8 +95,8 @@ namespace GuildManager.Core.Balance
         /// <summary>快活：本人の満足度の週次変動に加える値（→ SatisfactionSystem）。</summary>
         public static readonly int CheerfulSatisfactionBonus = BalanceData.GetInt(FileName, "CheerfulSatisfactionBonus");
 
-        /// <summary>働き者：待機お手伝いで本人が稼ぐ額に掛ける倍率（→ MasterMoodSystem.ProcessIdleHelp）。</summary>
-        public static readonly double HardworkerIdleHelpGoldMultiplier = BalanceData.GetDouble(FileName, "HardworkerIdleHelpGoldMultiplier");
+        /// <summary>働き者：研究の手伝いで本人が貯める額に掛ける倍率（→ IdleActivitySystem.GetHelpCredit、§0.73）。</summary>
+        public static readonly double HardworkerIdleHelpCreditMultiplier = BalanceData.GetDouble(FileName, "HardworkerIdleHelpCreditMultiplier");
 
         /// <summary>火の魔術師：INTの素の値部分に掛ける補正率（→ TraitCatalog.FireMage、StatPercentReduction の正の値）。</summary>
         public static readonly double FireMageIntBonus = BalanceData.GetDouble(FileName, "FireMageIntBonus");

@@ -1,3 +1,5 @@
+using System;
+using GuildManager.Core.Balance;
 using GuildManager.Core.Models;
 
 namespace GuildManager.Core.Systems
@@ -22,7 +24,7 @@ namespace GuildManager.Core.Systems
                 return false;
             if (!IsPrerequisiteMet(state, research))
                 return false;
-            if (state.Gold < research.RequiredGold)
+            if (state.Gold < GetGoldToPay(state, research))
                 return false;
 
             foreach (var (materialId, requiredCount) in research.RequiredMaterials)
@@ -34,6 +36,16 @@ namespace GuildManager.Core.Systems
 
             return true;
         }
+
+        /// <summary>
+        /// 研究の手伝い（→ GameState.ResearchCredit、§0.73）で割り引ける額＝min(貯まった分, 研究費×ResearchCreditMaxDiscountRate（切り捨て）)。
+        /// </summary>
+        public static int GetDiscount(GameState state, ResearchDefinition research) =>
+            Math.Max(0, Math.Min(state.ResearchCredit, (int)(research.RequiredGold * TrainingBalance.ResearchCreditMaxDiscountRate)));
+
+        /// <summary>研究の手伝いで割り引いたあとに払う研究費。</summary>
+        public static int GetGoldToPay(GameState state, ResearchDefinition research) =>
+            research.RequiredGold - GetDiscount(state, research);
 
         /// <summary>前提の研究（→ ResearchDefinition.PrerequisiteId、§0.60）が無いか、済んでいるか。</summary>
         public static bool IsPrerequisiteMet(GameState state, ResearchDefinition research) =>
@@ -49,7 +61,9 @@ namespace GuildManager.Core.Systems
             if (!CanStartResearch(state, research))
                 return false;
 
-            state.Gold -= research.RequiredGold;
+            int discount = GetDiscount(state, research);
+            state.Gold -= research.RequiredGold - discount;
+            state.ResearchCredit -= discount; // 研究の手伝い（§0.73）は使った分だけ減る
             foreach (var (materialId, requiredCount) in research.RequiredMaterials)
                 state.Materials[materialId] -= requiredCount;
 

@@ -272,7 +272,7 @@ namespace GuildManager.Core.Models
         /// <summary>快活：本人の満足度が毎週上がる（→ SatisfactionSystem.ProcessWeeklySatisfaction）。</summary>
         public static readonly TraitDefinition Cheerful = Define(new TraitDefinition { Id = CheerfulId, IsTransmittable = true, Effects = new List<TraitEffect>() });
 
-        /// <summary>働き者：待機お手伝いで稼ぐ額が増える（→ MasterMoodSystem.ProcessIdleHelp）。</summary>
+        /// <summary>働き者：研究の手伝いで貯まる額が増える（→ IdleActivitySystem.GetHelpCredit、§0.73）。</summary>
         public static readonly TraitDefinition Hardworker = Define(new TraitDefinition { Id = HardworkerId, IsTransmittable = true, Effects = new List<TraitEffect>() });
 
         /// <summary>
@@ -341,7 +341,7 @@ namespace GuildManager.Core.Models
         /// <summary>気難しい：本人の満足度が毎週下がる（→ SatisfactionSystem）。快活で克服。</summary>
         public static readonly TraitDefinition Moody = Define(new TraitDefinition { Id = MoodyId, IsFlaw = true, OvercomeByTraitId = CheerfulId, Effects = new List<TraitEffect>() });
 
-        /// <summary>怠け者：待機お手伝いで稼がない（機嫌は上がる、→ MasterMoodSystem.GetIdleHelpGold）。働き者で克服。</summary>
+        /// <summary>怠け者：研究の手伝いが貯まらない（機嫌は上がる、→ IdleActivitySystem.GetHelpCredit、§0.73）。働き者で克服。</summary>
         public static readonly TraitDefinition Slothful = Define(new TraitDefinition { Id = SlothfulId, IsFlaw = true, OvercomeByTraitId = HardworkerId, Effects = new List<TraitEffect>() });
 
         /// <summary>浪費家：採用時の週給と適正週給が高い（→ RecruitmentSystem・SatisfactionSystem）。克服できない。</summary>

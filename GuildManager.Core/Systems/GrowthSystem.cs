@@ -91,6 +91,32 @@ namespace GuildManager.Core.Systems
             return events;
         }
 
+        /// <summary>
+        /// 自主練による成長（2026年10月・§0.73、→ IdleActivitySystem）。selfTrainerIds の冒険者ごとに1回ロールする：
+        /// 確率＝年齢帯別の基礎確率×SelfTrainingGrowthMultiplier×研究×特性（訓練施設の教官ボーナス・勤勉は掛からない）。
+        /// 伸ばす能力は Adventurer.SelfTrainingStat（無ければ職業の伸び方 → GrowthBalance.PickJobWeightedStat）。
+        /// 実際に成長した分だけ GrowthEvent として返す。
+        /// </summary>
+        public List<GrowthEvent> ProcessSelfTraining(GameState state, IReadOnlySet<Guid> selfTrainerIds)
+        {
+            var events = new List<GrowthEvent>();
+            double researchMultiplier = GetResearchGrowthMultiplier(state);
+
+            foreach (var adventurer in state.Adventurers)
+            {
+                if (!selfTrainerIds.Contains(adventurer.Id))
+                    continue;
+
+                string? chosen = adventurer.SelfTrainingStat;
+                var growthEvent = TryGrowOne(adventurer, TrainingBalance.SelfTrainingGrowthMultiplier * researchMultiplier * TraitGrowthMultiplier(adventurer),
+                    a => chosen ?? JobWeightedStat(a));
+                if (growthEvent != null)
+                    events.Add(growthEvent);
+            }
+
+            return events;
+        }
+
         /// <summary>段階研究（→ ResearchEffectType.GrowthRateBonus、§0.60）による成長確率の倍率（1＋効果値の合計）。訓練・出撃の両方に掛かる。</summary>
         public static double GetResearchGrowthMultiplier(GameState state) =>
             1.0 + ResearchBalance.GetTotalEffectValue(state, ResearchEffectType.GrowthRateBonus);
@@ -160,7 +186,8 @@ namespace GuildManager.Core.Systems
                     if (_rng.NextInt(1, 100) > chancePercent)
                         continue;
 
-                    string stat = stats[_rng.NextInt(0, stats.Count - 1)];
+                    // 職業の伸び方（§0.72、→ growth_job_weights.csv）：任務で伸びうる能力のうち、職業の重み＋GrowthJobWeightFloor の比で選ぶ
+                    string stat = GrowthBalance.PickJobWeightedStat(member.JobClass, stats, DungeonBalance.GrowthJobWeightFloor, _rng);
                     int before = AdventurerStatAccessor.GetStat(member, stat);
                     int after = Math.Min(AdventurerStatAccessor.GetPa(member, stat), before + 1);
                     if (after == before)

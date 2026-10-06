@@ -91,7 +91,7 @@ namespace GuildManager.Core.Tests
             Assert.Equal(1, TraitBalance.QuickHealerInjuryRecoveryBonus);
             Assert.Equal(0.25, TraitBalance.QuickHealerRestRecoveryBonus, precision: 6);
             Assert.Equal(1, TraitBalance.CheerfulSatisfactionBonus);
-            Assert.Equal(1.5, TraitBalance.HardworkerIdleHelpGoldMultiplier, precision: 6);
+            Assert.Equal(1.5, TraitBalance.HardworkerIdleHelpCreditMultiplier, precision: 6);
             Assert.Equal(0.10, TraitBalance.FireMageIntBonus, precision: 6);
             Assert.Equal(0.10, TraitBalance.SwordMasterStatBonus, precision: 6);
         }
@@ -289,22 +289,20 @@ namespace GuildManager.Core.Tests
         // ==================== 働き者 ====================
 
         [Fact]
-        public void Hardworker_EarnsOneAndAHalfTimes_Rounded()
+        public void Hardworker_GainsOneAndAHalfTimesResearchCredit_Rounded()
         {
             var state = new GameState();
             var plain = Make(40);
             var worker = Make(40, TraitCatalog.HardworkerId);
             state.Adventurers.Add(plain);
             state.Adventurers.Add(worker);
-            int goldBefore = state.Gold;
+            var entries = IdleActivitySystem.ProcessWeek(state, new HashSet<Guid>(), new MasterMoodReport()).HelpEntries;
 
-            var entries = MasterMoodSystem.ProcessIdleHelp(state, new HashSet<Guid>(), new MasterMoodReport());
-
-            int baseGold = MasterMoodBalance.IdleAdventurerHelpGold;
-            int workerGold = (int)Math.Round(baseGold * 1.5, MidpointRounding.AwayFromZero);
-            Assert.Equal(baseGold, entries.Single(e => e.AdventurerId == plain.Id).Gold);
-            Assert.Equal(workerGold, entries.Single(e => e.AdventurerId == worker.Id).Gold);
-            Assert.Equal(goldBefore + baseGold + workerGold, state.Gold);
+            int baseCredit = MasterMoodBalance.IdleAdventurerHelpResearchCredit;
+            int workerCredit = (int)Math.Round(baseCredit * 1.5, MidpointRounding.AwayFromZero);
+            Assert.Equal(baseCredit, entries.Single(e => e.AdventurerId == plain.Id).Credit);
+            Assert.Equal(workerCredit, entries.Single(e => e.AdventurerId == worker.Id).Credit);
+            Assert.Equal(baseCredit + workerCredit, state.ResearchCredit);
         }
 
         // ==================== 火の魔術師 ====================

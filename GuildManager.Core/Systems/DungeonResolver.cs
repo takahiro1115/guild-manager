@@ -303,6 +303,10 @@ namespace GuildManager.Core.Systems
         /// </summary>
         private void ApplyHpLoss(DungeonResult result, Party party, FloorBoss boss, double survivalBonus = 0)
         {
+            // 神官の加護（§0.72）：損耗率を%ポイントで下げ、重傷になりにくくする（戦う前の顔ぶれで決める）。
+            double blessing = ClericBlessing.LossReductionPct(party.Members);
+            double severeMultiplier = ClericBlessing.SevereThresholdMultiplier(party.Members);
+            result.ClericBlessingPct = blessing;
             double instantKill = result.ShortfallOf(BossGimmickType.InstantKill);
             double charm = result.ShortfallOf(BossGimmickType.Charm);
             double poison = result.ShortfallOf(BossGimmickType.Poison);
@@ -334,7 +338,7 @@ namespace GuildManager.Core.Systems
                 // 研究の生存ボーナス（部隊全員）と豪胆（本人のみ、→ TraitEffectType.SurvivalThresholdModifier、§0.53）を差し引く。
                 double braveBonus = member.SumTraitEffect(TraitEffectType.SurvivalThresholdModifier);
                 // 臆病・猪突猛進（§0.56）は同じ効果種別の負の値なので、ここで損耗が増える（100%で頭打ち）。
-                lossPct = (int)Math.Clamp(lossPct - survivalBonus - braveBonus, 0, 100);
+                lossPct = (int)Math.Clamp(Math.Round(lossPct - survivalBonus - braveBonus - blessing), 0, 100);
 
                 int hpLoss = member.MaxHP * lossPct / 100;
                 int newHp = Math.Max(0, member.CurrentHP - hpLoss);
@@ -361,7 +365,7 @@ namespace GuildManager.Core.Systems
                         && RollAcquiredCurse(member, TraitCatalog.DreadId, TraitBalance.DreadChance * instantKill, TraitGrantCause.Dread) is { } dreadGrant)
                         result.TraitGrantEvents.Add(dreadGrant);
                     // 重傷（§0.53）：撃破・撤退とも、生き残った隊員のHPが最大HPの一定割合未満なら出撃不可の重傷になる。
-                    if (CriticalInjury.TryInflictSevere(member, _rng) is { } injury)
+                    if (CriticalInjury.TryInflictSevere(member, _rng, severeMultiplier) is { } injury)
                         result.InjuryEvents.Add(injury);
                 }
             }

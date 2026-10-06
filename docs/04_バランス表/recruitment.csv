@@ -19,3 +19,5 @@ WesternCultureChancePercent,80,%,氏名生成における洋名の出現率（�
 UniqueNameRetryLimit,50,回,氏名重複回避のリトライ上限
 DraftCandidateCount,5,名,第1週(ゲーム開始週)の新春ドラフトで提示する候補者数（魔導士・学者・騎士・盗賊の4名は必ず含む＝4が下限。5名目以降は全職業から通常抽選）
 DraftHireCount,2,名,新春ドラフトで採用する人数（契約金0G。初期3名＋2名＝5名体制で開始）
+JobAptitudePaBonus,10,pt,採用の候補の能力を職業に寄せる（§0.72）：職業の伸び方（growth_job_weights.csv）の重みが大きい上位2能力のPAにこの値を足す（上限100）
+JobInaptitudePaPenalty,10,pt,同：職業の伸び方の重みが0の能力のPAからこの値を引く（下限1）

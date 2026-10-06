@@ -53,8 +53,14 @@ namespace GuildManager.Core.Systems
         /// <summary>決算後の新しい週に届いた依頼・予告された異変・期限の近い依頼（→ CommissionSystem.ProcessNewWeek、§0.64）。</summary>
         public CommissionArrivals Arrivals { get; set; } = new();
 
-        /// <summary>今週の待機お手伝い（→ MasterMoodSystem.ProcessIdleHelp、03 §8.1）。対象0名なら空。</summary>
+        /// <summary>今週、研究を手伝った冒険者（→ IdleActivitySystem.ProcessWeek、03 §8.1・§0.73）。対象0名なら空。</summary>
         public List<IdleHelpEntry> IdleHelpEntries { get; } = new();
+
+        /// <summary>今週、自主練をした人数（→ IdleActivitySystem、§0.73）。</summary>
+        public int SelfTrainerCount { get; set; }
+
+        /// <summary>今週の自主練による成長（→ GrowthSystem.ProcessSelfTraining、§0.73）。</summary>
+        public List<GrowthEvent> SelfTrainingGrowthEvents { get; } = new();
 
         /// <summary>今週、培養槽から誕生した子（→ SoulFusionSystem.ProcessWeeklyCultures、03 §5.4・§0.58）。子はロースターに加わっている。</summary>
         public List<SoulFusionCulture> SoulFusionBirths { get; } = new();

@@ -50,7 +50,7 @@ SturdyMaxHpBonus,0.10,倍,頑強：最大HPの基礎部分（実効VIT×係数�
 QuickHealerInjuryRecoveryBonus,1,週,治りが早い：負傷の回復で毎週消化する週数への加算（医務室の回復速度に足す。→ InjuryRecoverySystem）
 QuickHealerRestRecoveryBonus,0.25,倍,治りが早い：静養（待機）のHP自然回復量に掛ける補正率（0.25で×1.25。→ RestRecoverySystem）
 CheerfulSatisfactionBonus,1,pt,快活：本人の満足度の週次変動に加える値（毎週+1。→ SatisfactionSystem.ProcessWeeklySatisfaction）
-HardworkerIdleHelpGoldMultiplier,1.5,倍,働き者：待機お手伝い（→ master_mood.csv IdleAdventurerHelp_Gold）で本人が稼ぐ額に掛ける倍率（端数は四捨五入。機嫌の上昇は変えない）
+HardworkerIdleHelpCreditMultiplier,1.5,倍,働き者：研究の手伝い（→ master_mood.csv IdleAdventurerHelp_ResearchCredit）で本人が貯める額に掛ける倍率（端数は四捨五入。機嫌の上昇は変えない。§0.73）
 FireMageIntBonus,0.10,倍,火の魔術師：INTの実効値の素の値部分に掛ける補正率（0.10で×1.10、古傷などの割合減と合算）。火炎特攻（火に弱いボスへの上乗せ）は大迷宮のボスに弱点を足すときに接続する
 SwordMasterStatBonus,0.10,倍,ソードマスター：剣（鉄の剣・大剣）を装備しているとき、STRとAGIの実効値の素の値部分に掛ける補正率（0.10で×1.10）
 HawkEye_DisplayName,鷹の目,名称,特性の表示名（2026年10月・§0.55で新設）
@@ -75,7 +75,7 @@ Cheerful_DisplayName,快活,名称,特性の表示名（2026年10月・§0.55で
 Cheerful_Description,いつも前向きで、満足度が毎週少しずつ上がる,説明,特性の説明文
 Cheerful_IsCurseOrInjury,false,真偽,障害・呪い特性か
 Hardworker_DisplayName,働き者,名称,特性の表示名（2026年10月・§0.55で新設）
-Hardworker_Description,ギルドに残った週の内職のお手伝いで、稼ぐ額が増える,説明,特性の説明文
+Hardworker_Description,ギルドに残った週にアルベールの研究を手伝うと、貯まる研究の手伝いが増える,説明,特性の説明文
 Hardworker_IsCurseOrInjury,false,真偽,障害・呪い特性か
 FireMage_DisplayName,火の魔術師,名称,特性の表示名（2026年10月・§0.55で新設）
 FireMage_Description,火の魔術を修めており、INTが上がる。火に弱い魔物に強い（火炎特攻は今後のボスで効く）,説明,特性の説明文
@@ -128,7 +128,7 @@ Moody_DisplayName,気難しい,名称,特性の表示名（生まれつきの欠
 Moody_Description,生まれつきの欠点。不満を溜めやすく、満足度が毎週少しずつ下がる。快活を教われば克服できる,説明,特性の説明文
 Moody_IsCurseOrInjury,false,真偽,障害・呪い特性か
 Slothful_DisplayName,怠け者,名称,特性の表示名（生まれつきの欠点、§0.56）
-Slothful_Description,生まれつきの欠点。ギルドに残った週も内職を手伝わず、お金を稼がない（機嫌は上がる）。働き者を教われば克服できる,説明,特性の説明文
+Slothful_Description,生まれつきの欠点。ギルドに残った週にアルベールの研究を手伝っても、研究の手伝いが貯まらない（機嫌は上がる）。働き者を教われば克服できる,説明,特性の説明文
 Slothful_IsCurseOrInjury,false,真偽,障害・呪い特性か
 Spendthrift_DisplayName,浪費家,名称,特性の表示名（生まれつきの欠点、§0.56）
 Spendthrift_Description,生まれつきの欠点。金遣いが荒く、求める週給が高い。克服できない,説明,特性の説明文

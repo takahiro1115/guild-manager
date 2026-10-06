@@ -184,7 +184,12 @@ namespace GuildManager.Core.Tests
 
             var candidate = system.GenerateCandidates(new GameState())[0].Candidate;
 
-            Assert.Equal(40, candidate.PA_STR); // 通常レンジの下限(40)にclampされる
+            Assert.Equal(40, candidate.PA_AGI); // 通常レンジの下限(40)にclampされる
+            // 能力を職業に寄せる（§0.72）：FixedRng(30)は職業も末尾の学者にする。学者の伸び方の上位2能力（INT・MND）は+10、重み0（STR・VIT）は−10
+            Assert.Equal(JobClass.Scholar, candidate.JobClass);
+            Assert.Equal(40 + RecruitmentBalance.JobAptitudePaBonus, candidate.PA_INT);
+            Assert.Equal(40 + RecruitmentBalance.JobAptitudePaBonus, candidate.PA_MND);
+            Assert.Equal(40 - RecruitmentBalance.JobInaptitudePaPenalty, candidate.PA_STR);
         }
 
         [Fact]
@@ -196,7 +201,7 @@ namespace GuildManager.Core.Tests
 
             var candidate = system.GenerateCandidates(new GameState(), scoutMasterBonus: 0.10)[0].Candidate;
 
-            Assert.Equal(70, candidate.PA_STR); // 有望新人レンジの下限(70)にclampされる
+            Assert.Equal(70, candidate.PA_AGI); // 有望新人レンジの下限(70)にclampされる（AGIは学者で寄せの対象外）
         }
 
         [Fact]

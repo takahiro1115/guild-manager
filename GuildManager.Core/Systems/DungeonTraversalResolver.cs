@@ -441,6 +441,10 @@ namespace GuildManager.Core.Systems
             double unexploredMultiplier = UnexploredLossMultiplier(party);
             result.NightVisionApplied = needUnexplored && unexploredMultiplier < 1.0;
 
+            // 神官の加護（§0.72）：部隊に神官がいれば、損耗率を%ポイントで下げる。
+            double blessing = ClericBlessing.LossReductionPct(party.Members);
+            result.ClericBlessingPct = blessing;
+
             double rankPctSum = 0, unexploredPctSum = 0;
             foreach (var member in party.Members)
             {
@@ -455,6 +459,7 @@ namespace GuildManager.Core.Systems
                 double effectivePct = steps.Count == 0
                     ? rankPct * DamageTakenMultiplier(startSegmentBoss) * miasma
                     : steps.Sum(s => (s.Unexplored ? unexploredPct : rankPct) * s.Damage) / steps.Count;
+                effectivePct = Math.Max(0, effectivePct - blessing);
 
                 int hpLoss = (int)Math.Floor(member.MaxHP * effectivePct / 100.0 + LossEpsilon);
                 int newHp = Math.Max(MinHp, member.CurrentHP - hpLoss);

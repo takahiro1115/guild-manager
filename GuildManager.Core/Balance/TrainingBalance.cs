@@ -57,5 +57,22 @@ namespace GuildManager.Core.Balance
 
         /// <summary>教官の在任ボーナスの上限（0〜1）。</summary>
         public static readonly double TrainerTenureBonusMax = BalanceData.GetDouble(FileName, "TrainerTenureBonusMax");
+
+        // ==================== 待機中の過ごし方（2026年10月・§0.73、→ Systems.IdleActivitySystem） ====================
+
+        /// <summary>研究の手伝い・自主練をする条件：現在HPが最大HP×この比率を超えていること（以下なら静養）。</summary>
+        public static readonly double IdleActivityHpRatio = BalanceData.GetDouble(FileName, "IdleActivityHpRatio");
+
+        /// <summary>自主練の成長ロールの倍率（年齢帯別の基礎確率に掛ける。訓練施設は TrainingFacilityMultiplier＋教官）。</summary>
+        public static readonly double SelfTrainingGrowthMultiplier = BalanceData.GetDouble(FileName, "SelfTrainingGrowthMultiplier");
+
+        /// <summary>自主練をした週のHP消費量（静養の回復は受けるので、回復がこの分だけ遅くなる）。</summary>
+        public static readonly int SelfTrainingHpCost = BalanceData.GetInt(FileName, "SelfTrainingHpCost");
+
+        /// <summary>研究の手伝い（→ GameState.ResearchCredit）が貯まる上限。</summary>
+        public static readonly int ResearchCreditMax = BalanceData.GetInt(FileName, "ResearchCreditMax");
+
+        /// <summary>研究1件の研究費から研究の手伝いで割り引ける上限の割合（0.5＝半額まで、→ ResearchSystem.GetDiscount）。</summary>
+        public static readonly double ResearchCreditMaxDiscountRate = BalanceData.GetDouble(FileName, "ResearchCreditMaxDiscountRate");
     }
 }

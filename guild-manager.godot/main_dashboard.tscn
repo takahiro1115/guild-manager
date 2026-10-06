@@ -228,17 +228,17 @@ theme_override_constants/separation = 12
 
 [node name="NextWeekButton" type="Button" parent="Root/FooterPanel/Margin/FooterHBox" unique_id=22271400]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(200, 0)
 layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 17
-text = "次週へ進める (Next Week)"
+theme_override_font_sizes/font_size = 15
+text = "（デバッグ）1週進める"
 
 [node name="AutoSkipButton" type="Button" parent="Root/FooterPanel/Margin/FooterHBox" unique_id=22271401]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(240, 0)
 layout_mode = 2
+size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 17
-text = "自動スキップ (Auto Skip)"
+text = "📅 次の月へ（Space）"
 
 [node name="RecruitmentPopup" parent="." unique_id=1627770275 instance=ExtResource("2_recruit")]
 unique_name_in_owner = true

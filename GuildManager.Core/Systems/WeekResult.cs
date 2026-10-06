@@ -50,6 +50,22 @@ namespace GuildManager.Core.Systems
         /// <summary>受けた依頼の期限が近づいたか（§0.64、→ CommissionBalance.DeadlineWarningWeeks）。</summary>
         public bool CommissionDeadlineNear { get; set; }
 
+        /// <summary>階層ボスの撃破で新しいフィールドが開いたか（§0.70。方針の場所を考えてもらうため、月の途中でも止める）。</summary>
+        public bool FieldUnlocked { get; set; }
+
+        /// <summary>
+        /// 月を1ターンとして進めているとき（→ AutoSkipService.AdvanceMonth、§0.70）、月の途中でも止めるか。
+        /// 本当に決めることがあるときだけ止める：強制除籍・新しいフィールドの開放・娘の誕生・採用試験・依頼の期限・
+        /// 契約交渉（2週以内に応えないと退団）・依頼の到着（季節の切れ目＝月の切れ目に来る）・クリア・敗北。
+        /// 重傷とボス撃破では止めない（方針の自動出撃が静養で待つ・月報で見せる）。施設の完成でも止めない。
+        /// 迷宮の異変の予告は月の最後の週の前に来るが、異変は次の月から効くので止めずに月報で知らせる。
+        /// </summary>
+        public bool ShouldStopMonth =>
+            DeathOrPermanentInjuryOccurred || FieldUnlocked || SoulFusionBirthOccurred ||
+            RecruitmentTrialOccurred || CommissionDeadlineNear || SatisfactionWarningOccurred ||
+            CommissionsOffered ||
+            GameCleared || DefeatOccurred;
+
         public bool ShouldStopAutoSkip =>
             CommissionsOffered || AnomalyAnnounced || CommissionDeadlineNear ||
             RecruitmentTrialOccurred || SatisfactionWarningOccurred ||

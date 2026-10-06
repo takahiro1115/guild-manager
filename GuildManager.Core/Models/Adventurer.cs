@@ -618,6 +618,15 @@ namespace GuildManager.Core.Models
         /// </summary>
         public bool IsDispatched { get; set; } = false;
 
+        /// <summary>待機中の過ごし方（§0.73、→ IdleActivity・Systems.IdleActivitySystem）。旧セーブには無く、研究を手伝う（Help）で読まれる。</summary>
+        public IdleActivity IdleActivity { get; set; } = IdleActivity.Help;
+
+        /// <summary>
+        /// 自主練で伸ばす能力（"STR"〜"LDR"、§0.73）。null なら職業の伸び方（→ GrowthBalance.PickJobWeightedStat）で選ぶ。
+        /// 知らない名前が書かれていたら読み込みで null に戻す（→ GameState.FromSaveData）。
+        /// </summary>
+        public string? SelfTrainingStat { get; set; }
+
         /// <summary>出撃可能かどうか（重傷・引退済み・派遣中なら不可）。疲労（Fatigue）は廃止済み（→ 03 §3.5改）。</summary>
         public bool IsAvailable => Injury != InjurySeverity.Severe && !IsRetired && !IsDispatched;
     }

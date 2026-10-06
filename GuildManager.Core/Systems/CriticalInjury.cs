@@ -51,10 +51,11 @@ namespace GuildManager.Core.Systems
         /// （出撃不可・全治 SevereInjuryWeeksMin〜Max 週、→ InjuryRecoverySystem）にする。軽傷中なら重傷へ上書きする。
         /// 乱数は重傷になる場合だけ NextInt(Min, Max) を1回引く。重傷にならなければ null。
         /// </summary>
-        public static InjuryEvent? TryInflictSevere(Adventurer adventurer, IRng rng)
+        public static InjuryEvent? TryInflictSevere(Adventurer adventurer, IRng rng, double thresholdMultiplier = 1.0)
         {
             if (adventurer.CurrentHP <= 0) return null; // HP0は強制除籍（→ DungeonResolver）
-            if (adventurer.CurrentHP >= adventurer.MaxHP * CombatBalance.SevereInjuryHpThresholdPct) return null;
+            // thresholdMultiplier：神官の加護（§0.72、→ ClericBlessing）があれば基準が下がり、重傷になりにくい
+            if (adventurer.CurrentHP >= adventurer.MaxHP * CombatBalance.SevereInjuryHpThresholdPct * thresholdMultiplier) return null;
             if (adventurer.Injury == InjurySeverity.Severe) return null;
 
             int weeks = rng.NextInt(CombatBalance.SevereInjuryWeeksMin, CombatBalance.SevereInjuryWeeksMax);

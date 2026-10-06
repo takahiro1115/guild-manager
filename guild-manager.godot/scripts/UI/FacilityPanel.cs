@@ -56,6 +56,13 @@ public partial class FacilityPanel : VBoxContainer
 		/// <summary>顧問の任命ボタン（顧問欄の下。顧問管理ポップアップを開く）。</summary>
 		public Button? AppointButton { get; set; }
 		public Button? FocusTraitButton { get; set; }
+
+		/// <summary>訓練施設だけ（§0.70）：訓練生の一覧と、入れる・外すの選択。月のはじめだけ変えられる。</summary>
+		public RichTextLabel? TraineeLabel { get; set; }
+		public OptionButton? AddTraineeOption { get; set; }
+		public OptionButton? RemoveTraineeOption { get; set; }
+		public List<Guid> AddCandidateIds { get; } = new();
+		public List<Guid> RemoveCandidateIds { get; } = new();
 		public Button ActionButton { get; set; } = null!;
 	}
 
@@ -133,6 +140,26 @@ public partial class FacilityPanel : VBoxContainer
 			vbox.MoveChild(focusTraitButton, instructorPanel!.GetIndex() + 1);
 		}
 
+		// 訓練施設だけ、訓練生の欄（§0.70：訓練は月ごとの約束）を着工ボタンの上に置く。
+		RichTextLabel? traineeLabel = null;
+		OptionButton? addTrainee = null;
+		OptionButton? removeTrainee = null;
+		if (FacilityBalance.IsTrainingFacility(type))
+		{
+			traineeLabel = new RichTextLabel { BbcodeEnabled = true, FitContent = true, ScrollActive = false, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+			var row = new HBoxContainer();
+			row.AddThemeConstantOverride("separation", 6);
+			addTrainee = new OptionButton { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+			removeTrainee = new OptionButton { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+			row.AddChild(addTrainee);
+			row.AddChild(removeTrainee);
+			var actionButton = vbox.GetNode<Button>("ActionButton");
+			vbox.AddChild(traineeLabel);
+			vbox.AddChild(row);
+			vbox.MoveChild(traineeLabel, actionButton.GetIndex());
+			vbox.MoveChild(row, actionButton.GetIndex());
+		}
+
 		var binding = new FacilityCardBinding
 		{
 			Type = type,
@@ -147,9 +174,16 @@ public partial class FacilityPanel : VBoxContainer
 			AppointButton = appointButton,
 			FocusTraitButton = focusTraitButton,
 			ActionButton = vbox.GetNode<Button>("ActionButton"),
+			TraineeLabel = traineeLabel,
+			AddTraineeOption = addTrainee,
+			RemoveTraineeOption = removeTrainee,
 		};
 
 		binding.ActionButton.Pressed += () => OnStartConstructionPressed(type);
+		if (addTrainee != null)
+			addTrainee.ItemSelected += index => OnAddTraineeSelected(binding, index);
+		if (removeTrainee != null)
+			removeTrainee.ItemSelected += index => OnRemoveTraineeSelected(binding, index);
 		_cardBindings[type] = binding;
 	}
 
@@ -254,6 +288,8 @@ public partial class FacilityPanel : VBoxContainer
 			RefreshAppointButton(binding.AppointButton, binding.Type, currentLevel);
 		if (binding.FocusTraitButton != null)
 			RefreshFocusTraitButton(binding.FocusTraitButton, binding.Type, currentLevel);
+		if (binding.TraineeLabel != null)
+			RefreshTrainees(binding, currentLevel);
 
 		// 着工ボタンの防御的ガード制御
 		if (isMaxLevel)
@@ -291,6 +327,64 @@ public partial class FacilityPanel : VBoxContainer
 			binding.ActionButton.Text = $"🔨 {actText} ({cost}G / {weeks}週)";
 			binding.ActionButton.TooltipText = $"{FacilityLabel(binding.Type)}の{actText}を行います。着工時に費用{cost}Gを前払いします。";
 		}
+	}
+
+	// ==================== 訓練生（§0.70：訓練は月ごとの約束） ====================
+
+	private readonly TrainingSystem _trainingSystem = new();
+
+	/// <summary>訓練生の欄：今の訓練生と枠、入れる候補・外す候補。月のはじめでなければ選べない。</summary>
+	private void RefreshTrainees(FacilityCardBinding binding, int level)
+	{
+		int capacity = _trainingSystem.GetSlotCapacity(_state, binding.Type);
+		var trainees = _state.Adventurers.Where(a => _state.TrainingAssignments.TryGetValue(a.Id, out var f) && f == binding.Type).ToList();
+		bool canChange = TrainingSystem.CanChangeAssignments(_state);
+
+		binding.TraineeLabel!.Clear();
+		string names = trainees.Count == 0 ? "[color=gray]なし[/color]" : string.Join("、", trainees.Select(a => a.Name));
+		binding.TraineeLabel.AppendText($"訓練生（{trainees.Count}/{capacity}）：{names}");
+		if (level > 0)
+			binding.TraineeLabel.AppendText(canChange
+				? "\n[color=gray]訓練生はこの月は出撃しない（部隊のほかの隊員だけで出る）。[/color]"
+				: $"\n[color=orange]訓練生を入れる・外すのは月のはじめだけ（今は第{GameCalendar.WeekOfMonth(_state.WeekNumber)}週）。[/color]");
+
+		var add = binding.AddTraineeOption!;
+		add.Clear();
+		binding.AddCandidateIds.Clear();
+		add.AddItem("＋ 訓練に入れる…");
+		foreach (var a in _state.Adventurers.Where(a => !a.IsRetired && !a.IsDispatched && !TrainingSystem.IsTraining(_state, a.Id)).OrderBy(a => a.Name))
+		{
+			add.AddItem($"{a.Name}（{a.Age}歳）");
+			binding.AddCandidateIds.Add(a.Id);
+		}
+		add.Selected = 0;
+		add.Disabled = !canChange || level == 0 || trainees.Count >= capacity || binding.AddCandidateIds.Count == 0;
+
+		var remove = binding.RemoveTraineeOption!;
+		remove.Clear();
+		binding.RemoveCandidateIds.Clear();
+		remove.AddItem("− 訓練から外す…");
+		foreach (var a in trainees)
+		{
+			remove.AddItem(a.Name);
+			binding.RemoveCandidateIds.Add(a.Id);
+		}
+		remove.Selected = 0;
+		remove.Disabled = !canChange || trainees.Count == 0;
+	}
+
+	private void OnAddTraineeSelected(FacilityCardBinding binding, long index)
+	{
+		if (index <= 0 || index > binding.AddCandidateIds.Count) return;
+		_trainingSystem.TryAssignForMonth(_state, binding.AddCandidateIds[(int)index - 1], binding.Type);
+		StateChanged.Invoke();
+	}
+
+	private void OnRemoveTraineeSelected(FacilityCardBinding binding, long index)
+	{
+		if (index <= 0 || index > binding.RemoveCandidateIds.Count) return;
+		_trainingSystem.TryUnassignForMonth(_state, binding.RemoveCandidateIds[(int)index - 1]);
+		StateChanged.Invoke();
 	}
 
 	/// <summary>顧問の任命ボタン：役職名と、任命済みなら「交代」と出す。施設が未建設なら押せない。</summary>

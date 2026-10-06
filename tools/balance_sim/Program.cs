@@ -45,6 +45,9 @@ if (mode is "campaign")
     GameSim.UseSoulFusion = !opts.Contains("nosf");
     GameSim.Trace = opts.Contains("trace");
     GameSim.UseElixirs = !opts.Contains("noelixir");
+    // 待機中の過ごし方（§0.73）：selftrain＝機嫌が60以上の週は全員が自主練、下回ったら研究を手伝う（既定は全員が研究を手伝う）
+    GameSim.SelfTrainAll = opts.Contains("selftrain") || opts.Contains("selftrainall");
+    GameSim.SelfTrainMinMood = opts.Contains("selftrainall") ? 0 : 60; // selftrainall＝機嫌にかかわらず全員が自主練
     // 依頼（§0.64）：nocomm＝依頼を受けない、old＝依頼も迷宮の異変も無し（§0.63までと同じ条件で比べる）
     GameSim.UseCommissions = !opts.Contains("nocomm") && !opts.Contains("old");
     GameSim.NoAnomaly = opts.Contains("old");
@@ -215,7 +218,7 @@ class GameSim
     }
 
     static int TotalPa(Adventurer a) => Acc.All.Sum(n => Acc.Pa(a, n));
-    static double StatSum(Adventurer a) => DungeonBalance.BossPowerWeights.Sum(w => a.GetEffectiveStat(w.Stat) * w.Weight);
+    static double StatSum(Adventurer a) => DungeonBalance.GetBossPowerWeights(a.JobClass).Sum(w => a.GetEffectiveStat(w.Stat) * w.Weight); // 職業ごとの重み（§0.72）
     static double WeightSum => DungeonBalance.BossPowerWeights.Sum(w => w.Weight);
     static double HpRatio(Adventurer a) => (double)a.CurrentHP / a.MaxHP;
 
@@ -258,6 +261,9 @@ class GameSim
     public static bool Campaign;
     public static bool UseSoulFusion = true;
     public static bool UseElixirs = true;
+    public static bool SelfTrainAll;
+    public static int SelfTrainMinMood = 60;
+    public int ResearchCreditUsed;
     public int ElixirsGiven;
 
     /// <summary>
@@ -378,6 +384,10 @@ class GameSim
         if (Campaign)
             CampaignUpkeep();
 
+        // 訓練は月の約束（§0.70）：割り振りを変えられるのは月のはじめだけ。月の途中は訓練生を出撃に回さない。
+        bool monthStart = TrainingSystem.CanChangeAssignments(s);
+        bool Free(Adventurer a) => monthStart || !TrainingSystem.IsTraining(s, a.Id);
+
         // 主力：次のボスへ潜行（森だけのモードでは森、campaign では要求火力の最も低いボス）
         var target = PickTarget()?.Boss;
         bool mainOut = s.ActiveDungeonMissions.Any(m => m.MissionType == DungeonMissionType.Scouting);
@@ -385,7 +395,7 @@ class GameSim
             .OrderByDescending(StatSum).Take(4).Select(a => a.Id).ToHashSet();
         if (!mainOut && target != null && DungeonExpeditionSystem.CanDispatch(s))
         {
-            var ready = PickForBoss(target, Active.Where(a => a.IsAvailable && HpRatio(a) >= 0.8).ToList());
+            var ready = PickForBoss(target, Active.Where(a => a.IsAvailable && Free(a) && HpRatio(a) >= 0.8).ToList());
             if (ready.Count == 4 || (ready.Count >= 3 && Active.Count(a => a.IsAvailable) < 4))
             {
                 var leader = ready.OrderByDescending(a => a.GetEffectiveStat("LDR")).First();
@@ -420,7 +430,7 @@ class GameSim
         // 2・3枠目：調査 → 採取（主力の4名は使わない）
         while (DungeonExpeditionSystem.CanDispatch(s))
         {
-            var pool = Active.Where(a => a.IsAvailable && !reserved.Contains(a.Id) && HpRatio(a) >= 0.6).ToList();
+            var pool = Active.Where(a => a.IsAvailable && Free(a) && !reserved.Contains(a.Id) && HpRatio(a) >= 0.6).ToList();
             if (pool.Count < 1) break;
             bool surveyOut = s.ActiveDungeonMissions.Any(m => m.MissionType == DungeonMissionType.Survey);
             var party = new Party();
@@ -440,7 +450,8 @@ class GameSim
             }
         }
 
-        // 訓練：主力以外の待機者を、伸びしろの大きい施設へ
+        // 訓練：主力以外の待機者を、伸びしろの大きい施設へ（月のはじめだけ。§0.70）
+        if (!monthStart) return;
         foreach (var a in Active.Where(a => !a.IsDispatched))
         {
             if (reserved.Contains(a.Id) || HpRatio(a) < 0.5 || a.Injury == InjurySeverity.Severe)
@@ -582,6 +593,9 @@ class GameSim
     /// </summary>
     void CampaignUpkeep()
     {
+        foreach (var a in Active)
+            a.IdleActivity = SelfTrainAll && s.MasterMood >= SelfTrainMinMood ? IdleActivity.SelfTraining : IdleActivity.Help;
+
         var posted = s.AssignedTrainers.Values.OfType<Guid>().ToHashSet();
         foreach (var f in TrainingFacilities.Where(f => s.GetFacilityLevel(f) >= 1))
         {
@@ -593,8 +607,11 @@ class GameSim
         }
 
         foreach (var r in ResearchBalance.GetAll().Where(r => !s.IsResearchCompleted(r.Id)))
-            if (s.Gold - r.RequiredGold >= Reserve)
-                ResearchSystem.CompleteResearch(s, r);
+            if (s.Gold - ResearchSystem.GetGoldToPay(s, r) >= Reserve)
+            {
+                int discount = ResearchSystem.GetDiscount(s, r);
+                if (ResearchSystem.CompleteResearch(s, r)) ResearchCreditUsed += discount;
+            }
 
         // 霊薬（§0.61）：若い上位の冒険者に、火力の重みが最も伸びる霊薬を1週1本
         if (UseElixirs && ElixirSystem.IsUnlocked(s))
@@ -602,7 +619,7 @@ class GameSim
             var weight = DungeonBalance.BossPowerWeights.ToDictionary(w => w.Stat, w => w.Weight);
             var pick = Active.Where(a => !a.IsDispatched && a.Age <= 24 && a.ElixirsTaken < ElixirBalance.MaxPerAdventurer)
                 .OrderByDescending(StatSum).Take(6)
-                .SelectMany(a => ElixirBalance.Recipes.Select(r => (A: a, R: r, Gain: r.TargetStats.Sum(n => weight[n]) * (r.PaBonus + r.StatBonus))))
+                .SelectMany(a => ElixirBalance.Recipes.Select(r => (A: a, R: r, Gain: r.TargetStats.Sum(n => DungeonBalance.GetBossPowerWeights(a.JobClass).First(w => w.Stat == n).Weight) * (r.PaBonus + r.StatBonus))))
                 .Where(x => s.Gold - x.R.RequiredGold >= Reserve && ElixirSystem.Check(s, x.A, x.R.Id) == ElixirCheck.Ok)
                 .OrderByDescending(x => x.Gain).FirstOrDefault();
             if (pick.A != null)
@@ -672,7 +689,6 @@ class GameSim
         PhaseWeeks[PhaseOf(week)]++;
         void Add(string item, int gold) { if (gold != 0) { var k = (PhaseOf(week), item); Ledger[k] = Ledger.GetValueOrDefault(k) + gold; } }
         int side = r.SideJobIncome?.FinalGold ?? 0;
-        int idle = r.IdleHelpEntries.Sum(e => e.Gold);
         int gather = r.DungeonMissionResolutions.Sum(x => x.GatheringResult?.GoldEarned ?? 0);
         int loot = r.DungeonMissionResolutions.Sum(x => x.DepositedGold);
         int boss = r.DungeonMissionResolutions.Where(x => x.DungeonResult?.Outcome == DungeonOutcome.Victory).Sum(x => x.Boss?.RewardGold ?? 0);
@@ -680,11 +696,10 @@ class GameSim
         Add("週給", -wages);
         Add("訓練費", training);
         Add("内職", side);
-        Add("待機お手伝い", idle);
         Add("採取の報酬", gather);
         Add("潜行の拾得ゴールド", loot);
         Add("ボスの撃破報酬", boss);
-        Add("その他の決算", total - (-wages + training + side + idle + gather + loot + boss));
+        Add("その他の決算", total - (-wages + training + side + gather + loot + boss));
     }
     void BuildFacility()
     {
@@ -764,6 +779,7 @@ class GameSim
         }).OfType<string>()));
         Console.WriteLine($"秘薬で生まれた娘：{string.Join(", ", sims.Select(x => x.DaughtersBorn))}");
         Console.WriteLine($"飲ませた霊薬：{string.Join(", ", sims.Select(x => x.ElixirsGiven))}　上位装備の段（最終）：{string.Join(", ", sims.Select(x => EquipmentSystem.GetUnlockedShopTier(x.s)))}");
+        Console.WriteLine($"研究の手伝いで割り引いた額（G）：{string.Join(", ", sims.Select(x => x.ResearchCreditUsed))}");
         Console.WriteLine($"強制除籍：{string.Join(", ", sims.Select(x => x.ForcedRetired))}　敗北：{string.Join(", ", sims.Select(x => x.Defeat ?? "なし"))}");
         Console.WriteLine($"依頼（§0.64、{(UseCommissions ? "受ける" : "受けない")}・異変{(NoAnomaly ? "なし" : "あり")}）：達成 {string.Join(", ", sims.Select(x => x.CommDone))}　失敗 {string.Join(", ", sims.Select(x => x.CommFailed))}　" +
             $"報酬G（千） {string.Join(", ", sims.Select(x => x.CommGold / 1000))}　献上 {string.Join(", ", sims.Select(x => x.Tributes))}　依頼人の固有武具 {string.Join(", ", sims.Select(x => x.PatronUniques))}　異変 {string.Join(", ", sims.Select(x => x.Anomalies))}");
@@ -890,7 +906,7 @@ static class IdealGrowth
         Console.WriteLine("値は火力の加重平均（STR0.8・AGI0.5・VIT0.6・MND0.8・DEX0.4・LDR0.4・INT0.7 で重み付けした能力の平均）。装備なし。");
     }
 
-    static double W(Adventurer a) => DungeonBalance.BossPowerWeights.Sum(w => a.GetEffectiveStat(w.Stat) * w.Weight) / DungeonBalance.BossPowerWeights.Sum(w => w.Weight);
+    static double W(Adventurer a) => DungeonBalance.GetBossPowerWeights(a.JobClass).Sum(w => a.GetEffectiveStat(w.Stat) * w.Weight) / DungeonBalance.BossPowerWeights.Sum(w => w.Weight);
 
     static double[] One(int pa, string plan, int seed)
     {

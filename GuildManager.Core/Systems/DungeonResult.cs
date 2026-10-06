@@ -52,6 +52,9 @@ namespace GuildManager.Core.Systems
         /// <summary>猛毒に備えが足りず毒状態になった隊員と、その週数（§0.68、週報の開示用）。</summary>
         public Dictionary<Guid, int> PoisonWeeksByAdventurer { get; set; } = new();
 
+        /// <summary>神官の加護で下げた損耗率（%ポイント、0＝神官なし。§0.72、週報の開示用）。</summary>
+        public double ClericBlessingPct { get; set; }
+
         /// <summary>この戦闘で付いた毒状態の全能力の低下率（0＝毒なし）。</summary>
         public double PoisonStatPenalty { get; set; }
 

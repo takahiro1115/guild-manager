@@ -439,11 +439,29 @@ namespace GuildManager.Core.Tests
             Assert.Equal(2 * DungeonBalance.GrowthRollsTraversal, events.Count);
             Assert.All(events, e => Assert.Contains(e.Stat, new[] { "STR", "VIT", "AGI", "DEX" }));
             Assert.All(events, e => Assert.Equal(e.Before + 1, e.After));
-            Assert.Equal(31, a.STR); // 巡回：a=STR,VIT／b=AGI,DEX
-            Assert.Equal(31, a.VIT);
-            Assert.Equal(31, b.AGI);
-            Assert.Equal(31, b.DEX);
             Assert.Equal(30, a.INT); // 対象外の能力は伸びない
+            Assert.Equal(30, a.MND);
+        }
+
+        private class FixedRng : IRng
+        {
+            private readonly int _value;
+            public FixedRng(int value) => _value = value;
+            public int NextInt(int min, int max) => System.Math.Clamp(_value, min, max);
+        }
+
+        [Theory]
+        // 重戦士・道中（STR/VIT/AGI/DEX）：重み＋1＝STR4・VIT4・AGI2・DEX2（合計12）。1〜4＝STR、5〜8＝VIT、9〜10＝AGI、11〜12＝DEX
+        [InlineData(1, "STR")]
+        [InlineData(4, "STR")]
+        [InlineData(5, "VIT")]
+        [InlineData(9, "AGI")]
+        [InlineData(12, "DEX")]
+        public void ExpeditionGrowth_PicksStats_ByJobGrowthWeights(int roll, string expected)
+        {
+            Assert.Equal(1, DungeonBalance.GrowthJobWeightFloor);
+            var pool = new[] { "STR", "VIT", "AGI", "DEX" };
+            Assert.Equal(expected, GrowthBalance.PickJobWeightedStat(JobClass.Warrior, pool, DungeonBalance.GrowthJobWeightFloor, new FixedRng(roll)));
         }
 
         [Fact]
@@ -461,7 +479,7 @@ namespace GuildManager.Core.Tests
             Assert.Equal(5, plan.Rolls);
             Assert.Equal(new[] { "STR", "AGI", "VIT", "MND", "DEX", "LDR", "INT" }.OrderBy(s => s), plan.Stats.OrderBy(s => s));
             Assert.Equal(5, events.Count);
-            Assert.Equal(new[] { "STR", "AGI", "VIT", "MND", "DEX" }, events.Select(e => e.Stat)); // 全7能力から順に選ばれている
+            Assert.All(events, e => Assert.Contains(e.Stat, plan.Stats)); // 全7能力から、職業の伸び方の比で選ばれる
             Assert.True(plan.Rolls > GrowthSystem.ExpeditionGrowthPlan(DungeonMissionType.Scouting, false).Rolls);
         }
 
@@ -508,8 +526,7 @@ namespace GuildManager.Core.Tests
 
             Assert.Equal(new[] { "AGI", "DEX", "VIT" }, plan.Stats);
             Assert.Equal(DungeonBalance.GrowthRollsGathering, events.Count);
-            Assert.Equal(31, a.AGI);
-            Assert.Equal(31, a.DEX);
+            Assert.All(events, e => Assert.Contains(e.Stat, plan.Stats));
             Assert.Equal(30, a.STR);
             Assert.Equal(30, a.INT);
         }

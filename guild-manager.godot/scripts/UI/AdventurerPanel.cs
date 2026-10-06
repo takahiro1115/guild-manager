@@ -93,6 +93,17 @@ public partial class AdventurerPanel : VBoxContainer
 	private Button _renameButton = null!;
 	private Button _compatButton = null!;
 
+	// 待機中の過ごし方（§0.73）。コードで組み立て、操作ボタンのカードの上に置く
+	private PanelContainer _idleCard = null!;
+	private OptionButton _idleActivityOption = null!;
+	private OptionButton _selfTrainingStatOption = null!;
+	private Button _idleApplyAllButton = null!;
+	private RichTextLabel _idleStatusLabel = null!;
+	private bool _idleUpdating;
+
+	/// <summary>自主練で伸ばす能力の選択肢（先頭の "" は「職業の伸び方」＝Adventurer.SelfTrainingStat が null）。</summary>
+	private static readonly string[] SelfTrainingStatChoices = { "", "STR", "VIT", "AGI", "DEX", "INT", "MND", "LDR" };
+
 	// 改名ダイアログ（→ 03 §2.1、2026年9月新設。コードで組み立てる）
 	private ConfirmationDialog _renameDialog = null!;
 	private LineEdit _renameEdit = null!;
@@ -187,6 +198,7 @@ public partial class AdventurerPanel : VBoxContainer
 		_renameButton.Pressed += OnRenamePressed;
 		BuildRenameDialog();
 		BuildCompatibilityButton();
+		BuildIdleActivityCard();
 
 		// 初期状態は未選択
 		ShowNoAdventurerSelected();
@@ -234,6 +246,7 @@ public partial class AdventurerPanel : VBoxContainer
 
 		GetNode<Control>("Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox/LifecycleCard").Visible = false;
 		GetNode<Control>("Body/RightPane/DetailVBox/DetailContainer/ActionButtonsCard").Visible = false;
+		_idleCard.Visible = false;
 		_renameButton.Visible = false;
 		_compatButton.Visible = false;
 		_negotiationWarning.Visible = false;
@@ -325,6 +338,113 @@ public partial class AdventurerPanel : VBoxContainer
 		dialog.PopupCentered();
 	}
 
+	// ==================== 待機中の過ごし方（§0.73） ====================
+
+	/// <summary>
+	/// 「待機中の過ごし方」のカードを操作ボタンのカードの上に置く：研究を手伝う／自主練、自主練で伸ばす能力、
+	/// 全員を同じ過ごし方にするボタン、今週どう過ごすか（静養ならその理由）。
+	/// </summary>
+	private void BuildIdleActivityCard()
+	{
+		_idleCard = new PanelContainer();
+		var margin = new MarginContainer();
+		foreach (var side in new[] { "left", "top", "right", "bottom" })
+			margin.AddThemeConstantOverride($"margin_{side}", 8);
+		_idleCard.AddChild(margin);
+		var vbox = new VBoxContainer();
+		vbox.AddThemeConstantOverride("separation", 4);
+		margin.AddChild(vbox);
+
+		var row = new HBoxContainer();
+		row.AddThemeConstantOverride("separation", 8);
+		vbox.AddChild(row);
+		row.AddChild(new Label
+		{
+			Text = "待機中の過ごし方",
+			TooltipText = $"出撃しておらず、訓練施設にも入っておらず、HPが{TrainingBalance.IdleActivityHpRatio * 100:0}%を超え、負傷も毒も無い週にすること。それ以外の週は静養する。",
+			MouseFilter = MouseFilterEnum.Pass,
+		});
+
+		_idleActivityOption = new OptionButton
+		{
+			TooltipText = $"研究を手伝う：研究の手伝いが週{MasterMoodBalance.IdleAdventurerHelpResearchCredit}G分貯まり（次の研究費の{TrainingBalance.ResearchCreditMaxDiscountRate * 100:0}%まで割り引く）、マスターの機嫌が+{MasterMoodBalance.IdleAdventurerHelpMood}。\n" +
+				$"自主練：能力が少し伸びることがある（訓練施設の{TrainingBalance.SelfTrainingGrowthMultiplier * 100:0}%ほどの伸び。費用なし）。HPを{TrainingBalance.SelfTrainingHpCost}使う。",
+		};
+		_idleActivityOption.AddItem(IdleActivitySystem.Label(IdleActivity.Help), (int)IdleActivity.Help);
+		_idleActivityOption.AddItem(IdleActivitySystem.Label(IdleActivity.SelfTraining), (int)IdleActivity.SelfTraining);
+		_idleActivityOption.ItemSelected += OnIdleActivitySelected;
+		row.AddChild(_idleActivityOption);
+
+		_selfTrainingStatOption = new OptionButton { TooltipText = "自主練で伸ばす能力。「職業の伸び方」なら、職業ごとの伸びやすさで選ぶ。" };
+		foreach (var stat in SelfTrainingStatChoices)
+			_selfTrainingStatOption.AddItem(stat == "" ? "職業の伸び方" : $"{stat}を伸ばす");
+		_selfTrainingStatOption.ItemSelected += OnSelfTrainingStatSelected;
+		row.AddChild(_selfTrainingStatOption);
+
+		_idleApplyAllButton = new Button { TooltipText = "現役の全員の待機中の過ごし方を、この冒険者と同じにする（自主練で伸ばす能力は各自のまま）。" };
+		_idleApplyAllButton.Pressed += OnIdleApplyAllPressed;
+		row.AddChild(_idleApplyAllButton);
+
+		_idleStatusLabel = new RichTextLabel { BbcodeEnabled = true, FitContent = true, ScrollActive = false, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+		vbox.AddChild(_idleStatusLabel);
+
+		var actionCard = GetNode<Control>("Body/RightPane/DetailVBox/DetailContainer/ActionButtonsCard");
+		_detailContainer.AddChild(_idleCard);
+		_detailContainer.MoveChild(_idleCard, actionCard.GetIndex());
+	}
+
+	/// <summary>訓練施設に入っているか（志願者の表示ではギルドの状態が無いので false）。</summary>
+	private bool IsTrainingNow(Adventurer a) => _state != null && TrainingSystem.IsTraining(_state, a.Id);
+
+	/// <summary>カードを選択中の冒険者の値で描き直す。</summary>
+	private void RefreshIdleActivityCard(Adventurer a)
+	{
+		if (_state == null) return;
+		_idleCard.Visible = true;
+		_idleUpdating = true;
+		_idleActivityOption.Select(_idleActivityOption.GetItemIndex((int)a.IdleActivity));
+		_selfTrainingStatOption.Select(Math.Max(0, Array.IndexOf(SelfTrainingStatChoices, a.SelfTrainingStat ?? "")));
+		_idleUpdating = false;
+		_selfTrainingStatOption.Visible = a.IdleActivity == IdleActivity.SelfTraining;
+		_idleApplyAllButton.Text = $"全員を「{IdleActivitySystem.Label(a.IdleActivity)}」に";
+
+		var activity = IdleActivitySystem.GetWeekActivity(_state, a);
+		string now = activity switch
+		{
+			WeekActivity.Resting => $"[color=orange]静養（{IdleActivitySystem.RestReason(a)}）[/color]",
+			WeekActivity.Dispatched or WeekActivity.Training => $"[color=gray]{IdleActivitySystem.Label(activity)}（待機中の過ごし方はしない）[/color]",
+			_ => $"[color=lime]{IdleActivitySystem.Label(activity)}[/color]",
+		};
+		_idleStatusLabel.Clear();
+		_idleStatusLabel.AppendText($"今週：{now}　[color=gray]研究の手伝いの貯まり {_state.ResearchCredit} G[/color]");
+	}
+
+	private void OnIdleActivitySelected(long index)
+	{
+		var target = CurrentDetailAdventurer();
+		if (_idleUpdating || target == null) return;
+		target.IdleActivity = (IdleActivity)_idleActivityOption.GetItemId((int)index);
+		StateChanged.Invoke();
+	}
+
+	private void OnSelfTrainingStatSelected(long index)
+	{
+		var target = CurrentDetailAdventurer();
+		if (_idleUpdating || target == null) return;
+		target.SelfTrainingStat = index == 0 ? null : SelfTrainingStatChoices[index];
+		StateChanged.Invoke();
+	}
+
+	private void OnIdleApplyAllPressed()
+	{
+		var target = CurrentDetailAdventurer();
+		if (target == null || _state == null) return;
+		foreach (var a in _state.Adventurers)
+			a.IdleActivity = target.IdleActivity;
+		LogRequested($"[color=cyan]現役の全員の待機中の過ごし方を「{IdleActivitySystem.Label(target.IdleActivity)}」にした。[/color]");
+		StateChanged.Invoke();
+	}
+
 	// ==== 詳細表示 ====
 
 	/// <summary>
@@ -361,7 +481,8 @@ public partial class AdventurerPanel : VBoxContainer
 		// ---- 基本情報 ----
 		_nameLabel.Text = a.Name;
 
-		_jobBadgeLabel.Text = JobLabel(a.JobClass);
+		_jobBadgeLabel.Text = $"{JobLabel(a.JobClass)}（{JobMainStatsText(a.JobClass)}）";
+		_jobBadgeLabel.TooltipText = JobRoleTooltip(a.JobClass);
 		_ageLabel.Text = $"{a.Age}歳（{AgeBandLabel(a.AgeBand)}）";
 
 		_statusLabel.Clear();
@@ -371,8 +492,12 @@ public partial class AdventurerPanel : VBoxContainer
 			_statusLabel.AppendText($"[color=orange]軽傷（全治まで{a.InjuryWeeksRemaining}週・能力値−{CombatBalance.LightInjuryStatPenaltyRate * 100:0}%）[/color]");
 		else if (a.IsDispatched)
 			_statusLabel.AppendText("[color=cyan]出撃中[/color]");
+		else if (IsTrainingNow(a))
+			_statusLabel.AppendText("[color=lime]訓練中[/color]");
 		else
 			_statusLabel.AppendText("[color=lime]待機中[/color]");
+
+		RefreshIdleActivityCard(a);
 
 		// 魂魄融和で生まれた娘なら両親を出す（→ 03 §5.4・§0.58）。秘薬の親になった者には印を付ける。
 		if (a.ParentIds.Count == 2)
@@ -816,6 +941,20 @@ public partial class AdventurerPanel : VBoxContainer
 			? $"{slotName}: {equipped.DisplayName}（不明）"
 			: $"{slotName}: {equipped.DisplayName}（{definition.DescribeEffects()}）";
 		label.TooltipText = $"{equipped.DisplayName}\n{equipped.DescribeEffects()}";
+	}
+
+	/// <summary>討伐火力で重く測る能力（§0.72、→ BAL: boss_power_weights.csv。重み0.8以上を重い順に）。例：「STR・VIT」。</summary>
+	public static string JobMainStatsText(JobClass job) =>
+		string.Join("・", DungeonBalance.GetBossPowerWeights(job).Where(w => w.Weight >= 0.8).OrderByDescending(w => w.Weight).Select(w => w.Stat));
+
+	/// <summary>職業の役割の説明（ツールチップ）：火力の主な能力・伸びやすい能力・神官の加護。</summary>
+	public static string JobRoleTooltip(JobClass job)
+	{
+		string growth = string.Join("・", GrowthBalance.GetJobAptitudeOrder(job).Take(2));
+		string text = $"討伐火力は {JobMainStatsText(job)} を重く測る。出撃では {growth} が伸びやすい。";
+		if (job == JobClass.Cleric)
+			text += $"\n神官の加護：部隊にいると、ボス戦と道中の損耗を（MND×{CombatBalance.ClericBlessingLossPctPerMnd:0.##}）%ポイント軽くし、ボス戦の後に重傷になりにくい。";
+		return text;
 	}
 
 	/// <summary>職業の日本語表示名。DungeonPanel.JobLabel と同じマッピング。</summary>

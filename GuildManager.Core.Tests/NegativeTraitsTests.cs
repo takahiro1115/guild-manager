@@ -325,18 +325,17 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
-        public void Slothful_EarnsNothing_ButStillHelpsMood()
+        public void Slothful_GainsNoResearchCredit_ButStillHelpsMood()
         {
             var state = new GameState();
             var lazy = Make(40, TraitCatalog.SlothfulId);
             state.Adventurers.Add(lazy);
-            int gold = state.Gold;
 
-            var entry = Assert.Single(MasterMoodSystem.ProcessIdleHelp(state, new HashSet<Guid>(), new MasterMoodReport()));
+            var entry = Assert.Single(IdleActivitySystem.ProcessWeek(state, new HashSet<Guid>(), new MasterMoodReport()).HelpEntries);
 
-            Assert.Equal(0, entry.Gold);
+            Assert.Equal(0, entry.Credit);
             Assert.Equal(MasterMoodBalance.IdleAdventurerHelpMood, entry.Mood);
-            Assert.Equal(gold, state.Gold);
+            Assert.Equal(0, state.ResearchCredit);
         }
 
         [Fact]

@@ -60,6 +60,9 @@ namespace GuildManager.Core.Systems
         /// </summary>
         public bool NightVisionApplied { get; set; }
 
+        /// <summary>神官の加護で下げた損耗率（%ポイント、0＝神官なし。§0.72、週報の開示用）。</summary>
+        public double ClericBlessingPct { get; set; }
+
         /// <summary>今回の進軍でHP1まで落ちた隊員に付いた古傷（→ CriticalInjury.RollOldWound、週報の開示用）。</summary>
         public List<TraitGrantEvent> TraitGrantEvents { get; set; } = new();
 

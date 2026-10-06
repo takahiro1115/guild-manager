@@ -16,7 +16,7 @@ namespace GuildManager.Core.Systems
     /// 2026年9月・§0.37：旧「個人CP」の中間概念と、武具の「個人CPボーナス」（重みを経ずに火力へ直接足していた固定値）を撤廃した。
     /// 2026年9月・§0.23：職業×配置の補正（前衛職の前衛1.2倍等）を撤廃した。配置は職業で一意に決まるため、
     /// 実質「職業ごとの固定倍率」になっていた（→ 03 §4.2・§4.5.4・§0.23）。前衛／後衛は火力に影響しない。
-    /// 重みは dungeon.csv の BossPowerWeight_*（→ DungeonBalance.BossPowerWeights）。
+    /// 重みは職業ごと（2026年10月・§0.72、→ BAL: boss_power_weights.csv・DungeonBalance.GetBossPowerWeights）。
     /// public static にしてあるのは、出撃前のプレビュー（UI）とテストから同じ式を使うため。
     /// </summary>
     public static class DungeonPowerCalculator
@@ -31,8 +31,9 @@ namespace GuildManager.Core.Systems
         {
             double hpRatio = (double)a.CurrentHP / a.MaxHP;
 
+            // 職業ごとの重み（§0.72、→ BAL: boss_power_weights.csv）で測る。
             double statSum = 0;
-            foreach (var (stat, weight) in DungeonBalance.BossPowerWeights)
+            foreach (var (stat, weight) in DungeonBalance.GetBossPowerWeights(a.JobClass))
                 statSum += a.GetEffectiveStat(stat) * weight;
 
             if (GiantHunterApplies(a, boss))

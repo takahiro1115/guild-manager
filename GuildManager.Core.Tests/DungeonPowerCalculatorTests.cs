@@ -109,7 +109,7 @@ namespace GuildManager.Core.Tests
 
         // ---------------- §0.37：個人CPの撤廃（火力＝実効ステータス×重み×HP比率） ----------------
 
-        private static double W(string stat) => DungeonBalance.BossPowerWeights.First(w => w.Stat == stat).Weight;
+        private static double W(string stat) => DungeonBalance.GetBossPowerWeights(JobClass.Warrior).First(w => w.Stat == stat).Weight; // 重戦士の重み（§0.72）
 
         [Fact]
         public void MemberPower_EqualsEffectiveStatsTimesWeightsTimesHpRatio_WithEquipmentAndTraits()
@@ -122,7 +122,7 @@ namespace GuildManager.Core.Tests
             a.SetEquippedId(EquipmentSlot.Accessory1, ItemCatalog.PowerRingId);
             a.CurrentHP = a.MaxHP / 2;
 
-            double expected = DungeonBalance.BossPowerWeights.Sum(w => a.GetEffectiveStat(w.Stat) * w.Weight)
+            double expected = DungeonBalance.GetBossPowerWeights(a.JobClass).Sum(w => a.GetEffectiveStat(w.Stat) * w.Weight)
                               * ((double)a.CurrentHP / a.MaxHP);
             Assert.Equal(expected, DungeonPowerCalculator.MemberPower(a), precision: 10);
 

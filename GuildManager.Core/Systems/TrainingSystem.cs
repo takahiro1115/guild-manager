@@ -82,6 +82,36 @@ namespace GuildManager.Core.Systems
         public void Unassign(GameState state, Guid adventurerId) =>
             state.TrainingAssignments.Remove(adventurerId);
 
+        // ---- 訓練の月の約束（2026年10月・§0.70）：訓練に入れる・外すのは月のはじめだけ。入れた冒険者はその月は出撃しない。 ----
+
+        /// <summary>
+        /// 今、訓練の割り振りを変えられるか：次に決算する週が月の最初の週（＝前の月の決算が済んだところ）のときだけ。
+        /// 月の途中で止まったときは変えられない（出撃に戻せると「出撃か訓練か」の天秤にならないため）。
+        /// </summary>
+        public static bool CanChangeAssignments(GameState state) => GameCalendar.IsFirstWeekOfMonth(state.WeekNumber);
+
+        /// <summary>その冒険者が訓練施設に入っているか。</summary>
+        public static bool IsTraining(GameState state, Guid adventurerId) => state.TrainingAssignments.ContainsKey(adventurerId);
+
+        /// <summary>
+        /// 画面からの「訓練に入れる」（§0.70）。月のはじめで、現役・出撃中でない冒険者だけ。枠が埋まっていれば false。
+        /// </summary>
+        public bool TryAssignForMonth(GameState state, Guid adventurerId, FacilityType facility)
+        {
+            if (!CanChangeAssignments(state)) return false;
+            var a = state.Adventurers.FirstOrDefault(x => x.Id == adventurerId);
+            if (a == null || a.IsRetired || a.IsDispatched) return false;
+            return TryAssign(state, adventurerId, facility);
+        }
+
+        /// <summary>画面からの「訓練から外す」（§0.70）。月のはじめだけ。入っていなければ false。</summary>
+        public bool TryUnassignForMonth(GameState state, Guid adventurerId)
+        {
+            if (!CanChangeAssignments(state) || !IsTraining(state, adventurerId)) return false;
+            Unassign(state, adventurerId);
+            return true;
+        }
+
         /// <summary>指定した訓練施設に現在配置されている人数。</summary>
         public int CountAssigned(GameState state, FacilityType facility) =>
             state.TrainingAssignments.Values.Count(f => f == facility);

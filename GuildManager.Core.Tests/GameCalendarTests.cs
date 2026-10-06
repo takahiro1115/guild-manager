@@ -12,15 +12,16 @@ namespace GuildManager.Core.Tests
     public class GameCalendarTests
     {
         [Theory]
-        [InlineData(1, 1, Season.Spring, 1, "1年目 春 第1週")]
-        [InlineData(3, 1, Season.Spring, 3, "1年目 春 第3週")]
-        [InlineData(12, 1, Season.Spring, 12, "1年目 春 第12週")]
-        [InlineData(13, 1, Season.Summer, 1, "1年目 夏 第1週")]
-        [InlineData(25, 1, Season.Autumn, 1, "1年目 秋 第1週")]
-        [InlineData(37, 1, Season.Winter, 1, "1年目 冬 第1週")]
-        [InlineData(48, 1, Season.Winter, 12, "1年目 冬 第12週")]
-        [InlineData(49, 2, Season.Spring, 1, "2年目 春 第1週")]
-        [InlineData(384, 8, Season.Winter, 12, "8年目 冬 第12週")]
+        [InlineData(1, 1, Season.Spring, 1, "1年目 春 1の月 第1週")]
+        [InlineData(3, 1, Season.Spring, 3, "1年目 春 1の月 第3週")]
+        [InlineData(5, 1, Season.Spring, 5, "1年目 春 2の月 第1週")]
+        [InlineData(12, 1, Season.Spring, 12, "1年目 春 3の月 第4週")]
+        [InlineData(13, 1, Season.Summer, 1, "1年目 夏 1の月 第1週")]
+        [InlineData(25, 1, Season.Autumn, 1, "1年目 秋 1の月 第1週")]
+        [InlineData(37, 1, Season.Winter, 1, "1年目 冬 1の月 第1週")]
+        [InlineData(48, 1, Season.Winter, 12, "1年目 冬 3の月 第4週")]
+        [InlineData(49, 2, Season.Spring, 1, "2年目 春 1の月 第1週")]
+        [InlineData(384, 8, Season.Winter, 12, "8年目 冬 3の月 第4週")]
         public void ConvertsAbsoluteWeek(int week, int year, Season season, int weekOfSeason, string text)
         {
             Assert.Equal(year, GameCalendar.YearOf(week));
@@ -34,6 +35,23 @@ namespace GuildManager.Core.Tests
         {
             Assert.Equal(48, GameCalendar.WeeksPerYear);
             Assert.Equal(12, GameCalendar.WeeksPerSeason);
+            Assert.Equal(4, GameCalendar.WeeksPerMonth);
+            Assert.Equal(3, GameCalendar.MonthsPerSeason);
+        }
+
+        [Theory]
+        [InlineData(1, 1, 1, true, false)]
+        [InlineData(4, 1, 4, false, true)]
+        [InlineData(5, 2, 1, true, false)]
+        [InlineData(12, 3, 4, false, true)]
+        [InlineData(13, 1, 1, true, false)]
+        public void Months_AreFourWeeks_ThreePerSeason(int week, int month, int weekOfMonth, bool first, bool last)
+        {
+            Assert.Equal(month, GameCalendar.MonthOfSeason(week));
+            Assert.Equal(weekOfMonth, GameCalendar.WeekOfMonth(week));
+            Assert.Equal(first, GameCalendar.IsFirstWeekOfMonth(week));
+            Assert.Equal(last, GameCalendar.IsLastWeekOfMonth(week));
+            Assert.StartsWith(GameCalendar.FormatMonth(week), GameCalendar.Format(week));
         }
 
         [Theory]
@@ -51,8 +69,8 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void NonPositiveWeek_IsTreatedAsFirstWeek()
         {
-            Assert.Equal("1年目 春 第1週", GameCalendar.Format(0));
-            Assert.Equal("1年目 春 第1週", GameCalendar.Format(-5));
+            Assert.Equal("1年目 春 1の月 第1週", GameCalendar.Format(0));
+            Assert.Equal("1年目 春 1の月 第1週", GameCalendar.Format(-5));
         }
 
         [Fact]

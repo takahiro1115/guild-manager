@@ -92,7 +92,7 @@ namespace GuildManager.Core.Tests
             warrior.SetEquippedId(EquipmentSlot.Weapon, ItemCatalog.GreatSwordId);
             warrior.CurrentHP = warrior.MaxHP; // VIT補正で最大HPが伸びた分を満タンに戻す
 
-            double W(string stat) => DungeonBalance.BossPowerWeights.First(w => w.Stat == stat).Weight;
+            double W(string stat) => DungeonBalance.GetBossPowerWeights(JobClass.Warrior).First(w => w.Stat == stat).Weight; // 重戦士の重み（§0.72）
             double expectedGain = 6 * W("STR") + 2 * W("VIT");
             Assert.Equal(before + expectedGain, DungeonPowerCalculator.MemberPower(warrior), precision: 6);
         }

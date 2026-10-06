@@ -139,6 +139,13 @@ namespace GuildManager.Core.Models
         public int MasterMood { get; set; } = MasterMoodBalance.InitialMood;
 
         /// <summary>
+        /// 研究の手伝い（2026年10月・§0.73、G相当）。待機中に「アルベールの研究を手伝う」冒険者がいる週に貯まり
+        /// （→ Systems.IdleActivitySystem、上限 TrainingBalance.ResearchCreditMax）、次の研究の研究費から割り引いて使う
+        /// （→ Systems.ResearchSystem.GetDiscount）。旧セーブには無く0で読まれる。
+        /// </summary>
+        public int ResearchCredit { get; set; }
+
+        /// <summary>
         /// クリアしたか（仕様書 03 §8.2、2026年10月・§0.59）。最終フィールド（深淵）の100Fボス撃破でtrueになり、
         /// 以後は取り消されない（→ DungeonExpeditionSystem.ApplyFieldProgression）。クリア後もギルドは続けられる。
         /// 旧名 FinalQuestUnlocked（最終討伐クエストの解禁フラグ）。セーブのJSONキーは互換のため FinalQuestUnlocked のまま。
@@ -262,6 +269,12 @@ namespace GuildManager.Core.Models
         public List<SoulFusionCulture> SoulFusionCultures { get; set; } = new();
 
         /// <summary>
+        /// 直近の月報（2026年10月・§0.71、→ Systems.MonthlyReport.Record）。古い順で、最大 MonthlyReport.KeptReports（12）件。
+        /// 画面上部の【📅 月報】から見返す。旧セーブには無く、空のまま読まれる。
+        /// </summary>
+        public List<Systems.MonthlyReport> MonthlyReports { get; set; } = new();
+
+        /// <summary>
         /// 掲示中・受けた依頼（→ GuildCommission・Systems.CommissionSystem、03 §4.9・§0.64）。
         /// 旧セーブには無く、空のまま読まれる（次の季節のはじめから届く）。
         /// </summary>
@@ -301,6 +314,7 @@ namespace GuildManager.Core.Models
                 CurrentTurn = WeekNumber,
                 Money = Gold,
                 MasterMood = MasterMood,
+                ResearchCredit = ResearchCredit,
                 ConsecutiveNegativeGoldWeeks = ConsecutiveNegativeGoldWeeks,
                 DefeatReason = DefeatReason?.ToString(),
                 WeeksSinceLastGuildActivity = WeeksSinceLastGuildActivity,
@@ -320,6 +334,7 @@ namespace GuildManager.Core.Models
                 ObtainedUniqueIds = new HashSet<string>(ObtainedUniqueIds),
                 CompletedResearchIds = new HashSet<string>(CompletedResearchIds),
                 SoulFusionCultures = new List<SoulFusionCulture>(SoulFusionCultures),
+                MonthlyReports = new List<Systems.MonthlyReport>(MonthlyReports),
                 Commissions = new List<GuildCommission>(Commissions),
                 CommissionCompletions = new Dictionary<string, int>(CommissionCompletions),
                 Anomaly = Anomaly,
@@ -391,6 +406,8 @@ namespace GuildManager.Core.Models
                 Gold = data.Money,
                 // 機嫌を持たない旧セーブ（名声・格付けの時代）は初期値（平常）で始める（→ 03 §8.1）。
                 MasterMood = Math.Clamp(data.MasterMood ?? MasterMoodBalance.InitialMood, MasterMoodBalance.Min, MasterMoodBalance.Max),
+                // 研究の手伝い（§0.73）。キーを持たない旧セーブは0。壊れた値は0〜上限に収める。
+                ResearchCredit = Math.Clamp(data.ResearchCredit, 0, TrainingBalance.ResearchCreditMax),
                 ConsecutiveNegativeGoldWeeks = data.ConsecutiveNegativeGoldWeeks,
                 DefeatReason = data.DefeatReason == null ? null : ParseEnum<DefeatReason>(data.DefeatReason, nameof(DefeatReason)),
                 // 旧キー（WeeksSinceLastRankAppropriateQuest）しか無い旧セーブは、その値を引き継ぐ。
@@ -420,6 +437,8 @@ namespace GuildManager.Core.Models
                 // 子の Adventurer が欠けた記録（壊れたデータ）は捨てる。
                 SoulFusionCultures = (data.SoulFusionCultures ?? new List<SoulFusionCulture>())
                     .Where(c => c?.Child != null).ToList(),
+                // 直近の月報（§0.71）。キーを持たない旧セーブ、または null が書かれていても空で始める。
+                MonthlyReports = (data.MonthlyReports ?? new List<Systems.MonthlyReport>()).Where(r => r != null).ToList(),
                 // 依頼と迷宮の異変（§0.64）。キーを持たない旧セーブ、または null が書かれていても空・無しで始める。
                 Commissions = (data.Commissions ?? new List<GuildCommission>()).Where(c => c != null).ToList(),
                 CommissionCompletions = new Dictionary<string, int>(data.CommissionCompletions ?? new Dictionary<string, int>()),
@@ -432,6 +451,13 @@ namespace GuildManager.Core.Models
             foreach (var field in state.DungeonFields)
                 foreach (var boss in field.Bosses)
                     boss.FieldOrder = field.Order;
+
+            // 待機中の過ごし方（§0.73）。知らない過ごし方・能力名が書かれていたら既定（研究を手伝う・職業の伸び方）に戻す。
+            foreach (var a in state.Adventurers.Concat(state.RetiredAdventurers).Concat(state.FallenAdventurers))
+            {
+                if (!Enum.IsDefined(a.IdleActivity)) a.IdleActivity = IdleActivity.Help;
+                if (a.SelfTrainingStat != null && !Systems.AdventurerStatAccessor.AllStatNames.Contains(a.SelfTrainingStat)) a.SelfTrainingStat = null;
+            }
 
             foreach (var record in data.CompatibilityPairs)
             {

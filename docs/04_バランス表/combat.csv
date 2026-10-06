@@ -12,3 +12,5 @@ GiantHunterDamageBonusRate,0.15,倍,巨獣狩り：階層ボスが「重装甲�
 OldWoundCriticalChance,0.10,確率,重傷生還時の古傷：道中進軍でHPが下限1まで落ちた隊員、または階層ボス討伐の撤退でHP1で生還した隊員が「古傷」を負う確率（既に古傷持ちならロールしない。→ 03 §4.3・§5.3.2）
 OldWoundRetreatHpThresholdPct,0.10,倍,階層ボス討伐の撤退で古傷ロールの対象になるHPの上限＝floor(最大HP×この値)（最低でもHP1は含む。道中進軍は従来どおりHP下限1まで落ちた時のみ。→ 03 §4.3.2）
 GiantHunterAwakeningChance,0.20,確率,巨獣狩りの後天開眼：「重装甲」ギミックを持つ階層ボスを撃破したとき、生存した隊員ごとに巨獣狩りを得る確率（既に所持・特性5枠満杯ならロールしない＝侵食しない。→ 03 §4.5.4・§5.3.2）
+ClericBlessingLossPctPerMnd,0.08,%/MND,神官の加護（§0.72）：部隊に神官がいれば、ボス戦と道中の損耗率を「部隊の神官のMND（実効値）の最大×この値」%ポイント下げる（MND100で−8）
+ClericBlessingSevereThresholdRate,0.8,倍,神官の加護（§0.72）：部隊に神官がいれば、ボス戦の後に重傷になる基準（SevereInjuryHpThresholdPct）にこの倍率を掛ける（重傷になりにくい）

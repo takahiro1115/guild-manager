@@ -61,5 +61,11 @@ namespace GuildManager.Core.Balance
         /// 階層ボスを撃破したとき、生存した隊員ごとに巨獣狩りを得る確率（0〜1）。
         /// </summary>
         public static readonly double GiantHunterAwakeningChance = BalanceData.GetDouble(FileName, "GiantHunterAwakeningChance");
+
+        /// <summary>神官の加護（§0.72）：部隊の神官のMNDの最大×この値だけ、ボス戦と道中の損耗率（%ポイント）を下げる。</summary>
+        public static readonly double ClericBlessingLossPctPerMnd = BalanceData.GetDouble(FileName, "ClericBlessingLossPctPerMnd");
+
+        /// <summary>神官の加護（§0.72）：部隊に神官がいれば、ボス戦の後に重傷になる基準にこの倍率を掛ける。</summary>
+        public static readonly double ClericBlessingSevereThresholdRate = BalanceData.GetDouble(FileName, "ClericBlessingSevereThresholdRate");
     }
 }

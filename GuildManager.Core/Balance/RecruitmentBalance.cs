@@ -71,5 +71,11 @@ namespace GuildManager.Core.Balance
 
         /// <summary>新春ドラフトで採用する人数（初期3名＋この人数＝開始時の在籍数）。</summary>
         public static readonly int DraftHireCount = BalanceData.GetInt(FileName, "DraftHireCount");
+
+        /// <summary>採用の候補の能力を職業に寄せる（§0.72）：職業の伸び方の重みが大きい上位2能力のPAに足す値。</summary>
+        public static readonly int JobAptitudePaBonus = BalanceData.GetInt(FileName, "JobAptitudePaBonus");
+
+        /// <summary>同：職業の伸び方の重みが0の能力のPAから引く値。</summary>
+        public static readonly int JobInaptitudePaPenalty = BalanceData.GetInt(FileName, "JobInaptitudePaPenalty");
     }
 }

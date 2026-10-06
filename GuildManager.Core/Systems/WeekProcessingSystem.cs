@@ -101,6 +101,8 @@ namespace GuildManager.Core.Systems
             {
                 if (resolution.DungeonResult != null && resolution.DungeonResult.ForceRetiredAdventurerIds.Count > 0)
                     result.Flags.DeathOrPermanentInjuryOccurred = true;
+                if (resolution.FieldNewlyUnlocked != null)
+                    result.Flags.FieldUnlocked = true; // §0.70：月の途中でも止める
                 // 自動出撃のための停止条件（§0.63）：重傷者が出た週・ボスを倒した週。
                 if (resolution.InjuryEvents.Any(e => e.Severity == InjurySeverity.Severe))
                     result.Flags.SevereInjuryOccurred = true;
@@ -120,9 +122,10 @@ namespace GuildManager.Core.Systems
             foreach (var failed in result.Commissions.Failed)
                 result.MoodReport.Entries.Add(new MasterMoodEntry($"依頼の失敗（{failed.ClientName}・{failed.Reason}）", -CommissionBalance.FailureMoodLoss, failed.MoodApplied));
 
-            // 待機お手伝い（→ 03 §8.1）：出撃せず残った健康な冒険者がアルベールの内職を手伝う（1名ごとに少額G＋機嫌）。
+            // 待機中の過ごし方（→ 03 §8.1・§0.73）：出撃も訓練もせず残った健康な冒険者が、研究を手伝う（研究の手伝い＋機嫌）か自主練をする。
             // HP判定は訓練・静養でHPが動く前の時点で行う。機嫌が内職売上の倍率に効くよう、内職売上より先に済ませる。
-            result.IdleHelpEntries.AddRange(MasterMoodSystem.ProcessIdleHelp(state, dispatchedIds, result.MoodReport));
+            var idleWeek = IdleActivitySystem.ProcessWeek(state, dispatchedIds, result.MoodReport);
+            result.IdleHelpEntries.AddRange(idleWeek.HelpEntries);
 
             // 出撃の有無にかかわらず、時間は必ず進む。
             _economySystem.ApplyWeeklyWages(state);
@@ -138,8 +141,10 @@ namespace GuildManager.Core.Systems
                 .Concat(result.DungeonMissionResolutions.SelectMany(r => r.DungeonResult?.PoisonWeeksByAdventurer.Keys ?? Enumerable.Empty<Guid>()))
                 .ToHashSet();
             _injuryRecoverySystem.ProcessWeeklyRecovery(state, justInjured);
-            _restRecoverySystem.ProcessWeeklyRest(state, dispatchedIds); // → 03 §3.5改：静養・HP自然回復（訓練場配置中は対象外）
+            _restRecoverySystem.ProcessWeeklyRest(state, dispatchedIds); // → 03 §3.5改：静養・HP自然回復（訓練場配置中は対象外。研究の手伝い・自主練も回復する）
             result.TrainingGrowthEvents.AddRange(_growthSystem.ProcessTrainingGrowth(state, dispatchedIds)); // → 03 §3.1〜3.4：成長トリガー経路2
+            result.SelfTrainingGrowthEvents.AddRange(_growthSystem.ProcessSelfTraining(state, idleWeek.SelfTrainerIds)); // → §0.73：自主練
+            result.SelfTrainerCount = idleWeek.SelfTrainerIds.Count;
 
             _satisfactionSystem.ProcessWeeklySatisfaction(state, dispatchedIds); // → 03 §5.1：満足度変動
             result.TraitGrantEvents.AddRange(_satisfactionSystem.ProcessWeeklyBurnout(state)); // → 03 §5.3.2・§0.56：燃え尽き（連続出撃）

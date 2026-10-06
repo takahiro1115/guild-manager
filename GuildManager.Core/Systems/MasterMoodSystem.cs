@@ -176,56 +176,6 @@ namespace GuildManager.Core.Systems
             return report;
         }
 
-        /// <summary>
-        /// 待機お手伝い（→ 03 §8.1、2026年9月新設）。出撃せずギルドに残った健康な冒険者が
-        /// アルベールの内職（調合・仕込み）を手伝い、1名ごとに所持金 +IdleAdventurerHelp_Gold・
-        /// 機嫌 +IdleAdventurerHelp_Mood（上限でクランプ）を積み上げる。
-        ///
-        /// 対象＝次の全条件を満たす在籍者：今週出撃していない（dispatchedIds＝決算開始時点の出撃中。
-        /// 今週帰還した者も含めて除外する）・訓練場に配置されていない（→ GameState.TrainingAssignments）・現在HPが最大値以上・負傷なし（Injury==None かつ残り週数0）。
-        /// 機嫌の増分は report の内訳へ1行（人数分の合計）で載せる。
-        /// </summary>
-        /// <returns>お手伝いをした冒険者ごとの記録（週報ログ用）。対象0名なら空。</returns>
-        public static List<IdleHelpEntry> ProcessIdleHelp(GameState state, IReadOnlySet<Guid> dispatchedIds, MasterMoodReport report)
-        {
-            var entries = new List<IdleHelpEntry>();
-            int moodApplied = 0;
-
-            foreach (var a in state.Adventurers)
-            {
-                if (dispatchedIds.Contains(a.Id) || a.IsDispatched) continue;
-                if (state.TrainingAssignments.ContainsKey(a.Id)) continue; // 訓練場に配置中＝待機ではない
-                if (a.CurrentHP < a.MaxHP) continue;
-                if (a.Injury != InjurySeverity.None || a.InjuryWeeksRemaining != 0) continue;
-
-                int gold = GetIdleHelpGold(a);
-                state.Gold += gold;
-                int applied = Adjust(state, MasterMoodBalance.IdleAdventurerHelpMood);
-                moodApplied += applied;
-                entries.Add(new IdleHelpEntry(a.Id, a.Name, gold, MasterMoodBalance.IdleAdventurerHelpMood, applied));
-            }
-
-            if (entries.Count > 0)
-            {
-                report.Entries.Add(new MasterMoodEntry(
-                    $"待機お手伝い（{entries.Count}名×{MasterMoodBalance.IdleAdventurerHelpMood}）",
-                    entries.Count * MasterMoodBalance.IdleAdventurerHelpMood, moodApplied));
-                report.MoodAfter = state.MasterMood;
-            }
-
-            return entries;
-        }
-
-        /// <summary>
-        /// 待機お手伝い1名が稼ぐ額＝IdleAdventurerHelpGold。働き者（→ TraitCatalog.Hardworker、§0.55）なら
-        /// HardworkerIdleHelpGoldMultiplier 倍（四捨五入）。
-        /// </summary>
-        public static int GetIdleHelpGold(Adventurer a) =>
-            a.HasTrait(TraitCatalog.SlothfulId) ? 0 // 怠け者（§0.56）：手伝わない（機嫌の上昇はそのまま）
-            : a.HasTrait(TraitCatalog.HardworkerId)
-                ? (int)Math.Round(MasterMoodBalance.IdleAdventurerHelpGold * TraitBalance.HardworkerIdleHelpGoldMultiplier, MidpointRounding.AwayFromZero)
-                : MasterMoodBalance.IdleAdventurerHelpGold;
-
         private static void Record(GameState state, MasterMoodReport report, string reason, int delta) =>
             report.Entries.Add(new MasterMoodEntry(reason, delta, Adjust(state, delta)));
     }
@@ -248,12 +198,6 @@ namespace GuildManager.Core.Systems
 
     /// <summary>機嫌の変動1件（Delta＝規定の変動量、Applied＝0〜100のクランプ後に実際に動いた量）。</summary>
     public record MasterMoodEntry(string Reason, int Delta, int Applied);
-
-    /// <summary>
-    /// 待機お手伝い1名分の記録（→ MasterMoodSystem.ProcessIdleHelp）。Mood は名目上の増分、
-    /// MoodApplied は上限クランプ後に実際に動いた量。
-    /// </summary>
-    public record IdleHelpEntry(Guid AdventurerId, string Name, int Gold, int Mood, int MoodApplied);
 
     /// <summary>1週分の機嫌の変動（→ MasterMoodSystem.ProcessWeeklyMood）。週報の開示用。</summary>
     public class MasterMoodReport

@@ -227,17 +227,33 @@ public partial class MainDashboard : Control
 		_noDungeonDispatchDialog = new ConfirmationDialog
 		{
 			Title = "確認",
-			DialogText = "大迷宮へ部隊を派遣していませんが、週を進めますか？",
-			OkButtonText = "週を進める",
+			DialogText = "方針のある部隊がいないので、誰も出撃しません。月を進めますか？",
+			OkButtonText = "月を進める",
 			CancelButtonText = "やめる",
 		};
 		// 確定直後に採用試験ポップアップ等を開くことがあるため、ダイアログが閉じ切ってから
-		// 週送りを実行する（同一フレームで別の排他ウィンドウを開くとGodotがエラーにする）。
-		_noDungeonDispatchDialog.Confirmed += () => Callable.From(AdvanceWeek).CallDeferred();
+		// 月送りを実行する（同一フレームで別の排他ウィンドウを開くとGodotがエラーにする）。
+		_noDungeonDispatchDialog.Confirmed += () => Callable.From(AdvanceMonth).CallDeferred();
 		AddChild(_noDungeonDispatchDialog);
 
+		// 月報の小窓（§0.71）と、過去の月報を見返す【📅 月報】（ヘッダーの出撃枠の右）
+		_monthlyReportPopup = new MonthlyReportPopup { Visible = false };
+		AddChild(_monthlyReportPopup);
+		_monthlyReportPopup.Closed += OnMonthlyReportClosed;
+		_monthlyReportPopup.NextMonthRequested += () => Callable.From(OnNextMonthPressed).CallDeferred();
+		_monthlyReportPopup.JumpRequested += OnMonthlyReportJump;
+		var reportsButton = new Button { Text = "📅 月報", TooltipText = "直近12か月の月報を見返す" };
+		reportsButton.Pressed += () => _monthlyReportPopup.ShowHistory(_state.MonthlyReports);
+		_squadSlotLabel.GetParent().AddChild(reportsButton);
+		_squadSlotLabel.GetParent().MoveChild(reportsButton, _squadSlotLabel.GetIndex() + 1);
+
+		// §0.70：月を1ターンにする。「次の月へ」（旧・自動スキップのボタン）が主な操作で、「1週進める」はデバッグ用（最終的に撤去）。
 		_nextWeekButton.Pressed += OnNextWeekPressed;
-		_autoSkipButton.Pressed += OnAutoSkipButtonPressed;
+		_nextWeekButton.Text = "（デバッグ）1週進める";
+		_nextWeekButton.TooltipText = "デバッグ用：1週だけ進める（最終的には撤去する）";
+		_autoSkipButton.Pressed += OnNextMonthPressed;
+		_autoSkipButton.Text = "📅 次の月へ（Space）";
+		_autoSkipButton.TooltipText = "今の月の残りを、方針どおりに進める。月の途中で決めることがあれば止まる";
 		_recruitmentPopup.Closed += OnRecruitmentPopupClosed;
 		_advisorPopup.Closed += OnAdvisorPopupClosed;
 		_equipmentPopup.Closed += OnEquipmentPopupClosed;
@@ -453,9 +469,10 @@ public partial class MainDashboard : Control
 
 	public override void _UnhandledInput(InputEvent @event)
 	{
-		if (@event is InputEventKey { Pressed: true, Keycode: Key.Space })
+		// Space は「次の月へ」（§0.70：月を1ターンにする）
+		if (@event is InputEventKey { Pressed: true, Keycode: Key.Space } && !_autoSkipButton.Disabled)
 		{
-			OnNextWeekPressed();
+			OnNextMonthPressed();
 			GetViewport().SetInputAsHandled();
 		}
 	}
@@ -504,22 +521,31 @@ public partial class MainDashboard : Control
 	}
 
 	/// <summary>
-	/// 「次週へ」ボタン（Spaceキー連動）。出撃は大迷宮タブで週送り前に予約しておく方式のため、
-	/// 大迷宮へ1部隊も出撃予定が無ければ、うっかり週を進めないよう確認ダイアログを挟む。
+	/// 「（デバッグ）1週進める」ボタン（§0.70。最終的には撤去する）。確認ダイアログは出さない。
 	/// </summary>
 	private void OnNextWeekPressed()
 	{
 		if (_noDungeonDispatchDialog.Visible)
 			return;
+		AdvanceWeek();
+	}
 
-		// 方針つきの部隊（§0.63）があれば、週送りの前に自動で出撃するので確認しない。
+	/// <summary>
+	/// 「次の月へ」ボタン（Spaceキー連動、§0.70：月を1ターンにする）。方針のある部隊が無く誰も出撃していなければ、
+	/// うっかり月を進めないよう確認ダイアログを挟む。
+	/// </summary>
+	private void OnNextMonthPressed()
+	{
+		if (_noDungeonDispatchDialog.Visible)
+			return;
+
 		if (_state.ActiveDungeonMissions.Count == 0 && !_state.SavedParties.Any(p => p.Order != SquadOrder.None))
 		{
 			_noDungeonDispatchDialog.PopupCentered();
 			return;
 		}
 
-		AdvanceWeek();
+		AdvanceMonth();
 	}
 
 	/// <summary>
@@ -632,12 +658,17 @@ public partial class MainDashboard : Control
 		LogCommissions(settlement); // → 03 §4.9・§4.10・§0.64：依頼の達成・失敗（機嫌の内訳より先に）
 		LogMasterMood(settlement.MoodReport); // → 03 §8.1・§8.1.1：マスターの機嫌の変動内訳
 
-		// 待機お手伝い（→ 03 §8.1）：出撃せず残った健康な冒険者ごとに1行。
-		foreach (var help in settlement.IdleHelpEntries)
-			AppendLog(help.Gold > 0
-				? $"[color=lime]☕ {help.Name} はギルドでアルベールの内職を手伝い、{help.Gold} G とマスターの機嫌（+{help.Mood}）に貢献した。[/color]"
-				// 怠け者（→ 03 §0.56）：手伝わずにだらけていたが、マスターの話し相手にはなった。
-				: $"[color=gray]☕ {help.Name} はギルドでだらけて内職を手伝わなかった（0 G）。マスターの話し相手にはなった（機嫌 +{help.Mood}）。[/color]");
+		// 研究の手伝い（→ 03 §8.1・§0.73）：待機中にアルベールの研究を手伝った冒険者を1行にまとめる（毎週出るので短く）。
+		if (settlement.IdleHelpEntries.Count > 0)
+		{
+			int credit = settlement.IdleHelpEntries.Sum(h => h.Credit);
+			// 怠け者（→ 03 §0.56）：手伝わずにだらけていたが、マスターの話し相手にはなった。
+			var lazy = settlement.IdleHelpEntries.Where(h => h.Credit == 0).Select(h => h.Name).ToList();
+			AppendLog($"[color=lime]☕ 研究の手伝い：{string.Join("・", settlement.IdleHelpEntries.Select(h => h.Name))}（+{credit}G 分・貯まり {_state.ResearchCredit}G、機嫌 +{settlement.IdleHelpEntries.Count * MasterMoodBalance.IdleAdventurerHelpMood}）" +
+				(lazy.Count > 0 ? $"[color=gray]　※{string.Join("・", lazy)}はだらけて手伝わなかった[/color]" : "") + "[/color]");
+		}
+		if (settlement.SelfTrainerCount > 0)
+			AppendLog($"[color=lime]🏃 自主練：{settlement.SelfTrainerCount}名[/color]");
 
 		// アルベールの市販薬・内職売上（→ 03 §8.1。4週に1回、機嫌に応じた倍率。旧・月次助成金）。
 		if (settlement.SideJobIncome != null)
@@ -649,6 +680,7 @@ public partial class MainDashboard : Control
 		}
 
 		LogGrowthEvents(settlement.TrainingGrowthEvents); // → 03 §3.1〜3.4：成長トリガー経路2（訓練場配置）
+		LogGrowthEvents(settlement.SelfTrainingGrowthEvents); // → §0.73：自主練
 		// 教官からの特性伝授（奥義継承、→ 03 §7.1・§0.34）。
 		foreach (var transmission in settlement.TraitTransmissionEvents)
 			AppendLog($"[color=gold]📜 {transmission.ToLogText()}[/color]");
@@ -737,6 +769,50 @@ public partial class MainDashboard : Control
 				$"{CommissionSystem.DescribeCondition(_state, c)}[/color]");
 	}
 
+	/// <summary>
+	/// 月報（§0.70・§0.71、→ Core の MonthlyReport）を週報ログに短く残す。本文は月報の小窓（→ MonthlyReportPopup）で見せる。
+	/// </summary>
+	private void LogMonthlyReport(MonthlyReport report)
+	{
+		int goldDelta = report.GoldAfter - report.GoldBefore;
+		int moodDelta = report.MoodAfter - report.MoodBefore;
+		string title = report.MonthCompleted ? "月報" : "途中経過";
+		string kills = report.BossesDefeated.Count > 0 ? $"　撃破 {report.BossesDefeated.Count}体" : "";
+		AppendLog($"[bgcolor=#1e3a4a][color=gold][b] 📅 {GameCalendar.FormatMonth(report.LastWeek)}の{title} [/b][/color][/bgcolor]" +
+			$" 所持金{goldDelta:+0;-0}G・機嫌{moodDelta:+0;-0}{kills}" +
+			(report.StopReasons.Count > 0 ? $"　[color=orange]止まった理由：{string.Join("・", report.StopReasons)}[/color]" : ""));
+	}
+
+	/// <summary>月報の小窓を閉じたとき（月を進めた直後のもの）：残りの割り込み（エンディング・採用試験・依頼）へ進む。</summary>
+	private void OnMonthlyReportClosed()
+	{
+		if (_monthlyReportSettlement == null)
+			return; // 過去の月報を見返していただけ
+		var settlement = _monthlyReportSettlement;
+		_monthlyReportSettlement = null;
+		HandlePostSettlementInterruptions(settlement);
+	}
+
+	/// <summary>月報の「来月への注意」から画面へ移る。</summary>
+	private void OnMonthlyReportJump(MonthlyNoteTarget target)
+	{
+		SwitchView(target switch
+		{
+			MonthlyNoteTarget.Facility => DashboardView.Facility,
+			MonthlyNoteTarget.Adventurer => DashboardView.Party,
+			_ => DashboardView.Dungeon,
+		});
+	}
+
+	/// <summary>月報の小窓（§0.71）。</summary>
+	private MonthlyReportPopup _monthlyReportPopup = null!;
+
+	/// <summary>月報の小窓を開いた月の最後の決算。閉じたら残りの割り込みを流す（過去の月報を見返すときは null）。</summary>
+	private WeeklySettlementResult _monthlyReportSettlement;
+
+	/// <summary>月を進めている間の週報ログの写し（月報の小窓の「週ごとの記録」用）。</summary>
+	private System.Text.StringBuilder _logCapture;
+
 	/// <summary>機嫌の段階名（→ MasterMoodSystem.GetTier）。</summary>
 	private static string MoodTierLabel(MasterMoodTier tier) => tier switch
 	{
@@ -747,37 +823,23 @@ public partial class MainDashboard : Control
 	};
 
 	/// <summary>
-	/// 「自動スキップ」ボタン（→ 03 §1.3）。停止条件（採用試験・満足度警告・施設完成・
-	/// 複数週クエスト帰還・戦死古傷・脅威度閾値・Aランク到達・討伐期限切れ1週前のいずれか、
-	/// またはゲームオーバー）が成立する週まで、もしくは上限週数に達するまで週次決算を
-	/// 連続実行する。受注可能クエストへの操作は一切行わない（AutoSkipServiceが呼び出す
-	/// WeekProcessingSystem.ProcessWeek自体に派遣操作が含まれない設計のため、これは
-	/// 自然に満たされる）。
-	///
-	/// 実装メモ：処理自体はGodotのメインスレッド上で同期的に完了する（このプロジェクトに
-	/// 非同期処理の仕組みは無い）ため、「処理完了までUIを無効化する」という指示の意図は、
-	/// 呼び出しが返った後の後始末（DisableWeekAdvancement等）ではなく、処理中に他の
-	/// 入力イベントが割り込む余地がそもそも無いという形で自然に満たされている。
+	/// 「次の月へ」の本体（§0.70：月を1ターンにする、→ AutoSkipService.AdvanceMonth）。今の月の残りの週を方針どおりに進め、
+	/// 月の途中で止める条件（→ WeekResult.ShouldStopMonth）が成り立てばそこで止まる。週ごとの記録を流したあと、月報を出す。
+	/// 処理はメインスレッドで同期的に終わるので、処理中に他の入力が割り込む余地は無い。
 	/// </summary>
-	private void OnAutoSkipButtonPressed()
+	private void AdvanceMonth()
 	{
-		// 手動で出した部隊が残っていると、討伐の決着（強制除籍を含む）を見落としやすいため、先に「次週へ」で決着させてもらう。
-		// 方針で自動出撃した部隊（§0.63）だけなら、自動スキップ中も方針どおりに出撃を続ける。
-		if (!AutoSkipService.CanAutoSkip(_state))
-		{
-			AppendLog("[color=orange]手動で出撃させた部隊がいるため、自動スキップできない。" +
-				"「次週へ」で決着させるか、大迷宮タブで出撃を取り消すこと（方針つきの部隊なら自動スキップ中も出撃を続ける）。[/color]");
-			return;
-		}
-
 		DisableWeekAdvancement();
 
 		int startWeek = _state.WeekNumber;
-		var weeks = _autoSkipService.AutoSkipDetailed(_state);
+		int goldBefore = _state.Gold;
+		var weeks = _autoSkipService.AdvanceMonth(_state);
 		var results = weeks.Select(w => w.Settlement.Flags).ToList();
+		AppendLog($"[color=#4b5563]──────────── {GameCalendar.FormatMonth(startWeek)} ────────────[/color]");
 
 		// 方針で出撃した週は、週報を省略せずに残す（§0.63）。決戦の記録はステップ再生せずにそのまま流す。
-		// 「待機」は毎週出ると多すぎるので、自動スキップ中は出撃・扉前の判断だけを出す。
+		// 「待機」は毎週出ると多すぎるので、出撃・扉前の判断だけを出す。月報の小窓の「週ごとの記録」にも写す（§0.71）。
+		_logCapture = new System.Text.StringBuilder();
 		foreach (var week in weeks.Where(w => w.Orders.Any(e => e.Action != SquadOrderAction.Waiting) || w.Settlement.DungeonMissionResolutions.Count > 0))
 		{
 			LogSquadOrders(week.Orders.Where(e => e.Action != SquadOrderAction.Waiting).ToList());
@@ -785,46 +847,31 @@ public partial class MainDashboard : Control
 			while (_bossLogQueue.Count > 0)
 				AppendLog(_bossLogQueue.Dequeue());
 		}
+		string weekly = _logCapture.ToString();
+		_logCapture = null;
 
-		AppendLog($"[color=cyan][b]≫≫ 自動スキップ：{GameCalendar.Format(startWeek)}から{results.Count}週分を処理した。[/b][/color]");
-
-		int facilityCount = results.Count(r => r.FacilityConstructionCompleted);
-		int deathCount = results.Count(r => r.DeathOrPermanentInjuryOccurred);
-		int satisfactionCount = results.Count(r => r.SatisfactionWarningOccurred);
-		int recruitmentCount = results.Count(r => r.RecruitmentTrialOccurred);
-		int defeatCount = results.Count(r => r.DefeatOccurred);
-		var lastFlags = results.Count > 0 ? results[^1] : null;
-
-		if (lastFlags != null)
-		{
-			// 止まった理由（§0.63で増えた条件を含む）
-			var reasons = new List<string>();
-			if (lastFlags.BossDefeated) reasons.Add("階層ボスを倒した");
-			if (lastFlags.SevereInjuryOccurred) reasons.Add("重傷者が出た");
-			if (lastFlags.SoulFusionBirthOccurred) reasons.Add("娘が誕生した");
-			if (lastFlags.GameCleared) reasons.Add("深淵100Fを制覇した");
-			if (lastFlags.CommissionsOffered) reasons.Add("依頼が届いた");
-			if (lastFlags.AnomalyAnnounced) reasons.Add("迷宮の異変が予告された");
-			if (lastFlags.CommissionDeadlineNear) reasons.Add("依頼の期限が近い");
-			if (reasons.Count > 0) AppendLog($"[bgcolor=#1e3a4a][color=cyan][b] 止まった理由 [/b][/color][/bgcolor] [color=cyan]{string.Join("・", reasons)}[/color]");
-		}
-		if (facilityCount > 0) AppendLog($"[color=lime]・施設建設が完了した週：{facilityCount}回[/color]");
-		if (deathCount > 0) AppendLog($"[color=red][b]・強制除籍または不可逆の障害が発生した週：{deathCount}回[/b][/color]");
-		if (satisfactionCount > 0) AppendLog($"[color=orange]・契約交渉（満足度警告）が新たに発生した週：{satisfactionCount}回[/color]");
-		if (recruitmentCount > 0) AppendLog($"[color=yellow][b]・新春採用試験の週：{recruitmentCount}回[/b][/color]");
-		if (defeatCount > 0) AppendLog("[color=red][font_size=24][b]■■■ ゲームオーバーが発生した ■■■[/b][/font_size][/color]");
-
-		if (results.Count >= AutoSkipService.DefaultMaxWeeks && (results.Count == 0 || !results[^1].ShouldStopAutoSkip))
-			AppendLog($"[color=gray]上限{AutoSkipService.DefaultMaxWeeks}週に到達したため停止した。[/color]");
+		var report = MonthlyReport.Build(_state, weeks, goldBefore);
+		MonthlyReport.Record(_state, report); // 直近12か月をセーブに残す（§0.71）
+		LogMonthlyReport(report);
+		if (results.Any(r => r.DefeatOccurred))
+			AppendLog("[color=red][font_size=24][b]■■■ ゲームオーバーが発生した ■■■[/b][/font_size][/color]");
 
 		_saveLoadService.Save(_state);
 		RefreshAll();
 
-		// 最後の週の割り込み（ゲームオーバー・クリアのエンディング・新春採用試験）は「次週へ」と同じ処理に任せる。
-		if (weeks.Count > 0)
-			HandlePostSettlementInterruptions(weeks[^1].Settlement);
-		else
+		if (weeks.Count == 0)
+		{
 			EnableWeekAdvancement();
+			return;
+		}
+
+		// 月報の小窓を開く（§0.71）。閉じたら、最後の週の割り込み（エンディング・採用試験・依頼）を「1週進める」と同じ処理に任せる。
+		// 割り込みがある月・ゲームオーバーの月は【閉じて次の月へ】を出さない。
+		var last = weeks[^1].Settlement;
+		bool interrupted = last.Flags.GameCleared || last.Flags.DefeatOccurred || last.Flags.RecruitmentTrialOccurred
+			|| last.Flags.CommissionsOffered || _state.DefeatReason != null;
+		_monthlyReportSettlement = last;
+		_monthlyReportPopup.ShowMonth(report, weekly, allowNext: !interrupted);
 	}
 
 	/// <summary>施設管理画面の「👔 顧問を任命」ボタン。顧問役職割り当てポップアップを開く（いつでも自由に開閉できる）。</summary>
@@ -1072,6 +1119,9 @@ public partial class MainDashboard : Control
 				sb.AppendLine($"[color=gray]　第{traversal.FloorBefore}F〜{traversal.FloorAfter}Fへ進軍。内訳: {segments}" +
 					$" → 実効平均速度×{traversal.IntelSpeedMultiplier:F1} / 実効損耗{traversal.EffectiveLossPct:F1}%（階層数で加重平均）[/color]");
 			}
+			// 神官の加護（§0.72）
+			if (traversal.ClericBlessingPct > 0)
+				sb.AppendLine($"[color=cyan]✝ 神官の加護が隊を守り、損耗を{traversal.ClericBlessingPct:0.#}%ポイント軽くした。[/color]");
 			// 夜目（→ 03 §4.5.3・§5.3.2）：未踏破階層の基礎損耗を一律で軽減した週のみ。
 			if (traversal.NightVisionApplied)
 				sb.AppendLine($"[color=cyan]🌙 夜目の利く隊員が暗がりを先導し、未踏破区間の損耗を{DungeonTraversalBalance.NightVisionUnexploredDamageReductionRate * 100:0}%抑えた。[/color]");
@@ -1139,6 +1189,9 @@ public partial class MainDashboard : Control
 		}
 		if (assault.FullIntelBonusApplied)
 			sb.AppendLine("[color=gold]◆ 完全解析の成果：弱点を正確に突いた。[/color]");
+		// 神官の加護（§0.72）
+		if (assault.ClericBlessingPct > 0)
+			sb.AppendLine($"[color=cyan]✝ 神官の加護が隊を守り、損耗を{assault.ClericBlessingPct:0.#}%ポイント軽くし、重傷を遠ざけた。[/color]");
 		// 耐毒体質・巨獣狩り（→ 03 §4.5.4・§5.3.2）：効いた戦闘のみ開示する。
 		if (assault.ResistPoisonApplied)
 			sb.AppendLine($"[color=cyan]🧪 耐毒体質の隊員が毒に耐え、猛毒による被害の上乗せを{CombatBalance.ResistPoisonDamageReductionRate * 100:0}%抑えた。[/color]");
@@ -1502,6 +1555,7 @@ public partial class MainDashboard : Control
 	private void AppendLog(string bbcodeText)
 	{
 		_resultLog.AppendText(bbcodeText + "\n");
+		_logCapture?.AppendLine(bbcodeText); // 月を進めている間は月報の「週ごとの記録」にも写す（§0.71）
 	}
 
 	/// <summary>

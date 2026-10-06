@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using GuildManager.Core.Models;
 using GuildManager.Core.Rng;
 
@@ -93,6 +94,41 @@ namespace GuildManager.Core.Balance
                 throw new BalanceDataException($"{JobWeightsFileName} に職業「{jobClass}」の行がありません。");
             return weights;
         }
+
+        /// <summary>職業の伸び方の重み（→ growth_job_weights.csv）。CSVに無い能力名は0。</summary>
+        public static int GetJobStatWeight(JobClass jobClass, string stat)
+        {
+            foreach (var (s, w) in GetJobStatWeights(jobClass))
+                if (s == stat) return w;
+            return 0;
+        }
+
+        /// <summary>
+        /// 候補の能力（pool）から、職業の伸び方の重み＋floor の比で1つ選ぶ（§0.72：出撃成長、→ GrowthSystem.ApplyExpeditionGrowth）。
+        /// 乱数は NextInt(1, 合計) を1回だけ引く（重みが全て1なら、旧来の等確率の選び方と同じ結果になる）。
+        /// </summary>
+        public static string PickJobWeightedStat(JobClass jobClass, IReadOnlyList<string> pool, int floor, IRng rng)
+        {
+            int total = 0;
+            foreach (var stat in pool)
+                total += GetJobStatWeight(jobClass, stat) + floor;
+            if (total <= 0)
+                return pool[0];
+
+            int roll = rng.NextInt(1, total);
+            int cumulative = 0;
+            foreach (var stat in pool)
+            {
+                cumulative += GetJobStatWeight(jobClass, stat) + floor;
+                if (roll <= cumulative)
+                    return stat;
+            }
+            return pool[^1];
+        }
+
+        /// <summary>職業の伸び方の重みが大きい順の能力（同じ重みは CSV の列の順）。採用で能力を職業に寄せるときに使う（§0.72）。</summary>
+        public static IReadOnlyList<string> GetJobAptitudeOrder(JobClass jobClass) =>
+            GetJobStatWeights(jobClass).OrderByDescending(w => w.Weight).Select(w => w.Stat).ToList();
 
         /// <summary>職業別の重みに従って、成長対象ステータスを1つ抽選する。</summary>
         public static string PickJobWeightedStat(JobClass jobClass, IRng rng)

@@ -86,11 +86,50 @@ namespace GuildManager.Core.Balance
         // 旧通常クエストの「討伐」種別の能力重み（quest_type_weights.csv）から、同じ値のまま移設した
         // （旧クエスト撤去、2026年9月）。
 
-        /// <summary>各員の実効ステータスへの重み（ステータス名→重み）。7能力すべてを持つ。</summary>
+        /// <summary>
+        /// 職業を問わない重み（ステータス名→重み）。7能力すべてを持つ。§0.72で隊員の火力は職業ごとの重み（→ GetBossPowerWeights）で
+        /// 測るようにしたため、こちらは装備の値打ちの目安など、職業を決めない試算にだけ使う。
+        /// </summary>
         public static readonly IReadOnlyList<(string Stat, double Weight)> BossPowerWeights =
             new[] { "STR", "AGI", "VIT", "MND", "DEX", "LDR", "INT" }
                 .Select(stat => (stat, BalanceData.GetDouble(FileName, $"BossPowerWeight_{stat}")))
                 .ToArray();
+
+        private const string JobPowerWeightsFileName = "boss_power_weights.csv";
+
+        private static readonly Dictionary<Models.JobClass, (string Stat, double Weight)[]> JobPowerWeights = BuildJobPowerWeights();
+
+        private static Dictionary<Models.JobClass, (string Stat, double Weight)[]> BuildJobPowerWeights()
+        {
+            var (header, rows) = BalanceData.GetTable(JobPowerWeightsFileName);
+            var result = new Dictionary<Models.JobClass, (string Stat, double Weight)[]>();
+            foreach (var row in rows)
+            {
+                if (!System.Enum.TryParse<Models.JobClass>(row[0], out var job))
+                    throw new BalanceDataException($"{JobPowerWeightsFileName} のjob列「{row[0]}」をJobClassとして解釈できません。");
+                var weights = new (string Stat, double Weight)[header.Length - 1];
+                for (int col = 1; col < header.Length; col++)
+                {
+                    if (!double.TryParse(row[col], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double w))
+                        throw new BalanceDataException($"{JobPowerWeightsFileName} の{row[0]}行・{header[col]}列の値「{row[col]}」を数値として解釈できません。");
+                    weights[col - 1] = (header[col], w);
+                }
+                result[job] = weights;
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// 職業ごとの討伐火力の重み（2026年10月・§0.72、→ BAL: boss_power_weights.csv）。重戦士＝STR・VIT、魔導士＝INT・MND のように
+        /// 職業の主な能力を重く測る。どの職業も合計4.2（職業を問わない重みと同じ）にそろえ、要求火力の目盛りを変えない。
+        /// </summary>
+        public static IReadOnlyList<(string Stat, double Weight)> GetBossPowerWeights(Models.JobClass job) =>
+            JobPowerWeights.TryGetValue(job, out var weights)
+                ? weights
+                : throw new BalanceDataException($"{JobPowerWeightsFileName} に職業「{job}」の行がありません。");
+
+        /// <summary>出撃成長で伸びる能力の選び方：職業の伸び方の重み＋この値の比で選ぶ（§0.72、重み0の能力も少しは伸びる）。</summary>
+        public static readonly int GrowthJobWeightFloor = BalanceData.GetInt(FileName, "GrowthJobWeightFloor");
 
         // ---- 累積功績（→ Adventurer.TotalContributionScore。退職金の上乗せ原資） ----
         // 旧通常クエストの解決時に加算していたものを、大迷宮の活動（進軍・ボス撃破・採取）へ再配線した。

@@ -40,6 +40,9 @@ namespace GuildManager.Core.Models
         /// </summary>
         public int? MasterMood { get; set; }
 
+        /// <summary>研究の手伝い（→ GameState.ResearchCredit、§0.73）。キーを持たない旧セーブでは0。</summary>
+        public int ResearchCredit { get; set; }
+
         /// <summary>
         /// 破産判定（→ 03 §8.3）の連続週数カウンタ。指示書のSaveDataサンプルには
         /// 含まれていなかったが、これを保存しないとロード直後に破産寸前の
@@ -237,6 +240,9 @@ namespace GuildManager.Core.Models
         /// Guid・整数・文字列・列挙・Adventurer だけで構成されるため直接JSON化する。旧セーブでは空で復元される。
         /// </summary>
         public List<SoulFusionCulture>? SoulFusionCultures { get; set; } = new();
+
+        /// <summary>直近の月報（→ GameState.MonthlyReports、§0.71）。キーを持たない旧セーブ・null は空で読む。</summary>
+        public List<Systems.MonthlyReport>? MonthlyReports { get; set; } = new();
 
         /// <summary>
         /// 掲示中・受けた依頼（→ GameState.Commissions、03 §4.9・§0.64）。GuildCommission は Guid・整数・文字列・列挙だけで

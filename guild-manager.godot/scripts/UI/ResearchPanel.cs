@@ -81,7 +81,9 @@ public partial class ResearchPanel : ScrollContainer
 	private void RefreshResources()
 	{
 		_resourcesLabel.Clear();
-		_resourcesLabel.AppendText($"[b]所持金[/b]：{_state.Gold} G\n");
+		_resourcesLabel.AppendText($"[b]所持金[/b]：{_state.Gold} G" +
+			// 研究の手伝い（§0.73）：待機中に研究を手伝った冒険者がいると貯まり、研究費から割り引く
+			$"　[b]研究の手伝い[/b]：{_state.ResearchCredit} G（研究費の{TrainingBalance.ResearchCreditMaxDiscountRate * 100:0}%まで割り引く。上限 {TrainingBalance.ResearchCreditMax} G）\n");
 
 		// 研究で使う素材IDと、実際に所持している素材IDの両方を漏れなく出す
 		// （まだ研究で使わない素材も、採取済みなら在庫として見えるようにする）。
@@ -478,8 +480,13 @@ public partial class ResearchPanel : ScrollContainer
 	/// <summary>「月光草: 3/5」のような充足状況の文字列。不足している項目は赤字にする。</summary>
 	private string BuildCostLine(ResearchDefinition research)
 	{
-		string goldPart = $"{_state.Gold}/{research.RequiredGold}G";
-		if (_state.Gold < research.RequiredGold)
+		// 研究の手伝い（§0.73）で割り引ける分があれば、払う額と割引を並べる
+		int discount = ResearchSystem.GetDiscount(_state, research);
+		int pay = research.RequiredGold - discount;
+		string goldPart = discount > 0
+			? $"{_state.Gold}/{pay}G（{research.RequiredGold}G − 研究の手伝い {discount}G）"
+			: $"{_state.Gold}/{research.RequiredGold}G";
+		if (_state.Gold < pay)
 			goldPart = $"[color=red]{goldPart}[/color]";
 
 		var materialParts = research.RequiredMaterials.Select(kv =>
@@ -494,11 +501,13 @@ public partial class ResearchPanel : ScrollContainer
 
 	private void OnResearchButtonPressed(ResearchDefinition research)
 	{
+		int discount = ResearchSystem.GetDiscount(_state, research);
 		if (!ResearchSystem.CompleteResearch(_state, research))
 			return;
 
 		LogRequested.Invoke($"[color=gold][b]🔬 アルベールの研究室で「{research.Name}」が完了した！[/b][/color]\n" +
-			$"[color=gray]{research.Description}[/color]");
+			$"[color=gray]{research.Description}[/color]" +
+			(discount > 0 ? $"\n[color=lime]研究の手伝いで {discount} G 割り引いた（払ったのは {research.RequiredGold - discount} G）。[/color]" : ""));
 		StateChanged.Invoke();
 	}
 }

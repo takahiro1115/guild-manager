@@ -65,6 +65,29 @@ namespace GuildManager.Core.Systems
         }
 
         /// <summary>
+        /// 「次の月へ」（§0.70：月を1ターンにする）。今の月の残りの週を、方針による行動つきで1週ずつ進め、
+        /// 月の最後の週の決算が済むか、月の途中で止める条件（→ WeekResult.ShouldStopMonth）が成り立ったら止まる。
+        /// 月の途中で止まったあとにもう一度呼ぶと、その月の残りを進める。Core の計算は今までどおり週ごと。
+        /// </summary>
+        public List<AutoSkipWeek> AdvanceMonth(GameState state)
+        {
+            var weeks = new List<AutoSkipWeek>();
+
+            for (int i = 0; i < GameCalendar.WeeksPerMonth; i++)
+            {
+                int week = state.WeekNumber;
+                var orders = _squadOrderSystem?.Execute(state) ?? new List<SquadOrderEvent>();
+                var settlement = _weekProcessingSystem.ProcessWeek(state);
+                weeks.Add(new AutoSkipWeek(orders, settlement));
+
+                if (settlement.Flags.ShouldStopMonth || GameCalendar.IsLastWeekOfMonth(week))
+                    break;
+            }
+
+            return weeks;
+        }
+
+        /// <summary>
         /// 自動スキップできるか：出撃中の部隊がすべて方針の自動出撃（→ ActiveDungeonMission.SavedPartyId）であること。
         /// 手動で出した部隊が残っていると、その決着を見落とさないよう先に「次週へ」で決着させてもらう。
         /// </summary>

@@ -46,12 +46,12 @@ namespace GuildManager.Core.Balance
         public static readonly int BoredomMoodDecay = BalanceData.GetInt(FileName, "BoredomMoodDecay");
 
         /// <summary>
-        /// 待機お手伝い（→ MasterMoodSystem.ProcessIdleHelp、03 §8.1、2026年9月新設）：出撃せずギルドに残った
-        /// 健康な冒険者1名ごとの週次収入（G）。
+        /// 研究の手伝い（→ IdleActivitySystem、03 §8.1・§0.73。旧・待機お手伝い15G）：待機中に「アルベールの研究を手伝う」
+        /// 冒険者1名ごとに週ごとに貯まる研究の手伝い（G相当。次の研究費から割り引く → ResearchSystem.GetDiscount）。
         /// </summary>
-        public static readonly int IdleAdventurerHelpGold = BalanceData.GetInt(FileName, "IdleAdventurerHelp_Gold");
+        public static readonly int IdleAdventurerHelpResearchCredit = BalanceData.GetInt(FileName, "IdleAdventurerHelp_ResearchCredit");
 
-        /// <summary>待機お手伝い1名ごとの機嫌上昇（上限でクランプ）。</summary>
+        /// <summary>研究の手伝い1名ごとの機嫌上昇（上限でクランプ）。</summary>
         public static readonly int IdleAdventurerHelpMood = BalanceData.GetInt(FileName, "IdleAdventurerHelp_Mood");
 
         public static readonly int TierThresholdCheerful = BalanceData.GetInt(FileName, "TierThreshold_Cheerful");

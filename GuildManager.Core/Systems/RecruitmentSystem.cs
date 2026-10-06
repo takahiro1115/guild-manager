@@ -339,9 +339,13 @@ namespace GuildManager.Core.Systems
             int minPa = isHighPotential ? RecruitmentBalance.HighPotentialMinPa : RecruitmentBalance.MinGeneratedPa;
             int maxPa = isHighPotential ? RecruitmentBalance.HighPotentialMaxPa : RecruitmentBalance.MaxGeneratedPa;
 
+            // 能力を職業に寄せる（§0.72）：職業の伸び方の重みが大きい上位2能力は PA を高めに、重み0の能力は低めに出す。
+            var aptitude = GrowthBalance.GetJobAptitudeOrder(jobClass).Take(2).ToHashSet();
             foreach (var stat in AdventurerStatAccessor.AllStatNames)
             {
-                int pa = Math.Min(100, _rng.NextInt(minPa, maxPa) + ageBonus + paBonus);
+                int lean = aptitude.Contains(stat) ? RecruitmentBalance.JobAptitudePaBonus
+                    : GrowthBalance.GetJobStatWeight(jobClass, stat) == 0 ? -RecruitmentBalance.JobInaptitudePaPenalty : 0;
+                int pa = Math.Clamp(_rng.NextInt(minPa, maxPa) + ageBonus + paBonus + lean, 1, 100);
                 int actual = Math.Max(1, (int)(pa * growthRatio));
                 AdventurerStatAccessor.SetPa(candidate, stat, pa);
                 AdventurerStatAccessor.SetStat(candidate, stat, actual);

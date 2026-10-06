@@ -31,6 +31,12 @@ namespace GuildManager.Core.Models
         /// <summary>1季節の週数（＝12）。</summary>
         public const int WeeksPerSeason = WeeksPerYear / SeasonsPerYear;
 
+        /// <summary>1か月の週数（2026年10月・§0.70：月を1ターンにする）。季節は3か月。</summary>
+        public const int WeeksPerMonth = 4;
+
+        /// <summary>1季節の月の数（＝3）。</summary>
+        public const int MonthsPerSeason = WeeksPerSeason / WeeksPerMonth;
+
         /// <summary>0以下の週（未初期化の旧データ等）は第1週として扱う。</summary>
         private static int Normalize(int week) => Math.Max(1, week);
 
@@ -45,6 +51,18 @@ namespace GuildManager.Core.Models
 
         /// <summary>季節の中の第何週か（1〜12）。</summary>
         public static int WeekOfSeason(int week) => (WeekOfYear(week) - 1) % WeeksPerSeason + 1;
+
+        /// <summary>季節の中の何の月か（1〜3、§0.70）。</summary>
+        public static int MonthOfSeason(int week) => (WeekOfSeason(week) - 1) / WeeksPerMonth + 1;
+
+        /// <summary>月の中の第何週か（1〜4、§0.70）。</summary>
+        public static int WeekOfMonth(int week) => (WeekOfSeason(week) - 1) % WeeksPerMonth + 1;
+
+        /// <summary>月の最初の週か（§0.70：訓練の割り振りを決められるのはこの週の決算の前だけ）。</summary>
+        public static bool IsFirstWeekOfMonth(int week) => WeekOfMonth(week) == 1;
+
+        /// <summary>月の最後の週か（この週の決算で月が終わる）。</summary>
+        public static bool IsLastWeekOfMonth(int week) => WeekOfMonth(week) == WeeksPerMonth;
 
         /// <summary>年の最初の週（第1週・49週・97週…）か。</summary>
         public static bool IsFirstWeekOfYear(int week) => WeekOfYear(week) == 1;
@@ -61,8 +79,12 @@ namespace GuildManager.Core.Models
             _ => "冬",
         };
 
-        /// <summary>暦の表記「1年目 春 第3週」。</summary>
+        /// <summary>暦の表記「1年目 春 2の月 第3週」（§0.70で月を足した。週は月の中の第何週）。</summary>
         public static string Format(int week) =>
-            $"{YearOf(week)}年目 {SeasonLabel(SeasonOf(week))} 第{WeekOfSeason(week)}週";
+            $"{YearOf(week)}年目 {SeasonLabel(SeasonOf(week))} {MonthOfSeason(week)}の月 第{WeekOfMonth(week)}週";
+
+        /// <summary>月の表記「1年目 春 2の月」（月報の見出しなど）。</summary>
+        public static string FormatMonth(int week) =>
+            $"{YearOf(week)}年目 {SeasonLabel(SeasonOf(week))} {MonthOfSeason(week)}の月";
     }
 }
