@@ -28,6 +28,7 @@
 | `equipment.csv` | 03 §4.2.2 | EquipmentBalance（→ ItemCatalog）。**テーブル形式**（`Id,Price,HpBonus,BonusStr〜BonusLdr,note`、2026年9月に key,value 形式から移行）。`HpBonus`＝最大HP加算（武器は0）。§0.37で旧 `EffectValue`（個人CP／最大HPの二義）を個人CPの撤廃に伴い `HpBonus` へ改名 |
 | `boss_gimmicks.csv` | 03 §4.5.4 | BossGimmickBalance（ボスのギミック7種への備えと罰、毒状態、ギミックの数。2026年10月・§0.68。旧 `consumables.csv` は撤去） |
 | `boss_power_weights.csv` | 03 §4.5.4・§2.1 | DungeonBalance.GetBossPowerWeights（職業ごとの討伐火力の重み、2026年10月・§0.72。どの職業も合計4.2。dungeon.csv の `BossPowerWeight_*` は職業を決めない試算用の共通の重み）。ほかに §0.72 で combat.csv `ClericBlessingLossPctPerMnd`（0.08）・`ClericBlessingSevereThresholdRate`（0.8）＝神官の加護、recruitment.csv `JobAptitudePaBonus`（10）・`JobInaptitudePaPenalty`（10）＝採用の能力を職業に寄せる、dungeon.csv `GrowthJobWeightFloor`（1）＝出撃成長の能力の選び方を足した |
+| `potential_estimate.csv` | 03 §0.74・§2.4・§5.1 | PotentialEstimateBalance（副官の見立て〈PAを隠して段階S〜Dで見せる〉の幅・目利き〈スカウトの顧問・段階研究・在籍の学者〉・在籍の月日で狭まる割合・魂魄融和の娘の倍率・確かとする幅・段階の境目、2026年10月・§0.74） |
 | `progression.csv` | 03 §4.5.1・§4.2.2 | ProgressionBalance（初期の同時出撃枠、店の上位装備が入荷する倒したボスの数 `ShopTierUnlockBosses_1〜3`＝§0.61） |
 | `dungeon.csv` | 03 §4.5.1・§4.5.4 | DungeonBalance（ボス能力重み・未踏破重損耗・ボス間隔・撃破実績点・出撃成長回数） |
 | `dungeon_traversal.csv` | 03 §4.5.3 | DungeonTraversalBalance（**走破力の重み（VIT/MND/隊長LDR）**・**1歩の消費の尺度 `FloorsPerRatio`**（比率1.0の深さで週に進める階層数、4.0。進軍ランクの段 `RankRatioScale` は別。1歩の消費＝その階層の要求値÷(走破力×この値)÷解析倍率、週の予算1、→ 03 §0.49。旧リニア進軍は §0.25）・進軍ランク別の既踏損耗率・調査度連動走破倍率・夜目 `NightVisionUnexploredDamageReductionRate`（→ 03 §0.32）） |
@@ -258,6 +259,23 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 | `dungeon.csv` | `FieldRequirementMultiplier_3`（忘却の古代廃墟） | 1.0→1.2 | 40F＝52 |
 | `dungeon.csv` | `FieldRequirementMultiplier_4`（焦熱の峡谷） | 1.0→1.3 | 40F＝56 |
 | `dungeon.csv` | `FieldRequirementMultiplier_5`（深淵の特異点） | 1.0→1.5 | 50F＝76 |
+
+## PAを隠して副官の見立てにする改訂で追加されたキー（2026年10月、→ 03 §0.74）
+
+`potential_estimate.csv` を新設した（すべて仮の値）。採用時の週給・契約金は副官の見立ての総合PA×係数（`economy.csv` の係数は据え置き）。
+`dotnet run --project tools/balance_sim -c Release -- campaign 10 1440` で10回ともクリア、15年目前後（12〜18年目。`from=10` の10回は14年目前後）。
+
+| キー | 値 | 意味 |
+|---|---|---|
+| `BaseWidth` | 20 | 見立てのずれの幅（目利き0・在籍0か月で ±20） |
+| `MaxEye` | 0.8 | 目利きの上限 |
+| `ScoutMasterEyeCoeff` | 0.004 | スカウトの顧問の (LDR+DEX)/2 に掛ける係数 |
+| `ResearchEyePerStep` | 0.1 | 推薦状などの段階研究（RecruitPaBonus）1段ごと |
+| `ScholarEyeCoeff` | 0.002 | 在籍の学者の最も高い INT に掛ける係数 |
+| `MonthlyNarrowRate` | 0.1 | 在籍1か月ごとに幅を狭める割合（10か月で確定） |
+| `SoulFusionWidthRate` | 0.5 | 魂魄融和の娘の幅の倍率 |
+| `ConfirmWidth` | 1 | 幅がこの値以下で「確か」（「B?」→「B」） |
+| `RankS` ／ `RankA` ／ `RankB` ／ `RankC` | 90 ／ 80 ／ 70 ／ 55 | 段階の境目（未満は D） |
 
 ## 待機中の過ごし方で追加／変更されたキー（2026年10月、→ 03 §0.73）
 

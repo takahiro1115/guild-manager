@@ -218,7 +218,8 @@ namespace GuildManager.Core.Tests
             Assert.Equal(Gender.Female, child.Gender);
             Assert.False(child.HasUsedSoulFusion); // 子もいずれ親になれる
             Assert.Equal(child.MaxHP, child.CurrentHP);
-            Assert.Equal(Math.Max(1, (int)(child.TotalPA * EconomyBalance.WeeklyWageCoefficient)), child.WeeklyWage);
+            // 週給は副官の見立ての総合PAで決まる（§0.74）
+            Assert.Equal(Math.Max(1, (int)(PotentialEstimateSystem.EstimateTotalPa(state, child) * EconomyBalance.WeeklyWageCoefficient)), child.WeeklyWage);
 
             // 同じ2人はもう処方できない
             Assert.Null(new SoulFusionSystem(new AlwaysMaxRng()).TryPrescribe(state, a, b, JobClass.Cleric));

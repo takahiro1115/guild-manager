@@ -256,7 +256,8 @@ namespace GuildManager.Core.Systems
             // 魂魄の申し子（§0.62）：秘薬で生まれた娘だけの特性。先天判定の後に1回判定する。
             if (_rng.NextInt(1, 100) <= SoulFusionBalance.SoulChildChancePercent)
                 child.TryAddTrait(TraitCatalog.SoulChildId);
-            RecruitmentSystem.FinishNewcomer(child);
+            PotentialEstimateSystem.AssignOffsets(child, _rng); // 副官の見立てのずれ（§0.74。親が分かっているので幅は半分）
+            RecruitmentSystem.FinishNewcomer(state, child);
 
             AssignPortrait(state, child, a, b);
 

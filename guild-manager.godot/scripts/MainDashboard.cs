@@ -1375,9 +1375,9 @@ public partial class MainDashboard : Control
 		string parentA = _state.FindAdventurer(birth.ParentAId)?.Name ?? "？";
 		string parentB = _state.FindAdventurer(birth.ParentBId)?.Name ?? "？";
 		AppendLog($"[color=violet][b]🧪 培養槽から{parentA}と{parentB}の娘、{child.Name}（{AdventurerPanel.JobLabel(child.JobClass)}）が誕生し、ギルドに加わった！[/b][/color]" +
-			$"\n[color=gray]百合相性：{SoulFusionSystem.GetNyxTierLabel(birth.NyxTier)}・総合PA {child.TotalPA:F0}・週給 {child.WeeklyWage}G[/color]");
+			$"\n[color=gray]百合相性：{SoulFusionSystem.GetNyxTierLabel(birth.NyxTier)}・総合 見立て{PotentialEstimateSystem.TotalRankLabel(_state, child)}・週給 {child.WeeklyWage}G[/color]");
 		foreach (var stat in birth.BreakthroughStats)
-			AppendLog($"[color=gold]✨ 能力限界突破！ {child.Name}の{stat}の潜在能力が {StatPa(child, stat)} に達した。[/color]");
+			AppendLog($"[color=gold]✨ 能力限界突破！ {child.Name}の{stat}の潜在能力が限界を超えた（見立て {PotentialEstimateSystem.RankLabel(_state, child, stat)}）。[/color]");
 		if (child.TraitIds.Count > 0)
 			AppendLog($"[color=gray]特性：{string.Join("・", child.TraitIds.Select(id => TraitCatalog.FindById(id)?.DisplayName ?? id))}[/color]");
 	}
@@ -1523,12 +1523,6 @@ public partial class MainDashboard : Control
 			sb.AppendLine($"・最も功績を挙げた冒険者：{c.TopContributorName}（功績 {c.TopContributorScore} pt）");
 		return sb.ToString();
 	}
-
-	private static int StatPa(Adventurer a, string stat) => stat switch
-	{
-		"STR" => a.PA_STR, "AGI" => a.PA_AGI, "VIT" => a.PA_VIT, "MND" => a.PA_MND,
-		"DEX" => a.PA_DEX, "LDR" => a.PA_LDR, _ => a.PA_INT,
-	};
 
 	/// <summary>
 	/// 契約交渉の状況を週報ログに報告する（→ 03 §5.2）。

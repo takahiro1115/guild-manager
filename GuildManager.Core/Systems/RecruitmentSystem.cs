@@ -102,7 +102,7 @@ namespace GuildManager.Core.Systems
             for (int i = 0; i < count; i++)
             {
                 JobClass? job = i < DraftGuaranteedJobs.Length ? DraftGuaranteedJobs[i] : null;
-                var generated = GenerateOne(i, highPotentialChance, existingNames, job, RecruitmentBalance.MinCandidateAge, paBonus);
+                var generated = GenerateOne(state, i, highPotentialChance, existingNames, job, RecruitmentBalance.MinCandidateAge, paBonus);
                 existingNames.Add(generated.Candidate.Name);
                 AssignPortrait(generated.Candidate, usedPortraits);
                 offers.Add(new RecruitmentOffer(generated.Candidate, 0)); // ドラフトは契約金無料
@@ -235,7 +235,7 @@ namespace GuildManager.Core.Systems
             var offers = new List<RecruitmentOffer>();
             for (int i = 0; i < count; i++)
             {
-                var offer = GenerateOne(i, highPotentialChance, existingNames, paBonus: paBonus);
+                var offer = GenerateOne(state, i, highPotentialChance, existingNames, paBonus: paBonus);
                 existingNames.Add(offer.Candidate.Name);
                 AssignPortrait(offer.Candidate, usedPortraits);
                 offers.Add(offer);
@@ -293,7 +293,7 @@ namespace GuildManager.Core.Systems
             (int)Math.Round(ResearchBalance.GetTotalEffectValue(state, ResearchEffectType.RecruitPaBonus));
 
         /// <param name="paBonus">PAの生成値に足す量（段階研究、→ GetRecruitPaBonus）。乱数の引き方は変えない。上限100で止める。</param>
-        private RecruitmentOffer GenerateOne(int index, double highPotentialChance, HashSet<string> existingNames,
+        private RecruitmentOffer GenerateOne(GameState state, int index, double highPotentialChance, HashSet<string> existingNames,
             JobClass? fixedJob = null, int? fixedAge = null, int paBonus = 0)
         {
             int age = fixedAge ?? _rng.NextInt(RecruitmentBalance.MinCandidateAge, RecruitmentBalance.MaxCandidateAge);
@@ -352,9 +352,11 @@ namespace GuildManager.Core.Systems
             }
 
             RollInnateTraits(candidate, _rng);
-            FinishNewcomer(candidate);
+            PotentialEstimateSystem.AssignOffsets(candidate, _rng); // 副官の見立てのずれ（§0.74）
+            FinishNewcomer(state, candidate);
 
-            int signingBonus = (int)(candidate.TotalPA * candidate.Age * EconomyBalance.SigningBonusCoefficient);
+            // 契約金も副官の見立ての総合PAで決める（§0.74）
+            int signingBonus = (int)(PotentialEstimateSystem.EstimateTotalPa(state, candidate) * candidate.Age * EconomyBalance.SigningBonusCoefficient);
 
             return new RecruitmentOffer(candidate, signingBonus);
         }
@@ -383,12 +385,13 @@ namespace GuildManager.Core.Systems
         }
 
         /// <summary>
-        /// 特性が決まった新人の仕上げ：週給（総合PA×係数）を決め、HPを満タンにする。頑強・病弱は最大HPを変えるため、
+        /// 特性が決まった新人の仕上げ：週給（副官の見立ての総合PA×係数、§0.74）を決め、HPを満タンにする。頑強・病弱は最大HPを変えるため、
         /// 特性が決まってから満タンにする。浪費家は求める週給が高い（§0.56）。魂魄融和の子（→ SoulFusionSystem）も使う。
         /// </summary>
-        internal static void FinishNewcomer(Adventurer candidate)
+        internal static void FinishNewcomer(GameState state, Adventurer candidate)
         {
-            candidate.WeeklyWage = Math.Max(1, (int)(candidate.TotalPA * EconomyBalance.WeeklyWageCoefficient));
+            // 給与を決めるのは副官なので、週給は副官の見立ての総合PAで決まる（§0.74。満足度の適正な週給は本当のPA）
+            candidate.WeeklyWage = Math.Max(1, (int)(PotentialEstimateSystem.EstimateTotalPa(state, candidate) * EconomyBalance.WeeklyWageCoefficient));
             candidate.CurrentHP = candidate.MaxHP;
             if (candidate.HasTrait(TraitCatalog.SpendthriftId))
                 candidate.WeeklyWage = Math.Max(1, (int)(candidate.WeeklyWage * TraitBalance.SpendthriftWageMultiplier));

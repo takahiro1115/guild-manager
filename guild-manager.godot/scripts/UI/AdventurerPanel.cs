@@ -21,6 +21,9 @@ using GuildManager.Core.Systems;
 public partial class AdventurerPanel : VBoxContainer
 {
 	private GameState _state = null!;
+
+	/// <summary>志願者の表示（→ ShowCandidatePreview）で見立てに使うギルドの状態（§0.74：目利きはギルドで決まる）。</summary>
+	private GameState _previewState = null!;
 	private SatisfactionSystem _satisfactionSystem = null!;
 	private AgingSystem _agingSystem = null!;
 
@@ -240,8 +243,9 @@ public partial class AdventurerPanel : VBoxContainer
 	/// 満足度・8年稼働タイムラインは出さない。以後この Panel は志願者表示専用として使う
 	/// （部隊・冒険者画面の Panel とは別インスタンス。Refresh は呼ばれない）。
 	/// </summary>
-	public void ShowCandidatePreview(Adventurer candidate)
+	public void ShowCandidatePreview(Adventurer candidate, GameState state)
 	{
+		_previewState = state;
 		ShowAdventurerDetail(candidate);
 
 		GetNode<Control>("Body/RightPane/DetailVBox/DetailContainer/BasicInfoCard/Margin/BasicInfoHBox/BasicInfoVBox/LifecycleCard").Visible = false;
@@ -541,13 +545,13 @@ public partial class AdventurerPanel : VBoxContainer
 		_portraitTextureRect.Texture = LoadPortraitTexture(a.PortraitId);
 
 		// ---- 7大能力値 ----
-		BindStatRow(_barSTR, _valSTR, a, "STR", a.PA_STR);
-		BindStatRow(_barVIT, _valVIT, a, "VIT", a.PA_VIT);
-		BindStatRow(_barAGI, _valAGI, a, "AGI", a.PA_AGI);
-		BindStatRow(_barDEX, _valDEX, a, "DEX", a.PA_DEX);
-		BindStatRow(_barINT, _valINT, a, "INT", a.PA_INT);
-		BindStatRow(_barMND, _valMND, a, "MND", a.PA_MND);
-		BindStatRow(_barLDR, _valLDR, a, "LDR", a.PA_LDR);
+		BindStatRow(_barSTR, _valSTR, a, "STR");
+		BindStatRow(_barVIT, _valVIT, a, "VIT");
+		BindStatRow(_barAGI, _valAGI, a, "AGI");
+		BindStatRow(_barDEX, _valDEX, a, "DEX");
+		BindStatRow(_barINT, _valINT, a, "INT");
+		BindStatRow(_barMND, _valMND, a, "MND");
+		BindStatRow(_barLDR, _valLDR, a, "LDR");
 
 		// ---- 8年稼働タイムライン ----
 		// 満期は年齢で決まる（24歳なら残り2年）ため、残り週数は Core が年齢と今の週から出し、在籍期間の全体はその分に合わせる
@@ -638,16 +642,26 @@ public partial class AdventurerPanel : VBoxContainer
 	/// バー全幅は常に上限100（→ TripleStatBar。§0.30で4層、§0.36で特性補正を分離）。実効値は特性・装備込み
 	/// （→ Adventurer.GetEffectiveStat）で、特性補正後＝実効値 − 装備の能力値補正。行の右端の書式は TripleStatBar.FormatLabel。
 	/// </summary>
-	private static void BindStatRow(TripleStatBar bar, Label valLabel, Adventurer a, string stat, int pa)
+	private void BindStatRow(TripleStatBar bar, Label valLabel, Adventurer a, string stat)
 	{
+		// 伸びしろは副官の見立て（§0.74、→ PotentialEstimateSystem）。段階（「B?」）で出し、バーは見立ての位置まで描く
+		var state = _state ?? _previewState;
+		int pa = state != null ? PotentialEstimateSystem.EstimatePa(state, a, stat) : AdventurerStatAccessorPa(a, stat);
+		string rank = state != null ? PotentialEstimateSystem.RankLabel(state, a, stat) : pa.ToString();
 		int raw = AdventurerStatRaw(a, stat);
 		double effectiveExact = a.GetEffectiveStat(stat);
 		int effective = (int)Math.Round(effectiveExact);
 		// 特性補正後＝実効値 − 装備の能力値補正（→ Adventurer.GetEffectiveStat の内訳。§0.36で特性と装備を分けて表示）
 		int traitAdjusted = (int)Math.Round(effectiveExact - a.GetEquipmentStatBonus(stat));
-		valLabel.Text = TripleStatBar.FormatLabel(raw, traitAdjusted, effective, pa);
-		bar.SetValues(raw, traitAdjusted, effective, pa);
+		valLabel.Text = TripleStatBar.FormatLabel(raw, traitAdjusted, effective, rank);
+		bar.SetValues(raw, traitAdjusted, effective, pa, rank);
 	}
+
+	/// <summary>本当の PA（見立てに使うギルドの状態が無いときだけ）。</summary>
+	private static int AdventurerStatAccessorPa(Adventurer a, string stat) => stat switch
+	{
+		"STR" => a.PA_STR, "VIT" => a.PA_VIT, "AGI" => a.PA_AGI, "DEX" => a.PA_DEX, "INT" => a.PA_INT, "MND" => a.PA_MND, _ => a.PA_LDR,
+	};
 
 	/// <summary>素の能力値（成長・訓練が読み書きする値。特性・装備の補正を含まない）。</summary>
 	private static int AdventurerStatRaw(Adventurer a, string stat) => stat switch

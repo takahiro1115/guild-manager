@@ -8,7 +8,7 @@ using System;
 /// 値は3段で渡す：素の値（raw）→ 特性補正後（traitAdjusted）→ 実効値（effective＝特性補正後＋装備補正）。
 /// 重なり（奥から手前へ）：
 ///  - 黒：上限100までの未到達枠
-///  - 灰：潜在能力 PA（素の能力値が到達しうる伸びしろ）
+///  - 灰：潜在能力 PA（素の能力値が到達しうる伸びしろ）。§0.74 から副官の見立て（→ PotentialEstimateSystem）の位置まで描き、数値は段階（「B?」）で出す
 ///  - 白：素の能力値（成長・訓練で伸びる本人の実力）。特性で下がっていれば特性補正後の値で止める
 ///  - 緑：特性によるプラス補正（素の値 → 特性補正後）
 ///  - くすんだ赤：特性によるマイナス補正で失われた区間（特性補正後 → 素の値。古傷・トラウマ）
@@ -52,15 +52,18 @@ public partial class TripleStatBar : Control
 	/// <summary>
 	/// 値を設定して再描画する。いずれも 0〜100 にクランプして描く（100を超える実効値は右端で止まる）。
 	/// </summary>
-	public void SetValues(int raw, int traitAdjusted, int effective, int potential)
+	/// <param name="potentialText">伸びしろの表示（§0.74：見立ての段階「B?」）。空なら数値をそのまま出す。</param>
+	public void SetValues(int raw, int traitAdjusted, int effective, int potential, string potentialText = "")
 	{
+		string shown = potentialText.Length > 0 ? $"見立て {potentialText}" : $"PA {potential}";
 		Overflow = Math.Max(Math.Max(raw, traitAdjusted), Math.Max(effective, potential)) > MaxStatValue;
 		Raw = Math.Clamp(raw, 0, MaxStatValue);
 		TraitAdjusted = Math.Clamp(traitAdjusted, 0, MaxStatValue);
 		Effective = Math.Clamp(effective, 0, MaxStatValue);
 		Potential = Math.Clamp(potential, 0, MaxStatValue);
 		TooltipText = $"素の値 {raw} ／ 特性 {FormatSigned(traitAdjusted - raw)} ／ 装備 {FormatSigned(effective - traitAdjusted)} ／ " +
-			$"実効値 {effective} ／ PA {potential} ／ 上限 {MaxStatValue}" +
+			$"実効値 {effective} ／ {shown} ／ 上限 {MaxStatValue}" +
+			(potentialText.EndsWith("?") ? "\n伸びしろは副官の見立て（「?」は確かでない。目利き・在籍の月日・伸び止まりで確かになる）" : "") +
 			(Overflow ? "\n金の印＝上限100を超えている（秘薬の能力限界突破）。バーは100で止め、数値で読む" : "");
 		QueueRedraw();
 	}
@@ -72,7 +75,11 @@ public partial class TripleStatBar : Control
 	///  - 特性補正のみ：「実効値 (特性-6) / PA」
 	///  - 両方：「実効値 (特性-15 装備+5) / PA」
 	/// </summary>
-	public static string FormatLabel(int raw, int traitAdjusted, int effective, int potential)
+	public static string FormatLabel(int raw, int traitAdjusted, int effective, int potential) =>
+		FormatLabel(raw, traitAdjusted, effective, potential.ToString());
+
+	/// <summary>伸びしろを文字（§0.74：見立ての段階「B?」）で出す版。</summary>
+	public static string FormatLabel(int raw, int traitAdjusted, int effective, string potential)
 	{
 		int trait = traitAdjusted - raw;
 		int equipment = effective - traitAdjusted;

@@ -618,6 +618,12 @@ namespace GuildManager.Core.Models
         /// </summary>
         public bool IsDispatched { get; set; } = false;
 
+        /// <summary>
+        /// 副官の見立てのずれ（2026年10月・§0.74、→ Systems.PotentialEstimateSystem）。能力名→−100〜+100（百分率）。
+        /// 採用の候補・魂魄融和の娘が生まれたときに一度だけ決める。無い能力はずれ0（見立て＝本当のPA）。
+        /// </summary>
+        public Dictionary<string, int> PaEstimateOffsets { get; set; } = new();
+
         /// <summary>待機中の過ごし方（§0.73、→ IdleActivity・Systems.IdleActivitySystem）。旧セーブには無く、研究を手伝う（Help）で読まれる。</summary>
         public IdleActivity IdleActivity { get; set; } = IdleActivity.Help;
 

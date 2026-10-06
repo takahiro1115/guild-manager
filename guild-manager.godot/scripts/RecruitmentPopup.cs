@@ -268,10 +268,10 @@ public partial class RecruitmentPopup : PopupPanel
 		headRow.AddChild(MakeLabel(c.Name, 18, null));
 		headRow.AddChild(MakeLabel($"{c.Age}歳", 16, null));
 
-		// 2行目：契約金・初期装備・総合PA・週給
+		// 2行目：契約金・初期装備・総合の見立て（§0.74）・週給
 		string cost = _draft != null ? "契約金: 0 G（無料）" : $"契約金: {offer.SigningBonus:N0} G";
 		info.AddChild(MakeLabel(
-			$"{cost}　初期装備: {StarterLoadoutText(c)}　総合PA {c.TotalPA:F0}　週給 {c.WeeklyWage} G", 15,
+			$"{cost}　初期装備: {StarterLoadoutText(c)}　総合 見立て{PotentialEstimateSystem.TotalRankLabel(_state, c)}　週給 {c.WeeklyWage} G（副官の見立て）", 15,
 			new Color(0.85f, 0.85f, 0.85f)));
 
 		// 3行目：先天特性
@@ -375,7 +375,7 @@ public partial class RecruitmentPopup : PopupPanel
 	{
 		var offer = _candidates.FirstOrDefault(o => o.Candidate.Id == _focusedCandidateId);
 		if (offer != null)
-			_detailPanel.ShowCandidatePreview(offer.Candidate);
+			_detailPanel.ShowCandidatePreview(offer.Candidate, _state);
 	}
 
 	// ==== 選択（チェック）とバリデーション ====

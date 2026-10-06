@@ -983,15 +983,16 @@ public partial class PartyFormationPanel : VBoxContainer
 		return ("【待機中】", new Color(0.4f, 1.0f, 0.4f));
 	}
 
-	/// <summary>行のツールチップ：各能力値の実効値・素の値・PA（装備・特性の補正がどれだけ乗っているか）。</summary>
-	private static string BuildRowTooltip(Adventurer a)
+	/// <summary>行のツールチップ：各能力値の実効値・素の値・伸びしろの見立て（装備・特性の補正がどれだけ乗っているか）。</summary>
+	private string BuildRowTooltip(Adventurer a)
 	{
 		var parts = StatColumns.Select(stat =>
 		{
 			int effective = StatValue(a, stat);
 			int raw = AdventurerStatRaw(a, stat);
-			int pa = AdventurerStatPa(a, stat);
-			return effective == raw ? $"{stat} {effective}（PA{pa}）" : $"{stat} {effective}（素{raw}／PA{pa}）";
+			// 伸びしろは副官の見立ての段階（§0.74、→ PotentialEstimateSystem）
+			string pa = _state != null ? PotentialEstimateSystem.RankLabel(_state, a, stat) : AdventurerStatPa(a, stat).ToString();
+			return effective == raw ? $"{stat} {effective}（見立て{pa}）" : $"{stat} {effective}（素{raw}／見立て{pa}）";
 		});
 		return $"{a.Name}（{JobLabel(a.JobClass)}）\n{string.Join("　", parts)}\nクリックで右に詳細を表示";
 	}

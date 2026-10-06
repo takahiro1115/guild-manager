@@ -1,0 +1,13 @@
+key,value,unit,note
+BaseWidth,20,pt,副官の見立てのずれの幅（目利き0・在籍0か月のとき、見立てのPA＝本当のPA±この値まで。冒険者・能力ごとに決めたずれ−1〜+1を掛ける。§0.74）
+MaxEye,0.8,倍,目利きの上限（幅×(1−目利き)。スカウトの顧問・研究・在籍の学者を足してこの値で止める）
+ScoutMasterEyeCoeff,0.004,倍,目利き：スカウトの顧問（引退者）の(LDR+DEX)/2×この係数（80なら0.32）
+ResearchEyePerStep,0.1,倍,目利き：推薦状などの段階研究（RecruitPaBonus）1段ごとに足す値
+ScholarEyeCoeff,0.002,倍,目利き：在籍の学者のうち最も高いINT×この係数（80なら0.16）
+MonthlyNarrowRate,0.1,倍,在籍1か月（4週）ごとに幅を狭める割合（1−月数×この値。10か月で確定）
+SoulFusionWidthRate,0.5,倍,魂魄融和で生まれた娘の幅に掛ける倍率（親が分かっているので見立てやすい）
+ConfirmWidth,1,pt,幅がこの値以下になったら見立てを確かとする（「B?」→「B」）。能力がPAに届いて伸び止まった能力も確か
+RankS,90,pt,見立てのPAがこの値以上で段階S
+RankA,80,pt,同・段階A
+RankB,70,pt,同・段階B
+RankC,55,pt,同・段階C（未満はD）
