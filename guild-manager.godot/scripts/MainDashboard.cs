@@ -59,8 +59,8 @@ public partial class MainDashboard : Control
 	private ItemList _adventurerList = null!;
 	private RichTextLabel _adventurerDetailLabel = null!;
 	private TextureRect _portraitTextureRect = null!;
-	private RichTextLabel _resultLog = null!;
-	private Button _nextWeekButton = null!;
+	/// <summary>お知らせ（§0.80：右の週報の欄を撤去し、その場の操作の結果は画面下に数秒だけ出す）。</summary>
+	private VBoxContainer _toastBox = null!;
 	private Button _autoSkipButton = null!;
 	private RecruitmentPopup _recruitmentPopup = null!;
 	private AdvisorPopup _advisorPopup = null!;
@@ -88,7 +88,6 @@ public partial class MainDashboard : Control
 	}
 
 	private TabContainer _centerPanel = null!;
-	private Control _rightPanel = null!;
 	private Button _navDungeonBtn = null!;
 	private Button _navPartyBtn = null!;
 	private Button _navResearchBtn = null!;
@@ -122,24 +121,6 @@ public partial class MainDashboard : Control
 	/// <summary>大迷宮へ1部隊も出撃予定が無いまま週を進めようとした時の確認ダイアログ。</summary>
 	private ConfirmationDialog _noDungeonDispatchDialog = null!;
 
-	// ---- 決戦（ボス）ログのステップ再生（→ コアシステム刷新仕様 Phase 3） ----
-	// 通常の任務は結果を一括表示してテンポを優先するが、大迷宮のボス討伐だけは
-	// 1行ずつ間を置いて流し、「手に汗握る」時間を作る。自動スキップ経路は
-	// LogWeeklySettlementを通らない（サマリーのみ表示する）ため、ここと競合しない。
-
-	/// <summary>ステップ再生の1行あたりの表示間隔（秒）。</summary>
-	private const double BossLogStepSeconds = 0.7;
-
-	private readonly Queue<string> _bossLogQueue = new();
-	private bool _bossPlaybackActive;
-
-	/// <summary>
-	/// ステップ再生の完了後に実行する処理（採用ポップアップ等の割り込み）。
-	/// 再生中にポップアップが被さって演出が台無しになるのを避けるため、決算直後ではなく
-	/// 再生完了まで遅延させる。
-	/// </summary>
-	private Action _afterBossPlayback;
-
 	public override void _Ready()
 	{
 		// 起動時はフルスクリーン。project.godot の window/size/mode=3（最初からフルスクリーンで作る）にすると、
@@ -149,12 +130,7 @@ public partial class MainDashboard : Control
 		_goldLabel = GetNode<Label>("%GoldLabel");
 		_rankLabel = GetNode<Label>("%RankLabel");
 		_squadSlotLabel = GetNode<Label>("%SquadSlotLabel");
-		_resultLog = GetNode<RichTextLabel>("%ResultLog");
-		// 作戦週報にもアートの枠を付ける（文字が枠に掛からないよう、枠の厚み＋少しの余白）
-		var logFrame = UiStyles.PanelArt();
-		logFrame.SetContentMarginAll(34);
-		_resultLog.AddThemeStyleboxOverride("normal", logFrame);
-		_nextWeekButton = GetNode<Button>("%NextWeekButton");
+		BuildToastBox();
 		_autoSkipButton = GetNode<Button>("%AutoSkipButton");
 		_recruitmentPopup = GetNode<RecruitmentPopup>("%RecruitmentPopup");
 		_advisorPopup = GetNode<AdvisorPopup>("%AdvisorPopup");
@@ -163,8 +139,6 @@ public partial class MainDashboard : Control
 
 		_centerPanel = GetNode<TabContainer>("%CenterPanel");
 		_centerPanel.TabsVisible = false;
-
-		_rightPanel = GetNode<Control>("%RightPanel");
 
 		_navDungeonBtn = GetNode<Button>("%NavDungeonBtn");
 		_navPartyBtn = GetNode<Button>("%NavPartyBtn");
@@ -181,7 +155,6 @@ public partial class MainDashboard : Control
 		_navWarehouseBtn.Pressed += () => SwitchView(DashboardView.Warehouse);
 		_navShopBtn.Pressed += () => SwitchView(DashboardView.Shop);
 		_navSystemBtn.Pressed += () => SwitchView(DashboardView.System);
-		GetNode<Button>("%NavCloseBtn").Pressed += ShowQuitPrompt;
 
 		_dungeonPanel = GetNode<DungeonPanel>("%DungeonTab");
 		_dungeonPanel.LogRequested += AppendLog;
@@ -215,6 +188,7 @@ public partial class MainDashboard : Control
 		_systemPanel = GetNode<SystemPanel>("%SystemTab");
 		_systemPanel.SaveRequested += SaveProgress;
 		_systemPanel.EndingRequested += () => ShowEnding(); // クリア後にエンディングを見直す（→ 03 §0.59）
+		_systemPanel.QuitRequested += ShowQuitPrompt; // ゲームの終了（§0.80でナビの「閉じる」から移した）
 		_systemPanel.DebugAddGoldRequested += () =>
 		{
 			_state.Gold += 10000;
@@ -248,9 +222,6 @@ public partial class MainDashboard : Control
 		_squadSlotLabel.GetParent().MoveChild(reportsButton, _squadSlotLabel.GetIndex() + 1);
 
 		// §0.70：月を1ターンにする。「次の月へ」（旧・自動スキップのボタン）が主な操作で、「1週進める」はデバッグ用（最終的に撤去）。
-		_nextWeekButton.Pressed += OnNextWeekPressed;
-		_nextWeekButton.Text = "（デバッグ）1週進める";
-		_nextWeekButton.TooltipText = "デバッグ用：1週だけ進める（最終的には撤去する）";
 		_autoSkipButton.Pressed += OnNextMonthPressed;
 		_autoSkipButton.Text = "📅 次の月へ（Space）";
 		_autoSkipButton.TooltipText = "今の月の残りを、方針どおりに進める。月の途中で決めることがあれば止まる";
@@ -372,7 +343,7 @@ public partial class MainDashboard : Control
 		dialog.PopupCentered();
 	}
 
-	/// <summary>「閉じる」ボタン：確認のうえゲームを終了する（フルスクリーンでは窓の×が使えないため）。</summary>
+	/// <summary>システム画面の「ゲームを終了」：確認のうえゲームを終了する（フルスクリーンでは窓の×が使えないため）。</summary>
 	private void ShowQuitPrompt()
 	{
 		var dialog = new ConfirmationDialog
@@ -503,33 +474,24 @@ public partial class MainDashboard : Control
 	}
 
 	/// <summary>
-	/// 「次週へ」「自動スキップ」の両方を無効化する（→ 03 §1.3）。ゲームオーバー時・
+	/// 「次の月へ」を無効化する（→ 03 §1.3。§0.80で「（デバッグ）1週進める」は撤去）。ゲームオーバー時・
 	/// 新春採用試験ポップアップ表示中・自動スキップ実行中など、週を進める操作全体を
 	/// ブロックしたい場面でまとめて呼ぶ。
 	/// </summary>
 	private void DisableWeekAdvancement()
 	{
-		_nextWeekButton.Disabled = true;
 		_autoSkipButton.Disabled = true;
 	}
 
-	/// <summary>「次週へ」「自動スキップ」の両方を再び有効化する（→ DisableWeekAdvancementの対）。</summary>
+	/// <summary>「次の月へ」を再び有効化する（→ DisableWeekAdvancementの対）。</summary>
 	private void EnableWeekAdvancement()
 	{
-		_nextWeekButton.Disabled = false;
 		_autoSkipButton.Disabled = false;
 	}
 
 	/// <summary>
 	/// 「（デバッグ）1週進める」ボタン（§0.70。最終的には撤去する）。確認ダイアログは出さない。
 	/// </summary>
-	private void OnNextWeekPressed()
-	{
-		if (_noDungeonDispatchDialog.Visible)
-			return;
-		AdvanceWeek();
-	}
-
 	/// <summary>
 	/// 「次の月へ」ボタン（Spaceキー連動、§0.70：月を1ターンにする）。方針のある部隊が無く誰も出撃していなければ、
 	/// うっかり月を進めないよう確認ダイアログを挟む。
@@ -549,48 +511,8 @@ public partial class MainDashboard : Control
 	}
 
 	/// <summary>
-	/// 週送りの本体。週給引き落とし・負傷回復・週数の進行は出撃の有無にかかわらず必ず行う
-	/// （→ 03 §3.6：全員負傷中でも時間を進めて回復を待てるようにするため）。
-	/// </summary>
-	private void AdvanceWeek()
-	{
-		int thisWeek = _state.WeekNumber;
-
-		// 週の区切り（自動スキップの週ごとのログは出さないため、手動の週送りだけ）
-		AppendLog("[color=#4b5563]────────────────────[/color]");
-
-		// 部隊の方針（§0.63）：決算の前に、扉前の自動判断と空いている部隊の自動出撃を行う。
-		LogSquadOrders(_squadOrderSystem.Execute(_state));
-
-		if (_state.ActiveDungeonMissions.Count == 0)
-			AppendLog($"[color=gray]{GameCalendar.Format(thisWeek)}：今週は誰も出撃せず、静養に努めた。[/color]");
-
-		// 出撃操作以外の週次決算処理は、WeekProcessingSystemに集約されている
-		// （→ 03 §1.3。手動の「次週へ」・自動スキップの両方がこの同じ実装を経由することで、
-		// 挙動が食い違わないようにしている）。
-		var settlement = _weekProcessingSystem.ProcessWeek(_state);
-		LogWeeklySettlement(settlement);
-
-		// 自動保存：毎週の決算処理完了後、次週の番号に進めた直後に行う（→ 03 §12）。
-		_saveLoadService.Save(_state);
-
-		RefreshAll();
-
-		// 決戦（ボス討伐）のログが溜まっていれば、先にステップ再生を流し、
-		// ポップアップ等の割り込みはその完了後に回す（→ Phase 3）。
-		if (_bossLogQueue.Count > 0 && !_bossPlaybackActive)
-		{
-			_afterBossPlayback = () => HandlePostSettlementInterruptions(settlement);
-			StartBossPlayback();
-			return;
-		}
-
-		HandlePostSettlementInterruptions(settlement);
-	}
-
-	/// <summary>
 	/// 週次決算の直後に割り込ませる処理（ゲームオーバー確定・新春採用試験）。
-	/// 決戦ログのステップ再生がある週は、再生完了後にここが呼ばれる（→ StartBossPlayback）。
+	/// 月報の小窓を閉じた後に呼ばれる（→ OnMonthlyReportClosed）。
 	/// </summary>
 	private void HandlePostSettlementInterruptions(WeeklySettlementResult settlement)
 	{
@@ -697,13 +619,6 @@ public partial class MainDashboard : Control
 		if (settlement.Flags.GameCleared)
 			AppendLog($"[color=gold][font_size=24][b]🏆 深淵100Fを制覇した！ 最後の生体コードがアルベールの手に渡った。[/b][/font_size][/color]");
 
-		if (settlement.CompletedFacility != null)
-			AppendLog($"[color=lime][b]🏗 {FacilityLabel(settlement.CompletedFacility.Type)}がLv{settlement.CompletedFacility.CurrentLevel}に完成した！{(settlement.CompletedFacility.Specialty != FacilitySpecialty.None ? $"（専門：{FacilityPanel.SpecialtyLabel(settlement.CompletedFacility.Specialty)}）" : "")}[/b][/color]");
-		if (settlement.FacilityLevelCapRaisedTo is int cap) // 施設の上限Lv（§0.79）
-			AppendLog($"[color=gold][b]🏗 ボスを倒した実績で、施設をLv{cap}まで改築できるようになった。[/b][/color]" +
-				(cap == FacilityBalance.SpecialtyFromLevel + 1 ? "[color=gray]（Lv3→4の改築で専門を選ぶ）[/color]" : ""));
-		if (settlement.AdvisorFacilitiesOpened) // 最初の引退者（§0.78）
-			AppendLog("[color=gold][b]🏗 引退者が出たので、作戦資料室と冒険者支援室を建てられるようになった。[/b][/color][color=gray]（引退者を参謀・スカウトに置く施設）[/color]");
 
 		LogCommissionArrivals(settlement.Arrivals); // → §0.64：新しい週に届いた依頼・異変の予告・期限の近い依頼
 
@@ -775,17 +690,18 @@ public partial class MainDashboard : Control
 	}
 
 	/// <summary>
-	/// 月報（§0.70・§0.71、→ Core の MonthlyReport）を週報ログに短く残す。本文は月報の小窓（→ MonthlyReportPopup）で見せる。
+	/// 施設の知らせ（完成・上限Lvの開放・作戦資料室と冒険者支援室の開放、§0.78・§0.79）。出撃の無い週でも出すので、
+	/// 週次決算のログ（LogWeeklySettlement。出撃した週だけ）とは分けて、月の全週について呼ぶ。
 	/// </summary>
-	private void LogMonthlyReport(MonthlyReport report)
+	private void LogFacilityUnlocks(WeeklySettlementResult settlement)
 	{
-		int goldDelta = report.GoldAfter - report.GoldBefore;
-		int moodDelta = report.MoodAfter - report.MoodBefore;
-		string title = report.MonthCompleted ? "月報" : "途中経過";
-		string kills = report.BossesDefeated.Count > 0 ? $"　撃破 {report.BossesDefeated.Count}体" : "";
-		AppendLog($"[bgcolor=#1e3a4a][color=gold][b] 📅 {GameCalendar.FormatMonth(report.LastWeek)}の{title} [/b][/color][/bgcolor]" +
-			$" 所持金{goldDelta:+0;-0}G・機嫌{moodDelta:+0;-0}{kills}" +
-			(report.StopReasons.Count > 0 ? $"　[color=orange]止まった理由：{string.Join("・", report.StopReasons)}[/color]" : ""));
+		if (settlement.CompletedFacility != null)
+			AppendLog($"[color=lime][b]🏗 {FacilityLabel(settlement.CompletedFacility.Type)}がLv{settlement.CompletedFacility.CurrentLevel}に完成した！{(settlement.CompletedFacility.Specialty != FacilitySpecialty.None ? $"（専門：{FacilityPanel.SpecialtyLabel(settlement.CompletedFacility.Specialty)}）" : "")}[/b][/color]");
+		if (settlement.FacilityLevelCapRaisedTo is int cap) // 施設の上限Lv（§0.79）
+			AppendLog($"[color=gold][b]🏗 ボスを倒した実績で、施設をLv{cap}まで改築できるようになった。[/b][/color]" +
+				(cap == FacilityBalance.SpecialtyFromLevel + 1 ? "[color=gray]（Lv3→4の改築で専門を選ぶ）[/color]" : ""));
+		if (settlement.AdvisorFacilitiesOpened) // 最初の引退者（§0.78）
+			AppendLog("[color=gold][b]🏗 引退者が出たので、作戦資料室と冒険者支援室を建てられるようになった。[/b][/color][color=gray]（引退者を参謀・スカウトに置く施設）[/color]");
 	}
 
 	/// <summary>月報の小窓を閉じたとき（月を進めた直後のもの）：残りの割り込み（エンディング・採用試験・依頼）へ進む。</summary>
@@ -840,26 +756,26 @@ public partial class MainDashboard : Control
 		int goldBefore = _state.Gold;
 		var weeks = _autoSkipService.AdvanceMonth(_state);
 		var results = weeks.Select(w => w.Settlement.Flags).ToList();
-		AppendLog($"[color=#4b5563]──────────── {GameCalendar.FormatMonth(startWeek)} ────────────[/color]");
 
-		// 方針で出撃した週は、週報を省略せずに残す（§0.63）。決戦の記録はステップ再生せずにそのまま流す。
-		// 「待機」は毎週出ると多すぎるので、出撃・扉前の判断だけを出す。月報の小窓の「週ごとの記録」にも写す（§0.71）。
+		// 月の出来事は月報の小窓の「週ごとの記録」に書く（§0.71。§0.80で右の週報の欄は撤去し、月報に一本化した）。
+		// 方針で出撃した週は、週報を省略せずに残す（§0.63）。「待機」は毎週出ると多すぎるので、出撃・扉前の判断だけを出す。
 		_logCapture = new System.Text.StringBuilder();
-		foreach (var week in weeks.Where(w => w.Orders.Any(e => e.Action != SquadOrderAction.Waiting) || w.Settlement.DungeonMissionResolutions.Count > 0))
+		foreach (var week in weeks)
 		{
-			LogSquadOrders(week.Orders.Where(e => e.Action != SquadOrderAction.Waiting).ToList());
-			LogWeeklySettlement(week.Settlement);
-			while (_bossLogQueue.Count > 0)
-				AppendLog(_bossLogQueue.Dequeue());
+			if (week.Orders.Any(e => e.Action != SquadOrderAction.Waiting) || week.Settlement.DungeonMissionResolutions.Count > 0)
+			{
+				LogSquadOrders(week.Orders.Where(e => e.Action != SquadOrderAction.Waiting).ToList());
+				LogWeeklySettlement(week.Settlement);
+			}
+			LogFacilityUnlocks(week.Settlement); // 出撃の無い週（年度末の引退など）でも知らせる（§0.78・§0.79）
 		}
+		if (results.Any(r => r.DefeatOccurred))
+			AppendLog("[color=red][font_size=24][b]■■■ ゲームオーバーが発生した ■■■[/b][/font_size][/color]");
 		string weekly = _logCapture.ToString();
 		_logCapture = null;
 
 		var report = MonthlyReport.Build(_state, weeks, goldBefore);
 		MonthlyReport.Record(_state, report); // 直近12か月をセーブに残す（§0.71）
-		LogMonthlyReport(report);
-		if (results.Any(r => r.DefeatOccurred))
-			AppendLog("[color=red][font_size=24][b]■■■ ゲームオーバーが発生した ■■■[/b][/font_size][/color]");
 
 		_saveLoadService.Save(_state);
 		RefreshAll();
@@ -902,43 +818,6 @@ public partial class MainDashboard : Control
 	private void OnEquipmentPopupClosed()
 	{
 		RefreshAll();
-	}
-
-	/// <summary>決戦ログをステップ再生のキューへ積む（空行は除く）。</summary>
-	private void EnqueueBossPlayback(string bbcodeBlock)
-	{
-		foreach (var line in bbcodeBlock.Split('\n'))
-		{
-			if (!string.IsNullOrWhiteSpace(line))
-				_bossLogQueue.Enqueue(line.TrimEnd('\r'));
-		}
-	}
-
-	/// <summary>
-	/// 決戦ログを1行ずつ間を置いて流す。再生中は週送りを止め、完了後に
-	/// 保留していた割り込み処理（→ _afterBossPlayback）を実行する。
-	/// Godotのシグナル待ちを使うため async void だが、内部で例外を投げうる処理は行わない。
-	/// </summary>
-	private async void StartBossPlayback()
-	{
-		_bossPlaybackActive = true;
-		DisableWeekAdvancement();
-
-		while (_bossLogQueue.Count > 0)
-		{
-			AppendLog(_bossLogQueue.Dequeue());
-			await ToSignal(GetTree().CreateTimer(BossLogStepSeconds), SceneTreeTimer.SignalName.Timeout);
-		}
-
-		_bossPlaybackActive = false;
-
-		var followUp = _afterBossPlayback;
-		_afterBossPlayback = null;
-
-		if (followUp != null)
-			followUp();
-		else if (_state.DefeatReason == null)
-			EnableWeekAdvancement();
 	}
 
 	/// <summary>
@@ -1281,7 +1160,9 @@ public partial class MainDashboard : Control
 			}
 		}
 
-		EnqueueBossPlayback(sb.ToString());
+		foreach (var line in sb.ToString().Split('\n'))
+			if (!string.IsNullOrWhiteSpace(line))
+				AppendLog(line.TrimEnd('\r'));
 	}
 
 	/// <summary>
@@ -1551,21 +1432,75 @@ public partial class MainDashboard : Control
 
 
 
+	/// <summary>
+	/// 出来事を知らせる（§0.80）。月を進めている間は月報の小窓の「週ごとの記録」に書き（§0.71）、
+	/// それ以外（研究・売却・購入・方針の変更など、その場の操作の結果）は画面下のお知らせに数秒だけ出す。
+	/// 旧・右の「作戦週報」の欄は、月報と二重で、大迷宮の画面でしか見えなかったため撤去した。
+	/// </summary>
 	private void AppendLog(string bbcodeText)
 	{
-		_resultLog.AppendText(bbcodeText + "\n");
-		_logCapture?.AppendLine(bbcodeText); // 月を進めている間は月報の「週ごとの記録」にも写す（§0.71）
+		if (_logCapture != null)
+		{
+			_logCapture.AppendLine(bbcodeText);
+			return;
+		}
+		ShowToast(bbcodeText);
+	}
+
+	// ---- お知らせ（§0.80） ----
+	private const int ToastMax = 4;
+	private const double ToastSeconds = 3.5;
+
+	/// <summary>お知らせを積む箱：画面下の中央、「次の月へ」の上。マウス操作は下の画面へ通す。</summary>
+	private void BuildToastBox()
+	{
+		_toastBox = new VBoxContainer
+		{
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+			Alignment = BoxContainer.AlignmentMode.End,
+			CustomMinimumSize = new Vector2(900, 0),
+		};
+		_toastBox.AddThemeConstantOverride("separation", 6);
+		AddChild(_toastBox);
+		_toastBox.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.CenterBottom, Control.LayoutPresetMode.KeepWidth);
+		_toastBox.GrowVertical = Control.GrowDirection.Begin;
+		_toastBox.GrowHorizontal = Control.GrowDirection.Both;
+		_toastBox.OffsetBottom = -72; // フッター（次の月へ）の上
+	}
+
+	/// <summary>お知らせを1つ出す。ToastSeconds 秒後に消える。多すぎるときは古いものから消す。</summary>
+	private void ShowToast(string bbcodeText)
+	{
+		while (_toastBox.GetChildCount() >= ToastMax)
+		{
+			var oldest = _toastBox.GetChild(0);
+			_toastBox.RemoveChild(oldest);
+			oldest.QueueFree();
+		}
+
+		var style = new StyleBoxFlat { BgColor = new Color(0.08f, 0.09f, 0.12f, 0.94f), BorderColor = new Color(0.55f, 0.47f, 0.3f) };
+		style.SetBorderWidthAll(1);
+		style.SetCornerRadiusAll(6);
+		style.SetContentMarginAll(10);
+		var panel = new PanelContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
+		panel.AddThemeStyleboxOverride("panel", style);
+		var label = new RichTextLabel { BbcodeEnabled = true, FitContent = true, ScrollActive = false, MouseFilter = Control.MouseFilterEnum.Ignore };
+		label.AppendText(bbcodeText);
+		panel.AddChild(label);
+		_toastBox.AddChild(panel);
+
+		var tween = panel.CreateTween();
+		tween.TweenInterval(ToastSeconds);
+		tween.TweenProperty(panel, "modulate:a", 0.0f, 0.4f);
+		tween.TweenCallback(Callable.From(panel.QueueFree));
 	}
 
 	/// <summary>
-	/// メニューナビゲーションバーによるメインビューの切り替え。
-	/// 大迷宮画面のみ右ペイン（作戦週報）を表示し、内政画面（部隊・研究・施設・倉庫・システム）では
-	/// 週報ペインを非表示にして中央ペインを画面横幅の全領域（約1900px）へ拡張する。
+	/// メニューナビゲーションバーによるメインビューの切り替え（§0.80で右の週報の欄を撤去したので、どの画面も中央ペインが全幅）。
 	/// </summary>
 	private void SwitchView(DashboardView view)
 	{
 		_centerPanel.CurrentTab = (int)view;
-		_rightPanel.Visible = (view == DashboardView.Dungeon);
 
 		UpdateButtonHighlights(view);
 	}
@@ -1631,10 +1566,24 @@ public partial class MainDashboard : Control
 		_goldLabel.Text = $"所持金: {_state.Gold} G";
 		// マスターの機嫌（→ 03 §8.1。旧・ギルド格付け／名声の表示枠を流用）。
 		var moodTier = MasterMoodSystem.GetTier(_state.MasterMood);
-		_rankLabel.Text = $"マスターの機嫌: {_state.MasterMood}/100 ［{MoodTierLabel(moodTier)} 内職×{MasterMoodSystem.GetSideJobMultiplier(moodTier):F1}］";
+		// §0.80：段階名と数値だけを見せ、内職の倍率と段階の境目はツールチップへ回す（ヘッダーが詰まって読みにくかった）。
+		_rankLabel.Text = $"マスターの機嫌：{MoodTierLabel(moodTier)}（{_state.MasterMood}）";
+		_rankLabel.AddThemeColorOverride("font_color", moodTier switch
+		{
+			MasterMoodTier.Cheerful => new Color(0.55f, 0.9f, 0.55f),
+			MasterMoodTier.Normal => new Color(0.85f, 0.85f, 0.85f),
+			MasterMoodTier.Grumpy => new Color(1.0f, 0.7f, 0.3f),
+			_ => new Color(1.0f, 0.4f, 0.4f),
+		});
+		_rankLabel.MouseFilter = Control.MouseFilterEnum.Pass;
+		_rankLabel.TooltipText = $"マスター（アルベール）の機嫌 {_state.MasterMood}/100。大迷宮での成果で上がり、何もしないと下がる。0になると副官（あなた）は解雇される。\n" +
+			$"内職の売上 ×{MasterMoodSystem.GetSideJobMultiplier(moodTier):0.0}（上機嫌 {MasterMoodBalance.TierThresholdCheerful}以上 ×{MasterMoodSystem.GetSideJobMultiplier(MasterMoodTier.Cheerful):0.0}／平常 {MasterMoodBalance.TierThresholdNormal}以上 ×{MasterMoodSystem.GetSideJobMultiplier(MasterMoodTier.Normal):0.0}／" +
+			$"不機嫌 {MasterMoodBalance.TierThresholdGrumpy}以上 ×{MasterMoodSystem.GetSideJobMultiplier(MasterMoodTier.Grumpy):0.0}／危機 ×{MasterMoodSystem.GetSideJobMultiplier(MasterMoodTier.Crisis):0.0}）";
 		// 同時出撃枠の使用状況（→ コアシステム刷新仕様「4. 進行管理」）。
 		// 大迷宮へ出撃中の部隊の数で枠を消費する（→ DungeonExpeditionSystem.CanDispatch）。
-		_squadSlotLabel.Text = $"出撃枠: {_state.ActiveDungeonMissions.Count}/{_state.UnlockedSquadSlots}";
+		_squadSlotLabel.Text = $"出撃中の部隊：{_state.ActiveDungeonMissions.Count}/{_state.UnlockedSquadSlots}";
+		_squadSlotLabel.MouseFilter = Control.MouseFilterEnum.Pass;
+		_squadSlotLabel.TooltipText = $"同時に大迷宮へ出せる部隊は{_state.UnlockedSquadSlots}つまで（出撃中 {_state.ActiveDungeonMissions.Count}）。森の節目のボスを倒すと増える。";
 
 		_adventurerPanel.Refresh(_state);
 		_dungeonPanel.Refresh(_state);

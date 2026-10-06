@@ -74,6 +74,12 @@ namespace GuildManager.Core.Systems
         /// <summary>今週、最初の引退者が出て、作戦資料室・冒険者支援室が建てられるようになったか（§0.78・§0.79）。</summary>
         public bool AdvisorFacilitiesOpened { get; set; }
 
+        /// <summary>
+        /// 現役の冒険者ごとの今週の過ごし方（出撃・訓練・静養・研究の手伝い・自主練。決算のはじめ、HPが動く前に決める。
+        /// → IdleActivitySystem.GetWeekActivity）。月報の「冒険者ごと」に使う（§0.81）。
+        /// </summary>
+        public Dictionary<System.Guid, WeekActivity> Activities { get; } = new();
+
         /// <summary>今週新たに確定した敗北理由（無ければnull）。</summary>
         public DefeatReason? NewDefeatReason { get; set; }
     }

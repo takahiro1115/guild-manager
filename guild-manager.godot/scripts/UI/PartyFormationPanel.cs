@@ -37,6 +37,9 @@ public partial class PartyFormationPanel : VBoxContainer
 	private RichTextLabel _traversalBody = null!;
 	private RichTextLabel _surveyBody = null!;
 	private RichTextLabel _gatheringBody = null!;
+	/// <summary>指標カードのツールチップの式の部分（§0.80：カードから外した今の内訳を、更新のたびにこの後ろへ足す）。</summary>
+	private string _surveyTip = "";
+	private string _gatheringTip = "";
 	private Label _averageHpLabel = null!;
 	private ProgressBar _averageHpBar = null!;
 	private RichTextLabel _compatibilityWarningLabel = null!;
@@ -359,11 +362,13 @@ public partial class PartyFormationPanel : VBoxContainer
 		var p = _previewIds == null ? null : PartyFormationSystem.PreviewMetrics(_state, _previewIds, atFullHp: true);
 
 		// 🏃 進軍 → ⚔️ 討伐
+		// §0.80：カードには意味だけを出し、計算式と内訳はツールチップへ回す（式がそのまま並んで読みにくかった）。
 		SetBody(_traversalBody,
 			Line("走破力", m.TraversalPower, p?.TraversalPower),
-			Note($"VIT{W(DungeonTraversalBalance.WeightVit)}＋MND{W(DungeonTraversalBalance.WeightMnd)}＋隊長LDR{W(DungeonTraversalBalance.WeightLdr)}（研究・参謀込み）"),
+			Note("道中を進む速さ"),
 			Line("討伐火力", m.BossPower, p?.BossPower),
-			Note("ボスを問わない試算"));
+			Note("ボスとの決戦の強さ"));
+		// （計算式は _Ready で付けたツールチップにある）
 
 		// 🔍 解析（迷宮調査）
 		string guardDetail = party.IsEmpty
@@ -376,20 +381,20 @@ public partial class PartyFormationPanel : VBoxContainer
 			  (m.StealthSpecialistBonus > 0 ? $" ＋斥候/盗賊{m.StealthSpecialistBonus:F0}" : "") +
 			  (m.StealthHeavyPenalty > 0 ? $" −重装{m.StealthHeavyPenalty:F0}" : "");
 		SetBody(_surveyBody,
-			Line("護衛", m.GuardPower, p?.GuardPower, guardDetail),
-			Line("隠密", m.StealthScore, p?.StealthScore, stealthDetail),
-			Line("解析", m.AnalysisScore, p?.AnalysisScore, party.IsEmpty ? "" : "INTの合計"));
+			Line("護衛", m.GuardPower, p?.GuardPower),
+			Line("隠密", m.StealthScore, p?.StealthScore),
+			Line("解析", m.AnalysisScore, p?.AnalysisScore),
+			Note("ボスの弱点を調べる"));
+		_surveyBody.TooltipText = _surveyTip + (party.IsEmpty ? "" : $"\n\n今の内訳　護衛：{guardDetail}　隠密：{stealthDetail}");
 
 		// 🌿 採取
 		var breakdown = GatheringResolver.BreakDownGatheringScore(party);
 		SetBody(_gatheringBody,
 			Line("採取", m.GatheringScore, p?.GatheringScore),
-			Note(party.IsEmpty
-				? "AGI・DEX＋隊長LDR＋斥候/盗賊"
-				: $"AGI{breakdown.AgiPart:F0}＋DEX{breakdown.DexPart:F0}＋隊長{breakdown.LdrPart:F0}" +
+			Note("持ち帰る素材の量"));
+		_gatheringBody.TooltipText = _gatheringTip + (party.IsEmpty ? "" : "\n\n今の内訳　" + $"AGI{breakdown.AgiPart:F0}＋DEX{breakdown.DexPart:F0}＋隊長{breakdown.LdrPart:F0}" +
 				  (breakdown.ClassBonus > 0 ? $"＋斥候/盗賊{breakdown.ClassBonus:F0}" : "") +
-				  (breakdown.RuralBonus > 0 ? $"＋田舎育ち{breakdown.RuralBonus:F0}" : "") +
-				  "　（最大HPで算出）"));
+				  (breakdown.RuralBonus > 0 ? $"＋田舎育ち{breakdown.RuralBonus:F0}" : ""));
 
 		// 平均HP割合
 		if (party.IsEmpty)
@@ -458,6 +463,8 @@ public partial class PartyFormationPanel : VBoxContainer
 			"＝(Σ(AGI×係数＋DEX×係数)＋リーダーのLDR×係数＋斥候/盗賊ボーナス＋田舎育ち)×部隊の平均HP比率";
 		foreach (var body in new[] { _traversalBody, _surveyBody, _gatheringBody })
 			body.MouseFilter = MouseFilterEnum.Pass;
+		_surveyTip = _surveyBody.TooltipText;
+		_gatheringTip = _gatheringBody.TooltipText;
 	}
 
 	private void RefreshCompatibilityWarnings(SavedParty currentParty)

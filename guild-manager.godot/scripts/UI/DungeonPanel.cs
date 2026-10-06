@@ -153,10 +153,13 @@ public partial class DungeonPanel : ScrollContainer
 
 
 		_depthBar.BossClicked += OnDepthBarBossClicked;
+		// §0.80：凡例は2行に収め、補足はツールチップへ（4行に折り返して左の欄の下が画面から切れていた）。
 		_depthLegend.AppendText(
-			"[color=#0b0b0e]■[/color]未踏破　[color=#e5e7eb]■[/color]踏破済み　" +
-			"[color=#60a5fa]■[/color]解析済み（濃いほど解析が進む／[color=#2d52a3]■[/color]は未踏破の区間）\n" +
-			"[color=#4ade80]✔[/color]撃破済み　[color=#fb923c]⚔[/color]現在の目標　[color=#22d3ee]▶[/color]到達階層　[color=#f472b6]●[/color]潜行中の部隊");
+			"[color=#0b0b0e]■[/color]未踏破 [color=#e5e7eb]■[/color]踏破 [color=#60a5fa]■[/color]解析済み\n" +
+			"[color=#4ade80]✔[/color]撃破 [color=#fb923c]⚔[/color]目標 [color=#22d3ee]▶[/color]到達 [color=#f472b6]●[/color]潜行中");
+		_depthLegend.MouseFilter = MouseFilterEnum.Pass;
+		_depthLegend.TooltipText = "黒＝未踏破、白＝踏破済み、青＝解析済み（濃いほど解析が進む。暗い青は未踏破の区間）。\n" +
+			"✔＝撃破済みのボス、⚔＝現在の目標、▶＝到達した階層、●＝潜行中の部隊。";
 
 		// ボタンテーマ色
 		_emergencyRetreatButton.AddThemeColorOverride("font_color", new Color(1f, 0.8f, 0.3f));
@@ -546,8 +549,8 @@ public partial class DungeonPanel : ScrollContainer
 		_depthBar.SetData(_selectedField, boss?.Id, _viewedBossId, pins, commissionBossIds, anomalyBossId);
 
 		var sb = new StringBuilder();
-		sb.AppendLine($"最高到達 [color=cyan][b]{_selectedField.ReachedFloor}F[/b][/color]／{DungeonField.MaxFloor}F　" +
-			$"撃破 {fieldCleared}/{_selectedField.Bosses.Count}体　[color=gray]（大迷宮全体 {totalCleared}/{allBosses.Count}体）[/color]");
+		// §0.80：1行に収める（「大迷宮全体」が折り返して左の欄が長くなっていた）
+		sb.AppendLine($"到達 [color=cyan][b]{_selectedField.ReachedFloor}F[/b][/color]／{DungeonField.MaxFloor}F　撃破 {fieldCleared}/{_selectedField.Bosses.Count}体　[color=gray]全体 {totalCleared}/{allBosses.Count}[/color]");
 		sb.AppendLine(boss == null
 			? $"[color=gold][b]🏆 {_selectedField.Name} 完全踏破！[/b][/color]"
 			: $"現在の目標：[color=#fb923c]⚔ 第{boss.Floor}層「{boss.Name}」[/color]");

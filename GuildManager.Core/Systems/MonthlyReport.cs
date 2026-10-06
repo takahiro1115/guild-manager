@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using GuildManager.Core.Models;
@@ -29,6 +30,51 @@ namespace GuildManager.Core.Systems
     {
         public string Name { get; set; } = "";
         public Dictionary<string, int> Gains { get; set; } = new();
+    }
+
+    /// <summary>月報の1行の色合い（§0.81）。</summary>
+    public enum MonthlyTone
+    {
+        Normal,
+        Good,
+        Warning,
+        Bad,
+    }
+
+    /// <summary>月報の1行（主な出来事・部隊の週ごとの行動・冒険者の状態。§0.81）。</summary>
+    public sealed class MonthlyLine
+    {
+        public string Text { get; set; } = "";
+        public MonthlyTone Tone { get; set; }
+        /// <summary>部隊の週ごとの行動のときの、月の中の週（1〜4）。それ以外は0。</summary>
+        public int WeekOfMonth { get; set; }
+    }
+
+    /// <summary>月報の部隊1つ分（§0.81）：方針・メンバー・週ごとの行動・月の結果・今のHP。</summary>
+    public sealed class MonthlySquad
+    {
+        public string Name { get; set; } = "";
+        public SquadOrder Order { get; set; }
+        public string FieldName { get; set; } = "";
+        public List<string> Members { get; set; } = new();
+        public List<MonthlyLine> Weeks { get; set; } = new();
+        public string Result { get; set; } = "";
+        /// <summary>メンバーの今のHPの合計÷最大HPの合計（%）。</summary>
+        public int HpPercent { get; set; }
+    }
+
+    /// <summary>月報の冒険者1人分（§0.81）：所属する部隊・この月の過ごし方・成長・今の状態。</summary>
+    public sealed class MonthlyAdventurer
+    {
+        public string Name { get; set; } = "";
+        public JobClass Job { get; set; }
+        public int Age { get; set; }
+        public string Squad { get; set; } = "";
+        /// <summary>過ごし方の内訳（「出撃3週・静養1週」など）。</summary>
+        public string Activities { get; set; } = "";
+        public Dictionary<string, int> Gains { get; set; } = new();
+        public List<MonthlyLine> Status { get; set; } = new();
+        public int HpPercent { get; set; }
     }
 
     /// <summary>
@@ -83,6 +129,15 @@ namespace GuildManager.Core.Systems
         /// <summary>来月への注意。</summary>
         public List<MonthlyNote> Notes { get; set; } = new();
 
+        /// <summary>主な出来事（撃破・新しいフィールド・負傷・誕生・引退・施設など。§0.81）。</summary>
+        public List<MonthlyLine> Highlights { get; set; } = new();
+
+        /// <summary>部隊ごと（メンバーのいる部隊。§0.81）。</summary>
+        public List<MonthlySquad> Squads { get; set; } = new();
+
+        /// <summary>冒険者ごと（この月に在籍した現役。§0.81）。</summary>
+        public List<MonthlyAdventurer> Adventurers { get; set; } = new();
+
         public static MonthlyReport Build(GameState state, IReadOnlyList<AutoSkipWeek> weeks, int goldBefore)
         {
             var settlements = weeks.Select(w => w.Settlement).ToList();
@@ -123,8 +178,234 @@ namespace GuildManager.Core.Systems
             }
 
             AddNotes(state, report);
+            AddHighlights(state, weeks, report);
+            AddSquads(state, weeks, report);
+            AddAdventurers(state, weeks, report);
             return report;
         }
+
+        // ==================== 主な出来事・部隊ごと・冒険者ごと（§0.81） ====================
+
+        private static string Where(DungeonMissionResolution r) =>
+            r.Boss == null ? r.Field.Name : $"{r.Field.Name} 第{r.Boss.Floor}層「{r.Boss.Name}」";
+
+        private static string NameOf(GameState state, Guid id) => state.FindAdventurer(id)?.Name ?? "？";
+
+        /// <summary>主な出来事：撃破・新しいフィールド・出撃枠・重傷・ギルドを去った者・誕生・引退・退団・依頼・施設。</summary>
+        private static void AddHighlights(GameState state, IReadOnlyList<AutoSkipWeek> weeks, MonthlyReport report)
+        {
+            void Add(string text, MonthlyTone tone) => report.Highlights.Add(new MonthlyLine { Text = text, Tone = tone });
+
+            foreach (var s in weeks.Select(w => w.Settlement))
+            {
+                foreach (var r in s.DungeonMissionResolutions)
+                {
+                    if (r.DungeonResult?.Outcome == DungeonOutcome.Victory)
+                        Add($"{Where(r)}を撃破", MonthlyTone.Good);
+                    if (r.FieldNewlyUnlocked != null)
+                        Add($"新しいフィールド「{r.FieldNewlyUnlocked.Name}」が開いた", MonthlyTone.Good);
+                    if (r.SquadSlotsExpandedTo is int slots)
+                        Add($"同時に出撃できる部隊が{slots}つになった", MonthlyTone.Good);
+                    foreach (var injury in r.InjuryEvents.Where(e => e.Severity == InjurySeverity.Severe))
+                        Add($"{injury.Name}が重傷（全治{injury.Weeks}週）", MonthlyTone.Bad);
+                    foreach (var id in r.DungeonResult?.ForceRetiredAdventurerIds ?? new HashSet<Guid>())
+                        Add($"{NameOf(state, id)}が致命傷を負い、ギルドを去った", MonthlyTone.Bad);
+                }
+                foreach (var birth in s.SoulFusionBirths)
+                    Add($"{birth.Child.Name}が生まれた", MonthlyTone.Good);
+                foreach (var left in s.NegotiationTerminated)
+                    Add($"{left.Name}が契約交渉の末に退団した", MonthlyTone.Bad);
+                foreach (var done in s.Commissions.Completed)
+                    Add($"依頼を果たした（{done.ClientName}）", MonthlyTone.Good);
+                foreach (var failed in s.Commissions.Failed)
+                    Add($"依頼に失敗した（{failed.ClientName}・{failed.Reason}）", MonthlyTone.Warning);
+                if (s.CompletedFacility != null)
+                    Add($"施設がLv{s.CompletedFacility.CurrentLevel}に完成した（{FacilityName(s.CompletedFacility.Type)}）", MonthlyTone.Good);
+                if (s.FacilityLevelCapRaisedTo is int cap)
+                    Add($"施設をLv{cap}まで改築できるようになった", MonthlyTone.Good);
+            }
+
+            // 引退：この月のはじめに現役で、今は引退している者（満期・早期のどちらも）
+            var firstWeekIds = weeks.Count > 0 ? weeks[0].Settlement.Activities.Keys : Enumerable.Empty<Guid>();
+            foreach (var id in firstWeekIds)
+                if (state.RetiredAdventurers.FirstOrDefault(a => a.Id == id) is { } retired)
+                    Add($"{retired.Name}が引退した", MonthlyTone.Normal);
+        }
+
+        /// <summary>部隊ごと：方針・メンバー・週ごとの行動（出撃の結果／待機の理由）・月の結果・今のHP。</summary>
+        private static void AddSquads(GameState state, IReadOnlyList<AutoSkipWeek> weeks, MonthlyReport report)
+        {
+            foreach (var party in state.SavedParties.Where(p => p.MemberIds.Count > 0))
+            {
+                var members = party.MemberIds.Select(id => state.Adventurers.FirstOrDefault(a => a.Id == id)).Where(a => a != null).Select(a => a!).ToList();
+                var squad = new MonthlySquad
+                {
+                    Name = party.Name,
+                    Order = party.Order,
+                    FieldName = SquadOrderSystem.ResolveField(state, party)?.Name ?? "",
+                    Members = members.Select(a => a.Name).ToList(),
+                    HpPercent = members.Sum(a => a.MaxHP) > 0 ? members.Sum(a => a.CurrentHP) * 100 / members.Sum(a => a.MaxHP) : 0,
+                };
+
+                int bosses = 0, gold = 0, relics = 0;
+                var materials = new Dictionary<string, int>();
+                var reached = new Dictionary<string, int>();
+                foreach (var week in weeks)
+                {
+                    int weekOfMonth = GameCalendar.WeekOfMonth(week.Settlement.Flags.Week);
+                    var resolutions = week.Settlement.DungeonMissionResolutions
+                        .Where(r => r.Party.Members.Any(m => party.MemberIds.Contains(m.Id))).ToList();
+                    foreach (var r in resolutions)
+                    {
+                        var (text, tone) = DescribeWeek(r);
+                        squad.Weeks.Add(new MonthlyLine { Text = text, Tone = tone, WeekOfMonth = weekOfMonth });
+                        if (r.DungeonResult?.Outcome == DungeonOutcome.Victory) bosses++;
+                        gold += r.DepositedGold + (r.GatheringResult?.GoldEarned ?? 0);
+                        foreach (var kv in r.DepositedMaterials)
+                            materials[kv.Key] = materials.GetValueOrDefault(kv.Key) + kv.Value;
+                        if (r.GatheringResult is { MaterialCount: > 0 } g)
+                            materials[g.MaterialId] = materials.GetValueOrDefault(g.MaterialId) + g.MaterialCount;
+                        relics += r.RelicsFound.Count;
+                        if (r.TraversalResult is { } t)
+                            reached[r.Field.Name] = Math.Max(reached.GetValueOrDefault(r.Field.Name), t.FloorAfter);
+                    }
+                    if (resolutions.Count == 0)
+                    {
+                        var order = week.Orders.FirstOrDefault(e => e.Party.Id == party.Id);
+                        if (order?.Action == SquadOrderAction.Waiting)
+                            squad.Weeks.Add(new MonthlyLine { Text = $"待機：{order.Detail}", Tone = MonthlyTone.Warning, WeekOfMonth = weekOfMonth });
+                        else if (week.Settlement.Activities.Any(kv => party.MemberIds.Contains(kv.Key) && kv.Value == WeekActivity.Dispatched))
+                            squad.Weeks.Add(new MonthlyLine { Text = "潜行中", WeekOfMonth = weekOfMonth });
+                        else
+                            squad.Weeks.Add(new MonthlyLine { Text = party.Order == SquadOrder.None ? "方針が無いので出撃しない" : "出撃しなかった", Tone = MonthlyTone.Warning, WeekOfMonth = weekOfMonth });
+                    }
+                }
+
+                var parts = new List<string>();
+                if (bosses > 0) parts.Add($"撃破{bosses}体");
+                parts.AddRange(reached.Select(kv => $"{kv.Key} {kv.Value}Fまで"));
+                if (gold > 0) parts.Add($"{gold}G");
+                parts.AddRange(materials.Where(kv => kv.Value > 0).Select(kv => $"{Balance.MaterialBalance.GetName(kv.Key)}×{kv.Value}"));
+                if (relics > 0) parts.Add($"未鑑定の遺物×{relics}");
+                squad.Result = parts.Count > 0 ? string.Join("・", parts) : "成果なし";
+                report.Squads.Add(squad);
+            }
+        }
+
+        /// <summary>出撃の結果を1行に（どこで何をして、どうなったか）。計算の内訳は週ごとの記録に任せる。</summary>
+        private static (string Text, MonthlyTone Tone) DescribeWeek(DungeonMissionResolution r)
+        {
+            var parts = new List<string>();
+            var tone = MonthlyTone.Normal;
+            if (r.TraversalResult is { } t)
+                parts.Add(t.FloorAfter > t.FloorBefore ? $"{r.Field.Name} {t.FloorBefore}F → {t.FloorAfter}F" : $"{r.Field.Name} {t.FloorAfter}Fで足止め");
+            if (r.ScoutingResult is { } s)
+            {
+                parts.Add($"{Where(r)}を調査：解析 {r.IntelRateBefore * 100:0}% → {s.IntelRateAfter * 100:0}%" + (s.StealthSucceeded ? "" : "（見つかった）"));
+                if (!s.StealthSucceeded) tone = MonthlyTone.Warning;
+            }
+            if (r.GatheringResult is { } g)
+                parts.Add(g.MaterialCount > 0
+                    ? $"{r.Field.Name}で採取：{Balance.MaterialBalance.GetName(g.MaterialId)}×{g.MaterialCount}" + (g.GoldEarned > 0 ? $"・{g.GoldEarned}G" : "")
+                    : $"{r.Field.Name}で採取：何も見つからなかった");
+            if (r.ArrivedAtBossDoor && r.DoorRetreatReason != null)
+            {
+                parts.Add($"扉前で撤退：{r.DoorRetreatReason}");
+                tone = MonthlyTone.Warning;
+            }
+            if (r.DungeonResult is { } d)
+            {
+                if (d.Outcome == DungeonOutcome.Victory)
+                {
+                    parts.Add($"{Where(r)}を撃破（火力 {d.PartyPower:F0} ／ 要求 {d.RequiredPower:F0}）");
+                    tone = MonthlyTone.Good;
+                }
+                else
+                {
+                    parts.Add($"{Where(r)}との決戦で退いた（火力 {d.PartyPower:F0} ／ 要求 {d.RequiredPower:F0}）");
+                    tone = MonthlyTone.Bad;
+                }
+            }
+            if (r.InjuryEvents.Any())
+            {
+                parts.Add("負傷：" + string.Join("、", r.InjuryEvents.Select(e => $"{e.Name}（{(e.Severity == InjurySeverity.Severe ? "重傷" : "軽傷")}）")));
+                if (tone == MonthlyTone.Normal) tone = MonthlyTone.Warning;
+            }
+            if (r.ReturnedHome && r.TraversalResult != null)
+                parts.Add("帰還");
+            return (parts.Count > 0 ? string.Join("・", parts) : $"{r.Field.Name}へ出撃", tone);
+        }
+
+        /// <summary>冒険者ごと：所属する部隊・過ごし方の内訳・成長・今の状態（HP・負傷・毒・特性・満足度）。</summary>
+        private static void AddAdventurers(GameState state, IReadOnlyList<AutoSkipWeek> weeks, MonthlyReport report)
+        {
+            var settlements = weeks.Select(w => w.Settlement).ToList();
+            var growth = settlements.SelectMany(s => s.DungeonMissionResolutions).SelectMany(r => r.GrowthEvents)
+                .Concat(settlements.SelectMany(s => s.TrainingGrowthEvents))
+                .Concat(settlements.SelectMany(s => s.SelfTrainingGrowthEvents))
+                .ToList();
+            var traitGrants = settlements.SelectMany(s => s.DungeonMissionResolutions).SelectMany(r => r.TraitGrantEvents)
+                .Concat(settlements.SelectMany(s => s.TraitGrantEvents)).ToList();
+            var transmissions = settlements.SelectMany(s => s.TraitTransmissionEvents).ToList();
+
+            foreach (var a in state.Adventurers.Where(a => !a.IsRetired))
+            {
+                var counts = settlements
+                    .Select(s => s.Activities.TryGetValue(a.Id, out var act) ? act : (WeekActivity?)null)
+                    .Where(act => act != null)
+                    .GroupBy(act => act!.Value)
+                    .ToDictionary(g => g.Key, g => g.Count());
+                var entry = new MonthlyAdventurer
+                {
+                    Name = a.Name,
+                    Job = a.JobClass,
+                    Age = a.Age,
+                    Squad = state.SavedParties.FirstOrDefault(p => p.MemberIds.Contains(a.Id))?.Name ?? "",
+                    Activities = string.Join("・", new[] { WeekActivity.Dispatched, WeekActivity.Training, WeekActivity.SelfTraining, WeekActivity.Help, WeekActivity.Resting }
+                        .Where(counts.ContainsKey)
+                        .Select(act => $"{ActivityLabel(state, a, act)}{counts[act]}週")),
+                    Gains = growth.Where(e => e.Adventurer.Id == a.Id).GroupBy(e => e.Stat)
+                        .ToDictionary(g => g.Key, g => g.Sum(e => e.After - e.Before)),
+                    HpPercent = a.MaxHP > 0 ? a.CurrentHP * 100 / a.MaxHP : 0,
+                };
+                if (entry.Activities.Length == 0)
+                    entry.Activities = "この月に加わった";
+
+                if (a.Injury != InjurySeverity.None)
+                    entry.Status.Add(new MonthlyLine { Text = $"{(a.Injury == InjurySeverity.Severe ? "重傷" : "軽傷")}（あと{a.InjuryWeeksRemaining}週）", Tone = a.Injury == InjurySeverity.Severe ? MonthlyTone.Bad : MonthlyTone.Warning });
+                if (a.IsPoisoned)
+                    entry.Status.Add(new MonthlyLine { Text = $"毒（あと{a.PoisonWeeksRemaining}週）", Tone = MonthlyTone.Warning });
+                foreach (var grant in traitGrants.Where(e => e.AdventurerId == a.Id))
+                    entry.Status.Add(new MonthlyLine { Text = $"特性「{TraitCatalog.FindById(grant.TraitId)?.DisplayName ?? grant.TraitId}」が付いた", Tone = grant.Cause == TraitGrantCause.Awakening ? MonthlyTone.Good : MonthlyTone.Bad });
+                foreach (var t in transmissions.Where(e => e.Student.Id == a.Id))
+                    entry.Status.Add(new MonthlyLine { Text = $"教官{t.Trainer.Name}から特性「{TraitCatalog.FindById(t.TraitId)?.DisplayName ?? t.TraitId}」を受け継いだ", Tone = MonthlyTone.Good });
+                if (a.NeedsNegotiation)
+                    entry.Status.Add(new MonthlyLine { Text = "満足度が低い（契約交渉が必要）", Tone = MonthlyTone.Bad });
+                report.Adventurers.Add(entry);
+            }
+        }
+
+        private static string ActivityLabel(GameState state, Adventurer a, WeekActivity activity) => activity switch
+        {
+            WeekActivity.Dispatched => "出撃",
+            WeekActivity.Training => state.TrainingAssignments.TryGetValue(a.Id, out var f) ? $"訓練（{FacilityName(f)}）" : "訓練",
+            WeekActivity.SelfTraining => a.SelfTrainingStat != null ? $"自主練（{a.SelfTrainingStat}）" : "自主練",
+            WeekActivity.Help => "研究の手伝い",
+            _ => "静養",
+        };
+
+        private static string FacilityName(FacilityType type) => type switch
+        {
+            FacilityType.Dormitory => "宿舎",
+            FacilityType.Infirmary => "医務室",
+            FacilityType.Tavern => "ギルド酒場",
+            FacilityType.WarRoom => "作戦資料室",
+            FacilityType.DrillHall => "鍛錬所",
+            FacilityType.Academy => "学問所",
+            FacilityType.SkillHall => "技巧所",
+            FacilityType.RecruitmentOffice => "冒険者支援室",
+            _ => type.ToString(),
+        };
 
         /// <summary>成長を冒険者ごと・能力ごとに合計する（成長の多い順）。</summary>
         private static IEnumerable<MonthlyGrowth> SumGrowth(IEnumerable<GrowthEvent> events)

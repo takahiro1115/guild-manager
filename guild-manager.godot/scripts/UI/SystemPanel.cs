@@ -27,6 +27,9 @@ public partial class SystemPanel : ScrollContainer
 	/// <summary>「エンディングを見る」の押下を通知する（クリア後だけ表示、→ 03 §0.59。MainDashboard がエンディングを開く）。</summary>
 	public event Action EndingRequested = () => { };
 
+	/// <summary>「ゲームを終了」の押下を通知する（MainDashboard が確認を出して終了する。§0.80でナビの「閉じる」から移した）。</summary>
+	public event Action QuitRequested = () => { };
+
 	private Button _endingBtn = null!;
 
 	public override void _Ready()
@@ -38,6 +41,10 @@ public partial class SystemPanel : ScrollContainer
 		_endingBtn = new Button { Text = "📜 エンディングを見る", Visible = false };
 		_endingBtn.Pressed += () => EndingRequested();
 		_saveDataBtn.GetParent().AddChild(_endingBtn);
+		// ゲームの終了（§0.80：ナビのタブと並んでいて押し間違えやすかったので、ここへ移した）。保存ボタンと同じ並びの最後に置く。
+		var quitBtn = new Button { Text = "✖ ゲームを終了" };
+		quitBtn.Pressed += () => QuitRequested();
+		_saveDataBtn.GetParent().AddChild(quitBtn);
 		// デバッグボタンはエディタ実行・デバッグ版の書き出しでだけ出す（リリース版の書き出しでは隠す）
 		var debugAddGoldBtn = GetNode<Button>("%DebugAddGoldBtn");
 		debugAddGoldBtn.Visible = OS.IsDebugBuild();

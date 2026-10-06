@@ -115,12 +115,6 @@ layout_mode = 2
 toggle_mode = true
 text = "⚙️ システム"
 
-[node name="NavCloseBtn" type="Button" parent="Root/NavigationBar"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(110, 36)
-layout_mode = 2
-text = "✖ 閉じる"
-
 [node name="NavSpacer" type="Control" parent="Root/NavigationBar"]
 layout_mode = 2
 size_flags_horizontal = 3
@@ -193,23 +187,6 @@ visible = false
 layout_mode = 2
 metadata/_tab_index = 5
 
-[node name="RightPanel" type="VBoxContainer" parent="Root/MainContentArea" unique_id=763252257]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(440, 0)
-layout_mode = 2
-
-[node name="Label" type="Label" parent="Root/MainContentArea/RightPanel" unique_id=1329327818]
-layout_mode = 2
-theme_override_font_sizes/font_size = 18
-text = "作戦週報"
-
-[node name="ResultLog" type="RichTextLabel" parent="Root/MainContentArea/RightPanel" unique_id=1076099228]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_vertical = 3
-bbcode_enabled = true
-scroll_following = true
-
 [node name="FooterPanel" type="PanelContainer" parent="Root" unique_id=22271499]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 55)
@@ -225,13 +202,6 @@ theme_override_constants/margin_bottom = 6
 [node name="FooterHBox" type="HBoxContainer" parent="Root/FooterPanel/Margin"]
 layout_mode = 2
 theme_override_constants/separation = 12
-
-[node name="NextWeekButton" type="Button" parent="Root/FooterPanel/Margin/FooterHBox" unique_id=22271400]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(200, 0)
-layout_mode = 2
-theme_override_font_sizes/font_size = 15
-text = "（デバッグ）1週進める"
 
 [node name="AutoSkipButton" type="Button" parent="Root/FooterPanel/Margin/FooterHBox" unique_id=22271401]
 unique_name_in_owner = true

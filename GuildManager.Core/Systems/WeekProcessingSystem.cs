@@ -94,6 +94,9 @@ namespace GuildManager.Core.Systems
 
             // 出撃中（今週出発した分も含む）の冒険者は、HP自然回復・訓練場成長の対象から外す（→ 03 §4.0.1）。
             var dispatchedIds = state.Adventurers.Where(a => a.IsDispatched).Select(a => a.Id).ToHashSet();
+            // 今週の過ごし方（月報の「冒険者ごと」、§0.81）。待機中の過ごし方の判定（IdleActivitySystem.ProcessWeek）と同じく、HPが動く前に決める。
+            foreach (var a in state.Adventurers.Where(a => !a.IsRetired))
+                result.Activities[a.Id] = IdleActivitySystem.GetWeekActivity(state, a, dispatchedIds);
 
             // 大迷宮への出撃（道中進軍・ボス討伐・採取・迷宮調査）を1週分進める
             // （→ DungeonExpeditionSystem）。潜行は複数週にわたって進み、未撃破ボスの扉前に

@@ -8,9 +8,11 @@ using GuildManager.Core.Systems;
 
 /// <summary>
 /// 月報の小窓（2026年10月・§0.71、→ Core の MonthlyReport）。「次の月へ」で月を進めるたびに開き、どの画面にいても月の結果を見せる。
-///  - 見出し（月・所持金と機嫌の増減）、成果（撃破・決戦で退いたボス・扉前の撤退・強制除籍）、冒険者ごとの成長
-///  - 来月への注意：項目ごとに、その画面へ移るボタン（大迷宮・施設・冒険者）
-///  - 週ごとの記録：最初はたたんでおき、【週ごとの記録を見る】で開く（その月を進めた直後だけ。セーブには残さない）
+/// §0.81：タブで分け、部隊・冒険者が何をしてどうなったかを見せる。
+///  - 概要：見出し（月・所持金と機嫌の増減）、主な出来事、来月への注意（項目ごとに、その画面へ移るボタン）
+///  - 部隊：部隊ごとの方針・メンバー・週ごとの行動（出撃の結果・待機の理由）・月の結果・今のHP
+///  - 冒険者：1人1行の表（所属・過ごし方の内訳・成長・今の状態）
+///  - 週ごとの記録：計算の内訳つきの細かい記録（その月を進めた直後だけ。セーブには残さない）
 ///  - 【閉じる】【閉じて次の月へ】（割り込み〈採用試験・依頼の到着・クリア・敗北〉がある月は次の月へ進めない）
 ///  - 画面上部の【📅 月報】から開くと、過去の月報（直近12か月、→ GameState.MonthlyReports）を選んで見返せる
 /// シーンは使わずコードで組む（MainDashboard が1つ作って使い回す）。
@@ -27,12 +29,16 @@ public partial class MonthlyReportPopup : Window
 	public event Action<MonthlyNoteTarget> JumpRequested = delegate { };
 
 	private OptionButton _historyOption = null!;
+	private TabContainer _tabs = null!;
 	private RichTextLabel _summary = null!;
 	private VBoxContainer _notesBox = null!;
-	private Button _weeklyToggle = null!;
+	private RichTextLabel _squads = null!;
+	private RichTextLabel _adventurers = null!;
 	private RichTextLabel _weekly = null!;
 	private Button _closeButton = null!;
 	private Button _nextButton = null!;
+
+	private const int WeeklyTab = 3;
 
 	private List<MonthlyReport> _history = new();
 
@@ -41,7 +47,7 @@ public partial class MonthlyReportPopup : Window
 		Title = "📅 月報";
 		Exclusive = true;
 		Unresizable = false;
-		Size = new Vector2I(980, 800);
+		Size = new Vector2I(1180, 820);
 		Theme = GD.Load<Theme>("res://themes/dungeon_theme.tres");
 		CloseRequested += () => CloseWith(null);
 
@@ -60,26 +66,25 @@ public partial class MonthlyReportPopup : Window
 		_historyOption.ItemSelected += index => ShowEntry(_history[_history.Count - 1 - (int)index], null);
 		root.AddChild(_historyOption);
 
-		var scroll = new ScrollContainer { SizeFlagsVertical = Control.SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
-		root.AddChild(scroll);
-		var body = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-		body.AddThemeConstantOverride("separation", 8);
-		scroll.AddChild(body);
+		_tabs = new TabContainer { SizeFlagsVertical = Control.SizeFlags.ExpandFill };
+		root.AddChild(_tabs);
 
-		_summary = new RichTextLabel { BbcodeEnabled = true, FitContent = true, ScrollActive = false, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-		body.AddChild(_summary);
+		// 概要：見出し・主な出来事 ＋ 来月への注意（画面へ移るボタンつき）
+		var overview = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+		overview.AddThemeConstantOverride("separation", 8);
+		_summary = NewText();
+		overview.AddChild(_summary);
 		_notesBox = new VBoxContainer();
 		_notesBox.AddThemeConstantOverride("separation", 4);
-		body.AddChild(_notesBox);
-		_weeklyToggle = new Button { Text = "▶ 週ごとの記録を見る", SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin };
-		_weeklyToggle.Pressed += () =>
-		{
-			_weekly.Visible = !_weekly.Visible;
-			_weeklyToggle.Text = _weekly.Visible ? "▼ 週ごとの記録をたたむ" : "▶ 週ごとの記録を見る";
-		};
-		body.AddChild(_weeklyToggle);
-		_weekly = new RichTextLabel { BbcodeEnabled = true, FitContent = true, ScrollActive = false, Visible = false, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-		body.AddChild(_weekly);
+		overview.AddChild(_notesBox);
+		AddTab("概要", overview);
+
+		_squads = NewText();
+		AddTab("部隊", _squads);
+		_adventurers = NewText();
+		AddTab("冒険者", _adventurers);
+		_weekly = NewText();
+		AddTab("週ごとの記録", _weekly);
 
 		var buttons = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.End };
 		buttons.AddThemeConstantOverride("separation", 10);
@@ -92,7 +97,23 @@ public partial class MonthlyReportPopup : Window
 		root.AddChild(buttons);
 	}
 
-	/// <summary>月を進めた直後の月報を開く。weeklyBbcode は週ごとの記録（null ならたたむボタンも出さない）。</summary>
+	private static RichTextLabel NewText() =>
+		new() { BbcodeEnabled = true, FitContent = true, ScrollActive = false, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+
+	/// <summary>タブを1つ足す（中身はスクロールできるようにする）。</summary>
+	private void AddTab(string title, Control content)
+	{
+		var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+		var pad = new MarginContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+		foreach (var side in new[] { "left", "top", "right", "bottom" })
+			pad.AddThemeConstantOverride($"margin_{side}", 8);
+		pad.AddChild(content);
+		scroll.AddChild(pad);
+		_tabs.AddChild(scroll);
+		_tabs.SetTabTitle(_tabs.GetTabCount() - 1, title);
+	}
+
+	/// <summary>月を進めた直後の月報を開く。weeklyBbcode は週ごとの記録（null ならそのタブを隠す）。</summary>
 	public void ShowMonth(MonthlyReport report, string weeklyBbcode, bool allowNext)
 	{
 		_historyOption.Visible = false;
@@ -120,8 +141,11 @@ public partial class MonthlyReportPopup : Window
 			_summary.Clear();
 			_summary.AppendText("[color=gray]まだ月報は無い。「次の月へ」で月を進めると、ここに直近12か月分が残る。[/color]");
 			ClearNotes();
-			_weeklyToggle.Visible = false;
-			_weekly.Visible = false;
+			_squads.Clear();
+			_adventurers.Clear();
+			_weekly.Clear();
+			_tabs.SetTabHidden(WeeklyTab, true);
+			_tabs.CurrentTab = 0;
 		}
 		_nextButton.Visible = false;
 		PopupCentered(Size);
@@ -131,6 +155,7 @@ public partial class MonthlyReportPopup : Window
 	private void ShowEntry(MonthlyReport report, string weeklyBbcode)
 	{
 		Title = report.MonthCompleted ? "📅 月報" : "📅 途中経過";
+		_tabs.CurrentTab = 0;
 		_summary.Clear();
 		_summary.AppendText(SummaryText(report));
 
@@ -154,10 +179,13 @@ public partial class MonthlyReportPopup : Window
 			}
 		}
 
+		_squads.Clear();
+		_squads.AppendText(SquadsText(report));
+		_adventurers.Clear();
+		_adventurers.AppendText(AdventurersText(report));
+
 		bool hasWeekly = !string.IsNullOrEmpty(weeklyBbcode);
-		_weeklyToggle.Visible = hasWeekly;
-		_weekly.Visible = false;
-		_weeklyToggle.Text = "▶ 週ごとの記録を見る";
+		_tabs.SetTabHidden(WeeklyTab, !hasWeekly);
 		_weekly.Clear();
 		if (hasWeekly)
 			_weekly.AppendText(weeklyBbcode);
@@ -187,7 +215,24 @@ public partial class MonthlyReportPopup : Window
 		_ => "",
 	};
 
-	/// <summary>月報の本文（見出し・お金と機嫌・成果・成長）。週報ログの短い行にも見出しの部分を使う。</summary>
+	private static string ToneColor(MonthlyTone tone) => tone switch
+	{
+		MonthlyTone.Good => "lime",
+		MonthlyTone.Warning => "orange",
+		MonthlyTone.Bad => "#ff6b6b",
+		_ => "#e5e7eb",
+	};
+
+	private static string Colored(MonthlyLine line) => $"[color={ToneColor(line.Tone)}]{line.Text}[/color]";
+
+	private static string HpColor(int percent) => percent >= 70 ? "lime" : percent >= 40 ? "orange" : "#ff6b6b";
+
+	private static string GainsText(Dictionary<string, int> gains) =>
+		gains.Values.Sum() > 0
+			? string.Join(" ", gains.Where(kv => kv.Value > 0).OrderByDescending(kv => kv.Value).Select(kv => $"{kv.Key}+{kv.Value}"))
+			: "";
+
+	/// <summary>概要：見出し・お金と機嫌・研究の手伝い・主な出来事。</summary>
 	public static string SummaryText(MonthlyReport report)
 	{
 		var sb = new StringBuilder();
@@ -207,22 +252,56 @@ public partial class MonthlyReportPopup : Window
 			sb.AppendLine($"研究の手伝い [color=lime]+{report.ResearchCreditGained}G[/color]（貯まり {report.ResearchCreditAfter}G。次の研究費の{GuildManager.Core.Balance.TrainingBalance.ResearchCreditMaxDiscountRate * 100:0}%まで割り引く）");
 
 		sb.AppendLine();
-		sb.AppendLine("[b]⚔ 成果[/b]");
-		bool any = false;
-		if (report.BossesDefeated.Count > 0) { any = true; sb.AppendLine($"[color=gold]　撃破：{string.Join("、", report.BossesDefeated)}[/color]"); }
-		if (report.BossesRepelled.Count > 0) { any = true; sb.AppendLine($"[color=orange]　決戦で退いた：{string.Join("、", report.BossesRepelled)}[/color]"); }
-		foreach (var retreat in report.DoorRetreats) { any = true; sb.AppendLine($"[color=orange]　扉前で撤退：{retreat}[/color]"); }
-		if (report.ForcedRetired > 0) { any = true; sb.AppendLine($"[color=red][b]　強制除籍：{report.ForcedRetired}名[/b][/color]"); }
-		if (!any) sb.AppendLine("[color=gray]　ボスとの戦いは無かった。[/color]");
-
-		sb.AppendLine();
-		sb.AppendLine("[b]▲ 成長[/b]");
-		if (report.Growth.Count == 0)
-			sb.AppendLine("[color=gray]　今月は誰も成長しなかった。[/color]");
-		foreach (var g in report.Growth)
-			sb.AppendLine($"　{g.Name}：[color=lime]{string.Join("、", g.Gains.OrderByDescending(kv => kv.Value).Select(kv => $"{kv.Key}+{kv.Value}"))}[/color]");
-		if (report.SelfTrainingGrowth.Count > 0)
-			sb.AppendLine($"[color=gray]　うち自主練：{string.Join("／", report.SelfTrainingGrowth.Select(g => $"{g.Name} {string.Join("、", g.Gains.OrderByDescending(kv => kv.Value).Select(kv => $"{kv.Key}+{kv.Value}"))}"))}[/color]");
+		sb.AppendLine("[b]📰 主な出来事[/b]");
+		if (report.Highlights.Count == 0)
+			sb.AppendLine("[color=gray]　目立った出来事は無かった。部隊・冒険者のタブで、それぞれの1か月を見られる。[/color]");
+		foreach (var line in report.Highlights)
+			sb.AppendLine($"　・{Colored(line)}");
 		return sb.ToString().TrimEnd('\n');
+	}
+
+	/// <summary>部隊：部隊ごとに方針・メンバー・週ごとの行動・月の結果・今のHP。</summary>
+	private static string SquadsText(MonthlyReport report)
+	{
+		if (report.Squads.Count == 0)
+			return "[color=gray]メンバーのいる部隊は無い（部隊・冒険者の画面で部隊を組む）。[/color]";
+		var sb = new StringBuilder();
+		foreach (var squad in report.Squads)
+		{
+			string order = squad.Order == SquadOrder.None
+				? "[color=orange]方針なし[/color]"
+				: $"{DungeonPanel.OrderIcon(squad.Order)}{DungeonPanel.OrderName(squad.Order)}" + (squad.FieldName.Length > 0 ? $"（{squad.FieldName}）" : "");
+			sb.AppendLine($"[font_size=18][b]{squad.Name}[/b][/font_size]　{order}　[color=gray]HP[/color] [color={HpColor(squad.HpPercent)}]{squad.HpPercent}%[/color]");
+			sb.AppendLine($"[color=gray]{string.Join("・", squad.Members)}[/color]");
+			foreach (var week in squad.Weeks)
+				sb.AppendLine($"　[color=gray]第{week.WeekOfMonth}週[/color]　{Colored(week)}");
+			sb.AppendLine($"　[b]結果[/b]：{squad.Result}");
+			sb.AppendLine();
+		}
+		return sb.ToString().TrimEnd('\n');
+	}
+
+	/// <summary>冒険者：1人1行の表（名前・所属・過ごし方・成長・今の状態）。</summary>
+	private static string AdventurersText(MonthlyReport report)
+	{
+		if (report.Adventurers.Count == 0)
+			return "[color=gray]この月報には冒険者ごとの記録が無い。[/color]";
+		var sb = new StringBuilder();
+		sb.Append("[table=5]");
+		foreach (var head in new[] { "名前", "所属", "過ごし方", "成長", "今の状態" })
+			sb.Append($"[cell][color=gray]{head}　[/color][/cell]");
+		foreach (var a in report.Adventurers.OrderBy(a => a.Squad.Length == 0).ThenBy(a => a.Squad))
+		{
+			string gains = GainsText(a.Gains);
+			string status = $"HP [color={HpColor(a.HpPercent)}]{a.HpPercent}%[/color]" +
+				(a.Status.Count > 0 ? "　" + string.Join("　", a.Status.Select(Colored)) : "");
+			sb.Append($"[cell][b]{a.Name}[/b]　[color=gray]{AdventurerPanel.JobLabel(a.Job)}・{a.Age}歳[/color]　[/cell]");
+			sb.Append($"[cell]{(a.Squad.Length > 0 ? a.Squad : "[color=gray]—[/color]")}　[/cell]");
+			sb.Append($"[cell]{a.Activities}　[/cell]");
+			sb.Append($"[cell]{(gains.Length > 0 ? $"[color=lime]{gains}[/color]" : "[color=gray]—[/color]")}　[/cell]");
+			sb.Append($"[cell]{status}[/cell]");
+		}
+		sb.Append("[/table]");
+		return sb.ToString();
 	}
 }

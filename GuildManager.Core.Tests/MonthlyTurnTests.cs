@@ -111,6 +111,80 @@ namespace GuildManager.Core.Tests
             Assert.Empty(report.StopReasons);
         }
 
+        // ---------------- 部隊ごと・冒険者ごと・主な出来事（§0.81） ----------------
+
+        [Fact]
+        public void MonthlyReport_DescribesEachSquadWeekByWeek()
+        {
+            var (state, _) = Setup(); // 採取を続ける2人部隊
+            var idle = Make("ノエル", 40);
+            state.Adventurers.Add(idle);
+            state.SavedParties.Add(new SavedParty { Name = "第二部隊", MemberIds = { idle.Id } }); // 方針なし
+
+            var weeks = Service(Expedition()).AdvanceMonth(state);
+            var report = MonthlyReport.Build(state, weeks, state.Gold);
+
+            var first = Assert.Single(report.Squads, s => s.Name == "第一部隊");
+            Assert.Equal(SquadOrder.Gather, first.Order);
+            Assert.Equal(new[] { "アリス", "セリア" }, first.Members);
+            Assert.Equal(weeks.Count, first.Weeks.Count); // 1週1行
+            Assert.All(first.Weeks, w => Assert.Contains("採取", w.Text));
+            Assert.Equal(weeks.Select(w => GameCalendar.WeekOfMonth(w.Settlement.Flags.Week)), first.Weeks.Select(w => w.WeekOfMonth));
+            Assert.NotEqual("成果なし", first.Result);
+
+            var second = Assert.Single(report.Squads, s => s.Name == "第二部隊");
+            Assert.All(second.Weeks, w => Assert.Contains("方針が無い", w.Text));
+        }
+
+        [Fact]
+        public void MonthlyReport_SummarizesEachAdventurersMonth()
+        {
+            var (state, _) = Setup();
+            var helper = Make("ノエル", 40);
+            helper.IdleActivity = IdleActivity.Help;
+            state.Adventurers.Add(helper);
+
+            var weeks = Service(Expedition()).AdvanceMonth(state);
+            var report = MonthlyReport.Build(state, weeks, state.Gold);
+
+            Assert.Equal(3, report.Adventurers.Count);
+            var alice = report.Adventurers.Single(a => a.Name == "アリス");
+            Assert.Equal("第一部隊", alice.Squad);
+            Assert.Equal($"出撃{weeks.Count}週", alice.Activities);
+            var noel = report.Adventurers.Single(a => a.Name == "ノエル");
+            Assert.Equal("", noel.Squad);
+            Assert.Equal($"研究の手伝い{weeks.Count}週", noel.Activities);
+            Assert.InRange(noel.HpPercent, 0, 100);
+        }
+
+        [Fact]
+        public void WeekProcessing_RecordsEachActivesActivity()
+        {
+            var (state, _) = Setup();
+            var trainee = Make("ノエル", 40);
+            state.Adventurers.Add(trainee);
+            state.Facilities.Single(f => f.Type == FacilityType.Academy).CurrentLevel = 1;
+            state.TrainingAssignments[trainee.Id] = FacilityType.Academy;
+
+            var weeks = Service(Expedition()).AdvanceMonth(state);
+
+            Assert.All(weeks, w => Assert.Equal(WeekActivity.Training, w.Settlement.Activities[trainee.Id]));
+            var report = MonthlyReport.Build(state, weeks, state.Gold);
+            Assert.Equal($"訓練（学問所）{weeks.Count}週", report.Adventurers.Single(a => a.Name == "ノエル").Activities);
+        }
+
+        [Fact]
+        public void MonthlyReport_HighlightsBossDefeat()
+        {
+            var (state, saved) = Setup(SquadOrder.Dive);
+            var weeks = Service(Expedition()).AdvanceMonth(state);
+            var report = MonthlyReport.Build(state, weeks, state.Gold);
+
+            bool defeated = state.DungeonFields[0].Bosses[0].IsDefeated;
+            Assert.Equal(defeated, report.Highlights.Any(h => h.Text.Contains("「森の主」を撃破") && h.Tone == MonthlyTone.Good));
+            Assert.All(report.Squads.Single().Weeks, w => Assert.InRange(w.WeekOfMonth, 1, GameCalendar.WeeksPerMonth));
+        }
+
         [Fact]
         public void MonthlyReport_NotesOpenTrainingSlots_AtTheStartOfAMonth()
         {
