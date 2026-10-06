@@ -75,6 +75,30 @@ namespace GuildManager.Core.Balance
         /// <summary>着工から完成までの工事期間（週）。→ BAL: 施設/工事期間。</summary>
         public static int GetConstructionWeeks(Models.FacilityType type, int currentLevel) => Math.Max(currentLevel, 1) * ConstructionWeeksPerLevel;
 
+        // ---- 施設の上限Lv（§0.79）：倒したボスの数で、改築できる上限のLvが上がる ----
+        private static readonly int[] LevelCapBosses =
+        {
+            0, // Lv1までは始めから
+            BalanceData.GetInt(FileName, "LevelCapBosses_Lv2"),
+            BalanceData.GetInt(FileName, "LevelCapBosses_Lv3"),
+            BalanceData.GetInt(FileName, "LevelCapBosses_Lv4"),
+            BalanceData.GetInt(FileName, "LevelCapBosses_Lv5"),
+        };
+
+        /// <summary>施設をこのLvまで改築できるようになるのに要る、倒したボスの数（Lv1以下は0）。</summary>
+        public static int GetBossesRequiredForLevel(int level) =>
+            level <= 1 ? 0 : LevelCapBosses[Math.Min(level, MaxLevel) - 1];
+
+        /// <summary>倒したボスの数に応じた、施設を改築できる上限のLv（1〜MaxLevel。全施設共通）。</summary>
+        public static int GetLevelCap(int defeatedBosses)
+        {
+            int cap = 1;
+            for (int level = 2; level <= MaxLevel; level++)
+                if (defeatedBosses >= GetBossesRequiredForLevel(level))
+                    cap = level;
+            return cap;
+        }
+
         /// <summary>改装（専門の選び直し、§0.76）の費用＝今のLv×RemodelCostPerLevel。</summary>
         public static int GetRemodelCost(int currentLevel) => currentLevel * RemodelCostPerLevel;
 

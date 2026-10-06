@@ -88,6 +88,8 @@ namespace GuildManager.Core.Systems
             result.Flags.Week = thisWeek;
 
             bool wasCleared = state.IsGameCleared;
+            int levelCapBefore = FacilitySystem.GetLevelCap(state); // 施設の上限Lv（§0.79）が今週上がったかを見る
+            bool hadRetiree = state.RetiredAdventurers.Count > 0; // 最初の引退者で作戦資料室・冒険者支援室が開く（§0.78）
             var neededNegotiationBefore = state.Adventurers.Where(a => a.NeedsNegotiation).Select(a => a.Id).ToHashSet();
 
             // 出撃中（今週出発した分も含む）の冒険者は、HP自然回復・訓練場成長の対象から外す（→ 03 §4.0.1）。
@@ -167,6 +169,12 @@ namespace GuildManager.Core.Systems
 
             result.CompletedFacility = _facilitySystem.ProcessWeeklyConstruction(state); // → 03 §6.1：施設Lv投資
             result.Flags.FacilityConstructionCompleted = result.CompletedFacility != null;
+
+            // 施設の開放の知らせ（§0.78・§0.79）：週報に1回だけ出す。
+            int levelCapAfter = FacilitySystem.GetLevelCap(state);
+            if (levelCapAfter > levelCapBefore)
+                result.FacilityLevelCapRaisedTo = levelCapAfter;
+            result.AdvisorFacilitiesOpened = !hadRetiree && state.RetiredAdventurers.Count > 0;
 
             // クリア（→ 03 §8.2・§0.59。深淵100Fのボス撃破で立つ）。画面はこの週にエンディングを出す。
             result.Flags.GameCleared = !wasCleared && state.IsGameCleared;

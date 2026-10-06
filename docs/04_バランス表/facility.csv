@@ -29,3 +29,7 @@ LeisureSatisfactionPerLevel,2,pt,ギルド酒場の専門「憩い」：Lv4以�
 TradeSideJobGoldPerLevel,100,G/月,ギルド酒場の専門「商い」：Lv4以上の1Lvごとに足す内職の基本売上（機嫌の倍率の前。§0.76）
 AnalysisIntelRatePerLevel,0.1,倍,作戦資料室の専門「解析」：Lv4以上の1Lvごとに足す迷宮調査の解析率の上昇倍率（研究 IntelRateBonus と同じ単位。§0.76）
 PathfindingTraversalPerLevel,10,pt,作戦資料室の専門「踏破」：Lv4以上の1Lvごとに足す道中の走破力（研究 TraversalBonus と同じ単位。§0.76）
+LevelCapBosses_Lv2,5,体,"施設の上限Lv（§0.79）：ボスをこの数だけ倒すと、施設をLv2まで改築できる（Lv1までは始めから。全フィールドの撃破数の合計・仮の値）"
+LevelCapBosses_Lv3,12,体,同・Lv3まで（§0.79・仮の値）
+LevelCapBosses_Lv4,20,体,同・Lv4まで（Lv3→4で専門を選ぶ。§0.79・仮の値）
+LevelCapBosses_Lv5,30,体,同・Lv5まで（§0.79・仮の値）

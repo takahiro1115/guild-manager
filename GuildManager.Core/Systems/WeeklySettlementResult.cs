@@ -68,6 +68,12 @@ namespace GuildManager.Core.Systems
         /// <summary>今週完成した施設（無ければnull）。</summary>
         public Facility? CompletedFacility { get; set; }
 
+        /// <summary>今週、施設を改築できる上限のLvが上がったときの新しい上限（上がらなければnull。→ FacilitySystem.GetLevelCap、§0.79）。</summary>
+        public int? FacilityLevelCapRaisedTo { get; set; }
+
+        /// <summary>今週、最初の引退者が出て、作戦資料室・冒険者支援室が建てられるようになったか（§0.78・§0.79）。</summary>
+        public bool AdvisorFacilitiesOpened { get; set; }
+
         /// <summary>今週新たに確定した敗北理由（無ければnull）。</summary>
         public DefeatReason? NewDefeatReason { get; set; }
     }

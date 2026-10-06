@@ -21,6 +21,30 @@ namespace GuildManager.Core.Systems
             FacilityBalance.HasSpecialty(type) && currentLevel == FacilityBalance.SpecialtyFromLevel;
 
         /// <summary>
+        /// 顧問（引退者）を置くための施設か（作戦資料室＝参謀・冒険者支援室＝スカウト）。§0.78：最初の引退者が出るまで建てられない。
+        /// </summary>
+        public static bool RequiresAdvisorCandidate(FacilityType type) =>
+            type is FacilityType.WarRoom or FacilityType.RecruitmentOffice;
+
+        /// <summary>
+        /// 建てられる施設か（§0.78、段階的な開放）：作戦資料室・冒険者支援室は、引退者（顧問候補）が1人でもいるか、すでに建っているときだけ。
+        /// ほかの施設はいつでも建てられる。序盤に「建てても何も起きない施設」を並べないため。
+        /// </summary>
+        public static bool IsAvailable(GameState state, FacilityType type) =>
+            !RequiresAdvisorCandidate(type) || state.RetiredAdventurers.Count > 0 || state.GetFacilityLevel(type) >= 1;
+
+        /// <summary>
+        /// 今、施設を改築できる上限のLv（§0.79）：倒したボスの数（全フィールドの合計）で上がる。全施設共通。
+        /// 序盤にできることを絞り、攻略が進むにつれて改築の選択肢を広げる。
+        /// </summary>
+        public static int GetLevelCap(GameState state) =>
+            FacilityBalance.GetLevelCap(EquipmentSystem.CountDefeatedBosses(state));
+
+        /// <summary>今のLvから次のLvへの改築が上限で止められているか（§0.79）。</summary>
+        public static bool IsBlockedByLevelCap(GameState state, FacilityType type) =>
+            state.GetFacilityLevel(type) + 1 > GetLevelCap(state);
+
+        /// <summary>
         /// 対象施設の着工を試みる。他の施設が工事中、対象施設が既に最大Lv、
         /// または資金不足の場合は何もせず false を返す（Party.TryAdd等の失敗パターンに倣う）。
         /// §0.76：Lv3→4の着工では specialty（その施設の選択肢の1つ）が必要。それ以外のLvでは specialty は無視する。
@@ -29,10 +53,14 @@ namespace GuildManager.Core.Systems
         {
             if (state.UnderConstruction != null)
                 return false; // 同時着工は1件のみ
+            if (!IsAvailable(state, type))
+                return false; // 準備中（最初の引退者が出るまで、§0.78）
 
             var facility = FindOrCreate(state, type);
             if (facility.CurrentLevel >= FacilityBalance.MaxLevel)
                 return false;
+            if (facility.CurrentLevel + 1 > GetLevelCap(state))
+                return false; // 上限Lv（倒したボスの数で上がる、§0.79）
 
             bool choose = NeedsSpecialtyChoice(type, facility.CurrentLevel);
             if (choose && Array.IndexOf(FacilityBalance.GetSpecialtyOptions(type), specialty) < 0)

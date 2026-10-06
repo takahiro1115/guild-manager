@@ -713,6 +713,7 @@ class GameSim
         {
             counts[f] = counts.GetValueOrDefault(f) + 1;
             if (s.GetFacilityLevel(f) >= counts[f]) continue;
+            if (FacilitySystem.IsBlockedByLevelCap(s, f)) continue; // 施設の上限Lv（§0.79）：倒したボスの数で開く
             if (s.Gold - FacilityBalance.GetUpgradeCost(f, s.GetFacilityLevel(f)) >= 2500)
                 facility.TryStartConstruction(s, f, !FacilitySystem.NeedsSpecialtyChoice(f, s.GetFacilityLevel(f)) ? FacilitySpecialty.None
                     : UseRivalry && FacilityBalance.IsTrainingFacility(f) ? FacilitySpecialty.Rivalry : FacilityBalance.GetDefaultSpecialty(f)); // Lv3→4は専門を選ぶ（§0.76）

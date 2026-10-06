@@ -699,6 +699,11 @@ public partial class MainDashboard : Control
 
 		if (settlement.CompletedFacility != null)
 			AppendLog($"[color=lime][b]🏗 {FacilityLabel(settlement.CompletedFacility.Type)}がLv{settlement.CompletedFacility.CurrentLevel}に完成した！{(settlement.CompletedFacility.Specialty != FacilitySpecialty.None ? $"（専門：{FacilityPanel.SpecialtyLabel(settlement.CompletedFacility.Specialty)}）" : "")}[/b][/color]");
+		if (settlement.FacilityLevelCapRaisedTo is int cap) // 施設の上限Lv（§0.79）
+			AppendLog($"[color=gold][b]🏗 ボスを倒した実績で、施設をLv{cap}まで改築できるようになった。[/b][/color]" +
+				(cap == FacilityBalance.SpecialtyFromLevel + 1 ? "[color=gray]（Lv3→4の改築で専門を選ぶ）[/color]" : ""));
+		if (settlement.AdvisorFacilitiesOpened) // 最初の引退者（§0.78）
+			AppendLog("[color=gold][b]🏗 引退者が出たので、作戦資料室と冒険者支援室を建てられるようになった。[/b][/color][color=gray]（引退者を参謀・スカウトに置く施設）[/color]");
 
 		LogCommissionArrivals(settlement.Arrivals); // → §0.64：新しい週に届いた依頼・異変の予告・期限の近い依頼
 

@@ -260,6 +260,18 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 | `dungeon.csv` | `FieldRequirementMultiplier_4`（焦熱の峡谷） | 1.0→1.3 | 40F＝56 |
 | `dungeon.csv` | `FieldRequirementMultiplier_5`（深淵の特異点） | 1.0→1.5 | 50F＝76 |
 
+## 施設の上限Lvで追加されたキー（2026年10月、→ 03 §0.79）
+
+施設を改築できる上限のLvを、倒したボスの数（全フィールドの合計）で上げる（全施設共通・すべて仮の値。`facility.csv`）。
+`dotnet run --project tools/balance_sim -c Release -- campaign 10 1440` で10回ともクリア、14年目前後（12〜15年目。`from=10` の10回は13年目前後〈12〜15〉）。
+
+| キー | 値 | 意味 |
+|---|---|---|
+| `LevelCapBosses_Lv2` | 5 | ボスをこの数倒すとLv2まで改築できる（シミュレーターでは1年目の後半） |
+| `LevelCapBosses_Lv3` | 12 | 同・Lv3まで（2〜3年目） |
+| `LevelCapBosses_Lv4` | 20 | 同・Lv4まで。Lv3→4で専門を選ぶ（4年目） |
+| `LevelCapBosses_Lv5` | 30 | 同・Lv5まで（7年目） |
+
 ## 研究のツリーで追加／変更された列と前提（2026年10月、→ 03 §0.77）
 
 `research.csv` に列 `Branch`（系統：Recovery・Dungeon・Gathering・Growth・Talent・Trade・SoulFusion）と `Lane`（系統の中の段、0〜）を足した。

@@ -1,3 +1,4 @@
+using System.Linq;
 using GuildManager.Core.Balance;
 using GuildManager.Core.Models;
 using GuildManager.Core.Systems;
@@ -11,6 +12,22 @@ namespace GuildManager.Core.Tests
     /// </summary>
     public class FacilitySystemTests
     {
+        /// <summary>
+        /// 倒したボスの数を count にする（施設の上限Lv、§0.79。テスト用のフィールドを1つ足し、ボスを撃破済みで並べる）。
+        /// </summary>
+        internal static GameState DefeatBosses(GameState state, int count)
+        {
+            state.DungeonFields.Add(new DungeonField
+            {
+                Id = "test_cleared", Order = 99, IsUnlocked = true,
+                Bosses = Enumerable.Range(1, count).Select(i => new FloorBoss { Floor = i * 10, IsDefeated = true }).ToList(),
+            });
+            return state;
+        }
+
+        /// <summary>どの施設もLv5まで改築できる状態（ボス30体を撃破済み）。</summary>
+        private static GameState AllLevelsOpen(int gold) => DefeatBosses(new GameState { Gold = gold }, 30);
+
         private static Facility GetFacility(GameState state, FacilityType type)
         {
             foreach (var f in state.Facilities)
@@ -51,7 +68,7 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void TryStartConstruction_Succeeds_WhenNothingUnderConstruction()
         {
-            var state = new GameState { Gold = 10000 };
+            var state = AllLevelsOpen(10000);
             var system = new FacilitySystem();
 
             bool result = system.TryStartConstruction(state, FacilityType.Dormitory);
@@ -65,7 +82,7 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void TryStartConstruction_DeductsCost_AsPrepayment()
         {
-            var state = new GameState { Gold = 10000 };
+            var state = AllLevelsOpen(10000);
             var system = new FacilitySystem();
 
             system.TryStartConstruction(state, FacilityType.Dormitory);
@@ -78,7 +95,7 @@ namespace GuildManager.Core.Tests
         public void TryStartConstruction_DoesNotChangeCurrentLevel_UntilCompletion()
         {
             // 着工中も、着工前の現在Lvの効果はそのまま維持される（→ 03 §6.1）。
-            var state = new GameState { Gold = 10000 };
+            var state = AllLevelsOpen(10000);
             var system = new FacilitySystem();
 
             system.TryStartConstruction(state, FacilityType.Dormitory);
@@ -92,7 +109,7 @@ namespace GuildManager.Core.Tests
         public void TryStartConstruction_Succeeds_FromLevelZero()
         {
             // 戦士訓練所はLv0（未建設）スタート。Lv0→Lv1の着工も既存ルールに従う。
-            var state = new GameState { Gold = 10000 };
+            var state = AllLevelsOpen(10000);
             var system = new FacilitySystem();
 
             bool result = system.TryStartConstruction(state, FacilityType.DrillHall);
@@ -106,7 +123,7 @@ namespace GuildManager.Core.Tests
         {
             // Lv0→Lv1の着工が無料になってしまうバグの修正確認
             // （旧実装：GetUpgradeCost = currentLevel*500 だとLv0の場合0Gになっていた）。
-            var state = new GameState { Gold = 10000 };
+            var state = AllLevelsOpen(10000);
             var system = new FacilitySystem();
 
             system.TryStartConstruction(state, FacilityType.DrillHall);
@@ -119,7 +136,7 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void ProcessWeeklyConstruction_CompletesLevelZeroToLevelOne()
         {
-            var state = new GameState { Gold = 10000 };
+            var state = AllLevelsOpen(10000);
             var system = new FacilitySystem();
             system.TryStartConstruction(state, FacilityType.DrillHall);
             state.UnderConstruction!.WeeksRemaining = 1;
@@ -134,7 +151,7 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void TryStartConstruction_Fails_WhenAnotherFacilityIsUnderConstruction()
         {
-            var state = new GameState { Gold = 10000 };
+            var state = AllLevelsOpen(10000);
             var system = new FacilitySystem();
             system.TryStartConstruction(state, FacilityType.Dormitory);
 
@@ -147,7 +164,7 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void TryStartConstruction_Fails_WhenInsufficientGold()
         {
-            var state = new GameState { Gold = 0 };
+            var state = AllLevelsOpen(0);
             var system = new FacilitySystem();
 
             bool result = system.TryStartConstruction(state, FacilityType.Dormitory);
@@ -160,7 +177,7 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void TryStartConstruction_Fails_WhenAlreadyAtMaxLevel()
         {
-            var state = new GameState { Gold = 999999 };
+            var state = AllLevelsOpen(999999);
             GetFacility(state, FacilityType.Dormitory).CurrentLevel = FacilityBalance.MaxLevel;
             var system = new FacilitySystem();
 
@@ -186,7 +203,7 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void ProcessWeeklyConstruction_DecrementsWeeksRemaining_WhileStillInProgress()
         {
-            var state = new GameState { Gold = 10000 };
+            var state = AllLevelsOpen(10000);
             var system = new FacilitySystem();
             system.TryStartConstruction(state, FacilityType.Dormitory); // Lv1→2: 工事期間1週（仮値）
             // 工事期間を強制的に2週に伸ばして「まだ完成しない週」を検証する
@@ -202,7 +219,7 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void ProcessWeeklyConstruction_CompletesAndRaisesLevel_WhenWeeksReachZero()
         {
-            var state = new GameState { Gold = 10000 };
+            var state = AllLevelsOpen(10000);
             var system = new FacilitySystem();
             system.TryStartConstruction(state, FacilityType.Dormitory);
             state.UnderConstruction!.WeeksRemaining = 1; // 次回で完成させる
@@ -219,7 +236,7 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void ProcessWeeklyConstruction_AllowsNewConstruction_AfterCompletion()
         {
-            var state = new GameState { Gold = 999999 };
+            var state = AllLevelsOpen(999999);
             var system = new FacilitySystem();
             system.TryStartConstruction(state, FacilityType.Dormitory);
             state.UnderConstruction!.WeeksRemaining = 1;
@@ -228,6 +245,112 @@ namespace GuildManager.Core.Tests
             bool result = system.TryStartConstruction(state, FacilityType.Infirmary);
 
             Assert.True(result);
+        }
+
+        // ---------------- 段階的な開放（§0.78） ----------------
+
+        [Theory]
+        [InlineData(FacilityType.WarRoom)]
+        [InlineData(FacilityType.RecruitmentOffice)]
+        public void AdvisorFacilities_AreNotAvailable_UntilFirstRetiree(FacilityType type)
+        {
+            var state = AllLevelsOpen(10000);
+            var system = new FacilitySystem();
+
+            Assert.False(FacilitySystem.IsAvailable(state, type));
+            Assert.False(system.TryStartConstruction(state, type));
+            Assert.Equal(10000, state.Gold);
+
+            state.RetiredAdventurers.Add(new Adventurer { IsRetired = true });
+
+            Assert.True(FacilitySystem.IsAvailable(state, type));
+            Assert.True(system.TryStartConstruction(state, type));
+        }
+
+        [Fact]
+        public void AdvisorFacility_StaysAvailable_OnceBuilt()
+        {
+            var state = new GameState();
+            GetFacility(state, FacilityType.WarRoom).CurrentLevel = 1;
+
+            Assert.True(FacilitySystem.IsAvailable(state, FacilityType.WarRoom));
+        }
+
+        [Theory]
+        [InlineData(FacilityType.DrillHall)]
+        [InlineData(FacilityType.Academy)]
+        [InlineData(FacilityType.SkillHall)]
+        [InlineData(FacilityType.Dormitory)]
+        [InlineData(FacilityType.Infirmary)]
+        [InlineData(FacilityType.Tavern)]
+        public void OtherFacilities_AreAvailable_FromTheStart(FacilityType type)
+        {
+            Assert.True(FacilitySystem.IsAvailable(new GameState(), type));
+        }
+
+        // ---------------- 施設の上限Lv（§0.79） ----------------
+
+        [Theory]
+        [InlineData(0, 1)]
+        [InlineData(4, 1)]
+        [InlineData(5, 2)]
+        [InlineData(11, 2)]
+        [InlineData(12, 3)]
+        [InlineData(20, 4)]
+        [InlineData(29, 4)]
+        [InlineData(30, 5)]
+        [InlineData(50, 5)]
+        public void GetLevelCap_RisesWithDefeatedBosses(int bosses, int cap)
+        {
+            Assert.Equal(cap, FacilityBalance.GetLevelCap(bosses));
+            Assert.Equal(cap, FacilitySystem.GetLevelCap(DefeatBosses(new GameState(), bosses)));
+        }
+
+        [Fact]
+        public void TryStartConstruction_Fails_AboveLevelCap()
+        {
+            var state = DefeatBosses(new GameState { Gold = 10000 }, 4);
+            var system = new FacilitySystem();
+
+            Assert.True(FacilitySystem.IsBlockedByLevelCap(state, FacilityType.Dormitory));
+            Assert.False(system.TryStartConstruction(state, FacilityType.Dormitory)); // Lv1→2 はボス5体から
+            Assert.Equal(10000, state.Gold);
+            Assert.True(system.TryStartConstruction(state, FacilityType.DrillHall)); // Lv0→1 は始めから
+        }
+
+        [Fact]
+        public void TryStartConstruction_Succeeds_OnceBossesReachTheCap()
+        {
+            var state = DefeatBosses(new GameState { Gold = 10000 }, 5);
+
+            Assert.False(FacilitySystem.IsBlockedByLevelCap(state, FacilityType.Dormitory));
+            Assert.True(new FacilitySystem().TryStartConstruction(state, FacilityType.Dormitory));
+        }
+
+        [Fact]
+        public void ProcessWeek_ReportsAdvisorFacilitiesOpened_OnFirstRetirement()
+        {
+            var veteran = new Adventurer { Name = "満期", Age = 25 };
+            veteran.CurrentHP = veteran.MaxHP;
+            var state = new GameState { WeekNumber = 48, Gold = 100000, Adventurers = { veteran } }; // 年度末：25歳で満期引退
+            var expedition = new DungeonExpeditionSystem(
+                new ScoutingResolver(new FixedRng()), new DungeonResolver(new FixedRng()), new SatisfactionSystem(),
+                new CompatibilitySystem(new FixedRng()), new DungeonTraversalResolver(new FixedRng()), new GatheringResolver(new FixedRng()));
+            var week = new WeekProcessingSystem(new MasterMoodSystem(), new EconomySystem(), new TrainingSystem(), new InjuryRecoverySystem(),
+                new RestRecoverySystem(), new GrowthSystem(new FixedRng()), new SatisfactionSystem(), new AgingSystem(new FixedRng()),
+                new FacilitySystem(), new DefeatSystem(), new RecruitmentSystem(new FixedRng()), expedition);
+
+            var result = week.ProcessWeek(state);
+
+            Assert.Single(state.RetiredAdventurers);
+            Assert.True(result.AdvisorFacilitiesOpened);
+            Assert.Null(result.FacilityLevelCapRaisedTo);
+            Assert.False(week.ProcessWeek(state).AdvisorFacilitiesOpened); // 1回だけ
+        }
+
+        private class FixedRng : GuildManager.Core.Rng.IRng
+        {
+            public int NextInt(int min, int max) => max;
         }
     }
 }
