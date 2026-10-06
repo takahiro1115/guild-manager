@@ -100,6 +100,40 @@ namespace GuildManager.Core.Models
         /// 前提の研究Id（2026年10月・§0.60）。この研究が済んでいないと始められない（段階研究のII・IIIなど）。null＝前提なし。
         /// </summary>
         public string? PrerequisiteId { get; init; }
+
+        /// <summary>研究の系統（研究室のツリーの行、§0.77）。</summary>
+        public ResearchBranch Branch { get; init; }
+
+        /// <summary>系統の中の段（0＝1段目。枝分かれした研究は1段目以降に並ぶ、§0.77）。</summary>
+        public int Lane { get; init; }
+    }
+
+    /// <summary>
+    /// 研究の系統（2026年10月・§0.77）。研究室のツリーの行の並び順。
+    /// ツリーの列は必要な素材のフィールド（→ Systems.ResearchSystem.GetFieldOrder）。
+    /// </summary>
+    public enum ResearchBranch
+    {
+        /// <summary>療養（静養の回復・致命の損耗）。</summary>
+        Recovery,
+
+        /// <summary>迷宮（解析・走破）。</summary>
+        Dungeon,
+
+        /// <summary>採取。</summary>
+        Gathering,
+
+        /// <summary>育成（成長の確率・霊薬）。</summary>
+        Growth,
+
+        /// <summary>人材（採用の素質・目利き）。</summary>
+        Talent,
+
+        /// <summary>商い（内職の売上）。</summary>
+        Trade,
+
+        /// <summary>秘薬（魂魄融和・培養槽）。</summary>
+        SoulFusion,
     }
 
     /// <summary>

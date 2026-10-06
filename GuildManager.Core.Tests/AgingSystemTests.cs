@@ -356,7 +356,7 @@ namespace GuildManager.Core.Tests
         {
             var adventurer = new Adventurer { Age = 25 };
             var state = CreateState(adventurer, weekNumber: 48);
-            state.TrainingAssignments.Add(adventurer.Id, FacilityType.WarriorHall);
+            state.TrainingAssignments.Add(adventurer.Id, FacilityType.DrillHall);
             var system = new AgingSystem(new AlwaysMinRng());
 
             system.ProcessWeeklyAging(state);

@@ -18,7 +18,7 @@ namespace GuildManager.Core.Systems
     ///
     /// v1.3改訂：
     ///  - 経路2の対象ステータスは、配置先の訓練施設が扱うステータスに限定される
-    ///    （戦士訓練所→STR・VIT、教会→MND、魔法研究所→INT、斥候所→AGI・DEX）。
+    ///    （鍛錬所→STR・VIT、学問所→MND・INT、技巧所→AGI・DEX。特化していればその能力だけ。§0.75）。
     ///  - 配置先施設に教官が配置されていれば、その教官の対象ステータス実効値に
     ///    比例したボーナスが成長ロールの確率倍率に加算される（→ AdvisorSystem.GetTrainerBonus）。
     ///
@@ -77,8 +77,8 @@ namespace GuildManager.Core.Systems
                 if (!state.TrainingAssignments.TryGetValue(adventurer.Id, out var facility))
                     continue; // 訓練施設未配置＝単純待機（成長ロールなし）
 
-                var targetStats = FacilityBalance.GetTrainingTargetStats(facility);
-                double multiplier = (GrowthBalance.TrainingFacilityMultiplier + GetTrainerBonus(state, facility)) * GetResearchGrowthMultiplier(state);
+                var targetStats = TrainingSystem.GetGrowthStats(state, facility); // 特化していればその能力だけ（§0.75）
+                double multiplier = (TrainingSystem.GetFacilityGrowthMultiplier(state, facility) + GetTrainerBonus(state, facility)) * GetResearchGrowthMultiplier(state);
 
                 // 勤勉（→ TraitCatalog.Diligent、03 §5.3.2・§6.2）：基礎確率に DiligentGrowthRateBonus を加算してから倍率を掛ける。
                 double baseBonus = (adventurer.HasTrait(TraitCatalog.DiligentId) ? TrainingBalance.DiligentGrowthRateBonus : 0)

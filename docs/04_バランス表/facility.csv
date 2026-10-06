@@ -1,10 +1,31 @@
 key,value,unit,note
 UpgradeCostPerLevel,500,G,"改築費＝max(現在Lv,1)×この額（Lv0→1の新設にもLv1相当額を課す）"
 ConstructionWeeksPerLevel,1,週,"工事期間＝max(現在Lv,1)×この週数"
-TrainingSlotPerLevel,1,枠,訓練施設の配置枠＝施設Lv×この値（4施設それぞれ独立）
+TrainingSlotCapacity,1,枠,"訓練施設の配置枠（Lv1以上ならLvにかかわらずこの値、Lv0は0。3施設それぞれ独立。§0.75で「Lv×1枠」から変更。Lvは成長の確率に効く）"
+TrainingGrowthMultiplier_Lv1,1.0,倍,"訓練施設Lv1の成長の確率の倍率（年齢帯の基礎確率×(aging.csv TrainingFacilityMultiplier×この値＋教官)×研究×特性。§0.75・仮の値）"
+TrainingGrowthMultiplier_Lv2,1.15,倍,同・Lv2（§0.75・仮の値）
+TrainingGrowthMultiplier_Lv3,1.3,倍,同・Lv3（§0.75・仮の値）
+TrainingGrowthMultiplier_Lv4,1.45,倍,同・Lv4（§0.75・仮の値。§0.76で専門「精鋭」のときだけこの値）
+TrainingGrowthMultiplier_Lv5,1.6,倍,同・Lv5（§0.75・仮の値。§0.76で専門「精鋭」のときだけこの値）
+TrainingSpecialtyGrowthMultiplier,1.1,倍,"訓練施設で片方の能力に特化したときの成長の確率の倍率（施設の倍率に掛ける。成長は選んだ能力にだけ入る。§0.75）"
 DormitoryBaseCapacity,8,名,宿舎Lv1時点の現役枠上限
 DormitoryCapacityPerLevel,4,名,宿舎Lvが1上がるごとの現役枠増加数
 InfirmaryRecoverySpeedPerLevel,1,週,医務室Lv×この値＝重傷の週あたり回復量
 InfirmaryHpMultiplierBase,1.0,倍,医務室Lv1時点のHP自然回復倍率
 InfirmaryHpMultiplierPerLevel,0.25,倍,医務室Lvが1上がるごとのHP自然回復倍率の増加
 TavernSatisfactionPerLevel,1,pt,酒場Lv×この値＝週あたりの満足度自然回復量
+SpecialtyFromLevel,3,Lv,"施設の専門（§0.76）：このLvから次のLvへの着工で専門を選ぶ。このLvまでの効果は専門に関係なく同じで、これより上のLvの上乗せは選んだ専門の分だけ（宿舎は専門なし）"
+RemodelCostPerLevel,1000,G,専門の選び直し（改装）の費用＝今のLv×この額（§0.76）
+RemodelWeeks,2,週,改装の工期（§0.76。工事中は今の専門のまま。建設キューを1件使う）
+RivalrySlotCapacity,2,枠,訓練施設の専門「切磋琢磨」の訓練枠（Lv4以上。§0.76）
+RivalryGrowthRate_Lv4,0.7,倍,"専門「切磋琢磨」Lv4の成長の確率＝Lv3の倍率（TrainingGrowthMultiplier_Lv3）×この値（§0.76・仮の値）"
+RivalryGrowthRate_Lv5,0.9,倍,同・Lv5（§0.76・仮の値）
+SanatoriumHpMultiplierPerLevel,0.35,倍,医務室の専門「療養院」：Lv4以上の1Lvごとに足すHP自然回復の倍率（§0.76）
+SanatoriumInjurySpeedPerLevel,1,週,医務室の専門「療養院」：Lv4以上の1Lvごとに足す重傷の週あたり回復量（§0.76）
+FieldAidSurvivalPerLevel,2,pt,医務室の専門「戦地救護」：Lv4以上の1Lvごとに足すボス戦の致命の損耗の閾値（研究 SurvivalThresholdBonus と同じ単位。§0.76）
+AppraisalEyePerLevel,0.1,倍,冒険者支援室の専門「目利き」：Lv4以上の1Lvごとに足す目利き（上限は potential_estimate.csv MaxEye。§0.76）
+RecruitingCandidatesPerLevel,1,名,冒険者支援室の専門「募集」：Lv4以上の1Lvごとに足す新春採用試験の応募者数（§0.76）
+LeisureSatisfactionPerLevel,2,pt,ギルド酒場の専門「憩い」：Lv4以上の1Lvごとに足す週あたりの満足度自然回復量（§0.76）
+TradeSideJobGoldPerLevel,100,G/月,ギルド酒場の専門「商い」：Lv4以上の1Lvごとに足す内職の基本売上（機嫌の倍率の前。§0.76）
+AnalysisIntelRatePerLevel,0.1,倍,作戦資料室の専門「解析」：Lv4以上の1Lvごとに足す迷宮調査の解析率の上昇倍率（研究 IntelRateBonus と同じ単位。§0.76）
+PathfindingTraversalPerLevel,10,pt,作戦資料室の専門「踏破」：Lv4以上の1Lvごとに足す道中の走破力（研究 TraversalBonus と同じ単位。§0.76）

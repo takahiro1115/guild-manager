@@ -209,12 +209,12 @@ namespace GuildManager.Core.Tests
             trainer.Name = "クラウディア";
             trainer.IsRetired = true;
             state.RetiredAdventurers.Add(trainer);
-            state.AssignedTrainers[FacilityType.WarriorHall] = trainer.Id;
+            state.AssignedTrainers[FacilityType.DrillHall] = trainer.Id;
 
             var student = Make(40, TraitCatalog.CowardId, TraitCatalog.AttentiveId, TraitCatalog.CountryBredId, TraitCatalog.MentorId, TraitCatalog.DiligentId);
             student.Age = 20;
             state.Adventurers.Add(student);
-            state.TrainingAssignments[student.Id] = FacilityType.WarriorHall;
+            state.TrainingAssignments[student.Id] = FacilityType.DrillHall;
 
             var e = Assert.Single(new TrainingSystem(new AlwaysMinRng()).ProcessWeeklyTraitTransmission(state));
 
@@ -297,7 +297,7 @@ namespace GuildManager.Core.Tests
             Assert.True(a.TryAddTrait(TraitCatalog.FickleId));
             var state = new GameState();
             state.Adventurers.Add(a);
-            state.TrainingAssignments[a.Id] = FacilityType.WarriorHall;
+            state.TrainingAssignments[a.Id] = FacilityType.DrillHall;
 
             var events = new GrowthSystem(new FixedRng(roll)).ProcessTrainingGrowth(state, new HashSet<Guid>());
 

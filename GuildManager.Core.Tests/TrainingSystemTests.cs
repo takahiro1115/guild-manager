@@ -39,7 +39,7 @@ namespace GuildManager.Core.Tests
         public void GetSlotCapacity_IsZero_WhenFacilityIsLevelZero()
         {
             var system = new TrainingSystem();
-            Assert.Equal(0, system.GetSlotCapacity(new GameState(), FacilityType.WarriorHall)); // 新規GameStateはLv0スタート
+            Assert.Equal(0, system.GetSlotCapacity(new GameState(), FacilityType.DrillHall)); // 新規GameStateはLv0スタート
         }
 
         [Fact]
@@ -49,7 +49,7 @@ namespace GuildManager.Core.Tests
             var system = new TrainingSystem();
             var adventurer = new Adventurer();
 
-            bool result = system.TryAssign(state, adventurer.Id, FacilityType.WarriorHall);
+            bool result = system.TryAssign(state, adventurer.Id, FacilityType.DrillHall);
 
             Assert.False(result);
             Assert.DoesNotContain(adventurer.Id, state.TrainingAssignments.Keys);
@@ -61,28 +61,28 @@ namespace GuildManager.Core.Tests
         public void TryAssign_SucceedsWhenSlotIsOpen()
         {
             var state = new GameState();
-            SetFacilityLevel(state, FacilityType.WarriorHall, 1);
+            SetFacilityLevel(state, FacilityType.DrillHall, 1);
             var system = new TrainingSystem();
             var adventurer = new Adventurer();
 
-            bool result = system.TryAssign(state, adventurer.Id, FacilityType.WarriorHall);
+            bool result = system.TryAssign(state, adventurer.Id, FacilityType.DrillHall);
 
             Assert.True(result);
             Assert.True(state.TrainingAssignments.ContainsKey(adventurer.Id));
-            Assert.Equal(FacilityType.WarriorHall, state.TrainingAssignments[adventurer.Id]);
+            Assert.Equal(FacilityType.DrillHall, state.TrainingAssignments[adventurer.Id]);
         }
 
         [Fact]
         public void TryAssign_Fails_WhenSlotIsFull()
         {
             var state = new GameState();
-            SetFacilityLevel(state, FacilityType.WarriorHall, 1);
+            SetFacilityLevel(state, FacilityType.DrillHall, 1);
             var system = new TrainingSystem();
             var first = new Adventurer();
             var second = new Adventurer();
-            system.TryAssign(state, first.Id, FacilityType.WarriorHall); // Lv1相当＝1枠を埋める
+            system.TryAssign(state, first.Id, FacilityType.DrillHall); // Lv1相当＝1枠を埋める
 
-            bool result = system.TryAssign(state, second.Id, FacilityType.WarriorHall);
+            bool result = system.TryAssign(state, second.Id, FacilityType.DrillHall);
 
             Assert.False(result);
             Assert.DoesNotContain(second.Id, state.TrainingAssignments.Keys);
@@ -92,12 +92,12 @@ namespace GuildManager.Core.Tests
         public void TryAssign_IsIdempotent_WhenAlreadyAssignedToSameFacility()
         {
             var state = new GameState();
-            SetFacilityLevel(state, FacilityType.WarriorHall, 1);
+            SetFacilityLevel(state, FacilityType.DrillHall, 1);
             var system = new TrainingSystem();
             var adventurer = new Adventurer();
-            system.TryAssign(state, adventurer.Id, FacilityType.WarriorHall);
+            system.TryAssign(state, adventurer.Id, FacilityType.DrillHall);
 
-            bool result = system.TryAssign(state, adventurer.Id, FacilityType.WarriorHall); // 同じ人・同じ施設をもう一度
+            bool result = system.TryAssign(state, adventurer.Id, FacilityType.DrillHall); // 同じ人・同じ施設をもう一度
 
             Assert.True(result);
             Assert.Single(state.TrainingAssignments);
@@ -108,17 +108,17 @@ namespace GuildManager.Core.Tests
         {
             // 戦士訓練所の枠(Lv1=1)が埋まっていても、教会の枠には別途配置できる（→ 03 §6）。
             var state = new GameState();
-            SetFacilityLevel(state, FacilityType.WarriorHall, 1);
-            SetFacilityLevel(state, FacilityType.Church, 1);
+            SetFacilityLevel(state, FacilityType.DrillHall, 1);
+            SetFacilityLevel(state, FacilityType.Academy, 1);
             var system = new TrainingSystem();
             var warrior = new Adventurer();
             var cleric = new Adventurer();
-            system.TryAssign(state, warrior.Id, FacilityType.WarriorHall);
+            system.TryAssign(state, warrior.Id, FacilityType.DrillHall);
 
-            bool result = system.TryAssign(state, cleric.Id, FacilityType.Church);
+            bool result = system.TryAssign(state, cleric.Id, FacilityType.Academy);
 
             Assert.True(result);
-            Assert.Equal(FacilityType.Church, state.TrainingAssignments[cleric.Id]);
+            Assert.Equal(FacilityType.Academy, state.TrainingAssignments[cleric.Id]);
         }
 
         [Fact]
@@ -126,28 +126,28 @@ namespace GuildManager.Core.Tests
         {
             // 既に別施設に配置済みの場合、付け替えると元の施設の枠が解放される。
             var state = new GameState();
-            SetFacilityLevel(state, FacilityType.WarriorHall, 1);
-            SetFacilityLevel(state, FacilityType.Church, 1);
+            SetFacilityLevel(state, FacilityType.DrillHall, 1);
+            SetFacilityLevel(state, FacilityType.Academy, 1);
             var system = new TrainingSystem();
             var adventurer = new Adventurer();
-            system.TryAssign(state, adventurer.Id, FacilityType.WarriorHall);
+            system.TryAssign(state, adventurer.Id, FacilityType.DrillHall);
 
-            bool result = system.TryAssign(state, adventurer.Id, FacilityType.Church);
+            bool result = system.TryAssign(state, adventurer.Id, FacilityType.Academy);
 
             Assert.True(result);
-            Assert.Equal(FacilityType.Church, state.TrainingAssignments[adventurer.Id]);
-            Assert.Equal(0, system.CountAssigned(state, FacilityType.WarriorHall));
-            Assert.Equal(1, system.CountAssigned(state, FacilityType.Church));
+            Assert.Equal(FacilityType.Academy, state.TrainingAssignments[adventurer.Id]);
+            Assert.Equal(0, system.CountAssigned(state, FacilityType.DrillHall));
+            Assert.Equal(1, system.CountAssigned(state, FacilityType.Academy));
         }
 
         [Fact]
         public void Unassign_RemovesFromTrainingAssignments()
         {
             var state = new GameState();
-            SetFacilityLevel(state, FacilityType.WarriorHall, 1);
+            SetFacilityLevel(state, FacilityType.DrillHall, 1);
             var system = new TrainingSystem();
             var adventurer = new Adventurer();
-            system.TryAssign(state, adventurer.Id, FacilityType.WarriorHall);
+            system.TryAssign(state, adventurer.Id, FacilityType.DrillHall);
 
             system.Unassign(state, adventurer.Id);
 
@@ -159,19 +159,104 @@ namespace GuildManager.Core.Tests
         {
             var system = new TrainingSystem();
             var state = new GameState();
-            SetFacilityLevel(state, FacilityType.WarriorHall, 1);
+            SetFacilityLevel(state, FacilityType.DrillHall, 1);
 
-            Assert.Equal(1, system.GetSlotCapacity(state, FacilityType.WarriorHall));
+            Assert.Equal(1, system.GetSlotCapacity(state, FacilityType.DrillHall));
         }
 
         [Fact]
-        public void GetSlotCapacity_IncreasesWithFacilityLevel()
+        public void GetSlotCapacity_StaysOne_RegardlessOfFacilityLevel()
         {
+            // §0.75：枠はLvにかかわらず1名。Lvは成長の確率に効く。
             var system = new TrainingSystem();
             var state = new GameState();
-            SetFacilityLevel(state, FacilityType.WarriorHall, 3);
+            SetFacilityLevel(state, FacilityType.DrillHall, 5);
 
-            Assert.Equal(3, system.GetSlotCapacity(state, FacilityType.WarriorHall));
+            Assert.Equal(1, system.GetSlotCapacity(state, FacilityType.DrillHall));
+        }
+
+        // ---------------- 施設Lvの成長の倍率・特化（§0.75） ----------------
+
+        [Theory]
+        [InlineData(1, 1.0)]
+        [InlineData(2, 1.15)]
+        [InlineData(3, 1.3)]
+        [InlineData(4, 1.45)]
+        [InlineData(5, 1.6)]
+        public void GetFacilityGrowthMultiplier_RisesWithLevel(int level, double expected)
+        {
+            var state = new GameState();
+            SetFacilityLevel(state, FacilityType.Academy, level);
+
+            Assert.Equal(expected * GrowthBalance.TrainingFacilityMultiplier,
+                TrainingSystem.GetFacilityGrowthMultiplier(state, FacilityType.Academy), precision: 6);
+        }
+
+        [Fact]
+        public void GetFacilityGrowthMultiplier_AppliesSpecialtyBonus_WhenSpecialized()
+        {
+            var state = new GameState { WeekNumber = 1 };
+            SetFacilityLevel(state, FacilityType.Academy, 3);
+            double both = TrainingSystem.GetFacilityGrowthMultiplier(state, FacilityType.Academy);
+
+            Assert.True(TrainingSystem.SetSpecialtyStat(state, FacilityType.Academy, "INT"));
+
+            Assert.Equal(both * FacilityBalance.TrainingSpecialtyGrowthMultiplier,
+                TrainingSystem.GetFacilityGrowthMultiplier(state, FacilityType.Academy), precision: 6);
+            Assert.Equal(new[] { "INT" }, TrainingSystem.GetGrowthStats(state, FacilityType.Academy));
+        }
+
+        [Fact]
+        public void GetGrowthStats_ReturnsBothStats_WhenNotSpecialized()
+        {
+            var state = new GameState();
+
+            Assert.Equal(new[] { "MND", "INT" }, TrainingSystem.GetGrowthStats(state, FacilityType.Academy));
+            Assert.Equal(new[] { "STR", "VIT" }, TrainingSystem.GetGrowthStats(state, FacilityType.DrillHall));
+            Assert.Equal(new[] { "AGI", "DEX" }, TrainingSystem.GetGrowthStats(state, FacilityType.SkillHall));
+        }
+
+        [Fact]
+        public void SetSpecialtyStat_Fails_MidMonth()
+        {
+            var state = new GameState { WeekNumber = 2 }; // 月の2週目
+
+            Assert.False(TrainingSystem.SetSpecialtyStat(state, FacilityType.DrillHall, "STR"));
+            Assert.Null(TrainingSystem.GetSpecialtyStat(state, FacilityType.DrillHall));
+        }
+
+        [Fact]
+        public void SetSpecialtyStat_Fails_ForStatTheFacilityDoesNotTrain()
+        {
+            var state = new GameState { WeekNumber = 1 };
+
+            Assert.False(TrainingSystem.SetSpecialtyStat(state, FacilityType.DrillHall, "INT"));
+            Assert.False(TrainingSystem.SetSpecialtyStat(state, FacilityType.WarRoom, "INT"));
+            Assert.Empty(state.TrainingSpecialtyStats);
+        }
+
+        [Fact]
+        public void Save_RoundTrips_SpecialtyStats_AndDropsInvalidRecords()
+        {
+            var state = new GameState { WeekNumber = 1 };
+            TrainingSystem.SetSpecialtyStat(state, FacilityType.Academy, "INT");
+            var data = state.ToSaveData();
+            data.TrainingSpecialtyStats[FacilityType.DrillHall.ToString()] = "INT"; // 鍛錬所はINTを扱わない（書き換えられた記録）
+
+            var restored = GameState.FromSaveData(System.Text.Json.JsonSerializer.Deserialize<SaveData>(System.Text.Json.JsonSerializer.Serialize(data))!);
+
+            Assert.Equal("INT", TrainingSystem.GetSpecialtyStat(restored, FacilityType.Academy));
+            Assert.Null(TrainingSystem.GetSpecialtyStat(restored, FacilityType.DrillHall));
+        }
+
+        [Fact]
+        public void SetSpecialtyStat_Null_ReturnsToBoth()
+        {
+            var state = new GameState { WeekNumber = 1 };
+            TrainingSystem.SetSpecialtyStat(state, FacilityType.SkillHall, "DEX");
+
+            Assert.True(TrainingSystem.SetSpecialtyStat(state, FacilityType.SkillHall, null));
+            Assert.Null(TrainingSystem.GetSpecialtyStat(state, FacilityType.SkillHall));
         }
 
         // ---------------- 週次費用（都度払い） ----------------
@@ -181,7 +266,7 @@ namespace GuildManager.Core.Tests
         {
             var adventurer = new Adventurer { VIT = 20, CurrentHP = 90 };
             var state = new GameState { Gold = 1000, Adventurers = { adventurer } };
-            state.TrainingAssignments.Add(adventurer.Id, FacilityType.WarriorHall);
+            state.TrainingAssignments.Add(adventurer.Id, FacilityType.DrillHall);
             var system = new TrainingSystem();
 
             system.ProcessWeeklyTraining(state, NoDispatch);
@@ -208,7 +293,7 @@ namespace GuildManager.Core.Tests
             // 配置されている限り費用は都度払い（出撃の有無に関わらず発生する）。
             var adventurer = new Adventurer { VIT = 20, CurrentHP = 90 };
             var state = new GameState { Gold = 1000, Adventurers = { adventurer } };
-            state.TrainingAssignments.Add(adventurer.Id, FacilityType.WarriorHall);
+            state.TrainingAssignments.Add(adventurer.Id, FacilityType.DrillHall);
             var system = new TrainingSystem();
 
             system.ProcessWeeklyTraining(state, new HashSet<Guid> { adventurer.Id });
@@ -223,7 +308,7 @@ namespace GuildManager.Core.Tests
         {
             var adventurer = new Adventurer { VIT = 20, CurrentHP = 90 }; // MaxHP=90
             var state = new GameState { Adventurers = { adventurer } };
-            state.TrainingAssignments.Add(adventurer.Id, FacilityType.WarriorHall);
+            state.TrainingAssignments.Add(adventurer.Id, FacilityType.DrillHall);
             var system = new TrainingSystem();
 
             system.ProcessWeeklyTraining(state, NoDispatch);
@@ -237,7 +322,7 @@ namespace GuildManager.Core.Tests
             // 出撃した週は訓練固有のHP処理を行わない（戦闘側のHP処理は別に適用される。§3.5改：排他）。
             var adventurer = new Adventurer { VIT = 20, CurrentHP = 90 };
             var state = new GameState { Adventurers = { adventurer } };
-            state.TrainingAssignments.Add(adventurer.Id, FacilityType.WarriorHall);
+            state.TrainingAssignments.Add(adventurer.Id, FacilityType.DrillHall);
             var system = new TrainingSystem();
 
             system.ProcessWeeklyTraining(state, new HashSet<Guid> { adventurer.Id });
@@ -250,7 +335,7 @@ namespace GuildManager.Core.Tests
         {
             var adventurer = new Adventurer { VIT = 20, CurrentHP = 3 }; // WeeklyHpCost(5)を引くと負になる
             var state = new GameState { Adventurers = { adventurer } };
-            state.TrainingAssignments.Add(adventurer.Id, FacilityType.WarriorHall);
+            state.TrainingAssignments.Add(adventurer.Id, FacilityType.DrillHall);
             var system = new TrainingSystem();
 
             system.ProcessWeeklyTraining(state, NoDispatch);
@@ -264,7 +349,7 @@ namespace GuildManager.Core.Tests
             // 訓練によるHP減少は負傷（InjurySeverity）を一切発生させない（致死判定と非接続）。
             var adventurer = new Adventurer { VIT = 20, CurrentHP = 3 };
             var state = new GameState { Adventurers = { adventurer } };
-            state.TrainingAssignments.Add(adventurer.Id, FacilityType.WarriorHall);
+            state.TrainingAssignments.Add(adventurer.Id, FacilityType.DrillHall);
             var system = new TrainingSystem();
 
             system.ProcessWeeklyTraining(state, NoDispatch);
@@ -278,18 +363,18 @@ namespace GuildManager.Core.Tests
         public void Training_TraitTransmission_Success()
         {
             var state = new GameState();
-            SetFacilityLevel(state, FacilityType.WarriorHall, 1);
+            SetFacilityLevel(state, FacilityType.DrillHall, 1);
 
             // 教官：伝授可能な特性（豪胆）を持つ引退済み冒険者。
             var trainer = new Adventurer { IsRetired = true, Age = 45 };
             trainer.TryAddTrait(TraitCatalog.BraveId);
             state.RetiredAdventurers.Add(trainer);
-            state.AssignedTrainers[FacilityType.WarriorHall] = trainer.Id;
+            state.AssignedTrainers[FacilityType.DrillHall] = trainer.Id;
 
             // 生徒：伝授ロール対象の年齢帯（15〜27歳）で、訓練施設に配置され、当該特性を未所持。
             var student = new Adventurer { Age = 20 };
             state.Adventurers.Add(student);
-            state.TrainingAssignments[student.Id] = FacilityType.WarriorHall;
+            state.TrainingAssignments[student.Id] = FacilityType.DrillHall;
 
             // AlwaysMinRngはNextInt(1,100)=1を返す。基礎確率5%（→ training.csv TraitInheritanceBaseChance）の
             // 閾値5以下なので、伝授ロールは必ず成功する。

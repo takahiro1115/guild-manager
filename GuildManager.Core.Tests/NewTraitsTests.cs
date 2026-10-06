@@ -232,7 +232,7 @@ namespace GuildManager.Core.Tests
         public void QuickHealer_RecoversInjuryOneWeekFaster()
         {
             var state = new GameState();
-            int speed = FacilityBalance.GetInfirmaryInjuryRecoverySpeed(state.GetFacilityLevel(FacilityType.Infirmary));
+            int speed = FacilityBalance.GetInfirmaryInjuryRecoverySpeed(state.GetFacilityLevel(FacilityType.Infirmary), state.GetFacilitySpecialty(FacilityType.Infirmary));
             var plain = Make(40);
             var healer = Make(40, TraitCatalog.QuickHealerId);
             foreach (var a in new[] { plain, healer })

@@ -24,7 +24,7 @@ namespace GuildManager.Core.Systems
     {
         public void ProcessWeeklyRecovery(GameState state, IReadOnlySet<Guid>? justInjured = null)
         {
-            int recoverySpeed = FacilityBalance.GetInfirmaryInjuryRecoverySpeed(state.GetFacilityLevel(FacilityType.Infirmary));
+            int recoverySpeed = FacilityBalance.GetInfirmaryInjuryRecoverySpeed(state.GetFacilityLevel(FacilityType.Infirmary), state.GetFacilitySpecialty(FacilityType.Infirmary));
 
             foreach (var adventurer in state.Adventurers)
             {

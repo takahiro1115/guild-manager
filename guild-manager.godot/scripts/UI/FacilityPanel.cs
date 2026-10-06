@@ -11,7 +11,7 @@ using GuildManager.Core.Systems;
 /// 中央ペイン「施設管理」ビュー（仕様書 03 §6・§6.1・§9）。
 ///
 /// - 画面上部に単一建設キューのステータスバナー（施工施設名、残り週数、進捗ゲージ）を常設。
-/// - メインエリアに全9施設（宿舎、医務室、酒場、戦士訓練所、教会、魔法研究所、斥候所、作戦資料室、冒険者支援室）を3列グリッドで配置。
+/// - メインエリアに全8施設（宿舎、医務室、酒場、鍛錬所、学問所、技巧所、作戦資料室、冒険者支援室。§0.75）を3列グリッドで配置。
 /// - 各施設カードにアイコン、現在Lvバッジ、現在効果、次Lv効果プレビュー、改築費用・工期、着工アクションボタンを配置。
 /// - 4大専門訓練所（および参謀・スカウト）のカード内に引退教官・顧問スロット（元冒険者氏名、前職、伝授成長補正等）を表示。
 /// - 着工ボタンは「最大Lv到達」「他施設工事中」「資金不足」の3条件で防御的に無効化（Disabled）し理由を明示。
@@ -61,6 +61,11 @@ public partial class FacilityPanel : VBoxContainer
 		public RichTextLabel? TraineeLabel { get; set; }
 		public OptionButton? AddTraineeOption { get; set; }
 		public OptionButton? RemoveTraineeOption { get; set; }
+		/// <summary>訓練施設だけ（§0.75）：「両方」か片方に特化か。月のはじめだけ変えられる。</summary>
+		public OptionButton? SpecialtyOption { get; set; }
+		/// <summary>専門（§0.76、宿舎以外）：今の専門・選べる専門の説明と、専門ごとの「着工」「改装」ボタン（並びは FacilityBalance.GetSpecialtyOptions）。</summary>
+		public RichTextLabel? FacilitySpecialtyLabel { get; set; }
+		public List<Button> FacilitySpecialtyButtons { get; } = new();
 		public List<Guid> AddCandidateIds { get; } = new();
 		public List<Guid> RemoveCandidateIds { get; } = new();
 		public Button ActionButton { get; set; } = null!;
@@ -84,10 +89,9 @@ public partial class FacilityPanel : VBoxContainer
 		BindCard(FacilityType.Dormitory, "%Card_Dormitory");
 		BindCard(FacilityType.Infirmary, "%Card_Infirmary");
 		BindCard(FacilityType.Tavern, "%Card_Tavern");
-		BindCard(FacilityType.WarriorHall, "%Card_WarriorHall");
-		BindCard(FacilityType.Church, "%Card_Church");
-		BindCard(FacilityType.MageLab, "%Card_MageLab");
-		BindCard(FacilityType.ScoutPost, "%Card_ScoutPost");
+		BindCard(FacilityType.DrillHall, "%Card_DrillHall");
+		BindCard(FacilityType.Academy, "%Card_Academy");
+		BindCard(FacilityType.SkillHall, "%Card_SkillHall");
 		BindCard(FacilityType.WarRoom, "%Card_WarRoom");
 		BindCard(FacilityType.RecruitmentOffice, "%Card_RecruitmentOffice");
 
@@ -144,9 +148,11 @@ public partial class FacilityPanel : VBoxContainer
 		RichTextLabel? traineeLabel = null;
 		OptionButton? addTrainee = null;
 		OptionButton? removeTrainee = null;
+		OptionButton? specialty = null;
 		if (FacilityBalance.IsTrainingFacility(type))
 		{
 			traineeLabel = new RichTextLabel { BbcodeEnabled = true, FitContent = true, ScrollActive = false, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+			specialty = new OptionButton { SizeFlagsHorizontal = SizeFlags.ExpandFill };
 			var row = new HBoxContainer();
 			row.AddThemeConstantOverride("separation", 6);
 			addTrainee = new OptionButton { SizeFlagsHorizontal = SizeFlags.ExpandFill };
@@ -154,9 +160,33 @@ public partial class FacilityPanel : VBoxContainer
 			row.AddChild(addTrainee);
 			row.AddChild(removeTrainee);
 			var actionButton = vbox.GetNode<Button>("ActionButton");
+			vbox.AddChild(specialty);
 			vbox.AddChild(traineeLabel);
 			vbox.AddChild(row);
+			vbox.MoveChild(specialty, actionButton.GetIndex());
 			vbox.MoveChild(traineeLabel, actionButton.GetIndex());
+			vbox.MoveChild(row, actionButton.GetIndex());
+		}
+
+		// 専門（§0.76）：説明と、選択肢ごとのボタン（Lv3では「〇〇で着工」、Lv4以上では「〇〇に改装」）を着工ボタンの上に置く。
+		RichTextLabel? facilitySpecialtyLabel = null;
+		var facilitySpecialtyButtons = new List<Button>();
+		if (FacilityBalance.HasSpecialty(type))
+		{
+			var actionButton = vbox.GetNode<Button>("ActionButton");
+			facilitySpecialtyLabel = new RichTextLabel { BbcodeEnabled = true, FitContent = true, ScrollActive = false, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+			var row = new HBoxContainer();
+			row.AddThemeConstantOverride("separation", 6);
+			foreach (var option in FacilityBalance.GetSpecialtyOptions(type))
+			{
+				var button = new Button { SizeFlagsHorizontal = SizeFlags.ExpandFill, ClipText = true };
+				button.Pressed += () => OnFacilitySpecialtyPressed(type, option);
+				row.AddChild(button);
+				facilitySpecialtyButtons.Add(button);
+			}
+			vbox.AddChild(facilitySpecialtyLabel);
+			vbox.AddChild(row);
+			vbox.MoveChild(facilitySpecialtyLabel, actionButton.GetIndex());
 			vbox.MoveChild(row, actionButton.GetIndex());
 		}
 
@@ -177,13 +207,18 @@ public partial class FacilityPanel : VBoxContainer
 			TraineeLabel = traineeLabel,
 			AddTraineeOption = addTrainee,
 			RemoveTraineeOption = removeTrainee,
+			SpecialtyOption = specialty,
+			FacilitySpecialtyLabel = facilitySpecialtyLabel,
 		};
 
+		binding.FacilitySpecialtyButtons.AddRange(facilitySpecialtyButtons);
 		binding.ActionButton.Pressed += () => OnStartConstructionPressed(type);
 		if (addTrainee != null)
 			addTrainee.ItemSelected += index => OnAddTraineeSelected(binding, index);
 		if (removeTrainee != null)
 			removeTrainee.ItemSelected += index => OnRemoveTraineeSelected(binding, index);
+		if (specialty != null)
+			specialty.ItemSelected += index => OnSpecialtySelected(binding, index);
 		_cardBindings[type] = binding;
 	}
 
@@ -207,11 +242,14 @@ public partial class FacilityPanel : VBoxContainer
 			var uc = _state.UnderConstruction;
 			string facilityName = FacilityLabel(uc.Type);
 			int prevLevel = Math.Max(0, uc.TargetLevel - 1);
-			int totalWeeks = FacilityBalance.GetConstructionWeeks(uc.Type, prevLevel);
+			int totalWeeks = uc.IsRemodel ? FacilityBalance.RemodelWeeks : FacilityBalance.GetConstructionWeeks(uc.Type, prevLevel);
 			int remaining = uc.WeeksRemaining;
 
 			_constructionStatusIcon.Text = "🔨";
-			_constructionTitleLabel.Text = $"【改築工事中】{facilityName} Lv{uc.TargetLevel} 改築工事";
+			string specialtyText = uc.TargetSpecialty != FacilitySpecialty.None ? $"（専門：{SpecialtyLabel(uc.TargetSpecialty)}）" : "";
+			_constructionTitleLabel.Text = uc.IsRemodel
+				? $"【改装工事中】{facilityName} Lv{uc.TargetLevel}{specialtyText}"
+				: $"【改築工事中】{facilityName} Lv{uc.TargetLevel} 改築工事{specialtyText}";
 			_constructionWeeksLabel.Text = $"残り {remaining} 週";
 			_constructionWeeksLabel.AddThemeColorOverride("font_color", new Color(1.0f, 0.85f, 0.3f, 1.0f));
 
@@ -221,7 +259,7 @@ public partial class FacilityPanel : VBoxContainer
 			int elapsed = Math.Max(0, totalWeeks - remaining);
 			_constructionProgressBar.Value = elapsed;
 
-			_constructionDetailLabel.Text = $"総工期：{totalWeeks}週（進捗：{elapsed}/{totalWeeks}週）。工事中も現在Lvの効果は維持されます。";
+			_constructionDetailLabel.Text = $"総工期：{totalWeeks}週（進捗：{elapsed}/{totalWeeks}週）。工事中も現在Lv（と専門）の効果は維持されます。";
 		}
 		else
 		{
@@ -290,6 +328,10 @@ public partial class FacilityPanel : VBoxContainer
 			RefreshFocusTraitButton(binding.FocusTraitButton, binding.Type, currentLevel);
 		if (binding.TraineeLabel != null)
 			RefreshTrainees(binding, currentLevel);
+		if (binding.FacilitySpecialtyLabel != null)
+			RefreshFacilitySpecialty(binding, currentLevel, cost, weeks);
+		// Lv3→4は専門を選んで着工する（専門ごとのボタンから。§0.76）
+		binding.ActionButton.Visible = !FacilitySystem.NeedsSpecialtyChoice(binding.Type, currentLevel);
 
 		// 着工ボタンの防御的ガード制御
 		if (isMaxLevel)
@@ -371,7 +413,40 @@ public partial class FacilityPanel : VBoxContainer
 		}
 		remove.Selected = 0;
 		remove.Disabled = !canChange || trainees.Count == 0;
+
+		RefreshSpecialty(binding, level, canChange);
 	}
+
+	/// <summary>育て方（§0.75）：0＝両方、1・2＝施設の能力の1つ目・2つ目に特化。月のはじめだけ変えられる。</summary>
+	private void RefreshSpecialty(FacilityCardBinding binding, int level, bool canChange)
+	{
+		var option = binding.SpecialtyOption!;
+		var stats = FacilityBalance.GetTrainingTargetStats(binding.Type);
+		string? current = TrainingSystem.GetSpecialtyStat(_state, binding.Type);
+		option.Clear();
+		option.AddItem($"育て方：両方（{string.Join("・", stats)}）");
+		foreach (var stat in stats)
+			option.AddItem($"育て方：{stat}に特化（成長の確率 ×{FacilityBalance.TrainingSpecialtyGrowthMultiplier:0.##}）");
+		option.Selected = current == null ? 0 : Array.IndexOf(stats, current) + 1;
+		option.Disabled = !canChange || level == 0;
+		option.TooltipText = canChange
+			? "両方：成長が2つの能力のどちらかに入る。特化：選んだ能力にだけ入り、成長の確率が少し上がる。月のはじめだけ変えられる（無料）。"
+			: "育て方を変えられるのは月のはじめだけ。";
+	}
+
+	private void OnSpecialtySelected(FacilityCardBinding binding, long index)
+	{
+		var stats = FacilityBalance.GetTrainingTargetStats(binding.Type);
+		string? stat = index <= 0 || index > stats.Length ? null : stats[index - 1];
+		TrainingSystem.SetSpecialtyStat(_state, binding.Type, stat);
+		StateChanged.Invoke();
+	}
+
+	/// <summary>カードの効果欄に出す、訓練で伸びる能力（特化していればその能力だけ）。</summary>
+	private string TrainingTargetText(FacilityType type) =>
+		TrainingSystem.GetSpecialtyStat(_state, type) is string stat
+			? $"[color=cyan]{stat}[/color]に特化"
+			: $"[color=cyan]{string.Join("・", FacilityBalance.GetTrainingTargetStats(type))}[/color]";
 
 	private void OnAddTraineeSelected(FacilityCardBinding binding, long index)
 	{
@@ -472,54 +547,174 @@ public partial class FacilityPanel : VBoxContainer
 		}
 	}
 
-	private string GetCurrentEffectText(FacilityType type, int level) => type switch
+	// ==================== 施設の専門（§0.76） ====================
+
+	/// <summary>
+	/// 専門の欄：Lv3まで＝Lv3→4の工事で選べる専門の案内、Lv3＝専門ごとの「〇〇で着工」、Lv4以上＝今の専門と、もう一方への「改装」。
+	/// </summary>
+	private void RefreshFacilitySpecialty(FacilityCardBinding binding, int level, int cost, int weeks)
 	{
-		FacilityType.Dormitory =>
-			$"現役冒険者の保有枠上限：[b]{FacilityBalance.GetDormitoryCapacity(level)}名[/b]",
+		var type = binding.Type;
+		var options = FacilityBalance.GetSpecialtyOptions(type);
+		var current = _state.GetFacilitySpecialty(type);
+		var construction = _state.UnderConstruction;
+		bool busy = construction != null;
+		bool choose = FacilitySystem.NeedsSpecialtyChoice(type, level);
+		var label = binding.FacilitySpecialtyLabel!;
+		label.Clear();
 
-		FacilityType.Infirmary =>
-			$"負傷の回復速度：[b]{FacilityBalance.GetInfirmaryInjuryRecoverySpeed(level)}週/週[/b]　HP自然回復：[b]×{FacilityBalance.GetInfirmaryHpRecoveryMultiplier(level):F2}[/b]",
+		if (current == FacilitySpecialty.None)
+		{
+			label.AppendText(choose
+				? "[color=gold]Lv4への改築で専門を1つ選ぶ（Lv4・5の効果は選んだ側だけ）。[/color]"
+				: $"[color=gray]Lv{FacilityBalance.SpecialtyFromLevel}→Lv{FacilityBalance.SpecialtyFromLevel + 1}の改築で専門を選ぶ：{string.Join("／", options.Select(SpecialtyLabel))}[/color]");
+		}
+		else
+		{
+			label.AppendText($"専門：[b][color=gold]{SpecialtyLabel(current)}[/color][/b]（{SpecialtyEffectText(type, current, level)}）");
+		}
+		if (construction != null && construction.Type == type && construction.TargetSpecialty != FacilitySpecialty.None)
+			label.AppendText($"\n[color=orange]{(construction.IsRemodel ? "改装中" : "工事中")}：完成すると専門は「{SpecialtyLabel(construction.TargetSpecialty)}」[/color]");
 
-		FacilityType.Tavern =>
-			$"週次満足度自然回復：[b]+{FacilityBalance.GetTavernSatisfactionRecovery(level)} pt/週[/b]",
+		int remodelCost = FacilityBalance.GetRemodelCost(level);
+		for (int i = 0; i < options.Length; i++)
+		{
+			var option = options[i];
+			var button = binding.FacilitySpecialtyButtons[i];
+			int nextLevel = choose ? level + 1 : level;
+			string effect = SpecialtyEffectText(type, option, Math.Max(nextLevel, FacilityBalance.SpecialtyFromLevel + 1));
+			if (choose)
+			{
+				button.Visible = true;
+				button.Text = $"🔨 {SpecialtyLabel(option)}で改築 ({cost}G / {weeks}週)";
+				button.Disabled = busy || _state.Gold < cost;
+				button.TooltipText = $"{SpecialtyLabel(option)}：{SpecialtyDescription(option)}\nLv4で：{effect}\n" +
+					(busy ? "他の工事が進行中（同時着工は1件まで）。" : _state.Gold < cost ? $"資金が不足しています（必要：{cost} G）。" : $"着工時に費用{cost}Gを前払いします。");
+			}
+			else if (current != FacilitySpecialty.None && option != current)
+			{
+				button.Visible = true;
+				button.Text = $"🛠 {SpecialtyLabel(option)}に改装 ({remodelCost}G / {FacilityBalance.RemodelWeeks}週)";
+				button.Disabled = busy || _state.Gold < remodelCost;
+				button.TooltipText = $"{SpecialtyLabel(option)}：{SpecialtyDescription(option)}\n今のLvで：{SpecialtyEffectText(type, option, level)}\n" +
+					"改装中は今の専門のまま。建設キューを1件使う。" +
+					(busy ? "\n他の工事が進行中（同時着工は1件まで）。" : _state.Gold < remodelCost ? $"\n資金が不足しています（必要：{remodelCost} G）。" : "");
+			}
+			else
+			{
+				button.Visible = false;
+			}
+		}
+	}
 
-		FacilityType.WarriorHall =>
-			level == 0
-				? "[color=gray]未稼働（未建設・訓練枠 0名）[/color]"
-				: $"訓練枠：[b]{FacilityBalance.GetTrainingSlotCapacity(level)}名[/b]（対象能力：[color=cyan]STR・VIT[/color]）",
+	private void OnFacilitySpecialtyPressed(FacilityType type, FacilitySpecialty specialty)
+	{
+		int level = _state.GetFacilityLevel(type);
+		bool done = FacilitySystem.NeedsSpecialtyChoice(type, level)
+			? _facilitySystem.TryStartConstruction(_state, type, specialty)
+			: _facilitySystem.TryStartRemodel(_state, type, specialty);
+		if (done)
+			StateChanged.Invoke();
+	}
 
-		FacilityType.Church =>
-			level == 0
-				? "[color=gray]未稼働（未建設・訓練枠 0名）[/color]"
-				: $"訓練枠：[b]{FacilityBalance.GetTrainingSlotCapacity(level)}名[/b]（対象能力：[color=cyan]MND[/color]）",
-
-		FacilityType.MageLab =>
-			level == 0
-				? "[color=gray]未稼働（未建設・訓練枠 0名）[/color]"
-				: $"訓練枠：[b]{FacilityBalance.GetTrainingSlotCapacity(level)}名[/b]（対象能力：[color=cyan]INT[/color]）",
-
-		FacilityType.ScoutPost =>
-			level == 0
-				? "[color=gray]未稼働（未建設・訓練枠 0名）[/color]"
-				: $"訓練枠：[b]{FacilityBalance.GetTrainingSlotCapacity(level)}名[/b]（対象能力：[color=cyan]AGI・DEX[/color]）",
-
-		FacilityType.WarRoom =>
-			level == 0
-				? "[color=gray]未稼働（未建設・参謀配置不可）[/color]"
-				: "参謀本部（迷宮調査の解析支援・道中潜行の走破支援）",
-
-		FacilityType.RecruitmentOffice =>
-			level == 0
-				? "[color=gray]未稼働（未建設・スカウト配置不可）[/color]"
-				: "新人スカウト本部（新春採用試験の有望新人応募率向上）",
-
-		_ => $"施設効果（Lv {level}）"
+	/// <summary>専門の名前（§0.76）。</summary>
+	public static string SpecialtyLabel(FacilitySpecialty specialty) => specialty switch
+	{
+		FacilitySpecialty.Elite => "精鋭",
+		FacilitySpecialty.Rivalry => "切磋琢磨",
+		FacilitySpecialty.Sanatorium => "療養院",
+		FacilitySpecialty.FieldAid => "戦地救護",
+		FacilitySpecialty.Appraisal => "目利き",
+		FacilitySpecialty.Recruiting => "募集",
+		FacilitySpecialty.Leisure => "憩い",
+		FacilitySpecialty.Trade => "商い",
+		FacilitySpecialty.Analysis => "解析",
+		FacilitySpecialty.Pathfinding => "踏破",
+		_ => "なし",
 	};
+
+	/// <summary>専門の性格（ボタンのツールチップ）。</summary>
+	private static string SpecialtyDescription(FacilitySpecialty specialty) => specialty switch
+	{
+		FacilitySpecialty.Elite => "訓練枠は1名のまま、成長の確率が上がる（1人を深く伸ばす）",
+		FacilitySpecialty.Rivalry => "訓練枠が2名になるが、成長の確率はLv3より低い（2人をそこそこ伸ばす）",
+		FacilitySpecialty.Sanatorium => "静養のHP回復と重傷の回復が早くなる",
+		FacilitySpecialty.FieldAid => "ボス戦で致命的な損耗を受けにくくなる（深く潜るときの保険）",
+		FacilitySpecialty.Appraisal => "副官の見立て（伸びしろの段階）が細かくなる",
+		FacilitySpecialty.Recruiting => "新春採用試験の応募者が増える",
+		FacilitySpecialty.Leisure => "満足度が毎週よく回復する",
+		FacilitySpecialty.Trade => "アルベールの内職の売上が増える",
+		FacilitySpecialty.Analysis => "迷宮調査の解析が進みやすくなる",
+		FacilitySpecialty.Pathfinding => "道中の走破力が上がる",
+		_ => "",
+	};
+
+	/// <summary>その専門の施設がLv level のときの効果（専門の分）。</summary>
+	private static string SpecialtyEffectText(FacilityType type, FacilitySpecialty specialty, int level) => specialty switch
+	{
+		FacilitySpecialty.Elite or FacilitySpecialty.Rivalry =>
+			$"訓練枠 {FacilityBalance.GetTrainingSlotCapacity(level, specialty)}名・成長の確率 ×{FacilityBalance.GetTrainingGrowthMultiplier(level, specialty):F2}",
+		FacilitySpecialty.FieldAid =>
+			$"ボス戦の致命の損耗の閾値 +{FacilityBalance.GetFieldAidSurvivalBonus(level, specialty):0.#}",
+		FacilitySpecialty.Sanatorium =>
+			$"HP自然回復 ×{FacilityBalance.GetInfirmaryHpRecoveryMultiplier(level, specialty):F2}・重傷回復 {FacilityBalance.GetInfirmaryInjuryRecoverySpeed(level, specialty)}週/週",
+		FacilitySpecialty.Appraisal => $"目利き +{FacilityBalance.GetAppraisalEyeBonus(level, specialty):0.0#}",
+		FacilitySpecialty.Recruiting => $"応募者 +{FacilityBalance.GetRecruitingCandidateBonus(level, specialty)}名",
+		FacilitySpecialty.Leisure => $"満足度回復 +{FacilityBalance.GetTavernSatisfactionRecovery(level, specialty)} pt/週",
+		FacilitySpecialty.Trade => $"内職の売上 +{FacilityBalance.GetTradeSideJobBonus(level, specialty)}G/月",
+		FacilitySpecialty.Analysis => $"解析率 +{FacilityBalance.GetAnalysisIntelBonus(level, specialty) * 100:0}%",
+		FacilitySpecialty.Pathfinding => $"走破力 +{FacilityBalance.GetPathfindingTraversalBonus(level, specialty):0.#}",
+		_ => "",
+	};
+
+	private string GetCurrentEffectText(FacilityType type, int level)
+	{
+		var specialty = _state.GetFacilitySpecialty(type);
+		return type switch
+		{
+			FacilityType.Dormitory =>
+				$"現役冒険者の保有枠上限：[b]{FacilityBalance.GetDormitoryCapacity(level)}名[/b]",
+
+			FacilityType.Infirmary =>
+				$"負傷の回復速度：[b]{FacilityBalance.GetInfirmaryInjuryRecoverySpeed(level, specialty)}週/週[/b]　HP自然回復：[b]×{FacilityBalance.GetInfirmaryHpRecoveryMultiplier(level, specialty):F2}[/b]"
+				+ (specialty == FacilitySpecialty.FieldAid ? $"\nボス戦の致命の損耗の閾値：[b]+{FacilityBalance.GetFieldAidSurvivalBonus(level, specialty):0.#}[/b]" : ""),
+
+			FacilityType.Tavern =>
+				$"週次満足度自然回復：[b]+{FacilityBalance.GetTavernSatisfactionRecovery(level, specialty)} pt/週[/b]"
+				+ (specialty == FacilitySpecialty.Trade ? $"\n内職の売上：[b]+{FacilityBalance.GetTradeSideJobBonus(level, specialty)}G/月[/b]" : ""),
+
+			_ when FacilityBalance.IsTrainingFacility(type) =>
+				level == 0
+					? "[color=gray]未稼働（未建設・訓練枠 0名）[/color]"
+					: $"訓練枠：[b]{FacilityBalance.GetTrainingSlotCapacity(level, specialty)}名[/b]　成長の確率：[b]×{TrainingSystem.GetFacilityGrowthMultiplier(_state, type):F2}[/b]（{TrainingTargetText(type)}）",
+
+			FacilityType.WarRoom =>
+				level == 0
+					? "[color=gray]未稼働（未建設・参謀配置不可）[/color]"
+					: "参謀本部（迷宮調査の解析支援・道中潜行の走破支援）"
+					  + (specialty != FacilitySpecialty.None ? $"\n専門の効果：[b]{SpecialtyEffectText(type, specialty, level)}[/b]" : ""),
+
+			FacilityType.RecruitmentOffice =>
+				level == 0
+					? "[color=gray]未稼働（未建設・スカウト配置不可）[/color]"
+					: "新人スカウト本部（新春採用試験の有望新人応募率向上）"
+					  + (specialty != FacilitySpecialty.None ? $"\n専門の効果：[b]{SpecialtyEffectText(type, specialty, level)}[/b]" : ""),
+
+			_ => $"施設効果（Lv {level}）"
+		};
+	}
 
 	private string GetNextEffectText(FacilityType type, int level)
 	{
 		if (level >= FacilityBalance.MaxLevel)
 			return "[color=gray]最大Lv到達済み（改築上限）[/color]";
+
+		// Lv3→4は専門を選ぶ。Lv4→5は今の専門が伸びる（§0.76）。
+		if (FacilitySystem.NeedsSpecialtyChoice(type, level))
+			return "次Lv：[color=gold]専門を選んで改築[/color]（下のボタン。ボタンにかざすとLv4の効果が見える）";
+		var specialty = _state.GetFacilitySpecialty(type);
+		if (specialty != FacilitySpecialty.None)
+			return $"次Lv：{SpecialtyLabel(specialty)} [color=cyan]{SpecialtyEffectText(type, specialty, level + 1)}[/color]";
 
 		return type switch
 		{
@@ -530,27 +725,12 @@ public partial class FacilityPanel : VBoxContainer
 				"次Lv：重傷回復 [color=cyan]+1週/週[/color]、HP自然回復 [color=cyan]+0.25倍[/color]",
 
 			FacilityType.Tavern =>
-				$"次Lv：満足度回復 [color=cyan]+1 pt/週[/color]（計 +{FacilityBalance.GetTavernSatisfactionRecovery(level + 1)} pt/週）",
+				$"次Lv：満足度回復 [color=cyan]+1 pt/週[/color]（計 +{FacilityBalance.GetTavernSatisfactionRecovery(level + 1, FacilitySpecialty.None)} pt/週）",
 
-			FacilityType.WarriorHall =>
+			_ when FacilityBalance.IsTrainingFacility(type) =>
 				level == 0
 					? "次Lv：訓練枠 [color=cyan]1名[/color] 開放、教官配置 開放"
-					: $"次Lv：訓練枠 [color=cyan]+1名[/color]（計 {level + 1}名）",
-
-			FacilityType.Church =>
-				level == 0
-					? "次Lv：訓練枠 [color=cyan]1名[/color] 開放、教官配置 開放"
-					: $"次Lv：訓練枠 [color=cyan]+1名[/color]（計 {level + 1}名）",
-
-			FacilityType.MageLab =>
-				level == 0
-					? "次Lv：訓練枠 [color=cyan]1名[/color] 開放、教官配置 開放"
-					: $"次Lv：訓練枠 [color=cyan]+1名[/color]（計 {level + 1}名）",
-
-			FacilityType.ScoutPost =>
-				level == 0
-					? "次Lv：訓練枠 [color=cyan]1名[/color] 開放、教官配置 開放"
-					: $"次Lv：訓練枠 [color=cyan]+1名[/color]（計 {level + 1}名）",
+					: $"次Lv：成長の確率 [color=cyan]×{FacilityBalance.GetTrainingGrowthMultiplier(level + 1, FacilitySpecialty.None):F2}[/color]（特化の倍率は別に掛かる）",
 
 			FacilityType.WarRoom =>
 				level == 0
@@ -565,10 +745,9 @@ public partial class FacilityPanel : VBoxContainer
 			_ => $"次Lv：Lv {level + 1}"
 		};
 	}
-
 	private string GetInstructorSlotText(FacilityType type, int level)
 	{
-		// 4大専門訓練所
+		// 訓練3施設（§0.75）
 		if (FacilityBalance.IsTrainingFacility(type))
 		{
 			if (level < 1)
@@ -655,10 +834,9 @@ public partial class FacilityPanel : VBoxContainer
 		FacilityType.Dormitory => "🛏️ 宿舎",
 		FacilityType.Infirmary => "💉 医務室",
 		FacilityType.Tavern => "🍺 ギルド酒場",
-		FacilityType.WarriorHall => "⚔️ 戦士訓練所",
-		FacilityType.Church => "⛪ 教会",
-		FacilityType.MageLab => "🔮 魔法研究所",
-		FacilityType.ScoutPost => "🏹 斥候所",
+		FacilityType.DrillHall => "⚔️ 鍛錬所",
+		FacilityType.Academy => "📚 学問所",
+		FacilityType.SkillHall => "🏹 技巧所",
 		FacilityType.WarRoom => "📜 作戦資料室",
 		FacilityType.RecruitmentOffice => "🤝 冒険者支援室",
 		_ => type.ToString()
@@ -669,10 +847,9 @@ public partial class FacilityPanel : VBoxContainer
 		FacilityType.Dormitory => "宿舎",
 		FacilityType.Infirmary => "医務室",
 		FacilityType.Tavern => "ギルド酒場",
-		FacilityType.WarriorHall => "戦士訓練所",
-		FacilityType.Church => "教会",
-		FacilityType.MageLab => "魔法研究所",
-		FacilityType.ScoutPost => "斥候所",
+		FacilityType.DrillHall => "鍛錬所",
+		FacilityType.Academy => "学問所",
+		FacilityType.SkillHall => "技巧所",
 		FacilityType.WarRoom => "作戦資料室",
 		FacilityType.RecruitmentOffice => "冒険者支援室",
 		_ => type.ToString()

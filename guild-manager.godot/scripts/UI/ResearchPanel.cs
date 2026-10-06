@@ -40,27 +40,76 @@ public partial class ResearchPanel : ScrollContainer
 	{
 		_resourcesLabel = GetNode<RichTextLabel>("%ResourcesLabel");
 		_researchCards = GetNode<VBoxContainer>("%ResearchCards");
-		BuildSplitLayout();
-		}
+		BuildLayout();
+	}
 
-		/// <summary>右半分に培養槽の欄（誕生した娘の履歴つき）。左は研究と霊薬。画面が横に広すぎて間延びするため、左右に分ける。</summary>
-		private VBoxContainer _cultureColumn = null!;
+	/// <summary>培養槽の欄（誕生した娘の履歴つき）。ツリーの下の右半分。</summary>
+	private VBoxContainer _cultureColumn = null!;
 
-		private void BuildSplitLayout()
-		{
-			var left = GetNode<VBoxContainer>("VBox");
-			RemoveChild(left);
+	/// <summary>研究のツリー（§0.77）：札（Button）を置き、前提の線は Draw で描く。</summary>
+	private Control _treeCanvas = null!;
 
-			var split = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-			split.AddThemeConstantOverride("separation", 16);
-			left.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-			left.SizeFlagsStretchRatio = 1f;
-			split.AddChild(left);
+	/// <summary>ツリーの右（狭いときは下）に出す、選んだ研究の詳細。</summary>
+	private VBoxContainer _detailBox = null!;
 
-			_cultureColumn = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ShrinkBegin, SizeFlagsStretchRatio = 1f };
-			_cultureColumn.AddThemeConstantOverride("separation", 8);
-			split.AddChild(_cultureColumn);
-			AddChild(split);
+	/// <summary>選んでいる研究のId（無ければ着手できるものから選び直す）。</summary>
+	private string? _selectedResearchId;
+
+	/// <summary>札の位置（研究Id→矩形）。線を引くのに使う。</summary>
+	private readonly System.Collections.Generic.Dictionary<string, Rect2> _nodeRects = new();
+
+	// ---- ツリーの寸法 ----
+	private const float TreeLabelWidth = 64f;
+	private const float TreeColumnWidth = 168f;
+	private const float TreeNodeWidth = 148f;
+	private const float TreeNodeHeight = 34f;
+	private const float TreeRowHeight = 44f;
+	private const float TreeHeaderHeight = 26f;
+	private const int TreeColumns = 5;
+
+	/// <summary>
+	/// 上：題・所持金と素材・研究のツリーと詳細（§0.77）。下：左に霊薬のカード、右に培養槽の欄。
+	/// 研究は素材のフィールドを列、系統を行にしたツリーで見せる。
+	/// </summary>
+	private void BuildLayout()
+	{
+		var top = GetNode<VBoxContainer>("VBox");
+		RemoveChild(top);
+		top.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+
+		var outer = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+		outer.AddThemeConstantOverride("separation", 12);
+		outer.AddChild(top);
+
+		// ツリーと詳細を横に並べる。画面が狭ければ詳細は下へ回る
+		var treeRow = new HFlowContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+		treeRow.AddThemeConstantOverride("h_separation", 16);
+		treeRow.AddThemeConstantOverride("v_separation", 12);
+		_treeCanvas = new Control();
+		_treeCanvas.Draw += DrawTreeLines;
+		treeRow.AddChild(_treeCanvas);
+		var detailCard = NewCard(new Color("#fbbf24"));
+		detailCard.CustomMinimumSize = new Vector2(360, 0);
+		detailCard.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		_detailBox = new VBoxContainer();
+		_detailBox.AddThemeConstantOverride("separation", 6);
+		detailCard.AddChild(_detailBox);
+		treeRow.AddChild(detailCard);
+		top.AddChild(treeRow);
+		top.MoveChild(treeRow, _researchCards.GetIndex());
+
+		// 下：霊薬（左）と培養槽（右）
+		top.RemoveChild(_researchCards);
+		var split = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+		split.AddThemeConstantOverride("separation", 16);
+		_researchCards.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		_researchCards.SizeFlagsVertical = SizeFlags.ShrinkBegin;
+		split.AddChild(_researchCards);
+		_cultureColumn = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ShrinkBegin, SizeFlagsStretchRatio = 1f };
+		_cultureColumn.AddThemeConstantOverride("separation", 8);
+		split.AddChild(_cultureColumn);
+		outer.AddChild(split);
+		AddChild(outer);
 	}
 
 	/// <summary>秘薬の処方に使う System を受け取る（MainDashboard._Ready から1回呼ぶ）。</summary>
@@ -109,7 +158,7 @@ public partial class ResearchPanel : ScrollContainer
 		_resourcesLabel.AppendText($"[b]素材在庫[/b]：{parts}");
 	}
 
-	/// <summary>研究プロジェクト一覧カードを組み立て直す（→ ResearchBalance.GetAll）。</summary>
+	/// <summary>研究のツリーと詳細・霊薬・培養槽を組み立て直す（§0.77）。</summary>
 	private void RefreshResearchCards()
 	{
 		foreach (var child in _researchCards.GetChildren())
@@ -136,14 +185,228 @@ public partial class ResearchPanel : ScrollContainer
 		}
 		if (ElixirSystem.IsUnlocked(_state))
 			_researchCards.AddChild(BuildElixirCard());
+		else
+		{
+			var locked = NewCard(new Color("#6b7280"));
+			locked.AddChild(MakeRichLabel("[font_size=18][b]⚗ 霊薬の調合[/b][/font_size]\n[color=gray]研究「霊薬の調合法」を済ませると、ここで霊薬を調合して飲ませられる。[/color]"));
+			_researchCards.AddChild(locked);
+		}
 
-		// 着手できるもの → まだ足りないもの → 済んだもの（1行）の順に並べる
-		var researches = ResearchBalance.GetAll()
-			.Select((r, i) => (r, i))
-			.OrderBy(x => _state.IsResearchCompleted(x.r.Id) ? 2 : ResearchSystem.CanStartResearch(_state, x.r) ? 0 : 1)
-			.ThenBy(x => x.i);
-		foreach (var (research, _) in researches)
-			_researchCards.AddChild(BuildResearchCard(research));
+		RefreshTree();
+		RefreshDetail();
+	}
+
+	// ==================== 研究のツリー（§0.77） ====================
+
+	/// <summary>系統ごとの段の数（その系統の研究の Lane の最大＋1）を、系統の並び順で。</summary>
+	private static System.Collections.Generic.List<(ResearchBranch Branch, int Lanes)> BranchRows() =>
+		Enum.GetValues<ResearchBranch>()
+			.Select(b => (b, ResearchBalance.GetAll().Where(r => r.Branch == b).Select(r => r.Lane + 1).DefaultIfEmpty(0).Max()))
+			.Where(x => x.Item2 > 0)
+			.ToList();
+
+	/// <summary>札を置き直す。列＝素材のフィールド（森〜深淵）、行＝系統と段。</summary>
+	private void RefreshTree()
+	{
+		foreach (var child in _treeCanvas.GetChildren())
+		{
+			_treeCanvas.RemoveChild(child);
+			child.QueueFree();
+		}
+		_nodeRects.Clear();
+
+		var all = ResearchBalance.GetAll();
+		if (_selectedResearchId == null || all.All(r => r.Id != _selectedResearchId))
+			_selectedResearchId = (all.FirstOrDefault(r => ResearchSystem.CanStartResearch(_state, r))
+				?? all.FirstOrDefault(r => !_state.IsResearchCompleted(r.Id) && ResearchSystem.IsRevealed(_state, r))
+				?? all[0]).Id;
+
+		// 列の見出し（フィールド名。まだ入っていないフィールドは「？」）
+		for (int col = 1; col <= TreeColumns; col++)
+		{
+			var field = _state.DungeonFields.FirstOrDefault(f => f.Order == col);
+			string name = field == null ? $"第{col}" : field.IsUnlocked ? field.Name : "？";
+			_treeCanvas.AddChild(new Label
+			{
+				Text = name,
+				Position = new Vector2(TreeLabelWidth + (col - 1) * TreeColumnWidth, 0),
+				Size = new Vector2(TreeNodeWidth, TreeHeaderHeight),
+				HorizontalAlignment = HorizontalAlignment.Center,
+				Modulate = new Color(0.75f, 0.8f, 0.9f),
+				ClipText = true,
+			});
+		}
+
+		int rowOffset = 0;
+		foreach (var (branch, lanes) in BranchRows())
+		{
+			float branchY = TreeHeaderHeight + rowOffset * TreeRowHeight;
+			_treeCanvas.AddChild(new Label
+			{
+				Text = BranchLabel(branch),
+				Position = new Vector2(0, branchY),
+				Size = new Vector2(TreeLabelWidth - 6, TreeNodeHeight),
+				VerticalAlignment = VerticalAlignment.Center,
+			});
+			foreach (var research in all.Where(r => r.Branch == branch))
+			{
+				int col = Math.Clamp(ResearchSystem.GetFieldOrder(_state, research), 1, TreeColumns);
+				var rect = new Rect2(TreeLabelWidth + (col - 1) * TreeColumnWidth, branchY + research.Lane * TreeRowHeight, TreeNodeWidth, TreeNodeHeight);
+				_nodeRects[research.Id] = rect;
+				_treeCanvas.AddChild(BuildTreeNode(research, rect));
+			}
+			rowOffset += lanes;
+		}
+
+		_treeCanvas.CustomMinimumSize = new Vector2(TreeLabelWidth + TreeColumns * TreeColumnWidth, TreeHeaderHeight + rowOffset * TreeRowHeight);
+		_treeCanvas.QueueRedraw();
+	}
+
+	/// <summary>
+	/// 研究の札：済み＝緑、着手できる＝黄、前提は済んだが素材・費用が足りない＝灰の枠、前提がまだ＝薄く、
+	/// まだ入っていないフィールドの研究＝「？」。選んでいる札は枠を太くする。押すと詳細に出す。
+	/// </summary>
+	private Button BuildTreeNode(ResearchDefinition research, Rect2 rect)
+	{
+		bool revealed = ResearchSystem.IsRevealed(_state, research);
+		var (fill, border) = NodeColors(research);
+		bool selected = research.Id == _selectedResearchId;
+
+		var button = new Button
+		{
+			Text = revealed ? research.Name : "？",
+			TooltipText = revealed ? $"{research.Name}\n{research.Description}" : "まだ入っていないフィールドの素材が要る研究",
+			Position = rect.Position,
+			Size = rect.Size,
+			ClipText = true,
+			FocusMode = FocusModeEnum.None,
+		};
+		button.AddThemeFontSizeOverride("font_size", 14);
+		foreach (var (name, lighten) in new[] { ("normal", 0f), ("hover", 0.12f), ("pressed", 0.2f), ("disabled", 0f) })
+		{
+			var style = new StyleBoxFlat { BgColor = fill.Lightened(lighten), BorderColor = selected ? new Color("#fde68a") : border };
+			style.SetBorderWidthAll(selected ? 3 : 1);
+			style.SetCornerRadiusAll(4);
+			style.ContentMarginLeft = 6;
+			style.ContentMarginRight = 6;
+			button.AddThemeStyleboxOverride(name, style);
+		}
+		if (!revealed || !ResearchSystem.IsPrerequisiteMet(_state, research))
+			button.Modulate = new Color(1, 1, 1, 0.6f);
+		button.Pressed += () =>
+		{
+			_selectedResearchId = research.Id;
+			RefreshDeferred();
+		};
+		return button;
+	}
+
+	/// <summary>札の塗りと枠の色（状態ごと）。</summary>
+	private (Color Fill, Color Border) NodeColors(ResearchDefinition research)
+	{
+		if (_state.IsResearchCompleted(research.Id))
+			return (new Color("#1f4d2e"), new Color("#4ade80"));
+		if (ResearchSystem.CanStartResearch(_state, research))
+			return (new Color("#4d3b12"), new Color("#fbbf24"));
+		return (new Color("#262a33"), new Color("#6b7280"));
+	}
+
+	/// <summary>前提の線：親の札の右から子の札の左へ（同じ列なら親の下から子の上へ）。済んだ前提からの線は緑。</summary>
+	private void DrawTreeLines()
+	{
+		if (_state == null) return;
+		foreach (var research in ResearchBalance.GetAll())
+		{
+			if (research.PrerequisiteId == null
+				|| !_nodeRects.TryGetValue(research.Id, out var child)
+				|| !_nodeRects.TryGetValue(research.PrerequisiteId, out var parent))
+				continue;
+
+			var color = _state.IsResearchCompleted(research.PrerequisiteId) ? new Color("#4ade80") : new Color("#8a8f99");
+			Vector2 end;
+			Vector2[] points;
+			if (child.Position.X > parent.End.X)
+			{
+				var start = new Vector2(parent.End.X, parent.GetCenter().Y);
+				end = new Vector2(child.Position.X, child.GetCenter().Y);
+				float midX = child.Position.X - 10;
+				points = start.Y == end.Y
+					? new[] { start, end }
+					: new[] { start, new Vector2(midX, start.Y), new Vector2(midX, end.Y), end };
+				_treeCanvas.DrawPolyline(points, color, 2f);
+				_treeCanvas.DrawColoredPolygon(new[] { end, end + new Vector2(-8, -5), end + new Vector2(-8, 5) }, color);
+			}
+			else
+			{
+				var start = new Vector2(parent.GetCenter().X, parent.End.Y);
+				end = new Vector2(parent.GetCenter().X, child.Position.Y);
+				_treeCanvas.DrawLine(start, end, color, 2f);
+				_treeCanvas.DrawColoredPolygon(new[] { end, end + new Vector2(-5, -8), end + new Vector2(5, -8) }, color);
+			}
+		}
+	}
+
+	private static string BranchLabel(ResearchBranch branch) => branch switch
+	{
+		ResearchBranch.Recovery => "療養",
+		ResearchBranch.Dungeon => "迷宮",
+		ResearchBranch.Gathering => "採取",
+		ResearchBranch.Growth => "育成",
+		ResearchBranch.Talent => "人材",
+		ResearchBranch.Trade => "商い",
+		ResearchBranch.SoulFusion => "秘薬",
+		_ => branch.ToString(),
+	};
+
+	/// <summary>選んだ研究の詳細：名前・系統・説明・前提・必要資材・研究ボタン。まだ入っていないフィールドの研究は「？」。</summary>
+	private void RefreshDetail()
+	{
+		foreach (var child in _detailBox.GetChildren())
+		{
+			_detailBox.RemoveChild(child);
+			child.QueueFree();
+		}
+		var research = _selectedResearchId == null ? null : ResearchBalance.Find(_selectedResearchId);
+		if (research == null)
+			return;
+
+		bool completed = _state.IsResearchCompleted(research.Id);
+		if (!ResearchSystem.IsRevealed(_state, research))
+		{
+			var lockedFields = research.RequiredMaterials.Keys
+				.Select(id => MaterialBalance.Find(id)?.FieldId)
+				.Select(fid => _state.DungeonFields.FirstOrDefault(f => f.Id == fid))
+				.Where(f => f != null && !f.IsUnlocked)
+				.Select(f => f!.Order)
+				.Distinct()
+				.OrderBy(o => o);
+			_detailBox.AddChild(MakeRichLabel($"[font_size=18][b]？？？[/b][/font_size]　[color=gray]{BranchLabel(research.Branch)}[/color]"));
+			_detailBox.AddChild(MakeRichLabel($"[color=gray]まだ入っていないフィールド（第{string.Join("・第", lockedFields)}フィールド）の素材が要る研究。そのフィールドに入ると、名前と効果が分かる。[/color]"));
+			return;
+		}
+
+		_detailBox.AddChild(MakeRichLabel($"[font_size=18][b]{research.Name}[/b][/font_size]　[color=gray]{BranchLabel(research.Branch)}[/color]" +
+			(completed ? "　[bgcolor=#2a5a2a][color=lime] ✔ 研究完了 [/color][/bgcolor]" : "")));
+		_detailBox.AddChild(MakeRichLabel($"[color=gray]{research.Description}[/color]"));
+
+		if (research.PrerequisiteId != null)
+		{
+			string prereqName = ResearchBalance.Find(research.PrerequisiteId)?.Name ?? research.PrerequisiteId;
+			_detailBox.AddChild(MakeRichLabel(ResearchSystem.IsPrerequisiteMet(_state, research)
+				? $"前提：{prereqName} ✔"
+				: $"[color=red]前提：「{prereqName}」を先に済ませる[/color]"));
+		}
+		var next = ResearchBalance.GetAll().Where(r => r.PrerequisiteId == research.Id).ToList();
+		if (next.Count > 0)
+			_detailBox.AddChild(MakeRichLabel($"[color=gray]この先：{string.Join("、", next.Select(r => ResearchSystem.IsRevealed(_state, r) ? r.Name : "？"))}[/color]"));
+
+		if (completed)
+			return;
+
+		_detailBox.AddChild(MakeRichLabel($"必要資材：{BuildCostLine(research)}"));
+		var button = new Button { Text = "研究する", Disabled = !ResearchSystem.CanStartResearch(_state, research) };
+		button.Pressed += () => OnResearchButtonPressed(research);
+		_detailBox.AddChild(button);
 	}
 
 	// ==================== 培養槽（魂魄融和の秘薬） ====================
@@ -423,58 +686,6 @@ public partial class ResearchPanel : ScrollContainer
 		control.SizeFlagsHorizontal = SizeFlags.ExpandFill;
 		row.AddChild(control);
 		return row;
-	}
-
-	/// <summary>
-	/// 研究1件分のカード：研究名・説明・必要素材と費用の充足状況（現在/必要）・実行ボタンを
-	/// 1つのPanelContainerにまとめる。完了済みは「研究完了」バッジを出し、ボタンを無効化する。
-	/// </summary>
-	private Control BuildResearchCard(ResearchDefinition research)
-	{
-		bool completed = _state.IsResearchCompleted(research.Id);
-		bool canStart = !completed && ResearchSystem.CanStartResearch(_state, research);
-
-		var card = NewCard(completed ? new Color("#4ade80") : canStart ? new Color("#fbbf24") : new Color("#6b7280"));
-		var vbox = new VBoxContainer();
-		card.AddChild(vbox);
-
-		// 済んだ研究は1行にたたむ（名前と効果だけ）。数が増えても一覧が長くならないように
-		if (completed)
-		{
-			vbox.AddChild(MakeRichLabel($"[b]{research.Name}[/b]　[bgcolor=#2a5a2a][color=lime] ✔ 研究完了 [/color][/bgcolor]　[color=gray]{research.Description}[/color]"));
-			return card;
-		}
-		if (!ResearchSystem.IsPrerequisiteMet(_state, research))
-			card.Modulate = new Color(1, 1, 1, 0.65f);
-
-		var titleLabel = new RichTextLabel { BbcodeEnabled = true, FitContent = true, SizeFlagsHorizontal = SizeFlags.ExpandFill };
-		titleLabel.AppendText($"[font_size=18][b]{research.Name}[/b][/font_size]" +
-			(completed ? "　[bgcolor=#2a5a2a][color=lime] ✔ 研究完了 [/color][/bgcolor]" : ""));
-		vbox.AddChild(titleLabel);
-
-		var descLabel = new RichTextLabel { BbcodeEnabled = true, FitContent = true, SizeFlagsHorizontal = SizeFlags.ExpandFill };
-		descLabel.AppendText($"[color=gray]{research.Description}[/color]");
-		vbox.AddChild(descLabel);
-
-		// 段階研究の前提（§0.60）。済んでいなければ赤字。
-		if (!completed && research.PrerequisiteId != null)
-		{
-			string prereqName = ResearchBalance.Find(research.PrerequisiteId)?.Name ?? research.PrerequisiteId;
-			vbox.AddChild(MakeRichLabel(ResearchSystem.IsPrerequisiteMet(_state, research)
-				? $"前提：{prereqName} ✔"
-				: $"[color=red]前提：「{prereqName}」を先に済ませる[/color]"));
-		}
-
-		var costLabel = new RichTextLabel { BbcodeEnabled = true, FitContent = true, SizeFlagsHorizontal = SizeFlags.ExpandFill };
-		costLabel.AppendText($"必要資材：{BuildCostLine(research)}");
-		vbox.AddChild(costLabel);
-
-		var button = new Button { Text = completed ? "研究完了" : "研究実行", Disabled = completed || !canStart };
-		if (!completed)
-			button.Pressed += () => OnResearchButtonPressed(research);
-		vbox.AddChild(button);
-
-		return card;
 	}
 
 	/// <summary>「月光草: 3/5」のような充足状況の文字列。不足している項目は赤字にする。</summary>

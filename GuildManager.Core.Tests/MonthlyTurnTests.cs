@@ -115,7 +115,7 @@ namespace GuildManager.Core.Tests
         public void MonthlyReport_NotesOpenTrainingSlots_AtTheStartOfAMonth()
         {
             var (state, _) = Setup();
-            state.Facilities.Single(f => f.Type == FacilityType.Church).CurrentLevel = 1;
+            state.Facilities.Single(f => f.Type == FacilityType.Academy).CurrentLevel = 1;
             state.Adventurers.Add(Make("ノエル", 40)); // 出撃していない冒険者
 
             var weeks = Service(Expedition()).AdvanceMonth(state); // 月の終わりまで → 次は月のはじめ
@@ -157,16 +157,16 @@ namespace GuildManager.Core.Tests
         public void Training_CanBeChangedOnlyAtTheStartOfAMonth()
         {
             var (state, _) = Setup();
-            state.Facilities.Single(f => f.Type == FacilityType.WarriorHall).CurrentLevel = 1;
+            state.Facilities.Single(f => f.Type == FacilityType.DrillHall).CurrentLevel = 1;
             var a = state.Adventurers[0];
             var training = new TrainingSystem();
 
             Assert.False(TrainingSystem.CanChangeAssignments(state)); // 月の第2週
-            Assert.False(training.TryAssignForMonth(state, a.Id, FacilityType.WarriorHall));
+            Assert.False(training.TryAssignForMonth(state, a.Id, FacilityType.DrillHall));
 
             state.WeekNumber = GameCalendar.WeeksPerYear + 13 + 4; // 次の月の第1週
             Assert.True(TrainingSystem.CanChangeAssignments(state));
-            Assert.True(training.TryAssignForMonth(state, a.Id, FacilityType.WarriorHall));
+            Assert.True(training.TryAssignForMonth(state, a.Id, FacilityType.DrillHall));
 
             state.WeekNumber++; // 月の途中：外せない
             Assert.False(training.TryUnassignForMonth(state, a.Id));
@@ -179,7 +179,7 @@ namespace GuildManager.Core.Tests
             var (state, saved) = Setup();
             var a = state.Adventurers[0];
             var b = state.Adventurers[1];
-            state.TrainingAssignments[a.Id] = FacilityType.WarriorHall;
+            state.TrainingAssignments[a.Id] = FacilityType.DrillHall;
 
             var party = PartyFormationSystem.BuildDispatchParty(state, saved.MemberIds);
             Assert.DoesNotContain(a, party.Members);
@@ -187,7 +187,7 @@ namespace GuildManager.Core.Tests
             a.CurrentHP = 1; // 訓練中の隊員のHPは、部隊の待機の判定に入れない
             Assert.Null(SquadOrderSystem.GetWaitReason(state, saved));
 
-            state.TrainingAssignments[b.Id] = FacilityType.WarriorHall;
+            state.TrainingAssignments[b.Id] = FacilityType.DrillHall;
             Assert.Contains("全員が訓練中", SquadOrderSystem.GetWaitReason(state, saved));
         }
     }

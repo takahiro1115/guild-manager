@@ -38,7 +38,7 @@
 | `affixes.csv` | 03 §4.7.3・§4.2.2 | AffixBalance（鑑定品のランダムアフィックス＝接頭辞・接尾辞の一覧。**テーブル形式** `Id,Type,Name,TargetStat,MinValue,MaxValue,Tier,AllowedSlots,Weight`、2026年9月・§0.39） |
 | `portraits.csv` | 03 §2.1 | PortraitBalance（採用の応募者に割り当てる顔グラフィックの一覧。**テーブル形式** `Id,Jobs,HairColor,EyeColor`。Id＝`assets/portraits/{Id}.png`、Jobs＝似合う職業の `\|` 区切りまたは `All`。2026年9月・§0.46） |
 | `uniques.csv` | 03 §4.7.5 | UniqueBalance（固有武具＝固定アーティファクト〈紫〉・伝説級〈金〉・依頼人の固有武具〈§0.64〉の一覧。**テーブル形式** `Id,Grade,Name,BaseItemId,HpBonus,BonusStr〜BonusLdr,CounterGimmick,DropFieldId,DropFloor,SellPrice,PatronId`。伝説級は入手元のボス〈フィールドId・階層〉と対策ギミック、売値0＝売却不可。2026年9月・§0.45。§0.64で Grade `Patron` と列 `PatronId`〈commission_clients.csv の Id。Patron 以外は空〉を追加。依頼人の固有武具は売値0＝売却不可） |
-| `research.csv` | 03 §4.6 | ResearchBalance（アルベール研究室の24プロジェクト（うち内職強化 SideBusinessGoldBonus 4種、魂魄融和の秘薬の解禁 `res_soul_fusion`＝SoulFusionUnlock・効果値0、§0.58、段階研究11種＝RecruitPaBonus・GrowthRateBonus・SoulFusionPaBonus・CultureTankBonus、§0.60）・必要素材・ゴールド・効果種別・効果値・**前提 `Prerequisite`**（§0.60で列を追加。空＝前提なし、段階研究のII・IIIは前の段のId）） |
+| `research.csv` | 03 §4.6 | ResearchBalance（アルベール研究室の24プロジェクト（うち内職強化 SideBusinessGoldBonus 4種、魂魄融和の秘薬の解禁 `res_soul_fusion`＝SoulFusionUnlock・効果値0、§0.58、段階研究11種＝RecruitPaBonus・GrowthRateBonus・SoulFusionPaBonus・CultureTankBonus、§0.60）・必要素材・ゴールド・効果種別・効果値・**前提 `Prerequisite`**（§0.60で列を追加。空＝前提なし、段階研究のII・IIIは前の段のId）・**系統 `Branch`・段 `Lane`**（§0.77で列を追加。研究室のツリーの行。列は必要な素材のフィールドから決まる）） |
 | `squad_orders.csv` | 03 §4.0.3 | SquadOrderBalance（部隊の方針と自動出撃、2026年10月・§0.63）：自動出撃の条件 `AutoDispatchMinHpPercent`（70）・扉前の構え（慎重・標準・強気、§0.68）ごとの火力の倍率・HP・備えの条件 |
 | `commissions.csv` | 03 §4.9・§4.10 | CommissionBalance（依頼と迷宮の異変、2026年10月・§0.64）：依頼の届き方（`FirstOfferWeek`＝13・`OffersPerSeason`＝3・`MaxAccepted`＝2・期限 `DeadlineWeeks_*`＝撃破24／他12・期限の知らせ `DeadlineWarningWeeks`＝2）、条件（納品の個数 `DeliverCountBase`・`DeliverFloorsPerExtra`、献上の基準 `TributeRank`＝3番目・`TributeMinThreshold`＝20）、報酬（`RewardMultiplier_*`＝撃破0.2・完全解析0.15・納品0.15・献上0.3、`CompletionMoodGain`＝10、`FailureMoodLoss`＝10、遺物 `RewardRelicRollBonus`＝25・`RewardRelicMinRarity`＝Epic、依頼人の固有武具 `PatronUniqueCompletions`＝5件）、異変（`AnomalyAnnounceWeekOfSeason`＝4・`AnomalyDurationWeeks`＝4・倍率 `Anomaly_*`） |
 | `commission_clients.csv` | 03 §4.9 | CommissionBalance.Clients（依頼人5人。**テーブル形式** `Id,Name,Types,BonusMaterialId,BonusMaterialCount,AlbertLine`。Types は `Defeat\|Survey\|Deliver\|Tribute` の `\|` 区切り、BonusMaterial はおまけの素材〈空＝なし〉、AlbertLine は掲示中の依頼に添えるアルベールの一言） |
@@ -259,6 +259,57 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 | `dungeon.csv` | `FieldRequirementMultiplier_3`（忘却の古代廃墟） | 1.0→1.2 | 40F＝52 |
 | `dungeon.csv` | `FieldRequirementMultiplier_4`（焦熱の峡谷） | 1.0→1.3 | 40F＝56 |
 | `dungeon.csv` | `FieldRequirementMultiplier_5`（深淵の特異点） | 1.0→1.5 | 50F＝76 |
+
+## 研究のツリーで追加／変更された列と前提（2026年10月、→ 03 §0.77）
+
+`research.csv` に列 `Branch`（系統：Recovery・Dungeon・Gathering・Growth・Talent・Trade・SoulFusion）と `Lane`（系統の中の段、0〜）を足した。
+研究室のツリーの行になる（列は必要な素材のフィールドで決まるので CSV には持たない）。効果・費用・素材は変えていない。
+前提（`Prerequisite`）を次のように足した。`dotnet run --project tools/balance_sim -c Release -- campaign 10 1440` は §0.76 と同じ12年目〔12〜16〕（`from=10` は14年目〔12〜16〕）。
+
+| 研究 | 前提（新設） |
+|---|---|
+| `res_cave_ointment`（硬化軟膏の調合） | `res_herb_poultice`（薬草湿布の調合） |
+| `res_abyss_preservation`（魂魄安定の霊香） | `res_cave_ointment` |
+| `res_ruins_tactics`（古代戦術録の解読） | `res_scout_reagent`（生体蛍光試薬） |
+| `res_canyon_tread`（耐熱踏破法） | `res_light_tread`（軽量踏破靴） |
+| `res_energy_tonic`（滋養強壮アンプル） | `res_beauty_lotion`（潤い美肌液の調合） |
+| `res_trade_route`（古代香料の王都外販） | `res_energy_tonic` |
+| `res_vitality_elixir`（不老長生薬の密売） | `res_trade_route` |
+| `res_elixir_brewing`（霊薬の調合法） | `res_training_method_1`（古代戦技の写本） |
+
+## 施設の専門で追加されたキー（2026年10月、→ 03 §0.76・§6.2）
+
+宿舎以外の施設は、Lv3→4の改築で専門を2つから1つ選ぶ。Lv4・5の上乗せは選んだ専門の分だけ（すべて仮の値。すべて `facility.csv`）。
+訓練施設の精鋭は既存の `TrainingGrowthMultiplier_Lv4`・`Lv5`（1.45・1.6）を使う。
+`dotnet run --project tools/balance_sim -c Release -- campaign 10 1440` で10回ともクリア、精鋭は12年目前後（12〜16年目）、オプション `rivalry`（切磋琢磨）は14年目前後（11〜16年目）。
+
+| キー | 値 | 意味 |
+|---|---|---|
+| `SpecialtyFromLevel` | 3 | このLvから次のLvへの改築で専門を選ぶ |
+| `RemodelCostPerLevel` | 1000 | 改装（専門の選び直し）の費用＝今のLv×この額 |
+| `RemodelWeeks` | 2 | 改装の工期（週） |
+| `RivalrySlotCapacity` | 2 | 切磋琢磨の訓練枠 |
+| `RivalryGrowthRate_Lv4` ／ `_Lv5` | 0.7 ／ 0.9 | 切磋琢磨の成長の確率＝Lv3の倍率×この値（×0.91 ／ ×1.17） |
+| `SanatoriumHpMultiplierPerLevel` | 0.35 | 療養院：Lv4以上の1Lvごとに足すHP自然回復の倍率 |
+| `SanatoriumInjurySpeedPerLevel` | 1 | 療養院：Lv4以上の1Lvごとに足す重傷の回復（週/週） |
+| `FieldAidSurvivalPerLevel` | 2 | 戦地救護：Lv4以上の1Lvごとに足すボス戦の致命の損耗の閾値 |
+| `AppraisalEyePerLevel` | 0.1 | 目利き：Lv4以上の1Lvごとに足す目利き |
+| `RecruitingCandidatesPerLevel` | 1 | 募集：Lv4以上の1Lvごとに足す応募者数 |
+| `LeisureSatisfactionPerLevel` | 2 | 憩い：Lv4以上の1Lvごとに足す満足度の回復（pt/週） |
+| `TradeSideJobGoldPerLevel` | 100 | 商い：Lv4以上の1Lvごとに足す内職の基本売上（G/月） |
+| `AnalysisIntelRatePerLevel` | 0.1 | 解析：Lv4以上の1Lvごとに足す解析率の上昇倍率 |
+| `PathfindingTraversalPerLevel` | 10 | 踏破：Lv4以上の1Lvごとに足す走破力 |
+
+## 訓練施設を3つに組み直す改訂で追加／変更されたキー（2026年10月、→ 03 §0.75）
+
+訓練施設を鍛錬所（STR・VIT）・学問所（MND・INT）・技巧所（AGI・DEX）の3つにした。枠はLvにかかわらず1名で、Lvは成長の確率に効く（すべて仮の値）。
+`dotnet run --project tools/balance_sim -c Release -- campaign 10 1440` で10回ともクリア、12年目前後（12〜16年目。`from=10` の10回は14年目前後〈12〜16〉）。
+
+| ファイル | キー | 値 | 意味 |
+|---|---|---|---|
+| `facility.csv` | `TrainingSlotPerLevel` → `TrainingSlotCapacity` | 1 | 訓練施設の枠（Lv1以上ならLvにかかわらずこの値。旧はLv×1） |
+| `facility.csv` | `TrainingGrowthMultiplier_Lv1`〜`Lv5`（新設） | 1.0／1.15／1.3／1.45／1.6 | 施設Lvごとの成長の確率の倍率（`aging.csv TrainingFacilityMultiplier` に掛ける）。Lv4・5は⑤の2段目で専門〈精鋭／切磋琢磨〉に分ける予定 |
+| `facility.csv` | `TrainingSpecialtyGrowthMultiplier`（新設） | 1.1 | 片方の能力に特化したときの成長の確率の倍率（成長は選んだ能力にだけ入る） |
 
 ## PAを隠して副官の見立てにする改訂で追加されたキー（2026年10月、→ 03 §0.74）
 

@@ -7,5 +7,8 @@ namespace GuildManager.Core.Models
 
         /// <summary>現在のLv（1〜5）。着工しただけでは上がらず、工事完了時にのみ+1される（→ §6.1）。</summary>
         public int CurrentLevel { get; set; } = 1;
+
+        /// <summary>専門（§0.76、→ FacilitySpecialty）。Lv3→4の着工で決まる。Lv3以下・宿舎は None。</summary>
+        public FacilitySpecialty Specialty { get; set; } = FacilitySpecialty.None;
     }
 }

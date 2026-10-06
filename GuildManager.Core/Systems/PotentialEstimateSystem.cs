@@ -36,6 +36,7 @@ namespace GuildManager.Core.Systems
             var scholars = state.Adventurers.Where(a => !a.IsRetired && a.JobClass == JobClass.Scholar).ToList();
             if (scholars.Count > 0)
                 eye += scholars.Max(s => s.INT) * PotentialEstimateBalance.ScholarEyeCoeff;
+            eye += FacilityBalance.GetAppraisalEyeBonus(state.GetFacilityLevel(FacilityType.RecruitmentOffice), state.GetFacilitySpecialty(FacilityType.RecruitmentOffice)); // 冒険者支援室の目利き（§0.76）
             return Math.Clamp(eye, 0, PotentialEstimateBalance.MaxEye);
         }
 

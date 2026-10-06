@@ -29,14 +29,14 @@ namespace GuildManager.Core.Tests
             public int NextInt(int min, int max) => Math.Clamp(_value, min, max);
         }
 
-        private const FacilityType Hall = FacilityType.WarriorHall;
+        private const FacilityType Hall = FacilityType.DrillHall;
 
         /// <summary>戦士訓練所（Lv1）に教官（trainerTraits を持つ）と生徒1名を配置した状態。</summary>
         private static (GameState State, Adventurer Trainer, Adventurer Student) Setup(params string[] trainerTraits)
         {
             var state = new GameState();
             foreach (var f in state.Facilities)
-                if (f.Type == Hall || f.Type == FacilityType.Church) f.CurrentLevel = 1;
+                if (f.Type == Hall || f.Type == FacilityType.Academy) f.CurrentLevel = 1;
 
             var trainer = new Adventurer { Name = "クラウディア", IsRetired = true, Age = 26 };
             foreach (var id in trainerTraits) Assert.True(trainer.TryAddTrait(id));
@@ -106,8 +106,8 @@ namespace GuildManager.Core.Tests
             system.ProcessWeeklyTrainerTenure(state);
 
             Assert.Equal(2, TrainingSystem.GetTrainerTenureWeeks(state, Hall));
-            Assert.Equal(0, TrainingSystem.GetTrainerTenureWeeks(state, FacilityType.Church));
-            Assert.False(state.TrainerTenureWeeks.ContainsKey(FacilityType.Church));
+            Assert.Equal(0, TrainingSystem.GetTrainerTenureWeeks(state, FacilityType.Academy));
+            Assert.False(state.TrainerTenureWeeks.ContainsKey(FacilityType.Academy));
         }
 
         [Fact]
@@ -210,11 +210,11 @@ namespace GuildManager.Core.Tests
             state.TrainerTenureWeeks[Hall] = 30;
             Assert.True(TrainingSystem.SetTrainerFocusTrait(state, Hall, TraitCatalog.BraveId));
 
-            Assert.True(new AdvisorSystem().TryAssignTrainer(state, FacilityType.Church, trainer.Id));
+            Assert.True(new AdvisorSystem().TryAssignTrainer(state, FacilityType.Academy, trainer.Id));
 
             Assert.Empty(state.TrainerTenureWeeks);
             Assert.Empty(state.TrainerFocusTraits);
-            Assert.Equal(0, TrainingSystem.GetTrainerTenureWeeks(state, FacilityType.Church));
+            Assert.Equal(0, TrainingSystem.GetTrainerTenureWeeks(state, FacilityType.Academy));
         }
 
         // ==================== 重点伝授特性 ====================
@@ -328,13 +328,13 @@ namespace GuildManager.Core.Tests
         {
             var (state, _, _) = Setup(TraitCatalog.BraveId);
             var data = state.ToSaveData();
-            data.TrainerTenureWeeks[FacilityType.Church.ToString()] = 9;
-            data.TrainerFocusTraits[FacilityType.Church.ToString()] = TraitCatalog.BraveId;
+            data.TrainerTenureWeeks[FacilityType.Academy.ToString()] = 9;
+            data.TrainerFocusTraits[FacilityType.Academy.ToString()] = TraitCatalog.BraveId;
 
             var restored = GameState.FromSaveData(data);
 
-            Assert.False(restored.TrainerTenureWeeks.ContainsKey(FacilityType.Church));
-            Assert.False(restored.TrainerFocusTraits.ContainsKey(FacilityType.Church));
+            Assert.False(restored.TrainerTenureWeeks.ContainsKey(FacilityType.Academy));
+            Assert.False(restored.TrainerFocusTraits.ContainsKey(FacilityType.Academy));
         }
     }
 }

@@ -72,7 +72,7 @@ namespace GuildManager.Core.Models
         public Dictionary<Guid, FacilityType> TrainingAssignments { get; set; } = new();
 
         /// <summary>
-        /// 各訓練施設（戦士訓練所/教会/魔法研究所/斥候所）に配置されている教官
+        /// 各訓練施設（鍛錬所/学問所/技巧所）に配置されている教官
         /// （引退済み冒険者。仕様書 03 §7.1）。施設ごとに1名まで。未配置の施設はキー自体が
         /// 存在しないか値がnull。
         /// </summary>
@@ -90,6 +90,12 @@ namespace GuildManager.Core.Models
         /// キーが無ければ自動（教官の特性枠の並び順）。教官が替わると解除される（→ AdvisorSystem）。
         /// </summary>
         public Dictionary<FacilityType, string> TrainerFocusTraits { get; set; } = new();
+
+        /// <summary>
+        /// 訓練施設ごとに特化して伸ばす能力（"STR" など。§0.75、→ TrainingSystem.SetSpecialtyStat）。
+        /// キーが無ければ「両方」（施設の2つの能力のどちらかへランダムに伸びる）。変えられるのは月のはじめだけ。
+        /// </summary>
+        public Dictionary<FacilityType, string> TrainingSpecialtyStats { get; set; } = new();
 
         /// <summary>作戦資料室に配置されている参謀（引退済み冒険者。仕様書 03 §7.2）。1名まで。null＝未配置。</summary>
         public Guid? AssignedAdvisor { get; set; }
@@ -292,6 +298,18 @@ namespace GuildManager.Core.Models
             ?? RetiredAdventurers.FirstOrDefault(a => a.Id == id)
             ?? FallenAdventurers.FirstOrDefault(a => a.Id == id);
 
+        /// <summary>
+        /// 指定した種類の施設の専門（§0.76）。Lvが FacilityBalance.SpecialtyFromLevel 以下なら None。
+        /// それより上なのに専門が無い（テストで直接Lvを上げた等）ときは FacilityBalance.GetDefaultSpecialty。
+        /// </summary>
+        public FacilitySpecialty GetFacilitySpecialty(FacilityType type)
+        {
+            var facility = Facilities.FirstOrDefault(f => f.Type == type);
+            if (facility == null || facility.CurrentLevel <= FacilityBalance.SpecialtyFromLevel || !FacilityBalance.HasSpecialty(type))
+                return FacilitySpecialty.None;
+            return facility.Specialty != FacilitySpecialty.None ? facility.Specialty : FacilityBalance.GetDefaultSpecialty(type);
+        }
+
         /// <summary>指定した種類の施設の現在Lvを返す。該当データが無い場合は1を返す（防御的フォールバック）。</summary>
         public int GetFacilityLevel(FacilityType type)
         {
@@ -347,13 +365,20 @@ namespace GuildManager.Core.Models
                 data.TrainingAssignments.Add(new TrainingAssignmentRecord { AdventurerId = kv.Key, Facility = kv.Value.ToString() });
 
             foreach (var facility in Facilities)
+            {
                 data.FacilityLevels[facility.Type.ToString()] = facility.CurrentLevel;
+                if (facility.Specialty != FacilitySpecialty.None)
+                    data.FacilitySpecialties[facility.Type.ToString()] = facility.Specialty.ToString(); // §0.76
+            }
 
             if (UnderConstruction != null)
             {
                 data.FacilityUnderConstruction = UnderConstruction.Type.ToString();
                 data.ConstructionTargetLevel = UnderConstruction.TargetLevel;
                 data.ConstructionWeeksRemaining = UnderConstruction.WeeksRemaining;
+                if (UnderConstruction.TargetSpecialty != FacilitySpecialty.None)
+                    data.ConstructionTargetSpecialty = UnderConstruction.TargetSpecialty.ToString();
+                data.ConstructionIsRemodel = UnderConstruction.IsRemodel;
             }
 
             // 教官（訓練施設ごと）・参謀（作戦資料室＝WarRoom）・スカウト（冒険者支援室＝
@@ -365,6 +390,8 @@ namespace GuildManager.Core.Models
                 data.TrainerTenureWeeks[kv.Key.ToString()] = kv.Value;
             foreach (var kv in TrainerFocusTraits)
                 data.TrainerFocusTraits[kv.Key.ToString()] = kv.Value;
+            foreach (var kv in TrainingSpecialtyStats)
+                data.TrainingSpecialtyStats[kv.Key.ToString()] = kv.Value;
             if (AssignedAdvisor.HasValue)
                 data.AdvisorAssignments[FacilityType.WarRoom.ToString()] = AssignedAdvisor;
             if (AssignedScoutMaster.HasValue)
@@ -471,7 +498,14 @@ namespace GuildManager.Core.Models
                 state.TrainingAssignments[record.AdventurerId] = ParseEnum<FacilityType>(record.Facility, nameof(FacilityType));
 
             foreach (var kv in data.FacilityLevels)
-                state.Facilities.Add(new Facility { Type = ParseEnum<FacilityType>(kv.Key, nameof(FacilityType)), CurrentLevel = kv.Value });
+            {
+                var type = ParseEnum<FacilityType>(kv.Key, nameof(FacilityType));
+                // 専門（§0.76）。施設の選択肢に無い記録は捨て、Lv4以上で専門が無ければ既定（GameState.GetFacilitySpecialty）で扱う。
+                var specialty = data.FacilitySpecialties.TryGetValue(kv.Key, out var name) ? ParseEnum<FacilitySpecialty>(name, nameof(FacilitySpecialty)) : FacilitySpecialty.None;
+                if (System.Array.IndexOf(FacilityBalance.GetSpecialtyOptions(type), specialty) < 0)
+                    specialty = FacilitySpecialty.None;
+                state.Facilities.Add(new Facility { Type = type, CurrentLevel = kv.Value, Specialty = specialty });
+            }
 
             if (data.FacilityUnderConstruction != null)
             {
@@ -480,6 +514,8 @@ namespace GuildManager.Core.Models
                     Type = ParseEnum<FacilityType>(data.FacilityUnderConstruction, nameof(FacilityType)),
                     TargetLevel = data.ConstructionTargetLevel,
                     WeeksRemaining = data.ConstructionWeeksRemaining,
+                    TargetSpecialty = data.ConstructionTargetSpecialty != null ? ParseEnum<FacilitySpecialty>(data.ConstructionTargetSpecialty, nameof(FacilitySpecialty)) : FacilitySpecialty.None,
+                    IsRemodel = data.ConstructionIsRemodel,
                 };
             }
 
@@ -508,6 +544,14 @@ namespace GuildManager.Core.Models
                 if (state.AssignedTrainers.TryGetValue(facilityType, out var trainerId) && trainerId != null
                     && !string.IsNullOrEmpty(kv.Value))
                     state.TrainerFocusTraits[facilityType] = kv.Value;
+            }
+
+            // 訓練施設の特化（§0.75）。施設の扱う能力でない記録は捨てて「両方」に戻す。
+            foreach (var kv in data.TrainingSpecialtyStats)
+            {
+                var facilityType = ParseEnum<FacilityType>(kv.Key, nameof(FacilityType));
+                if (FacilityBalance.IsTrainingFacility(facilityType) && FacilityBalance.GetTrainingTargetStats(facilityType).Contains(kv.Value))
+                    state.TrainingSpecialtyStats[facilityType] = kv.Value;
             }
 
             // 大迷宮へ出撃中の部隊の復元：同一のAdventurerインスタンスを使い回すため
@@ -593,8 +637,8 @@ namespace GuildManager.Core.Models
         }
 
         /// <summary>
-        /// 9施設の初期状態（→ 03 §6）。v1.4改訂：宿舎・医務室・ギルド酒場（基幹3施設）は
-        /// 既存どおりLv1スタート、それ以外（訓練4施設・作戦資料室・冒険者支援室）は
+        /// 8施設の初期状態（→ 03 §6。§0.75で訓練施設を3つにして8施設）。v1.4改訂：宿舎・医務室・ギルド酒場（基幹3施設）は
+        /// 既存どおりLv1スタート、それ以外（訓練施設・作戦資料室・冒険者支援室）は
         /// Lv0（未建設）スタートに変更した。Lv0の施設は訓練枠・顧問スロットが0扱いになる
         /// （→ FacilityBalance.GetTrainingSlotCapacity・AdvisorSystemの各Try*Assign*）。
         /// </summary>
@@ -604,10 +648,9 @@ namespace GuildManager.Core.Models
             new Facility { Type = FacilityType.Infirmary, CurrentLevel = 1 },
             new Facility { Type = FacilityType.Tavern, CurrentLevel = 1 },
             new Facility { Type = FacilityType.WarRoom, CurrentLevel = 0 },
-            new Facility { Type = FacilityType.WarriorHall, CurrentLevel = 0 },
-            new Facility { Type = FacilityType.Church, CurrentLevel = 0 },
-            new Facility { Type = FacilityType.MageLab, CurrentLevel = 0 },
-            new Facility { Type = FacilityType.ScoutPost, CurrentLevel = 0 },
+            new Facility { Type = FacilityType.DrillHall, CurrentLevel = 0 },
+            new Facility { Type = FacilityType.Academy, CurrentLevel = 0 },
+            new Facility { Type = FacilityType.SkillHall, CurrentLevel = 0 },
             new Facility { Type = FacilityType.RecruitmentOffice, CurrentLevel = 0 },
         };
     }

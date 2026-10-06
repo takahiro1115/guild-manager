@@ -313,7 +313,7 @@ namespace GuildManager.Core.Tests
             if (diligent) a.TryAddTrait(TraitCatalog.DiligentId);
             var state = new GameState();
             state.Adventurers.Add(a);
-            state.TrainingAssignments[a.Id] = FacilityType.WarriorHall;
+            state.TrainingAssignments[a.Id] = FacilityType.DrillHall;
             return (state, a);
         }
 

@@ -145,6 +145,8 @@ namespace GuildManager.Core.Tests
             var state = new GameState { Gold = research.RequiredGold };
             foreach (var (materialId, count) in research.RequiredMaterials)
                 state.AddMaterial(materialId, count);
+            if (research.PrerequisiteId != null)
+                state.CompletedResearchIds.Add(research.PrerequisiteId); // §0.77で前提が付いた（湿布→軟膏→霊香など）
 
             Assert.True(ResearchSystem.CanStartResearch(state, research));
             Assert.True(ResearchSystem.CompleteResearch(state, research));

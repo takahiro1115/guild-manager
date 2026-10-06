@@ -33,15 +33,15 @@ namespace GuildManager.Core.Tests
         {
             var state = new GameState();
 
-            Assert.Equal(9, state.Facilities.Count);
+            Assert.Equal(8, state.Facilities.Count);
 
             foreach (var type in new[] { FacilityType.Dormitory, FacilityType.Infirmary, FacilityType.Tavern })
                 Assert.Equal(1, GetFacility(state, type)?.CurrentLevel);
 
             foreach (var type in new[]
                      {
-                         FacilityType.WarRoom, FacilityType.WarriorHall, FacilityType.Church,
-                         FacilityType.MageLab, FacilityType.ScoutPost, FacilityType.RecruitmentOffice,
+                         FacilityType.WarRoom, FacilityType.DrillHall, FacilityType.Academy,
+                         FacilityType.SkillHall, FacilityType.RecruitmentOffice,
                      })
                 Assert.Equal(0, GetFacility(state, type)?.CurrentLevel);
         }
@@ -95,7 +95,7 @@ namespace GuildManager.Core.Tests
             var state = new GameState { Gold = 10000 };
             var system = new FacilitySystem();
 
-            bool result = system.TryStartConstruction(state, FacilityType.WarriorHall);
+            bool result = system.TryStartConstruction(state, FacilityType.DrillHall);
 
             Assert.True(result);
             Assert.Equal(1, state.UnderConstruction!.TargetLevel); // Lv0→Lv1
@@ -109,11 +109,11 @@ namespace GuildManager.Core.Tests
             var state = new GameState { Gold = 10000 };
             var system = new FacilitySystem();
 
-            system.TryStartConstruction(state, FacilityType.WarriorHall);
+            system.TryStartConstruction(state, FacilityType.DrillHall);
 
             Assert.True(state.Gold < 10000);
-            Assert.Equal(FacilityBalance.GetUpgradeCost(FacilityType.WarriorHall, 0), 10000 - state.Gold);
-            Assert.NotEqual(0, FacilityBalance.GetUpgradeCost(FacilityType.WarriorHall, 0));
+            Assert.Equal(FacilityBalance.GetUpgradeCost(FacilityType.DrillHall, 0), 10000 - state.Gold);
+            Assert.NotEqual(0, FacilityBalance.GetUpgradeCost(FacilityType.DrillHall, 0));
         }
 
         [Fact]
@@ -121,14 +121,14 @@ namespace GuildManager.Core.Tests
         {
             var state = new GameState { Gold = 10000 };
             var system = new FacilitySystem();
-            system.TryStartConstruction(state, FacilityType.WarriorHall);
+            system.TryStartConstruction(state, FacilityType.DrillHall);
             state.UnderConstruction!.WeeksRemaining = 1;
 
             var completed = system.ProcessWeeklyConstruction(state);
 
             Assert.NotNull(completed);
             Assert.Equal(1, completed!.CurrentLevel);
-            Assert.Equal(1, GetFacility(state, FacilityType.WarriorHall).CurrentLevel);
+            Assert.Equal(1, GetFacility(state, FacilityType.DrillHall).CurrentLevel);
         }
 
         [Fact]

@@ -676,7 +676,7 @@ public partial class MainDashboard : Control
 			var income = settlement.SideJobIncome;
 			// 基本額＝初期基本額＋内職強化研究（→ ResearchEffectType.SideBusinessGoldBonus）。
 			AppendLog($"[color=lime]【アルベールの内職】市販薬売上: +{income.FinalGold}G " +
-				$"(基本 {income.BaseGold}G［初期{income.InitialBaseGold}+研究{income.ResearchBonus}］ × 機嫌倍率 {income.Multiplier:F1}［{MoodTierLabel(income.Tier)}］)[/color]");
+				$"(基本 {income.BaseGold}G［初期{income.InitialBaseGold}+研究{income.ResearchBonus}{(income.TradeBonus > 0 ? $"+商い{income.TradeBonus}" : "")}］ × 機嫌倍率 {income.Multiplier:F1}［{MoodTierLabel(income.Tier)}］)[/color]");
 		}
 
 		LogGrowthEvents(settlement.TrainingGrowthEvents); // → 03 §3.1〜3.4：成長トリガー経路2（訓練場配置）
@@ -698,7 +698,7 @@ public partial class MainDashboard : Control
 			AppendLog($"[color=gold][font_size=24][b]🏆 深淵100Fを制覇した！ 最後の生体コードがアルベールの手に渡った。[/b][/font_size][/color]");
 
 		if (settlement.CompletedFacility != null)
-			AppendLog($"[color=lime][b]🏗 {FacilityLabel(settlement.CompletedFacility.Type)}がLv{settlement.CompletedFacility.CurrentLevel}に完成した！[/b][/color]");
+			AppendLog($"[color=lime][b]🏗 {FacilityLabel(settlement.CompletedFacility.Type)}がLv{settlement.CompletedFacility.CurrentLevel}に完成した！{(settlement.CompletedFacility.Specialty != FacilitySpecialty.None ? $"（専門：{FacilityPanel.SpecialtyLabel(settlement.CompletedFacility.Specialty)}）" : "")}[/b][/color]");
 
 		LogCommissionArrivals(settlement.Arrivals); // → §0.64：新しい週に届いた依頼・異変の予告・期限の近い依頼
 
@@ -1653,10 +1653,9 @@ public partial class MainDashboard : Control
 		FacilityType.Infirmary => "医務室",
 		FacilityType.WarRoom => "作戦資料室",
 		FacilityType.Tavern => "ギルド酒場",
-		FacilityType.WarriorHall => "戦士訓練所",
-		FacilityType.Church => "教会",
-		FacilityType.MageLab => "魔法研究所",
-		FacilityType.ScoutPost => "斥候所",
+		FacilityType.DrillHall => "鍛錬所",
+		FacilityType.Academy => "学問所",
+		FacilityType.SkillHall => "技巧所",
 		FacilityType.RecruitmentOffice => "冒険者支援室",
 		_ => type.ToString()
 	};

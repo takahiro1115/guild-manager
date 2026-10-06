@@ -4,7 +4,7 @@ GrowthProbability_Growing,0.36,確率,成長期(19-22)の成長ロール基礎�
 GrowthProbability_Peak,0.15,確率,全盛期(23-)の成長ロール基礎確率。§0.60で0.12→0.15
 DifficultyCoefficientBase,1.0,倍,経路1(出撃)の難易度成長係数の基礎値
 DifficultyCoefficientPer100,1.0,倍,難易度100あたりの加算量（難易度0で1.0倍・100で2.0倍）
-TrainingFacilityMultiplier,1.0,倍,訓練場経路の成長倍率（施設Lv連動は未接続・現状固定）
+TrainingFacilityMultiplier,1.0,倍,"訓練場経路の成長倍率（全体の係数。施設Lvの倍率は facility.csv TrainingGrowthMultiplier_Lv*、特化の倍率と掛け合わせる。§0.75）"
 MinGrowthAmount,1,pt,成長時の実効値上昇幅の下限
 MaxGrowthAmount,3,pt,成長時の実効値上昇幅の上限
 RetirementAge,26,歳,"この年齢の年度末（48週）で満期引退（→ 8年稼働モデル。アルベールの信念「全盛期のうちに引退させ、退職金を持たせて自立させる」）"

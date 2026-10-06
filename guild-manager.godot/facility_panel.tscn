@@ -313,7 +313,7 @@ custom_minimum_size = Vector2(0, 36)
 layout_mode = 2
 text = "🔨 改築着工 (500G / 1週)"
 
-[node name="Card_WarriorHall" type="PanelContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid"]
+[node name="Card_DrillHall" type="PanelContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 240)
 layout_mode = 2
@@ -321,77 +321,77 @@ size_flags_horizontal = 3
 size_flags_vertical = 3
 theme_override_styles/panel = SubResource("StyleBoxFlat_card")
 
-[node name="Margin" type="MarginContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_WarriorHall"]
+[node name="Margin" type="MarginContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_DrillHall"]
 layout_mode = 2
 theme_override_constants/margin_left = 14
 theme_override_constants/margin_top = 12
 theme_override_constants/margin_right = 14
 theme_override_constants/margin_bottom = 12
 
-[node name="VBox" type="VBoxContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_WarriorHall/Margin"]
+[node name="VBox" type="VBoxContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_DrillHall/Margin"]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="HeaderRow" type="HBoxContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_WarriorHall/Margin/VBox"]
+[node name="HeaderRow" type="HBoxContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_DrillHall/Margin/VBox"]
 layout_mode = 2
 
-[node name="TitleLabel" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_WarriorHall/Margin/VBox/HeaderRow"]
+[node name="TitleLabel" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_DrillHall/Margin/VBox/HeaderRow"]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 18
-text = "⚔️ 戦士訓練所"
+text = "⚔️ 鍛錬所"
 
-[node name="LevelBadge" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_WarriorHall/Margin/VBox/HeaderRow"]
+[node name="LevelBadge" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_DrillHall/Margin/VBox/HeaderRow"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 15
 text = "Lv 0"
 
-[node name="HSeparator" type="HSeparator" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_WarriorHall/Margin/VBox"]
+[node name="HSeparator" type="HSeparator" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_DrillHall/Margin/VBox"]
 layout_mode = 2
 
-[node name="CurrentEffectLabel" type="RichTextLabel" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_WarriorHall/Margin/VBox"]
+[node name="CurrentEffectLabel" type="RichTextLabel" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_DrillHall/Margin/VBox"]
 layout_mode = 2
 bbcode_enabled = true
 fit_content = true
 text = "[color=gray]未稼働（未建設・訓練枠 0名）[/color]"
 
-[node name="NextEffectLabel" type="RichTextLabel" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_WarriorHall/Margin/VBox"]
+[node name="NextEffectLabel" type="RichTextLabel" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_DrillHall/Margin/VBox"]
 layout_mode = 2
 bbcode_enabled = true
 fit_content = true
 text = "次Lv：訓練枠 [color=cyan]1名[/color] 開放、教官配置 開放"
 
-[node name="CostLabel" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_WarriorHall/Margin/VBox"]
+[node name="CostLabel" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_DrillHall/Margin/VBox"]
 layout_mode = 2
 text = "改築費: 500 G　工期: 1週"
 
-[node name="InstructorPanel" type="PanelContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_WarriorHall/Margin/VBox"]
+[node name="InstructorPanel" type="PanelContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_DrillHall/Margin/VBox"]
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_instructor")
 
-[node name="InstructorMargin" type="MarginContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_WarriorHall/Margin/VBox/InstructorPanel"]
+[node name="InstructorMargin" type="MarginContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_DrillHall/Margin/VBox/InstructorPanel"]
 layout_mode = 2
 theme_override_constants/margin_left = 8
 theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = 8
 theme_override_constants/margin_bottom = 6
 
-[node name="InstructorLabel" type="RichTextLabel" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_WarriorHall/Margin/VBox/InstructorPanel/InstructorMargin"]
+[node name="InstructorLabel" type="RichTextLabel" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_DrillHall/Margin/VBox/InstructorPanel/InstructorMargin"]
 layout_mode = 2
 bbcode_enabled = true
 fit_content = true
 text = "[color=gray]教官：未開放（Lv1建設で開放）[/color]"
 
-[node name="Spacer" type="Control" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_WarriorHall/Margin/VBox"]
+[node name="Spacer" type="Control" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_DrillHall/Margin/VBox"]
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="ActionButton" type="Button" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_WarriorHall/Margin/VBox"]
+[node name="ActionButton" type="Button" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_DrillHall/Margin/VBox"]
 custom_minimum_size = Vector2(0, 36)
 layout_mode = 2
 text = "🔨 新設着工 (500G / 1週)"
 
-[node name="Card_Church" type="PanelContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid"]
+[node name="Card_Academy" type="PanelContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 240)
 layout_mode = 2
@@ -399,77 +399,77 @@ size_flags_horizontal = 3
 size_flags_vertical = 3
 theme_override_styles/panel = SubResource("StyleBoxFlat_card")
 
-[node name="Margin" type="MarginContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Church"]
+[node name="Margin" type="MarginContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Academy"]
 layout_mode = 2
 theme_override_constants/margin_left = 14
 theme_override_constants/margin_top = 12
 theme_override_constants/margin_right = 14
 theme_override_constants/margin_bottom = 12
 
-[node name="VBox" type="VBoxContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Church/Margin"]
+[node name="VBox" type="VBoxContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Academy/Margin"]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="HeaderRow" type="HBoxContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Church/Margin/VBox"]
+[node name="HeaderRow" type="HBoxContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Academy/Margin/VBox"]
 layout_mode = 2
 
-[node name="TitleLabel" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Church/Margin/VBox/HeaderRow"]
+[node name="TitleLabel" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Academy/Margin/VBox/HeaderRow"]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 18
-text = "⛪ 教会"
+text = "📚 学問所"
 
-[node name="LevelBadge" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Church/Margin/VBox/HeaderRow"]
+[node name="LevelBadge" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Academy/Margin/VBox/HeaderRow"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 15
 text = "Lv 0"
 
-[node name="HSeparator" type="HSeparator" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Church/Margin/VBox"]
+[node name="HSeparator" type="HSeparator" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Academy/Margin/VBox"]
 layout_mode = 2
 
-[node name="CurrentEffectLabel" type="RichTextLabel" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Church/Margin/VBox"]
+[node name="CurrentEffectLabel" type="RichTextLabel" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Academy/Margin/VBox"]
 layout_mode = 2
 bbcode_enabled = true
 fit_content = true
 text = "[color=gray]未稼働（未建設・訓練枠 0名）[/color]"
 
-[node name="NextEffectLabel" type="RichTextLabel" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Church/Margin/VBox"]
+[node name="NextEffectLabel" type="RichTextLabel" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Academy/Margin/VBox"]
 layout_mode = 2
 bbcode_enabled = true
 fit_content = true
 text = "次Lv：訓練枠 [color=cyan]1名[/color] 開放、教官配置 開放"
 
-[node name="CostLabel" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Church/Margin/VBox"]
+[node name="CostLabel" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Academy/Margin/VBox"]
 layout_mode = 2
 text = "改築費: 500 G　工期: 1週"
 
-[node name="InstructorPanel" type="PanelContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Church/Margin/VBox"]
+[node name="InstructorPanel" type="PanelContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Academy/Margin/VBox"]
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_instructor")
 
-[node name="InstructorMargin" type="MarginContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Church/Margin/VBox/InstructorPanel"]
+[node name="InstructorMargin" type="MarginContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Academy/Margin/VBox/InstructorPanel"]
 layout_mode = 2
 theme_override_constants/margin_left = 8
 theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = 8
 theme_override_constants/margin_bottom = 6
 
-[node name="InstructorLabel" type="RichTextLabel" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Church/Margin/VBox/InstructorPanel/InstructorMargin"]
+[node name="InstructorLabel" type="RichTextLabel" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Academy/Margin/VBox/InstructorPanel/InstructorMargin"]
 layout_mode = 2
 bbcode_enabled = true
 fit_content = true
 text = "[color=gray]教官：未開放（Lv1建設で開放）[/color]"
 
-[node name="Spacer" type="Control" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Church/Margin/VBox"]
+[node name="Spacer" type="Control" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Academy/Margin/VBox"]
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="ActionButton" type="Button" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Church/Margin/VBox"]
+[node name="ActionButton" type="Button" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_Academy/Margin/VBox"]
 custom_minimum_size = Vector2(0, 36)
 layout_mode = 2
 text = "🔨 新設着工 (500G / 1週)"
 
-[node name="Card_MageLab" type="PanelContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid"]
+[node name="Card_SkillHall" type="PanelContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 240)
 layout_mode = 2
@@ -477,150 +477,72 @@ size_flags_horizontal = 3
 size_flags_vertical = 3
 theme_override_styles/panel = SubResource("StyleBoxFlat_card")
 
-[node name="Margin" type="MarginContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_MageLab"]
+[node name="Margin" type="MarginContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_SkillHall"]
 layout_mode = 2
 theme_override_constants/margin_left = 14
 theme_override_constants/margin_top = 12
 theme_override_constants/margin_right = 14
 theme_override_constants/margin_bottom = 12
 
-[node name="VBox" type="VBoxContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_MageLab/Margin"]
+[node name="VBox" type="VBoxContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_SkillHall/Margin"]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="HeaderRow" type="HBoxContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_MageLab/Margin/VBox"]
+[node name="HeaderRow" type="HBoxContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_SkillHall/Margin/VBox"]
 layout_mode = 2
 
-[node name="TitleLabel" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_MageLab/Margin/VBox/HeaderRow"]
+[node name="TitleLabel" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_SkillHall/Margin/VBox/HeaderRow"]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 18
-text = "🔮 魔法研究所"
+text = "🏹 技巧所"
 
-[node name="LevelBadge" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_MageLab/Margin/VBox/HeaderRow"]
+[node name="LevelBadge" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_SkillHall/Margin/VBox/HeaderRow"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 15
 text = "Lv 0"
 
-[node name="HSeparator" type="HSeparator" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_MageLab/Margin/VBox"]
+[node name="HSeparator" type="HSeparator" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_SkillHall/Margin/VBox"]
 layout_mode = 2
 
-[node name="CurrentEffectLabel" type="RichTextLabel" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_MageLab/Margin/VBox"]
+[node name="CurrentEffectLabel" type="RichTextLabel" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_SkillHall/Margin/VBox"]
 layout_mode = 2
 bbcode_enabled = true
 fit_content = true
 text = "[color=gray]未稼働（未建設・訓練枠 0名）[/color]"
 
-[node name="NextEffectLabel" type="RichTextLabel" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_MageLab/Margin/VBox"]
+[node name="NextEffectLabel" type="RichTextLabel" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_SkillHall/Margin/VBox"]
 layout_mode = 2
 bbcode_enabled = true
 fit_content = true
 text = "次Lv：訓練枠 [color=cyan]1名[/color] 開放、教官配置 開放"
 
-[node name="CostLabel" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_MageLab/Margin/VBox"]
+[node name="CostLabel" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_SkillHall/Margin/VBox"]
 layout_mode = 2
 text = "改築費: 500 G　工期: 1週"
 
-[node name="InstructorPanel" type="PanelContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_MageLab/Margin/VBox"]
+[node name="InstructorPanel" type="PanelContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_SkillHall/Margin/VBox"]
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_instructor")
 
-[node name="InstructorMargin" type="MarginContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_MageLab/Margin/VBox/InstructorPanel"]
+[node name="InstructorMargin" type="MarginContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_SkillHall/Margin/VBox/InstructorPanel"]
 layout_mode = 2
 theme_override_constants/margin_left = 8
 theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = 8
 theme_override_constants/margin_bottom = 6
 
-[node name="InstructorLabel" type="RichTextLabel" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_MageLab/Margin/VBox/InstructorPanel/InstructorMargin"]
+[node name="InstructorLabel" type="RichTextLabel" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_SkillHall/Margin/VBox/InstructorPanel/InstructorMargin"]
 layout_mode = 2
 bbcode_enabled = true
 fit_content = true
 text = "[color=gray]教官：未開放（Lv1建設で開放）[/color]"
 
-[node name="Spacer" type="Control" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_MageLab/Margin/VBox"]
+[node name="Spacer" type="Control" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_SkillHall/Margin/VBox"]
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="ActionButton" type="Button" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_MageLab/Margin/VBox"]
-custom_minimum_size = Vector2(0, 36)
-layout_mode = 2
-text = "🔨 新設着工 (500G / 1週)"
-
-[node name="Card_ScoutPost" type="PanelContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 240)
-layout_mode = 2
-size_flags_horizontal = 3
-size_flags_vertical = 3
-theme_override_styles/panel = SubResource("StyleBoxFlat_card")
-
-[node name="Margin" type="MarginContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_ScoutPost"]
-layout_mode = 2
-theme_override_constants/margin_left = 14
-theme_override_constants/margin_top = 12
-theme_override_constants/margin_right = 14
-theme_override_constants/margin_bottom = 12
-
-[node name="VBox" type="VBoxContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_ScoutPost/Margin"]
-layout_mode = 2
-theme_override_constants/separation = 8
-
-[node name="HeaderRow" type="HBoxContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_ScoutPost/Margin/VBox"]
-layout_mode = 2
-
-[node name="TitleLabel" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_ScoutPost/Margin/VBox/HeaderRow"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 18
-text = "🏹 斥候所"
-
-[node name="LevelBadge" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_ScoutPost/Margin/VBox/HeaderRow"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 15
-text = "Lv 0"
-
-[node name="HSeparator" type="HSeparator" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_ScoutPost/Margin/VBox"]
-layout_mode = 2
-
-[node name="CurrentEffectLabel" type="RichTextLabel" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_ScoutPost/Margin/VBox"]
-layout_mode = 2
-bbcode_enabled = true
-fit_content = true
-text = "[color=gray]未稼働（未建設・訓練枠 0名）[/color]"
-
-[node name="NextEffectLabel" type="RichTextLabel" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_ScoutPost/Margin/VBox"]
-layout_mode = 2
-bbcode_enabled = true
-fit_content = true
-text = "次Lv：訓練枠 [color=cyan]1名[/color] 開放、教官配置 開放"
-
-[node name="CostLabel" type="Label" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_ScoutPost/Margin/VBox"]
-layout_mode = 2
-text = "改築費: 500 G　工期: 1週"
-
-[node name="InstructorPanel" type="PanelContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_ScoutPost/Margin/VBox"]
-layout_mode = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_instructor")
-
-[node name="InstructorMargin" type="MarginContainer" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_ScoutPost/Margin/VBox/InstructorPanel"]
-layout_mode = 2
-theme_override_constants/margin_left = 8
-theme_override_constants/margin_top = 6
-theme_override_constants/margin_right = 8
-theme_override_constants/margin_bottom = 6
-
-[node name="InstructorLabel" type="RichTextLabel" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_ScoutPost/Margin/VBox/InstructorPanel/InstructorMargin"]
-layout_mode = 2
-bbcode_enabled = true
-fit_content = true
-text = "[color=gray]教官：未開放（Lv1建設で開放）[/color]"
-
-[node name="Spacer" type="Control" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_ScoutPost/Margin/VBox"]
-layout_mode = 2
-size_flags_vertical = 3
-
-[node name="ActionButton" type="Button" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_ScoutPost/Margin/VBox"]
+[node name="ActionButton" type="Button" parent="ScrollContainer/ScrollMargin/FacilityGrid/Card_SkillHall/Margin/VBox"]
 custom_minimum_size = Vector2(0, 36)
 layout_mode = 2
 text = "🔨 新設着工 (500G / 1週)"

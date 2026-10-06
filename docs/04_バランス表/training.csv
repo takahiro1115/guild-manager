@@ -10,7 +10,7 @@ TrainerTenureBonusStepWeeks,12,週,教官の在任ボーナス：同じ訓練施
 TrainerTenureBonusPerStep,0.025,確率,教官の在任ボーナス：1段あたり伝授確率へ加算する値（+0.025＝+2.5%ポイント）
 TrainerTenureBonusMax,0.10,確率,教官の在任ボーナスの上限（+0.10＝+10%ポイント。4段＝48週＝1年で到達）
 IdleActivityHpRatio,0.7,倍,待機中の過ごし方（研究の手伝い・自主練）をする条件：現在HPが最大HP×この比率を超えていること（以下なら静養。§0.73）
-SelfTrainingGrowthMultiplier,0.5,倍,自主練の成長ロールの倍率（年齢帯別の基礎確率に掛ける。訓練施設は aging.csv TrainingFacilityMultiplier＋教官。研究・特性の倍率はこの後に掛かる。§0.73）
+SelfTrainingGrowthMultiplier,0.5,倍,自主練の成長ロールの倍率（年齢帯別の基礎確率に掛ける。訓練施設は aging.csv TrainingFacilityMultiplier×施設Lv×特化＋教官。研究・特性の倍率はこの後に掛かる。§0.73）
 SelfTrainingHpCost,5,HP,自主練をした週のHP消費量（静養の回復は受けるので、回復がこの分だけ遅くなる。§0.73）
 ResearchCreditMax,5000,G,研究の手伝いが貯まる上限（§0.73）
 ResearchCreditMaxDiscountRate,0.5,倍,研究1件の研究費から研究の手伝いで割り引ける上限の割合（0.5＝半額まで。§0.73）

@@ -34,11 +34,11 @@ namespace GuildManager.Core.Tests
             var trainer = new Adventurer { Name = "クラウディア", IsRetired = true, Age = 26 };
             foreach (var id in trainerTraits) Assert.True(trainer.TryAddTrait(id));
             state.RetiredAdventurers.Add(trainer);
-            state.AssignedTrainers[FacilityType.WarriorHall] = trainer.Id;
+            state.AssignedTrainers[FacilityType.DrillHall] = trainer.Id;
 
             var student = new Adventurer { Name = "リナ", Age = 20 };
             state.Adventurers.Add(student);
-            state.TrainingAssignments[student.Id] = FacilityType.WarriorHall;
+            state.TrainingAssignments[student.Id] = FacilityType.DrillHall;
             return (state, trainer, student);
         }
 

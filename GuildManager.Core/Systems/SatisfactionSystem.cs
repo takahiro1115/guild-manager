@@ -76,7 +76,7 @@ namespace GuildManager.Core.Systems
                     delta -= penalty;
 
                 // 自然回復（→ 03 §5.1・§6）。ギルド酒場（Tavern）の現在Lvに連動する。
-                delta += FacilityBalance.GetTavernSatisfactionRecovery(state.GetFacilityLevel(FacilityType.Tavern));
+                delta += FacilityBalance.GetTavernSatisfactionRecovery(state.GetFacilityLevel(FacilityType.Tavern), state.GetFacilitySpecialty(FacilityType.Tavern));
 
                 // 快活（§0.55）：本人だけ毎週上がる。
                 if (adventurer.HasTrait(TraitCatalog.CheerfulId))

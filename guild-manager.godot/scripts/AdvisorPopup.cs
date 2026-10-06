@@ -8,16 +8,15 @@ using GuildManager.Core.Systems;
 /// 顧問（教官・参謀・スカウト）の役職割り当てポップアップ（仕様書 03 §7）。
 ///
 /// FacilityPopupと同様、意思決定を強制しない（いつでも自由に開いたり閉じたりできる）。
-/// 最小限のUI：引退済み一覧から候補を選び、6つのボタン（教官×4施設・参謀・スカウト）で
+/// 最小限のUI：引退済み一覧から候補を選び、5つのボタン（教官×3施設・参謀・スカウト。§0.75で訓練施設を3つにした）で
 /// その候補を該当スロットへ任命する（詳細な作り込みはPhase 4）。
 /// </summary>
 public partial class AdvisorPopup : PopupPanel
 {
 	private ItemList _candidateList = null!;
-	private Button _assignWarriorHallButton = null!;
-	private Button _assignChurchButton = null!;
-	private Button _assignMageLabButton = null!;
-	private Button _assignScoutPostButton = null!;
+	private Button _assignDrillHallButton = null!;
+	private Button _assignAcademyButton = null!;
+	private Button _assignSkillHallButton = null!;
 	private Button _assignAdvisorButton = null!;
 	private Button _assignScoutMasterButton = null!;
 	private Label _statusLabel = null!;
@@ -31,18 +30,16 @@ public partial class AdvisorPopup : PopupPanel
 	public override void _Ready()
 	{
 		_candidateList = GetNode<ItemList>("%CandidateList");
-		_assignWarriorHallButton = GetNode<Button>("%AssignWarriorHallButton");
-		_assignChurchButton = GetNode<Button>("%AssignChurchButton");
-		_assignMageLabButton = GetNode<Button>("%AssignMageLabButton");
-		_assignScoutPostButton = GetNode<Button>("%AssignScoutPostButton");
+		_assignDrillHallButton = GetNode<Button>("%AssignDrillHallButton");
+		_assignAcademyButton = GetNode<Button>("%AssignAcademyButton");
+		_assignSkillHallButton = GetNode<Button>("%AssignSkillHallButton");
 		_assignAdvisorButton = GetNode<Button>("%AssignAdvisorButton");
 		_assignScoutMasterButton = GetNode<Button>("%AssignScoutMasterButton");
 		_statusLabel = GetNode<Label>("%StatusLabel");
 
-		_assignWarriorHallButton.Pressed += () => OnAssignTrainerPressed(FacilityType.WarriorHall);
-		_assignChurchButton.Pressed += () => OnAssignTrainerPressed(FacilityType.Church);
-		_assignMageLabButton.Pressed += () => OnAssignTrainerPressed(FacilityType.MageLab);
-		_assignScoutPostButton.Pressed += () => OnAssignTrainerPressed(FacilityType.ScoutPost);
+		_assignDrillHallButton.Pressed += () => OnAssignTrainerPressed(FacilityType.DrillHall);
+		_assignAcademyButton.Pressed += () => OnAssignTrainerPressed(FacilityType.Academy);
+		_assignSkillHallButton.Pressed += () => OnAssignTrainerPressed(FacilityType.SkillHall);
 		_assignAdvisorButton.Pressed += OnAssignAdvisorPressed;
 		_assignScoutMasterButton.Pressed += OnAssignScoutMasterPressed;
 		// 背景が透けて読みにくいため、他のポップアップと同じ不透明な面にする
@@ -70,10 +67,9 @@ public partial class AdvisorPopup : PopupPanel
 		{
 			var button = facility switch
 			{
-				FacilityType.WarriorHall => _assignWarriorHallButton,
-				FacilityType.Church => _assignChurchButton,
-				FacilityType.MageLab => _assignMageLabButton,
-				FacilityType.ScoutPost => _assignScoutPostButton,
+				FacilityType.DrillHall => _assignDrillHallButton,
+				FacilityType.Academy => _assignAcademyButton,
+				FacilityType.SkillHall => _assignSkillHallButton,
 				FacilityType.WarRoom => _assignAdvisorButton,
 				FacilityType.RecruitmentOffice => _assignScoutMasterButton,
 				_ => null,
@@ -113,8 +109,7 @@ public partial class AdvisorPopup : PopupPanel
 		string advisorName = _state.AssignedAdvisor != null ? FindName(_state.AssignedAdvisor.Value) : "未配置";
 		string scoutMasterName = _state.AssignedScoutMaster != null ? FindName(_state.AssignedScoutMaster.Value) : "未任命";
 
-		return $"現在の配置　戦士訓練所:{TrainerName(FacilityType.WarriorHall)}　教会:{TrainerName(FacilityType.Church)}\n" +
-			$"魔法研究所:{TrainerName(FacilityType.MageLab)}　斥候所:{TrainerName(FacilityType.ScoutPost)}\n" +
+		return $"現在の配置　鍛錬所:{TrainerName(FacilityType.DrillHall)}　学問所:{TrainerName(FacilityType.Academy)}　技巧所:{TrainerName(FacilityType.SkillHall)}\n" +
 			$"作戦資料室:{advisorName}　冒険者支援室:{scoutMasterName}";
 	}
 
@@ -179,10 +174,9 @@ public partial class AdvisorPopup : PopupPanel
 
 	private static string FacilityLabel(FacilityType type) => type switch
 	{
-		FacilityType.WarriorHall => "戦士訓練所",
-		FacilityType.Church => "教会",
-		FacilityType.MageLab => "魔法研究所",
-		FacilityType.ScoutPost => "斥候所",
+		FacilityType.DrillHall => "鍛錬所",
+		FacilityType.Academy => "学問所",
+		FacilityType.SkillHall => "技巧所",
 		_ => type.ToString()
 	};
 }

@@ -9,10 +9,16 @@ namespace GuildManager.Core.Models
     {
         public FacilityType Type { get; set; }
 
-        /// <summary>完成時に到達するLv（着工時点の現在Lv+1）。</summary>
+        /// <summary>完成時に到達するLv（着工時点の現在Lv+1。改装〈§0.76〉では今のLvのまま）。</summary>
         public int TargetLevel { get; set; }
 
         /// <summary>完成までの残り週数。0に到達した週に完成する。</summary>
         public int WeeksRemaining { get; set; }
+
+        /// <summary>完成時に付く専門（§0.76）。Lv3→4の工事と改装で決まる。None なら今の専門のまま。</summary>
+        public FacilitySpecialty TargetSpecialty { get; set; } = FacilitySpecialty.None;
+
+        /// <summary>改装（専門の選び直し、§0.76）か。Lvは上がらない。</summary>
+        public bool IsRemodel { get; set; }
     }
 }

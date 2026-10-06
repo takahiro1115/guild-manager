@@ -1,26 +1,26 @@
-Id,Name,Description,RequiredMaterials,RequiredGold,EffectType,EffectValue,Prerequisite
-res_herb_poultice,薬草湿布の調合,月光草をすり潰して作る湿布薬。静養時のHP自然回復量を底上げする。,mat_forest_herb:5,200,HpRecoveryBonus,0.15,
-res_scout_reagent,生体蛍光試薬,変異胞子と霊樹の枝から精製する試薬。ボスの生体解析が捗るようになる。,mat_forest_spore:3;mat_forest_wood:3,300,IntelRateBonus,0.25,
-res_gathering_bag,特殊保存嚢,霊樹の枝を編んで作る携行袋。採取部隊が一度に持ち帰れる素材が増える。,mat_forest_wood:5,250,GatheringYieldBonus,1.0,
-res_light_tread,軽量踏破靴,霊樹の枝と月光草の繊維で仕立てる軽量靴。道中進軍の走破力が上がる。,mat_forest_wood:3;mat_forest_herb:3,300,TraversalBonus,15.0,
-res_cave_ointment,硬化軟膏の調合,発光苔と黒鉱石から作る軟膏。静養時のHP自然回復量をさらに底上げする。,mat_cave_moss:5;mat_cave_ore:2,500,HpRecoveryBonus,0.15,
-res_ruins_tactics,古代戦術録の解読,遺物の欠片とルーン石から古代の戦術を読み解く。ボス調査の解析効率がさらに上がる。,mat_ruins_scrap:6;mat_ruins_rune:3,800,IntelRateBonus,0.25,
-res_canyon_tread,耐熱踏破法,火山灰と紅玉鉱石で編み出す踏破法。道中進軍の走破力をさらに底上げする。,mat_canyon_ash:8;mat_canyon_gem:4,1200,TraversalBonus,20.0,
-res_abyss_preservation,魂魄安定の霊香,虚空の粉塵と深淵の結晶から焚く霊香。事故のさなかでも魂の定着を助け、致命的な損耗を和らげる。,mat_abyss_dust:10;mat_abyss_crystal:5,2000,SurvivalThresholdBonus,5.0,
-res_beauty_lotion,潤い美肌液の調合,森の薬草で作る貴族女性向け美容液。内職の基本売上+150G,mat_forest_herb:5;mat_forest_wood:3,100,SideBusinessGoldBonus,150,
-res_energy_tonic,滋養強壮アンプル,洞窟の鉱物抽出液を用いた強壮トニック。内職の基本売上+250G,mat_cave_moss:5;mat_cave_ore:3,200,SideBusinessGoldBonus,250,
-res_trade_route,古代香料の王都外販,古代芳香の再現による王都商館への販路拡大。内職の基本売上+400G,mat_ruins_scrap:6;mat_ruins_rune:3,300,SideBusinessGoldBonus,400,
-res_vitality_elixir,不老長生薬の密売,峡谷の熱源を活かしたエルフの秘薬。内職の基本売上+600G,mat_canyon_ash:8;mat_canyon_gem:4,500,SideBusinessGoldBonus,600,
-res_soul_fusion,魂魄融和の秘薬,アルベールの悲願。相性が極まった2人の魂と血統を溶け合わせ、培養槽で娘を育てる秘薬の製法。研究室に培養槽が開く,mat_forest_spore:5;mat_forest_herb:10,1500,SoulFusionUnlock,0,
-res_scout_network_1,各地への推薦状,アルベールの名で近隣の町へ推薦状を出す。素質のある娘が応募してくるようになる（採用の応募者のPA+5）,mat_cave_moss:10;mat_forest_herb:10,3000,RecruitPaBonus,5,
-res_scout_network_2,王都の士官学校との提携,王都の士官学校から腕の立つ卒業生を回してもらう（採用の応募者のPA+5）,mat_ruins_scrap:15;mat_ruins_rune:5,12000,RecruitPaBonus,5,res_scout_network_1
-res_scout_network_3,エルフの隠れ里への招聘状,古い縁をたどり、エルフの隠れ里から才ある娘を招く（採用の応募者のPA+5）,mat_canyon_gem:8;mat_abyss_dust:10,40000,RecruitPaBonus,5,res_scout_network_2
-res_training_method_1,古代戦技の写本,遺物に刻まれた戦技を写し取り、訓練と実戦の糧にする（成長の確率×1.15）,mat_ruins_scrap:8;mat_cave_moss:5,2500,GrowthRateBonus,0.20,
-res_training_method_2,霊脈の鍛錬場,峡谷の熱を引き込んだ鍛錬場で、身体の伸びを早める（成長の確率さらに×1.15）,mat_canyon_ash:12;mat_cave_ore:5,10000,GrowthRateBonus,0.20,res_training_method_1
-res_training_method_3,深淵式の修練,深淵の結晶が放つ魔力を浴びながら鍛える禁じ手（成長の確率さらに×1.15）,mat_abyss_dust:12;mat_abyss_crystal:4,30000,GrowthRateBonus,0.20,res_training_method_2
-res_elixir_purity_1,秘薬の純度向上 I,変異胞子で秘薬の濁りを取り除く。生まれる娘の素質が上がる（娘のPA+3）,mat_forest_spore:8;mat_cave_moss:8,3000,SoulFusionPaBonus,3,res_soul_fusion
-res_elixir_purity_2,秘薬の純度向上 II,ルーン石の術式で二人の魂をより深く溶け合わせる（娘のPAさらに+3）,mat_ruins_rune:6;mat_canyon_ash:8,12000,SoulFusionPaBonus,3,res_elixir_purity_1
-res_elixir_purity_3,秘薬の純度向上 III,深淵の結晶で魂の欠けを補う完成形の秘薬（娘のPAさらに+3）,mat_abyss_crystal:6;mat_canyon_gem:4,40000,SoulFusionPaBonus,3,res_elixir_purity_2
-res_culture_tank_2,第二培養槽,霊樹の枝と黒鉱石で二基目の培養槽を組む（同時に培養できる数+1）,mat_forest_wood:10;mat_cave_ore:8,6000,CultureTankBonus,1,res_soul_fusion
-res_culture_tank_3,第三培養槽,紅玉鉱石の熱で保温する三基目の培養槽（同時に培養できる数+1）,mat_canyon_gem:6;mat_ruins_scrap:10,20000,CultureTankBonus,1,res_culture_tank_2
-res_elixir_brewing,霊薬の調合法,アルベールが秘薬の研究の副産物として編み出した調合法。冒険者の伸びしろそのものを押し広げる霊薬が作れるようになる,mat_cave_ore:5;mat_ruins_rune:3,5000,ElixirUnlock,0,
+Id,Name,Description,RequiredMaterials,RequiredGold,EffectType,EffectValue,Prerequisite,Branch,Lane
+res_herb_poultice,薬草湿布の調合,月光草をすり潰して作る湿布薬。静養時のHP自然回復量を底上げする。,mat_forest_herb:5,200,HpRecoveryBonus,0.15,,Recovery,0
+res_scout_reagent,生体蛍光試薬,変異胞子と霊樹の枝から精製する試薬。ボスの生体解析が捗るようになる。,mat_forest_spore:3;mat_forest_wood:3,300,IntelRateBonus,0.25,,Dungeon,0
+res_gathering_bag,特殊保存嚢,霊樹の枝を編んで作る携行袋。採取部隊が一度に持ち帰れる素材が増える。,mat_forest_wood:5,250,GatheringYieldBonus,1.0,,Gathering,0
+res_light_tread,軽量踏破靴,霊樹の枝と月光草の繊維で仕立てる軽量靴。道中進軍の走破力が上がる。,mat_forest_wood:3;mat_forest_herb:3,300,TraversalBonus,15.0,,Dungeon,1
+res_cave_ointment,硬化軟膏の調合,発光苔と黒鉱石から作る軟膏。静養時のHP自然回復量をさらに底上げする。,mat_cave_moss:5;mat_cave_ore:2,500,HpRecoveryBonus,0.15,res_herb_poultice,Recovery,0
+res_ruins_tactics,古代戦術録の解読,遺物の欠片とルーン石から古代の戦術を読み解く。ボス調査の解析効率がさらに上がる。,mat_ruins_scrap:6;mat_ruins_rune:3,800,IntelRateBonus,0.25,res_scout_reagent,Dungeon,0
+res_canyon_tread,耐熱踏破法,火山灰と紅玉鉱石で編み出す踏破法。道中進軍の走破力をさらに底上げする。,mat_canyon_ash:8;mat_canyon_gem:4,1200,TraversalBonus,20.0,res_light_tread,Dungeon,1
+res_abyss_preservation,魂魄安定の霊香,虚空の粉塵と深淵の結晶から焚く霊香。事故のさなかでも魂の定着を助け、致命的な損耗を和らげる。,mat_abyss_dust:10;mat_abyss_crystal:5,2000,SurvivalThresholdBonus,5.0,res_cave_ointment,Recovery,0
+res_beauty_lotion,潤い美肌液の調合,森の薬草で作る貴族女性向け美容液。内職の基本売上+150G,mat_forest_herb:5;mat_forest_wood:3,100,SideBusinessGoldBonus,150,,Trade,0
+res_energy_tonic,滋養強壮アンプル,洞窟の鉱物抽出液を用いた強壮トニック。内職の基本売上+250G,mat_cave_moss:5;mat_cave_ore:3,200,SideBusinessGoldBonus,250,res_beauty_lotion,Trade,0
+res_trade_route,古代香料の王都外販,古代芳香の再現による王都商館への販路拡大。内職の基本売上+400G,mat_ruins_scrap:6;mat_ruins_rune:3,300,SideBusinessGoldBonus,400,res_energy_tonic,Trade,0
+res_vitality_elixir,不老長生薬の密売,峡谷の熱源を活かしたエルフの秘薬。内職の基本売上+600G,mat_canyon_ash:8;mat_canyon_gem:4,500,SideBusinessGoldBonus,600,res_trade_route,Trade,0
+res_soul_fusion,魂魄融和の秘薬,アルベールの悲願。相性が極まった2人の魂と血統を溶け合わせ、培養槽で娘を育てる秘薬の製法。研究室に培養槽が開く,mat_forest_spore:5;mat_forest_herb:10,1500,SoulFusionUnlock,0,,SoulFusion,0
+res_scout_network_1,各地への推薦状,アルベールの名で近隣の町へ推薦状を出す。素質のある娘が応募してくるようになる（採用の応募者のPA+5）,mat_cave_moss:10;mat_forest_herb:10,3000,RecruitPaBonus,5,,Talent,0
+res_scout_network_2,王都の士官学校との提携,王都の士官学校から腕の立つ卒業生を回してもらう（採用の応募者のPA+5）,mat_ruins_scrap:15;mat_ruins_rune:5,12000,RecruitPaBonus,5,res_scout_network_1,Talent,0
+res_scout_network_3,エルフの隠れ里への招聘状,古い縁をたどり、エルフの隠れ里から才ある娘を招く（採用の応募者のPA+5）,mat_canyon_gem:8;mat_abyss_dust:10,40000,RecruitPaBonus,5,res_scout_network_2,Talent,0
+res_training_method_1,古代戦技の写本,遺物に刻まれた戦技を写し取り、訓練と実戦の糧にする（成長の確率×1.15）,mat_ruins_scrap:8;mat_cave_moss:5,2500,GrowthRateBonus,0.20,,Growth,0
+res_training_method_2,霊脈の鍛錬場,峡谷の熱を引き込んだ鍛錬場で、身体の伸びを早める（成長の確率さらに×1.15）,mat_canyon_ash:12;mat_cave_ore:5,10000,GrowthRateBonus,0.20,res_training_method_1,Growth,0
+res_training_method_3,深淵式の修練,深淵の結晶が放つ魔力を浴びながら鍛える禁じ手（成長の確率さらに×1.15）,mat_abyss_dust:12;mat_abyss_crystal:4,30000,GrowthRateBonus,0.20,res_training_method_2,Growth,0
+res_elixir_purity_1,秘薬の純度向上 I,変異胞子で秘薬の濁りを取り除く。生まれる娘の素質が上がる（娘のPA+3）,mat_forest_spore:8;mat_cave_moss:8,3000,SoulFusionPaBonus,3,res_soul_fusion,SoulFusion,0
+res_elixir_purity_2,秘薬の純度向上 II,ルーン石の術式で二人の魂をより深く溶け合わせる（娘のPAさらに+3）,mat_ruins_rune:6;mat_canyon_ash:8,12000,SoulFusionPaBonus,3,res_elixir_purity_1,SoulFusion,0
+res_elixir_purity_3,秘薬の純度向上 III,深淵の結晶で魂の欠けを補う完成形の秘薬（娘のPAさらに+3）,mat_abyss_crystal:6;mat_canyon_gem:4,40000,SoulFusionPaBonus,3,res_elixir_purity_2,SoulFusion,0
+res_culture_tank_2,第二培養槽,霊樹の枝と黒鉱石で二基目の培養槽を組む（同時に培養できる数+1）,mat_forest_wood:10;mat_cave_ore:8,6000,CultureTankBonus,1,res_soul_fusion,SoulFusion,1
+res_culture_tank_3,第三培養槽,紅玉鉱石の熱で保温する三基目の培養槽（同時に培養できる数+1）,mat_canyon_gem:6;mat_ruins_scrap:10,20000,CultureTankBonus,1,res_culture_tank_2,SoulFusion,1
+res_elixir_brewing,霊薬の調合法,アルベールが秘薬の研究の副産物として編み出した調合法。冒険者の伸びしろそのものを押し広げる霊薬が作れるようになる,mat_cave_ore:5;mat_ruins_rune:3,5000,ElixirUnlock,0,res_training_method_1,Growth,1

@@ -349,7 +349,7 @@ namespace GuildManager.Core.Tests
             mina.EquippedWeapon = EquipmentItem.FromCatalog(ItemCatalog.FindById("IronSword")!);
             var saved = new SavedParty { Name = "第一部隊", MemberIds = { mina.Id, celia.Id } };
             state.SavedParties.Add(saved);
-            state.TrainingAssignments[mina.Id] = FacilityType.WarriorHall;
+            state.TrainingAssignments[mina.Id] = FacilityType.DrillHall;
 
             var candidates = CommissionSystem.GetTributeCandidates(state, c);
             Assert.Equal(new[] { mina }, candidates); // セリアは出撃中、アリスは基準未満

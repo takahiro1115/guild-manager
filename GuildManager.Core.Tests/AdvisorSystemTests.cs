@@ -27,10 +27,9 @@ namespace GuildManager.Core.Tests
             var state = new GameState { RetiredAdventurers = { } };
             foreach (var a in retired) state.RetiredAdventurers.Add(a);
             // 教官・参謀・スカウトが紐づく全施設をLv1（建設済み）にしておく（既存挙動を踏襲するテスト用）。
-            SetFacilityLevel(state, FacilityType.WarriorHall, 1);
-            SetFacilityLevel(state, FacilityType.Church, 1);
-            SetFacilityLevel(state, FacilityType.MageLab, 1);
-            SetFacilityLevel(state, FacilityType.ScoutPost, 1);
+            SetFacilityLevel(state, FacilityType.DrillHall, 1);
+            SetFacilityLevel(state, FacilityType.Academy, 1);
+            SetFacilityLevel(state, FacilityType.SkillHall, 1);
             SetFacilityLevel(state, FacilityType.WarRoom, 1);
             SetFacilityLevel(state, FacilityType.RecruitmentOffice, 1);
             return state;
@@ -45,10 +44,10 @@ namespace GuildManager.Core.Tests
             var state = new GameState { RetiredAdventurers = { candidate } }; // 新規GameStateはLv0スタート
             var system = new AdvisorSystem();
 
-            bool result = system.TryAssignTrainer(state, FacilityType.WarriorHall, candidate.Id);
+            bool result = system.TryAssignTrainer(state, FacilityType.DrillHall, candidate.Id);
 
             Assert.False(result);
-            Assert.False(state.AssignedTrainers.ContainsKey(FacilityType.WarriorHall));
+            Assert.False(state.AssignedTrainers.ContainsKey(FacilityType.DrillHall));
         }
 
         [Fact]
@@ -82,13 +81,13 @@ namespace GuildManager.Core.Tests
         {
             var candidate = new Adventurer();
             var state = new GameState { RetiredAdventurers = { candidate } };
-            SetFacilityLevel(state, FacilityType.WarriorHall, 1);
+            SetFacilityLevel(state, FacilityType.DrillHall, 1);
             var system = new AdvisorSystem();
 
-            bool result = system.TryAssignTrainer(state, FacilityType.WarriorHall, candidate.Id);
+            bool result = system.TryAssignTrainer(state, FacilityType.DrillHall, candidate.Id);
 
             Assert.True(result);
-            Assert.Equal(candidate.Id, state.AssignedTrainers[FacilityType.WarriorHall]);
+            Assert.Equal(candidate.Id, state.AssignedTrainers[FacilityType.DrillHall]);
         }
 
         // ---------------- 割り当て管理（以下は該当施設がLv1に建設済みの前提） ----------------
@@ -100,10 +99,10 @@ namespace GuildManager.Core.Tests
             var state = BuildBuiltState(candidate);
             var system = new AdvisorSystem();
 
-            bool result = system.TryAssignTrainer(state, FacilityType.WarriorHall, candidate.Id);
+            bool result = system.TryAssignTrainer(state, FacilityType.DrillHall, candidate.Id);
 
             Assert.True(result);
-            Assert.Equal(candidate.Id, state.AssignedTrainers[FacilityType.WarriorHall]);
+            Assert.Equal(candidate.Id, state.AssignedTrainers[FacilityType.DrillHall]);
         }
 
         [Fact]
@@ -113,7 +112,7 @@ namespace GuildManager.Core.Tests
             var state = BuildBuiltState(); // RetiredAdventurersに含まれない
             var system = new AdvisorSystem();
 
-            bool result = system.TryAssignTrainer(state, FacilityType.WarriorHall, stillActive.Id);
+            bool result = system.TryAssignTrainer(state, FacilityType.DrillHall, stillActive.Id);
 
             Assert.False(result);
         }
@@ -138,11 +137,11 @@ namespace GuildManager.Core.Tests
             var state = BuildBuiltState(a, b);
             var system = new AdvisorSystem();
 
-            system.TryAssignTrainer(state, FacilityType.WarriorHall, a.Id);
-            system.TryAssignTrainer(state, FacilityType.Church, b.Id);
+            system.TryAssignTrainer(state, FacilityType.DrillHall, a.Id);
+            system.TryAssignTrainer(state, FacilityType.Academy, b.Id);
 
-            Assert.Equal(a.Id, state.AssignedTrainers[FacilityType.WarriorHall]);
-            Assert.Equal(b.Id, state.AssignedTrainers[FacilityType.Church]);
+            Assert.Equal(a.Id, state.AssignedTrainers[FacilityType.DrillHall]);
+            Assert.Equal(b.Id, state.AssignedTrainers[FacilityType.Academy]);
         }
 
         [Fact]
@@ -153,13 +152,13 @@ namespace GuildManager.Core.Tests
             var trainer = new Adventurer();
             var state = BuildBuiltState(trainer);
             var system = new AdvisorSystem();
-            system.TryAssignTrainer(state, FacilityType.WarriorHall, trainer.Id);
+            system.TryAssignTrainer(state, FacilityType.DrillHall, trainer.Id);
 
-            bool result = system.TryAssignTrainer(state, FacilityType.Church, trainer.Id);
+            bool result = system.TryAssignTrainer(state, FacilityType.Academy, trainer.Id);
 
             Assert.True(result);
-            Assert.Equal(trainer.Id, state.AssignedTrainers[FacilityType.Church]);
-            Assert.False(state.AssignedTrainers.ContainsKey(FacilityType.WarriorHall)); // 元の施設からは解除される
+            Assert.Equal(trainer.Id, state.AssignedTrainers[FacilityType.Academy]);
+            Assert.False(state.AssignedTrainers.ContainsKey(FacilityType.DrillHall)); // 元の施設からは解除される
         }
 
         [Fact]
@@ -170,13 +169,13 @@ namespace GuildManager.Core.Tests
             var candidate = new Adventurer();
             var state = BuildBuiltState(candidate);
             var system = new AdvisorSystem();
-            system.TryAssignTrainer(state, FacilityType.WarriorHall, candidate.Id);
+            system.TryAssignTrainer(state, FacilityType.DrillHall, candidate.Id);
 
             bool result = system.TryAssignAdvisor(state, candidate.Id);
 
             Assert.True(result);
             Assert.Equal(candidate.Id, state.AssignedAdvisor);
-            Assert.False(state.AssignedTrainers.ContainsKey(FacilityType.WarriorHall)); // 教官からは外れる
+            Assert.False(state.AssignedTrainers.ContainsKey(FacilityType.DrillHall)); // 教官からは外れる
         }
 
         [Fact]
@@ -203,25 +202,24 @@ namespace GuildManager.Core.Tests
             var system = new AdvisorSystem();
             system.TryAssignScoutMaster(state, candidate.Id);
 
-            bool result = system.TryAssignTrainer(state, FacilityType.Church, candidate.Id);
+            bool result = system.TryAssignTrainer(state, FacilityType.Academy, candidate.Id);
 
             Assert.True(result);
-            Assert.Equal(candidate.Id, state.AssignedTrainers[FacilityType.Church]);
+            Assert.Equal(candidate.Id, state.AssignedTrainers[FacilityType.Academy]);
             Assert.Null(state.AssignedScoutMaster); // スカウトからは外れる
         }
 
         [Fact]
         public void OnePersonCanHoldOnlyOnePost_AcrossAllTrainerAdvisorAndScoutMasterSlots()
         {
-            // 教官(4施設)・参謀・スカウトの計6ポストのうち、1人が同時に就けるのは1つだけ。
+            // 教官(3施設)・参謀・スカウトの計5ポストのうち、1人が同時に就けるのは1つだけ。
             var candidate = new Adventurer();
             var state = BuildBuiltState(candidate);
             var system = new AdvisorSystem();
 
-            system.TryAssignTrainer(state, FacilityType.WarriorHall, candidate.Id);
-            system.TryAssignTrainer(state, FacilityType.Church, candidate.Id);
-            system.TryAssignTrainer(state, FacilityType.MageLab, candidate.Id);
-            system.TryAssignTrainer(state, FacilityType.ScoutPost, candidate.Id);
+            system.TryAssignTrainer(state, FacilityType.DrillHall, candidate.Id);
+            system.TryAssignTrainer(state, FacilityType.Academy, candidate.Id);
+            system.TryAssignTrainer(state, FacilityType.SkillHall, candidate.Id);
             system.TryAssignAdvisor(state, candidate.Id);
             system.TryAssignScoutMaster(state, candidate.Id); // 最後に任命したポストだけが残るはず
 
@@ -236,11 +234,11 @@ namespace GuildManager.Core.Tests
             var candidate = new Adventurer();
             var state = BuildBuiltState(candidate);
             var system = new AdvisorSystem();
-            system.TryAssignTrainer(state, FacilityType.WarriorHall, candidate.Id);
+            system.TryAssignTrainer(state, FacilityType.DrillHall, candidate.Id);
 
-            system.UnassignTrainer(state, FacilityType.WarriorHall);
+            system.UnassignTrainer(state, FacilityType.DrillHall);
 
-            Assert.False(state.AssignedTrainers.ContainsKey(FacilityType.WarriorHall));
+            Assert.False(state.AssignedTrainers.ContainsKey(FacilityType.DrillHall));
         }
 
         [Fact]
@@ -291,19 +289,19 @@ namespace GuildManager.Core.Tests
         {
             var trainer = new Adventurer { STR = 80, VIT = 60 }; // 戦士訓練所の対象=[STR,VIT]、平均70
 
-            double bonus = AdvisorSystem.GetTrainerBonus(trainer, FacilityType.WarriorHall);
+            double bonus = AdvisorSystem.GetTrainerBonus(trainer, FacilityType.DrillHall);
 
             Assert.Equal(70.0 * AdvisorBalance.TrainerBonusCoefficient, bonus, precision: 6);
         }
 
         [Fact]
-        public void GetTrainerBonus_UsesSingleStat_ForSingleStatFacility()
+        public void GetTrainerBonus_AveragesMndAndInt_ForAcademy()
         {
-            var trainer = new Adventurer { MND = 90 }; // 教会の対象=[MND]のみ
+            var trainer = new Adventurer { MND = 90, INT = 70 }; // 学問所の対象=[MND, INT]（§0.75）
 
-            double bonus = AdvisorSystem.GetTrainerBonus(trainer, FacilityType.Church);
+            double bonus = AdvisorSystem.GetTrainerBonus(trainer, FacilityType.Academy);
 
-            Assert.Equal(90.0 * AdvisorBalance.TrainerBonusCoefficient, bonus, precision: 6);
+            Assert.Equal(80.0 * AdvisorBalance.TrainerBonusCoefficient, bonus, precision: 6);
         }
 
         [Fact]
@@ -333,13 +331,13 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void TrainerAndAdvisorBonuses_IgnoreStatsOutsideTheirTargets()
         {
-            // 教官は担当施設の対象ステータスだけを見る（戦士訓練所=STR/VIT。INT・LDRがいくら高くても無関係）。
-            var trainer = new Adventurer { STR = 50, VIT = 30, INT = 100, LDR = 100 };
+            // 教官は担当施設の対象ステータスだけを見る（鍛錬所=STR/VIT。INT・LDRがいくら高くても無関係。学問所=MND/INT の平均）。
+            var trainer = new Adventurer { STR = 50, VIT = 30, MND = 60, INT = 100, LDR = 100 };
 
             Assert.Equal(40.0 * AdvisorBalance.TrainerBonusCoefficient,
-                AdvisorSystem.GetTrainerBonus(trainer, FacilityType.WarriorHall), precision: 6);
-            Assert.Equal(100.0 * AdvisorBalance.TrainerBonusCoefficient,
-                AdvisorSystem.GetTrainerBonus(trainer, FacilityType.MageLab), precision: 6);
+                AdvisorSystem.GetTrainerBonus(trainer, FacilityType.DrillHall), precision: 6);
+            Assert.Equal(80.0 * AdvisorBalance.TrainerBonusCoefficient,
+                AdvisorSystem.GetTrainerBonus(trainer, FacilityType.Academy), precision: 6);
         }
 
         // ---------------- 参謀の大迷宮支援（2026年9月再配線、→ 03 §7.2） ----------------

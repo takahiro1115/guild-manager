@@ -120,7 +120,7 @@ namespace GuildManager.Core.Tests
         private static List<GrowthEvent> Train(Adventurer a)
         {
             var state = new GameState { Adventurers = { a } };
-            state.TrainingAssignments[a.Id] = FacilityType.WarriorHall;
+            state.TrainingAssignments[a.Id] = FacilityType.DrillHall;
             return new GrowthSystem(new FixedRng(20)).ProcessTrainingGrowth(state, new HashSet<Guid>());
         }
 

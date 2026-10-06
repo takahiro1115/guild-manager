@@ -96,7 +96,8 @@ namespace GuildManager.Core.Systems
             {
                 result.AdvisorIntelBonus = AdvisorSystem.GetAdvisorSurveyIntelBonus(state);
                 result.AdvisorName = result.AdvisorIntelBonus > 0 ? AdvisorSystem.GetAssignedAdvisor(state)?.Name : null;
-                gain *= 1 + ResearchBalance.GetTotalEffectValue(state, ResearchEffectType.IntelRateBonus) + result.AdvisorIntelBonus;
+                gain *= 1 + ResearchBalance.GetTotalEffectValue(state, ResearchEffectType.IntelRateBonus) + result.AdvisorIntelBonus
+                    + FacilityBalance.GetAnalysisIntelBonus(state.GetFacilityLevel(FacilityType.WarRoom), state.GetFacilitySpecialty(FacilityType.WarRoom)); // 作戦資料室の解析（§0.76）
                 // 迷宮の異変「霧が晴れる」（→ DungeonAnomalySystem、§0.64）：上がり幅に倍率を掛ける。
                 gain *= DungeonAnomalySystem.IntelMultiplier(state, boss);
             }

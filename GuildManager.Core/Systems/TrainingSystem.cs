@@ -11,14 +11,14 @@ namespace GuildManager.Core.Systems
     /// 訓練施設配置の運用ルール。仕様書 03 §3.1〜3.4（経路2・運用ルール確定）・
     /// §3.5改（訓練週のHP処理）・§6（v1.3改訂：訓練場・道場の4分割）参照。
     ///
-    /// v1.3改訂：旧・単一の訓練場・道場（TrainingGround）を、戦士訓練所（WarriorHall）・
-    /// 教会（Church）・魔法研究所（MageLab）・斥候所（ScoutPost）の4施設に分割した。
+    /// v1.3改訂：旧・単一の訓練場・道場（TrainingGround）を4施設に分割し、§0.75で鍛錬所（DrillHall）・
+    /// 学問所（Academy）・技巧所（SkillHall）の3施設に組み直した。
     /// GameState.TrainingAssignments が「どの施設に配置されているか」まで持つ
     /// Dictionary&lt;Guid, FacilityType&gt; になったことに伴い、枠数判定・配置操作を
     /// 施設ごとに独立させている。
     ///
-    /// - 枠数：GetSlotCapacity(state, facility)。各訓練施設のLvに連動する
-    ///   （→ FacilityBalance.GetTrainingSlotCapacity。Lv1＝1名は分割前と同じ値）。
+    /// - 枠数：GetSlotCapacity(state, facility)。Lv1以上なら1名（§0.75。Lvは成長の確率に効く
+    ///   → FacilityBalance.GetTrainingSlotCapacity・GetTrainingGrowthMultiplier）。
     ///   満杯時の追加配置は Party.TryAdd と同様に失敗（false）で表現する。
     /// - 費用：配置されている限り毎週発生する都度払い（宿舎枠のような無料保有ではない）。
     ///   週給引落しと同じタイミングで ProcessWeeklyTraining を呼ぶ想定。
@@ -53,7 +53,7 @@ namespace GuildManager.Core.Systems
 
         /// <summary>指定した訓練施設の現在Lvに連動する枠数上限。</summary>
         public int GetSlotCapacity(GameState state, FacilityType facility) =>
-            FacilityBalance.GetTrainingSlotCapacity(state.GetFacilityLevel(facility));
+            FacilityBalance.GetTrainingSlotCapacity(state.GetFacilityLevel(facility), state.GetFacilitySpecialty(facility));
 
         /// <summary>
         /// 冒険者を指定した訓練施設に配置する。既にその施設に配置済みなら何もせず成功扱い。
@@ -111,6 +111,43 @@ namespace GuildManager.Core.Systems
             Unassign(state, adventurerId);
             return true;
         }
+
+        // ---- 訓練施設の特化（§0.75）：施設ごとに「両方」か「片方に特化」かを選ぶ。変えられるのは月のはじめだけ・無料。 ----
+
+        /// <summary>その訓練施設で特化して伸ばす能力。「両方」なら null。</summary>
+        public static string? GetSpecialtyStat(GameState state, FacilityType facility) =>
+            state.TrainingSpecialtyStats.TryGetValue(facility, out var stat) ? stat : null;
+
+        /// <summary>
+        /// 訓練施設の特化を変える（null で「両方」に戻す）。月のはじめでない、訓練施設でない、
+        /// 施設の扱う能力でないときは失敗（false）。
+        /// </summary>
+        public static bool SetSpecialtyStat(GameState state, FacilityType facility, string? stat)
+        {
+            if (!CanChangeAssignments(state) || !FacilityBalance.IsTrainingFacility(facility))
+                return false;
+            if (stat == null)
+            {
+                state.TrainingSpecialtyStats.Remove(facility);
+                return true;
+            }
+            if (!FacilityBalance.GetTrainingTargetStats(facility).Contains(stat))
+                return false;
+            state.TrainingSpecialtyStats[facility] = stat;
+            return true;
+        }
+
+        /// <summary>訓練でその施設が伸ばす能力：特化していればその1つ、「両方」なら施設の2つ。</summary>
+        public static string[] GetGrowthStats(GameState state, FacilityType facility) =>
+            GetSpecialtyStat(state, facility) is string stat ? new[] { stat } : FacilityBalance.GetTrainingTargetStats(facility);
+
+        /// <summary>
+        /// 施設の成長の確率の倍率（教官・研究・特性を除く）＝ TrainingFacilityMultiplier × Lvの倍率 ×（特化なら TrainingSpecialtyGrowthMultiplier）。§0.75。
+        /// </summary>
+        public static double GetFacilityGrowthMultiplier(GameState state, FacilityType facility) =>
+            GrowthBalance.TrainingFacilityMultiplier
+            * FacilityBalance.GetTrainingGrowthMultiplier(state.GetFacilityLevel(facility), state.GetFacilitySpecialty(facility))
+            * (GetSpecialtyStat(state, facility) != null ? FacilityBalance.TrainingSpecialtyGrowthMultiplier : 1.0);
 
         /// <summary>指定した訓練施設に現在配置されている人数。</summary>
         public int CountAssigned(GameState state, FacilityType facility) =>

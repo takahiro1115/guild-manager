@@ -35,32 +35,23 @@ size_flags_vertical = 3
 [node name="AssignRow1" type="HBoxContainer" parent="VBox"]
 layout_mode = 2
 
-[node name="AssignWarriorHallButton" type="Button" parent="VBox/AssignRow1"]
+[node name="AssignDrillHallButton" type="Button" parent="VBox/AssignRow1"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-text = "戦士訓練所の教官にする"
+text = "鍛錬所の教官にする"
 
-[node name="AssignChurchButton" type="Button" parent="VBox/AssignRow1"]
+[node name="AssignAcademyButton" type="Button" parent="VBox/AssignRow1"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-text = "教会の教官にする"
+text = "学問所の教官にする"
 
-[node name="AssignRow2" type="HBoxContainer" parent="VBox"]
-layout_mode = 2
-
-[node name="AssignMageLabButton" type="Button" parent="VBox/AssignRow2"]
+[node name="AssignSkillHallButton" type="Button" parent="VBox/AssignRow1"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-text = "魔法研究所の教官にする"
-
-[node name="AssignScoutPostButton" type="Button" parent="VBox/AssignRow2"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
-text = "斥候所の教官にする"
+text = "技巧所の教官にする"
 
 [node name="AssignRow3" type="HBoxContainer" parent="VBox"]
 layout_mode = 2

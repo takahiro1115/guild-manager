@@ -96,6 +96,7 @@ namespace GuildManager.Core.Systems
 
             double survivalBonus = state != null
                 ? ResearchBalance.GetTotalEffectValue(state, ResearchEffectType.SurvivalThresholdBonus)
+                  + FacilityBalance.GetFieldAidSurvivalBonus(state.GetFacilityLevel(FacilityType.Infirmary), state.GetFacilitySpecialty(FacilityType.Infirmary)) // 医務室の戦地救護（§0.76）
                 : 0;
             ApplyHpLoss(result, party, boss, survivalBonus);
             ApplyPoisonStatus(result, party, boss);

@@ -352,6 +352,7 @@ namespace GuildManager.Core.Systems
             if (state != null)
             {
                 score += ResearchBalance.GetTotalEffectValue(state, ResearchEffectType.TraversalBonus);
+                score += FacilityBalance.GetPathfindingTraversalBonus(state.GetFacilityLevel(FacilityType.WarRoom), state.GetFacilitySpecialty(FacilityType.WarRoom)); // 作戦資料室の踏破（§0.76）
                 // 参謀のルート指導（→ AdvisorSystem.GetAdvisorTraversalPowerBonus、2026年9月再配線）。
                 score += AdvisorSystem.GetAdvisorTraversalPowerBonus(state);
             }

@@ -145,7 +145,7 @@ namespace GuildManager.Core.Tests.Systems
             var returned = Healthy("今週帰還"); // 解決で IsDispatched は下りたが、決算開始時点では出撃中だった
             var trainee = Healthy("訓練中", IdleActivity.SelfTraining);
             var state = StateWith(away, returned, trainee, Healthy("待機"));
-            state.TrainingAssignments[trainee.Id] = FacilityType.WarriorHall;
+            state.TrainingAssignments[trainee.Id] = FacilityType.DrillHall;
 
             var week = IdleActivitySystem.ProcessWeek(state, new HashSet<Guid> { away.Id, returned.Id }, new MasterMoodReport());
 

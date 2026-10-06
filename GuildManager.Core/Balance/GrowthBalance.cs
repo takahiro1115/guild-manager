@@ -42,7 +42,7 @@ namespace GuildManager.Core.Balance
         public static double GetDifficultyCoefficient(int questDifficulty) =>
             DifficultyCoefficientBase + questDifficulty / 100.0 * DifficultyCoefficientPer100;
 
-        // TODO(→ 03 §6 施設・インフラ拡張): 訓練場Lvに連動させる。現状は常に固定倍率。
+        // 訓練施設の全体の倍率。施設Lvの倍率・特化はこれに掛ける（§0.75、→ TrainingSystem.GetFacilityGrowthMultiplier）。
         public static readonly double TrainingFacilityMultiplier = BalanceData.GetDouble(AgingFileName, "TrainingFacilityMultiplier");
 
         // ---- 成長量（実効値の上昇幅）。→ BAL: 加齢/成長量 ----

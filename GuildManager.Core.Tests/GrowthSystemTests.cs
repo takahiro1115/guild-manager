@@ -155,7 +155,7 @@ namespace GuildManager.Core.Tests
         {
             var adventurer = new Adventurer { Age = 18, STR = 40, PA_STR = 80 };
             var state = new GameState { Adventurers = { adventurer } };
-            state.TrainingAssignments.Add(adventurer.Id, FacilityType.WarriorHall);
+            state.TrainingAssignments.Add(adventurer.Id, FacilityType.DrillHall);
             var system = new GrowthSystem(new AlwaysMinRng());
 
             system.ProcessTrainingGrowth(state, NoDispatch);
@@ -182,7 +182,7 @@ namespace GuildManager.Core.Tests
         {
             var adventurer = new Adventurer { Age = 18, STR = 40, PA_STR = 80 };
             var state = new GameState { Adventurers = { adventurer } };
-            state.TrainingAssignments.Add(adventurer.Id, FacilityType.WarriorHall);
+            state.TrainingAssignments.Add(adventurer.Id, FacilityType.DrillHall);
             var system = new GrowthSystem(new AlwaysMinRng());
 
             system.ProcessTrainingGrowth(state, new HashSet<Guid> { adventurer.Id });
@@ -191,13 +191,14 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
-        public void ProcessTrainingGrowth_RestrictsGrowthTargetToFacilityStats_SingleStatFacility()
+        public void ProcessTrainingGrowth_RestrictsGrowthTargetToSpecialtyStat()
         {
-            // 教会（Church）の対象ステータスはMNDのみ。ロール値に関わらずMND以外は絶対に伸びない。
-            var adventurer = new Adventurer { Age = 18, STR = 40, PA_STR = 80, MND = 40, PA_MND = 80 };
+            // §0.75：学問所（MND・INT）をMNDに特化すると、ロール値に関わらずMND以外は伸びない。
+            var adventurer = new Adventurer { Age = 18, STR = 40, PA_STR = 80, MND = 40, PA_MND = 80, INT = 40, PA_INT = 80 };
             var state = new GameState { Adventurers = { adventurer } };
-            state.TrainingAssignments.Add(adventurer.Id, FacilityType.Church);
-            var system = new GrowthSystem(new AlwaysMinRng());
+            state.TrainingAssignments.Add(adventurer.Id, FacilityType.Academy);
+            state.TrainingSpecialtyStats[FacilityType.Academy] = "MND";
+            var system = new GrowthSystem(new FixedRollRng(1)); // 「両方」ならインデックス1＝INTになるロール
 
             var events = system.ProcessTrainingGrowth(state, NoDispatch);
 
@@ -212,7 +213,7 @@ namespace GuildManager.Core.Tests
             // 斥候所（ScoutPost）の対象ステータスは[AGI,DEX]の2つ。FixedRollRng(1)はインデックス1=DEXを指す。
             var adventurer = new Adventurer { Age = 18, AGI = 40, PA_AGI = 80, DEX = 40, PA_DEX = 80 };
             var state = new GameState { Adventurers = { adventurer } };
-            state.TrainingAssignments.Add(adventurer.Id, FacilityType.ScoutPost);
+            state.TrainingAssignments.Add(adventurer.Id, FacilityType.SkillHall);
             var system = new GrowthSystem(new FixedRollRng(1));
 
             var events = system.ProcessTrainingGrowth(state, NoDispatch);
@@ -226,7 +227,7 @@ namespace GuildManager.Core.Tests
         {
             var adventurer = new Adventurer { Age = 18, MND = 79, PA_MND = 80 };
             var state = new GameState { Adventurers = { adventurer } };
-            state.TrainingAssignments.Add(adventurer.Id, FacilityType.Church);
+            state.TrainingAssignments.Add(adventurer.Id, FacilityType.Academy);
             var system = new GrowthSystem(new AlwaysMinRng());
 
             system.ProcessTrainingGrowth(state, NoDispatch);
@@ -235,13 +236,13 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
-        public void ProcessTrainingGrowth_CanGrowInt_ViaMageLab()
+        public void ProcessTrainingGrowth_CanGrowInt_ViaAcademy()
         {
-            // v1.3改訂：INTを鍛えられるのは魔法研究所（MageLab）のみ。
+            // §0.75：INTは学問所（MND・INT）で鍛える。FixedRollRng(1)はインデックス1=INTを指す。
             var adventurer = new Adventurer { Age = 18, INT = 79, PA_INT = 80 };
             var state = new GameState { Adventurers = { adventurer } };
-            state.TrainingAssignments.Add(adventurer.Id, FacilityType.MageLab);
-            var system = new GrowthSystem(new AlwaysMinRng());
+            state.TrainingAssignments.Add(adventurer.Id, FacilityType.Academy);
+            var system = new GrowthSystem(new FixedRollRng(1));
 
             var events = system.ProcessTrainingGrowth(state, NoDispatch);
 
@@ -256,7 +257,7 @@ namespace GuildManager.Core.Tests
             // 成長ロール成功時は実効値だけが上がる（生涯ピーク値の更新処理は撤廃済み、v2.0）。
             var adventurer = new Adventurer { Age = 18, STR = 40, PA_STR = 80 };
             var state = new GameState { Adventurers = { adventurer } };
-            state.TrainingAssignments.Add(adventurer.Id, FacilityType.WarriorHall);
+            state.TrainingAssignments.Add(adventurer.Id, FacilityType.DrillHall);
             var system = new GrowthSystem(new AlwaysMinRng());
 
             var growth = Assert.Single(system.ProcessTrainingGrowth(state, NoDispatch));
@@ -278,8 +279,8 @@ namespace GuildManager.Core.Tests
                 Adventurers = { trainee },
                 RetiredAdventurers = { trainer },
             };
-            state.TrainingAssignments.Add(trainee.Id, FacilityType.WarriorHall);
-            state.AssignedTrainers[FacilityType.WarriorHall] = trainer.Id;
+            state.TrainingAssignments.Add(trainee.Id, FacilityType.DrillHall);
+            state.AssignedTrainers[FacilityType.DrillHall] = trainer.Id;
 
             // roll=13：教官なしの基礎確率12%だけでは失敗(13>12)、教官ボーナス(100*0.005=0.5→+50%)が
             // 乗ると12%+50%=62%となり成立する(13<=62)。

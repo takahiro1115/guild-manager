@@ -48,6 +48,8 @@ if (mode is "campaign")
     // 待機中の過ごし方（§0.73）：selftrain＝機嫌が60以上の週は全員が自主練、下回ったら研究を手伝う（既定は全員が研究を手伝う）
     GameSim.SelfTrainAll = opts.Contains("selftrain") || opts.Contains("selftrainall");
     GameSim.SelfTrainMinMood = opts.Contains("selftrainall") ? 0 : 60; // selftrainall＝機嫌にかかわらず全員が自主練
+    // 施設の専門（§0.76）：rivalry＝訓練施設を切磋琢磨にする（既定は精鋭）
+    GameSim.UseRivalry = opts.Contains("rivalry");
     // 依頼（§0.64）：nocomm＝依頼を受けない、old＝依頼も迷宮の異変も無し（§0.63までと同じ条件で比べる）
     GameSim.UseCommissions = !opts.Contains("nocomm") && !opts.Contains("old");
     GameSim.NoAnomaly = opts.Contains("old");
@@ -262,6 +264,7 @@ class GameSim
     public static bool UseSoulFusion = true;
     public static bool UseElixirs = true;
     public static bool SelfTrainAll;
+    public static bool UseRivalry;
     public static int SelfTrainMinMood = 60;
     public int ResearchCreditUsed;
     public int ElixirsGiven;
@@ -525,13 +528,13 @@ class GameSim
         .Select(c => CommissionSystem.FindBoss(s, c))
         .FirstOrDefault(b => b != null && !b.IsDefeated && ScoutingResolver.GetTier(b.IntelRate) != IntelTier.Complete);
 
-    static readonly FacilityType[] TrainingFacilities ={ FacilityType.WarriorHall, FacilityType.Church, FacilityType.MageLab, FacilityType.ScoutPost };
+    static readonly FacilityType[] TrainingFacilities ={ FacilityType.DrillHall, FacilityType.Academy, FacilityType.SkillHall };
     static readonly FacilityType[] BuildOrder =
     {
-        FacilityType.WarriorHall, FacilityType.ScoutPost, FacilityType.Church, FacilityType.MageLab,
-        FacilityType.WarriorHall, FacilityType.ScoutPost, FacilityType.Church, FacilityType.MageLab,
+        FacilityType.DrillHall, FacilityType.SkillHall, FacilityType.Academy,
+        FacilityType.DrillHall, FacilityType.SkillHall, FacilityType.Academy,
         FacilityType.Infirmary, FacilityType.Infirmary,
-        FacilityType.WarriorHall, FacilityType.ScoutPost, FacilityType.Church, FacilityType.MageLab,
+        FacilityType.DrillHall, FacilityType.SkillHall, FacilityType.Academy,
     };
 
 
@@ -578,13 +581,13 @@ class GameSim
 
     static readonly FacilityType[] CampaignBuildOrder =
     {
-        FacilityType.WarriorHall, FacilityType.ScoutPost, FacilityType.Church, FacilityType.MageLab,
+        FacilityType.DrillHall, FacilityType.SkillHall, FacilityType.Academy,
         FacilityType.Dormitory,
-        FacilityType.WarriorHall, FacilityType.ScoutPost, FacilityType.Church, FacilityType.MageLab,
+        FacilityType.DrillHall, FacilityType.SkillHall, FacilityType.Academy,
         FacilityType.Infirmary, FacilityType.Dormitory, FacilityType.Infirmary,
-        FacilityType.WarriorHall, FacilityType.ScoutPost, FacilityType.Church, FacilityType.MageLab,
-        FacilityType.WarriorHall, FacilityType.ScoutPost, FacilityType.Church, FacilityType.MageLab,
-        FacilityType.WarriorHall, FacilityType.ScoutPost, FacilityType.Church, FacilityType.MageLab,
+        FacilityType.DrillHall, FacilityType.SkillHall, FacilityType.Academy,
+        FacilityType.DrillHall, FacilityType.SkillHall, FacilityType.Academy,
+        FacilityType.DrillHall, FacilityType.SkillHall, FacilityType.Academy,
     };
 
     /// <summary>
@@ -711,7 +714,8 @@ class GameSim
             counts[f] = counts.GetValueOrDefault(f) + 1;
             if (s.GetFacilityLevel(f) >= counts[f]) continue;
             if (s.Gold - FacilityBalance.GetUpgradeCost(f, s.GetFacilityLevel(f)) >= 2500)
-                facility.TryStartConstruction(s, f);
+                facility.TryStartConstruction(s, f, !FacilitySystem.NeedsSpecialtyChoice(f, s.GetFacilityLevel(f)) ? FacilitySpecialty.None
+                    : UseRivalry && FacilityBalance.IsTrainingFacility(f) ? FacilitySpecialty.Rivalry : FacilityBalance.GetDefaultSpecialty(f)); // Lv3→4は専門を選ぶ（§0.76）
             return;
         }
     }
@@ -919,7 +923,7 @@ static class IdealGrowth
         };
         a.CurrentHP = a.MaxHP;
         var s = new GameState { Adventurers = new List<Adventurer> { a }, DungeonFields = SampleData.CreateDefaultFields() };
-        foreach (var f in new[] { FacilityType.WarriorHall, FacilityType.Church, FacilityType.MageLab, FacilityType.ScoutPost })
+        foreach (var f in new[] { FacilityType.DrillHall, FacilityType.Academy, FacilityType.SkillHall })
         {
             var fac = s.Facilities.FirstOrDefault(x => x.Type == f);
             if (fac == null) s.Facilities.Add(new Facility { Type = f, CurrentLevel = 5 }); else fac.CurrentLevel = 5;
@@ -947,7 +951,7 @@ static class IdealGrowth
             }
             else
             {
-                var best = new[] { FacilityType.WarriorHall, FacilityType.Church, FacilityType.MageLab, FacilityType.ScoutPost }
+                var best = new[] { FacilityType.DrillHall, FacilityType.Academy, FacilityType.SkillHall }
                     .OrderByDescending(f => FacilityBalance.GetTrainingTargetStats(f).Average(n => (Acc.Pa(a, n) - Acc.Stat(a, n)) * weightOf[n])).First();
                 training.TryAssign(s, a.Id, best);
                 growth.ProcessTrainingGrowth(s, new HashSet<Guid>());

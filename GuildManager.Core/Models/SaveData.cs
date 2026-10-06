@@ -27,7 +27,7 @@ namespace GuildManager.Core.Models
         /// 現時点ではマイグレーション処理は実装しないが、バージョン不一致を
         /// 検知できるようにしておく（→ SaveLoadService.CurrentSaveVersion）。
         /// </summary>
-        public int SaveVersion { get; set; } = 1;
+        public int SaveVersion { get; set; } = 2; // §0.75で訓練施設を3つに組み直したため 1→2（旧セーブは読まない）
 
         // ---- ギルド全体のスカラー値 ----
         public int CurrentTurn { get; set; }
@@ -154,6 +154,15 @@ namespace GuildManager.Core.Models
         public int ConstructionWeeksRemaining { get; set; }
         public int ConstructionTargetLevel { get; set; }
 
+        /// <summary>施設の専門（施設種別名→FacilitySpecialty名。§0.76）。専門の無い施設は記録しない。</summary>
+        public Dictionary<string, string> FacilitySpecialties { get; set; } = new();
+
+        /// <summary>工事が完成したときに付く専門（FacilitySpecialty名 or null。§0.76）。</summary>
+        public string? ConstructionTargetSpecialty { get; set; }
+
+        /// <summary>工事が改装（専門の選び直し、§0.76）か。</summary>
+        public bool ConstructionIsRemodel { get; set; }
+
         /// <summary>
         /// 顧問割り当て（施設種別名→冒険者Id）。教官（訓練4施設）・参謀（作戦資料室
         /// ＝WarRoom）・スカウト（冒険者支援室＝RecruitmentOffice）をまとめて
@@ -173,6 +182,12 @@ namespace GuildManager.Core.Models
         /// 旧セーブには無く、空のまま読まれて自動（特性枠の並び順）になる。
         /// </summary>
         public Dictionary<string, string> TrainerFocusTraits { get; set; } = new();
+
+        /// <summary>
+        /// 訓練施設の特化（施設種別名→能力名。§0.75、→ GameState.TrainingSpecialtyStats）。
+        /// 無ければ空のまま読まれて全施設が「両方」になる。
+        /// </summary>
+        public Dictionary<string, string> TrainingSpecialtyStats { get; set; } = new();
 
 
         // ---- 大迷宮（ダンジョン攻略システム） ----

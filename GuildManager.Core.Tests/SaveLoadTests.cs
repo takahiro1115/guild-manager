@@ -205,11 +205,11 @@ namespace GuildManager.Core.Tests
         {
             var adventurer = new Adventurer();
             var state = new GameState { Adventurers = { adventurer } };
-            state.TrainingAssignments[adventurer.Id] = FacilityType.WarriorHall;
+            state.TrainingAssignments[adventurer.Id] = FacilityType.DrillHall;
 
             var restored = GameState.FromSaveData(state.ToSaveData());
 
-            Assert.Equal(FacilityType.WarriorHall, restored.TrainingAssignments[adventurer.Id]);
+            Assert.Equal(FacilityType.DrillHall, restored.TrainingAssignments[adventurer.Id]);
         }
 
         [Fact]
@@ -217,12 +217,12 @@ namespace GuildManager.Core.Tests
         {
             var state = new GameState();
             foreach (var f in state.Facilities)
-                if (f.Type == FacilityType.WarriorHall) f.CurrentLevel = 3;
+                if (f.Type == FacilityType.DrillHall) f.CurrentLevel = 3;
 
             var restored = GameState.FromSaveData(state.ToSaveData());
 
-            Assert.Equal(9, restored.Facilities.Count);
-            Assert.Equal(3, restored.GetFacilityLevel(FacilityType.WarriorHall));
+            Assert.Equal(8, restored.Facilities.Count);
+            Assert.Equal(3, restored.GetFacilityLevel(FacilityType.DrillHall));
             Assert.Equal(1, restored.GetFacilityLevel(FacilityType.Dormitory)); // 変更していない施設もそのまま
             Assert.Equal(0, restored.GetFacilityLevel(FacilityType.RecruitmentOffice)); // Lv0のままの施設も保持される
         }
@@ -260,13 +260,13 @@ namespace GuildManager.Core.Tests
             var advisor = new Adventurer { Name = "参謀" };
             var scoutMaster = new Adventurer { Name = "スカウト" };
             var state = new GameState { RetiredAdventurers = { trainer, advisor, scoutMaster } };
-            state.AssignedTrainers[FacilityType.WarriorHall] = trainer.Id;
+            state.AssignedTrainers[FacilityType.DrillHall] = trainer.Id;
             state.AssignedAdvisor = advisor.Id;
             state.AssignedScoutMaster = scoutMaster.Id;
 
             var restored = GameState.FromSaveData(state.ToSaveData());
 
-            Assert.Equal(trainer.Id, restored.AssignedTrainers[FacilityType.WarriorHall]);
+            Assert.Equal(trainer.Id, restored.AssignedTrainers[FacilityType.DrillHall]);
             Assert.Equal(advisor.Id, restored.AssignedAdvisor);
             Assert.Equal(scoutMaster.Id, restored.AssignedScoutMaster);
         }
@@ -440,7 +440,7 @@ namespace GuildManager.Core.Tests
         {
             var member = new Adventurer { Name = "冒険者A", STR = 42, TraitIds = { TraitCatalog.OldWoundId } };
             var state = new GameState { Adventurers = { member }, Gold = 5000 };
-            state.TrainingAssignments[member.Id] = FacilityType.Church;
+            state.TrainingAssignments[member.Id] = FacilityType.Academy;
 
             var json = JsonSerializer.Serialize(state.ToSaveData(), new JsonSerializerOptions { WriteIndented = true });
             var deserialized = JsonSerializer.Deserialize<SaveData>(json);
@@ -451,7 +451,7 @@ namespace GuildManager.Core.Tests
             Assert.Equal("冒険者A", restored.Adventurers[0].Name);
             Assert.Equal(42, restored.Adventurers[0].STR);
             Assert.True(restored.Adventurers[0].HasTrait(TraitCatalog.OldWoundId));
-            Assert.Equal(FacilityType.Church, restored.TrainingAssignments[member.Id]);
+            Assert.Equal(FacilityType.Academy, restored.TrainingAssignments[member.Id]);
         }
 
         // ---------------- SaveLoadService（ファイルIO） ----------------
@@ -553,6 +553,28 @@ namespace GuildManager.Core.Tests
                 var service = new SaveLoadService(dir);
 
                 Assert.Null(service.Load());
+            }
+            finally { Directory.Delete(dir, recursive: true); }
+        }
+
+        [Fact]
+        public void Load_ReturnsNull_ForVersion1SaveWithFourTrainingFacilities()
+        {
+            // §0.75：訓練施設が4つだった版1のセーブは読まない（新規ゲーム前提）。元のファイルは消さない。
+            var dir = CreateTempSaveDirectory();
+            try
+            {
+                var data = new GameState().ToSaveData();
+                data.SaveVersion = 1;
+                data.FacilityLevels.Clear();
+                foreach (var name in new[] { "Dormitory", "Infirmary", "Tavern", "WarRoom", "WarriorHall", "Church", "MageLab", "ScoutPost", "RecruitmentOffice" })
+                    data.FacilityLevels[name] = 1;
+                var path = Path.Combine(dir, "savegame.json");
+                File.WriteAllText(path, JsonSerializer.Serialize(data));
+                var service = new SaveLoadService(dir);
+
+                Assert.Null(service.Load());
+                Assert.True(File.Exists(path));
             }
             finally { Directory.Delete(dir, recursive: true); }
         }

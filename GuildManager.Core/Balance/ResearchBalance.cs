@@ -20,6 +20,7 @@ namespace GuildManager.Core.Balance
     ///  - EffectType：ResearchEffectTypeの名前（→ Models.ResearchEffectType）。
     ///  - EffectValue：効果量（意味はEffectTypeごとに異なる）。
     ///  - Prerequisite：前提の研究Id（空＝前提なし。§0.60の段階研究）。
+    ///  - Branch：系統（ResearchBranchの名前）・Lane：系統の中の段（0〜）。研究室のツリーの行（§0.77）。
     /// </summary>
     public static class ResearchBalance
     {
@@ -49,6 +50,8 @@ namespace GuildManager.Core.Balance
                     EffectType = effectType,
                     EffectValue = ParseFloat(row[6], i, "EffectValue"),
                     PrerequisiteId = string.IsNullOrWhiteSpace(row[7]) ? null : row[7].Trim(),
+                    Branch = ParseBranch(row[8], i),
+                    Lane = ParseInt(row[9], i, "Lane"),
                 });
             }
 
@@ -77,6 +80,13 @@ namespace GuildManager.Core.Balance
             }
 
             return result;
+        }
+
+        private static ResearchBranch ParseBranch(string raw, int rowIndex)
+        {
+            if (Enum.TryParse<ResearchBranch>(raw, out var branch))
+                return branch;
+            throw new BalanceDataException($"{FileName} の{rowIndex + 2}行目のBranch「{raw}」をResearchBranchとして解釈できません。");
         }
 
         private static int ParseInt(string raw, int rowIndex, string columnName)

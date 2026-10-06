@@ -23,7 +23,8 @@ namespace GuildManager.Core.Systems
         /// 現在サポートしているセーブフォーマットのバージョン。SaveData.SaveVersionと
         /// 一致しない場合はロード失敗として扱う（マイグレーション処理は未実装、→ §11）。
         /// </summary>
-        public const int CurrentSaveVersion = 1;
+        /// §0.75（2026年10月）：訓練施設を鍛錬所・学問所・技巧所の3つに組み直したので 1→2。版1のセーブは新規ゲーム前提で読まない（ユーザー判断）。
+        public const int CurrentSaveVersion = 2;
 
         private static readonly JsonSerializerOptions SerializerOptions = new() { WriteIndented = true };
 

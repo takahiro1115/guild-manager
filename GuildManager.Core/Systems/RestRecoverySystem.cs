@@ -50,7 +50,7 @@ namespace GuildManager.Core.Systems
                 if (adventurer.CurrentHP >= adventurer.MaxHP)
                     continue;
 
-                double facilityMultiplier = FacilityBalance.GetInfirmaryHpRecoveryMultiplier(state.GetFacilityLevel(FacilityType.Infirmary));
+                double facilityMultiplier = FacilityBalance.GetInfirmaryHpRecoveryMultiplier(state.GetFacilityLevel(FacilityType.Infirmary), state.GetFacilitySpecialty(FacilityType.Infirmary));
                 int recovery = (int)(adventurer.MaxHP * TrainingBalance.RestRecoveryRatio * facilityMultiplier * (1 + researchBonus)
                     * (adventurer.HasTrait(TraitCatalog.QuickHealerId) ? 1.0 + TraitBalance.QuickHealerRestRecoveryBonus : 1.0)); // 治りが早い（§0.55）
                 adventurer.CurrentHP = Math.Min(adventurer.MaxHP, adventurer.CurrentHP + recovery);

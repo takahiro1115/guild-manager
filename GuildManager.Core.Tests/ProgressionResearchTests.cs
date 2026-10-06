@@ -136,7 +136,7 @@ namespace GuildManager.Core.Tests
             var a = new Adventurer { Age = 18, STR = 10, VIT = 10, PA_STR = 90, PA_VIT = 90 };
             a.CurrentHP = a.MaxHP;
             state.Adventurers.Add(a);
-            state.TrainingAssignments[a.Id] = FacilityType.WarriorHall;
+            state.TrainingAssignments[a.Id] = FacilityType.DrillHall;
             return new GrowthSystem(new FixedRng(45)).ProcessTrainingGrowth(state, new HashSet<Guid>());
         }
 
