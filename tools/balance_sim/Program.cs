@@ -50,6 +50,8 @@ if (mode is "campaign")
     GameSim.SelfTrainMinMood = opts.Contains("selftrainall") ? 0 : 60; // selftrainall＝機嫌にかかわらず全員が自主練
     // 施設の専門（§0.76）：rivalry＝訓練施設を切磋琢磨にする（既定は精鋭）
     GameSim.UseRivalry = opts.Contains("rivalry");
+    // 大会（§0.82）：nomain＝主力4名は個人の大会に出さない、notourney＝大会に出ない
+    GameSim.TourneyMode = opts.Contains("notourney") ? "off" : opts.Contains("nomain") ? "nomain" : "all";
     // 依頼（§0.64）：nocomm＝依頼を受けない、old＝依頼も迷宮の異変も無し（§0.63までと同じ条件で比べる）
     GameSim.UseCommissions = !opts.Contains("nocomm") && !opts.Contains("old");
     GameSim.NoAnomaly = opts.Contains("old");
@@ -319,6 +321,16 @@ class GameSim
             if (result.Arrivals.AnnouncedAnomaly != null && !NoAnomaly) Anomalies++;
             BookSettlement(result, s.Gold - goldBefore, wages, trainees);
             DaughtersBorn += result.SoulFusionBirths.Count;
+            foreach (var n in result.FacilityUnlocks) UnlockWeek.TryAdd((n.Facility, n.Level), result.Flags.Week);
+            foreach (var ev in result.TournamentsResolved)
+            {
+                TournamentEntries += ev.Result?.Placings.Count ?? 0;
+                if (ev.Result?.WinnerIsOurs == true)
+                {
+                    TournamentWins++;
+                    if (ev.Grade == TournamentGrade.G1) FirstG1Week.TryAdd(ev.Result.Placings.First(p => p.Placing == 1).Discipline, result.Flags.Week);
+                }
+            }
             TrainerWeeks += s.AssignedTrainers.Count(kv => kv.Value != null);
             if (Trace)
                 Console.WriteLine($"w{result.Flags.Week}: G {goldBefore}→{s.Gold} 機嫌{s.MasterMood} 現役{Active.Count()} 週給計{Active.Sum(a => a.WeeklyWage)} 訓練{s.TrainingAssignments.Count} 工事{s.UnderConstruction?.Type} " +
@@ -353,6 +365,50 @@ class GameSim
         }
     }
 
+    /// <summary>
+    /// 大会の出場（§0.82）：月のはじめに、今月の大会ごとに資格のある者のうち「部門の強さ×HPの補正」が高い2人を出す
+    /// （勝ち目の薄い大会には出さない）。迷宮踏破杯は主力4名の部隊で出る。過ごし方は HP8割未満なら休養、ほかは追い込み。
+    /// オプション nomain＝主力4名は個人の大会に出さない、notourney＝大会に出ない。副官の救済の提案には、最も強い者の得意な部門で答える。
+    /// </summary>
+    void EnterTournaments()
+    {
+        TournamentSystem.EnsureSchedule(s);
+        if (s.PendingTrainingFacilityChoice && Active.Any())
+            FacilityUnlockSystem.ChooseRescueFacility(s, FacilityUnlockSystem.FacilityOf(TournamentSystem.BestDiscipline(Active.OrderByDescending(StatSum).First())));
+        if (TourneyMode == "off" || !TournamentSystem.CanChangeEntries(s)) return;
+        var main = Active.Where(a => a.Injury != InjurySeverity.Severe).OrderByDescending(StatSum).Take(4).Select(a => a.Id).ToList();
+        foreach (var ev in TournamentSystem.EventsThisMonth(s).Where(e => e.Result == null).OrderByDescending(e => TournamentSystem.GradeRank(e.Grade)))
+        {
+            if (ev.Discipline == TournamentDiscipline.Party)
+            {
+                var squad = s.SavedParties.FirstOrDefault(p => p.Name == "踏破杯の部隊");
+                if (squad == null) { squad = new SavedParty { Name = "踏破杯の部隊" }; s.SavedParties.Add(squad); }
+                squad.MemberIds = main.ToList();
+                if (TournamentSystem.PartyEntryBlockReason(s, ev, squad) == null)
+                {
+                    var (pmin, pmax) = TournamentSystem.OpponentRange(ev, TournamentDiscipline.Party);
+                    if (TournamentSystem.PartyStrength(s, TournamentSystem.PartyMembers(s, squad)) >= (pmin + pmax) / 2 * 0.85)
+                        TournamentSystem.TryEnterParty(s, ev, squad, TournamentPrep.Rest);
+                }
+                continue;
+            }
+            // 主力4名は G1・最強決定戦・招待と、得意な部門のG2（G1の資格を取るため）にだけ出す（迷宮を止めすぎない）。nomain なら個人の大会には出さない
+            bool bigStage = ev.Grade is TournamentGrade.G1 or TournamentGrade.Special;
+            var picks = Active
+                .Where(a => !(main.Contains(a.Id) && (TourneyMode == "nomain" || !(bigStage || (ev.Kind == TournamentKind.Royal && TournamentSystem.DisciplineFor(ev, a) == TournamentSystem.BestDiscipline(a))))) && HpRatio(a) >= 0.6 && TournamentSystem.EntryBlockReason(s, ev, a) == null)
+                .Select(a => (A: a, Str: TournamentSystem.MatchStrength(a, TournamentSystem.DisciplineFor(ev, a)), Range: TournamentSystem.OpponentRange(ev, TournamentSystem.DisciplineFor(ev, a))))
+                .Where(x => ev.Kind == TournamentKind.Rookie || x.Str >= (x.Range.Min + x.Range.Max) / 2 * 0.85)
+                .OrderByDescending(x => x.Str).Take(TournamentBalance.EntrantsPerGuild).ToList();
+            foreach (var p in picks)
+                TournamentSystem.TryEnter(s, ev, p.A, HpRatio(p.A) < 0.8 ? TournamentPrep.Rest : TournamentPrep.Push);
+        }
+    }
+
+    public readonly Dictionary<(FacilityType, int), int> UnlockWeek = new();
+    public readonly Dictionary<TournamentDiscipline, int> FirstG1Week = new();
+    public int TournamentEntries, TournamentWins;
+    public static string TourneyMode = "all";
+
     ActiveDungeonMission? lastMain;
     readonly HashSet<Guid> mainIds = new();
 
@@ -386,10 +442,11 @@ class GameSim
 
         if (Campaign)
             CampaignUpkeep();
+        EnterTournaments(); // 大会の出場（§0.82。訓練の割り振りと同じく月のはじめ）
 
         // 訓練は月の約束（§0.70）：割り振りを変えられるのは月のはじめだけ。月の途中は訓練生を出撃に回さない。
         bool monthStart = TrainingSystem.CanChangeAssignments(s);
-        bool Free(Adventurer a) => monthStart || !TrainingSystem.IsTraining(s, a.Id);
+        bool Free(Adventurer a) => (monthStart || !TrainingSystem.IsTraining(s, a.Id)) && !TournamentSystem.IsEntered(s, a.Id);
 
         // 主力：次のボスへ潜行（森だけのモードでは森、campaign では要求火力の最も低いボス）
         var target = PickTarget()?.Boss;
@@ -457,7 +514,7 @@ class GameSim
         if (!monthStart) return;
         foreach (var a in Active.Where(a => !a.IsDispatched))
         {
-            if (reserved.Contains(a.Id) || HpRatio(a) < 0.5 || a.Injury == InjurySeverity.Severe)
+            if (reserved.Contains(a.Id) || HpRatio(a) < 0.5 || a.Injury == InjurySeverity.Severe || TournamentSystem.IsEntered(s, a.Id))
             {
                 training.Unassign(s, a.Id);
                 continue;
@@ -776,6 +833,26 @@ class GameSim
         Console.WriteLine(cleared.Count == 0
             ? $"クリア：0/{runs}回（{weeks / 48}年以内に深淵100Fに届かない）"
             : $"クリア：{cleared.Count}/{runs}回、{Median(cleared):F0}年目〔{cleared.Min():F0}〜{cleared.Max():F0}〕");
+        Console.WriteLine();
+        Console.WriteLine($"### 大会（§0.82、出場の方針：{TourneyMode}）");
+        Console.WriteLine($"出場：{string.Join(", ", sims.Select(x => x.TournamentEntries))}　優勝：{string.Join(", ", sims.Select(x => x.TournamentWins))}");
+        foreach (var d in new[] { TournamentDiscipline.Sword, TournamentDiscipline.Magic, TournamentDiscipline.Skill, TournamentDiscipline.Party })
+        {
+            var ys = sims.Where(x => x.FirstG1Week.ContainsKey(d)).Select(x => (double)GameCalendar.YearOf(x.FirstG1Week[d])).ToList();
+            Console.WriteLine($"最初のG1優勝（{TournamentSystem.DisciplineLabel(d)}）：" + (ys.Count == 0 ? $"―（0/{runs}）" : $"{Median(ys):F0}年目〔{ys.Min():F0}〜{ys.Max():F0}〕（{ys.Count}/{runs}）"));
+        }
+        Console.WriteLine("| 施設 | 新設 | Lv2 | Lv3 | Lv4 | Lv5 |");
+        Console.WriteLine("|---|---|---|---|---|---|");
+        foreach (var t in Enum.GetValues<FacilityType>())
+        {
+            var cells = Enumerable.Range(1, 5).Select(lv =>
+            {
+                if (lv <= FacilityUnlockSystem.InitialLevel(t)) return "初め";
+                var ys = sims.Where(x => x.UnlockWeek.ContainsKey((t, lv))).Select(x => (double)GameCalendar.YearOf(x.UnlockWeek[(t, lv)])).ToList();
+                return ys.Count == 0 ? $"―（0/{runs}）" : $"{Median(ys):F0}年目（{ys.Count}/{runs}）";
+            });
+            Console.WriteLine($"| {FacilityUnlockSystem.FacilityName(t)} | {string.Join(" | ", cells)} |");
+        }
         Console.WriteLine($"撃破したボスの数（50体中、最終）：{string.Join(", ", sims.Select(x => x.s.DungeonFields.Sum(f => f.Bosses.Count(b => b.IsDefeated))))}");
         Console.WriteLine("撃破数の推移（各年のはじめ、中央値）：" + string.Join("・", Enumerable.Range(0, weeks / 48).Select(y =>
         {

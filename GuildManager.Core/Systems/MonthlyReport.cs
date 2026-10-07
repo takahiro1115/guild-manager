@@ -221,8 +221,19 @@ namespace GuildManager.Core.Systems
                     Add($"依頼に失敗した（{failed.ClientName}・{failed.Reason}）", MonthlyTone.Warning);
                 if (s.CompletedFacility != null)
                     Add($"施設がLv{s.CompletedFacility.CurrentLevel}に完成した（{FacilityName(s.CompletedFacility.Type)}）", MonthlyTone.Good);
-                if (s.FacilityLevelCapRaisedTo is int cap)
-                    Add($"施設をLv{cap}まで改築できるようになった", MonthlyTone.Good);
+                // 大会（§0.82）：ギルドの出場者の順位（ベスト4以上）。出場しなかった大会は優勝者だけ。
+                foreach (var ev in s.TournamentsResolved)
+                {
+                    var placings = ev.Result?.Placings ?? new List<TournamentPlacing>();
+                    foreach (var p in placings.Where(p => p.Placing <= 4))
+                        Add($"{ev.Name}（{TournamentSystem.GradeLabel(ev.Grade)}）で{p.Name}が{TournamentSystem.PlacingLabel(p.Placing)}" + (p.Prize > 0 ? $"（賞金{p.Prize}G）" : ""), p.Placing == 1 ? MonthlyTone.Good : MonthlyTone.Normal);
+                    foreach (var p in placings.Where(p => p.Placing > 4))
+                        Add($"{ev.Name}で{p.Name}は{TournamentSystem.PlacingLabel(p.Placing)}", MonthlyTone.Normal);
+                }
+                foreach (var invite in s.TournamentInvitations)
+                    Add($"招待が届いた：{invite.Name}（{GameCalendar.FormatMonth(GameCalendar.WeekNumberOf(invite.Year, invite.Month, invite.Week))} 第{invite.Week}週）", MonthlyTone.Good);
+                foreach (var unlock in s.FacilityUnlocks)
+                    Add($"{FacilityUnlockSystem.DescribeUnlock(unlock)}：{unlock.Line}", MonthlyTone.Good);
             }
 
             // 引退：この月のはじめに現役で、今は引退している者（満期・早期のどちらも）
@@ -361,7 +372,7 @@ namespace GuildManager.Core.Systems
                     Job = a.JobClass,
                     Age = a.Age,
                     Squad = state.SavedParties.FirstOrDefault(p => p.MemberIds.Contains(a.Id))?.Name ?? "",
-                    Activities = string.Join("・", new[] { WeekActivity.Dispatched, WeekActivity.Training, WeekActivity.SelfTraining, WeekActivity.Help, WeekActivity.Resting }
+                    Activities = string.Join("・", new[] { WeekActivity.Dispatched, WeekActivity.Tournament, WeekActivity.Training, WeekActivity.SelfTraining, WeekActivity.Help, WeekActivity.Resting }
                         .Where(counts.ContainsKey)
                         .Select(act => $"{ActivityLabel(state, a, act)}{counts[act]}週")),
                     Gains = growth.Where(e => e.Adventurer.Id == a.Id).GroupBy(e => e.Stat)
@@ -379,6 +390,9 @@ namespace GuildManager.Core.Systems
                     entry.Status.Add(new MonthlyLine { Text = $"特性「{TraitCatalog.FindById(grant.TraitId)?.DisplayName ?? grant.TraitId}」が付いた", Tone = grant.Cause == TraitGrantCause.Awakening ? MonthlyTone.Good : MonthlyTone.Bad });
                 foreach (var t in transmissions.Where(e => e.Student.Id == a.Id))
                     entry.Status.Add(new MonthlyLine { Text = $"教官{t.Trainer.Name}から特性「{TraitCatalog.FindById(t.TraitId)?.DisplayName ?? t.TraitId}」を受け継いだ", Tone = MonthlyTone.Good });
+                foreach (var ev in settlements.SelectMany(s => s.TournamentsResolved))
+                    foreach (var p in (ev.Result?.Placings ?? new List<TournamentPlacing>()).Where(p => p.AdventurerId == a.Id || (p.PartyId is Guid pid && state.SavedParties.FirstOrDefault(sp => sp.Id == pid)?.MemberIds.Contains(a.Id) == true)))
+                        entry.Status.Add(new MonthlyLine { Text = $"{ev.Name}で{TournamentSystem.PlacingLabel(p.Placing)}", Tone = p.Placing == 1 ? MonthlyTone.Good : p.Placing <= 4 ? MonthlyTone.Normal : MonthlyTone.Warning });
                 if (a.NeedsNegotiation)
                     entry.Status.Add(new MonthlyLine { Text = "満足度が低い（契約交渉が必要）", Tone = MonthlyTone.Bad });
                 report.Adventurers.Add(entry);
@@ -391,6 +405,7 @@ namespace GuildManager.Core.Systems
             WeekActivity.Training => state.TrainingAssignments.TryGetValue(a.Id, out var f) ? $"訓練（{FacilityName(f)}）" : "訓練",
             WeekActivity.SelfTraining => a.SelfTrainingStat != null ? $"自主練（{a.SelfTrainingStat}）" : "自主練",
             WeekActivity.Help => "研究の手伝い",
+            WeekActivity.Tournament => TournamentSystem.EntryOf(state, a.Id)?.Prep == TournamentPrep.Push ? "大会（追い込み）" : "大会（休養）",
             _ => "静養",
         };
 

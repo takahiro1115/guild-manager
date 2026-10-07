@@ -34,15 +34,15 @@ namespace GuildManager.Core.Systems
             !RequiresAdvisorCandidate(type) || state.RetiredAdventurers.Count > 0 || state.GetFacilityLevel(type) >= 1;
 
         /// <summary>
-        /// 今、施設を改築できる上限のLv（§0.79）：倒したボスの数（全フィールドの合計）で上がる。全施設共通。
-        /// 序盤にできることを絞り、攻略が進むにつれて改築の選択肢を広げる。
+        /// 今のLvから次のLvへの改築が、まだ開いていないLvで止められているか（§0.82。施設は大会などのご褒美で開く、→ FacilityUnlockSystem。
+        /// §0.79の「倒したボスの数で全施設の上限Lv」を置き換えた）。
         /// </summary>
-        public static int GetLevelCap(GameState state) =>
-            FacilityBalance.GetLevelCap(EquipmentSystem.CountDefeatedBosses(state));
-
-        /// <summary>今のLvから次のLvへの改築が上限で止められているか（§0.79）。</summary>
         public static bool IsBlockedByLevelCap(GameState state, FacilityType type) =>
-            state.GetFacilityLevel(type) + 1 > GetLevelCap(state);
+            state.GetFacilityLevel(type) + 1 > FacilityUnlockSystem.GetUnlockedLevel(state, type);
+
+        /// <summary>改築費（辺境伯杯の優勝のご褒美があれば半額、§0.82）。</summary>
+        public static int GetUpgradeCost(GameState state, FacilityType type, int currentLevel) =>
+            state.NextUpgradeHalfPrice ? FacilityBalance.GetUpgradeCost(type, currentLevel) / 2 : FacilityBalance.GetUpgradeCost(type, currentLevel);
 
         /// <summary>
         /// 対象施設の着工を試みる。他の施設が工事中、対象施設が既に最大Lv、
@@ -59,18 +59,19 @@ namespace GuildManager.Core.Systems
             var facility = FindOrCreate(state, type);
             if (facility.CurrentLevel >= FacilityBalance.MaxLevel)
                 return false;
-            if (facility.CurrentLevel + 1 > GetLevelCap(state))
-                return false; // 上限Lv（倒したボスの数で上がる、§0.79）
+            if (IsBlockedByLevelCap(state, type))
+                return false; // まだ開いていないLv（大会などのご褒美で開く、§0.82）
 
             bool choose = NeedsSpecialtyChoice(type, facility.CurrentLevel);
             if (choose && Array.IndexOf(FacilityBalance.GetSpecialtyOptions(type), specialty) < 0)
                 return false; // 専門を選ばないとLv4へは上げられない
 
-            int cost = FacilityBalance.GetUpgradeCost(type, facility.CurrentLevel);
+            int cost = GetUpgradeCost(state, type, facility.CurrentLevel);
             if (state.Gold < cost)
                 return false;
 
             state.Gold -= cost; // 着工時に前払い
+            state.NextUpgradeHalfPrice = false; // 辺境伯杯のご褒美は1回だけ
             state.UnderConstruction = new FacilityConstruction
             {
                 Type = type,

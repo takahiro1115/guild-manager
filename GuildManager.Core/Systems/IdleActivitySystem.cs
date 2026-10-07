@@ -18,6 +18,8 @@ namespace GuildManager.Core.Systems
         Help,
         /// <summary>自主練。</summary>
         SelfTraining,
+        /// <summary>大会に出る（その月は出撃・訓練をしない。休養か追い込み、§0.82）。</summary>
+        Tournament,
     }
 
     /// <summary>
@@ -53,6 +55,7 @@ namespace GuildManager.Core.Systems
         public static WeekActivity GetWeekActivity(GameState state, Adventurer a, IReadOnlySet<Guid>? dispatchedIds = null)
         {
             if (a.IsDispatched || (dispatchedIds != null && dispatchedIds.Contains(a.Id))) return WeekActivity.Dispatched;
+            if (TournamentSystem.IsEntered(state, a.Id)) return WeekActivity.Tournament;
             if (state.TrainingAssignments.ContainsKey(a.Id)) return WeekActivity.Training;
             if (RestReason(a) != null) return WeekActivity.Resting;
             return a.IdleActivity == IdleActivity.SelfTraining ? WeekActivity.SelfTraining : WeekActivity.Help;
@@ -129,6 +132,7 @@ namespace GuildManager.Core.Systems
             WeekActivity.Training => "訓練中",
             WeekActivity.Resting => "静養",
             WeekActivity.SelfTraining => "自主練",
+            WeekActivity.Tournament => "大会の準備",
             _ => "研究を手伝う",
         };
     }

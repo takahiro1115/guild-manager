@@ -24,7 +24,8 @@ namespace GuildManager.Core.Systems
         /// 一致しない場合はロード失敗として扱う（マイグレーション処理は未実装、→ §11）。
         /// </summary>
         /// §0.75（2026年10月）：訓練施設を鍛錬所・学問所・技巧所の3つに組み直したので 1→2。版1のセーブは新規ゲーム前提で読まない（ユーザー判断）。
-        public const int CurrentSaveVersion = 2;
+        /// §0.82（2026年10月）：大会と、施設を大会のご褒美で開く形にしたので 2→3。
+        public const int CurrentSaveVersion = 3;
 
         private static readonly JsonSerializerOptions SerializerOptions = new() { WriteIndented = true };
 

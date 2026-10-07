@@ -285,13 +285,15 @@ public partial class FacilityPanel : VBoxContainer
 	{
 		int currentLevel = _state.GetFacilityLevel(binding.Type);
 		bool isMaxLevel = currentLevel >= FacilityBalance.MaxLevel;
-		int cost = FacilityBalance.GetUpgradeCost(binding.Type, currentLevel);
+		int cost = FacilitySystem.GetUpgradeCost(_state, binding.Type, currentLevel); // 辺境伯杯のご褒美なら半額（§0.82）
 		int weeks = FacilityBalance.GetConstructionWeeks(binding.Type, currentLevel);
 
 		// ヘッダー表示
 		binding.TitleLabel.Text = FacilityTitle(binding.Type);
 		bool available = FacilitySystem.IsAvailable(_state, binding.Type); // 段階的な開放（§0.78）
 		binding.LevelBadge.Text = currentLevel == 0 ? "Lv 0（未建設）" : $"Lv {currentLevel}" + (isMaxLevel ? "（最大）" : "");
+		if (available && currentLevel == 0 && FacilityUnlockSystem.GetUnlockedLevel(_state, binding.Type) == 0)
+			binding.LevelBadge.Text = "🔒 未開放"; // 大会などのご褒美で開く（§0.82）
 		if (!available)
 			binding.LevelBadge.Text = "準備中";
 		binding.LevelBadge.Modulate = currentLevel == 0
@@ -321,7 +323,7 @@ public partial class FacilityPanel : VBoxContainer
 		else
 		{
 			string feeType = currentLevel == 0 ? "新設費" : "改築費";
-			binding.CostLabel.Text = $"{feeType}：{cost} G　工期：{weeks} 週";
+			binding.CostLabel.Text = $"{feeType}：{cost} G{(_state.NextUpgradeHalfPrice ? "（辺境伯杯のご褒美で半額）" : "")}　工期：{weeks} 週";
 		}
 
 		// 引退教官・顧問スロット
@@ -350,11 +352,11 @@ public partial class FacilityPanel : VBoxContainer
 		}
 		else if (!isMaxLevel && FacilitySystem.IsBlockedByLevelCap(_state, binding.Type))
 		{
-			// 施設の上限Lv（§0.79）：倒したボスの数で上がる
+			// まだ開いていないLv（§0.82：大会などのご褒美で開く。§0.79のボスの数の上限を置き換えた）
 			int next = currentLevel + 1;
 			binding.ActionButton.Disabled = true;
-			binding.ActionButton.Text = LevelCapText(next);
-			binding.ActionButton.TooltipText = $"施設をLv{next}まで改築できるのは、ボスを{FacilityBalance.GetBossesRequiredForLevel(next)}体倒してから（全フィールドの合計）。";
+			binding.ActionButton.Text = $"🔒 {LevelCapText(binding.Type)}";
+			binding.ActionButton.TooltipText = $"{(next == 1 ? "新設" : $"Lv{next}への改築")}は、まだ開いていない。開く条件＝{LevelCapText(binding.Type)}";
 		}
 		else if (isMaxLevel)
 		{
@@ -608,11 +610,11 @@ public partial class FacilityPanel : VBoxContainer
 			if (choose)
 			{
 				button.Visible = true;
-				bool capped = FacilitySystem.IsBlockedByLevelCap(_state, type); // 施設の上限Lv（§0.79）
-				button.Text = capped ? $"{SpecialtyLabel(option)}（{LevelCapText(level + 1)}）" : $"🔨 {SpecialtyLabel(option)}で改築 ({cost}G / {weeks}週)";
+				bool capped = FacilitySystem.IsBlockedByLevelCap(_state, type); // まだ開いていないLv（§0.82）
+				button.Text = capped ? $"{SpecialtyLabel(option)}（🔒 {LevelCapText(type)}）" : $"🔨 {SpecialtyLabel(option)}で改築 ({cost}G / {weeks}週)";
 				button.Disabled = busy || _state.Gold < cost || capped;
 				button.TooltipText = $"{SpecialtyLabel(option)}：{SpecialtyDescription(option)}\nLv4で：{effect}\n" +
-					(capped ? $"ボスを{FacilityBalance.GetBossesRequiredForLevel(level + 1)}体倒すと、Lv4への改築（専門を選ぶ）ができる。" : busy ?"他の工事が進行中（同時着工は1件まで）。" : _state.Gold < cost ? $"資金が不足しています（必要：{cost} G）。" : $"着工時に費用{cost}Gを前払いします。");
+					(capped ? $"Lv4への改築（専門を選ぶ）の開く条件＝{LevelCapText(type)}" : busy ?"他の工事が進行中（同時着工は1件まで）。" : _state.Gold < cost ? $"資金が不足しています（必要：{cost} G）。" : $"着工時に費用{cost}Gを前払いします。");
 			}
 			else if (current != FacilitySpecialty.None && option != current)
 			{
@@ -640,9 +642,9 @@ public partial class FacilityPanel : VBoxContainer
 			StateChanged.Invoke();
 	}
 
-	/// <summary>上限Lv（§0.79）で止められている改築の案内：「Lv3へ：ボス12体で開く（今8体）」。</summary>
-	private string LevelCapText(int level) =>
-		$"Lv{level}へ：ボス{FacilityBalance.GetBossesRequiredForLevel(level)}体で開く（今{EquipmentSystem.CountDefeatedBosses(_state)}体）";
+	/// <summary>まだ開いていないLvの案内（§0.82）：「Lv3：剣のG2で優勝」。開ききっていれば空。</summary>
+	private string LevelCapText(FacilityType type) =>
+		FacilityUnlockSystem.DescribeNext(_state, type) ?? "";
 
 	/// <summary>専門の名前（§0.76）。</summary>
 	public static string SpecialtyLabel(FacilitySpecialty specialty) => specialty switch

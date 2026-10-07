@@ -84,7 +84,10 @@ public partial class MainDashboard : Control
 		System = 5,
 
 		/// <summary>お抱え商（武具の購入。タブはコードで末尾に足すため、ナビ行の並びとタブの番号は別。§0.67）。</summary>
-		Shop = 6
+		Shop = 6,
+
+		/// <summary>大会（§0.82。タブはコードで末尾に足す。ナビ行では大迷宮の右に置く）。</summary>
+		Tournament = 7
 	}
 
 	private TabContainer _centerPanel = null!;
@@ -95,6 +98,10 @@ public partial class MainDashboard : Control
 	private Button _navWarehouseBtn = null!;
 	private Button _navShopBtn = null!;
 	private ShopPanel _shopPanel = null!;
+	private Button _navTournamentBtn = null!;
+	private TournamentPanel _tournamentPanel = null!;
+	private TournamentSystem _tournamentSystem = null!;
+	private TournamentResultPopup _tournamentResultPopup = null!;
 	private Button _navSystemBtn = null!;
 
 	// ---- 大迷宮（ダンジョン攻略システム：調査・討伐・採取。出撃の主画面） ----
@@ -148,6 +155,10 @@ public partial class MainDashboard : Control
 		_navShopBtn = GetNode<Button>("%NavShopBtn");
 		_navSystemBtn = GetNode<Button>("%NavSystemBtn");
 
+		// 大会（§0.82）のナビボタンはコードで足す（大迷宮の右）
+		_navTournamentBtn = new Button { Text = "🏆 大会", ToggleMode = true, CustomMinimumSize = new Vector2(110, 36) };
+		_navDungeonBtn.AddSibling(_navTournamentBtn);
+		_navTournamentBtn.Pressed += () => SwitchView(DashboardView.Tournament);
 		_navDungeonBtn.Pressed += () => SwitchView(DashboardView.Dungeon);
 		_navPartyBtn.Pressed += () => SwitchView(DashboardView.Party);
 		_navResearchBtn.Pressed += () => SwitchView(DashboardView.Research);
@@ -254,6 +265,13 @@ public partial class MainDashboard : Control
 		_shopPanel.LogRequested += AppendLog;
 		_shopPanel.StateChanged += RefreshAll;
 		_centerPanel.AddChild(_shopPanel);
+		// 大会（§0.82）：タブはコードで末尾に足す（番号＝DashboardView.Tournament）。ナビ行では大迷宮の右に置く
+		_tournamentPanel = new TournamentPanel();
+		_tournamentPanel.LogRequested += AppendLog;
+		_tournamentPanel.StateChanged += RefreshAll;
+		_centerPanel.AddChild(_tournamentPanel);
+		_tournamentResultPopup = new TournamentResultPopup { Visible = false };
+		AddChild(_tournamentResultPopup);
 		_partyFormationSystem = new PartyFormationSystem();
 		_partyFormationPanel.Initialize(_partyFormationSystem);
 		_facilityPanel.Initialize(_facilitySystem);
@@ -273,11 +291,13 @@ public partial class MainDashboard : Control
 		// そのまま共有し、二重管理（別インスタンスによる状態不整合）を避ける。
 		// 依頼と迷宮の異変（→ 03 §4.9・§4.10・§0.64）。依頼の生成・報酬の遺物の抽選は他と別シードにする。
 		_commissionSystem = new CommissionSystem(new SeededRng(2718));
+		// 大会（§0.82）。組み合わせ・試合の運・相手の名前は他と別シードにする。
+		_tournamentSystem = new TournamentSystem(new SeededRng(3373));
 		_weekProcessingSystem = new WeekProcessingSystem(
 			_masterMoodSystem, _economySystem, _trainingSystem, _injuryRecoverySystem,
 			_restRecoverySystem, _growthSystem, _satisfactionSystem, _agingSystem,
 			_facilitySystem, _defeatSystem, _recruitmentSystem,
-			_dungeonExpeditionSystem, _commissionSystem);
+			_dungeonExpeditionSystem, _commissionSystem, _tournamentSystem);
 		// 部隊の方針（自動出撃、→ 03 §4.0.3・§0.63）。週送り・自動スキップの決算の前に実行する。
 		_squadOrderSystem = new SquadOrderSystem(_dungeonExpeditionSystem);
 		_autoSkipService = new AutoSkipService(_weekProcessingSystem, _squadOrderSystem);
@@ -697,9 +717,14 @@ public partial class MainDashboard : Control
 	{
 		if (settlement.CompletedFacility != null)
 			AppendLog($"[color=lime][b]🏗 {FacilityLabel(settlement.CompletedFacility.Type)}がLv{settlement.CompletedFacility.CurrentLevel}に完成した！{(settlement.CompletedFacility.Specialty != FacilitySpecialty.None ? $"（専門：{FacilityPanel.SpecialtyLabel(settlement.CompletedFacility.Specialty)}）" : "")}[/b][/color]");
-		if (settlement.FacilityLevelCapRaisedTo is int cap) // 施設の上限Lv（§0.79）
-			AppendLog($"[color=gold][b]🏗 ボスを倒した実績で、施設をLv{cap}まで改築できるようになった。[/b][/color]" +
-				(cap == FacilityBalance.SpecialtyFromLevel + 1 ? "[color=gray]（Lv3→4の改築で専門を選ぶ）[/color]" : ""));
+		foreach (var notice in settlement.FacilityUnlocks) // 大会のご褒美で施設が開いた（§0.82）
+			AppendLog($"[color=gold][b]🏗 {FacilityUnlockSystem.DescribeUnlock(notice)}。[/b][/color] {notice.Line}" +
+				(notice.Level == FacilityBalance.SpecialtyFromLevel + 1 && FacilityUnlockSystem.TrainingFacilities.Contains(notice.Facility) ? "[color=gray]（Lv3→4の改築で専門を選ぶ）[/color]" : ""));
+		foreach (var ev in settlement.TournamentsResolved) // 大会の結果（§0.82）
+			AppendLog($"[color=khaki][b]🏆 {ev.Name}（{TournamentSystem.GradeLabel(ev.Grade)}）[/b]：優勝 {ev.Result?.WinnerName}" +
+				string.Concat(ev.Result?.Placings.Select(p => $"／{p.Name} {TournamentSystem.PlacingLabel(p.Placing)}{(p.Prize > 0 ? $"（賞金 {p.Prize}G）" : "")}") ?? Enumerable.Empty<string>()) + "[/color]");
+		foreach (var ev in settlement.TournamentInvitations)
+			AppendLog($"[color=khaki][b]✉ 招待が届いた：{ev.Name}[/b]（{GameCalendar.Format(GameCalendar.WeekNumberOf(ev.Year, ev.Month, ev.Week))}）[/color]");
 		if (settlement.AdvisorFacilitiesOpened) // 最初の引退者（§0.78）
 			AppendLog("[color=gold][b]🏗 引退者が出たので、作戦資料室と冒険者支援室を建てられるようになった。[/b][/color][color=gray]（引退者を参謀・スカウトに置く施設）[/color]");
 	}
@@ -792,7 +817,24 @@ public partial class MainDashboard : Control
 		bool interrupted = last.Flags.GameCleared || last.Flags.DefeatOccurred || last.Flags.RecruitmentTrialOccurred
 			|| last.Flags.CommissionsOffered || _state.DefeatReason != null;
 		_monthlyReportSettlement = last;
-		_monthlyReportPopup.ShowMonth(report, weekly, allowNext: !interrupted);
+		// 大会に出た月・施設が開いた月は、月報の前に大会の結果の小窓（トーナメント表と施設の知らせ）を見せる（§0.82）
+		var tournaments = weeks.SelectMany(w => w.Settlement.TournamentsResolved).ToList();
+		var unlocks = weeks.SelectMany(w => w.Settlement.FacilityUnlocks).ToList();
+		void ShowReport() => _monthlyReportPopup.ShowMonth(report, weekly, allowNext: !interrupted);
+		if (tournaments.Any(e => e.Result?.Placings.Count > 0) || unlocks.Count > 0)
+		{
+			void OnResultsClosed()
+			{
+				_tournamentResultPopup.Closed -= OnResultsClosed;
+				Callable.From(ShowReport).CallDeferred(); // 別の排他ウィンドウは閉じ切ってから開く
+			}
+			_tournamentResultPopup.Closed += OnResultsClosed;
+			_tournamentResultPopup.ShowResults(tournaments, unlocks);
+		}
+		else
+		{
+			ShowReport();
+		}
 	}
 
 	/// <summary>施設管理画面の「👔 顧問を任命」ボタン。顧問役職割り当てポップアップを開く（いつでも自由に開閉できる）。</summary>
@@ -1518,6 +1560,7 @@ public partial class MainDashboard : Control
 			(DashboardView.Facility, _navFacilityBtn),
 			(DashboardView.Warehouse, _navWarehouseBtn),
 			(DashboardView.Shop, _navShopBtn),
+			(DashboardView.Tournament, _navTournamentBtn),
 			(DashboardView.System, _navSystemBtn)
 		};
 
@@ -1593,6 +1636,8 @@ public partial class MainDashboard : Control
 		_inventoryPanel.Refresh(_state);
 		_systemPanel.SetEndingAvailable(_state.IsGameCleared);
 		_shopPanel.Refresh(_state);
+		_tournamentPanel.Refresh(_state);
+		_tournamentPanel.Refresh(_state);
 
 		UpdateButtonHighlights((DashboardView)_centerPanel.CurrentTab);
 	}

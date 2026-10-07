@@ -280,6 +280,32 @@ namespace GuildManager.Core.Models
         /// </summary>
         public List<Systems.MonthlyReport> MonthlyReports { get; set; } = new();
 
+        // ---- 大会（2026年10月・§0.82、→ Systems.TournamentSystem・FacilityUnlockSystem） ----
+
+        /// <summary>暦に置いた大会（今年の分と、結果の出た過去の分）。年のはじめに今年の分を置く（→ TournamentSystem.EnsureSchedule）。</summary>
+        public List<TournamentEvent> TournamentEvents { get; set; } = new();
+
+        /// <summary>今月の出場（月のはじめに決める。月が変わると消える）。</summary>
+        public List<TournamentEntry> TournamentEntries { get; set; } = new();
+
+        /// <summary>施設ごとの「建ててよいLv」（大会などのご褒美で開く、→ FacilityUnlockSystem）。キーが無ければ初期値。</summary>
+        public Dictionary<FacilityType, int> FacilityUnlockedLevels { get; set; } = new();
+
+        /// <summary>ギルドの入賞（ベスト4以上）の累計（宿舎のご褒美・地方大会の数に使う）。</summary>
+        public int TournamentPlacingsTotal { get; set; }
+
+        /// <summary>大会の賞金の累計（ギルド酒場のご褒美に使う）。</summary>
+        public int TournamentPrizeTotal { get; set; }
+
+        /// <summary>もう出した招待の鍵（"lord:フィールドId"・"royal:年"・"margrave"）。同じ招待を二度出さない。</summary>
+        public HashSet<string> TournamentInviteKeys { get; set; } = new();
+
+        /// <summary>副官の救済の提案（1年目に訓練所が1つも開かなかったとき）。3つから1つを選ぶまで true。</summary>
+        public bool PendingTrainingFacilityChoice { get; set; }
+
+        /// <summary>辺境伯杯の優勝のご褒美：次の改築費が半額。</summary>
+        public bool NextUpgradeHalfPrice { get; set; }
+
         /// <summary>
         /// 掲示中・受けた依頼（→ GuildCommission・Systems.CommissionSystem、03 §4.9・§0.64）。
         /// 旧セーブには無く、空のまま読まれる（次の季節のはじめから届く）。
@@ -353,6 +379,14 @@ namespace GuildManager.Core.Models
                 CompletedResearchIds = new HashSet<string>(CompletedResearchIds),
                 SoulFusionCultures = new List<SoulFusionCulture>(SoulFusionCultures),
                 MonthlyReports = new List<Systems.MonthlyReport>(MonthlyReports),
+                TournamentEvents = new List<TournamentEvent>(TournamentEvents),
+                TournamentEntries = new List<TournamentEntry>(TournamentEntries),
+                FacilityUnlockedLevels = FacilityUnlockedLevels.ToDictionary(kv => kv.Key.ToString(), kv => kv.Value),
+                TournamentPlacingsTotal = TournamentPlacingsTotal,
+                TournamentPrizeTotal = TournamentPrizeTotal,
+                TournamentInviteKeys = new List<string>(TournamentInviteKeys),
+                PendingTrainingFacilityChoice = PendingTrainingFacilityChoice,
+                NextUpgradeHalfPrice = NextUpgradeHalfPrice,
                 Commissions = new List<GuildCommission>(Commissions),
                 CommissionCompletions = new Dictionary<string, int>(CommissionCompletions),
                 Anomaly = Anomaly,
@@ -466,6 +500,17 @@ namespace GuildManager.Core.Models
                     .Where(c => c?.Child != null).ToList(),
                 // 直近の月報（§0.71）。キーを持たない旧セーブ、または null が書かれていても空で始める。
                 MonthlyReports = (data.MonthlyReports ?? new List<Systems.MonthlyReport>()).Where(r => r != null).ToList(),
+                // 大会（§0.82）。null は空で始める。
+                TournamentEvents = (data.TournamentEvents ?? new List<TournamentEvent>()).Where(e => e != null).ToList(),
+                TournamentEntries = (data.TournamentEntries ?? new List<TournamentEntry>()).Where(e => e != null).ToList(),
+                FacilityUnlockedLevels = (data.FacilityUnlockedLevels ?? new Dictionary<string, int>())
+                    .Where(kv => Enum.TryParse<FacilityType>(kv.Key, out _))
+                    .ToDictionary(kv => Enum.Parse<FacilityType>(kv.Key), kv => kv.Value),
+                TournamentPlacingsTotal = data.TournamentPlacingsTotal,
+                TournamentPrizeTotal = data.TournamentPrizeTotal,
+                TournamentInviteKeys = new HashSet<string>(data.TournamentInviteKeys ?? new List<string>()),
+                PendingTrainingFacilityChoice = data.PendingTrainingFacilityChoice,
+                NextUpgradeHalfPrice = data.NextUpgradeHalfPrice,
                 // 依頼と迷宮の異変（§0.64）。キーを持たない旧セーブ、または null が書かれていても空・無しで始める。
                 Commissions = (data.Commissions ?? new List<GuildCommission>()).Where(c => c != null).ToList(),
                 CommissionCompletions = new Dictionary<string, int>(data.CommissionCompletions ?? new Dictionary<string, int>()),

@@ -34,6 +34,7 @@ namespace GuildManager.Core.Systems
         private readonly RecruitmentSystem _recruitmentSystem;
         private readonly DungeonExpeditionSystem _dungeonExpeditionSystem;
         private readonly CommissionSystem _commissionSystem;
+        private readonly TournamentSystem _tournamentSystem;
 
         public WeekProcessingSystem(
             MasterMoodSystem masterMoodSystem,
@@ -51,9 +52,12 @@ namespace GuildManager.Core.Systems
             // 既定構成を組み立てる（出撃が無ければ何も起きない）。
             DungeonExpeditionSystem? dungeonExpeditionSystem = null,
             // 省略可能：依頼と迷宮の異変（→ CommissionSystem、§0.64）。省略時は固定シードの既定構成。
-            CommissionSystem? commissionSystem = null)
+            CommissionSystem? commissionSystem = null,
+            // 省略可能：大会（→ TournamentSystem、§0.82）。省略時は固定シードの既定構成。
+            TournamentSystem? tournamentSystem = null)
         {
             _commissionSystem = commissionSystem ?? new CommissionSystem();
+            _tournamentSystem = tournamentSystem ?? new TournamentSystem(new SeededRng(DefaultTournamentSeed));
             _masterMoodSystem = masterMoodSystem;
             _economySystem = economySystem;
             _trainingSystem = trainingSystem;
@@ -76,6 +80,7 @@ namespace GuildManager.Core.Systems
         private const int DefaultScoutingSeed = 1453;
         private const int DefaultDungeonSeed = 1588;
         private const int DefaultCompatibilitySeed = 2526;
+        private const int DefaultTournamentSeed = 3373;
 
         /// <summary>
         /// 1週分の決算処理を実行し、週番号を1つ進める。出撃操作は本メソッドの対象外
@@ -88,7 +93,7 @@ namespace GuildManager.Core.Systems
             result.Flags.Week = thisWeek;
 
             bool wasCleared = state.IsGameCleared;
-            int levelCapBefore = FacilitySystem.GetLevelCap(state); // 施設の上限Lv（§0.79）が今週上がったかを見る
+            TournamentSystem.EnsureSchedule(state); // 今年の大会の暦（§0.82。年のはじめ・新しいゲームのとき置く）
             bool hadRetiree = state.RetiredAdventurers.Count > 0; // 最初の引退者で作戦資料室・冒険者支援室が開く（§0.78）
             var neededNegotiationBefore = state.Adventurers.Where(a => a.NeedsNegotiation).Select(a => a.Id).ToHashSet();
 
@@ -150,6 +155,13 @@ namespace GuildManager.Core.Systems
             result.TrainingGrowthEvents.AddRange(_growthSystem.ProcessTrainingGrowth(state, dispatchedIds)); // → 03 §3.1〜3.4：成長トリガー経路2
             result.SelfTrainingGrowthEvents.AddRange(_growthSystem.ProcessSelfTraining(state, idleWeek.SelfTrainerIds)); // → §0.73：自主練
             result.SelfTrainerCount = idleWeek.SelfTrainerIds.Count;
+            result.TrainingGrowthEvents.AddRange(_growthSystem.ProcessTournamentPush(state)); // 大会の月の追い込み（§0.82）
+
+            // 大会（§0.82）：今週の大会を行い、ご褒美を与える。新しいフィールド・G1の優勝・入賞の累計で招待大会を置く。
+            result.TournamentsResolved.AddRange(_tournamentSystem.ResolveWeek(state));
+            result.TournamentInvitations.AddRange(TournamentSystem.CheckInvitations(state,
+                result.DungeonMissionResolutions.Where(r => r.FieldNewlyUnlocked != null).Select(r => r.FieldNewlyUnlocked!),
+                result.TournamentsResolved));
 
             _satisfactionSystem.ProcessWeeklySatisfaction(state, dispatchedIds); // → 03 §5.1：満足度変動
             result.TraitGrantEvents.AddRange(_satisfactionSystem.ProcessWeeklyBurnout(state)); // → 03 §5.3.2・§0.56：燃え尽き（連続出撃）
@@ -174,9 +186,7 @@ namespace GuildManager.Core.Systems
             result.Flags.FacilityConstructionCompleted = result.CompletedFacility != null;
 
             // 施設の開放の知らせ（§0.78・§0.79）：週報に1回だけ出す。
-            int levelCapAfter = FacilitySystem.GetLevelCap(state);
-            if (levelCapAfter > levelCapBefore)
-                result.FacilityLevelCapRaisedTo = levelCapAfter;
+            result.FacilityUnlocks.AddRange(FacilityUnlockSystem.Evaluate(state)); // 大会などのご褒美で開いた施設（§0.82）
             result.AdvisorFacilitiesOpened = !hadRetiree && state.RetiredAdventurers.Count > 0;
 
             // クリア（→ 03 §8.2・§0.59。深淵100Fのボス撃破で立つ）。画面はこの週にエンディングを出す。
@@ -188,6 +198,13 @@ namespace GuildManager.Core.Systems
             result.Flags.DefeatOccurred = result.NewDefeatReason != null;
 
             state.WeekNumber++;
+
+            // 新しい年の大会の暦（§0.82）と、訓練所が1つも開いていないときの副官の救済の提案。
+            if (GameCalendar.IsFirstWeekOfYear(state.WeekNumber))
+            {
+                TournamentSystem.EnsureSchedule(state);
+                FacilityUnlockSystem.CheckRescue(state);
+            }
 
             // 新しい週の依頼と迷宮の異変（→ CommissionSystem.ProcessNewWeek、§0.64）。届いた週・予告の週・期限の近い週は
             // 自動スキップを止める（受けるか、どこへ行くかを決めてもらう）。ゲームオーバー後は何も届けない。

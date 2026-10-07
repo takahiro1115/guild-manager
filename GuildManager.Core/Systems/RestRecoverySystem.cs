@@ -50,9 +50,15 @@ namespace GuildManager.Core.Systems
                 if (adventurer.CurrentHP >= adventurer.MaxHP)
                     continue;
 
+                // 大会の月（§0.82）：追い込みは静養しない（HPを使って鍛える）。休養は回復が RestRecoveryMultiplier 倍。
+                var entry = TournamentSystem.EntryOf(state, adventurer.Id);
+                if (entry?.Prep == TournamentPrep.Push)
+                    continue;
+                double tournamentRest = entry != null ? TournamentBalance.RestRecoveryMultiplier : 1.0;
+
                 double facilityMultiplier = FacilityBalance.GetInfirmaryHpRecoveryMultiplier(state.GetFacilityLevel(FacilityType.Infirmary), state.GetFacilitySpecialty(FacilityType.Infirmary));
                 int recovery = (int)(adventurer.MaxHP * TrainingBalance.RestRecoveryRatio * facilityMultiplier * (1 + researchBonus)
-                    * (adventurer.HasTrait(TraitCatalog.QuickHealerId) ? 1.0 + TraitBalance.QuickHealerRestRecoveryBonus : 1.0)); // 治りが早い（§0.55）
+                    * (adventurer.HasTrait(TraitCatalog.QuickHealerId) ? 1.0 + TraitBalance.QuickHealerRestRecoveryBonus : 1.0) * tournamentRest); // 治りが早い（§0.55）・大会の休養（§0.82）
                 adventurer.CurrentHP = Math.Min(adventurer.MaxHP, adventurer.CurrentHP + recovery);
             }
         }

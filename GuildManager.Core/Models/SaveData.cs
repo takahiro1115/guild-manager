@@ -27,7 +27,7 @@ namespace GuildManager.Core.Models
         /// 現時点ではマイグレーション処理は実装しないが、バージョン不一致を
         /// 検知できるようにしておく（→ SaveLoadService.CurrentSaveVersion）。
         /// </summary>
-        public int SaveVersion { get; set; } = 2; // §0.75で訓練施設を3つに組み直したため 1→2（旧セーブは読まない）
+        public int SaveVersion { get; set; } = 3; // §0.75で訓練施設を3つに組み直したため 1→2、§0.82で施設を大会のご褒美で開く形にしたため 2→3（旧セーブは読まない）
 
         // ---- ギルド全体のスカラー値 ----
         public int CurrentTurn { get; set; }
@@ -258,6 +258,16 @@ namespace GuildManager.Core.Models
 
         /// <summary>直近の月報（→ GameState.MonthlyReports、§0.71）。キーを持たない旧セーブ・null は空で読む。</summary>
         public List<Systems.MonthlyReport>? MonthlyReports { get; set; } = new();
+
+        // ---- 大会（§0.82、→ GameState の同名の項目） ----
+        public List<TournamentEvent>? TournamentEvents { get; set; } = new();
+        public List<TournamentEntry>? TournamentEntries { get; set; } = new();
+        public Dictionary<string, int>? FacilityUnlockedLevels { get; set; } = new();
+        public int TournamentPlacingsTotal { get; set; }
+        public int TournamentPrizeTotal { get; set; }
+        public List<string>? TournamentInviteKeys { get; set; } = new();
+        public bool PendingTrainingFacilityChoice { get; set; }
+        public bool NextUpgradeHalfPrice { get; set; }
 
         /// <summary>
         /// 掲示中・受けた依頼（→ GameState.Commissions、03 §4.9・§0.64）。GuildCommission は Guid・整数・文字列・列挙だけで

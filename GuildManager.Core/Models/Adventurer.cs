@@ -573,6 +573,12 @@ namespace GuildManager.Core.Models
             AllSlots.Any(slot => GetEquipped(slot)?.CountersGimmick(type) == true);
         public int CurrentHP { get; set; }
         public int Satisfaction { get; set; } = 70;
+
+        /// <summary>ギルドに加わった年（新人戦の資格、§0.82）。初期メンバーは0（新人戦には出ない）。</summary>
+        public int JoinedYear { get; set; }
+
+        /// <summary>大会の記録（年・大会・格・部門・順位。勝ち鞍＝順位1、入賞＝4以内。§0.82）。</summary>
+        public List<TournamentRecord> TournamentRecords { get; set; } = new();
         public InjurySeverity Injury { get; set; } = InjurySeverity.None;
 
         // ---- 満足度・契約交渉（仕様書 03 §5.1・§5.2）。→ SatisfactionSystem が更新する。 ----

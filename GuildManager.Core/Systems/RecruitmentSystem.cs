@@ -394,6 +394,7 @@ namespace GuildManager.Core.Systems
             // 給与を決めるのは副官なので、週給は副官の見立ての総合PAで決まる（§0.74。満足度の適正な週給は本当のPA）
             candidate.WeeklyWage = Math.Max(1, (int)(PotentialEstimateSystem.EstimateTotalPa(state, candidate) * EconomyBalance.WeeklyWageCoefficient));
             candidate.CurrentHP = candidate.MaxHP;
+            candidate.JoinedYear = GameCalendar.YearOf(state.WeekNumber); // 新人戦の資格（§0.82）
             if (candidate.HasTrait(TraitCatalog.SpendthriftId))
                 candidate.WeeklyWage = Math.Max(1, (int)(candidate.WeeklyWage * TraitBalance.SpendthriftWageMultiplier));
         }

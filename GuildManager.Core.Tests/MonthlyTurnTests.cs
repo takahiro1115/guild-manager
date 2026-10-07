@@ -262,7 +262,7 @@ namespace GuildManager.Core.Tests
             Assert.Null(SquadOrderSystem.GetWaitReason(state, saved));
 
             state.TrainingAssignments[b.Id] = FacilityType.DrillHall;
-            Assert.Contains("全員が訓練中", SquadOrderSystem.GetWaitReason(state, saved));
+            Assert.Contains("全員が訓練か大会", SquadOrderSystem.GetWaitReason(state, saved));
         }
     }
 }

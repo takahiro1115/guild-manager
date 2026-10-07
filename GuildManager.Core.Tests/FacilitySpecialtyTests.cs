@@ -16,7 +16,7 @@ namespace GuildManager.Core.Tests
     {
         private static GameState StateWith(FacilityType type, int level, FacilitySpecialty specialty = FacilitySpecialty.None, int gold = 100000)
         {
-            var state = FacilitySystemTests.DefeatBosses(new GameState { Gold = gold }, 30); // 上限Lv（§0.79）に止められないように
+            var state = FacilitySystemTests.AllLevelsOpen(gold); // まだ開いていないLv（§0.82）に止められないように
             var facility = state.Facilities.First(f => f.Type == type);
             facility.CurrentLevel = level;
             facility.Specialty = specialty;

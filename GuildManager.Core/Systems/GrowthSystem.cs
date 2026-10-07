@@ -97,6 +97,34 @@ namespace GuildManager.Core.Systems
         /// 伸ばす能力は Adventurer.SelfTrainingStat（無ければ職業の伸び方 → GrowthBalance.PickJobWeightedStat）。
         /// 実際に成長した分だけ GrowthEvent として返す。
         /// </summary>
+        public List<GrowthEvent> ProcessTournamentPush(GameState state)
+        {
+            // 大会の月の「追い込み」（§0.82）：部門の能力に、訓練所と同じ成長の判定（施設が無くても PushGrowthMultiplier）。HPを PushHpCost 使う。
+            var events = new List<GrowthEvent>();
+            foreach (var adventurer in state.Adventurers.Where(a => !a.IsRetired))
+            {
+                var entry = TournamentSystem.EntryOf(state, adventurer.Id);
+                if (entry?.Prep != TournamentPrep.Push)
+                    continue;
+                adventurer.CurrentHP = Math.Max(TrainingBalance.MinHp, adventurer.CurrentHP - TournamentBalance.PushHpCost);
+                var ev = state.TournamentEvents.FirstOrDefault(e => e.Id == entry.EventId);
+                var discipline = ev == null ? TournamentSystem.BestDiscipline(adventurer)
+                    : ev.Discipline == TournamentDiscipline.Party ? TournamentDiscipline.Party : TournamentSystem.DisciplineFor(ev, adventurer);
+                string[] stats = discipline switch
+                {
+                    TournamentDiscipline.Sword => new[] { "STR", "VIT" },
+                    TournamentDiscipline.Magic => new[] { "INT", "MND" },
+                    TournamentDiscipline.Skill => new[] { "DEX", "AGI" },
+                    _ => new[] { "VIT", "MND" }, // 部隊戦は走破力（VIT・MND）
+                };
+                double multiplier = GrowthBalance.TrainingFacilityMultiplier * TournamentBalance.PushGrowthMultiplier * GetResearchGrowthMultiplier(state);
+                var growthEvent = TryGrowOne(adventurer, multiplier * TraitGrowthMultiplier(adventurer), _ => stats[_rng.NextInt(0, stats.Length - 1)]);
+                if (growthEvent != null)
+                    events.Add(growthEvent);
+            }
+            return events;
+        }
+
         public List<GrowthEvent> ProcessSelfTraining(GameState state, IReadOnlySet<Guid> selfTrainerIds)
         {
             var events = new List<GrowthEvent>();

@@ -186,8 +186,8 @@ namespace GuildManager.Core.Systems
             var members = saved.MemberIds.Select(id => state.Adventurers.FirstOrDefault(a => a.Id == id)).OfType<Adventurer>().ToList();
             if (members.Count == 0) return "部隊にメンバーがいない";
             // 訓練中の冒険者はその月は出撃せず、ほかの隊員だけで出る（§0.70）。全員が訓練中なら待機。
-            members = members.Where(m => !TrainingSystem.IsTraining(state, m.Id)).ToList();
-            if (members.Count == 0) return "全員が訓練中（今月は出撃しない）";
+            members = members.Where(m => !TrainingSystem.IsTraining(state, m.Id) && !TournamentSystem.IsEntered(state, m.Id)).ToList(); // 大会に出る者も（§0.82）
+            if (members.Count == 0) return "全員が訓練か大会（今月は出撃しない）";
             var severe = members.FirstOrDefault(m => m.Injury == InjurySeverity.Severe);
             if (severe != null) return $"{severe.Name}が重傷のため待機";
             var poisoned = members.Where(m => m.IsPoisoned).ToList();

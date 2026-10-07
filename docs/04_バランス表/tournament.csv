@@ -1,0 +1,39 @@
+key,value,unit,note
+DisciplineFactor_Sword,1.0,倍,大会の相手の強さに掛ける部門ごとの倍率（剣。§0.82）
+DisciplineFactor_Magic,0.75,倍,"同・魔（魔法職は能力値の伸び方が違い、部門の強さが剣・技より3割ほど低いため。シミュレーターの実測）"
+DisciplineFactor_Skill,1.1,倍,同・技
+DisciplineFactor_Party,1.0,倍,同・部隊戦（迷宮踏破杯）
+YearlyGrowth,0.02,倍,"大会の相手の強さが毎年上がる割合（王都の水準。年目−1 に掛ける）"
+BracketSize,8,人,トーナメントの人数（2のべき乗）
+EntrantsPerGuild,2,人,1つの大会に1ギルドから出られる人数（部隊戦は1部隊）
+WinExponent,4,乗,"1試合の勝率＝a^k÷(a^k＋b^k) の k（強さが2割上なら約67%で勝つ）"
+LuckMin,0.9,倍,試合ごとの運の下限
+LuckMax,1.1,倍,試合ごとの運の上限
+HpFactorBase,0.6,倍,"試合の強さに掛けるHPの補正＝この値＋(1−この値)×HP比率"
+HpCostPerMatch,0.1,倍,1試合で使うHP（最大HPに対する割合。勝ち進むほど減る）
+SatisfactionLowThreshold,40,pt,満足度がこの値未満なら試合の強さ×SatisfactionLowFactor
+SatisfactionLowFactor,0.9,倍,満足度が低いときの試合の強さの倍率
+SatisfactionHighThreshold,80,pt,満足度がこの値以上なら試合の強さ×SatisfactionHighFactor
+SatisfactionHighFactor,1.05,倍,満足度が高いときの試合の強さの倍率
+BraveFactor,1.05,倍,豪胆（Brave）の試合の強さの倍率
+PartyCompatibilityBonusMax,0.1,倍,"部隊戦の強さに足す相性の補正の上限（ペアの相性の平均÷100×この値）"
+WinnerSatisfaction,10,pt,優勝した者の満足度の上昇
+RestRecoveryMultiplier,2.0,倍,大会の月の過ごし方「休養」のHP回復の倍率（静養に掛ける）
+PushHpCost,5,HP,大会の月の過ごし方「追い込み」で毎週使うHP
+PushGrowthMultiplier,1.0,倍,"「追い込み」の成長の判定の倍率（部門の能力に、訓練所と同じ判定。施設が無くても使える）"
+LocalBaseCount,8,大会,地方・王都の大会の年間の数の基本
+LocalYearBonusMax,4,大会,年数（年目−1）で増える数の上限
+LocalPlacingsPer,5,回,ギルドの入賞（ベスト4以上）の累計この回数ごとに地方・王都の大会が1つ増える
+LocalPlacingsBonusMax,4,大会,入賞で増える数の上限
+LocalMax,16,大会,地方・王都の大会の年間の数の上限
+LocalRegions,東方;西方;北部;南部;港町;山間;湖畔;辺境,名,地方大会の名前に使う地方（{地方}に入る。; 区切り）
+InviteLeadMonths,2,月,招待大会を置く先の月数
+PartyEntryMinFloor,30,F,迷宮踏破杯に出られる条件（どこかのフィールドでこの階層のボスを倒していること）
+DormPlacings_Lv2,3,回,"宿舎をLv2まで開くのに要るギルドの入賞（ベスト4以上）の累計（施設のご褒美、§0.82）"
+DormPlacings_Lv3,8,回,同・Lv3
+DormPlacings_Lv4,15,回,同・Lv4
+DormPlacings_Lv5,25,回,同・Lv5
+TavernPrize_Lv2,2000,G,ギルド酒場をLv2まで開くのに要る大会の賞金の累計（施設のご褒美、§0.82）
+TavernPrize_Lv3,8000,G,同・Lv3
+TavernPrize_Lv4,20000,G,同・Lv4
+TavernPrize_Lv5,40000,G,同・Lv5

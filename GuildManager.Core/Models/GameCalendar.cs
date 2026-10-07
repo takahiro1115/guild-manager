@@ -55,6 +55,13 @@ namespace GuildManager.Core.Models
         /// <summary>季節の中の何の月か（1〜3、§0.70）。</summary>
         public static int MonthOfSeason(int week) => (WeekOfSeason(week) - 1) / WeeksPerMonth + 1;
 
+        /// <summary>年の中の月（1〜12。春1の月＝1、冬3の月＝12。大会の暦に使う、§0.82）。</summary>
+        public static int MonthOfYear(int week) => (WeekOfYear(week) - 1) / WeeksPerMonth + 1;
+
+        /// <summary>年・年の中の月（1〜12）・月の中の週（1〜4）から、通算の週を求める（大会の週、§0.82）。</summary>
+        public static int WeekNumberOf(int year, int monthOfYear, int weekOfMonth) =>
+            (year - 1) * WeeksPerYear + (monthOfYear - 1) * WeeksPerMonth + weekOfMonth;
+
         /// <summary>月の中の第何週か（1〜4、§0.70）。</summary>
         public static int WeekOfMonth(int week) => (WeekOfSeason(week) - 1) % WeeksPerMonth + 1;
 

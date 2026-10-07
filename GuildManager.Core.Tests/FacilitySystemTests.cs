@@ -25,8 +25,14 @@ namespace GuildManager.Core.Tests
             return state;
         }
 
-        /// <summary>どの施設もLv5まで改築できる状態（ボス30体を撃破済み）。</summary>
-        private static GameState AllLevelsOpen(int gold) => DefeatBosses(new GameState { Gold = gold }, 30);
+        /// <summary>どの施設もLv5まで開いている状態（§0.82：施設は大会などのご褒美で開く）。</summary>
+        internal static GameState AllLevelsOpen(int gold)
+        {
+            var state = new GameState { Gold = gold };
+            foreach (var type in System.Enum.GetValues<FacilityType>())
+                state.FacilityUnlockedLevels[type] = FacilityBalance.MaxLevel;
+            return state;
+        }
 
         private static Facility GetFacility(GameState state, FacilityType type)
         {
@@ -288,43 +294,48 @@ namespace GuildManager.Core.Tests
             Assert.True(FacilitySystem.IsAvailable(new GameState(), type));
         }
 
-        // ---------------- 施設の上限Lv（§0.79） ----------------
+        // ---------------- 医務室の開放はボスの数（§0.79の表を医務室だけに残す、§0.82） ----------------
 
         [Theory]
         [InlineData(0, 1)]
         [InlineData(4, 1)]
         [InlineData(5, 2)]
-        [InlineData(11, 2)]
         [InlineData(12, 3)]
         [InlineData(20, 4)]
-        [InlineData(29, 4)]
         [InlineData(30, 5)]
-        [InlineData(50, 5)]
-        public void GetLevelCap_RisesWithDefeatedBosses(int bosses, int cap)
+        public void Infirmary_UnlocksWithDefeatedBosses(int bosses, int level)
         {
-            Assert.Equal(cap, FacilityBalance.GetLevelCap(bosses));
-            Assert.Equal(cap, FacilitySystem.GetLevelCap(DefeatBosses(new GameState(), bosses)));
+            Assert.Equal(level, FacilityBalance.GetLevelCap(bosses));
+            var state = DefeatBosses(new GameState(), bosses);
+            FacilityUnlockSystem.Evaluate(state);
+            Assert.Equal(level, FacilityUnlockSystem.GetUnlockedLevel(state, FacilityType.Infirmary));
         }
 
         [Fact]
-        public void TryStartConstruction_Fails_AboveLevelCap()
+        public void TryStartConstruction_Fails_ForLevelNotYetUnlocked()
         {
-            var state = DefeatBosses(new GameState { Gold = 10000 }, 4);
+            var state = new GameState { Gold = 10000 };
             var system = new FacilitySystem();
 
-            Assert.True(FacilitySystem.IsBlockedByLevelCap(state, FacilityType.Dormitory));
-            Assert.False(system.TryStartConstruction(state, FacilityType.Dormitory)); // Lv1→2 はボス5体から
+            Assert.True(FacilitySystem.IsBlockedByLevelCap(state, FacilityType.Dormitory)); // 宿舎のLv2は入賞3回から
+            Assert.False(system.TryStartConstruction(state, FacilityType.Dormitory));
+            Assert.False(system.TryStartConstruction(state, FacilityType.DrillHall)); // 訓練所も大会のご褒美で開く
             Assert.Equal(10000, state.Gold);
-            Assert.True(system.TryStartConstruction(state, FacilityType.DrillHall)); // Lv0→1 は始めから
+
+            state.FacilityUnlockedLevels[FacilityType.DrillHall] = 1;
+            Assert.True(system.TryStartConstruction(state, FacilityType.DrillHall));
         }
 
         [Fact]
-        public void TryStartConstruction_Succeeds_OnceBossesReachTheCap()
+        public void HalfPriceReward_HalvesTheNextUpgradeOnly()
         {
-            var state = DefeatBosses(new GameState { Gold = 10000 }, 5);
+            var state = AllLevelsOpen(10000);
+            state.NextUpgradeHalfPrice = true;
+            var system = new FacilitySystem();
 
-            Assert.False(FacilitySystem.IsBlockedByLevelCap(state, FacilityType.Dormitory));
-            Assert.True(new FacilitySystem().TryStartConstruction(state, FacilityType.Dormitory));
+            Assert.True(system.TryStartConstruction(state, FacilityType.Dormitory));
+            Assert.Equal(10000 - FacilityBalance.GetUpgradeCost(FacilityType.Dormitory, 1) / 2, state.Gold);
+            Assert.False(state.NextUpgradeHalfPrice);
         }
 
         [Fact]
@@ -344,7 +355,6 @@ namespace GuildManager.Core.Tests
 
             Assert.Single(state.RetiredAdventurers);
             Assert.True(result.AdvisorFacilitiesOpened);
-            Assert.Null(result.FacilityLevelCapRaisedTo);
             Assert.False(week.ProcessWeek(state).AdvisorFacilitiesOpened); // 1回だけ
         }
 

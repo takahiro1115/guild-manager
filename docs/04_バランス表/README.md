@@ -20,6 +20,9 @@
 | `growth_job_weights.csv` | 03 §3.1〜3.4 | GrowthBalance.JobStatWeights |
 | `satisfaction.csv` | 03 §5.1・§5.2 | SatisfactionBalance |
 | `facility.csv` | 03 §6・§6.1 | FacilityBalance |
+| `tournaments.csv` | 03 §0.82 | TournamentBalance（大会の定義。**テーブル形式** `Id,Name,Kind,Discipline,Grade,Month,Week,MinStrength,MaxStrength,Prize1,Prize2,Prize4,Mood1,Mood2,Mood4,Note`。`{地方}`・`{フィールド}` は名前の差し込み、Month・Week が0の大会は暦を作るときに決める） |
+| `tournament.csv` | 03 §0.82 | TournamentBalance（大会の式・暦・施設の開放の閾値。key,value 形式） |
+| `facility_unlock_lines.csv` | 03 §0.82 | TournamentBalance.UnlockLines（施設が開いたときの台詞。**テーブル形式** `Style,Facility,Text`。Style＝Albert／Adjutant／Royal、Facility＝Training・各施設名・Any、`{facility}`・`{level}`・`{discipline}`・`{event}` を差し込む） |
 | `master_mood.csv` | 03 §8.1・§8.1.1 | MasterMoodBalance（マスターの機嫌の初期値・成果ごとの増減・退屈減衰・強制除籍への激怒・段階閾値・内職売上倍率・研究の手伝い〈旧・待機お手伝い〉の額／機嫌） |
 | `recruitment.csv` | 03 §2.4・§7.3 | RecruitmentSystem, NameGeneratorBalance（第1週の新春ドラフト：`DraftCandidateCount`・`DraftHireCount`。旧 `TutorialCandidateCount` は削除）。先天特性の確率 `InnateTraitChancePercent` は§0.55で5→3（候補19種、1人あたり平均約0.57個）。生まれつきの欠点の確率 `InnateFlawChancePercent`（2、候補9種、平均約0.18個）は§0.56で新設。レア特性の確率 `RareTraitChancePercent`（1）と重み `RareTraitWeight_Genius`（1）・`RareTraitWeight_SingleStat`（2）は§0.57で新設 |
 | `compatibility_advisor.csv` | 03 §5.3・§7 | CompatibilityBalance, AdvisorBalance（教官成長補正、参謀の大迷宮調査解析ボーナス・道中潜行走破力ボーナス、スカウト有望新人率） |
@@ -260,9 +263,52 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 | `dungeon.csv` | `FieldRequirementMultiplier_4`（焦熱の峡谷） | 1.0→1.3 | 40F＝56 |
 | `dungeon.csv` | `FieldRequirementMultiplier_5`（深淵の特異点） | 1.0→1.5 | 50F＝76 |
 
+## 大会と、施設を大会のご褒美で開く改訂で追加されたファイルとキー（2026年10月、→ 03 §0.82）
+
+すべて仮の値（ほかの要素と合わせて今後調整する・ユーザー判断）。設計は `docs/検討中_大会と育成の栄光.md`。
+`dotnet run --project tools/balance_sim -c Release -- campaign 10 1440` で10回ともクリア、15年目前後（14〜18年目。`from=10` の10回は15年目前後〈14〜17〉）。
+シミュレーターでは主力4名をG1・特別な大会・得意な部門のG2だけに出し、ほかの大会は控えを出す（`nomain`＝主力を個人の大会に出さない、`notourney`＝大会に出ない）。
+
+**tournaments.csv**（相手の強さの幅。これに部門の倍率と年ごとの上昇を掛ける）
+
+| 大会 | 格 | 相手の強さ | 賞金（優勝／準優勝／ベスト4） | 機嫌 |
+|---|---|---|---|---|
+| 新人戦（春1の月 第4週） | G3 | 40〜70 | 300／150／80 | +5 |
+| 地方大会（剣・魔・技） | G3 | 50〜95 | 300／150／80 | +5 |
+| 王都大会（剣・魔・技） | G2 | 85〜135 | 1,000／500／250 | +8／+3 |
+| 王国剣闘祭・魔導祭・射技祭（秋2・秋3・冬1の月 第4週） | G1 | 110〜170 | 3,000／1,500／700 | +15／+6／+2 |
+| 迷宮踏破杯（冬2の月 第4週、部隊戦） | G1 | 250〜500（走破力） | 3,000／1,500／700 | +15／+6／+2 |
+| 王都最強決定戦（冬3の月 第4週） | G1 | 140〜190 | 5,000／2,000／1,000 | +20／+8／+3 |
+| 領主杯・辺境伯杯（招待） | 特別 | 85〜135 | 1,500／700／300・1,000／500／250 | +8／+3 |
+| 王族の御前試合（招待） | 特別 | 110〜170 | 3,000／1,500／700 | +10／+4 |
+
+**tournament.csv**
+
+| キー | 値 | 意味 |
+|---|---|---|
+| `DisciplineFactor_Sword`・`_Magic`・`_Skill`・`_Party` | 1.0・0.75・1.1・1.0 | 相手の強さに掛ける部門ごとの倍率（魔法職は部門の強さが3割ほど低い・技は高い。シミュレーターの実測） |
+| `YearlyGrowth` | 0.02 | 相手の強さが1年ごとに上がる割合 |
+| `BracketSize`・`EntrantsPerGuild` | 8・2 | トーナメントの人数・ギルドから1大会に出られる人数 |
+| `WinExponent`・`LuckMin`・`LuckMax` | 4・0.9・1.1 | 勝つ見込み＝強さ^4の比。強さに掛ける運の幅 |
+| `HpFactorBase`・`HpCostPerMatch` | 0.6・0.1 | 試合の強さのHPの補正＝0.6＋0.4×HP比率。1試合ごとに最大HPの10%を使う |
+| `SatisfactionLow*`・`SatisfactionHigh*`・`BraveFactor` | 40未満×0.9・80以上×1.05・×1.05 | 満足度・豪胆の補正 |
+| `PartyCompatibilityBonusMax` | 0.1 | 部隊戦の相性の平均による上乗せの上限 |
+| `WinnerSatisfaction` | 10 | 優勝した者の満足度 |
+| `RestRecoveryMultiplier` | 2.0 | 休養：大会の月のHPの回復の倍率 |
+| `PushHpCost`・`PushGrowthMultiplier` | 5・1.0 | 追い込み：毎週のHPの消費・部門の能力の成長の抽選の倍率 |
+| `LocalBaseCount`・`LocalYearBonusMax`・`LocalPlacingsPer`・`LocalPlacingsBonusMax`・`LocalMax` | 8・4・5・4・16 | 地方大会の数＝8＋(年−1、最大4)＋(入賞÷5、最大4)、最大16 |
+| `LocalRegions` | 東方;西方;… | 地方大会の名前に使う地方（`;` 区切り） |
+| `InviteLeadMonths` | 2 | 招待大会を何か月後に置くか |
+| `PartyEntryMinFloor` | 30 | 部隊戦に出るのに要る、どこかで倒したボスの階 |
+| `DormPlacings_Lv2`〜`Lv5` | 3・8・15・25 | 宿舎が開く入賞（ベスト4以上）の累計 |
+| `TavernPrize_Lv2`〜`Lv5` | 2,000・8,000・20,000・40,000 | ギルド酒場が開く賞金の累計（G） |
+
+- 訓練所・作戦資料室・冒険者支援室の開く条件（大会の格と順位）はコード（`FacilityUnlockSystem.ComputeLevel`）にある（→ 03 §0.82 #6）。
+- `facility_unlock_lines.csv`：開いたときの台詞（施設・型ごとに2〜3通り）。
+
 ## 施設の上限Lvで追加されたキー（2026年10月、→ 03 §0.79）
 
-施設を改築できる上限のLvを、倒したボスの数（全フィールドの合計）で上げる（全施設共通・すべて仮の値。`facility.csv`）。
+施設を改築できる上限のLvを、倒したボスの数（全フィールドの合計）で上げる（全施設共通・すべて仮の値。`facility.csv`）。**§0.82で医務室だけの条件になった**（ほかの施設は大会などのご褒美で開く、→ 下の「大会」の節）。
 `dotnet run --project tools/balance_sim -c Release -- campaign 10 1440` で10回ともクリア、14年目前後（12〜15年目。`from=10` の10回は13年目前後〈12〜15〉）。
 
 | キー | 値 | 意味 |
