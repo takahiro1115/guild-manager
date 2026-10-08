@@ -42,5 +42,7 @@ namespace GuildManager.Core.Models
         BeforeReport,
         /// <summary>月報を閉じたあと（月のはじめの場面）。</summary>
         AfterReport,
+        /// <summary>クリアしたとき、エンディングの窓の前（都の心臓・祝宴・初出撃、§0.89）。</summary>
+        Ending,
     }
 }

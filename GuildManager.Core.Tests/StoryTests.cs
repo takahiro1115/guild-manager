@@ -86,7 +86,7 @@ namespace GuildManager.Core.Tests
         public void StoryFiles_LoadAndHaveEveryScene_WithoutLeftoverMarks()
         {
             Assert.All(StorySystem.SceneIds, id => Assert.True(StoryBalance.Scenes.ContainsKey(id), id));
-            Assert.Equal(StorySystem.SceneIds.OrderBy(x => x), StoryBalance.Scenes.Keys.OrderBy(x => x)); // 使わない場面も残さない
+            Assert.Equal(StorySystem.SceneIds.Append(StorySystem.NarrationSceneId).OrderBy(x => x), StoryBalance.Scenes.Keys.OrderBy(x => x)); // 使わない場面も残さない
             foreach (var scene in StoryBalance.Scenes.Values)
                 foreach (var line in scene.Pages.SelectMany(p => p))
                 {
@@ -270,6 +270,119 @@ namespace GuildManager.Core.Tests
             state.TournamentPlacingsTotal = 1;
             IsabellaSystem.CheckCommissionUnlock(state);
             Assert.Contains("s02_royal", Ids(state, StoryTiming.BeforeReport));
+        }
+
+        // ---------------- 台詞03・04（§0.89） ----------------
+
+        private static void Defeat(GameState state, string fieldId, int floor) =>
+            state.DungeonFields.First(f => f.Id == fieldId).Bosses.First(b => b.Floor == floor).IsDefeated = true;
+
+        private static string[] Texts(StoryShowing s) => s.Pages.SelectMany(p => p).Select(l => l.Text).ToArray();
+
+        [Fact]
+        public void Omens_WaitForThePreviousOne()
+        {
+            var state = NewGame();
+            StorySystem.MarkSeen(state, "s01_lumina");
+            Defeat(state, "cave", 50);
+            Assert.DoesNotContain("s04_omen2", Ids(state, StoryTiming.BeforeReport)); // 森の前兆がまだ
+            Defeat(state, "forest", 50);
+            Assert.Equal(new[] { "s04_omen1", "s04_omen2" }, Show(state, StoryTiming.BeforeReport).Where(id => id.StartsWith("s04")).ToArray());
+        }
+
+        [Fact]
+        public void Truth_ByCanyon_LetterThenTruth_LaterNameCall()
+        {
+            var state = NewGame();
+            foreach (var id in new[] { "s01_lumina", "s04_omen1", "s04_omen2", "s04_omen3", "s04_omen4", "s04_trail1", "s04_trail2", "s04_trail3" })
+                StorySystem.MarkSeen(state, id);
+            Defeat(state, "canyon", 100);
+            var due = StorySystem.DueScenes(state, StoryTiming.BeforeReport).Where(s => s.SceneId.StartsWith("s04")).ToList();
+            Assert.Equal(new[] { "s04_trail4", "s04_truth" }, due.Select(s => s.SceneId));
+            Assert.Contains(Texts(due[0]), t => t == "マスター。これ、わたしの名前なんですね"); // 真相の前の台詞
+            Assert.DoesNotContain(Texts(due[0]), t => t.Contains("お母さんたちの手紙"));
+            foreach (var s in due) StorySystem.MarkSeen(state, s.SceneId);
+
+            Defeat(state, "abyss", 90);
+            Assert.Equal(new[] { "s04_namecall" }, Show(state, StoryTiming.BeforeReport).Where(id => id.StartsWith("s04")).ToArray());
+            state.WeekNumber += GameCalendar.WeeksPerMonth;
+            Assert.Contains("s04_home", Ids(state, StoryTiming.AfterReport));
+        }
+
+        [Fact]
+        public void Truth_ByAbyss90_NameCallThenTruth_LetterLaterWithOtherLine()
+        {
+            var state = NewGame();
+            foreach (var id in new[] { "s01_lumina", "s04_omen1", "s04_omen2", "s04_omen3", "s04_omen4", "s04_trail1", "s04_trail2", "s04_trail3" })
+                StorySystem.MarkSeen(state, id);
+            Defeat(state, "abyss", 90);
+            Assert.Equal(new[] { "s04_namecall", "s04_truth" }, Show(state, StoryTiming.BeforeReport).Where(id => id.StartsWith("s04")).ToArray());
+            Defeat(state, "canyon", 100);
+            var letter = Assert.Single(StorySystem.DueScenes(state, StoryTiming.BeforeReport), s => s.SceneId == "s04_trail4");
+            Assert.Contains(Texts(letter), t => t == "……本当に、わたしのお母さんたちの手紙なんですね");
+            Assert.DoesNotContain(Texts(letter), t => t.Contains("わたしの名前なんですね"));
+        }
+
+        [Fact]
+        public void Academy_AllThreeAtAbyss50_WhenFewExchangeWins()
+        {
+            var state = NewGame();
+            state.IsabellaVisitWeek = 1;
+            state.ExchangeWins = 2;
+            Assert.Equal(new[] { "s03_academy2" }, Show(state, StoryTiming.BeforeReport).Where(id => id.StartsWith("s03_academy")).ToArray());
+            Defeat(state, "abyss", 50);
+            Assert.Equal(new[] { "s03_academy4", "s03_academy6" }, Show(state, StoryTiming.BeforeReport).Where(id => id.StartsWith("s03_academy")).ToArray());
+        }
+
+        [Fact]
+        public void FirstRetiree_Name_AndHallOfFameLineOnlyWhenHallOfFame()
+        {
+            var state = NewGame();
+            var a = state.Adventurers[0];
+            state.Adventurers.Remove(a);
+            a.IsRetired = true;
+            a.RetiredAtWeek = 48;
+            state.RetiredAdventurers.Add(a);
+            var retire = Assert.Single(StorySystem.DueScenes(state, StoryTiming.AfterReport), s => s.SceneId == "s03_retire");
+            Assert.Contains(Texts(retire), t => t.Contains($"{a.Name}さん、行っちゃいましたね"));
+            Assert.DoesNotContain(Texts(retire), t => t.Contains("殿堂"));
+
+            a.HallOfFameYear = 1;
+            retire = StorySystem.DueScenes(state, StoryTiming.AfterReport).Single(s => s.SceneId == "s03_retire");
+            Assert.Contains(Texts(retire), t => t == "……それに、あの子の名前は殿堂に残るわ");
+            Assert.Contains("s03_hall", StorySystem.DueScenes(state, StoryTiming.AfterReport).Select(s => s.SceneId));
+        }
+
+        [Fact]
+        public void Daughter_FillsMothersAndName()
+        {
+            var state = NewGame();
+            var (ma, mb) = (state.Adventurers[0], state.Adventurers[1]);
+            var girl = new Adventurer { Name = "ミラ", JoinedYear = 2, ParentIds = { ma.Id, mb.Id } };
+            state.Adventurers.Add(girl);
+            var scene = Assert.Single(StorySystem.DueScenes(state, StoryTiming.BeforeReport), s => s.SceneId == "s03_daughter");
+            Assert.Contains(Texts(scene), t => t.Contains($"{ma.Name}さんと{mb.Name}さんの娘"));
+            Assert.Contains(Texts(scene), t => t.Contains("ミラの顔を見に"));
+        }
+
+        [Fact]
+        public void Ending_ScenesAfterClear_HeartDropsLinesWithoutRecords_Narration()
+        {
+            var state = NewGame();
+            Assert.Empty(StorySystem.DueScenes(state, StoryTiming.Ending));
+            state.IsGameCleared = true;
+            var due = StorySystem.DueScenes(state, StoryTiming.Ending);
+            Assert.Equal(new[] { "s04_heart", "s04_banquet", "s04_sortie" }, due.Select(s => s.SceneId));
+            Assert.DoesNotContain(Texts(due[0]), t => t.Contains("{") || t.Contains("生まれた日のこと")); // 娘も殿堂もいない
+            Assert.Contains(Texts(due[0]), t => t == "ここです");
+
+            foreach (var s in due) StorySystem.MarkSeen(state, s.SceneId);
+            Assert.Empty(StorySystem.DueScenes(state, StoryTiming.Ending));
+            Assert.Equal(3, StorySystem.EndingScenes(state).Count); // 見直すときは見た場面も出す
+
+            var narration = StorySystem.Narration(state);
+            Assert.Equal("失われた理想郷", narration[0].Text);
+            Assert.Contains(narration, l => l.Kind == StoryLineKind.Speech && l.Speaker == "アルベール");
         }
 
         // ---------------- セーブ ----------------

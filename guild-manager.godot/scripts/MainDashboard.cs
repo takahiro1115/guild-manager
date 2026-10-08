@@ -203,7 +203,7 @@ public partial class MainDashboard : Control
 
 		_systemPanel = GetNode<SystemPanel>("%SystemTab");
 		_systemPanel.SaveRequested += SaveProgress;
-		_systemPanel.EndingRequested += () => ShowEnding(); // クリア後にエンディングを見直す（→ 03 §0.59）
+		_systemPanel.EndingRequested += ReplayEnding; // クリア後にエンディングを見直す（→ 03 §0.59。§0.89：都の心臓・祝宴・初出撃の場面から）
 		_systemPanel.QuitRequested += ShowQuitPrompt; // ゲームの終了（§0.80でナビの「閉じる」から移した）
 		_systemPanel.DebugAddGoldRequested += () =>
 		{
@@ -685,7 +685,8 @@ public partial class MainDashboard : Control
 			// クリア（→ 03 §8.2・§0.59）：エンディングを先に見せ、閉じてから残りの割り込み（採用試験など）へ進む。
 			settlement.Flags.GameCleared = false;
 			DisableWeekAdvancement();
-			ShowEnding(() => HandlePostSettlementInterruptions(settlement));
+			// 都の心臓・祝宴・初出撃（§0.89）を見せてから、締めの語りとギルドの記録の窓
+			ShowStory(StoryTiming.Ending, () => ShowEnding(() => HandlePostSettlementInterruptions(settlement)));
 			return;
 		}
 
@@ -1606,17 +1607,41 @@ public partial class MainDashboard : Control
 	}
 
 	/// <summary>エンディングの語り（世界観は 01_コンセプト.md）。</summary>
-	private static string EndingNarration() =>
-		"[font_size=22][b]失われた理想郷[/b][/font_size]\n\n" +
-		"深淵の最奥で、最後の生体記憶結晶が淡く脈打っていた。\n" +
-		"冒険者たちが持ち帰ったそれを、アルベールは長いあいだ黙って掌に載せていた。\n\n" +
-		"[i]「……ようやく、揃ったわ」[/i]\n\n" +
-		"森の、洞窟の、廃墟の、峡谷の、そして深淵の主たちが抱えていた記憶。\n" +
-		"男を介さず、女同士の愛と絆だけで栄えたという古代エルフの社会――その欠片が、研究室の培養槽の光の中でひとつに繋がっていく。\n\n" +
-		"かつて政略に引き裂かれた勇者と聖女のことを、彼女は一度も口にしなかった。\n" +
-		"ただ、ギルドの広間で笑い合う娘たちを見下ろして、静かに白衣の襟を正した。\n\n" +
-		"[i]「理想郷は、どこか遠くにあるものじゃなかったのね。……さあ、次の世代の記録を始めましょう」[/i]\n\n" +
-		"[color=gray]ギルドはこれからも続いていく。[/color]";
+	/// <summary>
+	/// 締めの語り（§0.89：台詞ファイルの s04_narration、正本は物語帳「エンディング 4　締めの語り」）。
+	/// 最初の〔…〕を見出し、残りの〔…〕を段落、台詞を斜体の「…」、最後の〔…〕を灰色の結びにする。
+	/// </summary>
+	private string EndingNarration()
+	{
+		var lines = StorySystem.Narration(_state);
+		var sb = new StringBuilder();
+		for (int i = 0; i < lines.Count; i++)
+		{
+			var line = lines[i];
+			string text = line.Text.Replace("[", "[lb]");
+			if (i == 0 && line.Kind == StoryLineKind.Narration)
+				sb.Append($"[font_size=22][b]{text}[/b][/font_size]\n\n");
+			else if (line.Kind == StoryLineKind.Speech)
+				sb.Append($"[i]「{text}」[/i]\n\n");
+			else if (i == lines.Count - 1)
+				sb.Append($"[color=gray]{text}。[/color]");
+			else
+				sb.Append($"{text}。\n\n");
+		}
+		return sb.ToString();
+	}
+
+	/// <summary>システム画面の「エンディングを見直す」：都の心臓・祝宴・初出撃の場面から見せ、締めの語りとギルドの記録の窓へ（§0.89）。</summary>
+	private void ReplayEnding()
+	{
+		void OnClosed()
+		{
+			_storyPopup.Closed -= OnClosed;
+			Callable.From(() => ShowEnding()).CallDeferred();
+		}
+		_storyPopup.Closed += OnClosed;
+		_storyPopup.ShowScenes(_state, StorySystem.EndingScenes(_state));
+	}
 
 	/// <summary>エンディングに並べるギルドの記録。</summary>
 	private static string EndingRecord(GuildChronicle c)

@@ -75,6 +75,7 @@ public partial class StoryPopup : Window
 		_scenes.AddRange(scenes);
 		_sceneIndex = 0;
 		_pageIndex = 0;
+		_background = "";
 		if (_scenes.Count == 0)
 		{
 			Closed.Invoke();
@@ -101,6 +102,7 @@ public partial class StoryPopup : Window
 		{
 			_sceneIndex++;
 			_pageIndex = 0;
+			_background = ""; // 背景は場面ごと（〔背景：…〕の無い場面は出さない）
 			StorySystem.MarkSeen(_state, Current.SceneId);
 			Render();
 			return;

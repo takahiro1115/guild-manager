@@ -50,7 +50,49 @@ namespace GuildManager.Core.Systems
             new("s02_marguerite_leaves", StoryTiming.BeforeReport, s => Seen(s, "s02_marguerite") && s.StoryCounters.GetValueOrDefault(GuestLeftKey) > 0),
             new("s02_royal", StoryTiming.BeforeReport, s => IsabellaSystem.CommissionsOpen(s) && s.TournamentPlacingsTotal > 0),
             new("s02_invite", StoryTiming.AfterReport, InviteDue, Repeats: true),
+            // ---- 台詞03 中盤（§0.89） ----
+            new("s03_abyss", StoryTiming.BeforeReport, s => FieldUnlocked(s, "abyss")),
+            new("s03_wish", StoryTiming.AfterReport, s => SeenBefore(s, "s03_abyss", s.WeekNumber)),
+            new("s03_academy2", StoryTiming.BeforeReport, s => IsabellaSystem.HasVisited(s) && (s.ExchangeWins >= 2 || BossDefeated(s, "abyss", 50))),
+            new("s03_academy4", StoryTiming.BeforeReport, s => Seen(s, "s03_academy2") && (s.ExchangeWins >= 4 || BossDefeated(s, "abyss", 50))),
+            new("s03_academy6", StoryTiming.BeforeReport, s => Seen(s, "s03_academy4") && (s.ExchangeWins >= 6 || BossDefeated(s, "abyss", 50))),
+            new("s03_daughter", StoryTiming.BeforeReport, s => FirstDaughter(s) != null),
+            new("s03_g1", StoryTiming.BeforeReport, s => FirstG1Win(s) != null),
+            new("s03_fallen", StoryTiming.BeforeReport, s => s.FallenAdventurers.Count > 0),
+            new("s03_bow", StoryTiming.BeforeReport, s => Seen(s, "s01_lumina") && s.ExchangeMatchesPlayed >= 3),
+            new("s03_sword", StoryTiming.BeforeReport, s => Seen(s, "s03_bow") && s.ExchangeMatchesPlayed >= 5),
+            new("s03_cecilia", StoryTiming.BeforeReport, s => CeciliaBeaten(s) != null),
+            new("s03_retire", StoryTiming.AfterReport, s => FirstRetiree(s) != null),
+            new("s03_hall", StoryTiming.AfterReport, s => FirstHallOfFame(s) != null),
+            new("s03_sharp", StoryTiming.AfterReport, s => s.StorySeenWeeks.TryGetValue("s01_lumina", out int w) && s.WeekNumber - w >= 5 * GameCalendar.WeeksPerYear),
+            // ---- 台詞04 前兆・足跡・真相・エンディング（§0.89）。前兆も足跡も森→洞窟→廃墟→峡谷の順に、前の場面を待つ ----
+            new("s04_omen1", StoryTiming.BeforeReport, s => Seen(s, "s01_lumina") && BossDefeated(s, "forest", 50)),
+            new("s04_omen2", StoryTiming.BeforeReport, s => Seen(s, "s04_omen1") && BossDefeated(s, "cave", 50)),
+            new("s04_omen3", StoryTiming.BeforeReport, s => Seen(s, "s04_omen2") && BossDefeated(s, "ruins", 50)),
+            new("s04_omen4", StoryTiming.BeforeReport, s => Seen(s, "s04_omen3") && BossDefeated(s, "canyon", 50)),
+            new("s04_trail1", StoryTiming.BeforeReport, s => Seen(s, "s04_omen4") && BossDefeated(s, "forest", 100)),
+            new("s04_trail2", StoryTiming.BeforeReport, s => Seen(s, "s04_trail1") && BossDefeated(s, "cave", 100)),
+            new("s04_trail3", StoryTiming.BeforeReport, s => Seen(s, "s04_trail2") && BossDefeated(s, "ruins", 100)),
+            new("s04_trail4", StoryTiming.BeforeReport, s => Seen(s, "s04_trail3") && BossDefeated(s, "canyon", 100)),
+            // 真相は峡谷の制覇（足跡4）か深淵の90Fの早いほう。深淵が先なら「名を呼ぶ声」→真相の順（足跡4はあとで{真相のあと}の台詞で出る）
+            new("s04_namecall", StoryTiming.BeforeReport, s => Seen(s, "s01_lumina") && BossDefeated(s, "abyss", 90)),
+            new("s04_truth", StoryTiming.BeforeReport, s => Seen(s, "s04_trail4") || Seen(s, "s04_namecall")),
+            new("s04_home", StoryTiming.AfterReport, s => SeenBefore(s, "s04_truth", s.WeekNumber)),
+            new("s04_heart", StoryTiming.Ending, s => s.IsGameCleared),
+            new("s04_banquet", StoryTiming.Ending, s => s.IsGameCleared),
+            new("s04_sortie", StoryTiming.Ending, s => s.IsGameCleared),
         };
+
+        /// <summary>エンディングの窓に出す締めの語り（会話の小窓ではない。→ Narration）。</summary>
+        public const string NarrationSceneId = "s04_narration";
+
+        /// <summary>エンディングの窓の締めの語り（台詞ファイルの s04_narration。最初の〔…〕が見出し）。</summary>
+        public static List<StoryLine> Narration(GameState state) =>
+            StoryBalance.Get(NarrationSceneId).Pages.SelectMany(p => p).Select(l => l with { Text = Fill(state, l.Text) }).ToList();
+
+        /// <summary>エンディングの場面（見直すとき用：見たかどうかにかかわらず、都の心臓・祝宴・初出撃を返す）。</summary>
+        public static List<StoryShowing> EndingScenes(GameState state) =>
+            Rules.Where(r => r.Timing == StoryTiming.Ending).Select(r => Build(state, r.Id)).ToList();
 
         /// <summary>
         /// 操作を教えるだけの場面（§0.88）。「物語と手ほどき なし」で始めたゲームでは出さない（物語の山場だけ残す。ユーザー判断）。
@@ -141,8 +183,8 @@ namespace GuildManager.Core.Systems
             : FacilityUnlockSystem.TrainingFacilities.Where(t => FacilityUnlockSystem.GetUnlockedLevel(state, t) >= 1).Select(t => (FacilityType?)t).FirstOrDefault();
 
         /// <summary>台詞・手引きの {階}・{部門}・{施設} を埋める。</summary>
-        public static string Fill(GameState state, string text) =>
-            Placeholders(state).Aggregate(text, (t, kv) => t.Replace(kv.Key, kv.Value));
+        public static string Fill(GameState state, string text, string? sceneId = null) =>
+            Placeholders(state, sceneId).Aggregate(text, (t, kv) => t.Replace(kv.Key, kv.Value));
 
         public static bool Seen(GameState state, string sceneId) => state.StorySeenWeeks.ContainsKey(sceneId);
 
@@ -169,8 +211,42 @@ namespace GuildManager.Core.Systems
         private static bool SeenBefore(GameState state, string sceneId, int week) =>
             state.StorySeenWeeks.TryGetValue(sceneId, out int seen) && seen < week;
 
-        private static bool ForestBossDefeated(GameState state, int floor) =>
-            state.DungeonFields.FirstOrDefault(f => f.Id == IsabellaBalance.VisitFieldId)?.Bosses.Any(b => b.Floor == floor && b.IsDefeated) == true;
+        private static bool ForestBossDefeated(GameState state, int floor) => BossDefeated(state, IsabellaBalance.VisitFieldId, floor);
+
+        private static bool BossDefeated(GameState state, string fieldId, int floor) =>
+            state.DungeonFields.FirstOrDefault(f => f.Id == fieldId)?.Bosses.Any(b => b.Floor == floor && b.IsDefeated) == true;
+
+        private static bool FieldUnlocked(GameState state, string fieldId) =>
+            state.DungeonFields.FirstOrDefault(f => f.Id == fieldId)?.IsUnlocked == true;
+
+        // ---- 記録（台詞の {名前} などを埋める。§0.89） ----
+
+        private static IEnumerable<Adventurer> Everyone(GameState state) =>
+            state.Adventurers.Concat(state.GuildRetirees).Concat(state.FallenAdventurers);
+
+        /// <summary>最初の引退者（引退した週の順）。</summary>
+        public static Adventurer? FirstRetiree(GameState state) =>
+            state.GuildRetirees.OrderBy(a => a.RetiredAtWeek ?? int.MaxValue).FirstOrDefault();
+
+        /// <summary>最初に殿堂入りした者。</summary>
+        public static Adventurer? FirstHallOfFame(GameState state) =>
+            state.GuildRetirees.Where(a => a.HallOfFameYear != null).OrderBy(a => a.RetiredAtWeek ?? int.MaxValue).FirstOrDefault();
+
+        /// <summary>魂魄融和で最初に生まれた娘（加わった年の順、同じ年なら名簿の順）。</summary>
+        public static Adventurer? FirstDaughter(GameState state) =>
+            Everyone(state).Where(a => a.ParentIds.Count >= 2).OrderBy(a => a.JoinedYear).FirstOrDefault();
+
+        /// <summary>最初のG1の優勝（交流戦は除く）。</summary>
+        private static TournamentEvent? FirstG1Win(GameState state) =>
+            state.TournamentEvents.Where(e => e.Kind != TournamentKind.Exchange && e.Grade == TournamentGrade.G1 && e.Result?.WinnerIsOurs == true)
+                .OrderBy(e => e.Year).ThenBy(e => e.Month).ThenBy(e => e.Week).FirstOrDefault();
+
+        /// <summary>交流戦の魔（セシリア）に初めて勝った者の名前。無ければ null。</summary>
+        private static string? CeciliaBeaten(GameState state) =>
+            state.TournamentEvents.Where(e => e.Kind == TournamentKind.Exchange && e.Result != null)
+                .OrderBy(e => e.Year).ThenBy(e => e.Month)
+                .Select(e => e.Result!.Matches.FirstOrDefault(m => m.Round == 2 && m.AWon && m.NameB == IsabellaBalance.Opponent(TournamentDiscipline.Magic)))
+                .FirstOrDefault(m => m != null)?.NameA;
 
         /// <summary>扉前で2回以上撤退した、まだ倒していないボス（いちばん浅いもの）。無ければ null。</summary>
         public static FloorBoss? RetreatedBoss(GameState state) =>
@@ -212,7 +288,10 @@ namespace GuildManager.Core.Systems
         private static StoryShowing Build(GameState state, string sceneId)
         {
             var scene = StoryBalance.Get(sceneId);
-            var pages = scene.Pages.Select(p => p.Select(l => l with { Text = Fill(state, l.Text) }).ToList()).ToList();
+            // 埋められない {…} が残った行（記録が無い・出す条件の印が合わない）は出さない（§0.89）。空になったページも詰める。
+            var pages = scene.Pages
+                .Select(p => p.Select(l => l with { Text = Fill(state, l.Text, sceneId) }).Where(l => !l.Text.Contains('{')).ToList())
+                .Where(p => p.Count > 0).ToList();
 
             if (scene.Variants)
             {
@@ -227,9 +306,38 @@ namespace GuildManager.Core.Systems
             return new StoryShowing { SceneId = sceneId, Pages = pages };
         }
 
-        private static Dictionary<string, string> Placeholders(GameState state)
+        private static Dictionary<string, string> Placeholders(GameState state, string? sceneId = null)
         {
             var values = new Dictionary<string, string>();
+            // 台詞03・04（§0.89）：場面ごとの {名前}、ギルドの記録（初めての娘・殿堂・初めての引退者）、出す行を分ける印
+            string? name = sceneId switch
+            {
+                "s03_retire" => FirstRetiree(state)?.Name,
+                "s03_hall" => FirstHallOfFame(state)?.Name,
+                "s03_fallen" => state.FallenAdventurers.FirstOrDefault()?.Name,
+                "s03_g1" => FirstG1Win(state)?.Result?.WinnerName,
+                "s03_cecilia" => CeciliaBeaten(state),
+                _ => null,
+            };
+            if (name != null) values["{名前}"] = name;
+            if (FirstG1Win(state) is { } g1) values["{大会}"] = g1.Name;
+            if (FirstDaughter(state) is { } daughter)
+            {
+                values["{娘}"] = values["{初めての娘の名前}"] = daughter.Name;
+                var mothers = daughter.ParentIds.Select(state.FindAdventurer).ToList();
+                if (mothers.Count >= 2 && mothers[0] != null && mothers[1] != null)
+                {
+                    values["{母A}"] = mothers[0]!.Name;
+                    values["{母B}"] = mothers[1]!.Name;
+                }
+            }
+            if (FirstHallOfFame(state) is { } hall) values["{殿堂の名前}"] = hall.Name;
+            if (FirstRetiree(state) is { } retiree)
+            {
+                values["{初めての引退者の名前}"] = retiree.Name;
+                if (retiree.HallOfFameYear != null) values["{殿堂入りなら}"] = "";
+            }
+            values[Seen(state, "s04_truth") ? "{真相のあと}" : "{真相の前}"] = "";
             if (HunterBoss(state) is { } boss)
                 values["{階}"] = boss.Floor.ToString();
             if (AdviceFacility(state) is FacilityType training)
