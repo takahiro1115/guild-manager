@@ -1,0 +1,11 @@
+key,value,unit,note
+HallOfFameG1Wins,2,回,殿堂入りの条件：G1の優勝の数（ほかに王都最強決定戦の優勝・伝説の称号でも入る。引退のときに判定。大会と育成の栄光 段2）
+HallOfFameAdvisorMultiplier,1.1,倍,殿堂入りした者を教官・参謀・スカウト顧問にしたときの効果の倍率（ユーザー判断）
+BuddyCompatibility,60,相性,関係タグ「戦友」：相性がこの値以上で、同じ部隊で BuddyBossKills 回以上ボスを倒した2人（表示だけ）
+BuddyBossKills,5,回,関係タグ「戦友」に要る、同じ部隊でのボス撃破の回数
+PerfectPairCompatibility,100,相性,関係タグ「名コンビ」：相性がこの値以上
+MentorWeeks,8,週,関係タグ「師弟」：教官のもとでこの週数以上訓練した者と、その教官
+RelationsShown,3,人,戦績の頁に出す関係の深い相手の人数
+CeremonyHighlights,8,行,引退式に載せる8年の歩みの最大の行数（年表から重みの大きい出来事を選ぶ）
+CeremonyTitleLines,2,行,引退式の歩みに載せる「二つ名を得た」行の最大の数（新しいものから。加入と引退の行は必ず載せる）
+ShortCeremonyMaxEntries,3,行,年表がこの行数以下で、称号も勝ち鞍も無い者の引退式は短い版にする

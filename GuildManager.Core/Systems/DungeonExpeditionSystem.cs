@@ -493,6 +493,9 @@ namespace GuildManager.Core.Systems
                 // 強制除籍された者はロースターから外れているため加算されない。
                 AwardContribution(state, mission.Party, boss.Floor * DungeonBalance.ContributionPerBossFloor);
 
+                // 戦績（大会と育成の栄光 段2）：生還者にボス撃破を記録し、主役（討伐火力が最も高い者）を年表に書く。
+                HonorSystem.RecordBossKill(state, mission.Party, boss, mission.Field);
+
                 if (state.UnlockedSquadSlots > slotsBefore)
                     squadSlotsExpandedTo = state.UnlockedSquadSlots;
                 fieldNewlyUnlocked = state.DungeonFields

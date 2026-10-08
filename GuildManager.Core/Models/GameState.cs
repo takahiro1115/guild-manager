@@ -529,6 +529,15 @@ namespace GuildManager.Core.Models
             {
                 if (!Enum.IsDefined(a.IdleActivity)) a.IdleActivity = IdleActivity.Help;
                 if (a.SelfTrainingStat != null && !Systems.AdventurerStatAccessor.AllStatNames.Contains(a.SelfTrainingStat)) a.SelfTrainingStat = null;
+                // 戦績と観測日誌（大会と育成の栄光 段2）。段2より前のセーブには無いので空で補う（年表は次の決算で加入から書き始める）。
+                a.TournamentRecords ??= new List<TournamentRecord>();
+                a.BossKills ??= new List<BossKillRecord>();
+                a.PeakStats ??= new Dictionary<string, int>();
+                a.JoinEstimate ??= "";
+                a.Journal ??= new List<JournalEntry>();
+                a.EarnedTitleIds ??= new List<string>();
+                a.MentorWeeks ??= new Dictionary<Guid, int>();
+                a.HallOfFameReason ??= "";
             }
 
             foreach (var record in data.CompatibilityPairs)

@@ -234,6 +234,9 @@ namespace GuildManager.Core.Systems
                     Add($"招待が届いた：{invite.Name}（{GameCalendar.FormatMonth(GameCalendar.WeekNumberOf(invite.Year, invite.Month, invite.Week))} 第{invite.Week}週）", MonthlyTone.Good);
                 foreach (var unlock in s.FacilityUnlocks)
                     Add($"{FacilityUnlockSystem.DescribeUnlock(unlock)}：{unlock.Line}", MonthlyTone.Good);
+                // 栄誉（大会と育成の栄光 段2）：新しい二つ名・殿堂入り・母娘が同じ部隊で出撃
+                foreach (var notice in s.HonorNotices)
+                    Add(notice.Text, MonthlyTone.Good);
             }
 
             // 引退：この月のはじめに現役で、今は引退している者（満期・早期のどちらも）

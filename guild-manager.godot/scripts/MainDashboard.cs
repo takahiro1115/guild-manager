@@ -102,6 +102,8 @@ public partial class MainDashboard : Control
 	private TournamentPanel _tournamentPanel = null!;
 	private TournamentSystem _tournamentSystem = null!;
 	private TournamentResultPopup _tournamentResultPopup = null!;
+	private HonorRecordPopup _honorRecordPopup = null!;
+	private RetirementCeremonyPopup _retirementCeremonyPopup = null!;
 	private Button _navSystemBtn = null!;
 
 	// ---- 大迷宮（ダンジョン攻略システム：調査・討伐・採取。出撃の主画面） ----
@@ -272,6 +274,14 @@ public partial class MainDashboard : Control
 		_centerPanel.AddChild(_tournamentPanel);
 		_tournamentResultPopup = new TournamentResultPopup { Visible = false };
 		AddChild(_tournamentResultPopup);
+		// 戦績の頁と引退式（大会と育成の栄光 段2）
+		_honorRecordPopup = new HonorRecordPopup { Visible = false };
+		AddChild(_honorRecordPopup);
+		_retirementCeremonyPopup = new RetirementCeremonyPopup { Visible = false };
+		AddChild(_retirementCeremonyPopup);
+		_tournamentPanel.HonorRecordRequested += a => _honorRecordPopup.Open(_state, a);
+		_adventurerPanel.HonorRecordRequested += a => _honorRecordPopup.Open(_state, a);
+		_adventurerPanel.RetirementCeremonyRequested += a => Callable.From(() => _retirementCeremonyPopup.ShowCeremonies(_state, new[] { a })).CallDeferred();
 		_partyFormationSystem = new PartyFormationSystem();
 		_partyFormationPanel.Initialize(_partyFormationSystem);
 		_facilityPanel.Initialize(_facilitySystem);
@@ -821,19 +831,36 @@ public partial class MainDashboard : Control
 		var tournaments = weeks.SelectMany(w => w.Settlement.TournamentsResolved).ToList();
 		var unlocks = weeks.SelectMany(w => w.Settlement.FacilityUnlocks).ToList();
 		void ShowReport() => _monthlyReportPopup.ShowMonth(report, weekly, allowNext: !interrupted);
+		// 年度末に満期で引退した者は、大会の結果のあと・月報の前に引退式（1人1枚、大会と育成の栄光 段2）
+		var retirees = weeks.SelectMany(w => w.Settlement.Retirees).Select(id => _state.FindAdventurer(id)).Where(a => a != null).ToList();
+		void ShowCeremonies()
+		{
+			if (retirees.Count == 0)
+			{
+				ShowReport();
+				return;
+			}
+			void OnCeremonyClosed()
+			{
+				_retirementCeremonyPopup.Closed -= OnCeremonyClosed;
+				Callable.From(ShowReport).CallDeferred(); // 別の排他ウィンドウは閉じ切ってから開く
+			}
+			_retirementCeremonyPopup.Closed += OnCeremonyClosed;
+			_retirementCeremonyPopup.ShowCeremonies(_state, retirees);
+		}
 		if (tournaments.Any(e => e.Result?.Placings.Count > 0) || unlocks.Count > 0)
 		{
 			void OnResultsClosed()
 			{
 				_tournamentResultPopup.Closed -= OnResultsClosed;
-				Callable.From(ShowReport).CallDeferred(); // 別の排他ウィンドウは閉じ切ってから開く
+				Callable.From(ShowCeremonies).CallDeferred(); // 別の排他ウィンドウは閉じ切ってから開く
 			}
 			_tournamentResultPopup.Closed += OnResultsClosed;
 			_tournamentResultPopup.ShowResults(tournaments, unlocks);
 		}
 		else
 		{
-			ShowReport();
+			ShowCeremonies();
 		}
 	}
 

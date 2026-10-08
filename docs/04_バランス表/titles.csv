@@ -1,0 +1,16 @@
+Id,Name,Rank,Param,Note
+final_win,王都最強,Legend,0,王都最強決定戦で優勝（大会と育成の栄光 段2）
+triple_crown,三冠,Legend,0,剣・魔・技の定例のG1（剣闘祭・魔導祭・射技祭）をすべて優勝
+three_peat,{G1}三連覇,Legend,3,同じ定例のG1（王都最強決定戦を含む）をこの年数続けて優勝
+two_generations,二代制覇,Legend,0,母と娘が同じ定例のG1を優勝（母と娘の両方に付く）
+two_peat,{G1}二連覇,Name,2,同じ定例のG1をこの年数続けて優勝
+double_crown,双璧の覇者,Name,2,剣・魔・技の定例のG1をこの数の部門で優勝
+party_win,迷宮の踏破者,Name,0,迷宮踏破杯で優勝
+indomitable,不屈,Name,48,重傷が治ってからこの週数（12か月）以内にG1で優勝
+abyss_slayer,深淵を討つ者,Name,0,深淵100Fのボスの撃破に加わる
+g1_winner,{G1}の覇者,Honor,0,定例のG1（迷宮踏破杯を除く）で優勝。名前は最後に勝ったG1
+boss_mvp,主討ち,Honor,10,ボス撃破の主役（部隊で討伐火力が最も高い者）をこの回数
+rookie_king,新人王,Honor,0,新人戦で優勝
+late_bloomer,叩き上げ,Honor,0,加入時の見立てがDかCで、ピークの能力の平均が見立ての段階A以上
+veteran,古強者,Plain,20,ボス撃破にこの回数加わる
+placing_regular,入賞常連,Plain,10,大会の入賞（ベスト4以上）をこの回数

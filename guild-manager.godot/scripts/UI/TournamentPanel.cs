@@ -26,12 +26,16 @@ public partial class TournamentPanel : HBoxContainer
 	private VBoxContainer _eventList = null!;
 	private RichTextLabel _calendarLabel = null!;
 	private RichTextLabel _historyLabel = null!;
+	private VBoxContainer _hallBox = null!;
 
 	/// <summary>お知らせへの追記を依頼する（BBCode文字列）。</summary>
 	public event Action<string> LogRequested = delegate { };
 
 	/// <summary>出場の変更でゲーム状態が変わったことを通知する（MainDashboard が全体を再描画する）。</summary>
 	public event Action StateChanged = delegate { };
+
+	/// <summary>戦績の頁を開く依頼（殿堂の名前を押したとき。大会と育成の栄光 段2）。</summary>
+	public event Action<Adventurer> HonorRecordRequested = delegate { };
 
 	public TournamentPanel()
 	{
@@ -75,6 +79,10 @@ public partial class TournamentPanel : HBoxContainer
 		_historyLabel = NewText();
 		rightBox.AddChild(_calendarLabel);
 		rightBox.AddChild(_historyLabel);
+		// 殿堂（大会と育成の栄光 段2）：歴代を顔・二つ名・主な勝ち鞍で並べ、押すと戦績の頁を開く
+		_hallBox = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+		_hallBox.AddThemeConstantOverride("separation", 6);
+		rightBox.AddChild(_hallBox);
 		rightScroll.AddChild(rightBox);
 		right.AddChild(rightScroll);
 		AddChild(right);
@@ -97,6 +105,49 @@ public partial class TournamentPanel : HBoxContainer
 		RefreshEvents();
 		_calendarLabel.Text = BuildCalendar();
 		_historyLabel.Text = BuildHistory();
+		RefreshHall();
+	}
+
+	/// <summary>殿堂（大会と育成の栄光 段2）：殿堂入りした者を顔・二つ名・主な勝ち鞍で並べる。押すと戦績の頁。</summary>
+	private void RefreshHall()
+	{
+		foreach (var child in _hallBox.GetChildren())
+			child.QueueFree();
+		_hallBox.AddChild(new Label { Text = "🏛 殿堂" });
+		var hall = HonorSystem.HallOfFame(_state);
+		if (hall.Count == 0)
+		{
+			var empty = NewText();
+			empty.Text = $"[color=gray]まだ誰もいない。G1を{HonorBalance.HallOfFameG1Wins}勝・王都最強決定戦の優勝・伝説の称号のどれかを持って引退すると殿堂入りする。[/color]";
+			_hallBox.AddChild(empty);
+			return;
+		}
+		foreach (var a in hall)
+		{
+			var row = new HBoxContainer();
+			row.AddThemeConstantOverride("separation", 8);
+			row.AddChild(new TextureRect
+			{
+				Texture = AdventurerPanel.LoadPortraitTexture(a.PortraitId),
+				CustomMinimumSize = new Vector2(48, 60),
+				ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+				StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+			});
+			string title = HonorSystem.DisplayTitle(_state, a);
+			var wins = a.TournamentRecords.Where(r => r.Placing == 1 && r.Grade == TournamentGrade.G1).Select(r => $"{r.Year}年目 {r.Name}").ToList();
+			var button = new Button
+			{
+				Text = $"{a.HallOfFameYear}年目　{a.Name}" + (title.Length > 0 ? $"「{title}」" : "") + $"　{a.HallOfFameReason}",
+				TooltipText = wins.Count > 0 ? "G1の勝ち鞍：" + string.Join("、", wins) : a.HallOfFameReason,
+				Alignment = HorizontalAlignment.Left,
+				SizeFlagsHorizontal = SizeFlags.ExpandFill,
+				ClipText = true,
+			};
+			var target = a;
+			button.Pressed += () => HonorRecordRequested(target);
+			row.AddChild(button);
+			_hallBox.AddChild(row);
+		}
 	}
 
 	private void RefreshStatus()

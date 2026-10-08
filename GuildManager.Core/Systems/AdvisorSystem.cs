@@ -131,7 +131,7 @@ namespace GuildManager.Core.Systems
         {
             var targetStats = FacilityBalance.GetTrainingTargetStats(facility);
             double average = targetStats.Average(stat => AdventurerStatAccessor.GetStat(trainer, stat));
-            return average * AdvisorBalance.TrainerBonusCoefficient;
+            return average * AdvisorBalance.TrainerBonusCoefficient * HonorSystem.AdvisorMultiplier(trainer); // 殿堂入りは×1.1（段2）
         }
 
         // ---------------- 参謀の大迷宮支援（2026年9月、→ 03 §7.2） ----------------
@@ -148,7 +148,7 @@ namespace GuildManager.Core.Systems
         public static double GetAdvisorSurveyIntelBonus(GameState state)
         {
             var advisor = GetAssignedAdvisor(state);
-            return advisor == null ? 0 : SevenStatAverage(advisor) * AdvisorBalance.SurveyIntelBonusCoefficient;
+            return advisor == null ? 0 : SevenStatAverage(advisor) * AdvisorBalance.SurveyIntelBonusCoefficient * HonorSystem.AdvisorMultiplier(advisor);
         }
 
         /// <summary>
@@ -158,7 +158,7 @@ namespace GuildManager.Core.Systems
         public static double GetAdvisorTraversalPowerBonus(GameState state)
         {
             var advisor = GetAssignedAdvisor(state);
-            return advisor == null ? 0 : SevenStatAverage(advisor) * AdvisorBalance.TraversalPowerBonusCoefficient;
+            return advisor == null ? 0 : SevenStatAverage(advisor) * AdvisorBalance.TraversalPowerBonusCoefficient * HonorSystem.AdvisorMultiplier(advisor);
         }
 
         private static double SevenStatAverage(Adventurer advisor) =>
@@ -171,7 +171,7 @@ namespace GuildManager.Core.Systems
         public static double GetScoutMasterBonus(Adventurer scoutMaster)
         {
             double average = (AdventurerStatAccessor.GetStat(scoutMaster, "LDR") + AdventurerStatAccessor.GetStat(scoutMaster, "DEX")) / 2.0;
-            return average * AdvisorBalance.ScoutMasterBonusCoefficient;
+            return average * AdvisorBalance.ScoutMasterBonusCoefficient * HonorSystem.AdvisorMultiplier(scoutMaster);
         }
     }
 }

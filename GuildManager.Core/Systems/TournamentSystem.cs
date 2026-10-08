@@ -492,7 +492,7 @@ namespace GuildManager.Core.Systems
                 {
                     h.TournamentRecords.Add(new TournamentRecord
                     {
-                        Year = ev.Year, DefinitionId = ev.DefinitionId, Name = ev.Name, Kind = ev.Kind, Grade = ev.Grade,
+                        Year = ev.Year, Week = state.WeekNumber, DefinitionId = ev.DefinitionId, Name = ev.Name, Kind = ev.Kind, Grade = ev.Grade,
                         Discipline = c.Discipline, Placing = c.Placing,
                     });
                     if (c.Placing == 1)

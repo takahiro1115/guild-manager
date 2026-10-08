@@ -30,7 +30,7 @@ namespace GuildManager.Core.Systems
         {
             double eye = 0;
             if (state.AssignedScoutMaster is { } scoutId && state.RetiredAdventurers.FirstOrDefault(r => r.Id == scoutId) is { } scout)
-                eye += (scout.LDR + scout.DEX) / 2.0 * PotentialEstimateBalance.ScoutMasterEyeCoeff;
+                eye += (scout.LDR + scout.DEX) / 2.0 * PotentialEstimateBalance.ScoutMasterEyeCoeff * HonorSystem.AdvisorMultiplier(scout); // 殿堂入りは×1.1（段2）
             eye += ResearchBalance.GetAll().Count(r => r.EffectType == ResearchEffectType.RecruitPaBonus && state.IsResearchCompleted(r.Id))
                 * PotentialEstimateBalance.ResearchEyePerStep;
             var scholars = state.Adventurers.Where(a => !a.IsRetired && a.JobClass == JobClass.Scholar).ToList();

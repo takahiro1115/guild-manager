@@ -23,6 +23,9 @@
 | `tournaments.csv` | 03 §0.82 | TournamentBalance（大会の定義。**テーブル形式** `Id,Name,Kind,Discipline,Grade,Month,Week,MinStrength,MaxStrength,Prize1,Prize2,Prize4,Mood1,Mood2,Mood4,Note`。`{地方}`・`{フィールド}` は名前の差し込み、Month・Week が0の大会は暦を作るときに決める） |
 | `tournament.csv` | 03 §0.82 | TournamentBalance（大会の式・暦・施設の開放の閾値。key,value 形式） |
 | `facility_unlock_lines.csv` | 03 §0.82 | TournamentBalance.UnlockLines（施設が開いたときの台詞。**テーブル形式** `Style,Facility,Text`。Style＝Albert／Adjutant／Royal、Facility＝Training・各施設名・Any、`{facility}`・`{level}`・`{discipline}`・`{event}` を差し込む） |
+| `titles.csv` | 03 §0.83 | HonorBalance.Titles（二つ名15種。**テーブル形式** `Id,Name,Rank,Param,Note`。Rank＝Legend／Name／Honor／Plain、Param＝条件の回数・年数・週数、Name の `{G1}` は大会の名前で埋める。条件の判定はコード `HonorSystem.GetTitles`） |
+| `honor.csv` | 03 §0.83 | HonorBalance（殿堂の条件と顧問の効果の倍率・関係タグの閾値・引退式の行数。key,value 形式） |
+| `retirement_lines.csv` | 03 §0.83 | HonorBalance.RetirementLines（引退式のアルベールの言葉。**テーブル形式** `Key,Text`。Key＝HallOfFame／Legend／Name／Honor／Plain／Short、`{name}`・`{title}` を差し込む） |
 | `master_mood.csv` | 03 §8.1・§8.1.1 | MasterMoodBalance（マスターの機嫌の初期値・成果ごとの増減・退屈減衰・強制除籍への激怒・段階閾値・内職売上倍率・研究の手伝い〈旧・待機お手伝い〉の額／機嫌） |
 | `recruitment.csv` | 03 §2.4・§7.3 | RecruitmentSystem, NameGeneratorBalance（第1週の新春ドラフト：`DraftCandidateCount`・`DraftHireCount`。旧 `TutorialCandidateCount` は削除）。先天特性の確率 `InnateTraitChancePercent` は§0.55で5→3（候補19種、1人あたり平均約0.57個）。生まれつきの欠点の確率 `InnateFlawChancePercent`（2、候補9種、平均約0.18個）は§0.56で新設。レア特性の確率 `RareTraitChancePercent`（1）と重み `RareTraitWeight_Genius`（1）・`RareTraitWeight_SingleStat`（2）は§0.57で新設 |
 | `compatibility_advisor.csv` | 03 §5.3・§7 | CompatibilityBalance, AdvisorBalance（教官成長補正、参謀の大迷宮調査解析ボーナス・道中潜行走破力ボーナス、スカウト有望新人率） |
@@ -262,6 +265,35 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 | `dungeon.csv` | `FieldRequirementMultiplier_3`（忘却の古代廃墟） | 1.0→1.2 | 40F＝52 |
 | `dungeon.csv` | `FieldRequirementMultiplier_4`（焦熱の峡谷） | 1.0→1.3 | 40F＝56 |
 | `dungeon.csv` | `FieldRequirementMultiplier_5`（深淵の特異点） | 1.0→1.5 | 50F＝76 |
+
+## 戦績・二つ名・殿堂・引退式の改訂で追加されたファイルとキー（2026年10月、→ 03 §0.83）
+
+すべて仮の値。設計は `docs/検討中_大会と育成の栄光.md` §4.1（段2）。ゲームの計算に効くのは殿堂入りした顧問の倍率だけ。
+`dotnet run --project tools/balance_sim -c Release -- campaign 10 1440` で10回ともクリア、14年目前後（12〜17年目。§0.82の15年目〔14〜18〕と乱数の揺れの範囲）。
+
+**titles.csv**（格：伝説＞名＞誉＞並。表に出すのはいちばん格の高い1つ）
+
+| 格 | 二つ名（Param） |
+|---|---|
+| 伝説 | 王都最強・三冠・{G1}三連覇（3年）・二代制覇 |
+| 名 | {G1}二連覇（2年）・双璧の覇者（2部門）・迷宮の踏破者・不屈（重傷が治ってから48週以内のG1優勝）・深淵を討つ者 |
+| 誉 | {G1}の覇者・主討ち（主役10回）・新人王・叩き上げ |
+| 並 | 古強者（撃破20回）・入賞常連（入賞10回） |
+
+**honor.csv**
+
+| キー | 値 | 意味 |
+|---|---|---|
+| `HallOfFameG1Wins` | 2 | 殿堂入りに要るG1の優勝の数（ほかに最強決定戦の優勝・伝説の称号でも入る。引退のときに判定） |
+| `HallOfFameAdvisorMultiplier` | 1.1 | 殿堂入りした者を教官・参謀・スカウト顧問にしたときの効果の倍率 |
+| `BuddyCompatibility`・`BuddyBossKills` | 60・5 | 関係タグ「戦友」：相性60以上で、同じ部隊のボス撃破5回 |
+| `PerfectPairCompatibility` | 100 | 関係タグ「名コンビ」の相性 |
+| `MentorWeeks` | 8 | 関係タグ「師弟」：教官のもとで訓練した週数 |
+| `RelationsShown` | 3 | 戦績の頁に出す関係の深い相手の人数 |
+| `CeremonyHighlights`・`CeremonyTitleLines` | 8・2 | 引退式の歩みの行数（加入と引退は必ず載せる）・そのうち「二つ名を得た」行の上限 |
+| `ShortCeremonyMaxEntries` | 3 | 年表がこの行数以下で、称号も勝ち鞍も無い者の引退式は短い版 |
+
+- `retirement_lines.csv`：引退式のアルベールの言葉（殿堂・伝説・名・誉・並・短い版で2〜3通り。冒険者ごとに決まった1つを選ぶ）。
 
 ## 大会と、施設を大会のご褒美で開く改訂で追加されたファイルとキー（2026年10月、→ 03 §0.82）
 

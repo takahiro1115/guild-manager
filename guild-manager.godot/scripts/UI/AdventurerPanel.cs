@@ -124,6 +124,12 @@ public partial class AdventurerPanel : VBoxContainer
 	/// <summary>装備ポップアップの開放を依頼する（MainDashboardがポップアップを所有するため）。</summary>
 	public event Action<Adventurer> EquipmentRequested = delegate { };
 
+	/// <summary>戦績の頁を開く依頼（大会と育成の栄光 段2、→ HonorRecordPopup）。</summary>
+	public event Action<Adventurer> HonorRecordRequested = delegate { };
+
+	/// <summary>早期引退させた者の引退式を開く依頼（→ RetirementCeremonyPopup）。</summary>
+	public event Action<Adventurer> RetirementCeremonyRequested = delegate { };
+
 	/// <summary>
 	/// 冒険者が改名された（→ MainDashboard が画面全体を再描画し、左ペインの編成スロット・候補一覧・大迷宮画面の名前を即時同期する）。
 	/// </summary>
@@ -283,6 +289,17 @@ public partial class AdventurerPanel : VBoxContainer
 		var row = _renameButton.GetParent();
 		row.AddChild(_compatButton);
 		row.MoveChild(_compatButton, _renameButton.GetIndex() + 1);
+
+		// 戦績の頁（大会と育成の栄光 段2）：相性の右に置く
+		var recordButton = new Button
+		{
+			Text = "📜 戦績",
+			SizeFlagsVertical = SizeFlags.ShrinkCenter,
+			TooltipText = "勝ち鞍・ボス撃破・能力のピーク・二つ名・関係・観測日誌（年表）を開く。",
+		};
+		recordButton.Pressed += () => { if (CurrentDetailAdventurer() is { } target) HonorRecordRequested(target); };
+		row.AddChild(recordButton);
+		row.MoveChild(recordButton, _compatButton.GetIndex() + 1);
 	}
 
 	private void OnCompatibilityPressed()
@@ -512,6 +529,12 @@ public partial class AdventurerPanel : VBoxContainer
 		}
 		if (a.HasUsedSoulFusion)
 			_statusLabel.AppendText("　[color=violet]🫧 秘薬の親[/color]");
+		// 二つ名と殿堂の資格（大会と育成の栄光 段2）
+		string honorTitle = HonorSystem.DisplayTitle(_state, a);
+		if (honorTitle.Length > 0)
+			_statusLabel.AppendText($"　[color=gold]「{honorTitle}」[/color]");
+		if (HonorSystem.HallOfFameReason(_state, a) != null)
+			_statusLabel.AppendText("　[color=khaki]🏛 殿堂入りの資格あり[/color]");
 
 		if (a.NeedsNegotiation)
 		{
@@ -830,6 +853,7 @@ public partial class AdventurerPanel : VBoxContainer
 		// 引退に伴い、身につけていた武具はギルド保管庫へ返還される（→ 03 §4.2.2「離脱時の自動回収」）。
 		var recovered = _agingSystem.RetireVoluntarily(_state, target);
 		LogRequested($"[color=cyan]{target.Name} が引退し、顧問候補になった。[/color]");
+		RetirementCeremonyRequested(target); // 引退式（段2）
 		if (recovered.Count > 0)
 		{
 			LogRequested($"[color=cyan]📦 装備していた武具がギルド備品としてギルド保管庫へ返還された" +
@@ -916,7 +940,7 @@ public partial class AdventurerPanel : VBoxContainer
 	/// res://assets/portraits/{PortraitId}.png を読み込み、未設定またはファイルが
 	/// 存在しない場合はシルエット画像を返す。
 	/// </summary>
-	private static Texture2D LoadPortraitTexture(string? portraitId)
+	internal static Texture2D LoadPortraitTexture(string? portraitId)
 	{
 		if (!string.IsNullOrEmpty(portraitId))
 		{

@@ -151,6 +151,8 @@ namespace GuildManager.Core.Models
     public sealed class TournamentRecord
     {
         public int Year { get; set; }
+        /// <summary>大会を行った週（GameState.WeekNumber。称号「不屈」に使う）。段2より前の記録は0。</summary>
+        public int Week { get; set; }
         public string DefinitionId { get; set; } = "";
         public string Name { get; set; } = "";
         public TournamentKind Kind { get; set; }

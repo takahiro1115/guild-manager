@@ -579,6 +579,32 @@ namespace GuildManager.Core.Models
 
         /// <summary>大会の記録（年・大会・格・部門・順位。勝ち鞍＝順位1、入賞＝4以内。§0.82）。</summary>
         public List<TournamentRecord> TournamentRecords { get; set; } = new();
+
+        // ---- 戦績・観測日誌（大会と育成の栄光 段2、→ HonorSystem）。旧セーブでは空のまま読む。 ----
+
+        /// <summary>ボス撃破の記録（撃破した部隊の生還者に残す）。</summary>
+        public List<BossKillRecord> BossKills { get; set; } = new();
+
+        /// <summary>7能力それぞれの在籍中の最高値（能力名→値。毎週の決算の終わりに更新）。</summary>
+        public Dictionary<string, int> PeakStats { get; set; } = new();
+
+        /// <summary>加入したときの副官の見立て（例「B?」）。空＝まだ記録していない。</summary>
+        public string JoinEstimate { get; set; } = "";
+
+        /// <summary>観測日誌（その子の年表）。</summary>
+        public List<JournalEntry> Journal { get; set; } = new();
+
+        /// <summary>知らせ済みの称号（EarnedTitle.Key。得た順）。</summary>
+        public List<string> EarnedTitleIds { get; set; } = new();
+
+        /// <summary>教官のもとで訓練した週数（教官のId→週数。師弟のタグに使う）。</summary>
+        public Dictionary<Guid, int> MentorWeeks { get; set; } = new();
+
+        /// <summary>殿堂入りした年（null＝殿堂に入っていない）。引退のときに判定する。</summary>
+        public int? HallOfFameYear { get; set; }
+
+        /// <summary>殿堂入りの理由（例「G1を2勝」）。</summary>
+        public string HallOfFameReason { get; set; } = "";
         public InjurySeverity Injury { get; set; } = InjurySeverity.None;
 
         // ---- 満足度・契約交渉（仕様書 03 §5.1・§5.2）。→ SatisfactionSystem が更新する。 ----

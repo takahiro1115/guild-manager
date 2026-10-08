@@ -172,7 +172,9 @@ namespace GuildManager.Core.Systems
                 state.Adventurers.Any(a => a.NeedsNegotiation && !neededNegotiationBefore.Contains(a.Id));
 
             int moodBeforeAging = state.MasterMood;
+            var retiredBefore = state.RetiredAdventurers.Select(a => a.Id).ToHashSet();
             _agingSystem.ProcessWeeklyAging(state); // → 03 §3：加齢・8年稼働モデル
+            result.Retirees.AddRange(state.RetiredAdventurers.Where(a => !retiredBefore.Contains(a.Id)).Select(a => a.Id)); // 引退式（段2）
             // 満期引退で退職金を払いきれなかった場合の機嫌低下（→ AgingSystem.Retire）も週報の内訳に載せる。
             if (state.MasterMood != moodBeforeAging)
                 result.MoodReport.Entries.Add(new MasterMoodEntry("退職金の不足", state.MasterMood - moodBeforeAging, state.MasterMood - moodBeforeAging));
@@ -188,6 +190,9 @@ namespace GuildManager.Core.Systems
             // 施設の開放の知らせ（§0.78・§0.79）：週報に1回だけ出す。
             result.FacilityUnlocks.AddRange(FacilityUnlockSystem.Evaluate(state)); // 大会などのご褒美で開いた施設（§0.82）
             result.AdvisorFacilitiesOpened = !hadRetiree && state.RetiredAdventurers.Count > 0;
+
+            // 戦績と観測日誌（大会と育成の栄光 段2）：加入・能力のピーク・重傷と復帰・大会・誕生・母娘の出撃を記録し、新しい二つ名と殿堂入りを知らせる。
+            result.HonorNotices.AddRange(HonorSystem.ProcessWeek(state, result.TournamentsResolved, result.SoulFusionBirths));
 
             // クリア（→ 03 §8.2・§0.59。深淵100Fのボス撃破で立つ）。画面はこの週にエンディングを出す。
             result.Flags.GameCleared = !wasCleared && state.IsGameCleared;

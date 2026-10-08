@@ -348,6 +348,30 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
+        public void Expedition_BossVictory_RecordsBossKillForSurvivors_WithOneMvp()
+        {
+            // 戦績（大会と育成の栄光 段2）：撃破した部隊の生還者全員に記録が残り、主役は1人だけ（年表にも書く）
+            var boss = new FloorBoss { Name = "弱いボス", Floor = 5, MaxHp = 1, CurrentHp = 1 };
+            var field = new DungeonField { Id = "f1", Name = "テスト用フィールド", Order = 1, IsUnlocked = true, Bosses = { boss } };
+            var (state, a, b) = StateWithPair(200, field);
+            var system = BuildSystem();
+            Assert.True(system.TryDispatch(state, PartyOf(a, b), boss, DungeonMissionType.BossAssault));
+
+            system.ProcessWeeklyMissions(state);
+
+            foreach (var m in new[] { a, b })
+            {
+                var kill = Assert.Single(m.BossKills);
+                Assert.Equal(boss.Id, kill.BossId);
+                Assert.Equal(5, kill.Floor);
+                Assert.Equal("テスト用フィールド", kill.FieldName);
+            }
+            Assert.Equal(1, new[] { a, b }.Count(m => m.BossKills[0].IsMvp));
+            var mvp = a.BossKills[0].IsMvp ? a : b;
+            Assert.Contains(mvp.Journal, e => e.Kind == JournalKind.BossMvp);
+        }
+
+        [Fact]
         public void Expedition_TraversalAdvance_RaisesPairCompatibilityByOne()
         {
             var far = new FloorBoss { Name = "遠くのボス", Floor = 50, MaxHp = 1, CurrentHp = 1 };

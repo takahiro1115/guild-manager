@@ -77,6 +77,12 @@ namespace GuildManager.Core.Systems
         /// <summary>今週届いた招待大会の予告（→ TournamentSystem.CheckInvitations、§0.82）。</summary>
         public List<TournamentEvent> TournamentInvitations { get; } = new();
 
+        /// <summary>今週の栄誉の知らせ（新しい二つ名・殿堂入り・母娘の出撃。→ HonorSystem.ProcessWeek、大会と育成の栄光 段2）。</summary>
+        public List<HonorNotice> HonorNotices { get; } = new();
+
+        /// <summary>今週、満期で引退した冒険者のId（引退式の小窓を出す。→ HonorSystem.BuildCeremony）。</summary>
+        public List<System.Guid> Retirees { get; } = new();
+
         /// <summary>今週、最初の引退者が出て、作戦資料室・冒険者支援室が建てられるようになったか（§0.78・§0.79）。</summary>
         public bool AdvisorFacilitiesOpened { get; set; }
 
