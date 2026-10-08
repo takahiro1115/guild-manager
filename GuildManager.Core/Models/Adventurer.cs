@@ -680,6 +680,16 @@ namespace GuildManager.Core.Models
         /// <summary>派遣先の依頼人のId（→ commission_clients.csv）。派遣中でなければ null。</summary>
         public string? LoanClientId { get; set; }
 
+        /// <summary>
+        /// 物語の人物が冒険者になったときの印（§0.90。"lumina"＝エンディングのあとに加わるルミナ）。ふつうの冒険者は null。
+        /// ルミナは引退しない・満期で去らない（年は数える）・週給0・満足度100で契約交渉なし・魂魄融和の親にならない。
+        /// </summary>
+        public string? StoryCharacterId { get; set; }
+
+        /// <summary>引退しない特別な冒険者か（ルミナ、§0.90）。</summary>
+        [JsonIgnore]
+        public bool NeverRetires => StoryCharacterId != null;
+
         /// <summary>依頼の派遣で先方へ出ているか（§0.85）。</summary>
         [JsonIgnore]
         public bool IsOnLoan => LoanUntilWeek != null;

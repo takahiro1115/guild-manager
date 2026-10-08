@@ -99,7 +99,7 @@ namespace GuildManager.Core.Systems
         {
             if (HasVisited(state)) return false;
             var field = state.DungeonFields.FirstOrDefault(f => f.Id == IsabellaBalance.VisitFieldId);
-            if (field == null || !field.Bosses.Any(b => b.Floor == IsabellaBalance.VisitFloor && b.IsDefeated)) return false;
+            if (field == null || !field.Bosses.Any(b => b.Floor == IsabellaBalance.VisitFloor && b.EverDefeated)) return false;
             state.IsabellaVisitWeek = state.WeekNumber;
             state.ExchangeAnchor.Clear();
             EnsureAnchor(state);

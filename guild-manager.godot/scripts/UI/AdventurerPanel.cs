@@ -588,7 +588,7 @@ public partial class AdventurerPanel : VBoxContainer
 		int severanceEstimate = AgingSystem.CalculateSeverancePay(a);
 
 		_activeWeeksLabel.Text = $"在籍期間: {a.ActiveWeeks} / {maxWeeks}週";
-		_remainingWeeksLabel.Text = $"引退まで: 残り {remainingWeeks}週";
+		_remainingWeeksLabel.Text = a.NeverRetires ? "引退しない（年を取らないエルフ）" : $"引退まで: 残り {remainingWeeks}週";
 		_contributionScoreLabel.Text = $"累積功績スコア: {a.TotalContributionScore} pt";
 		_severanceEstimateLabel.Text = $"退職金見込額: {severanceEstimate:N0} G";
 

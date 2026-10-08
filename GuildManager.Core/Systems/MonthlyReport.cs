@@ -252,6 +252,8 @@ namespace GuildManager.Core.Systems
                     Add($"派遣の教官{guest.Name}が着任した（{IsabellaBalance.GuestTrainerWeeks}週" + (s.GuestTrainer.AssignedTo is FacilityType t ? $"・{FacilityName(t)}の教官" : "・施設画面で教官に任命できる") + "）", MonthlyTone.Good);
                 if (s.GuestTrainer.Left is { } guestLeft)
                     Add($"派遣の教官{guestLeft.Name}が白百合の杖へ帰った", MonthlyTone.Normal);
+                if (s.RevivedBosses.Count > 0)
+                    Add($"記憶から主が蘇った：" + string.Join("・", s.RevivedBosses.Select(b => $"{state.DungeonFields.FirstOrDefault(f => f.Bosses.Contains(b))?.Name} {b.Floor}F「{b.Name}」")), MonthlyTone.Normal);
                 if (s.CommissionsUnlocked && state.CommissionsFromWeek is int from)
                     Add($"初めての入賞で王都に名が知られた。{GameCalendar.FormatMonth(from)}から依頼が届く", MonthlyTone.Good);
                 foreach (var invite in s.TournamentInvitations)

@@ -43,7 +43,7 @@ namespace GuildManager.Core.Systems
 
             foreach (var adventurer in state.Adventurers)
             {
-                if (adventurer.IsOnLoan)
+                if (adventurer.IsOnLoan || adventurer.NeverRetires) // 派遣中（§0.85）・ルミナ（§0.90）
                     continue; // 派遣中（§0.85）は満足度も出撃の記録も動かさない
 
                 // 各要因の増減は単純に加算し、まとめて1回だけ0〜100にクランプする
@@ -200,7 +200,7 @@ namespace GuildManager.Core.Systems
             // （AgingSystem.ProcessWeeklyAgingと同じ理由）。
             foreach (var adventurer in state.Adventurers.ToList())
             {
-                if (adventurer.IsOnLoan)
+                if (adventurer.IsOnLoan || adventurer.NeverRetires) // 派遣中（§0.85）・ルミナ（§0.90）
                     continue; // 派遣中（§0.85）は帰ってくるまで交渉の猶予も進めない
 
                 if (adventurer.NeedsNegotiation)

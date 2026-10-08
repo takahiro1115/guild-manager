@@ -91,7 +91,7 @@ namespace GuildManager.Core.Systems
         {
             adventurer.Age++;
 
-            if (adventurer.Age >= RetirementAge)
+            if (adventurer.Age >= RetirementAge && !adventurer.NeverRetires) // ルミナ（§0.90）は年を数えるが引退しない
                 Retire(state, adventurer);
         }
 
@@ -105,7 +105,7 @@ namespace GuildManager.Core.Systems
         /// </summary>
         public IReadOnlyList<EquipmentItem> RetireVoluntarily(GameState state, Adventurer adventurer)
         {
-            if (adventurer.IsRetired || adventurer.IsOnLoan) // 派遣中（§0.85）は帰ってくるまで引退させない
+            if (adventurer.IsRetired || adventurer.IsOnLoan || adventurer.NeverRetires) // 派遣中（§0.85）は帰ってくるまで、ルミナ（§0.90）は引退させない
                 return Array.Empty<EquipmentItem>();
 
             return Retire(state, adventurer);

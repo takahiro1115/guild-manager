@@ -652,6 +652,10 @@ namespace GuildManager.Core.Systems
             if (field == null)
                 return; // フィールドに属さないボス（旧セーブ・テスト等）は対象外。防御的に何もしない。
 
+            // 倒した回数と週（§0.90：クリアのあとは倒してから1年で蘇る）
+            defeatedBoss.DefeatCount++;
+            defeatedBoss.LastDefeatedWeek = state.WeekNumber;
+
             // ①撃破報酬（→ FloorBoss.RewardGold/RewardMaterialId・RewardMaterialCount。機嫌の上昇は週次決算の MasterMoodSystem が担う）。
             // 迷宮の異変「主の猛り」（→ DungeonAnomalySystem、§0.64）の対象なら報奨金が増える。
             state.Gold += (int)Math.Round(defeatedBoss.RewardGold * DungeonAnomalySystem.BossRewardMultiplier(state, defeatedBoss),
@@ -676,7 +680,7 @@ namespace GuildManager.Core.Systems
             // 第5フィールド（深淵）を開放する。
             bool allShallowFieldsClearedFloor20 = state.DungeonFields
                 .Where(f => f.Order is >= 1 and <= 4)
-                .All(f => f.Bosses.Any(b => b.Floor == 20 && b.IsDefeated));
+                .All(f => f.Bosses.Any(b => b.Floor == 20 && b.EverDefeated));
             if (allShallowFieldsClearedFloor20)
             {
                 var abyss = state.DungeonFields.FirstOrDefault(f => f.Order == 5);

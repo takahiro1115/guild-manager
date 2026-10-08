@@ -1,0 +1,11 @@
+key,value,unit,note
+RevivalWeeks,48,週,"クリアのあと、倒した主が記憶から蘇るまでの週数（最後に倒した週から。クリアの前に倒した主はクリアの週から数える。§0.90）"
+PostClearAnomalySeasons,Spring;Autumn,季節,"クリアのあと、迷宮の異変を予告する季節（; 区切り。クリアの前は毎季節。異変を穏やかにする、§0.90）"
+LuminaName,ルミナ,名,エンディングのあとに名簿に加わる特別な冒険者の名前
+LuminaJob,Ranger,職業,ルミナの職業（斥候）
+LuminaRescueAge,14,歳,ルミナの救出のときの年齢（名簿の年齢は、これに救出からの年数を足す）
+LuminaPa,100,pt,ルミナの潜在能力（PA。7能力すべて）
+LuminaTraits,NightVision;HawkEye;SixthSense,,ルミナの特性（; 区切り。夜目・鷹の目・危機察知）
+LuminaPortraitId,lumina,,ルミナの立ち絵（assets/portraits の名前。無ければシルエット）
+LuminaGrownPortraitId,lumina_grown,,50年目からのルミナの立ち絵（少し成長した姿。無ければ通常の立ち絵の名前のまま）
+LuminaGrownYear,50,年目,ルミナの立ち絵が「少し成長した姿」に替わる年（ゲーム開始から。クリアしていること）

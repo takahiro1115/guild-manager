@@ -54,13 +54,13 @@ namespace GuildManager.Core.Systems
             {
                 s => s.Armory.Concat(AllEquipped(s)).Any(i => i.Rarity != null),
                 s => AllEquipped(s).Any(i => i.Rarity != null),
-                s => s.DungeonFields.FirstOrDefault(f => f.Id == IsabellaBalance.VisitFieldId)?.Bosses.Any(b => b.Floor == 20 && b.IsDefeated) == true,
+                s => s.DungeonFields.FirstOrDefault(f => f.Id == IsabellaBalance.VisitFieldId)?.Bosses.Any(b => b.Floor == 20 && b.EverDefeated) == true,
             },
             ["s01_question"] = new Func<GameState, bool>[] { s => s.CompletedResearchIds.Count > 0 },
             ["s01_hunter"] = new Func<GameState, bool>[]
             {
-                s => StorySystem.HunterBoss(s) is not { } b || b.IsDefeated || b.IntelRate >= 0.25,
-                s => StorySystem.HunterBoss(s) is not { } b || b.IsDefeated,
+                s => StorySystem.HunterBoss(s) is not { } b || b.EverDefeated || b.IntelRate >= 0.25,
+                s => StorySystem.HunterBoss(s) is not { } b || b.EverDefeated,
             },
             ["s02_visit"] = new Func<GameState, bool>[]
             {

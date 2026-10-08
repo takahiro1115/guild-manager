@@ -40,6 +40,16 @@ namespace GuildManager.Core.Models
         /// <summary>撃破済みか。</summary>
         public bool IsDefeated { get; set; } = false;
 
+        /// <summary>倒した回数（クリアのあとに蘇った主を倒し直すと増える、§0.90）。旧セーブは0（IsDefeated で一度は倒したと分かる）。</summary>
+        public int DefeatCount { get; set; }
+
+        /// <summary>最後に倒した週（蘇るまでの1年を数える、§0.90）。旧セーブ・まだ倒していなければ null。</summary>
+        public int? LastDefeatedWeek { get; set; }
+
+        /// <summary>一度でも倒したか（蘇って IsDefeated が戻っても true。倒した主の数で開くものはこれで数える、§0.90）。</summary>
+        [System.Text.Json.Serialization.JsonIgnore]
+        public bool EverDefeated => IsDefeated || DefeatCount > 0;
+
         /// <summary>
         /// 撃破報酬（→ 大迷宮5フィールド拡張仕様）。階層・所属フィールドに応じて
         /// SampleData.CreateDefaultFieldsが設定する（→ Systems.DungeonExpeditionSystem.

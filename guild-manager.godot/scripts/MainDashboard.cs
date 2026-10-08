@@ -686,7 +686,12 @@ public partial class MainDashboard : Control
 			settlement.Flags.GameCleared = false;
 			DisableWeekAdvancement();
 			// 都の心臓・祝宴・初出撃（§0.89）を見せてから、締めの語りとギルドの記録の窓
-			ShowStory(StoryTiming.Ending, () => ShowEnding(() => HandlePostSettlementInterruptions(settlement)));
+			ShowStory(StoryTiming.Ending, () =>
+			{
+				if (PostGameSystem.Lumina(_state) is { } lumina) // 初出撃のあと、ルミナが名簿に加わった（§0.90）
+					AppendLog($"[color=lime][b]🏹 {lumina.Name}が冒険者の名簿に加わった。[/b][/color][color=gray]（斥候。年を取らず、引退しない）[/color]");
+				ShowEnding(() => HandlePostSettlementInterruptions(settlement));
+			});
 			return;
 		}
 
@@ -885,6 +890,8 @@ public partial class MainDashboard : Control
 				(settlement.GuestTrainer.AssignedTo is FacilityType t ? $"・{FacilityLabel(t)}の教官" : "・顧問の任命で教官に置ける") + "）[/color]");
 		if (settlement.GuestTrainer.Left is { } left)
 			AppendLog($"[color=gray]✉ 派遣の教官{left.Name}が白百合の杖へ帰った。[/color]");
+		if (settlement.RevivedBosses.Count > 0) // エンディングのあと、記憶から主が蘇った（§0.90）
+			AppendLog("[color=plum][b]🌀 記憶から主が蘇った：[/b]" + string.Join("・", settlement.RevivedBosses.Select(b => $"{_state.DungeonFields.FirstOrDefault(f => f.Bosses.Contains(b))?.Name} {b.Floor}F「{b.Name}」")) + "[/color]");
 		foreach (var back in settlement.LoanReturns) // 依頼の派遣から帰ってきた（§0.85）
 			AppendLog($"[color=plum][b]🏠 {back.Adventurer.Name}が{back.ClientName}から帰ってきた。[/b]" +
 				(back.Growth.Count > 0 ? "　" + string.Join("・", back.Growth.GroupBy(g => g.Stat).Select(g => $"{g.Key}+{g.Sum(e => e.After - e.Before)}")) : "") +

@@ -103,7 +103,7 @@ namespace GuildManager.Core.Systems
                 arrivals.Offered.AddRange(GenerateOffers(state));
             }
 
-            if (DungeonAnomalySystem.IsAnnounceWeek(week))
+            if (DungeonAnomalySystem.IsAnnounceWeek(week) && PostGameSystem.AnomalySeasonAllowed(state, week)) // クリアのあとは春と秋だけ（§0.90）
                 arrivals.AnnouncedAnomaly = DungeonAnomalySystem.Announce(state, _rng);
 
             arrivals.DeadlineNear.AddRange(state.Commissions.Where(c =>

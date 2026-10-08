@@ -70,7 +70,7 @@ namespace GuildManager.Core.Systems
             accessorySlot is { } chosen && IsAccessory(itemSlot) && IsAccessory(chosen) ? chosen : ResolveSlot(adventurer, itemSlot);
 
         /// <summary>倒した階層ボスの総数（全フィールドの合計）。上位装備の入荷の判定に使う（§0.61）。</summary>
-        public static int CountDefeatedBosses(GameState state) => state.DungeonFields.Sum(f => f.Bosses.Count(b => b.IsDefeated));
+        public static int CountDefeatedBosses(GameState state) => state.DungeonFields.Sum(f => f.Bosses.Count(b => b.EverDefeated)); // 蘇った主も数える（§0.90）
 
         /// <summary>店に並んでいる上位装備の段（0＝まだ上位装備なし、1〜3）。→ progression.csv ShopTierUnlockBosses_*。</summary>
         public static int GetUnlockedShopTier(GameState state)

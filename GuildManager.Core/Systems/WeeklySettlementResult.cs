@@ -77,6 +77,9 @@ namespace GuildManager.Core.Systems
         /// <summary>今週届いた招待大会の予告（→ TournamentSystem.CheckInvitations、§0.82）。</summary>
         public List<TournamentEvent> TournamentInvitations { get; } = new();
 
+        /// <summary>決算のあとの新しい週に、記憶から蘇った主（クリアのあと、§0.90）。</summary>
+        public List<FloorBoss> RevivedBosses { get; } = new();
+
         /// <summary>今週、依頼の派遣から帰ってきた冒険者（成長と特性つき。→ CommissionSystem.ProcessLoanReturns、§0.85）。</summary>
         public List<LoanReturn> LoanReturns { get; } = new();
 

@@ -223,6 +223,7 @@ namespace GuildManager.Core.Systems
             state.WeekNumber++;
 
             // 新しい年の大会の暦（§0.82）。最初の交流戦の月のはじめには、空いている部門へ出られる子を入れておく（§0.84）。
+            result.RevivedBosses.AddRange(PostGameSystem.ProcessWeek(state)); // エンディングのあと：主が蘇る・ルミナ・50年目の立ち絵（§0.90）
             TournamentSystem.EnsureSchedule(state); // 年が変わったとき・大会が開いた次の月（何度呼んでもよい）
             IsabellaSystem.AutoFillFirstExchange(state);
 

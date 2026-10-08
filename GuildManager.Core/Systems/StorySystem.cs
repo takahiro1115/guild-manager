@@ -158,6 +158,8 @@ namespace GuildManager.Core.Systems
             if (sceneId is "s02_rematch_won" or "s02_rematch_lost")
                 state.StoryCounters[RematchKey] = state.ExchangeMatchesPlayed;
             // 手引き（§0.87）で、あとから同じ対象を指せるように覚えておく（撃破や次の訓練所の開放で変わるため）
+            if (sceneId == "s04_sortie")
+                PostGameSystem.EnsureLumina(state); // 初出撃のあと、ルミナが名簿に加わる（§0.90）
             if (sceneId == "s01_hunter" && RetreatedBoss(state) is { } boss)
             {
                 state.StoryCounters[HunterFieldKey] = boss.FieldOrder;
@@ -214,7 +216,7 @@ namespace GuildManager.Core.Systems
         private static bool ForestBossDefeated(GameState state, int floor) => BossDefeated(state, IsabellaBalance.VisitFieldId, floor);
 
         private static bool BossDefeated(GameState state, string fieldId, int floor) =>
-            state.DungeonFields.FirstOrDefault(f => f.Id == fieldId)?.Bosses.Any(b => b.Floor == floor && b.IsDefeated) == true;
+            state.DungeonFields.FirstOrDefault(f => f.Id == fieldId)?.Bosses.Any(b => b.Floor == floor && b.EverDefeated) == true; // 蘇った主も（§0.90）
 
         private static bool FieldUnlocked(GameState state, string fieldId) =>
             state.DungeonFields.FirstOrDefault(f => f.Id == fieldId)?.IsUnlocked == true;

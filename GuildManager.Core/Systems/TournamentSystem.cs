@@ -346,7 +346,7 @@ namespace GuildManager.Core.Systems
             if (!CanChangeEntries(state)) return "出場を決められるのは月のはじめだけ";
             if (ev.Discipline != TournamentDiscipline.Party || !IsThisMonth(state, ev) || ev.Result != null) return "今月の部隊戦ではない";
             if (EntriesOf(state, ev).Count >= 1) return "この大会にはもう1部隊出る";
-            int deepest = state.DungeonFields.Select(f => f.Bosses.Where(b => b.IsDefeated).Select(b => b.Floor).DefaultIfEmpty(0).Max()).DefaultIfEmpty(0).Max();
+            int deepest = state.DungeonFields.Select(f => f.Bosses.Where(b => b.EverDefeated).Select(b => b.Floor).DefaultIfEmpty(0).Max()).DefaultIfEmpty(0).Max();
             if (deepest < TournamentBalance.PartyEntryMinFloor) return $"どこかのフィールドで{TournamentBalance.PartyEntryMinFloor}Fのボスを倒していること";
             var members = PartyMembers(state, party);
             if (members.Count < 2) return "出られるメンバーが2人以上要る";
