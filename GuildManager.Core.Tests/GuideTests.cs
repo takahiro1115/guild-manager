@@ -139,6 +139,40 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
+        public void NoTutorial_SkipsTeachingScenes_KeepsHighlights_AllTabsNoGuide()
+        {
+            var state = NewGame();
+            StorySystem.DisableTutorial(state);
+            Assert.False(state.TutorialEnabled);
+            foreach (var tab in System.Enum.GetValues<GuideTab>())
+                Assert.True(GuideSystem.IsTabOpen(state, tab));
+
+            // 序章とギルドへは残り、方針・月を進めるは出ない
+            Assert.Equal(new[] { "s01_prologue" }, StorySystem.DueScenes(state, StoryTiming.Interactive).Select(s => s.SceneId));
+            StorySystem.MarkSeen(state, "s01_prologue");
+            state.Adventurers.AddRange(SampleData.CreateStarterAdventurers().Take(2));
+            StorySystem.MarkSeen(state, "s01_guild");
+            state.SavedParties.Add(new SavedParty { Name = "第1部隊", MemberIds = { state.Adventurers[0].Id }, Order = SquadOrder.Dive });
+            Assert.Empty(StorySystem.DueScenes(state, StoryTiming.Interactive));
+            Assert.Empty(GuideSystem.Groups(state));
+
+            // ルミナは出て、最初の月報・最初の質問は出ない
+            state.MonthlyReports.Add(new MonthlyReport());
+            Forest(state, 20).IsDefeated = true;
+            Assert.Contains("s01_lumina", StorySystem.DueScenes(state, StoryTiming.BeforeReport).Select(s => s.SceneId));
+            StorySystem.MarkSeen(state, "s01_lumina");
+            state.WeekNumber = 9;
+            Assert.Equal(new[] { "s01_elder" }, StorySystem.DueScenes(state, StoryTiming.AfterReport).Select(s => s.SceneId));
+
+            // セーブに残る
+            var restored = GameState.FromSaveData(System.Text.Json.JsonSerializer.Deserialize<SaveData>(System.Text.Json.JsonSerializer.Serialize(state.ToSaveData()))!);
+            Assert.False(restored.TutorialEnabled);
+            var old = NewGame().ToSaveData();
+            old.TutorialEnabled = null;
+            Assert.True(GameState.FromSaveData(old).TutorialEnabled);
+        }
+
+        [Fact]
         public void OldSave_AllTabsOpen_NoGuide()
         {
             var state = NewGame();

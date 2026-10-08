@@ -340,6 +340,34 @@ public partial class MainDashboard : Control
 	/// <summary>新規ゲームとして開始する（既存の初期化処理。→ 03 §12「セーブが無ければ新規ゲーム」）。</summary>
 	private void StartNewGame()
 	{
+		// 物語と手ほどき（§0.88）：一度クリアしたことがあれば「あり／なし」を選んでもらう。初回のプレイは必ず「あり」。
+		if (!PlayerProfile.ClearedOnce)
+		{
+			BeginNewGame(tutorial: true);
+			return;
+		}
+		var dialog = new AcceptDialog
+		{
+			Title = "新しいゲーム",
+			DialogText = "物語と手ほどきをどうしますか？\n\n" +
+				"あり：操作を教える場面とギルドの手引きを出し、画面は物語で教わるまで隠す（初めて遊んだときと同じ）。\n" +
+				"なし：画面を初めから全部見せ、手引きと操作を教える場面を出さない。物語の山場（序章・ルミナ・イザベラなど）は出る。",
+			OkButtonText = "あり（物語と手ほどき）",
+		};
+		dialog.AddButton("なし（物語の山場だけ）", true, "none");
+		dialog.Confirmed += () => CloseDialogThenRun(dialog, () => BeginNewGame(tutorial: true));
+		dialog.Canceled += () => CloseDialogThenRun(dialog, () => BeginNewGame(tutorial: true));
+		dialog.CustomAction += action =>
+		{
+			if (action == "none")
+				CloseDialogThenRun(dialog, () => BeginNewGame(tutorial: false));
+		};
+		AddChild(dialog);
+		dialog.PopupCentered();
+	}
+
+	private void BeginNewGame(bool tutorial)
+	{
 		// 旧通常クエスト（掲示板・受託依頼）は2026年9月、大迷宮への完全一本化で撤去した。
 		// 出撃導線は大迷宮タブのみ。
 		_state = new GameState
@@ -347,6 +375,8 @@ public partial class MainDashboard : Control
 			Adventurers = SampleData.CreateStarterAdventurers(),
 			DungeonFields = SampleData.CreateDefaultFields(),
 		};
+		if (!tutorial)
+			StorySystem.DisableTutorial(_state);
 
 		RefreshAll();
 
@@ -429,6 +459,8 @@ public partial class MainDashboard : Control
 		// 攻略対象が空のままにならないよう補う。
 		if (_state.DungeonFields.Count == 0)
 			_state.DungeonFields = SampleData.CreateDefaultFields();
+		if (_state.IsGameCleared)
+			PlayerProfile.MarkCleared(); // クリア済みのセーブ（§0.88：次の新しいゲームで手ほどきを選べる）
 		RefreshAll();
 		AppendLog($"[color=cyan]セーブデータから再開しました（{GameCalendar.Format(_state.WeekNumber)}）。[/color]");
 	}
@@ -1469,6 +1501,7 @@ public partial class MainDashboard : Control
 	/// </summary>
 	private void ShowEnding(Action afterClose = null)
 	{
+		PlayerProfile.MarkCleared(); // 一度クリアした（§0.88：次の新しいゲームで「物語と手ほどき あり／なし」を選べる）
 		var chronicle = GuildChronicle.Build(_state);
 
 		RichTextLabel MakeText(string bbcode)

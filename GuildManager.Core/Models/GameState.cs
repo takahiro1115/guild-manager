@@ -343,6 +343,9 @@ namespace GuildManager.Core.Models
         /// <summary>場面のきっかけを数える（"retreat:ボスId"＝扉前の撤退の数、"seen:場面Id"＝見た回数、"guestLeft"＝派遣の教官が帰った、など）。</summary>
         public Dictionary<string, int> StoryCounters { get; set; } = new();
 
+        /// <summary>物語と手ほどき（§0.88）：「なし」で始めたゲームは false（操作を教える場面・手引きを出さず、タブを全部見せる）。</summary>
+        public bool TutorialEnabled { get; set; } = true;
+
         /// <summary>引退者のうち、ギルドの元冒険者（派遣の教官を除く）。最初の引退者の判定・年代記に使う。</summary>
         public IEnumerable<Adventurer> GuildRetirees => RetiredAdventurers.Where(a => !a.IsGuest);
 
@@ -440,6 +443,7 @@ namespace GuildManager.Core.Models
                 GuestTrainerUntilWeek = GuestTrainerUntilWeek,
                 StorySeenWeeks = new Dictionary<string, int>(StorySeenWeeks),
                 StoryCounters = new Dictionary<string, int>(StoryCounters),
+                TutorialEnabled = TutorialEnabled,
                 Commissions = new List<GuildCommission>(Commissions),
                 CommissionCompletions = new Dictionary<string, int>(CommissionCompletions),
                 Anomaly = Anomaly,
@@ -576,6 +580,7 @@ namespace GuildManager.Core.Models
                 GuestTrainerUntilWeek = data.GuestTrainerUntilWeek,
                 StorySeenWeeks = new Dictionary<string, int>(data.StorySeenWeeks ?? new Dictionary<string, int>()),
                 StoryCounters = new Dictionary<string, int>(data.StoryCounters ?? new Dictionary<string, int>()),
+                TutorialEnabled = data.TutorialEnabled ?? true, // キーの無い旧セーブは「あり」
                 // 依頼と迷宮の異変（§0.64）。キーを持たない旧セーブ、または null が書かれていても空・無しで始める。
                 Commissions = (data.Commissions ?? new List<GuildCommission>()).Where(c => c != null).ToList(),
                 CommissionCompletions = new Dictionary<string, int>(data.CommissionCompletions ?? new Dictionary<string, int>()),

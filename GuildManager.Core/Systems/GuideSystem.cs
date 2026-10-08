@@ -103,7 +103,7 @@ namespace GuildManager.Core.Systems
         public static IReadOnlyDictionary<string, int> ConditionCounts => Conditions.ToDictionary(kv => kv.Key, kv => kv.Value.Length);
 
         /// <summary>そのタブ（画面）が見えるか：教える場面を見たら現れる。</summary>
-        public static bool IsTabOpen(GameState state, GuideTab tab) => StorySystem.Seen(state, TabScenes[tab]);
+        public static bool IsTabOpen(GameState state, GuideTab tab) => !state.TutorialEnabled || StorySystem.Seen(state, TabScenes[tab]); // 手ほどき「なし」（§0.88）は初めから全部
 
         /// <summary>
         /// 今の手引き（見た場面の順）。全部済んだ場面は、済んだ月のうちだけ残す。
@@ -112,6 +112,8 @@ namespace GuildManager.Core.Systems
         public static List<GuideGroup> Groups(GameState state)
         {
             var groups = new List<GuideGroup>();
+            if (!state.TutorialEnabled)
+                return groups; // 手ほどき「なし」（§0.88）は手引きを出さない
             foreach (var id in StorySystem.SceneIds.Where(id => StorySystem.Seen(state, id) && Conditions.ContainsKey(id)))
             {
                 var lines = StoryBalance.Get(id).Pages.SelectMany(p => p).ToList();

@@ -52,6 +52,27 @@ namespace GuildManager.Core.Systems
             new("s02_invite", StoryTiming.AfterReport, InviteDue, Repeats: true),
         };
 
+        /// <summary>
+        /// 操作を教えるだけの場面（§0.88）。「物語と手ほどき なし」で始めたゲームでは出さない（物語の山場だけ残す。ユーザー判断）。
+        /// </summary>
+        public static readonly IReadOnlyCollection<string> TeachingSceneIds = new HashSet<string>
+        {
+            "s01_order", "s01_month", "s01_first_report", "s01_question", "s01_hunter",
+            "s02_disciplines", "s02_advice", "s02_tournaments",
+        };
+
+        /// <summary>
+        /// 「物語と手ほどき なし」で始める（§0.88。新しいゲームの初めに呼ぶ）：操作を教える場面を見たことにして飛ばし、
+        /// 手引きを出さず、すべての画面のタブを見せる。ゲームの決まり（大会・依頼の開き方）は変えない。
+        /// </summary>
+        public static void DisableTutorial(GameState state)
+        {
+            state.TutorialEnabled = false;
+            foreach (var id in TeachingSceneIds)
+                state.StorySeenWeeks.TryAdd(id, 0);
+            GuideSystem.MarkAllDone(state);
+        }
+
         public const string GuestLeftKey = "guestLeft";
         private const string RematchKey = "rematchCommented";
         private static string RetreatKey(Guid bossId) => $"retreat:{bossId}";
