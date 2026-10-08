@@ -105,6 +105,8 @@ public partial class MainDashboard : Control
 	private HonorRecordPopup _honorRecordPopup = null!;
 	private RetirementCeremonyPopup _retirementCeremonyPopup = null!;
 	private StoryPopup _storyPopup = null!;
+	private GuidePopup _guidePopup = null!;
+	private Button _guideButton = null!;
 	private Button _navSystemBtn = null!;
 
 	// ---- 大迷宮（ダンジョン攻略システム：調査・討伐・採取。出撃の主画面） ----
@@ -234,6 +236,11 @@ public partial class MainDashboard : Control
 		reportsButton.Pressed += () => _monthlyReportPopup.ShowHistory(_state.MonthlyReports);
 		_squadSlotLabel.GetParent().AddChild(reportsButton);
 		_squadSlotLabel.GetParent().MoveChild(reportsButton, _squadSlotLabel.GetIndex() + 1);
+		// ギルドの手引き（§0.87）：まだ済んでいないやることの数。押すと小窓
+		_guideButton = new Button { Text = "📝 手引き", TooltipText = "ギルドの手引き：物語で教わった、今やること" };
+		_guideButton.Pressed += () => _guidePopup.Open(_state);
+		_squadSlotLabel.GetParent().AddChild(_guideButton);
+		_squadSlotLabel.GetParent().MoveChild(_guideButton, reportsButton.GetIndex() + 1);
 
 		// §0.70：月を1ターンにする。「次の月へ」（旧・自動スキップのボタン）が主な操作で、「1週進める」はデバッグ用（最終的に撤去）。
 		_autoSkipButton.Pressed += OnNextMonthPressed;
@@ -284,6 +291,10 @@ public partial class MainDashboard : Control
 		_storyPopup = new StoryPopup { Visible = false };
 		AddChild(_storyPopup);
 		_storyPopup.JumpRequested += OnStoryJump;
+		// ギルドの手引き（§0.87）
+		_guidePopup = new GuidePopup { Visible = false };
+		AddChild(_guidePopup);
+		_guidePopup.JumpRequested += OnStoryJump;
 		_tournamentPanel.HonorRecordRequested += a => _honorRecordPopup.Open(_state, a);
 		_adventurerPanel.HonorRecordRequested += a => _honorRecordPopup.Open(_state, a);
 		_adventurerPanel.RetirementCeremonyRequested += a => Callable.From(() => _retirementCeremonyPopup.ShowCeremonies(_state, new[] { a })).CallDeferred();
@@ -537,6 +548,37 @@ public partial class MainDashboard : Control
 			return;
 		if (StorySystem.DueScenes(_state, StoryTiming.Interactive).Count > 0)
 			Callable.From(() => ShowStory(StoryTiming.Interactive)).CallDeferred();
+	}
+
+	/// <summary>
+	/// ギルドの手引きのボタン（まだ済んでいないやることの数。手引きが無ければ隠す）と、まだ教えていない画面のタブを隠す（§0.87）。
+	/// 今見ている画面が隠れたら大迷宮へ戻す。
+	/// </summary>
+	private void RefreshGuideAndTabs()
+	{
+		var groups = GuideSystem.Groups(_state);
+		int open = groups.Sum(g => g.Items.Count(i => !i.Done));
+		_guideButton.Visible = groups.Count > 0;
+		_guideButton.Text = open > 0 ? $"📝 手引き（{open}）" : "📝 手引き";
+		_guideButton.Modulate = open > 0 ? new Color(1f, 0.95f, 0.6f) : Colors.White;
+		if (_guidePopup.Visible)
+			_guidePopup.Refresh();
+
+		var tabs = new (DashboardView View, Button Btn, GuideTab Tab)[]
+		{
+			(DashboardView.Warehouse, _navWarehouseBtn, GuideTab.Warehouse),
+			(DashboardView.Shop, _navShopBtn, GuideTab.Shop),
+			(DashboardView.Research, _navResearchBtn, GuideTab.Research),
+			(DashboardView.Tournament, _navTournamentBtn, GuideTab.Tournament),
+			(DashboardView.Facility, _navFacilityBtn, GuideTab.Facility),
+		};
+		foreach (var (view, btn, tab) in tabs)
+		{
+			bool openTab = GuideSystem.IsTabOpen(_state, tab);
+			btn.Visible = openTab;
+			if (!openTab && _centerPanel.CurrentTab == (int)view)
+				SwitchView(DashboardView.Dungeon);
+		}
 	}
 
 	/// <summary>会話の小窓の【画面へ】：ボタンの文言から画面を選んで切り替える（小窓はそのまま）。</summary>
@@ -1751,6 +1793,7 @@ public partial class MainDashboard : Control
 		_tournamentPanel.Refresh(_state);
 
 		UpdateButtonHighlights((DashboardView)_centerPanel.CurrentTab);
+		RefreshGuideAndTabs();
 		CheckInteractiveStory(); // 部隊を組んだ・方針を付けたなどの場面（§0.86）
 	}
 

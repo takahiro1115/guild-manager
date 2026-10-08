@@ -94,7 +94,34 @@ namespace GuildManager.Core.Systems
             state.StoryCounters[SeenCountKey(sceneId)] = state.StoryCounters.GetValueOrDefault(SeenCountKey(sceneId)) + 1;
             if (sceneId is "s02_rematch_won" or "s02_rematch_lost")
                 state.StoryCounters[RematchKey] = state.ExchangeMatchesPlayed;
+            // 手引き（§0.87）で、あとから同じ対象を指せるように覚えておく（撃破や次の訓練所の開放で変わるため）
+            if (sceneId == "s01_hunter" && RetreatedBoss(state) is { } boss)
+            {
+                state.StoryCounters[HunterFieldKey] = boss.FieldOrder;
+                state.StoryCounters[HunterFloorKey] = boss.Floor;
+            }
+            if (sceneId == "s02_advice" && FacilityUnlockSystem.TrainingFacilities.Where(t => FacilityUnlockSystem.GetUnlockedLevel(state, t) >= 1).ToList() is { Count: > 0 } opened)
+                state.StoryCounters[AdviceFacilityKey] = (int)opened[0];
         }
+
+        public const string HunterFieldKey = "hunterField";
+        public const string HunterFloorKey = "hunterFloor";
+        public const string AdviceFacilityKey = "adviceFacility";
+
+        /// <summary>獲物の癖の場面で指したボス（見たあとは覚えたもの、見る前は今の撤退の多いボス）。</summary>
+        public static FloorBoss? HunterBoss(GameState state) =>
+            state.StoryCounters.TryGetValue(HunterFieldKey, out int field) && state.StoryCounters.TryGetValue(HunterFloorKey, out int floor)
+                ? state.DungeonFields.SelectMany(f => f.Bosses).FirstOrDefault(b => b.FieldOrder == field && b.Floor == floor)
+                : RetreatedBoss(state);
+
+        /// <summary>最初の助言で勧めた訓練所（見たあとは覚えたもの、見る前は開いている訓練所）。</summary>
+        public static FacilityType? AdviceFacility(GameState state) =>
+            state.StoryCounters.TryGetValue(AdviceFacilityKey, out int type) ? (FacilityType)type
+            : FacilityUnlockSystem.TrainingFacilities.Where(t => FacilityUnlockSystem.GetUnlockedLevel(state, t) >= 1).Select(t => (FacilityType?)t).FirstOrDefault();
+
+        /// <summary>台詞・手引きの {階}・{部門}・{施設} を埋める。</summary>
+        public static string Fill(GameState state, string text) =>
+            Placeholders(state).Aggregate(text, (t, kv) => t.Replace(kv.Key, kv.Value));
 
         public static bool Seen(GameState state, string sceneId) => state.StorySeenWeeks.ContainsKey(sceneId);
 
@@ -104,6 +131,7 @@ namespace GuildManager.Core.Systems
             foreach (var rule in Rules.Where(r => !r.Repeats))
                 state.StorySeenWeeks.TryAdd(rule.Id, state.WeekNumber);
             state.StoryCounters[RematchKey] = state.ExchangeMatchesPlayed;
+            GuideSystem.MarkAllDone(state); // 手引きも出さない（§0.87）
         }
 
         /// <summary>週の決算のあと：場面のきっかけを数える（扉前の撤退・派遣の教官が帰った）。WeekProcessingSystem が呼ぶ。</summary>
@@ -130,7 +158,7 @@ namespace GuildManager.Core.Systems
                 .OrderBy(b => b.FieldOrder).ThenBy(b => b.Floor).FirstOrDefault();
 
         /// <summary>最初の交流戦（行ったもの）。</summary>
-        private static TournamentEvent? FirstExchange(GameState state) =>
+        internal static TournamentEvent? FirstExchange(GameState state) =>
             state.TournamentEvents.Where(e => e.Kind == TournamentKind.Exchange && e.Result != null)
                 .OrderBy(e => e.Year).ThenBy(e => e.Month).FirstOrDefault();
 
@@ -163,9 +191,7 @@ namespace GuildManager.Core.Systems
         private static StoryShowing Build(GameState state, string sceneId)
         {
             var scene = StoryBalance.Get(sceneId);
-            var values = Placeholders(state, sceneId);
-            string Fill(string text) => values.Aggregate(text, (t, kv) => t.Replace(kv.Key, kv.Value));
-            var pages = scene.Pages.Select(p => p.Select(l => l with { Text = Fill(l.Text) }).ToList()).ToList();
+            var pages = scene.Pages.Select(p => p.Select(l => l with { Text = Fill(state, l.Text) }).ToList()).ToList();
 
             if (scene.Variants)
             {
@@ -180,13 +206,12 @@ namespace GuildManager.Core.Systems
             return new StoryShowing { SceneId = sceneId, Pages = pages };
         }
 
-        private static Dictionary<string, string> Placeholders(GameState state, string sceneId)
+        private static Dictionary<string, string> Placeholders(GameState state)
         {
             var values = new Dictionary<string, string>();
-            if (RetreatedBoss(state) is { } boss)
+            if (HunterBoss(state) is { } boss)
                 values["{階}"] = boss.Floor.ToString();
-            var training = FacilityUnlockSystem.TrainingFacilities.FirstOrDefault(t => FacilityUnlockSystem.GetUnlockedLevel(state, t) >= 1);
-            if (FacilityUnlockSystem.TrainingFacilities.Any(t => FacilityUnlockSystem.GetUnlockedLevel(state, t) >= 1))
+            if (AdviceFacility(state) is FacilityType training)
             {
                 values["{施設}"] = FacilityUnlockSystem.FacilityName(training);
                 values["{部門}"] = TournamentSystem.DisciplineLabel(FacilityUnlockSystem.DisciplineOf(training));
