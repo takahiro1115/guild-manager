@@ -43,6 +43,9 @@ namespace GuildManager.Core.Systems
 
             foreach (var adventurer in state.Adventurers)
             {
+                if (adventurer.IsOnLoan)
+                    continue; // 派遣中（§0.85）は満足度も出撃の記録も動かさない
+
                 // 各要因の増減は単純に加算し、まとめて1回だけ0〜100にクランプする
                 // （個別にクランプすると、例えば「大きく減点された直後の自然回復+1」だけが
                 // 下限0から救われてしまうなど、適用順序で結果が変わってしまうため）。
@@ -197,6 +200,9 @@ namespace GuildManager.Core.Systems
             // （AgingSystem.ProcessWeeklyAgingと同じ理由）。
             foreach (var adventurer in state.Adventurers.ToList())
             {
+                if (adventurer.IsOnLoan)
+                    continue; // 派遣中（§0.85）は帰ってくるまで交渉の猶予も進めない
+
                 if (adventurer.NeedsNegotiation)
                 {
                     if (adventurer.NegotiationWeeksElapsed >= SatisfactionBalance.NegotiationGraceWeeks)
@@ -285,7 +291,7 @@ namespace GuildManager.Core.Systems
             int threshold = (int)Math.Round(TraitBalance.BurnoutChance * 100);
             foreach (var adventurer in state.Adventurers)
             {
-                if (adventurer.ConsecutiveDeploymentWeeks < TraitBalance.BurnoutConsecutiveWeeks) continue;
+                if (adventurer.IsOnLoan || adventurer.ConsecutiveDeploymentWeeks < TraitBalance.BurnoutConsecutiveWeeks) continue;
                 if (adventurer.HasTrait(TraitCatalog.BurnoutId)) continue;
                 if (_rng.NextInt(1, 100) > threshold) continue;
                 if (adventurer.TryAddCurseTrait(TraitCatalog.BurnoutId, out var eroded))

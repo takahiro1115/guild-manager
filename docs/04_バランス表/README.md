@@ -47,8 +47,8 @@
 | `uniques.csv` | 03 §4.7.5 | UniqueBalance（固有武具＝固定アーティファクト〈紫〉・伝説級〈金〉・依頼人の固有武具〈§0.64〉の一覧。**テーブル形式** `Id,Grade,Name,BaseItemId,HpBonus,BonusStr〜BonusLdr,CounterGimmick,DropFieldId,DropFloor,SellPrice,PatronId`。伝説級は入手元のボス〈フィールドId・階層〉と対策ギミック、売値0＝売却不可。2026年9月・§0.45。§0.64で Grade `Patron` と列 `PatronId`〈commission_clients.csv の Id。Patron 以外は空〉を追加。依頼人の固有武具は売値0＝売却不可） |
 | `research.csv` | 03 §4.6 | ResearchBalance（アルベール研究室の24プロジェクト（うち内職強化 SideBusinessGoldBonus 4種、魂魄融和の秘薬の解禁 `res_soul_fusion`＝SoulFusionUnlock・効果値0、§0.58、段階研究11種＝RecruitPaBonus・GrowthRateBonus・SoulFusionPaBonus・CultureTankBonus、§0.60）・必要素材・ゴールド・効果種別・効果値・**前提 `Prerequisite`**（§0.60で列を追加。空＝前提なし、段階研究のII・IIIは前の段のId）・**系統 `Branch`・段 `Lane`**（§0.77で列を追加。研究室のツリーの行。列は必要な素材のフィールドから決まる）） |
 | `squad_orders.csv` | 03 §4.0.3 | SquadOrderBalance（部隊の方針と自動出撃、2026年10月・§0.63）：自動出撃の条件 `AutoDispatchMinHpPercent`（70）・扉前の構え（慎重・標準・強気、§0.68）ごとの火力の倍率・HP・備えの条件 |
-| `commissions.csv` | 03 §4.9・§4.10 | CommissionBalance（依頼と迷宮の異変、2026年10月・§0.64）：依頼の届き方（届き始めは初めての入賞の次の季節・§0.84、`OffersPerSeason`＝3・`OffersPerSeason`＝3・`MaxAccepted`＝2・期限 `DeadlineWeeks_*`＝撃破24／他12・期限の知らせ `DeadlineWarningWeeks`＝2）、条件（納品の個数 `DeliverCountBase`・`DeliverFloorsPerExtra`、献上の基準 `TributeRank`＝3番目・`TributeMinThreshold`＝20）、報酬（`RewardMultiplier_*`＝撃破0.2・完全解析0.15・納品0.15・献上0.3、`CompletionMoodGain`＝10、`FailureMoodLoss`＝10、遺物 `RewardRelicRollBonus`＝25・`RewardRelicMinRarity`＝Epic、依頼人の固有武具 `PatronUniqueCompletions`＝5件）、異変（`FirstAnomalyWeek`＝13・`AnomalyAnnounceWeekOfSeason`＝4・`AnomalyDurationWeeks`＝4・倍率 `Anomaly_*`） |
-| `commission_clients.csv` | 03 §4.9 | CommissionBalance.Clients（依頼人5人。**テーブル形式** `Id,Name,Types,BonusMaterialId,BonusMaterialCount,AlbertLine`。Types は `Defeat\|Survey\|Deliver\|Tribute` の `\|` 区切り、BonusMaterial はおまけの素材〈空＝なし〉、AlbertLine は掲示中の依頼に添えるアルベールの一言） |
+| `commissions.csv` | 03 §4.9・§4.10 | CommissionBalance（依頼と迷宮の異変、2026年10月・§0.64）：依頼の届き方（届き始めは初めての入賞の次の季節・§0.84、`OffersPerSeason`＝3・`MaxAccepted`＝2・期限 `DeadlineWeeks_*`＝撃破24／他12・期限の知らせ `DeadlineWarningWeeks`＝2）、条件（納品の個数 `DeliverCountBase`・`DeliverFloorsPerExtra`、派遣の基準 `LoanRank`＝3番目・`LoanMinThreshold`＝20、派遣の期間と帰還の成長 `LoanWeeks`＝12・`LoanGrowthRolls`＝12・`LoanTraitChance`＝0.25〈§0.85〉）、報酬（`RewardMultiplier_*`＝撃破0.2・完全解析0.15・納品0.15・派遣1.5、`CompletionMoodGain`＝10、`FailureMoodLoss`＝10、遺物 `RewardRelicRollBonus`＝25・`RewardRelicMinRarity`＝Epic、依頼人の固有武具 `PatronUniqueCompletions`＝5件）、異変（`FirstAnomalyWeek`＝13・`AnomalyAnnounceWeekOfSeason`＝4・`AnomalyDurationWeeks`＝4・倍率 `Anomaly_*`） |
+| `commission_clients.csv` | 03 §4.9・§0.85 | CommissionBalance.Clients（依頼人5人。**テーブル形式** `Id,Name,Types,BonusMaterialId,BonusMaterialCount,AlbertLine,LoanStats,LoanTraits`。Types は `Defeat\|Survey\|Deliver\|Loan` の `\|` 区切り、BonusMaterial はおまけの素材〈空＝なし〉、AlbertLine は掲示中の依頼に添えるアルベールの一言、LoanStats・LoanTraits は派遣から帰ってきたときに伸ばす能力と付く特性の候補〈§0.85、`\|` 区切り。派遣を頼む依頼人は LoanStats が必須〉） |
 | `commission_texts.csv` | 03 §4.9 | CommissionBalance（依頼文の文例。**テーブル形式** `ClientId,Type,Text`。{field}{boss}{floor}{material}{count}{stat}{value}{weeks} を差し込む。依頼人が扱う種類ごとに1本以上ないと起動失敗） |
 | `dungeon_anomalies.csv` | 03 §4.10 | CommissionBalance（迷宮の異変5種の名前と予告文。**テーブル形式** `Type,Name,Text`。{field}{boss}{floor}{weeks} を差し込む。倍率は commissions.csv） |
 | `elixir.csv` | 03 §4.6.2 | ElixirBalance（霊薬、2026年10月・§0.61）：1人が生涯に飲める数 `MaxPerAdventurer`（3） |
@@ -266,6 +266,29 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 | `dungeon.csv` | `FieldRequirementMultiplier_3`（忘却の古代廃墟） | 1.0→1.2 | 40F＝52 |
 | `dungeon.csv` | `FieldRequirementMultiplier_4`（焦熱の峡谷） | 1.0→1.3 | 40F＝56 |
 | `dungeon.csv` | `FieldRequirementMultiplier_5`（深淵の特異点） | 1.0→1.5 | 50F＝76 |
+
+## 依頼人のイザベラと「派遣」の改訂で追加／変更されたキー（2026年10月、→ 03 §0.85）
+
+すべて仮の値。`campaign 10 1440` で10回ともクリア、13年目〔11〜15〕（§0.84は15年目〔14〜19〕。献上で子を手放す代償が無くなったため。派遣の依頼を受けない場合も13年目〔11〜14〕）。
+
+**commissions.csv**（献上 Tribute → 派遣 Loan）
+
+| キー | 値 | 意味 |
+|---|---|---|
+| `DeadlineWeeks_Loan` | 12 | 派遣の依頼の返事の期限（旧 `DeadlineWeeks_Tribute`） |
+| `LoanRank`・`LoanMinThreshold` | 3・20 | 派遣の基準（旧 `TributeRank`・`TributeMinThreshold`。値は同じ） |
+| `LoanWeeks` | 12 | 派遣の期間（送り出した週を含めてこの週数の決算のあとに帰る） |
+| `LoanGrowthRolls` | 12 | 帰ってきたときの成長の抽選の回数（訓練所Lv1・教官なしと同じ確率） |
+| `LoanTraitChance` | 0.25 | 帰ってきたときに依頼人ごとの特性が1つ付く確率 |
+| `LoanOfferSeasons` | Spring;Autumn | 派遣の依頼が届く季節（毎季節だとクリアが12年目に早まったため、年2回まで） |
+| `RewardMultiplier_Loan` | 3 → **1.5** | 派遣の報酬ゴールド＝最前線のボスの撃破報酬×この倍率（旧 `RewardMultiplier_Tribute`） |
+
+**commission_clients.csv**：列 `LoanStats`・`LoanTraits` を足した（辺境伯家＝STR・VIT・LDR／守り手・頑強・豪胆、エルフの里＝DEX・AGI・MND／夜目・健脚・地図読み）。
+依頼人 `Knights`（王都の騎士団）を **`Isabella`（イザベラ〈白百合の杖〉）** に替え、Types の `Tribute` を `Loan` に。
+
+**commission_texts.csv**：イザベラ（撃破3通り）・辺境伯家（派遣3通り）は物語帳の案、エルフの里（撃破2・完全解析1・納品1・派遣1）は長老ユーフェミアの言葉に書き直した。
+
+**uniques.csv**：`PatronKnightsBlade` の名前を「騎士団の宝剣」→「**白百合の宝剣**」、PatronId を `Isabella` に（Id は旧セーブのためそのまま）。
 
 ## イザベラの来訪から大会を開く改訂で追加／変更されたファイルとキー（2026年10月、→ 03 §0.84）
 

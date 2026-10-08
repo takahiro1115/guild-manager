@@ -56,7 +56,7 @@ namespace GuildManager.Core.Tests
             {
                 ClientId = type switch
                 {
-                    CommissionType.Defeat => "Knights",
+                    CommissionType.Defeat => "Isabella",
                     CommissionType.Survey => "Academy",
                     CommissionType.Deliver => "Merchants",
                     _ => "Noble",
@@ -83,7 +83,8 @@ namespace GuildManager.Core.Tests
             Assert.Equal(3, CommissionBalance.OffersPerSeason);
             Assert.Equal(2, CommissionBalance.MaxAccepted);
             Assert.Equal(24, CommissionBalance.GetDeadlineWeeks(CommissionType.Defeat));
-            Assert.Equal(3.0, CommissionBalance.GetRewardMultiplier(CommissionType.Tribute), precision: 6);
+            Assert.Equal(1.5, CommissionBalance.GetRewardMultiplier(CommissionType.Loan), precision: 6);
+            Assert.Equal((12, 12, 0.25), (CommissionBalance.LoanWeeks, CommissionBalance.LoanGrowthRolls, CommissionBalance.LoanTraitChance));
             Assert.Equal(ItemRarity.Epic, CommissionBalance.RewardRelicMinRarity);
             Assert.Equal(5, CommissionBalance.PatronUniqueCompletions);
             Assert.Equal(5, CommissionBalance.Clients.Count);
@@ -109,7 +110,7 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void PatronUnique_CannotBeSold()
         {
-            var item = EquipmentItem.FromUnique(UniqueBalance.FindPatronReward("Knights")!);
+            var item = EquipmentItem.FromUnique(UniqueBalance.FindPatronReward("Isabella")!);
             Assert.False(EquipmentSystem.CanSell(item));
         }
 
@@ -125,10 +126,10 @@ namespace GuildManager.Core.Tests
             string[] Row(string grade, string patron, string sell = "0") =>
                 new[] { "X", grade, "試し", "IronSword", "0", "1", "0", "0", "0", "0", "0", "0", "", "", "0", sell, patron };
 
-            Assert.Single(UniqueBalance.Parse(header, new[] { Row("Patron", "Knights") }));
+            Assert.Single(UniqueBalance.Parse(header, new[] { Row("Patron", "Isabella") }));
             Assert.Throws<BalanceDataException>(() => UniqueBalance.Parse(header, new[] { Row("Patron", "") }));
-            Assert.Throws<BalanceDataException>(() => UniqueBalance.Parse(header, new[] { Row("Patron", "Knights", "100") }));
-            Assert.Throws<BalanceDataException>(() => UniqueBalance.Parse(header, new[] { Row("Artifact", "Knights", "100") }));
+            Assert.Throws<BalanceDataException>(() => UniqueBalance.Parse(header, new[] { Row("Patron", "Isabella", "100") }));
+            Assert.Throws<BalanceDataException>(() => UniqueBalance.Parse(header, new[] { Row("Artifact", "Isabella", "100") }));
         }
 
         // ---------------- 届き方 ----------------
@@ -207,17 +208,27 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
-        public void TributeOffer_UsesThirdHighestStat()
+        public void LoanOffer_UsesThirdHighestStat()
         {
-            var state = NewState(13);
-            state.Adventurers.Add(Make("レナ", 60)); // 60・50・40・30 → 3番目は40
+            // 秋のはじめ（25週）。60・50・40・30 → 3番目は40
             var c = Enumerable.Range(0, 60)
-                .Select(seed => { var s = NewState(13); s.Adventurers.Add(Make("レナ", 60)); return new CommissionSystem(new SeededRng(seed)).GenerateOffers(s); })
+                .Select(seed => { var s = NewState(25); s.Adventurers.Add(Make("レナ", 60)); return new CommissionSystem(new SeededRng(seed)).GenerateOffers(s); })
                 .SelectMany(x => x)
-                .First(x => x.Type == CommissionType.Tribute);
+                .First(x => x.Type == CommissionType.Loan);
 
             Assert.Equal(40, c.StatThreshold);
             Assert.Contains(c.StatName!, new[] { "STR", "AGI", "VIT", "MND", "DEX", "LDR", "INT" });
+        }
+
+        [Fact]
+        public void LoanOffers_OnlyInSpringAndAutumn()
+        {
+            Assert.Equal(new[] { Season.Spring, Season.Autumn }, CommissionBalance.LoanOfferSeasons);
+            foreach (int week in new[] { 13, 37 }) // 夏・冬のはじめ
+                Assert.DoesNotContain(Enumerable.Range(0, 40).SelectMany(seed => new CommissionSystem(new SeededRng(seed)).GenerateOffers(NewState(week))),
+                    o => o.Type == CommissionType.Loan);
+            Assert.Contains(Enumerable.Range(0, 40).SelectMany(seed => new CommissionSystem(new SeededRng(seed)).GenerateOffers(NewState(49))),
+                o => o.Type == CommissionType.Loan); // 2年目の春
         }
 
         [Fact]
@@ -262,8 +273,8 @@ namespace GuildManager.Core.Tests
             Assert.Equal(1500, state.Gold);
             Assert.Equal(60, state.MasterMood);
             Assert.True(Assert.Single(state.UnidentifiedItems).Rarity >= ItemRarity.Epic);
-            Assert.Equal(1, state.CommissionCompletions["Knights"]);
-            Assert.Null(done.BonusMaterialId); // 騎士団はおまけなし
+            Assert.Equal(1, state.CommissionCompletions["Isabella"]);
+            Assert.Null(done.BonusMaterialId); // イザベラはおまけなし
         }
 
         [Fact]
@@ -346,10 +357,10 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
-        public void Tribute_RemovesAdventurer_ReturnsGear_AndCompletes()
+        public void Loan_KeepsAdventurerOnRoster_Unavailable_AndCompletes()
         {
             var state = NewState(20);
-            var c = Accepted(state, CommissionType.Tribute);
+            var c = Accepted(state, CommissionType.Loan);
             c.StatName = "STR";
             c.StatThreshold = 40;
             var mina = state.Adventurers.First(a => a.Name == "ミナ");
@@ -360,26 +371,150 @@ namespace GuildManager.Core.Tests
             state.SavedParties.Add(saved);
             state.TrainingAssignments[mina.Id] = FacilityType.DrillHall;
 
-            var candidates = CommissionSystem.GetTributeCandidates(state, c);
+            var candidates = CommissionSystem.GetLoanCandidates(state, c);
             Assert.Equal(new[] { mina }, candidates); // セリアは出撃中、アリスは基準未満
 
             var system = new CommissionSystem(new AlwaysMinRng());
-            Assert.Null(system.TryTribute(state, c, state.Adventurers.First(a => a.Name == "アリス")));
-            var done = system.TryTribute(state, c, mina)!;
+            Assert.Null(system.TryLoan(state, c, state.Adventurers.First(a => a.Name == "アリス")));
+            var done = system.TryLoan(state, c, mina)!;
 
-            Assert.Equal("ミナ", done.TributedAdventurerName);
-            Assert.DoesNotContain(mina, state.Adventurers);
+            Assert.Equal("ミナ", done.LoanedAdventurerName);
+            Assert.Contains(mina, state.Adventurers); // 名簿に残る
+            Assert.True(mina.IsOnLoan);
+            Assert.Equal(20 + CommissionBalance.LoanWeeks - 1, mina.LoanUntilWeek); // 20週から12週（20〜31週）の決算のあとに帰る
+            Assert.Equal("Noble", mina.LoanClientId);
+            Assert.False(mina.IsAvailable);
+            Assert.NotNull(mina.EquippedWeapon); // 装備は持って行く
             Assert.DoesNotContain(mina.Id, saved.MemberIds);
             Assert.False(state.TrainingAssignments.ContainsKey(mina.Id));
-            Assert.Single(state.Armory);
             Assert.Empty(state.Commissions);
+
+            // 派遣中は候補にならず、訓練・装備・大会・引退もできない
+            var another = Accepted(state, CommissionType.Loan);
+            another.StatName = "STR";
+            another.StatThreshold = 0;
+            Assert.DoesNotContain(mina, CommissionSystem.GetLoanCandidates(state, another));
+            Assert.NotEmpty(CommissionSystem.GetLoanCandidates(state, another));
+            Assert.False(EquipmentSystem.CanChangeEquipment(mina));
+            Assert.Equal(WeekActivity.OnLoan, IdleActivitySystem.GetWeekActivity(state, mina));
+            Assert.Empty(new AgingSystem(new SeededRng(1)).RetireVoluntarily(state, mina));
+            Assert.Contains(mina, state.Adventurers);
+        }
+
+        [Fact]
+        public void Loan_ReturnsAfterTwelveWeeks_WithClientStatsAndFullHp()
+        {
+            var state = NewState(20);
+            var mina = state.Adventurers.First(a => a.Name == "ミナ");
+            mina.PA_STR = mina.PA_VIT = mina.PA_LDR = mina.PA_DEX = mina.PA_AGI = mina.PA_MND = mina.PA_INT = 100;
+            mina.LoanUntilWeek = 32;
+            mina.LoanClientId = "Noble";
+            mina.CurrentHP = 1;
+            var system = new CommissionSystem(new AlwaysMinRng()); // 特性は必ず付く・成長の抽選は必ず当たる
+            var growth = new GrowthSystem(new AlwaysMinRng());
+
+            state.WeekNumber = 31;
+            Assert.Empty(system.ProcessLoanReturns(state, growth));
+            state.WeekNumber = 32;
+            var back = Assert.Single(system.ProcessLoanReturns(state, growth));
+
+            Assert.False(mina.IsOnLoan);
+            Assert.Null(mina.LoanClientId);
+            Assert.Equal(mina.MaxHP, mina.CurrentHP);
+            Assert.Equal("辺境伯家", back.ClientName);
+            Assert.Equal(CommissionBalance.LoanGrowthRolls, back.Growth.Count);
+            Assert.All(back.Growth, g => Assert.Contains(g.Stat, new[] { "STR", "VIT", "LDR" }));
+            Assert.Contains(back.TraitId, new[] { "Guardian", "Sturdy", "Brave" });
+            Assert.Contains(back.TraitId!, mina.TraitIds);
+        }
+
+        [Fact]
+        public void Loan_ReturnsEarly_AtYearEnd_WhenRetiring()
+        {
+            var state = NewState(GameCalendar.WeeksPerYear);
+            var mina = state.Adventurers.First(a => a.Name == "ミナ");
+            mina.Age = AgingSystem.RetirementAge - 1;
+            mina.LoanUntilWeek = GameCalendar.WeeksPerYear + 6;
+            mina.LoanClientId = "Elves";
+            var back = Assert.Single(new CommissionSystem(new AlwaysMinRng()).ProcessLoanReturns(state, new GrowthSystem(new SeededRng(1))));
+            Assert.Same(mina, back.Adventurer);
+            Assert.False(mina.IsOnLoan);
+        }
+
+        [Fact]
+        public void MonthlyReport_ShowsLoanSentReturnedAndStatus()
+        {
+            var state = NewState(20);
+            var mina = state.Adventurers.First(a => a.Name == "ミナ");
+            var c = Accepted(state, CommissionType.Loan);
+            c.StatName = "STR";
+            c.StatThreshold = 40;
+            var settlement = new WeeklySettlementResult();
+            settlement.Commissions.Completed.Add(new CommissionSystem(new AlwaysMinRng()).TryLoan(state, c, mina)!);
+            var back = new LoanReturn(state.Adventurers.First(a => a.Name == "セリア"), "エルフの里") { TraitId = "NightVision" };
+            settlement.LoanReturns.Add(back);
+            settlement.Activities[mina.Id] = WeekActivity.OnLoan;
+
+            var report = MonthlyReport.Build(state, new[] { new AutoSkipWeek(new(), settlement) }, state.Gold);
+
+            Assert.Contains(report.Highlights, l => l.Text.Contains("ミナをひと季節派遣した"));
+            Assert.Contains(report.Highlights, l => l.Text.Contains("セリアがエルフの里から帰ってきた") && l.Text.Contains("夜目"));
+            var row = report.Adventurers.Single(r => r.Name == "ミナ");
+            Assert.Contains("派遣1週", row.Activities);
+            Assert.Contains(row.Status, s => s.Text.Contains("辺境伯家へ派遣中"));
+        }
+
+        [Fact]
+        public void Loan_NoWage_SatisfactionFrozen()
+        {
+            var state = NewState(20);
+            var mina = state.Adventurers.First(a => a.Name == "ミナ");
+            mina.WeeklyWage = 100;
+            mina.Satisfaction = 30;
+            mina.LoanUntilWeek = 30;
+            int gold = state.Gold;
+            int others = state.Adventurers.Where(a => a != mina).Sum(a => a.WeeklyWage);
+
+            new EconomySystem().ApplyWeeklyWages(state);
+            new SatisfactionSystem().ProcessWeeklySatisfaction(state, new HashSet<Guid>());
+            new SatisfactionSystem().ProcessWeeklyNegotiation(state);
+
+            Assert.Equal(gold - others, state.Gold);
+            Assert.Equal(30, mina.Satisfaction);
+            Assert.False(mina.NeedsNegotiation);
+        }
+
+        [Fact]
+        public void OldSave_KnightsCommissionsBecomeIsabella()
+        {
+            var state = NewState(20);
+            Accepted(state, CommissionType.Defeat, ForestBoss(state)).ClientId = GameState.LegacyKnightsClientId;
+            state.CommissionCompletions[GameState.LegacyKnightsClientId] = 3;
+            var restored = GameState.FromSaveData(JsonSerializer.Deserialize<SaveData>(JsonSerializer.Serialize(state.ToSaveData()))!);
+            Assert.Equal(GameState.IsabellaClientId, Assert.Single(restored.Commissions).ClientId);
+            Assert.Equal(3, restored.CommissionCompletions[GameState.IsabellaClientId]);
+            Assert.False(restored.CommissionCompletions.ContainsKey(GameState.LegacyKnightsClientId));
+            Assert.Equal("白百合の宝剣", UniqueBalance.FindPatronReward(GameState.IsabellaClientId)!.Name);
+        }
+
+        [Fact]
+        public void Save_RoundTripsLoan()
+        {
+            var state = NewState(20);
+            var mina = state.Adventurers.First(a => a.Name == "ミナ");
+            mina.LoanUntilWeek = 32;
+            mina.LoanClientId = "Elves";
+            var restored = GameState.FromSaveData(JsonSerializer.Deserialize<SaveData>(JsonSerializer.Serialize(state.ToSaveData()))!);
+            var back = restored.Adventurers.Single(a => a.Name == "ミナ");
+            Assert.Equal((32, "Elves"), (back.LoanUntilWeek!.Value, back.LoanClientId));
+            Assert.True(back.IsOnLoan);
         }
 
         [Fact]
         public void PatronUnique_ArrivesOnFifthCompletion_OnlyOnce()
         {
             var state = NewState(20);
-            state.CommissionCompletions["Knights"] = 4;
+            state.CommissionCompletions["Isabella"] = 4;
             var boss = ForestBoss(state);
             Accepted(state, CommissionType.Defeat, boss);
             boss.IsDefeated = true;
@@ -393,7 +528,7 @@ namespace GuildManager.Core.Tests
             boss2.IsDefeated = true;
             var again = Assert.Single(new CommissionSystem(new AlwaysMinRng()).ProcessSettlement(state).Completed);
             Assert.Null(again.PatronUnique);
-            Assert.Equal(6, state.CommissionCompletions["Knights"]);
+            Assert.Equal(6, state.CommissionCompletions["Isabella"]);
         }
 
         // ---------------- 迷宮の異変 ----------------

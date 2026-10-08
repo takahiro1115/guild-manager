@@ -145,6 +145,24 @@ namespace GuildManager.Core.Systems
             return events;
         }
 
+        /// <summary>
+        /// 派遣から帰ってきたときの成長（§0.85、→ CommissionSystem.ReturnFromLoan）：rolls 回、訓練所Lv1・教官なしと同じ確率
+        /// （年齢帯別の基礎確率×TrainingFacilityMultiplier×研究×特性）で、stats から等確率に選んだ能力を伸ばす。
+        /// </summary>
+        public List<GrowthEvent> ProcessLoanReturn(GameState state, Adventurer adventurer, IReadOnlyList<string> stats, int rolls)
+        {
+            var events = new List<GrowthEvent>();
+            if (stats.Count == 0) return events;
+            double multiplier = GrowthBalance.TrainingFacilityMultiplier * GetResearchGrowthMultiplier(state) * TraitGrowthMultiplier(adventurer);
+            for (int i = 0; i < rolls; i++)
+            {
+                var growthEvent = TryGrowOne(adventurer, multiplier, _ => stats[_rng.NextInt(0, stats.Count - 1)]);
+                if (growthEvent != null)
+                    events.Add(growthEvent);
+            }
+            return events;
+        }
+
         /// <summary>段階研究（→ ResearchEffectType.GrowthRateBonus、§0.60）による成長確率の倍率（1＋効果値の合計）。訓練・出撃の両方に掛かる。</summary>
         public static double GetResearchGrowthMultiplier(GameState state) =>
             1.0 + ResearchBalance.GetTotalEffectValue(state, ResearchEffectType.GrowthRateBonus);

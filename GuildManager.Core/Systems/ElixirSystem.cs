@@ -40,7 +40,7 @@ namespace GuildManager.Core.Systems
             var recipe = ElixirBalance.Find(elixirId);
             if (recipe == null) return ElixirCheck.UnknownElixir;
             if (!state.Adventurers.Contains(adventurer) || adventurer.IsRetired) return ElixirCheck.NotInRoster;
-            if (adventurer.IsDispatched) return ElixirCheck.Dispatched;
+            if (adventurer.IsDispatched || adventurer.IsOnLoan) return ElixirCheck.Dispatched; // 派遣中（§0.85）も飲ませられない
             if (adventurer.ElixirsTaken >= ElixirBalance.MaxPerAdventurer) return ElixirCheck.LimitReached;
             if (state.Gold < recipe.RequiredGold) return ElixirCheck.NotEnoughGold;
             foreach (var (materialId, count) in recipe.RequiredMaterials)

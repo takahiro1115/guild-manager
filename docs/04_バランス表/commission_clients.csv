@@ -1,6 +1,6 @@
-Id,Name,Types,BonusMaterialId,BonusMaterialCount,AlbertLine,note
-Knights,王都の騎士団,Defeat,,0,「騎士団の坊やたち、自分で潜る度胸は無いのね。いいわ、恩を売っておきましょう」,撃破を頼む。おまけの素材なし
-Merchants,商人ギルド,Deliver,mat_canyon_gem,2,「商人は払いがいいのよ。ただし値切られないように気をつけなさい」,納品を頼む。おまけに紅玉鉱石（研究・秘薬の触媒に使う）
-Academy,魔導学院,Survey,mat_ruins_rune,3,「学院の連中、記録さえ渡せば喜ぶわ。……私の論文の方が上だけれど」,完全解析を頼む。おまけにルーン石
-Noble,辺境伯家,Tribute,,0,「あの家は腕の立つ娘を欲しがるの。手放すかどうかは、あなたが決めなさい」,冒険者の献上を頼む（ある能力が現役の上位3番目くらいの子）。おまけなし
-Elves,エルフの里,Defeat|Survey|Deliver|Tribute,mat_forest_spore,3,「里の長老からね。古い付き合いだから、無下にはできないわ」,何でも頼む。おまけに変異胞子
+Id,Name,Types,BonusMaterialId,BonusMaterialCount,AlbertLine,LoanStats,LoanTraits,note
+Isabella,イザベラ（白百合の杖）,Defeat,,0,「イザベラから？　……自分のところの子を、迷宮に行かせたくないのね。ふふ、いいわ、代わりに潜ってあげましょう」,,,"撃破を頼む（§0.85で王都の騎士団から替えた。白百合の杖は迷宮に潜らないので、王都に来た討伐の依頼を回してくる）。おまけの素材なし"
+Merchants,商人ギルド,Deliver,mat_canyon_gem,2,「商人は払いがいいのよ。ただし値切られないように気をつけなさい」,,,納品を頼む。おまけに紅玉鉱石（研究・秘薬の触媒に使う）
+Academy,魔導学院,Survey,mat_ruins_rune,3,「学院の連中、記録さえ渡せば喜ぶわ。……私の論文の方が上だけれど」,,,完全解析を頼む。おまけにルーン石
+Noble,辺境伯家,Loan,,0,「あの家は腕の立つ娘を借りたがるの。ひと季節したら、ちゃんと返してもらうのよ」,STR|VIT|LDR,Guardian|Sturdy|Brave,"冒険者の派遣を頼む（ある能力が現役の上位3番目くらいの子をひと季節。§0.85で献上から替えた）。帰ってくると剣と守りが伸びる。おまけなし"
+Elves,エルフの里,Defeat|Survey|Deliver|Loan,mat_forest_spore,3,「里の長老からね。古い付き合いだから、無下にはできないわ」,DEX|AGI|MND,NightVision|Pathfinder|MapReader,何でも頼む（文面は長老ユーフェミアの言葉）。派遣から帰ってくると技と森の知恵が伸びる。おまけに変異胞子

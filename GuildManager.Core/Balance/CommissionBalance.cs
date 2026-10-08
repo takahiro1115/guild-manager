@@ -13,7 +13,9 @@ namespace GuildManager.Core.Balance
         IReadOnlyList<CommissionType> Types,
         string? BonusMaterialId,
         int BonusMaterialCount,
-        string AlbertLine);
+        string AlbertLine,
+        IReadOnlyList<string> LoanStats,
+        IReadOnlyList<string> LoanTraits);
 
     /// <summary>迷宮の異変1種の表示（→ dungeon_anomalies.csv の1行）。</summary>
     public sealed record AnomalyDefinition(DungeonAnomalyType Type, string Name, string Text);
@@ -51,7 +53,7 @@ namespace GuildManager.Core.Balance
         public static readonly int DeadlineWeeksDefeat = BalanceData.GetInt(FileName, "DeadlineWeeks_Defeat");
         public static readonly int DeadlineWeeksSurvey = BalanceData.GetInt(FileName, "DeadlineWeeks_Survey");
         public static readonly int DeadlineWeeksDeliver = BalanceData.GetInt(FileName, "DeadlineWeeks_Deliver");
-        public static readonly int DeadlineWeeksTribute = BalanceData.GetInt(FileName, "DeadlineWeeks_Tribute");
+        public static readonly int DeadlineWeeksLoan = BalanceData.GetInt(FileName, "DeadlineWeeks_Loan");
 
         /// <summary>種類ごとの期限（掲示の週から数えた週数）。</summary>
         public static int GetDeadlineWeeks(CommissionType type) => type switch
@@ -59,7 +61,7 @@ namespace GuildManager.Core.Balance
             CommissionType.Defeat => DeadlineWeeksDefeat,
             CommissionType.Survey => DeadlineWeeksSurvey,
             CommissionType.Deliver => DeadlineWeeksDeliver,
-            _ => DeadlineWeeksTribute,
+            _ => DeadlineWeeksLoan,
         };
 
         // ==================== 条件 ====================
@@ -68,26 +70,41 @@ namespace GuildManager.Core.Balance
         public static readonly int DeliverCountBase = BalanceData.GetInt(FileName, "DeliverCountBase");
         public static readonly int DeliverFloorsPerExtra = BalanceData.GetInt(FileName, "DeliverFloorsPerExtra");
 
-        /// <summary>献上の基準：現役の中でその能力が何番目に高い者の値を基準にするか。</summary>
-        public static readonly int TributeRank = BalanceData.GetInt(FileName, "TributeRank");
+        /// <summary>派遣の基準：現役の中でその能力が何番目に高い者の値を基準にするか。</summary>
+        public static readonly int LoanRank = BalanceData.GetInt(FileName, "LoanRank");
 
-        /// <summary>献上の基準の下限（序盤に低すぎる値にならないように）。</summary>
-        public static readonly int TributeMinThreshold = BalanceData.GetInt(FileName, "TributeMinThreshold");
+        /// <summary>派遣の基準の下限（序盤に低すぎる値にならないように）。</summary>
+        public static readonly int LoanMinThreshold = BalanceData.GetInt(FileName, "LoanMinThreshold");
+
+        /// <summary>派遣の期間（送り出した週を含めてこの週数の決算のあとに帰ってくる、§0.85）。</summary>
+        public static readonly int LoanWeeks = BalanceData.GetInt(FileName, "LoanWeeks");
+
+        /// <summary>派遣から帰ってきたときの成長の抽選の回数（伸ばす能力は依頼人ごとの LoanStats）。</summary>
+        public static readonly int LoanGrowthRolls = BalanceData.GetInt(FileName, "LoanGrowthRolls");
+
+        /// <summary>派遣から帰ってきたときに依頼人ごとの特性（LoanTraits）が1つ付く確率。</summary>
+        public static readonly double LoanTraitChance = BalanceData.GetDouble(FileName, "LoanTraitChance");
+
+        /// <summary>派遣の依頼が届く季節（§0.85。; 区切りの Spring/Summer/Autumn/Winter）。</summary>
+        public static readonly IReadOnlyList<Season> LoanOfferSeasons = BalanceData.GetString(FileName, "LoanOfferSeasons")
+            .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(s => Enum.TryParse<Season>(s, out var season) ? season : throw new BalanceDataException($"{FileName} の LoanOfferSeasons「{s}」は季節の名前ではありません（Spring;Autumn のように ; で区切る）。"))
+            .ToList();
 
         // ==================== 報酬と罰 ====================
 
         public static readonly double RewardMultiplierDefeat = BalanceData.GetDouble(FileName, "RewardMultiplier_Defeat");
         public static readonly double RewardMultiplierSurvey = BalanceData.GetDouble(FileName, "RewardMultiplier_Survey");
         public static readonly double RewardMultiplierDeliver = BalanceData.GetDouble(FileName, "RewardMultiplier_Deliver");
-        public static readonly double RewardMultiplierTribute = BalanceData.GetDouble(FileName, "RewardMultiplier_Tribute");
+        public static readonly double RewardMultiplierLoan = BalanceData.GetDouble(FileName, "RewardMultiplier_Loan");
 
-        /// <summary>報酬のゴールド＝基準のボスの撃破報酬×この倍率（撃破・解析は対象のボス、納品・献上は攻略の最前線のボス）。</summary>
+        /// <summary>報酬のゴールド＝基準のボスの撃破報酬×この倍率（撃破・解析は対象のボス、納品・派遣は攻略の最前線のボス）。</summary>
         public static double GetRewardMultiplier(CommissionType type) => type switch
         {
             CommissionType.Defeat => RewardMultiplierDefeat,
             CommissionType.Survey => RewardMultiplierSurvey,
             CommissionType.Deliver => RewardMultiplierDeliver,
-            _ => RewardMultiplierTribute,
+            _ => RewardMultiplierLoan,
         };
 
         /// <summary>達成したときの機嫌の上昇。</summary>
@@ -160,7 +177,8 @@ namespace GuildManager.Core.Balance
         {
             int cId = Require(header, "Id", ClientsFileName), cName = Require(header, "Name", ClientsFileName),
                 cTypes = Require(header, "Types", ClientsFileName), cMat = Require(header, "BonusMaterialId", ClientsFileName),
-                cCount = Require(header, "BonusMaterialCount", ClientsFileName), cLine = Require(header, "AlbertLine", ClientsFileName);
+                cCount = Require(header, "BonusMaterialCount", ClientsFileName), cLine = Require(header, "AlbertLine", ClientsFileName),
+                cLoanStats = Require(header, "LoanStats", ClientsFileName), cLoanTraits = Require(header, "LoanTraits", ClientsFileName);
 
             var result = new List<CommissionClient>();
             for (int i = 0; i < rows.Count; i++)
@@ -176,15 +194,24 @@ namespace GuildManager.Core.Balance
                 var types = row[cTypes].Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                     .Select(t => ParseType(t, line, ClientsFileName)).Distinct().ToList();
                 if (types.Count == 0)
-                    throw new BalanceDataException($"{ClientsFileName} の{line}行目の Types が空です（Defeat|Survey|Deliver|Tribute を | で区切る）。");
+                    throw new BalanceDataException($"{ClientsFileName} の{line}行目の Types が空です（Defeat|Survey|Deliver|Loan を | で区切る）。");
 
                 string material = row[cMat].Trim();
                 int count = ParseInt(row[cCount], line, "BonusMaterialCount", ClientsFileName);
                 if (material.Length > 0 && MaterialBalance.Find(material) == null)
                     throw new BalanceDataException($"{ClientsFileName} の{line}行目の BonusMaterialId「{material}」が materials.csv にありません。");
 
+                var loanStats = SplitList(row[cLoanStats]);
+                if (loanStats.FirstOrDefault(s => !Systems.AdventurerStatAccessor.AllStatNames.Contains(s)) is { } badStat)
+                    throw new BalanceDataException($"{ClientsFileName} の{line}行目の LoanStats「{badStat}」は能力名ではありません（STR|VIT のように | で区切る）。");
+                var loanTraits = SplitList(row[cLoanTraits]);
+                if (loanTraits.FirstOrDefault(t => TraitCatalog.FindById(t) == null) is { } badTrait)
+                    throw new BalanceDataException($"{ClientsFileName} の{line}行目の LoanTraits「{badTrait}」は特性のIdではありません。");
+                if (types.Contains(CommissionType.Loan) && loanStats.Count == 0)
+                    throw new BalanceDataException($"{ClientsFileName} の{line}行目は派遣（Loan）を頼むのに LoanStats が空です。");
+
                 result.Add(new CommissionClient(id, row[cName].Trim(), types,
-                    material.Length == 0 ? null : material, material.Length == 0 ? 0 : count, row[cLine].Trim()));
+                    material.Length == 0 ? null : material, material.Length == 0 ? 0 : count, row[cLine].Trim(), loanStats, loanTraits));
             }
 
             if (result.Count == 0)
@@ -268,6 +295,9 @@ namespace GuildManager.Core.Balance
             throw new BalanceDataException(
                 $"{FileName} の RewardRelicMinRarity「{raw}」は {string.Join(" / ", Enum.GetNames<ItemRarity>())} のいずれかにしてください。");
         }
+
+        private static List<string> SplitList(string raw) =>
+            raw.Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Distinct().ToList();
 
         private static int Require(string[] header, string name, string fileName)
         {

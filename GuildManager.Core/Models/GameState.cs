@@ -323,6 +323,12 @@ namespace GuildManager.Core.Models
         /// <summary>§0.84より前の決まりで依頼が届き始めた週（1年目の夏のはじめ）。旧セーブを読むときだけ使う。</summary>
         public const int LegacyFirstOfferWeek = 13;
 
+        /// <summary>依頼人イザベラ（白百合の杖）のId（→ commission_clients.csv、§0.85）。</summary>
+        public const string IsabellaClientId = "Isabella";
+
+        /// <summary>§0.85より前の依頼人「王都の騎士団」のId。旧セーブを読むときにイザベラへ読み替える。</summary>
+        public const string LegacyKnightsClientId = "Knights";
+
         /// <summary>派遣の教官（マルグリット）が、訓練所が建つのを待っている（交流戦に初めて勝ったあと）。</summary>
         public bool GuestTrainerPending { get; set; }
 
@@ -574,6 +580,12 @@ namespace GuildManager.Core.Models
                 state.TournamentCalendarFromWeek ??= 1;
                 state.CommissionsFromWeek ??= LegacyFirstOfferWeek;
             }
+
+            // 依頼人「王都の騎士団」（Knights）は§0.85でイザベラ（Isabella）に替えた。旧セーブの依頼と達成件数をイザベラの分として読む。
+            foreach (var c in state.Commissions.Where(c => c.ClientId == LegacyKnightsClientId))
+                c.ClientId = IsabellaClientId;
+            if (state.CommissionCompletions.Remove(LegacyKnightsClientId, out int knights))
+                state.CommissionCompletions[IsabellaClientId] = state.CommissionCompletions.GetValueOrDefault(IsabellaClientId) + knights;
 
             // ボスの所属フィールド（→ FloorBoss.FieldOrder、§0.47）は、この項目を持たない旧セーブでは既定値1のまま
             // 読み込まれるため、所属フィールドの攻略順から付け直す（新しいセーブでも値は一致する）。

@@ -215,6 +215,7 @@ namespace GuildManager.Core.Systems
             if (ev.Kind != TournamentKind.Exchange || !TournamentSystem.IsThisMonth(state, ev) || ev.Result != null) return "今月の交流戦ではない";
             if (a.IsRetired) return "引退している";
             if (a.IsDispatched) return "出撃中";
+            if (a.IsOnLoan) return "派遣中";
             if (a.Injury != InjurySeverity.None) return "負傷している";
             if (a.IsPoisoned) return "毒状態";
             if (TournamentSystem.EntryOf(state, a.Id) is { } other && other.EventId != ev.Id) return "今月はほかの大会に出る（1人1か月1大会）";

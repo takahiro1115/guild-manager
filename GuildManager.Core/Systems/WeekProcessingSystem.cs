@@ -183,6 +183,9 @@ namespace GuildManager.Core.Systems
             result.Flags.SatisfactionWarningOccurred =
                 state.Adventurers.Any(a => a.NeedsNegotiation && !neededNegotiationBefore.Contains(a.Id));
 
+            // 依頼の派遣（§0.85）から帰ってくる者：帰る週になった者と、この年度末に満期を迎える者（加齢の前に戻して、引退式へ）。
+            result.LoanReturns.AddRange(_commissionSystem.ProcessLoanReturns(state, _growthSystem));
+
             int moodBeforeAging = state.MasterMood;
             var retiredBefore = state.RetiredAdventurers.Select(a => a.Id).ToHashSet();
             _agingSystem.ProcessWeeklyAging(state); // → 03 §3：加齢・8年稼働モデル

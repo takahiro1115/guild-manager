@@ -13,7 +13,7 @@ namespace GuildManager.Core.Systems
     /// 旧通常クエスト（掲示板・受託依頼、§0.8で撤去）の復活ではなく、大迷宮の任務に乗る形の中目標：
     ///  - 季節のはじめ（依頼が開いた週＝GameState.CommissionsFromWeek 以降の季節の1週目。初めての入賞の次の季節から、§0.84）に、依頼人の違う依頼が OffersPerSeason 件届く。
     ///    受けるのは MaxAccepted 件まで。断っても・受けずに流しても罰は無い。次の季節のはじめに、受けなかった依頼は消える。
-    ///  - 撃破・完全解析は週次決算で達成を判定する（大迷宮の解決の直後）。納品・献上はプレイヤーの操作で即時に達成する。
+    ///  - 撃破・完全解析は週次決算で達成を判定する（大迷宮の解決の直後）。納品・派遣はプレイヤーの操作で即時に達成する（派遣した子はひと季節後に帰ってくる、§0.85）。
     ///  - 受けた依頼が期限切れ（または解析の対象ボスを先に倒して達成できなくなった）なら、機嫌が FailureMoodLoss 下がる。
     ///  - 達成の報酬：ゴールド・金以上の未鑑定遺物1個・機嫌・依頼人ごとのおまけの素材。同じ依頼人の依頼を
     ///    PatronUniqueCompletions 件達成すると、その依頼人の固有武具（→ uniques.csv の Patron）が届く。
@@ -150,7 +150,7 @@ namespace GuildManager.Core.Systems
 
         /// <summary>
         /// 攻略の最前線：開いているフィールドの次の未撃破ボスを、要求火力の低い順に並べたもの（異変の倍率は含めない）。
-        /// 撃破・完全解析の対象と、納品・献上の報酬の基準に使う。
+        /// 撃破・完全解析の対象と、納品・派遣の報酬の基準に使う。
         /// </summary>
         public static List<(DungeonField Field, FloorBoss Boss)> GetFrontier(GameState state) =>
             state.DungeonFields.Where(f => f.IsUnlocked)
@@ -214,16 +214,18 @@ namespace GuildManager.Core.Systems
                     values["count"] = c.Count.ToString();
                     break;
                 }
-                case CommissionType.Tribute:
+                case CommissionType.Loan:
                 {
-                    if (state.Adventurers.Count == 0 || state.Commissions.Any(o => o.Type == CommissionType.Tribute))
+                    if (state.Adventurers.Count == 0 || state.Commissions.Any(o => o.Type == CommissionType.Loan))
                         return null;
+                    if (!CommissionBalance.LoanOfferSeasons.Contains(GameCalendar.SeasonOf(state.WeekNumber)))
+                        return null; // 派遣の依頼は決まった季節だけ届く（§0.85。損の少ない派遣を何度も繰り返せないように）
                     var stats = AdventurerStatAccessor.AllStatNames;
                     string stat = stats[_rng.NextInt(0, stats.Length - 1)];
                     var sorted = state.Adventurers.Select(a => AdventurerStatAccessor.GetStat(a, stat)).OrderByDescending(v => v).ToList();
-                    int rankIndex = Math.Min(Math.Max(1, CommissionBalance.TributeRank), sorted.Count) - 1;
+                    int rankIndex = Math.Min(Math.Max(1, CommissionBalance.LoanRank), sorted.Count) - 1;
                     c.StatName = stat;
-                    c.StatThreshold = Math.Max(CommissionBalance.TributeMinThreshold, sorted[rankIndex]);
+                    c.StatThreshold = Math.Max(CommissionBalance.LoanMinThreshold, sorted[rankIndex]);
                     c.FieldId = referenceField.Id;
                     values["stat"] = stat;
                     values["value"] = c.StatThreshold.ToString();
@@ -231,7 +233,7 @@ namespace GuildManager.Core.Systems
                 }
             }
 
-            if (type is CommissionType.Deliver or CommissionType.Tribute)
+            if (type is CommissionType.Deliver or CommissionType.Loan)
                 c.FieldId = c.FieldId.Length == 0 ? referenceField.Id : c.FieldId;
             c.RewardGold = (int)Math.Round(referenceBoss.RewardGold * CommissionBalance.GetRewardMultiplier(type), MidpointRounding.AwayFromZero);
             c.RewardRelicFloor = referenceBoss.Floor;
@@ -251,7 +253,7 @@ namespace GuildManager.Core.Systems
             return list;
         }
 
-        // ==================== 操作（受ける・断る・納める・献上する） ====================
+        // ==================== 操作（受ける・断る・納める・派遣する） ====================
 
         /// <summary>受けている依頼の数。</summary>
         public static int AcceptedCount(GameState state) => state.Commissions.Count(c => c.Accepted);
@@ -290,42 +292,83 @@ namespace GuildManager.Core.Systems
         }
 
         /// <summary>
-        /// 献上の候補（受けた献上の依頼の条件を満たす現役の冒険者。出撃中は除く）。条件は素の能力値（装備の補正を含めない）。
+        /// 派遣の候補（受けた派遣の依頼の条件を満たす現役の冒険者）。条件は素の能力値（装備の補正を含めない）。
+        /// 出撃中・派遣中・負傷・毒・今月の大会（交流戦）に出る者は除く（§0.85）。
         /// </summary>
-        public static List<Adventurer> GetTributeCandidates(GameState state, GuildCommission c)
+        public static List<Adventurer> GetLoanCandidates(GameState state, GuildCommission c)
         {
-            if (c.Type != CommissionType.Tribute || c.StatName == null)
+            if (c.Type != CommissionType.Loan || c.StatName == null)
                 return new List<Adventurer>();
             return state.Adventurers
-                .Where(a => !a.IsDispatched && AdventurerStatAccessor.GetStat(a, c.StatName) >= c.StatThreshold)
+                .Where(a => !a.IsRetired && !a.IsDispatched && !a.IsOnLoan && a.Injury == InjurySeverity.None && !a.IsPoisoned
+                    && !TournamentSystem.IsEntered(state, a.Id)
+                    && AdventurerStatAccessor.GetStat(a, c.StatName) >= c.StatThreshold)
                 .OrderBy(a => AdventurerStatAccessor.GetStat(a, c.StatName))
                 .ToList();
         }
 
         /// <summary>
-        /// 冒険者を依頼人へ譲って依頼を達成する。本人はギルドを去る（退職金なし。装備は保管庫へ戻り、部隊・訓練から外れる）。
-        /// 受けた献上の依頼でない・候補でなければ null。
+        /// 冒険者を依頼人へひと季節（LoanWeeks）派遣して依頼を達成する（§0.85。旧・献上）。本人は名簿に残るが、
+        /// 帰ってくるまで出撃・訓練・大会・待機中の過ごし方をしない（部隊と訓練から外れる。装備は持ったまま）。
+        /// 受けた派遣の依頼でない・候補でなければ null。
         /// </summary>
-        public CommissionCompletion? TryTribute(GameState state, GuildCommission c, Adventurer adventurer)
+        public CommissionCompletion? TryLoan(GameState state, GuildCommission c, Adventurer adventurer)
         {
-            if (!state.Commissions.Contains(c) || !c.Accepted || !GetTributeCandidates(state, c).Contains(adventurer))
+            if (!state.Commissions.Contains(c) || !c.Accepted || !GetLoanCandidates(state, c).Contains(adventurer))
                 return null;
 
-            var recovered = EquipmentSystem.UnequipAllToArmory(state, adventurer, $"{adventurer.Name}（献上）から返還");
             state.TrainingAssignments.Remove(adventurer.Id);
             foreach (var party in state.SavedParties)
                 party.MemberIds.Remove(adventurer.Id);
-            state.Adventurers.Remove(adventurer);
+            adventurer.LoanUntilWeek = state.WeekNumber + CommissionBalance.LoanWeeks - 1; // 送り出した週を含めて LoanWeeks 週の決算のあとに帰る
+            adventurer.LoanClientId = c.ClientId;
 
             var completion = Complete(state, c);
-            completion.TributedAdventurerName = adventurer.Name;
-            completion.RecoveredEquipment = recovered.ToList();
+            completion.LoanedAdventurerName = adventurer.Name;
             return completion;
+        }
+
+        /// <summary>
+        /// 派遣から帰ってくる（週の決算で、帰る週になった者・年度末に満期を迎える者に呼ぶ）：依頼人ごとの能力に成長の抽選を
+        /// LoanGrowthRolls 回、LoanTraitChance で依頼人ごとの特性を1つ、HPは満タン。派遣中でなければ null。
+        /// </summary>
+        public LoanReturn? ReturnFromLoan(GameState state, Adventurer adventurer, GrowthSystem growth)
+        {
+            if (!adventurer.IsOnLoan)
+                return null;
+            var client = CommissionBalance.FindClient(adventurer.LoanClientId);
+            var result = new LoanReturn(adventurer, client?.Name ?? adventurer.LoanClientId ?? "");
+            result.Growth.AddRange(growth.ProcessLoanReturn(state, adventurer, client?.LoanStats ?? Array.Empty<string>(), CommissionBalance.LoanGrowthRolls));
+
+            var traits = (client?.LoanTraits ?? Array.Empty<string>()).Where(t => adventurer.CanAddTrait(t)).ToList();
+            if (traits.Count > 0 && _rng.NextInt(1, 100) <= (int)Math.Round(CommissionBalance.LoanTraitChance * 100))
+            {
+                string trait = traits[_rng.NextInt(0, traits.Count - 1)];
+                if (adventurer.TryAddTrait(trait))
+                    result.TraitId = trait;
+            }
+
+            adventurer.CurrentHP = adventurer.MaxHP;
+            adventurer.LoanUntilWeek = null;
+            adventurer.LoanClientId = null;
+            return result;
+        }
+
+        /// <summary>
+        /// 週の決算で派遣から帰ってくる者を返す（帰る週になった者。年度末なら、この年度末に満期を迎える者も先に帰る）。
+        /// 加齢（満期引退）の前に呼ぶ。
+        /// </summary>
+        public List<LoanReturn> ProcessLoanReturns(GameState state, GrowthSystem growth)
+        {
+            bool yearEnd = GameCalendar.IsLastWeekOfYear(state.WeekNumber);
+            var returning = state.Adventurers.Where(a => a.IsOnLoan
+                && (state.WeekNumber >= a.LoanUntilWeek!.Value || (yearEnd && a.Age + 1 >= AgingSystem.RetirementAge))).ToList();
+            return returning.Select(a => ReturnFromLoan(state, a, growth)).OfType<LoanReturn>().ToList();
         }
 
         // ==================== 達成・失敗 ====================
 
-        /// <summary>今の状態で達成の条件を満たしているか（撃破・解析＝対象の状態、納品＝在庫、献上＝候補がいる）。</summary>
+        /// <summary>今の状態で達成の条件を満たしているか（撃破・解析＝対象の状態、納品＝在庫、派遣＝候補がいる）。</summary>
         public static bool IsAchieved(GameState state, GuildCommission c)
         {
             var boss = FindBoss(state, c);
@@ -334,7 +377,7 @@ namespace GuildManager.Core.Systems
                 CommissionType.Defeat => boss?.IsDefeated == true,
                 CommissionType.Survey => boss != null && ScoutingResolver.GetTier(boss.IntelRate) == IntelTier.Complete,
                 CommissionType.Deliver => c.MaterialId != null && state.Materials.TryGetValue(c.MaterialId, out int n) && n >= c.Count,
-                _ => GetTributeCandidates(state, c).Count > 0,
+                _ => GetLoanCandidates(state, c).Count > 0,
             };
         }
 
@@ -392,7 +435,7 @@ namespace GuildManager.Core.Systems
             CommissionType.Defeat => "撃破",
             CommissionType.Survey => "完全解析",
             CommissionType.Deliver => "納品",
-            _ => "献上",
+            _ => "派遣",
         };
 
         /// <summary>条件と今の進み具合の短い表記（例：「嘆きの鍾乳洞 40F「洞窟の古竜」を撃破」「月光草 8個を納品（在庫5個）」）。</summary>
@@ -407,7 +450,7 @@ namespace GuildManager.Core.Systems
                 CommissionType.Survey => $"{target}を完全解析（解析率{(int)Math.Round((boss?.IntelRate ?? 0) * 100)}%）",
                 CommissionType.Deliver =>
                     $"{MaterialBalance.Find(c.MaterialId ?? "")?.Name ?? c.MaterialId} {c.Count}個を納品（在庫{(c.MaterialId != null && state.Materials.TryGetValue(c.MaterialId, out int n) ? n : 0)}個）",
-                _ => $"{c.StatName}{c.StatThreshold}以上の冒険者を1人献上（該当{GetTributeCandidates(state, c).Count}名）",
+                _ => $"{c.StatName}{c.StatThreshold}以上の冒険者を1人、{CommissionBalance.LoanWeeks}週派遣（該当{GetLoanCandidates(state, c).Count}名）",
             };
         }
 
@@ -475,11 +518,24 @@ namespace GuildManager.Core.Systems
         /// <summary>今回届いた依頼人の固有武具（届かなければnull）。</summary>
         public EquipmentItem? PatronUnique { get; set; }
 
-        /// <summary>献上した冒険者の名前（献上のときだけ）。</summary>
-        public string? TributedAdventurerName { get; set; }
+        /// <summary>派遣した冒険者の名前（派遣のときだけ）。</summary>
+        public string? LoanedAdventurerName { get; set; }
+    }
 
-        /// <summary>献上した冒険者から保管庫へ戻した装備。</summary>
-        public List<EquipmentItem> RecoveredEquipment { get; set; } = new();
+    /// <summary>派遣から帰ってきた冒険者1人（§0.85、→ CommissionSystem.ReturnFromLoan）。</summary>
+    public class LoanReturn
+    {
+        public LoanReturn(Adventurer adventurer, string clientName)
+        {
+            Adventurer = adventurer;
+            ClientName = clientName;
+        }
+
+        public Adventurer Adventurer { get; }
+        public string ClientName { get; }
+        public List<GrowthEvent> Growth { get; } = new();
+        /// <summary>派遣先で付いた特性（付かなければ null）。</summary>
+        public string? TraitId { get; set; }
     }
 
     /// <summary>受けた依頼の失敗（期限切れ・達成不能）。MoodApplied はクランプ後に実際に動いた量（0以下）。</summary>

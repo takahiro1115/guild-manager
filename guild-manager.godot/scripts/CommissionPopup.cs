@@ -9,7 +9,7 @@ using GuildManager.Core.Systems;
 /// <summary>
 /// 依頼掲示板（→ 03 §4.9・§4.10・§0.64）。季節のはじめに依頼が届いた週は自動で開き、大迷宮画面の「📜 依頼掲示板」からいつでも開ける。
 ///
-/// 掲示中の依頼は「受ける／断る」、受けた納品は「納める」、受けた献上は相手を選んで「献上する」。撃破・完全解析は
+/// 掲示中の依頼は「受ける／断る」、受けた納品は「納める」、受けた派遣は相手を選んで「派遣する」（ひと季節で帰ってくる、§0.85）。撃破・完全解析は
 /// 週次決算で自動で判定する。文言・条件・報酬の値はすべて Core（CommissionSystem・DungeonAnomalySystem）から取る。
 /// 行は依頼の数だけ毎回作り直す（数が週ごとに変わるため）。
 /// </summary>
@@ -26,7 +26,7 @@ public partial class CommissionPopup : PopupPanel
 	/// <summary>ポップアップが閉じたことを通知する（所持金・在庫・在籍者の変化を画面に反映させるため）。</summary>
 	public event Action Closed = delegate { };
 
-	/// <summary>週報ログへの追記を依頼する（納品・献上の達成を記録するため。BBCode文字列）。</summary>
+	/// <summary>週報ログへの追記を依頼する（納品・派遣の達成を記録するため。BBCode文字列）。</summary>
 	public event Action<string> LogRequested = delegate { };
 
 	public override void _Ready()
@@ -144,9 +144,9 @@ public partial class CommissionPopup : PopupPanel
 			};
 			buttons.AddChild(deliver);
 		}
-		else if (c.Type == CommissionType.Tribute)
+		else if (c.Type == CommissionType.Loan)
 		{
-			var candidates = CommissionSystem.GetTributeCandidates(_state, c);
+			var candidates = CommissionSystem.GetLoanCandidates(_state, c);
 			var picker = new OptionButton { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
 			foreach (var a in candidates)
 				picker.AddItem($"{a.Name}（{a.JobClass}・{a.Age}歳・{c.StatName}{AdventurerStatAccessorView(a, c.StatName!)}）");
@@ -154,12 +154,17 @@ public partial class CommissionPopup : PopupPanel
 				picker.AddItem("条件を満たす待機中の冒険者がいない");
 			picker.Disabled = candidates.Count == 0;
 
-			var tribute = new Button { Text = "献上する（ギルドを去る）", Disabled = candidates.Count == 0 };
-			tribute.Pressed += () =>
+			var loan = new Button
+			{
+				Text = $"派遣する（{CommissionBalance.LoanWeeks}週で帰ってくる）",
+				Disabled = candidates.Count == 0,
+				TooltipText = "派遣中は名簿に残るが、出撃・訓練・大会には出られない（週給は先方持ち）。\n帰ってくると、派遣先で鍛えた能力が伸び、特性が付くこともある。",
+			};
+			loan.Pressed += () =>
 			{
 				int index = picker.Selected;
 				if (index < 0 || index >= candidates.Count) return;
-				if (_commissionSystem.TryTribute(_state, c, candidates[index]) is { } done)
+				if (_commissionSystem.TryLoan(_state, c, candidates[index]) is { } done)
 					ReportCompletion(done);
 				Refresh();
 			};
@@ -174,7 +179,7 @@ public partial class CommissionPopup : PopupPanel
 			picker.ItemSelected += ShowDetail;
 			ShowDetail(picker.Selected);
 			buttons.AddChild(picker);
-			buttons.AddChild(tribute);
+			buttons.AddChild(loan);
 			vbox.AddChild(detail);
 		}
 		else
@@ -208,7 +213,7 @@ public partial class CommissionPopup : PopupPanel
 		return style;
 	}
 
-	/// <summary>献上の候補の表示用に、条件の能力の素の値を引く（Core の素の値＝装備の補正なし）。</summary>
+	/// <summary>派遣の候補の表示用に、条件の能力の素の値を引く（Core の素の値＝装備の補正なし）。</summary>
 	private static int AdventurerStatAccessorView(Adventurer a, string stat) => stat switch
 	{
 		"STR" => a.STR,
@@ -239,16 +244,14 @@ public static class CommissionLog
 {
 	public static IEnumerable<string> CompletionLines(CommissionCompletion done)
 	{
-		string what = done.TributedAdventurerName != null
-			? $"{done.TributedAdventurerName}を{done.ClientName}へ送り出し、"
+		string what = done.LoanedAdventurerName != null
+			? $"{done.LoanedAdventurerName}を{done.ClientName}へひと季節派遣し、"
 			: "";
 		string bonus = done.BonusMaterialId != null
 			? $"・{MaterialBalance.Find(done.BonusMaterialId)?.Name ?? done.BonusMaterialId}×{done.BonusMaterialCount}"
 			: "";
 		yield return $"[color=gold][b]📜 {what}{done.ClientName}の依頼（{CommissionSystem.TypeLabel(done.Commission.Type)}）を果たした！[/b][/color]" +
 			$"[color=lime] 報酬 +{done.Gold}G・{(done.Relic != null ? "未鑑定の遺物「" + done.Relic.Name + "」" : "遺物")}{bonus}・機嫌{done.MoodApplied:+0;-0;+0}（{done.ClientName}の依頼 達成{done.ClientCompletions}件）[/color]";
-		if (done.RecoveredEquipment.Count > 0)
-			yield return $"[color=cyan]📦 {done.TributedAdventurerName}の武具は保管庫へ戻した（{string.Join("、", done.RecoveredEquipment.Select(e => e.Name))}）。[/color]";
 		if (done.PatronUnique != null)
 			yield return $"[color=gold][font_size=20][b]🎁 {done.ClientName}から信頼の証「{done.PatronUnique.Name}」が届いた！（保管庫へ）[/b][/font_size][/color]";
 	}

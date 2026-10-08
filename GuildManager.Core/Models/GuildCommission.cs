@@ -17,8 +17,8 @@ namespace GuildManager.Core.Models
         /// <summary>納品：指定の素材を指定の個数、在庫から納める（プレイヤーの操作で即時に達成）。</summary>
         Deliver,
 
-        /// <summary>献上：指定の能力が基準以上の冒険者を1人、依頼人へ譲る（プレイヤーの操作で即時に達成。本人はギルドを去る）。</summary>
-        Tribute,
+        /// <summary>派遣（§0.85。旧・献上）：指定の能力が基準以上の冒険者を1人、依頼人へひと季節貸す（プレイヤーの操作で即時に達成。本人は名簿に残り、LoanWeeks 後に成長して帰ってくる）。</summary>
+        Loan,
     }
 
     /// <summary>
@@ -37,10 +37,10 @@ namespace GuildManager.Core.Models
 
         public CommissionType Type { get; set; }
 
-        /// <summary>対象のフィールドId（撃破・解析＝ボスの所属、納品＝素材の産地、献上＝報酬の遺物の出土先）。</summary>
+        /// <summary>対象のフィールドId（撃破・解析＝ボスの所属、納品＝素材の産地、派遣＝報酬の遺物の出土先）。</summary>
         public string FieldId { get; set; } = "";
 
-        /// <summary>撃破・解析の対象ボスのId（→ FloorBoss.Id）。納品・献上は null。</summary>
+        /// <summary>撃破・解析の対象ボスのId（→ FloorBoss.Id）。納品・派遣は null。</summary>
         public Guid? BossId { get; set; }
 
         /// <summary>納品する素材のId（→ materials.csv）。納品以外は null。</summary>
@@ -49,10 +49,10 @@ namespace GuildManager.Core.Models
         /// <summary>納品する個数。</summary>
         public int Count { get; set; }
 
-        /// <summary>献上の条件の能力（"STR" など、→ AdventurerStatAccessor.AllStatNames）。献上以外は null。</summary>
+        /// <summary>派遣の条件の能力（"STR" など、→ AdventurerStatAccessor.AllStatNames）。派遣以外は null。</summary>
         public string? StatName { get; set; }
 
-        /// <summary>献上の条件の値（この値以上の素の能力値。装備の補正は含めない）。</summary>
+        /// <summary>派遣の条件の値（この値以上の素の能力値。装備の補正は含めない）。</summary>
         public int StatThreshold { get; set; }
 
         /// <summary>掲示された週。</summary>

@@ -36,7 +36,7 @@ namespace GuildManager.Core.Systems
             var item = ItemCatalog.FindById(itemId);
             if (item == null) return false;
             if (!IsInShop(state, item)) return false; // まだ入荷していない上位装備（§0.61）
-            if (adventurer.IsDispatched) return false;
+            if (adventurer.IsDispatched || adventurer.IsOnLoan) return false;
             if (!item.IsAllowedFor(adventurer.JobClass)) return false;
             if (state.Gold < item.Price) return false;
 
@@ -187,7 +187,7 @@ namespace GuildManager.Core.Systems
         /// Disabledにしているが、可否の判定そのものはCore層で自己完結させる方針
         /// （→ DungeonExpeditionSystem.TryDispatchのフィールド未開放チェックと同じ考え方）。
         /// </summary>
-        public static bool CanChangeEquipment(Adventurer adventurer) => !adventurer.IsDispatched;
+        public static bool CanChangeEquipment(Adventurer adventurer) => !adventurer.IsDispatched && !adventurer.IsOnLoan; // 派遣中（§0.85）は装備を持って行っている
 
         // ==================== 売却（→ 03 §4.8） ====================
 

@@ -671,7 +671,20 @@ namespace GuildManager.Core.Models
         /// </summary>
         public string? SelfTrainingStat { get; set; }
 
-        /// <summary>出撃可能かどうか（重傷・引退済み・派遣中なら不可）。疲労（Fatigue）は廃止済み（→ 03 §3.5改）。</summary>
-        public bool IsAvailable => Injury != InjurySeverity.Severe && !IsRetired && !IsDispatched;
+        /// <summary>
+        /// 依頼の派遣（§0.85、→ CommissionSystem.TryLoan）で先方へ出ている間、帰ってくる週（この週の決算で帰る）。いなければ null。
+        /// 出撃中（IsDispatched）とは別：名簿に残るが、出撃・訓練・大会・待機中の過ごし方のどれもしない。週給は先方持ち。
+        /// </summary>
+        public int? LoanUntilWeek { get; set; }
+
+        /// <summary>派遣先の依頼人のId（→ commission_clients.csv）。派遣中でなければ null。</summary>
+        public string? LoanClientId { get; set; }
+
+        /// <summary>依頼の派遣で先方へ出ているか（§0.85）。</summary>
+        [JsonIgnore]
+        public bool IsOnLoan => LoanUntilWeek != null;
+
+        /// <summary>出撃可能かどうか（重傷・引退済み・出撃中・派遣中なら不可）。疲労（Fatigue）は廃止済み（→ 03 §3.5改）。</summary>
+        public bool IsAvailable => Injury != InjurySeverity.Severe && !IsRetired && !IsDispatched && !IsOnLoan;
     }
 }

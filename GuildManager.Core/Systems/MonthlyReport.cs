@@ -217,7 +217,13 @@ namespace GuildManager.Core.Systems
                 foreach (var left in s.NegotiationTerminated)
                     Add($"{left.Name}が契約交渉の末に退団した", MonthlyTone.Bad);
                 foreach (var done in s.Commissions.Completed)
-                    Add($"依頼を果たした（{done.ClientName}）", MonthlyTone.Good);
+                    Add(done.LoanedAdventurerName != null
+                        ? $"依頼を果たした（{done.ClientName}）：{done.LoanedAdventurerName}をひと季節派遣した"
+                        : $"依頼を果たした（{done.ClientName}）", MonthlyTone.Good);
+                foreach (var back in s.LoanReturns)
+                    Add($"{back.Adventurer.Name}が{back.ClientName}から帰ってきた" +
+                        (back.Growth.Count > 0 ? "（" + string.Join("・", back.Growth.GroupBy(g => g.Stat).Select(g => $"{g.Key}+{g.Sum(e => e.After - e.Before)}")) + "）" : "") +
+                        (back.TraitId != null ? $"。特性「{TraitCatalog.FindById(back.TraitId)?.DisplayName ?? back.TraitId}」が付いた" : ""), MonthlyTone.Good);
                 foreach (var failed in s.Commissions.Failed)
                     Add($"依頼に失敗した（{failed.ClientName}・{failed.Reason}）", MonthlyTone.Warning);
                 if (s.CompletedFacility != null)
@@ -375,6 +381,7 @@ namespace GuildManager.Core.Systems
             var growth = settlements.SelectMany(s => s.DungeonMissionResolutions).SelectMany(r => r.GrowthEvents)
                 .Concat(settlements.SelectMany(s => s.TrainingGrowthEvents))
                 .Concat(settlements.SelectMany(s => s.SelfTrainingGrowthEvents))
+                .Concat(settlements.SelectMany(s => s.LoanReturns).SelectMany(r => r.Growth)) // 派遣から帰ってきたときの成長（§0.85）
                 .ToList();
             var traitGrants = settlements.SelectMany(s => s.DungeonMissionResolutions).SelectMany(r => r.TraitGrantEvents)
                 .Concat(settlements.SelectMany(s => s.TraitGrantEvents)).ToList();
@@ -393,7 +400,7 @@ namespace GuildManager.Core.Systems
                     Job = a.JobClass,
                     Age = a.Age,
                     Squad = state.SavedParties.FirstOrDefault(p => p.MemberIds.Contains(a.Id))?.Name ?? "",
-                    Activities = string.Join("・", new[] { WeekActivity.Dispatched, WeekActivity.Tournament, WeekActivity.Training, WeekActivity.SelfTraining, WeekActivity.Help, WeekActivity.Resting }
+                    Activities = string.Join("・", new[] { WeekActivity.Dispatched, WeekActivity.OnLoan, WeekActivity.Tournament, WeekActivity.Training, WeekActivity.SelfTraining, WeekActivity.Help, WeekActivity.Resting }
                         .Where(counts.ContainsKey)
                         .Select(act => $"{ActivityLabel(state, a, act)}{counts[act]}週")),
                     Gains = growth.Where(e => e.Adventurer.Id == a.Id).GroupBy(e => e.Stat)
@@ -414,6 +421,8 @@ namespace GuildManager.Core.Systems
                 foreach (var ev in settlements.SelectMany(s => s.TournamentsResolved))
                     foreach (var p in (ev.Result?.Placings ?? new List<TournamentPlacing>()).Where(p => p.AdventurerId == a.Id || (p.PartyId is Guid pid && state.SavedParties.FirstOrDefault(sp => sp.Id == pid)?.MemberIds.Contains(a.Id) == true)))
                         entry.Status.Add(new MonthlyLine { Text = $"{ev.Name}で{TournamentSystem.PlacingLabel(p.Placing)}", Tone = p.Placing == 1 ? MonthlyTone.Good : p.Placing <= 4 ? MonthlyTone.Normal : MonthlyTone.Warning });
+                if (a.IsOnLoan)
+                    entry.Status.Add(new MonthlyLine { Text = $"{CommissionBalance.FindClient(a.LoanClientId)?.Name ?? a.LoanClientId}へ派遣中（あと{a.LoanUntilWeek!.Value - state.WeekNumber + 1}週）", Tone = MonthlyTone.Normal });
                 if (a.NeedsNegotiation)
                     entry.Status.Add(new MonthlyLine { Text = "満足度が低い（契約交渉が必要）", Tone = MonthlyTone.Bad });
                 report.Adventurers.Add(entry);
@@ -423,6 +432,7 @@ namespace GuildManager.Core.Systems
         private static string ActivityLabel(GameState state, Adventurer a, WeekActivity activity) => activity switch
         {
             WeekActivity.Dispatched => "出撃",
+            WeekActivity.OnLoan => "派遣",
             WeekActivity.Training => state.TrainingAssignments.TryGetValue(a.Id, out var f) ? $"訓練（{FacilityName(f)}）" : "訓練",
             WeekActivity.SelfTraining => a.SelfTrainingStat != null ? $"自主練（{a.SelfTrainingStat}）" : "自主練",
             WeekActivity.Help => "研究の手伝い",

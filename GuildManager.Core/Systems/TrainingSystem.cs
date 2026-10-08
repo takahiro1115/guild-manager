@@ -73,6 +73,8 @@ namespace GuildManager.Core.Systems
 
             if (CountAssigned(state, facility) >= GetSlotCapacity(state, facility))
                 return false;
+            if (state.Adventurers.FirstOrDefault(a => a.Id == adventurerId)?.IsOnLoan == true)
+                return false; // 派遣中（§0.85）は訓練できない
 
             state.TrainingAssignments[adventurerId] = facility;
             return true;
@@ -100,7 +102,7 @@ namespace GuildManager.Core.Systems
         {
             if (!CanChangeAssignments(state)) return false;
             var a = state.Adventurers.FirstOrDefault(x => x.Id == adventurerId);
-            if (a == null || a.IsRetired || a.IsDispatched) return false;
+            if (a == null || a.IsRetired || a.IsDispatched || a.IsOnLoan) return false;
             return TryAssign(state, adventurerId, facility);
         }
 

@@ -29,7 +29,7 @@ namespace GuildManager.Core.Systems
     /// </summary>
     public class AgingSystem
     {
-        private static readonly int RetirementAge = BalanceData.GetInt("aging.csv", "RetirementAge"); // 仕様書 03 §3.7
+        public static readonly int RetirementAge = BalanceData.GetInt("aging.csv", "RetirementAge"); // 仕様書 03 §3.7
 
         /// <summary>満期稼働週数（8年＝384週）。退職金の算定・UI表示に使う（引退判定は年齢で行う）。</summary>
         public static readonly int MaxActiveWeeks = BalanceData.GetInt("aging.csv", "MaxActiveWeeks");
@@ -105,7 +105,7 @@ namespace GuildManager.Core.Systems
         /// </summary>
         public IReadOnlyList<EquipmentItem> RetireVoluntarily(GameState state, Adventurer adventurer)
         {
-            if (adventurer.IsRetired)
+            if (adventurer.IsRetired || adventurer.IsOnLoan) // 派遣中（§0.85）は帰ってくるまで引退させない
                 return Array.Empty<EquipmentItem>();
 
             return Retire(state, adventurer);

@@ -801,13 +801,13 @@ public partial class PartyFormationPanel : VBoxContainer
 	private bool IsPreviewable(Adventurer a)
 	{
 		var current = GetCurrentParty();
-		return _state != null && !a.IsDispatched && a.Injury == InjurySeverity.None && !a.IsRetired
+		return _state != null && !a.IsDispatched && !a.IsOnLoan && a.Injury == InjurySeverity.None && !a.IsRetired
 			&& (current == null || !current.MemberIds.Contains(a.Id));
 	}
 
 	/// <summary>配属できる状態か（出撃中・負傷・引退でなく、どの部隊にも属していない）。</summary>
 	private bool IsAssignable(Adventurer a) =>
-		_state != null && !a.IsDispatched && a.Injury == InjurySeverity.None && !a.IsRetired
+		_state != null && !a.IsDispatched && !a.IsOnLoan && a.Injury == InjurySeverity.None && !a.IsRetired
 		&& !_state.SavedParties.Any(p => p.MemberIds.Contains(a.Id));
 
 	private void RefreshCandidateList()
@@ -846,7 +846,7 @@ public partial class PartyFormationPanel : VBoxContainer
 
 		foreach (var adventurer in list)
 		{
-			bool isDispatched = adventurer.IsDispatched;
+			bool isDispatched = adventurer.IsDispatched || adventurer.IsOnLoan; // 派遣中（§0.85）も編成できない
 			bool isInjured = adventurer.Injury != InjurySeverity.None;
 			bool isRetired = adventurer.IsRetired;
 			var memberInParty = _state.SavedParties.FirstOrDefault(p => p.MemberIds.Contains(adventurer.Id));
@@ -981,6 +981,7 @@ public partial class PartyFormationPanel : VBoxContainer
 
 	private static (string Text, Color Color) StatusBadge(Adventurer a, bool isDispatched, bool isInCurrentParty, bool isInOtherParty, SavedParty? otherParty)
 	{
+		if (a.IsOnLoan) return ("【派遣中】", new Color(0.87f, 0.63f, 0.87f));
 		if (isDispatched) return ("【出撃中】", new Color(1.0f, 0.5f, 0.2f));
 		if (a.Injury == InjurySeverity.Severe) return ("【重傷】", new Color(1.0f, 0.3f, 0.3f));
 		if (a.Injury == InjurySeverity.Light) return ("【軽傷】", new Color(1.0f, 0.85f, 0.3f));

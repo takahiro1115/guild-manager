@@ -6,15 +6,19 @@ DeadlineWarningWeeks,2,週,受けた依頼の期限の残りがこの週数に�
 DeadlineWeeks_Defeat,24,週,撃破の期限（掲示の週から数える。受けるのを遅らせても延びない）
 DeadlineWeeks_Survey,12,週,完全解析の期限
 DeadlineWeeks_Deliver,12,週,納品の期限
-DeadlineWeeks_Tribute,12,週,献上の期限
+DeadlineWeeks_Loan,12,週,派遣の依頼の返事の期限（§0.85。派遣の期間は LoanWeeks）
 DeliverCountBase,6,個,納品の個数の基本
 DeliverFloorsPerExtra,20,階,納品の個数は素材の産地の最高到達階層がこの階数ごとに1個増える
-TributeRank,3,番目,献上の基準：現役の中でその能力が何番目に高い者の素の値を基準にする（人数が足りなければ最も低い者）
-TributeMinThreshold,20,pt,献上の基準の下限
+LoanRank,3,番目,派遣の基準：現役の中でその能力が何番目に高い者の素の値を基準にする（人数が足りなければ最も低い者）
+LoanMinThreshold,20,pt,派遣の基準の下限
+LoanWeeks,12,週,派遣の期間（ひと季節）。送り出した週を含めてこの週数の決算のあとに帰ってくる（§0.85）
+LoanGrowthRolls,12,回,派遣から帰ってきたときの成長の抽選の回数（訓練所Lv1・教官なしと同じ確率。伸ばす能力は依頼人ごと＝commission_clients.csv の LoanStats）
+LoanTraitChance,0.25,割合,派遣から帰ってきたときに特性が1つ付く確率（依頼人ごとの候補＝LoanTraits のうち、まだ持っておらず枠が空いているもの）
+LoanOfferSeasons,Spring;Autumn,季節,"派遣の依頼が届く季節（§0.85。; 区切り。損の少ない派遣を毎季節繰り返すとクリアが早まりすぎたため、年2回まで）"
 RewardMultiplier_Defeat,0.2,倍,撃破の報酬ゴールド＝対象のボスの撃破報酬×この倍率（撃破報酬そのものは別にもらえる。1.0だとシミュレーターでクリアが16年目→11年目に早まったため0.2）
 RewardMultiplier_Survey,0.15,倍,完全解析の報酬ゴールド＝対象のボスの撃破報酬×この倍率
 RewardMultiplier_Deliver,0.15,倍,納品の報酬ゴールド＝攻略の最前線のボス（要求火力が最も低い次のボス）の撃破報酬×この倍率
-RewardMultiplier_Tribute,3,倍,献上の報酬ゴールド＝攻略の最前線のボスの撃破報酬×この倍率（育てた冒険者を手放す分、他の依頼より大きい）
+RewardMultiplier_Loan,1.5,倍,"派遣の報酬ゴールド＝攻略の最前線のボスの撃破報酬×この倍率（§0.85。献上の×3から、育てた子が帰ってくる分を下げた）"
 CompletionMoodGain,10,pt,依頼を達成したときの機嫌の上昇
 FailureMoodLoss,10,pt,受けた依頼が期限切れ・達成できなくなったときの機嫌の低下（断った依頼・受けずに流れた依頼は罰なし）
 RewardRelicRollBonus,25,pt,報酬の未鑑定遺物の希少度ロールへの上乗せ（階層ボス撃破のドロップと同じ）

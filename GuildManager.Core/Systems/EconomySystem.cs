@@ -14,7 +14,7 @@ namespace GuildManager.Core.Systems
         /// <summary>全冒険者の週給を所持金から引き落とす。</summary>
         public void ApplyWeeklyWages(GameState state)
         {
-            int totalWages = state.Adventurers.Sum(a => a.WeeklyWage);
+            int totalWages = state.Adventurers.Where(a => !a.IsOnLoan).Sum(a => a.WeeklyWage); // 派遣中は先方持ち（§0.85）
             state.Gold -= totalWages;
         }
 

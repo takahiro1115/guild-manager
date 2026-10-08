@@ -433,7 +433,7 @@ public partial class AdventurerPanel : VBoxContainer
 		string now = activity switch
 		{
 			WeekActivity.Resting => $"[color=orange]静養（{IdleActivitySystem.RestReason(a)}）[/color]",
-			WeekActivity.Dispatched or WeekActivity.Training => $"[color=gray]{IdleActivitySystem.Label(activity)}（待機中の過ごし方はしない）[/color]",
+			WeekActivity.Dispatched or WeekActivity.Training or WeekActivity.OnLoan => $"[color=gray]{IdleActivitySystem.Label(activity)}（待機中の過ごし方はしない）[/color]",
 			_ => $"[color=lime]{IdleActivitySystem.Label(activity)}[/color]",
 		};
 		_idleStatusLabel.Clear();
@@ -511,6 +511,8 @@ public partial class AdventurerPanel : VBoxContainer
 			_statusLabel.AppendText($"[color=red]重傷・出撃不可（全治まで{a.InjuryWeeksRemaining}週）[/color]");
 		else if (a.Injury == InjurySeverity.Light)
 			_statusLabel.AppendText($"[color=orange]軽傷（全治まで{a.InjuryWeeksRemaining}週・能力値−{CombatBalance.LightInjuryStatPenaltyRate * 100:0}%）[/color]");
+		else if (a.IsOnLoan)
+			_statusLabel.AppendText($"[color=plum]{CommissionBalance.FindClient(a.LoanClientId)?.Name ?? a.LoanClientId}へ派遣中（あと{a.LoanUntilWeek!.Value - _state!.WeekNumber + 1}週・帰ってくると成長する）[/color]");
 		else if (a.IsDispatched)
 			_statusLabel.AppendText("[color=cyan]出撃中[/color]");
 		else if (IsTrainingNow(a))
@@ -656,8 +658,8 @@ public partial class AdventurerPanel : VBoxContainer
 		_compatButton.Visible = true;
 
 		// 出撃中は装備変更・引退をガード
-		_equipmentButton.Disabled = a.IsDispatched;
-		_retireButton.Disabled = a.IsDispatched;
+		_equipmentButton.Disabled = a.IsDispatched || a.IsOnLoan;
+		_retireButton.Disabled = a.IsDispatched || a.IsOnLoan; // 派遣中（§0.85）は帰ってくるまで引退させない
 	}
 
 	/// <summary>

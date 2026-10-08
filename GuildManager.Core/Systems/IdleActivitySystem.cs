@@ -20,6 +20,8 @@ namespace GuildManager.Core.Systems
         SelfTraining,
         /// <summary>大会に出る（その月は出撃・訓練をしない。休養か追い込み、§0.82）。</summary>
         Tournament,
+        /// <summary>依頼の派遣で先方へ出ている（§0.85）。</summary>
+        OnLoan,
     }
 
     /// <summary>
@@ -54,6 +56,7 @@ namespace GuildManager.Core.Systems
         /// <summary>今週この冒険者がどう過ごすか（dispatchedIds＝決算開始時点の出撃中。今週帰還した者も含む）。</summary>
         public static WeekActivity GetWeekActivity(GameState state, Adventurer a, IReadOnlySet<Guid>? dispatchedIds = null)
         {
+            if (a.IsOnLoan) return WeekActivity.OnLoan;
             if (a.IsDispatched || (dispatchedIds != null && dispatchedIds.Contains(a.Id))) return WeekActivity.Dispatched;
             if (TournamentSystem.IsEntered(state, a.Id)) return WeekActivity.Tournament;
             if (state.TrainingAssignments.ContainsKey(a.Id)) return WeekActivity.Training;
@@ -133,6 +136,7 @@ namespace GuildManager.Core.Systems
             WeekActivity.Resting => "静養",
             WeekActivity.SelfTraining => "自主練",
             WeekActivity.Tournament => "大会の準備",
+            WeekActivity.OnLoan => "派遣中",
             _ => "研究を手伝う",
         };
     }

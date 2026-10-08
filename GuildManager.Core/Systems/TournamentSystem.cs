@@ -300,6 +300,7 @@ namespace GuildManager.Core.Systems
             if (ev.Discipline == TournamentDiscipline.Party) return "部隊で出る大会";
             if (a.IsRetired) return "引退している";
             if (a.IsDispatched) return "出撃中";
+            if (a.IsOnLoan) return "派遣中";
             if (a.Injury != InjurySeverity.None) return "負傷している";
             if (a.IsPoisoned) return "毒状態";
             if (IsEntered(state, a.Id)) return "今月はほかの大会に出る（1人1か月1大会）";
@@ -350,6 +351,7 @@ namespace GuildManager.Core.Systems
             var members = PartyMembers(state, party);
             if (members.Count < 2) return "出られるメンバーが2人以上要る";
             if (members.Any(m => m.IsDispatched)) return "部隊が出撃中";
+            if (members.Any(m => m.IsOnLoan)) return "部隊に派遣中の者がいる";
             if (members.Any(m => IsEntered(state, m.Id))) return "メンバーがほかの大会に出る";
             return null;
         }

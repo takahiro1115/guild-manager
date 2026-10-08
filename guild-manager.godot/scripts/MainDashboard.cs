@@ -750,6 +750,10 @@ public partial class MainDashboard : Control
 				(settlement.GuestTrainer.AssignedTo is FacilityType t ? $"・{FacilityLabel(t)}の教官" : "・顧問の任命で教官に置ける") + "）[/color]");
 		if (settlement.GuestTrainer.Left is { } left)
 			AppendLog($"[color=gray]✉ 派遣の教官{left.Name}が白百合の杖へ帰った。[/color]");
+		foreach (var back in settlement.LoanReturns) // 依頼の派遣から帰ってきた（§0.85）
+			AppendLog($"[color=plum][b]🏠 {back.Adventurer.Name}が{back.ClientName}から帰ってきた。[/b]" +
+				(back.Growth.Count > 0 ? "　" + string.Join("・", back.Growth.GroupBy(g => g.Stat).Select(g => $"{g.Key}+{g.Sum(e => e.After - e.Before)}")) : "") +
+				(back.TraitId != null ? $"　特性「{TraitCatalog.FindById(back.TraitId)?.DisplayName ?? back.TraitId}」が付いた" : "") + "[/color]");
 		if (settlement.CommissionsUnlocked && _state.CommissionsFromWeek is int from)
 			AppendLog($"[color=gold][b]📜 初めての入賞で王都に名が知られた。[/b]{GameCalendar.FormatMonth(from)}から依頼が届く。[/color]");
 		if (settlement.AdvisorFacilitiesOpened) // 最初の引退者（§0.78）

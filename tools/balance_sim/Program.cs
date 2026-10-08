@@ -180,7 +180,7 @@ class GameSim
     /// <summary>受ける依頼の種類を絞る（例：types=Defeat,Survey）。null なら全種類。</summary>
     public static string? AcceptTypes;
     readonly CommissionSystem commissions;
-    public int CommDone, CommFailed, CommGold, Tributes, PatronUniques, Anomalies;
+    public int CommDone, CommFailed, CommGold, Loans, PatronUniques, Anomalies;
     public readonly List<BossKill> Kills = new();
     public readonly List<string> Yearly = new();
     public readonly List<int> RosterByYear = new();
@@ -259,7 +259,7 @@ class GameSim
             }
     }
     DungeonField Forest => s.DungeonFields.First(f => f.Order == 1);
-    IEnumerable<Adventurer> Active => s.Adventurers.Where(a => !a.IsRetired);
+    IEnumerable<Adventurer> Active => s.Adventurers.Where(a => !a.IsRetired && !a.IsOnLoan); // 派遣中（§0.85）は先方にいる
 
     // ==== campaign モード（5フィールド→深淵100F） ====
     public static bool Campaign;
@@ -596,8 +596,8 @@ class GameSim
                 CommissionType.Survey => true,
                 // 納品は在庫が揃っているときだけ受けてすぐ納める（素材を売らずに溜めると序盤の資金繰りが詰まる）
                 CommissionType.Deliver => c.MaterialId != null && s.Materials.GetValueOrDefault(c.MaterialId) >= c.Count,
-                // 献上は現役が8名以上いるときだけ（少ない人数で譲ると2・3枠目が出せず、退屈で機嫌が尽きる）
-                _ => Active.Count() >= 8 && CommissionSystem.GetTributeCandidates(s, c).Any(a => !top4.Contains(a.Id)),
+                // 派遣は現役が8名以上いるときだけ（少ない人数で出すと2・3枠目が出せず、退屈で機嫌が尽きる。§0.85）
+                _ => Active.Count() >= 8 && CommissionSystem.GetLoanCandidates(s, c).Any(a => !top4.Contains(a.Id)),
             };
             if (AcceptTypes != null && !AcceptTypes.Split(',').Contains(c.Type.ToString())) want = false;
             if (want) CommissionSystem.TryAccept(s, c);
@@ -607,11 +607,11 @@ class GameSim
             CommissionCompletion? done = null;
             if (c.Type == CommissionType.Deliver)
                 done = commissions.TryDeliver(s, c);
-            else if (c.Type == CommissionType.Tribute && Active.Count() >= 8
-                     && CommissionSystem.GetTributeCandidates(s, c).Where(a => !top4.Contains(a.Id)).OrderBy(StatSum).FirstOrDefault() is { } who)
+            else if (c.Type == CommissionType.Loan && Active.Count() >= 8
+                     && CommissionSystem.GetLoanCandidates(s, c).Where(a => !top4.Contains(a.Id)).OrderBy(StatSum).FirstOrDefault() is { } who)
             {
-                done = commissions.TryTribute(s, c, who);
-                if (done != null) Tributes++;
+                done = commissions.TryLoan(s, c, who);
+                if (done != null) Loans++;
             }
             if (done == null) continue;
             CommDone++;
@@ -923,7 +923,7 @@ class GameSim
         Console.WriteLine($"研究の手伝いで割り引いた額（G）：{string.Join(", ", sims.Select(x => x.ResearchCreditUsed))}");
         Console.WriteLine($"強制除籍：{string.Join(", ", sims.Select(x => x.ForcedRetired))}　敗北：{string.Join(", ", sims.Select(x => x.Defeat ?? "なし"))}");
         Console.WriteLine($"依頼（§0.64、{(UseCommissions ? "受ける" : "受けない")}・異変{(NoAnomaly ? "なし" : "あり")}）：達成 {string.Join(", ", sims.Select(x => x.CommDone))}　失敗 {string.Join(", ", sims.Select(x => x.CommFailed))}　" +
-            $"報酬G（千） {string.Join(", ", sims.Select(x => x.CommGold / 1000))}　献上 {string.Join(", ", sims.Select(x => x.Tributes))}　依頼人の固有武具 {string.Join(", ", sims.Select(x => x.PatronUniques))}　異変 {string.Join(", ", sims.Select(x => x.Anomalies))}");
+            $"報酬G（千） {string.Join(", ", sims.Select(x => x.CommGold / 1000))}　派遣 {string.Join(", ", sims.Select(x => x.Loans))}　依頼人の固有武具 {string.Join(", ", sims.Select(x => x.PatronUniques))}　異変 {string.Join(", ", sims.Select(x => x.Anomalies))}");
         Console.WriteLine();
         Console.WriteLine("### 1回目の最後の状態：各フィールドの次のボスと、上位4名の部隊の値");
         sims[0].Diagnose();
