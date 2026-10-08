@@ -27,7 +27,7 @@ namespace GuildManager.Core.Tests
 
         private static GameState NewGame(params Adventurer[] adventurers)
         {
-            var state = new GameState { WeekNumber = 1, Gold = 100000, DungeonFields = SampleData.CreateDefaultFields() };
+            var state = new GameState { WeekNumber = 1, Gold = 100000, DungeonFields = SampleData.CreateDefaultFields(), TournamentCalendarFromWeek = 1 }; // 大会は開いている（§0.84）
             state.Adventurers.AddRange(adventurers);
             return state;
         }

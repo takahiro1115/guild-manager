@@ -352,6 +352,12 @@ namespace GuildManager.Core.Models
         /// このフラグ自体は移動後も参照できるよう残す（防御的なガード・監査用）。</summary>
         public bool IsRetired { get; set; } = false;
 
+        /// <summary>
+        /// 派遣の教官（白百合の杖のマルグリット、§0.84）。RetiredAdventurers に入り教官に就けるが、ギルドの元冒険者ではない
+        /// （最初の引退者・年代記・魂魄融和の親・参謀・スカウトには数えない）。期限が来ると名簿から消える（→ IsabellaSystem）。
+        /// </summary>
+        public bool IsGuest { get; set; } = false;
+
         // ---- 引退記録（仕様書 03 §3.7つづき）。§7顧問制度が未実装の間の「引退済み・顧問候補」データ。 ----
 
         /// <summary>引退時点の年齢。強制引退は常に40だが、将来の任意引退等に備えて記録する。</summary>

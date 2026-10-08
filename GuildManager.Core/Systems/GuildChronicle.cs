@@ -48,7 +48,7 @@ namespace GuildManager.Core.Systems
 
         public static GuildChronicle Build(GameState state)
         {
-            var everyone = state.Adventurers.Concat(state.RetiredAdventurers).Concat(state.FallenAdventurers).ToList();
+            var everyone = state.Adventurers.Concat(state.GuildRetirees).Concat(state.FallenAdventurers).ToList(); // 派遣の教官（§0.84）は数えない
             var top = everyone.OrderByDescending(a => a.TotalContributionScore).FirstOrDefault();
             int clearedAt = state.ClearedAtWeek ?? state.WeekNumber;
             var bosses = state.DungeonFields.SelectMany(f => f.Bosses).ToList();
@@ -59,7 +59,7 @@ namespace GuildManager.Core.Systems
                 Years = GameCalendar.YearOf(clearedAt),
                 TotalMembers = everyone.Count,
                 ActiveCount = state.Adventurers.Count,
-                RetiredCount = state.RetiredAdventurers.Count,
+                RetiredCount = state.GuildRetirees.Count(),
                 ExpelledCount = state.FallenAdventurers.Count,
                 DaughterCount = everyone.Count(a => a.ParentIds.Count > 0),
                 MaxGeneration = everyone.Count == 0 ? 0 : everyone.Max(a => GenerationOf(state, a)),

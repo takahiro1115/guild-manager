@@ -35,6 +35,7 @@ namespace GuildManager.Core.Systems
         private readonly DungeonExpeditionSystem _dungeonExpeditionSystem;
         private readonly CommissionSystem _commissionSystem;
         private readonly TournamentSystem _tournamentSystem;
+        private readonly IsabellaSystem _isabellaSystem;
 
         public WeekProcessingSystem(
             MasterMoodSystem masterMoodSystem,
@@ -54,10 +55,13 @@ namespace GuildManager.Core.Systems
             // 省略可能：依頼と迷宮の異変（→ CommissionSystem、§0.64）。省略時は固定シードの既定構成。
             CommissionSystem? commissionSystem = null,
             // 省略可能：大会（→ TournamentSystem、§0.82）。省略時は固定シードの既定構成。
-            TournamentSystem? tournamentSystem = null)
+            TournamentSystem? tournamentSystem = null,
+            // 省略可能：イザベラの来訪と交流戦（→ IsabellaSystem、§0.84）。省略時は固定シードの既定構成。
+            IsabellaSystem? isabellaSystem = null)
         {
             _commissionSystem = commissionSystem ?? new CommissionSystem();
             _tournamentSystem = tournamentSystem ?? new TournamentSystem(new SeededRng(DefaultTournamentSeed));
+            _isabellaSystem = isabellaSystem ?? new IsabellaSystem(new SeededRng(DefaultExchangeSeed));
             _masterMoodSystem = masterMoodSystem;
             _economySystem = economySystem;
             _trainingSystem = trainingSystem;
@@ -81,6 +85,7 @@ namespace GuildManager.Core.Systems
         private const int DefaultDungeonSeed = 1588;
         private const int DefaultCompatibilitySeed = 2526;
         private const int DefaultTournamentSeed = 3373;
+        private const int DefaultExchangeSeed = 4049;
 
         /// <summary>
         /// 1週分の決算処理を実行し、週番号を1つ進める。出撃操作は本メソッドの対象外
@@ -94,7 +99,7 @@ namespace GuildManager.Core.Systems
 
             bool wasCleared = state.IsGameCleared;
             TournamentSystem.EnsureSchedule(state); // 今年の大会の暦（§0.82。年のはじめ・新しいゲームのとき置く）
-            bool hadRetiree = state.RetiredAdventurers.Count > 0; // 最初の引退者で作戦資料室・冒険者支援室が開く（§0.78）
+            bool hadRetiree = state.GuildRetirees.Any(); // 最初の引退者で作戦資料室・冒険者支援室が開く（§0.78。派遣の教官は数えない）
             var neededNegotiationBefore = state.Adventurers.Where(a => a.NeedsNegotiation).Select(a => a.Id).ToHashSet();
 
             // 出撃中（今週出発した分も含む）の冒険者は、HP自然回復・訓練場成長の対象から外す（→ 03 §4.0.1）。
@@ -119,6 +124,9 @@ namespace GuildManager.Core.Systems
                 if (resolution.DungeonResult?.Outcome == DungeonOutcome.Victory)
                     result.Flags.BossDefeated = true;
             }
+
+            // イザベラの来訪（§0.84）：森の40Fのボスを初めて倒した週。最初の交流戦を次の月に置く。
+            result.IsabellaVisited = IsabellaSystem.CheckVisit(state);
 
             // マスターの機嫌（→ 03 §8.1・§8.1.1）：大迷宮での成果で上げ、成果ゼロなら退屈減衰。
             // 内職売上の倍率は「決算時点の機嫌」で決まるため、内職売上より先に済ませる。
@@ -162,6 +170,10 @@ namespace GuildManager.Core.Systems
             result.TournamentInvitations.AddRange(TournamentSystem.CheckInvitations(state,
                 result.DungeonMissionResolutions.Where(r => r.FieldNewlyUnlocked != null).Select(r => r.FieldNewlyUnlocked!),
                 result.TournamentsResolved));
+            // 交流戦（§0.84）：最初の1回のあとに最初の訓練所が開き、次の月から大会の暦が置かれる。初めての入賞で依頼が開く。
+            result.ExchangeMatches.AddRange(_isabellaSystem.ResolveWeek(state));
+            result.FacilityUnlocks.AddRange(result.ExchangeMatches.Select(m => m.OpenedFacility).OfType<FacilityUnlockNotice>());
+            result.CommissionsUnlocked = IsabellaSystem.CheckCommissionUnlock(state);
 
             _satisfactionSystem.ProcessWeeklySatisfaction(state, dispatchedIds); // → 03 §5.1：満足度変動
             result.TraitGrantEvents.AddRange(_satisfactionSystem.ProcessWeeklyBurnout(state)); // → 03 §5.3.2・§0.56：燃え尽き（連続出撃）
@@ -189,7 +201,9 @@ namespace GuildManager.Core.Systems
 
             // 施設の開放の知らせ（§0.78・§0.79）：週報に1回だけ出す。
             result.FacilityUnlocks.AddRange(FacilityUnlockSystem.Evaluate(state)); // 大会などのご褒美で開いた施設（§0.82）
-            result.AdvisorFacilitiesOpened = !hadRetiree && state.RetiredAdventurers.Count > 0;
+            result.AdvisorFacilitiesOpened = !hadRetiree && state.GuildRetirees.Any();
+            // 派遣の教官（§0.84）：訓練所が建っていれば来て、期限の週に帰る（施設の工事のあとに見る）。
+            result.GuestTrainer = IsabellaSystem.ProcessGuestTrainer(state);
 
             // 戦績と観測日誌（大会と育成の栄光 段2）：加入・能力のピーク・重傷と復帰・大会・誕生・母娘の出撃を記録し、新しい二つ名と殿堂入りを知らせる。
             result.HonorNotices.AddRange(HonorSystem.ProcessWeek(state, result.TournamentsResolved, result.SoulFusionBirths));
@@ -204,12 +218,9 @@ namespace GuildManager.Core.Systems
 
             state.WeekNumber++;
 
-            // 新しい年の大会の暦（§0.82）と、訓練所が1つも開いていないときの副官の救済の提案。
-            if (GameCalendar.IsFirstWeekOfYear(state.WeekNumber))
-            {
-                TournamentSystem.EnsureSchedule(state);
-                FacilityUnlockSystem.CheckRescue(state);
-            }
+            // 新しい年の大会の暦（§0.82）。最初の交流戦の月のはじめには、空いている部門へ出られる子を入れておく（§0.84）。
+            TournamentSystem.EnsureSchedule(state); // 年が変わったとき・大会が開いた次の月（何度呼んでもよい）
+            IsabellaSystem.AutoFillFirstExchange(state);
 
             // 新しい週の依頼と迷宮の異変（→ CommissionSystem.ProcessNewWeek、§0.64）。届いた週・予告の週・期限の近い週は
             // 自動スキップを止める（受けるか、どこへ行くかを決めてもらう）。ゲームオーバー後は何も届けない。

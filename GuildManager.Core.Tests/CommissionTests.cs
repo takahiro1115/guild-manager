@@ -44,6 +44,7 @@ namespace GuildManager.Core.Tests
                 MasterMood = 50,
                 DungeonFields = fields,
                 Adventurers = { Make("アリス", 30), Make("セリア", 40), Make("ミナ", 50) },
+                CommissionsFromWeek = 13, // 依頼は開いている（初めての入賞のあと、§0.84）
             };
         }
 
@@ -78,7 +79,7 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void CsvValues_AreLoaded()
         {
-            Assert.Equal(13, CommissionBalance.FirstOfferWeek);
+            Assert.Equal(13, CommissionBalance.FirstAnomalyWeek);
             Assert.Equal(3, CommissionBalance.OffersPerSeason);
             Assert.Equal(2, CommissionBalance.MaxAccepted);
             Assert.Equal(24, CommissionBalance.GetDeadlineWeeks(CommissionType.Defeat));
@@ -139,8 +140,16 @@ namespace GuildManager.Core.Tests
         [InlineData(14, false)]
         [InlineData(25, true)]
         [InlineData(49, true)]
-        public void OfferWeek_IsFirstWeekOfSeason_FromFirstOfferWeek(int week, bool expected) =>
-            Assert.Equal(expected, CommissionSystem.IsOfferWeek(week));
+        public void OfferWeek_IsFirstWeekOfSeason_FromCommissionsFromWeek(int week, bool expected) =>
+            Assert.Equal(expected, CommissionSystem.IsOfferWeek(new GameState { CommissionsFromWeek = 13 }, week));
+
+        [Fact]
+        public void OfferWeek_NeverBeforeCommissionsOpen()
+        {
+            var state = new GameState();
+            Assert.False(CommissionSystem.IsOfferWeek(state, 13));
+            Assert.False(CommissionSystem.IsOfferWeek(state, 49));
+        }
 
         [Fact]
         public void NewSeason_OffersThreeCommissions_FromDifferentClients()
@@ -552,7 +561,7 @@ namespace GuildManager.Core.Tests
         {
             var state = NewState(20);
             string json = JsonSerializer.Serialize(state.ToSaveData());
-            string oldJson = System.Text.RegularExpressions.Regex.Replace(json, ",\"(Commissions|CommissionCompletions|Anomaly)\":(\\[\\]|\\{\\}|null)", "");
+            string oldJson = System.Text.RegularExpressions.Regex.Replace(json, ",\"(Commissions|CommissionCompletions|CommissionsFromWeek|Anomaly)\":(\\[\\]|\\{\\}|null|\\d+)", "");
             Assert.DoesNotContain("Commission", oldJson);
             Assert.DoesNotContain("Anomaly", oldJson);
 

@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using GuildManager.Core.Balance;
 using GuildManager.Core.Models;
 
@@ -31,7 +32,7 @@ namespace GuildManager.Core.Systems
         /// ほかの施設はいつでも建てられる。序盤に「建てても何も起きない施設」を並べないため。
         /// </summary>
         public static bool IsAvailable(GameState state, FacilityType type) =>
-            !RequiresAdvisorCandidate(type) || state.RetiredAdventurers.Count > 0 || state.GetFacilityLevel(type) >= 1;
+            !RequiresAdvisorCandidate(type) || state.GuildRetirees.Any() || state.GetFacilityLevel(type) >= 1;
 
         /// <summary>
         /// 今のLvから次のLvへの改築が、まだ開いていないLvで止められているか（§0.82。施設は大会などのご褒美で開く、→ FacilityUnlockSystem。

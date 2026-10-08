@@ -1,0 +1,19 @@
+key,value,unit,note
+VisitFieldId,forest,,"イザベラが来訪するフィールド（§0.84）。このフィールドの VisitFloor のボスを初めて倒した週に来訪し、🏆 大会が開く"
+VisitFloor,40,F,来訪のきっかけになるボスの階層
+ExchangeFactor_Sword,1.08,倍,"交流戦の相手の強さ＝来訪したときの、自分のギルドで剣の最も強い子の部門の強さ×この値（ブリジット。初回に勝てるのは3本勝負で約35%）"
+ExchangeFactor_Magic,1.18,倍,同・魔（セシリア。白百合の杖は魔が得意なので、いちばん手強い）
+ExchangeFactor_Skill,1.08,倍,同・技（ニナ）
+ExchangeGrowthPerMatch,0.04,倍,交流戦を1回行うごとに、相手の強さが上がる割合（勝敗にかかわらず）
+ExchangeGrowthPerYear,0.05,倍,来訪から1年ごとに、相手の強さが上がる割合（白百合の杖も年ごとに育つ。週で按分）
+ExchangeOpponent_Sword,ブリジット,名,交流戦の剣の相手
+ExchangeOpponent_Magic,セシリア,名,交流戦の魔の相手
+ExchangeOpponent_Skill,ニナ,名,交流戦の技の相手
+ExchangeWeekOfMonth,4,週,交流戦を行う月の中の週（申し込んだ月の、この週の決算で行う）
+ExchangePrize,1000,G,2勝目以降の交流戦に勝ったときの賞金（初勝利のご褒美は派遣の教官）
+ExchangeMood,8,pt,2勝目以降の交流戦に勝ったときのマスターの機嫌
+GuestTrainerName,マルグリット,名,交流戦の初勝利で来る派遣の教官（白百合の杖の元冒険者）
+GuestTrainerWeeks,24,週,"派遣の教官がいる週数（6か月）。訓練所が1つ以上建っていれば来て、来た週から数える（建っていなければ建つまで待つ）"
+GuestTrainerTopCount,4,人,派遣の教官の能力＝来た週の現役の上位この人数（能力の合計の順）の、能力ごとの平均
+GuestTrainerAge,34,歳,派遣の教官の年齢（表示用）
+GuestTrainerTraitId,Diligent,,派遣の教官が持つ特性（伝授できるもの。勤勉）

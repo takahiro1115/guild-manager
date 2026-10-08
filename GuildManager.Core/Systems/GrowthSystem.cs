@@ -109,7 +109,7 @@ namespace GuildManager.Core.Systems
                 adventurer.CurrentHP = Math.Max(TrainingBalance.MinHp, adventurer.CurrentHP - TournamentBalance.PushHpCost);
                 var ev = state.TournamentEvents.FirstOrDefault(e => e.Id == entry.EventId);
                 var discipline = ev == null ? TournamentSystem.BestDiscipline(adventurer)
-                    : ev.Discipline == TournamentDiscipline.Party ? TournamentDiscipline.Party : TournamentSystem.DisciplineFor(ev, adventurer);
+                    : ev.Discipline == TournamentDiscipline.Party ? TournamentDiscipline.Party : TournamentSystem.EntryDiscipline(ev, entry, adventurer);
                 string[] stats = discipline switch
                 {
                     TournamentDiscipline.Sword => new[] { "STR", "VIT" },

@@ -735,6 +735,23 @@ public partial class MainDashboard : Control
 				string.Concat(ev.Result?.Placings.Select(p => $"／{p.Name} {TournamentSystem.PlacingLabel(p.Placing)}{(p.Prize > 0 ? $"（賞金 {p.Prize}G）" : "")}") ?? Enumerable.Empty<string>()) + "[/color]");
 		foreach (var ev in settlement.TournamentInvitations)
 			AppendLog($"[color=khaki][b]✉ 招待が届いた：{ev.Name}[/b]（{GameCalendar.Format(GameCalendar.WeekNumberOf(ev.Year, ev.Month, ev.Week))}）[/color]");
+		// イザベラの来訪と交流戦（§0.84）
+		if (settlement.IsabellaVisited)
+			AppendLog("[color=plum][b]✉ 白百合の杖のイザベラが来訪した。[/b]「わたくしの冒険者と、実力を試してみませんこと？」[/color][color=gray]（来月の第4週に交流戦。🏆 大会のタブで剣・魔・技の出場者を選ぶ）[/color]");
+		foreach (var m in settlement.ExchangeMatches)
+		{
+			string bouts = string.Join("／", m.Bouts.Select(b => $"{TournamentSystem.DisciplineLabel(b.Discipline)}：{b.OurName} {(b.Won ? "○" : "×")} {b.OpponentName}"));
+			AppendLog($"[color=plum][b]⚔ 交流戦に{(m.Won ? "勝った" : "負けた")}（{m.Wins}勝{m.Bouts.Count - m.Wins}敗）[/b] {bouts}" +
+				(m.FirstWin ? "　ご褒美に教官のマルグリットが派遣される" : m.Prize > 0 ? $"　賞金 {m.Prize}G・機嫌+{m.Mood}" : "") + "[/color]" +
+				(m.First ? "[color=gray]（来月から王都の大会に出られる）[/color]" : ""));
+		}
+		if (settlement.GuestTrainer.Arrived is { } guest)
+			AppendLog($"[color=plum][b]✉ 派遣の教官{guest.Name}が着任した[/b]（{IsabellaBalance.GuestTrainerWeeks}週" +
+				(settlement.GuestTrainer.AssignedTo is FacilityType t ? $"・{FacilityLabel(t)}の教官" : "・顧問の任命で教官に置ける") + "）[/color]");
+		if (settlement.GuestTrainer.Left is { } left)
+			AppendLog($"[color=gray]✉ 派遣の教官{left.Name}が白百合の杖へ帰った。[/color]");
+		if (settlement.CommissionsUnlocked && _state.CommissionsFromWeek is int from)
+			AppendLog($"[color=gold][b]📜 初めての入賞で王都に名が知られた。[/b]{GameCalendar.FormatMonth(from)}から依頼が届く。[/color]");
 		if (settlement.AdvisorFacilitiesOpened) // 最初の引退者（§0.78）
 			AppendLog("[color=gold][b]🏗 引退者が出たので、作戦資料室と冒険者支援室を建てられるようになった。[/b][/color][color=gray]（引退者を参謀・スカウトに置く施設）[/color]");
 	}

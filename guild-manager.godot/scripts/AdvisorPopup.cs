@@ -90,7 +90,9 @@ public partial class AdvisorPopup : PopupPanel
 			foreach (var candidate in _state.RetiredAdventurers)
 			{
 				_candidateList.AddItem(
-					$"{candidate.Name}（{candidate.JobClass}） 引退時{candidate.RetiredAtAge}歳" +
+					(candidate.IsGuest
+						? $"{candidate.Name}（白百合の杖から派遣・教官だけ・残り{Math.Max(0, (_state.GuestTrainerUntilWeek ?? _state.WeekNumber) - _state.WeekNumber)}週）"
+						: $"{candidate.Name}（{candidate.JobClass}） 引退時{candidate.RetiredAtAge}歳") +
 					$"　STR{candidate.STR}/VIT{candidate.VIT}/AGI{candidate.AGI}" +
 					$"/DEX{candidate.DEX}/MND{candidate.MND}/INT{candidate.INT}/LDR{candidate.LDR}");
 			}

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using GuildManager.Core.Balance;
 using GuildManager.Core.Models;
 
 namespace GuildManager.Core.Systems
@@ -230,6 +231,23 @@ namespace GuildManager.Core.Systems
                     foreach (var p in placings.Where(p => p.Placing > 4))
                         Add($"{ev.Name}で{p.Name}は{TournamentSystem.PlacingLabel(p.Placing)}", MonthlyTone.Normal);
                 }
+                // イザベラの来訪と交流戦（§0.84）
+                if (s.IsabellaVisited)
+                    Add("白百合の杖のイザベラが来訪し、交流戦を申し込んできた（来月の第4週・剣・魔・技の3本勝負。🏆 大会のタブが開いた）", MonthlyTone.Good);
+                foreach (var m in s.ExchangeMatches)
+                {
+                    string bouts = string.Join("・", m.Bouts.Select(b => $"{TournamentSystem.DisciplineLabel(b.Discipline)} {b.OurName}{(b.Won ? "○" : "×")}{b.OpponentName}"));
+                    string reward = m.FirstWin ? "。ご褒美に教官のマルグリットが派遣される" : m.Prize > 0 ? $"（賞金{m.Prize}G・機嫌+{m.Mood}）" : "";
+                    Add($"交流戦に{(m.Won ? "勝った" : "負けた")}（{m.Wins}勝{m.Bouts.Count - m.Wins}敗：{bouts}）{reward}", m.Won ? MonthlyTone.Good : MonthlyTone.Normal);
+                    if (m.First)
+                        Add("来月から王都の大会に出られる（🏆 大会の暦）", MonthlyTone.Good);
+                }
+                if (s.GuestTrainer.Arrived is { } guest)
+                    Add($"派遣の教官{guest.Name}が着任した（{IsabellaBalance.GuestTrainerWeeks}週" + (s.GuestTrainer.AssignedTo is FacilityType t ? $"・{FacilityName(t)}の教官" : "・施設画面で教官に任命できる") + "）", MonthlyTone.Good);
+                if (s.GuestTrainer.Left is { } guestLeft)
+                    Add($"派遣の教官{guestLeft.Name}が白百合の杖へ帰った", MonthlyTone.Normal);
+                if (s.CommissionsUnlocked && state.CommissionsFromWeek is int from)
+                    Add($"初めての入賞で王都に名が知られた。{GameCalendar.FormatMonth(from)}から依頼が届く", MonthlyTone.Good);
                 foreach (var invite in s.TournamentInvitations)
                     Add($"招待が届いた：{invite.Name}（{GameCalendar.FormatMonth(GameCalendar.WeekNumberOf(invite.Year, invite.Month, invite.Week))} 第{invite.Week}週）", MonthlyTone.Good);
                 foreach (var unlock in s.FacilityUnlocks)

@@ -300,8 +300,37 @@ namespace GuildManager.Core.Models
         /// <summary>もう出した招待の鍵（"lord:フィールドId"・"royal:年"・"margrave"）。同じ招待を二度出さない。</summary>
         public HashSet<string> TournamentInviteKeys { get; set; } = new();
 
-        /// <summary>副官の救済の提案（1年目に訓練所が1つも開かなかったとき）。3つから1つを選ぶまで true。</summary>
-        public bool PendingTrainingFacilityChoice { get; set; }
+        // ---- イザベラの来訪と交流戦（2026年10月・§0.84、→ Systems.IsabellaSystem） ----
+
+        /// <summary>イザベラが来訪した週（森の40Fのボスを初めて倒した週）。まだなら null（大会も依頼も無い）。</summary>
+        public int? IsabellaVisitWeek { get; set; }
+
+        /// <summary>交流戦の相手の強さの基準（来訪したときの、自分のギルドの部門ごとの最も強い子の部門の強さ）。</summary>
+        public Dictionary<TournamentDiscipline, double> ExchangeAnchor { get; set; } = new();
+
+        /// <summary>行った交流戦の数（相手の強さが1回ごとに上がる）。</summary>
+        public int ExchangeMatchesPlayed { get; set; }
+
+        /// <summary>交流戦に勝った数（初勝利で派遣の教官、2勝目から賞金と機嫌）。</summary>
+        public int ExchangeWins { get; set; }
+
+        /// <summary>大会の暦を置き始める週（最初の交流戦の次の月のはじめ）。まだなら null（大会を置かない）。</summary>
+        public int? TournamentCalendarFromWeek { get; set; }
+
+        /// <summary>依頼が届き始める週（初めての入賞の次の季節のはじめ）。まだなら null（依頼は届かない）。</summary>
+        public int? CommissionsFromWeek { get; set; }
+
+        /// <summary>§0.84より前の決まりで依頼が届き始めた週（1年目の夏のはじめ）。旧セーブを読むときだけ使う。</summary>
+        public const int LegacyFirstOfferWeek = 13;
+
+        /// <summary>派遣の教官（マルグリット）が、訓練所が建つのを待っている（交流戦に初めて勝ったあと）。</summary>
+        public bool GuestTrainerPending { get; set; }
+
+        /// <summary>派遣の教官が帰る週（来た週＋GuestTrainerWeeks）。いなければ null。教官本人は RetiredAdventurers に IsGuest で入る。</summary>
+        public int? GuestTrainerUntilWeek { get; set; }
+
+        /// <summary>引退者のうち、ギルドの元冒険者（派遣の教官を除く）。最初の引退者の判定・年代記に使う。</summary>
+        public IEnumerable<Adventurer> GuildRetirees => RetiredAdventurers.Where(a => !a.IsGuest);
 
         /// <summary>辺境伯杯の優勝のご褒美：次の改築費が半額。</summary>
         public bool NextUpgradeHalfPrice { get; set; }
@@ -385,8 +414,16 @@ namespace GuildManager.Core.Models
                 TournamentPlacingsTotal = TournamentPlacingsTotal,
                 TournamentPrizeTotal = TournamentPrizeTotal,
                 TournamentInviteKeys = new List<string>(TournamentInviteKeys),
-                PendingTrainingFacilityChoice = PendingTrainingFacilityChoice,
                 NextUpgradeHalfPrice = NextUpgradeHalfPrice,
+                StoryRulesVersion = 1,
+                IsabellaVisitWeek = IsabellaVisitWeek,
+                ExchangeAnchor = ExchangeAnchor.ToDictionary(kv => kv.Key.ToString(), kv => kv.Value),
+                ExchangeMatchesPlayed = ExchangeMatchesPlayed,
+                ExchangeWins = ExchangeWins,
+                TournamentCalendarFromWeek = TournamentCalendarFromWeek,
+                CommissionsFromWeek = CommissionsFromWeek,
+                GuestTrainerPending = GuestTrainerPending,
+                GuestTrainerUntilWeek = GuestTrainerUntilWeek,
                 Commissions = new List<GuildCommission>(Commissions),
                 CommissionCompletions = new Dictionary<string, int>(CommissionCompletions),
                 Anomaly = Anomaly,
@@ -509,14 +546,34 @@ namespace GuildManager.Core.Models
                 TournamentPlacingsTotal = data.TournamentPlacingsTotal,
                 TournamentPrizeTotal = data.TournamentPrizeTotal,
                 TournamentInviteKeys = new HashSet<string>(data.TournamentInviteKeys ?? new List<string>()),
-                PendingTrainingFacilityChoice = data.PendingTrainingFacilityChoice,
                 NextUpgradeHalfPrice = data.NextUpgradeHalfPrice,
+                // イザベラの来訪と交流戦（§0.84）。§0.84より前のセーブ（StoryRulesVersion 0）は下で「来訪済み・大会と依頼は開いている」に補う。
+                IsabellaVisitWeek = data.IsabellaVisitWeek,
+                ExchangeAnchor = (data.ExchangeAnchor ?? new Dictionary<string, double>())
+                    .Where(kv => Enum.TryParse<TournamentDiscipline>(kv.Key, out _))
+                    .ToDictionary(kv => Enum.Parse<TournamentDiscipline>(kv.Key), kv => kv.Value),
+                ExchangeMatchesPlayed = data.ExchangeMatchesPlayed,
+                ExchangeWins = data.ExchangeWins,
+                TournamentCalendarFromWeek = data.TournamentCalendarFromWeek,
+                CommissionsFromWeek = data.CommissionsFromWeek,
+                GuestTrainerPending = data.GuestTrainerPending,
+                GuestTrainerUntilWeek = data.GuestTrainerUntilWeek,
                 // 依頼と迷宮の異変（§0.64）。キーを持たない旧セーブ、または null が書かれていても空・無しで始める。
                 Commissions = (data.Commissions ?? new List<GuildCommission>()).Where(c => c != null).ToList(),
                 CommissionCompletions = new Dictionary<string, int>(data.CommissionCompletions ?? new Dictionary<string, int>()),
                 Anomaly = data.Anomaly,
                 Facilities = new List<Facility>(),
             };
+
+            // §0.84より前のセーブ（StoryRulesVersion 0）：大会は初めから開き、依頼は1年目の夏から届く決まりだったので、
+            // 「来訪済み・大会の暦は初めから・依頼は第13週から」として読む（進行中の大会や依頼が消えないように）。
+            // 交流戦の相手の強さの基準は、最初に使うときに今のギルドから決める（→ IsabellaSystem.Anchor）。
+            if (data.StoryRulesVersion < 1)
+            {
+                state.IsabellaVisitWeek ??= 1;
+                state.TournamentCalendarFromWeek ??= 1;
+                state.CommissionsFromWeek ??= LegacyFirstOfferWeek;
+            }
 
             // ボスの所属フィールド（→ FloorBoss.FieldOrder、§0.47）は、この項目を持たない旧セーブでは既定値1のまま
             // 読み込まれるため、所属フィールドの攻略順から付け直す（新しいセーブでも値は一致する）。

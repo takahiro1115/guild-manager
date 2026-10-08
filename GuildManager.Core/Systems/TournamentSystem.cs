@@ -146,6 +146,7 @@ namespace GuildManager.Core.Systems
 
         /// <summary>
         /// 今の年の暦が無ければ置く（定例と、地方・王都の大会）。前の月までの出場の記録は消す。何度呼んでもよい。
+        /// 大会はイザベラとの最初の交流戦のあとに開く（§0.84）：それまでは置かず、開いた年は TournamentCalendarFromWeek より前の大会を置かない。
         /// </summary>
         public static void EnsureSchedule(GameState state)
         {
@@ -155,10 +156,17 @@ namespace GuildManager.Core.Systems
                 var ev = state.TournamentEvents.FirstOrDefault(e => e.Id == entry.EventId);
                 return ev == null || !IsThisMonth(state, ev);
             });
-            if (state.TournamentEvents.Any(e => e.Year == year && e.Kind != TournamentKind.Invite))
+            if (state.TournamentCalendarFromWeek is not int from)
                 return;
-            state.TournamentEvents.AddRange(BuildYear(state, year));
+            if (state.TournamentEvents.Any(e => e.Year == year && e.Kind is not (TournamentKind.Invite or TournamentKind.Exchange)))
+                return;
+            state.TournamentEvents.AddRange(BuildYear(state, year)
+                .Where(e => GameCalendar.WeekNumberOf(e.Year, e.Month, e.Week) >= from));
         }
+
+        /// <summary>出場者が戦う部門（交流戦は受け持った部門、ほかは DisciplineFor）。</summary>
+        public static TournamentDiscipline EntryDiscipline(TournamentEvent ev, TournamentEntry entry, Adventurer a) =>
+            entry.Discipline ?? DisciplineFor(ev, a);
 
         private static readonly (TournamentDiscipline Discipline, string LocalId, string RoyalId, string ClassicId)[] Disciplines =
         {
@@ -225,6 +233,8 @@ namespace GuildManager.Core.Systems
         public static List<TournamentEvent> CheckInvitations(GameState state, IEnumerable<DungeonField> newlyUnlockedFields, IEnumerable<TournamentEvent> resolvedThisWeek)
         {
             var added = new List<TournamentEvent>();
+            if (!IsabellaSystem.TournamentsOpen(state))
+                return added; // 大会が開く前（§0.84）は招待も無い
             int year = GameCalendar.YearOf(state.WeekNumber);
             int month = GameCalendar.MonthOfYear(state.WeekNumber);
             int target = (year - 1) * 12 + month - 1 + TournamentBalance.InviteLeadMonths;
@@ -402,7 +412,8 @@ namespace GuildManager.Core.Systems
             int month = GameCalendar.MonthOfYear(state.WeekNumber);
             int week = GameCalendar.WeekOfMonth(state.WeekNumber);
             var resolved = new List<TournamentEvent>();
-            foreach (var ev in state.TournamentEvents.Where(e => e.Year == year && e.Month == month && e.Week == week && e.Result == null).ToList())
+            foreach (var ev in state.TournamentEvents.Where(e => e.Year == year && e.Month == month && e.Week == week && e.Result == null
+                         && e.Kind != TournamentKind.Exchange).ToList()) // 交流戦は IsabellaSystem が行う（§0.84）
             {
                 Resolve(state, ev);
                 resolved.Add(ev);

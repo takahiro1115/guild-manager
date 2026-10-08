@@ -210,7 +210,7 @@ class GameSim
         commissions = new CommissionSystem(new SeededRng(2718 + k));
         week = new WeekProcessingSystem(new MasterMoodSystem(), new EconomySystem(), training, new InjuryRecoverySystem(),
             new RestRecoverySystem(), growth, satisfaction, new AgingSystem(new SeededRng(99 + k)), facility,
-            new DefeatSystem(), recruitment, expedition, commissions);
+            new DefeatSystem(), recruitment, expedition, commissions, isabellaSystem: new IsabellaSystem(new SeededRng(4049 + k)));
 
         s = new GameState { Adventurers = SampleData.CreateStarterAdventurers(), DungeonFields = SampleData.CreateDefaultFields() };
         var draft = recruitment.StartInitialDraft(s);
@@ -322,6 +322,14 @@ class GameSim
             BookSettlement(result, s.Gold - goldBefore, wages, trainees);
             DaughtersBorn += result.SoulFusionBirths.Count;
             foreach (var n in result.FacilityUnlocks) UnlockWeek.TryAdd((n.Facility, n.Level), result.Flags.Week);
+            if (result.IsabellaVisited) VisitWeek = result.Flags.Week;
+            foreach (var m in result.ExchangeMatches)
+            {
+                ExchangePlayed++;
+                if (m.Won) { ExchangeWon++; if (m.FirstWin) FirstExchangeWinWeek = result.Flags.Week; }
+            }
+            if (result.GuestTrainer.Arrived != null) GuestArrivalWeek = result.Flags.Week;
+            if (result.CommissionsUnlocked) CommissionsOpenWeek = s.CommissionsFromWeek;
             foreach (var ev in result.TournamentsResolved)
             {
                 TournamentEntries += ev.Result?.Placings.Count ?? 0;
@@ -368,14 +376,15 @@ class GameSim
     /// <summary>
     /// 大会の出場（§0.82）：月のはじめに、今月の大会ごとに資格のある者のうち「部門の強さ×HPの補正」が高い2人を出す
     /// （勝ち目の薄い大会には出さない）。迷宮踏破杯は主力4名の部隊で出る。過ごし方は HP8割未満なら休養、ほかは追い込み。
-    /// オプション nomain＝主力4名は個人の大会に出さない、notourney＝大会に出ない。副官の救済の提案には、最も強い者の得意な部門で答える。
+    /// オプション nomain＝主力4名は個人の大会に出さない、notourney＝大会に出ない。
+    /// 交流戦（§0.84）：季節に1回、勝てる見込みが ExchangeApplyChance 以上なら申し込み、部門ごとに「部門の強さ÷相手の強さ」が高い子を出す（休養）。
+    /// 最初の交流戦は Core が月のはじめに自動で入れる。notourney なら申し込まない（最初の1回だけ行う）。
     /// </summary>
     void EnterTournaments()
     {
         TournamentSystem.EnsureSchedule(s);
-        if (s.PendingTrainingFacilityChoice && Active.Any())
-            FacilityUnlockSystem.ChooseRescueFacility(s, FacilityUnlockSystem.FacilityOf(TournamentSystem.BestDiscipline(Active.OrderByDescending(StatSum).First())));
         if (TourneyMode == "off" || !TournamentSystem.CanChangeEntries(s)) return;
+        EnterExchange();
         var main = Active.Where(a => a.Injury != InjurySeverity.Severe).OrderByDescending(StatSum).Take(4).Select(a => a.Id).ToList();
         foreach (var ev in TournamentSystem.EventsThisMonth(s).Where(e => e.Result == null).OrderByDescending(e => TournamentSystem.GradeRank(e.Grade)))
         {
@@ -403,6 +412,46 @@ class GameSim
                 TournamentSystem.TryEnter(s, ev, p.A, HpRatio(p.A) < 0.8 ? TournamentPrep.Rest : TournamentPrep.Push);
         }
     }
+
+    /// <summary>交流戦（§0.84）：季節に1回、勝てる見込みがこの値以上なら申し込む。</summary>
+    const double ExchangeApplyChance = 0.35;
+
+    void EnterExchange()
+    {
+        if (IsabellaSystem.ApplyBlockReason(s) == null)
+        {
+            var preview = PickExchange();
+            if (preview.Count == 3 && IsabellaSystem.MatchWinChance(preview.Select(p => p.Chance).ToList()) >= ExchangeApplyChance)
+                IsabellaSystem.TryApply(s);
+        }
+        if (IsabellaSystem.ExchangeThisMonth(s) is not { Result: null } ev || !IsabellaSystem.TournamentsOpen(s)) return; // 最初の1回は Core が入れる
+        foreach (var p in PickExchange())
+            if (IsabellaSystem.SlotEntry(s, ev, p.D) == null)
+                IsabellaSystem.TryEnter(s, ev, p.A, p.D, TournamentPrep.Rest);
+    }
+
+    /// <summary>交流戦の出場者の組（部門ごとに「部門の強さ÷相手の強さ」が高い順に、出られる子を重ならないように選ぶ）。</summary>
+    List<(TournamentDiscipline D, Adventurer A, double Chance)> PickExchange()
+    {
+        var picks = new List<(TournamentDiscipline, Adventurer, double)>();
+        var used = new HashSet<Guid>();
+        var open = IsabellaSystem.ExchangeDisciplines.ToList();
+        while (open.Count > 0)
+        {
+            var best = open.SelectMany(d => Active.Where(a => !used.Contains(a.Id) && !a.IsDispatched && a.Injury == InjurySeverity.None && !a.IsPoisoned
+                        && HpRatio(a) >= 0.6 && !TournamentSystem.IsEntered(s, a.Id))
+                    .Select(a => (d, a, chance: IsabellaSystem.BoutWinChance(TournamentSystem.MatchStrength(a, d), IsabellaSystem.OpponentStrength(s, d)))))
+                .OrderByDescending(x => x.chance).FirstOrDefault();
+            if (best.a == null) break;
+            picks.Add((best.d, best.a, best.chance));
+            used.Add(best.a.Id);
+            open.Remove(best.d);
+        }
+        return picks;
+    }
+
+    public int? VisitWeek, FirstExchangeWinWeek, GuestArrivalWeek, CommissionsOpenWeek;
+    public int ExchangePlayed, ExchangeWon;
 
     public readonly Dictionary<(FacilityType, int), int> UnlockWeek = new();
     public readonly Dictionary<TournamentDiscipline, int> FirstG1Week = new();
@@ -833,6 +882,16 @@ class GameSim
         Console.WriteLine(cleared.Count == 0
             ? $"クリア：0/{runs}回（{weeks / 48}年以内に深淵100Fに届かない）"
             : $"クリア：{cleared.Count}/{runs}回、{Median(cleared):F0}年目〔{cleared.Min():F0}〜{cleared.Max():F0}〕");
+        Console.WriteLine();
+        Console.WriteLine("### イザベラの来訪と交流戦（§0.84）");
+        string WeekStat(Func<GameSim, int?> pick)
+        {
+            var ws = sims.Select(pick).OfType<int>().Select(w => (double)w / 48 + 1).ToList();
+            return ws.Count == 0 ? $"―（0/{runs}）" : $"{Median(ws):F1}年目〔{ws.Min():F1}〜{ws.Max():F1}〕（{ws.Count}/{runs}）";
+        }
+        Console.WriteLine($"来訪（森の{IsabellaBalance.VisitFloor}F）：{WeekStat(x => x.VisitWeek)}　交流戦の初勝利：{WeekStat(x => x.FirstExchangeWinWeek)}　派遣の教官が来た：{WeekStat(x => x.GuestArrivalWeek)}");
+        Console.WriteLine($"依頼が届き始めた（初めての入賞の次の季節）：{WeekStat(x => x.CommissionsOpenWeek)}");
+        Console.WriteLine($"交流戦（行った／勝った）：{string.Join(", ", sims.Select(x => $"{x.ExchangePlayed}/{x.ExchangeWon}"))}");
         Console.WriteLine();
         Console.WriteLine($"### 大会（§0.82、出場の方針：{TourneyMode}）");
         Console.WriteLine($"出場：{string.Join(", ", sims.Select(x => x.TournamentEntries))}　優勝：{string.Join(", ", sims.Select(x => x.TournamentWins))}");

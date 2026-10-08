@@ -22,7 +22,8 @@
 | `facility.csv` | 03 §6・§6.1 | FacilityBalance |
 | `tournaments.csv` | 03 §0.82 | TournamentBalance（大会の定義。**テーブル形式** `Id,Name,Kind,Discipline,Grade,Month,Week,MinStrength,MaxStrength,Prize1,Prize2,Prize4,Mood1,Mood2,Mood4,Note`。`{地方}`・`{フィールド}` は名前の差し込み、Month・Week が0の大会は暦を作るときに決める） |
 | `tournament.csv` | 03 §0.82 | TournamentBalance（大会の式・暦・施設の開放の閾値。key,value 形式） |
-| `facility_unlock_lines.csv` | 03 §0.82 | TournamentBalance.UnlockLines（施設が開いたときの台詞。**テーブル形式** `Style,Facility,Text`。Style＝Albert／Adjutant／Royal、Facility＝Training・各施設名・Any、`{facility}`・`{level}`・`{discipline}`・`{event}` を差し込む） |
+| `isabella.csv` | 03 §0.84 | IsabellaBalance（イザベラの来訪・交流戦・派遣の教官。key,value 形式） |
+| `facility_unlock_lines.csv` | 03 §0.82・§0.84 | TournamentBalance.UnlockLines（施設が開いたときの台詞。**テーブル形式** `Style,Facility,Text`。Style＝Albert／Isabella／Royal、Facility＝Training・FirstTraining・各施設名・Any、`{facility}`・`{level}`・`{discipline}`・`{event}` を差し込む） |
 | `titles.csv` | 03 §0.83 | HonorBalance.Titles（二つ名15種。**テーブル形式** `Id,Name,Rank,Param,Note`。Rank＝Legend／Name／Honor／Plain、Param＝条件の回数・年数・週数、Name の `{G1}` は大会の名前で埋める。条件の判定はコード `HonorSystem.GetTitles`） |
 | `honor.csv` | 03 §0.83 | HonorBalance（殿堂の条件と顧問の効果の倍率・関係タグの閾値・引退式の行数。key,value 形式） |
 | `retirement_lines.csv` | 03 §0.83 | HonorBalance.RetirementLines（引退式のアルベールの言葉。**テーブル形式** `Key,Text`。Key＝HallOfFame／Legend／Name／Honor／Plain／Short、`{name}`・`{title}` を差し込む） |
@@ -46,7 +47,7 @@
 | `uniques.csv` | 03 §4.7.5 | UniqueBalance（固有武具＝固定アーティファクト〈紫〉・伝説級〈金〉・依頼人の固有武具〈§0.64〉の一覧。**テーブル形式** `Id,Grade,Name,BaseItemId,HpBonus,BonusStr〜BonusLdr,CounterGimmick,DropFieldId,DropFloor,SellPrice,PatronId`。伝説級は入手元のボス〈フィールドId・階層〉と対策ギミック、売値0＝売却不可。2026年9月・§0.45。§0.64で Grade `Patron` と列 `PatronId`〈commission_clients.csv の Id。Patron 以外は空〉を追加。依頼人の固有武具は売値0＝売却不可） |
 | `research.csv` | 03 §4.6 | ResearchBalance（アルベール研究室の24プロジェクト（うち内職強化 SideBusinessGoldBonus 4種、魂魄融和の秘薬の解禁 `res_soul_fusion`＝SoulFusionUnlock・効果値0、§0.58、段階研究11種＝RecruitPaBonus・GrowthRateBonus・SoulFusionPaBonus・CultureTankBonus、§0.60）・必要素材・ゴールド・効果種別・効果値・**前提 `Prerequisite`**（§0.60で列を追加。空＝前提なし、段階研究のII・IIIは前の段のId）・**系統 `Branch`・段 `Lane`**（§0.77で列を追加。研究室のツリーの行。列は必要な素材のフィールドから決まる）） |
 | `squad_orders.csv` | 03 §4.0.3 | SquadOrderBalance（部隊の方針と自動出撃、2026年10月・§0.63）：自動出撃の条件 `AutoDispatchMinHpPercent`（70）・扉前の構え（慎重・標準・強気、§0.68）ごとの火力の倍率・HP・備えの条件 |
-| `commissions.csv` | 03 §4.9・§4.10 | CommissionBalance（依頼と迷宮の異変、2026年10月・§0.64）：依頼の届き方（`FirstOfferWeek`＝13・`OffersPerSeason`＝3・`MaxAccepted`＝2・期限 `DeadlineWeeks_*`＝撃破24／他12・期限の知らせ `DeadlineWarningWeeks`＝2）、条件（納品の個数 `DeliverCountBase`・`DeliverFloorsPerExtra`、献上の基準 `TributeRank`＝3番目・`TributeMinThreshold`＝20）、報酬（`RewardMultiplier_*`＝撃破0.2・完全解析0.15・納品0.15・献上0.3、`CompletionMoodGain`＝10、`FailureMoodLoss`＝10、遺物 `RewardRelicRollBonus`＝25・`RewardRelicMinRarity`＝Epic、依頼人の固有武具 `PatronUniqueCompletions`＝5件）、異変（`AnomalyAnnounceWeekOfSeason`＝4・`AnomalyDurationWeeks`＝4・倍率 `Anomaly_*`） |
+| `commissions.csv` | 03 §4.9・§4.10 | CommissionBalance（依頼と迷宮の異変、2026年10月・§0.64）：依頼の届き方（届き始めは初めての入賞の次の季節・§0.84、`OffersPerSeason`＝3・`OffersPerSeason`＝3・`MaxAccepted`＝2・期限 `DeadlineWeeks_*`＝撃破24／他12・期限の知らせ `DeadlineWarningWeeks`＝2）、条件（納品の個数 `DeliverCountBase`・`DeliverFloorsPerExtra`、献上の基準 `TributeRank`＝3番目・`TributeMinThreshold`＝20）、報酬（`RewardMultiplier_*`＝撃破0.2・完全解析0.15・納品0.15・献上0.3、`CompletionMoodGain`＝10、`FailureMoodLoss`＝10、遺物 `RewardRelicRollBonus`＝25・`RewardRelicMinRarity`＝Epic、依頼人の固有武具 `PatronUniqueCompletions`＝5件）、異変（`FirstAnomalyWeek`＝13・`AnomalyAnnounceWeekOfSeason`＝4・`AnomalyDurationWeeks`＝4・倍率 `Anomaly_*`） |
 | `commission_clients.csv` | 03 §4.9 | CommissionBalance.Clients（依頼人5人。**テーブル形式** `Id,Name,Types,BonusMaterialId,BonusMaterialCount,AlbertLine`。Types は `Defeat\|Survey\|Deliver\|Tribute` の `\|` 区切り、BonusMaterial はおまけの素材〈空＝なし〉、AlbertLine は掲示中の依頼に添えるアルベールの一言） |
 | `commission_texts.csv` | 03 §4.9 | CommissionBalance（依頼文の文例。**テーブル形式** `ClientId,Type,Text`。{field}{boss}{floor}{material}{count}{stat}{value}{weeks} を差し込む。依頼人が扱う種類ごとに1本以上ないと起動失敗） |
 | `dungeon_anomalies.csv` | 03 §4.10 | CommissionBalance（迷宮の異変5種の名前と予告文。**テーブル形式** `Type,Name,Text`。{field}{boss}{floor}{weeks} を差し込む。倍率は commissions.csv） |
@@ -265,6 +266,31 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 | `dungeon.csv` | `FieldRequirementMultiplier_3`（忘却の古代廃墟） | 1.0→1.2 | 40F＝52 |
 | `dungeon.csv` | `FieldRequirementMultiplier_4`（焦熱の峡谷） | 1.0→1.3 | 40F＝56 |
 | `dungeon.csv` | `FieldRequirementMultiplier_5`（深淵の特異点） | 1.0→1.5 | 50F＝76 |
+
+## イザベラの来訪から大会を開く改訂で追加／変更されたファイルとキー（2026年10月、→ 03 §0.84）
+
+すべて仮の値。物語の正本はアーティファクト「ギルド物語帳」（「ゲームの決まりが変わる点」）。
+`dotnet run --project tools/balance_sim -c Release -- campaign 10 1440` で10回ともクリア、15年目〔14〜19〕（§0.83は14年目〔12〜17〕。シミュレーターでは来訪が2.6年目と遅く、最初の訓練所・大会・依頼がその分遅れる）。
+
+**isabella.csv**（新規）
+
+| キー | 値 | 意味 |
+|---|---|---|
+| `VisitFieldId`・`VisitFloor` | forest・40 | このフィールドのこの階層のボスを初めて倒した週にイザベラが来訪し、翌月の第4週に最初の交流戦 |
+| `ExchangeFactor_Sword`・`_Magic`・`_Skill` | 1.08・1.18・1.08 | 交流戦の相手の強さ＝来訪したときの自分のギルドで部門の強さが最も高い子の値×この倍率（初回に勝てるのは3本勝負で約35%） |
+| `ExchangeGrowthPerMatch` | 0.04 | 交流戦を1回行うごとに相手が強くなる割合 |
+| `ExchangeGrowthPerYear` | 0.05 | 来訪から1年ごとに相手が強くなる割合（週で按分） |
+| `ExchangeOpponent_*` | ブリジット・セシリア・ニナ | 部門ごとの相手の名前 |
+| `ExchangeWeekOfMonth` | 4 | 交流戦を行う月の中の週 |
+| `ExchangePrize`・`ExchangeMood` | 1000・8 | 2勝目以降の交流戦に勝ったときの賞金と機嫌（初勝利のご褒美は派遣の教官） |
+| `GuestTrainerName`・`GuestTrainerAge` | マルグリット・34 | 派遣の教官 |
+| `GuestTrainerWeeks` | 24 | 派遣の教官がいる週数（訓練所が建っていれば来て、来た週から数える） |
+| `GuestTrainerTopCount` | 4 | 派遣の教官の能力＝来た週の現役の上位この人数の、能力ごとの平均 |
+| `GuestTrainerTraitId` | Diligent | 派遣の教官の特性（勤勉） |
+
+**commissions.csv**：`FirstOfferWeek` を **`FirstAnomalyWeek`**（13）に改めた。迷宮の異変が起き始める週だけを表す。依頼が届き始めるのは初めての入賞（ベスト4以上）の次の季節のはじめ（セーブの `CommissionsFromWeek`）。
+
+**facility_unlock_lines.csv**：Style の `Adjutant`（副官の提案）を **`Isabella`**（イザベラの助言）に替えて台詞を書き直し、最初の交流戦のあとに開く訓練所の台詞 `Isabella,FirstTraining`（3通り。`{discipline}`＝剣・魔・技、`{facility}`）を足した。
 
 ## 戦績・二つ名・殿堂・引退式の改訂で追加されたファイルとキー（2026年10月、→ 03 §0.83）
 

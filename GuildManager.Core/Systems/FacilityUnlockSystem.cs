@@ -14,7 +14,8 @@ namespace GuildManager.Core.Systems
     ///  - 冒険者支援室：新人戦でベスト4／準優勝／優勝1〜3回（建てるには引退者も要る）
     ///  - 宿舎：入賞の累計、医務室：倒したボスの数、ギルド酒場：賞金の累計（初めからLv1）
     /// 条件はギルド全体の記録で数える（誰が取っても、何年目でもよい）。一度開いたLvは閉じない。
-    /// 開いたときは演出の型（アルベールのひらめき／副官の提案／王都からの褒賞）と台詞つきの知らせを返す。
+    /// 開いたときは演出の型（アルベールのひらめき／イザベラの助言／王都からの褒賞）と台詞つきの知らせを返す。
+    /// 最初の訓練所は、イザベラとの最初の交流戦のあとに開く（§0.84、→ IsabellaSystem。2年目のはじめの副官の救済は撤去した）。
     /// </summary>
     public static class FacilityUnlockSystem
     {
@@ -97,10 +98,7 @@ namespace GuildManager.Core.Systems
             }
         }
 
-        /// <summary>
-        /// 開いたLvを記録と照らして上げ、上がった施設の知らせを返す（週次決算の最後に呼ぶ）。
-        /// 年のはじめ（2年目以降）に訓練所が1つも開いていなければ、副官の救済の提案を出す（→ PendingTrainingFacilityChoice）。
-        /// </summary>
+        /// <summary>開いたLvを記録と照らして上げ、上がった施設の知らせを返す（週次決算の最後に呼ぶ）。</summary>
         public static List<FacilityUnlockNotice> Evaluate(GameState state)
         {
             var notices = new List<FacilityUnlockNotice>();
@@ -112,37 +110,27 @@ namespace GuildManager.Core.Systems
                 state.FacilityUnlockedLevels[type] = target;
                 notices.Add(Notice(state, type, target));
             }
-            if (TrainingFacilities.Any(t => GetUnlockedLevel(state, t) >= 1))
-                state.PendingTrainingFacilityChoice = false;
             return notices;
         }
 
-        /// <summary>年のはじめ（2年目以降）に訓練所が1つも開いていなければ、副官の救済の提案を出す。</summary>
-        public static void CheckRescue(GameState state)
+        /// <summary>最初の交流戦のあとに開いた訓練所の知らせ（イザベラの助言。台詞は facility_unlock_lines.csv の Isabella・FirstTraining）。</summary>
+        public static FacilityUnlockNotice FirstTrainingNotice(FacilityType type)
         {
-            if (GameCalendar.YearOf(state.WeekNumber) >= 2 && TrainingFacilities.All(t => GetUnlockedLevel(state, t) == 0))
-                state.PendingTrainingFacilityChoice = true;
-        }
-
-        /// <summary>副官の救済の提案に答える：訓練所を1つ選んで開く（Lv1）。</summary>
-        public static FacilityUnlockNotice? ChooseRescueFacility(GameState state, FacilityType type)
-        {
-            if (!state.PendingTrainingFacilityChoice || !TrainingFacilities.Contains(type)) return null;
-            state.PendingTrainingFacilityChoice = false;
-            state.FacilityUnlockedLevels[type] = Math.Max(1, GetUnlockedLevel(state, type));
+            var lines = TournamentBalance.UnlockLines.Where(l => l.Style == "Isabella" && l.Facility == "FirstTraining").Select(l => l.Text).ToList();
+            string text = lines.Count > 0 ? lines[(int)type % lines.Count] : "「{facility}から建てなさいな」（イザベラ）";
             return new FacilityUnlockNotice
             {
-                Facility = type, Level = 1, Style = "Adjutant",
-                Line = $"「まずは{FacilityName(type)}を建てて、地力を付けましょう。大会で名を上げるのはそれからです」（副官）",
+                Facility = type, Level = 1, Style = "Isabella",
+                Line = text.Replace("{facility}", FacilityName(type)).Replace("{discipline}", TournamentSystem.DisciplineLabel(DisciplineOf(type))),
             };
         }
 
-        /// <summary>知らせ：型（訓練所のLv5・作戦資料室のLv4以上＝王都の褒賞、訓練所・医務室＝アルベール、ほか＝副官）と台詞。</summary>
+        /// <summary>知らせ：型（訓練所のLv5・作戦資料室のLv4以上＝王都の褒賞、訓練所・医務室＝アルベール、ほか＝イザベラの助言）と台詞。</summary>
         private static FacilityUnlockNotice Notice(GameState state, FacilityType type, int level)
         {
             bool training = TrainingFacilities.Contains(type);
             string style = (training && level == 5) || (type == FacilityType.WarRoom && level >= 4) ? "Royal"
-                : training || type == FacilityType.Infirmary ? "Albert" : "Adjutant";
+                : training || type == FacilityType.Infirmary ? "Albert" : "Isabella";
             string group = style == "Royal" ? "Any" : training ? "Training" : type.ToString();
             var lines = TournamentBalance.UnlockLines.Where(l => l.Style == style && l.Facility == group).Select(l => l.Text).ToList();
             if (lines.Count == 0)
@@ -178,6 +166,8 @@ namespace GuildManager.Core.Systems
                 case FacilityType.SkillHall:
                 {
                     string d = TournamentSystem.DisciplineLabel(DisciplineOf(type));
+                    if (next == 1 && !IsabellaSystem.TournamentsOpen(state))
+                        return $"{lv}：イザベラとの最初の交流戦のあと、いちばん善戦した部門の訓練所が1つ開く（森の{IsabellaBalance.VisitFloor}Fのボスを倒すとイザベラが来る）";
                     return next switch
                     {
                         1 => $"{lv}：{d}の大会（G3以上・新人戦は得意な部門）でベスト4",

@@ -13,7 +13,7 @@ using GuildManager.Core.Systems;
 ///
 /// 左ペイン＝今月の大会（月に0〜3つ）。大会ごとに、出場者の選択（候補ごとに部門の強さ・今のHP・勝てそうかの目安）と、
 /// 大会の月の過ごし方（休養／追い込み）を決める。1人1か月1大会。決められるのは月のはじめだけ（訓練の割り振りと同じ）。
-/// 年のはじめに訓練所が1つも開いていなければ、副官の救済の提案（3つから1つを選んで開く）もここに出す。
+/// 左の上には白百合の杖との交流戦（§0.84：来訪の前の案内・出場者の選択・申し込み）を出す。大会はイザベラとの最初の交流戦のあとに開く。
 /// 右ペイン＝1年の暦（定例のG1・招待・今年の結果）と、ギルドの戦績・歴代のG1の優勝者。
 /// 式や資格の判定はすべて Core（TournamentSystem・FacilityUnlockSystem）から取る。シーンは使わずコードで組む。
 /// </summary>
@@ -22,7 +22,7 @@ public partial class TournamentPanel : HBoxContainer
 	private GameState _state = null!;
 
 	private RichTextLabel _statusLabel = null!;
-	private VBoxContainer _rescueBox = null!;
+	private VBoxContainer _isabellaBox = null!;
 	private VBoxContainer _eventList = null!;
 	private RichTextLabel _calendarLabel = null!;
 	private RichTextLabel _historyLabel = null!;
@@ -59,9 +59,9 @@ public partial class TournamentPanel : HBoxContainer
 		leftBox.AddChild(new Label { Text = "🏆 今月の大会：出場者と、大会の月の過ごし方を決める（月のはじめだけ）" });
 		_statusLabel = NewText();
 		leftBox.AddChild(_statusLabel);
-		_rescueBox = new VBoxContainer { Visible = false };
-		_rescueBox.AddThemeConstantOverride("separation", 6);
-		leftBox.AddChild(_rescueBox);
+		_isabellaBox = new VBoxContainer();
+		_isabellaBox.AddThemeConstantOverride("separation", 6);
+		leftBox.AddChild(_isabellaBox);
 
 		var scroll = new ScrollContainer { SizeFlagsVertical = SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
 		_eventList = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
@@ -101,7 +101,7 @@ public partial class TournamentPanel : HBoxContainer
 		_state = state;
 		TournamentSystem.EnsureSchedule(_state); // 新規ゲームの最初の月など、まだ暦が無ければ作る（同じ年なら何もしない）
 		RefreshStatus();
-		RefreshRescue();
+		RefreshIsabella();
 		RefreshEvents();
 		_calendarLabel.Text = BuildCalendar();
 		_historyLabel.Text = BuildHistory();
@@ -162,34 +162,156 @@ public partial class TournamentPanel : HBoxContainer
 			$"過ごし方＝休養：HPの回復×{TournamentBalance.RestRecoveryMultiplier:0.#}／追い込み：部門の能力の成長の抽選・毎週HP−{TournamentBalance.PushHpCost}。[/color]";
 	}
 
-	/// <summary>副官の救済の提案（2年目以降の年のはじめに訓練所が1つも開いていない、→ FacilityUnlockSystem.CheckRescue）。</summary>
-	private void RefreshRescue()
-	{
-		foreach (var child in _rescueBox.GetChildren())
-			child.QueueFree();
-		_rescueBox.Visible = _state.PendingTrainingFacilityChoice;
-		if (!_state.PendingTrainingFacilityChoice)
-			return;
+	// ==================== 白百合の杖との交流戦（§0.84） ====================
 
-		var text = NewText();
-		text.Text = "[color=gold][b]副官の提案[/b][/color]：「大会で名を上げるには、まず地力です。得意な子に合わせて、訓練所を1つ建てましょう」（1つ選ぶと、その訓練所を建てられるようになる）";
-		_rescueBox.AddChild(text);
-		var row = new HBoxContainer();
-		row.AddThemeConstantOverride("separation", 8);
-		foreach (var type in FacilityUnlockSystem.TrainingFacilities)
+	/// <summary>
+	/// 交流戦の欄：来訪の前は案内だけ。今月に交流戦があれば剣・魔・技の出場者を選ぶカード、無ければ申し込みのボタン（季節に1回・月のはじめ）。
+	/// 判定と相手の強さは Core（IsabellaSystem）から取る。
+	/// </summary>
+	private void RefreshIsabella()
+	{
+		foreach (var child in _isabellaBox.GetChildren())
+			child.QueueFree();
+
+		if (!IsabellaSystem.HasVisited(_state))
 		{
-			var button = new Button { Text = $"🏗 {FacilityUnlockSystem.FacilityName(type)}（{TournamentSystem.DisciplineLabel(FacilityUnlockSystem.DisciplineOf(type))}）を開く", CustomMinimumSize = new Vector2(0, 34) };
-			var captured = type;
-			button.Pressed += () =>
+			var before = NewText();
+			before.Text = $"[color=gray]王都の大会はまだ遠い。森の{IsabellaBalance.VisitFloor}Fのボスを倒すと、王都の名門「白百合の杖」のイザベラが交流戦を申し込みに来る。" +
+				"交流戦のあとから大会に出られるようになる。[/color]";
+			_isabellaBox.AddChild(before);
+			return;
+		}
+
+		if (IsabellaSystem.ExchangeThisMonth(_state) is { } ev)
+		{
+			_isabellaBox.AddChild(BuildExchangeCard(ev));
+			return;
+		}
+
+		var info = NewText();
+		var pending = IsabellaSystem.PendingExchange(_state);
+		string record = $"交流戦 {_state.ExchangeMatchesPlayed}戦{_state.ExchangeWins}勝";
+		if (pending != null)
+		{
+			info.Text = $"[b]⚔ 白百合の杖との交流戦[/b]：{GameCalendar.FormatMonth(GameCalendar.WeekNumberOf(pending.Year, pending.Month, 1))} 第{pending.Week}週。" +
+				"[color=gray]その月のはじめに剣・魔・技の出場者を選ぶ（選ばなかった部門には、出られる子が自動で入る）。[/color]";
+			_isabellaBox.AddChild(info);
+			return;
+		}
+
+		string? block = IsabellaSystem.ApplyBlockReason(_state);
+		info.Text = $"[b]⚔ 白百合の杖との交流戦[/b]（{record}）　[color=gray]季節に1回、月のはじめに申し込める。剣・魔・技の1対1の3本勝負（2勝で勝ち）。" +
+			(_state.ExchangeWins == 0 ? "初めて勝つと、イザベラが教官を半年派遣してくれる。" : $"勝てば賞金{IsabellaBalance.ExchangePrize}G・機嫌+{IsabellaBalance.ExchangeMood}。") +
+			"相手は試合のたびに強くなる。[/color]" + (block != null ? $"\n[color=orange]今は申し込めない：{block}[/color]" : "");
+		_isabellaBox.AddChild(info);
+		if (block == null)
+		{
+			var apply = new Button { Text = "⚔ イザベラに交流戦を申し込む（今月の第4週）", CustomMinimumSize = new Vector2(0, 34) };
+			apply.Pressed += () =>
 			{
-				var notice = FacilityUnlockSystem.ChooseRescueFacility(_state, captured);
-				if (notice == null) return;
-				LogRequested.Invoke($"[color=gold][b]🏗 {FacilityUnlockSystem.FacilityName(notice.Facility)}を建てられるようになった。[/b][/color] {notice.Line}");
+				if (IsabellaSystem.TryApply(_state) == null) return;
+				LogRequested.Invoke("[color=plum]⚔ イザベラに交流戦を申し込んだ。「受けて立ちますわ。逃げたら、笑って差し上げますから」[/color]");
 				StateChanged.Invoke();
 			};
-			row.AddChild(button);
+			_isabellaBox.AddChild(apply);
 		}
-		_rescueBox.AddChild(row);
+	}
+
+	private Control BuildExchangeCard(TournamentEvent ev)
+	{
+		var card = new PanelContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+		var box = new VBoxContainer();
+		box.AddThemeConstantOverride("separation", 6);
+		card.AddChild(box);
+		UiStyles.ApplyPanelArt(card);
+
+		var header = NewText();
+		header.Text = $"[b][color=plum]⚔ {ev.Name}[/color][/b]　剣・魔・技の1対1の3本勝負（2勝で勝ち）・第{ev.Week}週" +
+			(IsabellaSystem.TournamentsOpen(_state)
+				? (_state.ExchangeWins == 0 ? "\n[color=lightgreen]初めて勝つと、教官のマルグリットが半年派遣される[/color]" : $"\n[color=lightgreen]勝てば賞金{IsabellaBalance.ExchangePrize}G・機嫌+{IsabellaBalance.ExchangeMood}[/color]")
+				: "\n[color=lightgreen]勝敗にかかわらず、このあとイザベラが訓練所を1つ勧めてくれ、次の月から大会に出られる。勝てば教官のマルグリットが半年派遣される[/color]");
+		box.AddChild(header);
+
+		if (ev.Result != null)
+		{
+			var result = NewText();
+			result.Text = (ev.Result.WinnerIsOurs ? "[color=gold][b]勝った！[/b][/color]" : "[b]負けた[/b]") + "\n" +
+				string.Join("\n", ev.Result.Matches.Select(m => $"{m.NameA} {(m.AWon ? "○" : "×")} {m.NameB}"));
+			box.AddChild(result);
+			return card;
+		}
+
+		bool canChange = TournamentSystem.CanChangeEntries(_state);
+		var chances = new List<double>();
+		foreach (var d in IsabellaSystem.ExchangeDisciplines)
+		{
+			double opp = IsabellaSystem.OpponentStrength(_state, d);
+			var entry = IsabellaSystem.SlotEntry(_state, ev, d);
+			var current = entry?.AdventurerId is Guid id ? _state.Adventurers.FirstOrDefault(a => a.Id == id) : null;
+			double chance = current == null ? 0 : IsabellaSystem.BoutWinChance(TournamentSystem.MatchStrength(current, d), opp);
+			chances.Add(chance);
+
+			var row = new HBoxContainer();
+			row.AddThemeConstantOverride("separation", 8);
+			var label = NewText();
+			label.CustomMinimumSize = new Vector2(260, 0);
+			label.SizeFlagsHorizontal = SizeFlags.Fill;
+			label.Text = $"[b]{TournamentSystem.DisciplineLabel(d)}[/b]　相手：{IsabellaBalance.Opponent(d)}（強さ {opp:0}）";
+			row.AddChild(label);
+
+			var picker = new OptionButton { SizeFlagsHorizontal = SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 32), Disabled = !canChange };
+			picker.AddItem(current == null ? "（未定：不戦敗）" : $"{current.Name}　{TournamentSystem.DisciplineLabel(d)} {TournamentSystem.MatchStrength(current, d):0}・勝率 {chance:P0}");
+			var candidates = _state.Adventurers
+				.Where(a => a.Id != current?.Id && IsabellaSystem.EntryBlockReason(_state, ev, a) == null)
+				.OrderByDescending(a => TournamentSystem.MatchStrength(a, d))
+				.ToList();
+			foreach (var a in candidates)
+			{
+				int hp = a.MaxHP > 0 ? a.CurrentHP * 100 / a.MaxHP : 0;
+				double strength = TournamentSystem.MatchStrength(a, d);
+				picker.AddItem($"{a.Name}　{TournamentSystem.DisciplineLabel(d)} {strength:0}・HP {hp}%・勝率 {IsabellaSystem.BoutWinChance(strength, opp):P0}");
+			}
+			var discipline = d;
+			picker.ItemSelected += index =>
+			{
+				if (index <= 0) return;
+				if (IsabellaSystem.TryEnter(_state, ev, candidates[(int)index - 1], discipline, entry?.Prep ?? TournamentPrep.Rest))
+					StateChanged.Invoke();
+			};
+			row.AddChild(picker);
+
+			if (entry != null)
+			{
+				var prep = new OptionButton { CustomMinimumSize = new Vector2(150, 32), Disabled = !canChange };
+				prep.AddItem("🛌 休養", (int)TournamentPrep.Rest);
+				prep.AddItem("🔥 追い込み", (int)TournamentPrep.Push);
+				prep.Selected = entry.Prep == TournamentPrep.Push ? 1 : 0;
+				prep.ItemSelected += index =>
+				{
+					if (TournamentSystem.SetPrep(_state, entry, index == 1 ? TournamentPrep.Push : TournamentPrep.Rest))
+						StateChanged.Invoke();
+				};
+				row.AddChild(prep);
+			}
+			box.AddChild(row);
+		}
+
+		var summary = NewText();
+		double win = IsabellaSystem.MatchWinChance(chances);
+		summary.Text = $"勝てる見込み（2勝以上）：[b]{win:P0}[/b]　[color=gray]運と、試合ごとのHPの減りは含めない。出場者はその月、迷宮に出ず訓練もしない。[/color]";
+		box.AddChild(summary);
+
+		if (canChange && IsabellaSystem.TournamentsOpen(_state))
+		{
+			var cancel = new Button { Text = "申し込みを取り下げる", CustomMinimumSize = new Vector2(200, 32), SizeFlagsHorizontal = SizeFlags.ShrinkEnd };
+			cancel.Pressed += () =>
+			{
+				if (IsabellaSystem.CancelApplication(_state, ev))
+					StateChanged.Invoke();
+			};
+			box.AddChild(cancel);
+		}
+		return card;
 	}
 
 	private void RefreshEvents()
@@ -197,11 +319,15 @@ public partial class TournamentPanel : HBoxContainer
 		foreach (var child in _eventList.GetChildren())
 			child.QueueFree();
 
-		var events = TournamentSystem.EventsThisMonth(_state);
+		var events = TournamentSystem.EventsThisMonth(_state).Where(e => e.Kind != TournamentKind.Exchange).ToList(); // 交流戦は上の欄（§0.84）
 		if (events.Count == 0)
 		{
+			if (!IsabellaSystem.HasVisited(_state))
+				return; // 来訪の前の案内は上の欄に出している
 			var none = NewText();
-			none.Text = "[color=gray]今月は大会が無い。右の暦で、次の大会と定例のG1を確かめておこう。[/color]";
+			none.Text = IsabellaSystem.TournamentsOpen(_state)
+				? "[color=gray]今月は大会が無い。右の暦で、次の大会と定例のG1を確かめておこう。[/color]"
+				: "[color=gray]大会は、イザベラとの最初の交流戦のあとから開かれる。[/color]";
 			_eventList.AddChild(none);
 			return;
 		}
@@ -432,8 +558,12 @@ public partial class TournamentPanel : HBoxContainer
 		foreach (var ev in TournamentSystem.EventsOfYear(_state, year).OrderBy(e => e.Month).ThenBy(e => e.Week))
 		{
 			string when = $"{MonthLabel(ev.Month)} 第{ev.Week}週";
-			string line = $"{when}　[color={GradeColor(ev.Grade)}]{ev.Name}[/color]（{TournamentSystem.GradeLabel(ev.Grade)}・{TournamentSystem.DisciplineLabel(ev.Discipline)}）";
-			if (ev.Result != null)
+			string line = ev.Kind == TournamentKind.Exchange
+				? $"{when}　[color=plum]⚔ {ev.Name}[/color]（剣・魔・技）"
+				: $"{when}　[color={GradeColor(ev.Grade)}]{ev.Name}[/color]（{TournamentSystem.GradeLabel(ev.Grade)}・{TournamentSystem.DisciplineLabel(ev.Discipline)}）";
+			if (ev.Result != null && ev.Kind == TournamentKind.Exchange)
+				line += ev.Result.WinnerIsOurs ? "　[color=gold]勝ち[/color]" : "　[color=gray]負け[/color]";
+			else if (ev.Result != null)
 				line += ev.Result.WinnerIsOurs ? $"　[color=gold]🏆 {ev.Result.WinnerName}[/color]"
 					: ev.Result.Placings.Count > 0 ? $"　[color=gray]{string.Join("・", ev.Result.Placings.Select(p => $"{p.Name} {TournamentSystem.PlacingLabel(p.Placing)}"))}[/color]"
 					: "　[color=gray]出場なし[/color]";

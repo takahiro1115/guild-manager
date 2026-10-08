@@ -36,8 +36,8 @@ namespace GuildManager.Core.Balance
 
         // ==================== 依頼の出方 ====================
 
-        /// <summary>最初に依頼が届く週（1年目の春は遊び方に慣れてもらうため届けない）。異変もこの週以降に起きる。</summary>
-        public static readonly int FirstOfferWeek = BalanceData.GetInt(FileName, "FirstOfferWeek");
+        /// <summary>迷宮の異変が起き始める週（1年目の春は遊び方に慣れてもらうため起こさない）。依頼が届き始める週は GameState.CommissionsFromWeek（§0.84）。</summary>
+        public static readonly int FirstAnomalyWeek = BalanceData.GetInt(FileName, "FirstAnomalyWeek");
 
         /// <summary>季節のはじめに届く依頼の数（依頼人は重ならない）。</summary>
         public static readonly int OffersPerSeason = BalanceData.GetInt(FileName, "OffersPerSeason");

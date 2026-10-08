@@ -77,9 +77,9 @@ namespace GuildManager.Core.Systems
 
         // ==================== 予告 ====================
 
-        /// <summary>異変を予告する週か（FirstOfferWeek 以降の、季節の AnomalyAnnounceWeekOfSeason 週目）。</summary>
+        /// <summary>異変を予告する週か（FirstAnomalyWeek 以降の、季節の AnomalyAnnounceWeekOfSeason 週目）。</summary>
         public static bool IsAnnounceWeek(int week) =>
-            week >= CommissionBalance.FirstOfferWeek && GameCalendar.WeekOfSeason(week) == CommissionBalance.AnomalyAnnounceWeekOfSeason;
+            week >= CommissionBalance.FirstAnomalyWeek && GameCalendar.WeekOfSeason(week) == CommissionBalance.AnomalyAnnounceWeekOfSeason;
 
         /// <summary>
         /// 新しい異変を予告して GameState.Anomaly に置く（翌週から効く）。終わった異変はここで置き換わる。

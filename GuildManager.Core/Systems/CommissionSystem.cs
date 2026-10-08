@@ -11,7 +11,7 @@ namespace GuildManager.Core.Systems
     /// 依頼（→ GuildCommission・GameState.Commissions、03 §4.9・§0.64）。作業感をなくす構想の②。
     ///
     /// 旧通常クエスト（掲示板・受託依頼、§0.8で撤去）の復活ではなく、大迷宮の任務に乗る形の中目標：
-    ///  - 季節のはじめ（FirstOfferWeek 以降の季節の1週目）に、依頼人の違う依頼が OffersPerSeason 件届く。
+    ///  - 季節のはじめ（依頼が開いた週＝GameState.CommissionsFromWeek 以降の季節の1週目。初めての入賞の次の季節から、§0.84）に、依頼人の違う依頼が OffersPerSeason 件届く。
     ///    受けるのは MaxAccepted 件まで。断っても・受けずに流しても罰は無い。次の季節のはじめに、受けなかった依頼は消える。
     ///  - 撃破・完全解析は週次決算で達成を判定する（大迷宮の解決の直後）。納品・献上はプレイヤーの操作で即時に達成する。
     ///  - 受けた依頼が期限切れ（または解析の対象ボスを先に倒して達成できなくなった）なら、機嫌が FailureMoodLoss 下がる。
@@ -97,7 +97,7 @@ namespace GuildManager.Core.Systems
 
             DungeonAnomalySystem.ClearExpired(state);
 
-            if (IsOfferWeek(week))
+            if (IsOfferWeek(state, week))
             {
                 state.Commissions.RemoveAll(c => !c.Accepted); // 前の季節の掲示は下げる
                 arrivals.Offered.AddRange(GenerateOffers(state));
@@ -112,9 +112,9 @@ namespace GuildManager.Core.Systems
             return arrivals;
         }
 
-        /// <summary>依頼が届く週か（FirstOfferWeek 以降の季節の1週目）。</summary>
-        public static bool IsOfferWeek(int week) =>
-            week >= CommissionBalance.FirstOfferWeek && GameCalendar.WeekOfSeason(week) == 1;
+        /// <summary>依頼が届く週か（依頼が開いた週＝CommissionsFromWeek 以降の季節の1週目。開いていなければ届かない、§0.84）。</summary>
+        public static bool IsOfferWeek(GameState state, int week) =>
+            state.CommissionsFromWeek is int from && week >= from && GameCalendar.WeekOfSeason(week) == 1;
 
         // ==================== 依頼の生成 ====================
 

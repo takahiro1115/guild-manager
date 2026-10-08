@@ -82,7 +82,7 @@ namespace GuildManager.Core.Systems
             (int)Math.Round(ResearchBalance.GetTotalEffectValue(state, ResearchEffectType.SoulFusionPaBonus));
 
         /// <summary>ギルドにいる者（現役＋引退者）。除籍者は親になれない。</summary>
-        public static IEnumerable<Adventurer> GuildMembers(GameState state) => state.Adventurers.Concat(state.RetiredAdventurers);
+        public static IEnumerable<Adventurer> GuildMembers(GameState state) => state.Adventurers.Concat(state.GuildRetirees); // 派遣の教官（§0.84）は親にならない
 
         /// <summary>
         /// 2人が親のペアになれるか：別人で、2人ともギルドにいて（→ GuildMembers）、どちらもまだ親になっておらず、

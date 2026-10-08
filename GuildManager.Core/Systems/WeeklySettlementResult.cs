@@ -77,6 +77,18 @@ namespace GuildManager.Core.Systems
         /// <summary>今週届いた招待大会の予告（→ TournamentSystem.CheckInvitations、§0.82）。</summary>
         public List<TournamentEvent> TournamentInvitations { get; } = new();
 
+        /// <summary>今週、イザベラが来訪した（森の40Fのボスを初めて倒した。次の月に最初の交流戦、§0.84）。</summary>
+        public bool IsabellaVisited { get; set; }
+
+        /// <summary>今週行った交流戦（→ IsabellaSystem.ResolveWeek、§0.84）。</summary>
+        public List<ExchangeOutcome> ExchangeMatches { get; } = new();
+
+        /// <summary>今週の派遣の教官の出入り（→ IsabellaSystem.ProcessGuestTrainer、§0.84）。</summary>
+        public GuestTrainerChange GuestTrainer { get; set; } = new();
+
+        /// <summary>今週、初めて入賞して依頼が届くようになった（次の季節のはじめから、§0.84）。</summary>
+        public bool CommissionsUnlocked { get; set; }
+
         /// <summary>今週の栄誉の知らせ（新しい二つ名・殿堂入り・母娘の出撃。→ HonorSystem.ProcessWeek、大会と育成の栄光 段2）。</summary>
         public List<HonorNotice> HonorNotices { get; } = new();
 

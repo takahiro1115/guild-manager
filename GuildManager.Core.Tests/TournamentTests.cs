@@ -28,7 +28,7 @@ namespace GuildManager.Core.Tests
         /// <summary>1年目 春1の月 第1週（新人戦の月のはじめ）。</summary>
         private static GameState NewGame(params Adventurer[] adventurers)
         {
-            var state = new GameState { WeekNumber = 1, Gold = 1000, DungeonFields = SampleData.CreateDefaultFields() };
+            var state = new GameState { WeekNumber = 1, Gold = 1000, DungeonFields = SampleData.CreateDefaultFields(), TournamentCalendarFromWeek = 1 }; // 大会は開いている（§0.84）
             state.Adventurers.AddRange(adventurers);
             TournamentSystem.EnsureSchedule(state);
             return state;
@@ -393,21 +393,6 @@ namespace GuildManager.Core.Tests
             Assert.Equal(3, FacilityUnlockSystem.GetUnlockedLevel(state, FacilityType.SkillHall));
             Assert.Contains("G1でベスト4", FacilityUnlockSystem.DescribeNext(state, FacilityType.SkillHall));
             Assert.Contains("ベスト4", FacilityUnlockSystem.DescribeNext(state, FacilityType.DrillHall));
-        }
-
-        [Fact]
-        public void Rescue_OffersTrainingFacilityInYear2_WhenNoneOpened()
-        {
-            var state = NewGame();
-            state.WeekNumber = GameCalendar.WeeksPerYear + 1;
-            FacilityUnlockSystem.CheckRescue(state);
-            Assert.True(state.PendingTrainingFacilityChoice);
-
-            var notice = FacilityUnlockSystem.ChooseRescueFacility(state, FacilityType.SkillHall);
-
-            Assert.NotNull(notice);
-            Assert.Equal(1, FacilityUnlockSystem.GetUnlockedLevel(state, FacilityType.SkillHall));
-            Assert.False(state.PendingTrainingFacilityChoice);
         }
 
         // ---------------- 招待 ----------------

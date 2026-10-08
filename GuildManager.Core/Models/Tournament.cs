@@ -18,6 +18,8 @@ namespace GuildManager.Core.Models
         Final,
         /// <summary>招待・特別大会（条件を満たすと2か月後に置く）。</summary>
         Invite,
+        /// <summary>イザベラ（白百合の杖）との交流戦（§0.84、→ IsabellaSystem）。剣・魔・技の1対1の3本勝負。勝ち鞍・入賞には数えない。</summary>
+        Exchange,
     }
 
     /// <summary>大会の部門。</summary>
@@ -109,6 +111,8 @@ namespace GuildManager.Core.Models
         public Guid? AdventurerId { get; set; }
         public Guid? PartyId { get; set; }
         public TournamentPrep Prep { get; set; } = TournamentPrep.Rest;
+        /// <summary>交流戦で受け持つ部門（剣・魔・技のどれか。§0.84）。大会では null（部門は大会と出場者で決まる）。</summary>
+        public TournamentDiscipline? Discipline { get; set; }
     }
 
     /// <summary>トーナメントの1試合。</summary>
@@ -166,7 +170,7 @@ namespace GuildManager.Core.Models
     {
         public FacilityType Facility { get; set; }
         public int Level { get; set; }
-        /// <summary>"Albert"（アルベールのひらめき）・"Adjutant"（副官の提案）・"Royal"（王都からの褒賞）。</summary>
+        /// <summary>"Albert"（アルベールのひらめき）・"Isabella"（イザベラの助言、§0.84で副官の提案を置き換え）・"Royal"（王都からの褒賞）。</summary>
         public string Style { get; set; } = "";
         public string Line { get; set; } = "";
     }

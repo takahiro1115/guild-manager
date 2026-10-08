@@ -212,7 +212,8 @@ public partial class TournamentResultPopup : Window
 			{
 				"Royal" => "👑 王都からの褒賞",
 				"Albert" => "💡 アルベールのひらめき",
-				_ => "📋 副官の提案",
+				"Isabella" => "✉ イザベラの助言",
+				_ => "📋 施設の知らせ",
 			};
 			sb.Append($"\n[b]{head}[/b]\n{n.Line}\n[color=gold]→ {FacilityUnlockSystem.DescribeUnlock(n)}（施設管理で建てる）[/color]\n");
 		}

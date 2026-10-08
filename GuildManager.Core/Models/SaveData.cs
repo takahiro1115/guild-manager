@@ -266,8 +266,19 @@ namespace GuildManager.Core.Models
         public int TournamentPlacingsTotal { get; set; }
         public int TournamentPrizeTotal { get; set; }
         public List<string>? TournamentInviteKeys { get; set; } = new();
-        public bool PendingTrainingFacilityChoice { get; set; }
         public bool NextUpgradeHalfPrice { get; set; }
+
+        // ---- イザベラの来訪と交流戦（§0.84、→ GameState の同名の項目） ----
+        /// <summary>§0.84の決まり（大会はイザベラの来訪から・依頼は初めての入賞から）で書いたセーブなら1。キーを持たない旧セーブは0。</summary>
+        public int StoryRulesVersion { get; set; }
+        public int? IsabellaVisitWeek { get; set; }
+        public Dictionary<string, double>? ExchangeAnchor { get; set; } = new();
+        public int ExchangeMatchesPlayed { get; set; }
+        public int ExchangeWins { get; set; }
+        public int? TournamentCalendarFromWeek { get; set; }
+        public int? CommissionsFromWeek { get; set; }
+        public bool GuestTrainerPending { get; set; }
+        public int? GuestTrainerUntilWeek { get; set; }
 
         /// <summary>
         /// 掲示中・受けた依頼（→ GameState.Commissions、03 §4.9・§0.64）。GuildCommission は Guid・整数・文字列・列挙だけで

@@ -74,6 +74,7 @@ namespace GuildManager.Core.Systems
         {
             if (state.GetFacilityLevel(FacilityType.WarRoom) < 1) return false; // Lv0（未建設）は配置不可（→ 03 §6・§7.2）
             if (!IsRetiredCandidate(state, candidateId)) return false;
+            if (IsGuest(state, candidateId)) return false; // 派遣の教官（§0.84）は教官だけ
 
             UnassignFromAllPosts(state, candidateId);
             state.AssignedAdvisor = candidateId;
@@ -91,6 +92,7 @@ namespace GuildManager.Core.Systems
         {
             if (state.GetFacilityLevel(FacilityType.RecruitmentOffice) < 1) return false; // Lv0（未建設）は配置不可（→ 03 §6・§7.3）
             if (!IsRetiredCandidate(state, candidateId)) return false;
+            if (IsGuest(state, candidateId)) return false; // 派遣の教官（§0.84）は教官だけ
 
             UnassignFromAllPosts(state, candidateId);
             state.AssignedScoutMaster = candidateId;
@@ -101,6 +103,9 @@ namespace GuildManager.Core.Systems
 
         private static bool IsRetiredCandidate(GameState state, Guid candidateId) =>
             state.RetiredAdventurers.Any(a => a.Id == candidateId);
+
+        private static bool IsGuest(GameState state, Guid candidateId) =>
+            state.RetiredAdventurers.Any(a => a.Id == candidateId && a.IsGuest);
 
         /// <summary>
         /// 指定した候補者を、教官（全施設）・参謀・スカウトの全ポストから外す（重複兼任防止）。
