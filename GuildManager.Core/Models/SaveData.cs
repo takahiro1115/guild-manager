@@ -280,6 +280,10 @@ namespace GuildManager.Core.Models
         public bool GuestTrainerPending { get; set; }
         public int? GuestTrainerUntilWeek { get; set; }
 
+        // ---- 物語の場面（§0.86、→ GameState の同名の項目）。初期値を置かない：キーの無い旧セーブを null で見分ける ----
+        public Dictionary<string, int>? StorySeenWeeks { get; set; }
+        public Dictionary<string, int>? StoryCounters { get; set; }
+
         /// <summary>
         /// 掲示中・受けた依頼（→ GameState.Commissions、03 §4.9・§0.64）。GuildCommission は Guid・整数・文字列・列挙だけで
         /// 構成されるため直接JSON化する。旧セーブでは空で復元される。

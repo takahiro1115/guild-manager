@@ -17,6 +17,11 @@
       <Link>04_バランス表\%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!-- 台詞（§0.86。正本はアーティファクト「ギルド物語帳」、ここへ書き出したもの） -->
+    <Content Include="..\docs\04_バランス表\story\*.txt">
+      <Link>04_バランス表\story\%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>

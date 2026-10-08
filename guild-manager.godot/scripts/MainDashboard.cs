@@ -104,6 +104,7 @@ public partial class MainDashboard : Control
 	private TournamentResultPopup _tournamentResultPopup = null!;
 	private HonorRecordPopup _honorRecordPopup = null!;
 	private RetirementCeremonyPopup _retirementCeremonyPopup = null!;
+	private StoryPopup _storyPopup = null!;
 	private Button _navSystemBtn = null!;
 
 	// ---- 大迷宮（ダンジョン攻略システム：調査・討伐・採取。出撃の主画面） ----
@@ -279,6 +280,10 @@ public partial class MainDashboard : Control
 		AddChild(_honorRecordPopup);
 		_retirementCeremonyPopup = new RetirementCeremonyPopup { Visible = false };
 		AddChild(_retirementCeremonyPopup);
+		// 物語の会話の小窓（§0.86）
+		_storyPopup = new StoryPopup { Visible = false };
+		AddChild(_storyPopup);
+		_storyPopup.JumpRequested += OnStoryJump;
 		_tournamentPanel.HonorRecordRequested += a => _honorRecordPopup.Open(_state, a);
 		_adventurerPanel.HonorRecordRequested += a => _honorRecordPopup.Open(_state, a);
 		_adventurerPanel.RetirementCeremonyRequested += a => Callable.From(() => _retirementCeremonyPopup.ShowCeremonies(_state, new[] { a })).CallDeferred();
@@ -341,7 +346,8 @@ public partial class MainDashboard : Control
 			// 着た状態で加入させて計5名体制（4人出撃＋1人待機お手伝い）にする。
 			// 2名の採用が済むまでポップアップは閉じず、次週へも進めさせない。
 			DisableWeekAdvancement();
-			_recruitmentPopup.OpenDraft(_state, _recruitmentSystem);
+			// 序章（§0.86）：助けた女性たち＝ドラフトの候補。出会いの場面を見せてから選んでもらう。
+			ShowStory(StoryTiming.Interactive, () => _recruitmentPopup.OpenDraft(_state, _recruitmentSystem));
 		}
 	}
 
@@ -494,6 +500,60 @@ public partial class MainDashboard : Control
 			_openCommissionsAfterRecruitment = false;
 			Callable.From(OpenCommissionPopup).CallDeferred();
 		}
+	}
+
+	// ==================== 物語の場面（§0.86） ====================
+
+	/// <summary>
+	/// その時機に出す物語の場面を会話の小窓で順に見せ、見終えたら then を呼ぶ（場面が無ければすぐ then）。
+	/// 小窓が開いている間に呼ばれたら、then だけ呼ぶ（同じ場面を二重に出さない）。
+	/// </summary>
+	private void ShowStory(StoryTiming timing, Action then = null)
+	{
+		var due = _storyPopup.Visible ? new List<StoryShowing>() : StorySystem.DueScenes(_state, timing);
+		if (due.Count == 0)
+		{
+			then?.Invoke();
+			return;
+		}
+		void OnClosed()
+		{
+			_storyPopup.Closed -= OnClosed;
+			RefreshAll();
+			if (then != null)
+				Callable.From(then).CallDeferred(); // 別の排他ウィンドウは閉じ切ってから開く
+		}
+		_storyPopup.Closed += OnClosed;
+		_storyPopup.ShowScenes(_state, due);
+	}
+
+	/// <summary>
+	/// 操作のあとの場面（部隊を組んだ・方針を付けたなど）：ほかの小窓が開いていない、月を進めている最中でないときだけ見る。
+	/// 画面の再描画（RefreshAll）から呼ぶ。
+	/// </summary>
+	private void CheckInteractiveStory()
+	{
+		if (_state == null || _storyPopup.Visible || _monthlyReportSettlement != null || _recruitmentPopup.Visible || !_autoSkipButton.Visible || _autoSkipButton.Disabled)
+			return;
+		if (StorySystem.DueScenes(_state, StoryTiming.Interactive).Count > 0)
+			Callable.From(() => ShowStory(StoryTiming.Interactive)).CallDeferred();
+	}
+
+	/// <summary>会話の小窓の【画面へ】：ボタンの文言から画面を選んで切り替える（小窓はそのまま）。</summary>
+	private void OnStoryJump(string label)
+	{
+		DashboardView? view = label switch
+		{
+			_ when label.Contains("大会") => DashboardView.Tournament,
+			_ when label.Contains("施設") => DashboardView.Facility,
+			_ when label.Contains("研究室") => DashboardView.Research,
+			_ when label.Contains("倉庫") => DashboardView.Warehouse,
+			_ when label.Contains("大迷宮") || label.Contains("方針") => DashboardView.Dungeon,
+			_ when label.Contains("部隊") || label.Contains("冒険者") => DashboardView.Party,
+			_ => null,
+		};
+		if (view is DashboardView v)
+			SwitchView(v);
 	}
 
 	/// <summary>依頼掲示板を開く（依頼が届いた週は自動で、大迷宮画面の「📜 依頼掲示板」からはいつでも。§0.64）。</summary>
@@ -767,7 +827,8 @@ public partial class MainDashboard : Control
 			return; // 過去の月報を見返していただけ
 		var settlement = _monthlyReportSettlement;
 		_monthlyReportSettlement = null;
-		HandlePostSettlementInterruptions(settlement);
+		// 月のはじめの場面（§0.86：最初の月報のあと・長老の来訪・交流戦の申し込みなど）を見せてから、残りの割り込みへ
+		ShowStory(StoryTiming.AfterReport, () => HandlePostSettlementInterruptions(settlement));
 	}
 
 	/// <summary>月報の「来月への注意」から画面へ移る。</summary>
@@ -869,19 +930,21 @@ public partial class MainDashboard : Control
 			_retirementCeremonyPopup.Closed += OnCeremonyClosed;
 			_retirementCeremonyPopup.ShowCeremonies(_state, retirees);
 		}
+		// 物語の場面（§0.86）：大会の結果の小窓のあと、引退式と月報の前（来訪・交流戦の結果・ボスの撃破など）
+		void ShowStoryThenCeremonies() => ShowStory(StoryTiming.BeforeReport, ShowCeremonies);
 		if (tournaments.Any(e => e.Result?.Placings.Count > 0) || unlocks.Count > 0)
 		{
 			void OnResultsClosed()
 			{
 				_tournamentResultPopup.Closed -= OnResultsClosed;
-				Callable.From(ShowCeremonies).CallDeferred(); // 別の排他ウィンドウは閉じ切ってから開く
+				Callable.From(ShowStoryThenCeremonies).CallDeferred(); // 別の排他ウィンドウは閉じ切ってから開く
 			}
 			_tournamentResultPopup.Closed += OnResultsClosed;
 			_tournamentResultPopup.ShowResults(tournaments, unlocks);
 		}
 		else
 		{
-			ShowCeremonies();
+			ShowStoryThenCeremonies();
 		}
 	}
 
@@ -1688,6 +1751,7 @@ public partial class MainDashboard : Control
 		_tournamentPanel.Refresh(_state);
 
 		UpdateButtonHighlights((DashboardView)_centerPanel.CurrentTab);
+		CheckInteractiveStory(); // 部隊を組んだ・方針を付けたなどの場面（§0.86）
 	}
 
 

@@ -23,6 +23,7 @@
 | `tournaments.csv` | 03 §0.82 | TournamentBalance（大会の定義。**テーブル形式** `Id,Name,Kind,Discipline,Grade,Month,Week,MinStrength,MaxStrength,Prize1,Prize2,Prize4,Mood1,Mood2,Mood4,Note`。`{地方}`・`{フィールド}` は名前の差し込み、Month・Week が0の大会は暦を作るときに決める） |
 | `tournament.csv` | 03 §0.82 | TournamentBalance（大会の式・暦・施設の開放の閾値。key,value 形式） |
 | `isabella.csv` | 03 §0.84 | IsabellaBalance（イザベラの来訪・交流戦・派遣の教官。key,value 形式） |
+| `story/story_01.txt`・`story_02.txt` | 03 §0.86 | StoryBalance（物語の台詞。物語帳〈アーティファクト「ギルド物語帳」〉の「台詞 01・02」を書き出したもの。**CSVではない**：`## 場面のId　見出し` で場面が始まり、台詞は物語帳と同じ書式。書式はファイルの先頭の注記。場面を出す条件はコード `StorySystem`。物語帳を直したら書き出し直す） |
 | `facility_unlock_lines.csv` | 03 §0.82・§0.84 | TournamentBalance.UnlockLines（施設が開いたときの台詞。**テーブル形式** `Style,Facility,Text`。Style＝Albert／Isabella／Royal、Facility＝Training・FirstTraining・各施設名・Any、`{facility}`・`{level}`・`{discipline}`・`{event}` を差し込む） |
 | `titles.csv` | 03 §0.83 | HonorBalance.Titles（二つ名15種。**テーブル形式** `Id,Name,Rank,Param,Note`。Rank＝Legend／Name／Honor／Plain、Param＝条件の回数・年数・週数、Name の `{G1}` は大会の名前で埋める。条件の判定はコード `HonorSystem.GetTitles`） |
 | `honor.csv` | 03 §0.83 | HonorBalance（殿堂の条件と顧問の効果の倍率・関係タグの閾値・引退式の行数。key,value 形式） |

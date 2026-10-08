@@ -88,6 +88,21 @@ namespace GuildManager.Core.Balance
             throw new BalanceDataException($"{fileName} のキー「{key}」の値「{raw}」を数値として解釈できません。");
         }
 
+        /// <summary>
+        /// サブフォルダ（例：story）の、パターンに合うテキストファイルを名前の順にすべて読む（台詞の §0.86）。
+        /// フォルダが無い・ファイルが1つも無いときは例外（フォールバックしない）。
+        /// </summary>
+        public static IReadOnlyList<(string FileName, string[] Lines)> ReadTextFiles(string subFolder, string pattern)
+        {
+            string dir = Path.Combine(DirectoryPath.Value, subFolder);
+            if (!Directory.Exists(dir))
+                throw new BalanceDataException($"{FolderName}/{subFolder} フォルダが見つかりません: {dir}");
+            var files = Directory.GetFiles(dir, pattern).OrderBy(f => f, StringComparer.Ordinal).ToList();
+            if (files.Count == 0)
+                throw new BalanceDataException($"{FolderName}/{subFolder} に {pattern} がありません。");
+            return files.Select(f => (Path.GetFileName(f), File.ReadAllLines(f, Encoding.UTF8))).ToList();
+        }
+
         /// <summary>key,value,unit,note 形式のファイルから文字列値をそのまま読む。</summary>
         public static string GetString(string fileName, string key) => GetRaw(fileName, key);
 

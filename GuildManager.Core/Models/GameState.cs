@@ -335,6 +335,14 @@ namespace GuildManager.Core.Models
         /// <summary>派遣の教官が帰る週（来た週＋GuestTrainerWeeks）。いなければ null。教官本人は RetiredAdventurers に IsGuest で入る。</summary>
         public int? GuestTrainerUntilWeek { get; set; }
 
+        // ---- 物語の場面（2026年10月・§0.86、→ Systems.StorySystem） ----
+
+        /// <summary>見た場面（場面のId→最後に見た週）。一度きりの場面は二度と出さない。</summary>
+        public Dictionary<string, int> StorySeenWeeks { get; set; } = new();
+
+        /// <summary>場面のきっかけを数える（"retreat:ボスId"＝扉前の撤退の数、"seen:場面Id"＝見た回数、"guestLeft"＝派遣の教官が帰った、など）。</summary>
+        public Dictionary<string, int> StoryCounters { get; set; } = new();
+
         /// <summary>引退者のうち、ギルドの元冒険者（派遣の教官を除く）。最初の引退者の判定・年代記に使う。</summary>
         public IEnumerable<Adventurer> GuildRetirees => RetiredAdventurers.Where(a => !a.IsGuest);
 
@@ -430,6 +438,8 @@ namespace GuildManager.Core.Models
                 CommissionsFromWeek = CommissionsFromWeek,
                 GuestTrainerPending = GuestTrainerPending,
                 GuestTrainerUntilWeek = GuestTrainerUntilWeek,
+                StorySeenWeeks = new Dictionary<string, int>(StorySeenWeeks),
+                StoryCounters = new Dictionary<string, int>(StoryCounters),
                 Commissions = new List<GuildCommission>(Commissions),
                 CommissionCompletions = new Dictionary<string, int>(CommissionCompletions),
                 Anomaly = Anomaly,
@@ -564,6 +574,8 @@ namespace GuildManager.Core.Models
                 CommissionsFromWeek = data.CommissionsFromWeek,
                 GuestTrainerPending = data.GuestTrainerPending,
                 GuestTrainerUntilWeek = data.GuestTrainerUntilWeek,
+                StorySeenWeeks = new Dictionary<string, int>(data.StorySeenWeeks ?? new Dictionary<string, int>()),
+                StoryCounters = new Dictionary<string, int>(data.StoryCounters ?? new Dictionary<string, int>()),
                 // 依頼と迷宮の異変（§0.64）。キーを持たない旧セーブ、または null が書かれていても空・無しで始める。
                 Commissions = (data.Commissions ?? new List<GuildCommission>()).Where(c => c != null).ToList(),
                 CommissionCompletions = new Dictionary<string, int>(data.CommissionCompletions ?? new Dictionary<string, int>()),
@@ -580,6 +592,11 @@ namespace GuildManager.Core.Models
                 state.TournamentCalendarFromWeek ??= 1;
                 state.CommissionsFromWeek ??= LegacyFirstOfferWeek;
             }
+
+            // 物語の場面（§0.86）を持たないセーブ（§0.86より前に始めたゲーム）は、チュートリアルの一度きりの場面をすべて見たことにする
+            // （途中まで進んだゲームで、序章や救出の場面が今さら出ないように）。毎回の一言（交流戦の勝ち負けなど）はこれからも出る。
+            if (data.StorySeenWeeks == null)
+                Systems.StorySystem.MarkTutorialSeen(state);
 
             // 依頼人「王都の騎士団」（Knights）は§0.85でイザベラ（Isabella）に替えた。旧セーブの依頼と達成件数をイザベラの分として読む。
             foreach (var c in state.Commissions.Where(c => c.ClientId == LegacyKnightsClientId))

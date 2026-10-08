@@ -207,6 +207,7 @@ namespace GuildManager.Core.Systems
             result.AdvisorFacilitiesOpened = !hadRetiree && state.GuildRetirees.Any();
             // 派遣の教官（§0.84）：訓練所が建っていれば来て、期限の週に帰る（施設の工事のあとに見る）。
             result.GuestTrainer = IsabellaSystem.ProcessGuestTrainer(state);
+            StorySystem.ProcessWeek(state, result); // 物語の場面のきっかけ（扉前の撤退・派遣の教官が帰った、§0.86）
 
             // 戦績と観測日誌（大会と育成の栄光 段2）：加入・能力のピーク・重傷と復帰・大会・誕生・母娘の出撃を記録し、新しい二つ名と殿堂入りを知らせる。
             result.HonorNotices.AddRange(HonorSystem.ProcessWeek(state, result.TournamentsResolved, result.SoulFusionBirths));
