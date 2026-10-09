@@ -158,7 +158,8 @@ namespace GuildManager.Core.Tests
             var rivalNames = Guild(state, "whitelily").Members.Where(m => m.Discipline == TournamentDiscipline.Magic).Select(m => m.Name).ToHashSet();
             var firstRound = ev.Result!.Matches.Where(m => m.Round == 1).SelectMany(m => new[] { (Name: m.NameA, Guild: m.GuildA), (Name: m.NameB, Guild: m.GuildB) }).ToList();
             Assert.Contains(firstRound, x => x.Guild == "白百合の杖" && rivalNames.Contains(x.Name));
-            Assert.All(firstRound.Where(x => x.Guild.Length == 0), x => Assert.DoesNotContain(x.Name, rivalNames));
+            var allRivalNames = state.RivalGuilds.SelectMany(g => g.Members).Select(m => m.Name).ToHashSet();
+            Assert.All(firstRound.Where(x => x.Guild.Length == 0), x => Assert.DoesNotContain(x.Name, allRivalNames)); // 名前の無い相手はライバルの誰とも同じ名前にならない
             Assert.Equal(8, firstRound.Count);
 
             var recorded = Guild(state, "whitelily").Members.SelectMany(m => m.Records).ToList();

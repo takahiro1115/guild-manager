@@ -133,6 +133,9 @@ namespace GuildManager.Core.Systems
         /// <summary>主な出来事（撃破・新しいフィールド・負傷・誕生・引退・施設など。§0.81）。</summary>
         public List<MonthlyLine> Highlights { get; set; } = new();
 
+        /// <summary>年の最後の月に確定した年末のギルドの順位表（§0.94）。ほかの月は null。</summary>
+        public GuildStanding? YearStanding { get; set; }
+
         /// <summary>部隊ごと（メンバーのいる部隊。§0.81）。</summary>
         public List<MonthlySquad> Squads { get; set; } = new();
 
@@ -178,6 +181,7 @@ namespace GuildManager.Core.Systems
                     report.DoorRetreats.Add($"{where}：{r.DoorRetreatReason}");
             }
 
+            report.YearStanding = settlements.Select(s => s.YearStanding).LastOrDefault(s => s != null);
             AddNotes(state, report);
             AddHighlights(state, weeks, report);
             AddSquads(state, weeks, report);
@@ -236,6 +240,12 @@ namespace GuildManager.Core.Systems
                         Add($"{ev.Name}（{TournamentSystem.GradeLabel(ev.Grade)}）で{p.Name}が{TournamentSystem.PlacingLabel(p.Placing)}" + (p.Prize > 0 ? $"（賞金{p.Prize}G）" : ""), p.Placing == 1 ? MonthlyTone.Good : MonthlyTone.Normal);
                     foreach (var p in placings.Where(p => p.Placing > 4))
                         Add($"{ev.Name}で{p.Name}は{TournamentSystem.PlacingLabel(p.Placing)}", MonthlyTone.Normal);
+                }
+                // 年末のギルドの順位表（§0.94）
+                if (s.YearStanding?.Rows.FirstOrDefault(r => r.Ours) is { } standing)
+                {
+                    string reward = standing.RewardGold > 0 ? $"。ご褒美に賞金{standing.RewardGold}G・機嫌+{standing.RewardMood}" : "";
+                    Add($"{s.YearStanding.Year}年目のギルドの順位：{standing.Rank}位（栄誉点{standing.Points}）{reward}", standing.Rank <= 2 ? MonthlyTone.Good : MonthlyTone.Normal);
                 }
                 // イザベラの来訪と交流戦（§0.84）
                 if (s.IsabellaVisited)

@@ -19,3 +19,14 @@ RecordMinPlacing,4,位,ライバルの戦績に残す順位（ベスト4以上�
 Epithets_Sword,紅刃;鉄壁;剣姫;疾風;烈火;不落,名,"ライバルが初めてG1を勝ったときに付く二つ名（剣。; 区切り。使われていないものから順に）"
 Epithets_Magic,星詠み;雷鳴;蒼炎;月光;白夜;極光,名,同・魔
 Epithets_Skill,鷹の目;影縫い;風切り;百発;流星;夜鷹,名,同・技
+StandingPoints_Final,15,点,"年末のギルドの順位表（§0.94）の栄誉点：王都最強決定戦の優勝"
+StandingPoints_G1,10,点,同・G1（大祭・迷宮踏破杯）の優勝
+StandingPoints_G2,4,点,同・G2（王都大会）と招待大会の優勝
+StandingPoints_G3,2,点,同・G3（地方大会・新人戦）の優勝
+StandingRunnerUpRatio,0.5,倍,準優勝の栄誉点＝優勝の点×この値（切り上げ）
+StandingTop4Ratio,0.25,倍,ベスト4の栄誉点＝優勝の点×この値（切り上げ）
+StandingPointsPerBoss,1,点,迷宮のボスを1体倒すごとの栄誉点（ライバルは迷宮に潜らないので0）
+StandingPrize_1,5000,G,年末の順位表で1位になったときの賞金
+StandingMood_1,15,pt,同・マスターの機嫌
+StandingPrize_2,2000,G,2位の賞金
+StandingMood_2,5,pt,2位のマスターの機嫌

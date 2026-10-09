@@ -27,6 +27,7 @@ public partial class TournamentPanel : HBoxContainer
 	private RichTextLabel _calendarLabel = null!;
 	private RichTextLabel _historyLabel = null!;
 	private RichTextLabel _rivalLabel = null!;
+	private RichTextLabel _standingLabel = null!;
 	private VBoxContainer _hallBox = null!;
 
 	/// <summary>お知らせへの追記を依頼する（BBCode文字列）。</summary>
@@ -80,6 +81,9 @@ public partial class TournamentPanel : HBoxContainer
 		_historyLabel = NewText();
 		rightBox.AddChild(_calendarLabel);
 		rightBox.AddChild(_historyLabel);
+		// 年末のギルドの順位表（§0.94、段3-2）：今年の途中経過と歴代の1位
+		_standingLabel = NewText();
+		rightBox.AddChild(_standingLabel);
 		// 王都のギルド（§0.93、段3-1）：ライバルギルドの名簿
 		_rivalLabel = NewText();
 		rightBox.AddChild(_rivalLabel);
@@ -109,6 +113,8 @@ public partial class TournamentPanel : HBoxContainer
 		RefreshEvents();
 		_calendarLabel.Text = BuildCalendar();
 		_historyLabel.Text = BuildHistory();
+		_standingLabel.Text = BuildStandings();
+		_standingLabel.Visible = _standingLabel.Text.Length > 0;
 		_rivalLabel.Text = BuildRivals();
 		_rivalLabel.Visible = _rivalLabel.Text.Length > 0;
 		RefreshHall();
@@ -578,6 +584,43 @@ public partial class TournamentPanel : HBoxContainer
 			else if (ev.Month < month)
 				line = $"[color=gray]{line}[/color]";
 			sb.Append('\n').Append(line);
+		}
+		return sb.ToString();
+	}
+
+	/// <summary>年末のギルドの順位表（§0.94）：今年の途中経過と、歴代の1位。ライバルの名簿が無ければ空。</summary>
+	private string BuildStandings()
+	{
+		if (_state.RivalGuilds.Count == 0)
+			return "";
+		int year = GameCalendar.YearOf(_state.WeekNumber);
+		var sb = new StringBuilder(StandingText(GuildStandingSystem.Compute(_state, year), $"📊 {year}年目のギルドの順位（途中経過）"));
+		sb.Append("\n[color=gray]栄誉点：優勝は G1 10点・王都最強決定戦15点・G2と招待4点・G3 2点、準優勝は半分、ベスト4は4分の1。迷宮のボス1体1点。年の最後に1位・2位にご褒美。[/color]");
+		if (_state.GuildStandings.Count > 0)
+		{
+			sb.Append("\n[b]👑 歴代の1位[/b]");
+			foreach (var s in _state.GuildStandings.OrderByDescending(s => s.Year))
+			{
+				var top = s.Rows.FirstOrDefault();
+				var ours = s.Rows.FirstOrDefault(r => r.Ours);
+				if (top == null) continue;
+				string name = top.Ours ? $"[color=gold]{top.Name}[/color]" : top.Name;
+				sb.Append($"\n{s.Year}年目：{name}（{top.Points}点）" + (ours != null && !top.Ours ? $"　[color=gray]当ギルドは{ours.Rank}位[/color]" : ""));
+			}
+		}
+		return sb.ToString();
+	}
+
+	/// <summary>順位表の文（月報と共用）：順位・ギルド・栄誉点・G1の勝ち数・勝ち鞍・賞金・撃破。自分のギルドは金色で、ご褒美があれば添える。</summary>
+	public static string StandingText(GuildStanding standing, string title)
+	{
+		var sb = new StringBuilder($"[b]{title}[/b]");
+		foreach (var r in standing.Rows)
+		{
+			string line = $"{r.Rank}位　{r.Name}　[b]{r.Points}点[/b]　G1 {r.G1Wins}勝・勝ち鞍 {r.Wins}・賞金 {r.Prize}G・撃破 {r.BossKills}";
+			if (r.RewardGold > 0)
+				line += $"　ご褒美：賞金{r.RewardGold}G・機嫌+{r.RewardMood}";
+			sb.Append("\n　" + (r.Ours ? $"[color=gold]{line}[/color]" : line));
 		}
 		return sb.ToString();
 	}

@@ -900,6 +900,20 @@ class GameSim
             var ys = sims.Where(x => x.FirstG1Week.ContainsKey(d)).Select(x => (double)GameCalendar.YearOf(x.FirstG1Week[d])).ToList();
             Console.WriteLine($"最初のG1優勝（{TournamentSystem.DisciplineLabel(d)}）：" + (ys.Count == 0 ? $"―（0/{runs}）" : $"{Median(ys):F0}年目〔{ys.Min():F0}〜{ys.Max():F0}〕（{ys.Count}/{runs}）"));
         }
+        // 年末のギルドの順位表（§0.94）：当ギルドの順位（年ごとの中央値）と、1位・2位になった年の数
+        var standingYears = sims.SelectMany(x => x.s.GuildStandings.Select(g => g.Year)).Distinct().OrderBy(y => y).ToList();
+        if (standingYears.Count > 0)
+        {
+            Console.WriteLine("年末のギルドの順位（当ギルド、年ごとの中央値）：" + string.Join("・", standingYears.Select(y =>
+                $"{y}年目 {Median(sims.SelectMany(x => x.s.GuildStandings.Where(g => g.Year == y)).Select(g => (double)g.Rows.First(r => r.Ours).Rank).ToList()):F0}位")));
+            Console.WriteLine("栄誉点（当ギルド／うち迷宮の撃破／ライバルの最高、年ごとの中央値）：" + string.Join("・", standingYears.Select(y =>
+            {
+                var gs = sims.SelectMany(x => x.s.GuildStandings.Where(g => g.Year == y)).ToList();
+                return $"{y}年目 {Median(gs.Select(g => (double)g.Rows.First(r => r.Ours).Points).ToList()):F0}／{Median(gs.Select(g => (double)g.Rows.First(r => r.Ours).BossKills).ToList()):F0}／{Median(gs.Select(g => (double)g.Rows.Where(r => !r.Ours).Max(r => r.Points)).ToList()):F0}";
+            })));
+            Console.WriteLine("1位／2位になった年の数：" + string.Join(", ", sims.Select(x =>
+                $"{x.s.GuildStandings.Count(g => g.Rows.First(r => r.Ours).Rank == 1)}/{x.s.GuildStandings.Count(g => g.Rows.First(r => r.Ours).Rank == 2)}")));
+        }
         Console.WriteLine("| 施設 | 新設 | Lv2 | Lv3 | Lv4 | Lv5 |");
         Console.WriteLine("|---|---|---|---|---|---|");
         foreach (var t in Enum.GetValues<FacilityType>())

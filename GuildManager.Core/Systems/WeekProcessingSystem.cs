@@ -175,6 +175,8 @@ namespace GuildManager.Core.Systems
             result.ExchangeMatches.AddRange(_isabellaSystem.ResolveWeek(state));
             result.FacilityUnlocks.AddRange(result.ExchangeMatches.Select(m => m.OpenedFacility).OfType<FacilityUnlockNotice>());
             result.CommissionsUnlocked = IsabellaSystem.CheckCommissionUnlock(state);
+            // 年末のギルドの順位表（§0.94）：年の最後の週に、その年の大会（王都最強決定戦まで）を終えてから確定し、1位・2位にご褒美。
+            result.YearStanding = GuildStandingSystem.ProcessWeek(state);
 
             _satisfactionSystem.ProcessWeeklySatisfaction(state, dispatchedIds); // → 03 §5.1：満足度変動
             result.TraitGrantEvents.AddRange(_satisfactionSystem.ProcessWeeklyBurnout(state)); // → 03 §5.3.2・§0.56：燃え尽き（連続出撃）

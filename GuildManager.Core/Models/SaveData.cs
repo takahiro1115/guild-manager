@@ -277,6 +277,9 @@ namespace GuildManager.Core.Models
         public List<RivalMember>? RetiredRivals { get; set; } = new();
         public Dictionary<string, string>? RetiredRivalGuilds { get; set; } = new();
         public int RivalYear { get; set; }
+        // ---- 年末のギルドの順位表（§0.94、→ GameState の同名の項目） ----
+        public List<GuildStanding>? GuildStandings { get; set; } = new();
+        public Dictionary<string, int>? BossKillsByYear { get; set; } = new();
         public Dictionary<string, double>? ExchangeAnchor { get; set; } = new();
         public int ExchangeMatchesPlayed { get; set; }
         public int ExchangeWins { get; set; }

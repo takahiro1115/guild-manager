@@ -199,6 +199,34 @@ namespace GuildManager.Core.Models
         public List<TournamentRecord> Records { get; set; } = new();
     }
 
+    /// <summary>年末のギルドの順位表（2026年10月・§0.94、大会と育成の栄光 段3-2、→ Systems.GuildStandingSystem）。</summary>
+    public sealed class GuildStanding
+    {
+        public int Year { get; set; }
+        /// <summary>順位の順（1位から）。</summary>
+        public List<GuildStandingRow> Rows { get; set; } = new();
+    }
+
+    /// <summary>順位表の1行（自分のギルドかライバルギルド）。</summary>
+    public sealed class GuildStandingRow
+    {
+        /// <summary>ライバルギルドの Id（自分のギルドは空）。</summary>
+        public string GuildId { get; set; } = "";
+        public string Name { get; set; } = "";
+        public bool Ours { get; set; }
+        public int Rank { get; set; }
+        /// <summary>栄誉点（大会の順位と迷宮の撃破から。→ GuildStandingSystem.PlacingPoints）。</summary>
+        public int Points { get; set; }
+        public int G1Wins { get; set; }
+        /// <summary>勝ち鞍（優勝）の数。</summary>
+        public int Wins { get; set; }
+        public int Prize { get; set; }
+        public int BossKills { get; set; }
+        /// <summary>自分のギルドが受け取ったご褒美（ライバルは0）。</summary>
+        public int RewardGold { get; set; }
+        public int RewardMood { get; set; }
+    }
+
     /// <summary>施設が開いたときの知らせ（演出の型と台詞つき）。</summary>
     public sealed class FacilityUnlockNotice
     {

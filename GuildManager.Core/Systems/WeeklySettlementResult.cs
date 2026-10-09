@@ -74,6 +74,9 @@ namespace GuildManager.Core.Systems
         /// <summary>今週行った大会（結果つき。→ TournamentSystem.ResolveWeek、§0.82）。</summary>
         public List<TournamentEvent> TournamentsResolved { get; } = new();
 
+        /// <summary>今週（年の最後の週）確定した年末のギルドの順位表（→ GuildStandingSystem、§0.94）。ほかの週は null。</summary>
+        public GuildStanding? YearStanding { get; set; }
+
         /// <summary>今週届いた招待大会の予告（→ TournamentSystem.CheckInvitations、§0.82）。</summary>
         public List<TournamentEvent> TournamentInvitations { get; } = new();
 

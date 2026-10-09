@@ -314,6 +314,12 @@ namespace GuildManager.Core.Models
         /// <summary>ライバルの年の入れ替え（年を取る・引退・新人）を済ませた年。0＝名簿がまだ無い。</summary>
         public int RivalYear { get; set; }
 
+        /// <summary>年末のギルドの順位表（§0.94。年の古い順）。</summary>
+        public List<GuildStanding> GuildStandings { get; set; } = new();
+
+        /// <summary>年ごとに倒したボスの数（§0.94。順位表の「迷宮の撃破」。蘇った主を倒し直した分も数える）。</summary>
+        public Dictionary<int, int> BossKillsByYear { get; set; } = new();
+
         // ---- イザベラの来訪と交流戦（2026年10月・§0.84、→ Systems.IsabellaSystem） ----
 
         /// <summary>イザベラが来訪した週（森の40Fのボスを初めて倒した週）。まだなら null（大会も依頼も無い）。</summary>
@@ -452,6 +458,8 @@ namespace GuildManager.Core.Models
                 RetiredRivals = RetiredRivals,
                 RetiredRivalGuilds = RetiredRivalGuilds.ToDictionary(kv => kv.Key.ToString(), kv => kv.Value),
                 RivalYear = RivalYear,
+                GuildStandings = GuildStandings,
+                BossKillsByYear = BossKillsByYear.ToDictionary(kv => kv.Key.ToString(), kv => kv.Value),
                 ExchangeAnchor = ExchangeAnchor.ToDictionary(kv => kv.Key.ToString(), kv => kv.Value),
                 ExchangeMatchesPlayed = ExchangeMatchesPlayed,
                 ExchangeWins = ExchangeWins,
@@ -593,6 +601,9 @@ namespace GuildManager.Core.Models
                 RetiredRivalGuilds = (data.RetiredRivalGuilds ?? new Dictionary<string, string>())
                     .Where(kv => Guid.TryParse(kv.Key, out _)).ToDictionary(kv => Guid.Parse(kv.Key), kv => kv.Value),
                 RivalYear = data.RivalYear,
+                GuildStandings = (data.GuildStandings ?? new List<GuildStanding>()).Where(s => s != null).ToList(),
+                BossKillsByYear = (data.BossKillsByYear ?? new Dictionary<string, int>())
+                    .Where(kv => int.TryParse(kv.Key, out _)).ToDictionary(kv => int.Parse(kv.Key), kv => kv.Value),
                 ExchangeAnchor = (data.ExchangeAnchor ?? new Dictionary<string, double>())
                     .Where(kv => Enum.TryParse<TournamentDiscipline>(kv.Key, out _))
                     .ToDictionary(kv => Enum.Parse<TournamentDiscipline>(kv.Key), kv => kv.Value),

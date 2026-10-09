@@ -655,6 +655,8 @@ namespace GuildManager.Core.Systems
             // 倒した回数と週（§0.90：クリアのあとは倒してから1年で蘇る）
             defeatedBoss.DefeatCount++;
             defeatedBoss.LastDefeatedWeek = state.WeekNumber;
+            int killYear = GameCalendar.YearOf(state.WeekNumber); // 年末のギルドの順位表の「迷宮の撃破」（§0.94）
+            state.BossKillsByYear[killYear] = state.BossKillsByYear.GetValueOrDefault(killYear) + 1;
 
             // ①撃破報酬（→ FloorBoss.RewardGold/RewardMaterialId・RewardMaterialCount。機嫌の上昇は週次決算の MasterMoodSystem が担う）。
             // 迷宮の異変「主の猛り」（→ DungeonAnomalySystem、§0.64）の対象なら報奨金が増える。

@@ -1,4 +1,4 @@
-| `rivals.csv` | 03 §0.93 | RivalBalance（ライバルギルドの人数・年齢・全盛の強さの幅・年齢の伸び・二つ名の表。key,value 形式） |
+| `rivals.csv` | 03 §0.93・§0.94 | RivalBalance（ライバルギルドの人数・年齢・全盛の強さの幅・年齢の伸び・二つ名の表、年末のギルドの順位表の栄誉点とご褒美。key,value 形式） |
 | `rival_guilds.csv` | 03 §0.93 | RivalBalance（ライバルギルドの一覧。**テーブル形式** `Id,Name,Specialty,Master`。Specialty＝Sword・Magic・Skill） |
 | `rival_members.csv` | 03 §0.93 | RivalBalance（名簿を作るときに必ず入る看板の子。**テーブル形式** `GuildId,Name,Discipline,Age,Peak,Epithet`。Age は名簿を作るとき〈イザベラの来訪〉の年齢） |
 # 04_バランス表（CSV版）
@@ -641,3 +641,17 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 | `Epithets_Sword`・`_Magic`・`_Skill` | 6つずつ | 初めてG1を勝ったライバルに付く二つ名 |
 
 **isabella.csv**：`ExchangeOpponent_*` は、ライバルの名簿がまだ無いとき（来訪の前）の交流戦の相手の名前になった（名簿があれば白百合の杖の看板、引退後はその部門の最強の子）。
+
+## 年末のギルドの順位表の改訂で追加されたキー（2026年10月、→ 03 §0.94）
+
+大会と育成の栄光 段3-2。すべて仮の値。シミュレーター（`campaign 10 1440`）でクリアは13年目〔11〜14〕。当ギルドは6年目から多くの年で1位（12年ほどのうち5〜9年）。
+
+**rivals.csv**（追加）
+
+| キー | 値 | 意味 |
+|---|---|---|
+| `StandingPoints_Final`・`_G1`・`_G2`・`_G3` | 15・10・4・2 | 栄誉点：優勝（王都最強決定戦・G1・G2と招待・G3） |
+| `StandingRunnerUpRatio`・`StandingTop4Ratio` | 0.5・0.25 | 準優勝・ベスト4は優勝の点×この値（切り上げ） |
+| `StandingPointsPerBoss` | 1 | 迷宮のボス1体ごとの栄誉点 |
+| `StandingPrize_1`・`StandingMood_1` | 5000・15 | 1位のご褒美 |
+| `StandingPrize_2`・`StandingMood_2` | 2000・5 | 2位のご褒美 |

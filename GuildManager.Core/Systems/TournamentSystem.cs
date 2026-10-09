@@ -456,6 +456,7 @@ namespace GuildManager.Core.Systems
                 : ev.Discipline;
             var (min, max) = OpponentRange(ev, oppDiscipline);
             var names = new HashSet<string>(ours.Select(o => o.Name));
+            names.UnionWith(state.RivalGuilds.SelectMany(g => g.Members).Select(m => m.Name)); // 名前の無い相手がライバルと同じ名前にならないように
             var field = new List<Competitor>();
             foreach (var (member, guild) in RivalSystem.Entrants(state, ev, TournamentBalance.BracketSize - ours.Count))
             {

@@ -30,6 +30,23 @@ namespace GuildManager.Core.Balance
         public static readonly double PeakMax = BalanceData.GetDouble(FileName, "PeakMax");
         public static readonly int RecordMinPlacing = BalanceData.GetInt(FileName, "RecordMinPlacing");
 
+        // ---- 年末のギルドの順位表（§0.94、→ Systems.GuildStandingSystem） ----
+        public static readonly int StandingPointsFinal = BalanceData.GetInt(FileName, "StandingPoints_Final");
+        public static readonly int StandingPointsG1 = BalanceData.GetInt(FileName, "StandingPoints_G1");
+        public static readonly int StandingPointsG2 = BalanceData.GetInt(FileName, "StandingPoints_G2");
+        public static readonly int StandingPointsG3 = BalanceData.GetInt(FileName, "StandingPoints_G3");
+        public static readonly double StandingRunnerUpRatio = BalanceData.GetDouble(FileName, "StandingRunnerUpRatio");
+        public static readonly double StandingTop4Ratio = BalanceData.GetDouble(FileName, "StandingTop4Ratio");
+        public static readonly int StandingPointsPerBoss = BalanceData.GetInt(FileName, "StandingPointsPerBoss");
+
+        /// <summary>年末の順位表のご褒美（順位→賞金・機嫌。表に無い順位は0）。</summary>
+        public static (int Gold, int Mood) StandingReward(int rank) => rank switch
+        {
+            1 => (BalanceData.GetInt(FileName, "StandingPrize_1"), BalanceData.GetInt(FileName, "StandingMood_1")),
+            2 => (BalanceData.GetInt(FileName, "StandingPrize_2"), BalanceData.GetInt(FileName, "StandingMood_2")),
+            _ => (0, 0),
+        };
+
         /// <summary>引退する年齢（この年齢の年度末で引退。自分のギルドと同じ aging.csv の RetirementAge）。</summary>
         public static int RetirementAge => Systems.AgingSystem.RetirementAge;
 

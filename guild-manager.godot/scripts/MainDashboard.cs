@@ -900,6 +900,9 @@ public partial class MainDashboard : Control
 		foreach (var ev in settlement.TournamentsResolved) // 大会の結果（§0.82）
 			AppendLog($"[color=khaki][b]🏆 {ev.Name}（{TournamentSystem.GradeLabel(ev.Grade)}）[/b]：優勝 {(ev.Result == null ? "" : TournamentSystem.WithGuild(ev.Result.WinnerName, ev.Result.WinnerGuild))}" +
 				string.Concat(ev.Result?.Placings.Select(p => $"／{p.Name} {TournamentSystem.PlacingLabel(p.Placing)}{(p.Prize > 0 ? $"（賞金 {p.Prize}G）" : "")}") ?? Enumerable.Empty<string>()) + "[/color]");
+		if (settlement.YearStanding?.Rows.FirstOrDefault(r => r.Ours) is { } standing) // 年末のギルドの順位表（§0.94）
+			AppendLog($"[color=khaki][b]🏅 {settlement.YearStanding.Year}年目のギルドの順位[/b]：当ギルドは{standing.Rank}位（栄誉点{standing.Points}）" +
+				(standing.RewardGold > 0 ? $"。ご褒美に賞金{standing.RewardGold}G・マスターの機嫌+{standing.RewardMood}" : "") + "[/color]");
 		foreach (var ev in settlement.TournamentInvitations)
 			AppendLog($"[color=khaki][b]✉ 招待が届いた：{ev.Name}[/b]（{GameCalendar.Format(GameCalendar.WeekNumberOf(ev.Year, ev.Month, ev.Week))}）[/color]");
 		// イザベラの来訪と交流戦（§0.84）

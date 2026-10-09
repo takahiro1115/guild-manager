@@ -257,6 +257,12 @@ public partial class MonthlyReportPopup : Window
 			sb.AppendLine("[color=gray]　目立った出来事は無かった。部隊・冒険者のタブで、それぞれの1か月を見られる。[/color]");
 		foreach (var line in report.Highlights)
 			sb.AppendLine($"　・{Colored(line)}");
+		// 年末のギルドの順位表（§0.94）：年の最後の月報だけ
+		if (report.YearStanding != null)
+		{
+			sb.AppendLine();
+			sb.AppendLine(TournamentPanel.StandingText(report.YearStanding, $"🏅 {report.YearStanding.Year}年目　年末のギルドの順位表"));
+		}
 		return sb.ToString().TrimEnd('\n');
 	}
 
