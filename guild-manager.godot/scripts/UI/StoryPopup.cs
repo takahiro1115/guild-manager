@@ -10,7 +10,9 @@ using GuildManager.Core.Systems;
 /// <summary>
 /// 物語の会話の小窓（2026年10月・§0.86、→ Core の StorySystem・StoryBalance）。出す場面を順に、▼で区切ったページごとに見せる。
 /// 最後のページには【画面へ】のボタンと、ギルドの手引きの行（③-2でチェックリストにする。今は小窓の最後に出す）を添える。
-/// 場面を見せ始めたら StorySystem.MarkSeen で記録する。立ち絵はまだ無いので名前だけ出す。シーンは使わずコードで組む。
+/// 場面を見せ始めたら StorySystem.MarkSeen で記録する。シーンは使わずコードで組む。
+/// 舞台（§0.91）：背景を窓いっぱいに暗めに敷き、そのページで話す人の立ち絵を左右に最大2人、下に文の板。
+/// 背景と立ち絵は StorySystem.StageOf が決め、res://assets/story/ にファイルがあるときだけ出す（無ければ背景は無地、立ち絵は出さない）。
 /// </summary>
 public partial class StoryPopup : Window
 {
@@ -20,41 +22,72 @@ public partial class StoryPopup : Window
 	/// <summary>【画面へ】が押された（ボタンの文言。MainDashboard が画面を切り替える）。</summary>
 	public event Action<string> JumpRequested = delegate { };
 
+	private const string ImageFolder = "res://assets/story/";
+
 	private RichTextLabel _text = null!;
+	private ScrollContainer _scroll = null!;
 	private Label _backgroundLabel = null!;
+	private TextureRect _backgroundImage = null!;
+	private TextureRect _leftPortrait = null!;
+	private TextureRect _rightPortrait = null!;
 	private Button _jumpButton = null!;
 	private Button _nextButton = null!;
 	private GameState _state = null!;
 	private readonly List<StoryShowing> _scenes = new();
 	private int _sceneIndex;
 	private int _pageIndex;
-	private string _background = "";
 
 	public override void _Ready()
 	{
 		Title = "📖 物語";
 		Exclusive = true;
-		Size = new Vector2I(1000, 560);
+		Size = new Vector2I(1280, 720);
 		Theme = GD.Load<Theme>("res://themes/dungeon_theme.tres");
 		CloseRequested += SkipPage;
 
-		var panel = new PanelContainer();
-		panel.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-		AddChild(panel);
-		var margin = new MarginContainer();
-		foreach (var side in new[] { "left", "top", "right", "bottom" })
-			margin.AddThemeConstantOverride($"margin_{side}", 18);
-		panel.AddChild(margin);
-		var root = new VBoxContainer();
-		root.AddThemeConstantOverride("separation", 10);
-		margin.AddChild(root);
+		var stage = new Control();
+		stage.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		AddChild(stage);
+		var ground = new ColorRect { Color = new Color(0.08f, 0.07f, 0.11f), MouseFilter = Control.MouseFilterEnum.Ignore };
+		ground.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		stage.AddChild(ground);
+		_backgroundImage = new TextureRect
+		{
+			ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+			StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered,
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+		};
+		_backgroundImage.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		stage.AddChild(_backgroundImage);
+		var dim = new ColorRect { Color = new Color(0, 0, 0, 0.3f), MouseFilter = Control.MouseFilterEnum.Ignore };
+		dim.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		stage.AddChild(dim);
 
-		_backgroundLabel = new Label { Modulate = new Color(0.7f, 0.7f, 0.7f) };
-		root.AddChild(_backgroundLabel);
-		var scroll = new ScrollContainer { SizeFlagsVertical = Control.SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+		// 立ち絵：下端をそろえて左右に（腰から上の絵なので、文の板に腰が隠れる）
+		_leftPortrait = MakePortrait(0.03f, 0.40f);
+		_rightPortrait = MakePortrait(0.60f, 0.97f);
+		stage.AddChild(_leftPortrait);
+		stage.AddChild(_rightPortrait);
+
+		_backgroundLabel = new Label { Position = new Vector2(16, 10), Modulate = new Color(0.85f, 0.85f, 0.9f) };
+		_backgroundLabel.AddThemeColorOverride("font_shadow_color", new Color(0, 0, 0, 0.8f));
+		stage.AddChild(_backgroundLabel);
+
+		var plate = new PanelContainer { AnchorLeft = 0.03f, AnchorRight = 0.97f, AnchorTop = 0.6f, AnchorBottom = 0.97f };
+		var plateStyle = new StyleBoxFlat { BgColor = new Color(0.05f, 0.04f, 0.08f, 0.93f), BorderColor = new Color(0.55f, 0.42f, 0.2f) };
+		plateStyle.SetBorderWidthAll(2);
+		plateStyle.SetCornerRadiusAll(8);
+		plateStyle.SetContentMarginAll(16);
+		plate.AddThemeStyleboxOverride("panel", plateStyle);
+		stage.AddChild(plate);
+		var root = new VBoxContainer();
+		root.AddThemeConstantOverride("separation", 8);
+		plate.AddChild(root);
+
+		_scroll = new ScrollContainer { SizeFlagsVertical = Control.SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
 		_text = new RichTextLabel { BbcodeEnabled = true, FitContent = true, ScrollActive = false, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-		scroll.AddChild(_text);
-		root.AddChild(scroll);
+		_scroll.AddChild(_text);
+		root.AddChild(_scroll);
 
 		var buttons = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.End };
 		buttons.AddThemeConstantOverride("separation", 10);
@@ -67,6 +100,27 @@ public partial class StoryPopup : Window
 		root.AddChild(buttons);
 	}
 
+	private static TextureRect MakePortrait(float left, float right) => new()
+	{
+		AnchorLeft = left,
+		AnchorRight = right,
+		AnchorTop = 0.04f,
+		AnchorBottom = 1f,
+		ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+		StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+		MouseFilter = Control.MouseFilterEnum.Ignore,
+	};
+
+	/// <summary>assets/story/ の画像（ファイルがまだ無ければ null）。</summary>
+	private static Texture2D? LoadImage(string? file) =>
+		file != null && ResourceLoader.Exists(ImageFolder + file) ? GD.Load<Texture2D>(ImageFolder + file) : null;
+
+	private static void ShowPortrait(TextureRect rect, StoryPortrait? portrait)
+	{
+		rect.Texture = LoadImage(portrait?.File);
+		rect.Visible = rect.Texture != null;
+	}
+
 	/// <summary>場面を順に見せる。1つも無ければ何もせず Closed を呼ぶ。</summary>
 	public void ShowScenes(GameState state, IEnumerable<StoryShowing> scenes)
 	{
@@ -75,7 +129,6 @@ public partial class StoryPopup : Window
 		_scenes.AddRange(scenes);
 		_sceneIndex = 0;
 		_pageIndex = 0;
-		_background = "";
 		if (_scenes.Count == 0)
 		{
 			Closed.Invoke();
@@ -102,7 +155,6 @@ public partial class StoryPopup : Window
 		{
 			_sceneIndex++;
 			_pageIndex = 0;
-			_background = ""; // 背景は場面ごと（〔背景：…〕の無い場面は出さない）
 			StorySystem.MarkSeen(_state, Current.SceneId);
 			Render();
 			return;
@@ -122,9 +174,6 @@ public partial class StoryPopup : Window
 		{
 			switch (line.Kind)
 			{
-				case StoryLineKind.Background:
-					_background = line.Text;
-					break;
 				case StoryLineKind.Narration:
 					sb.Append($"[color=#b8b8c8]{Escape(line.Text)}[/color]\n\n");
 					break;
@@ -148,7 +197,14 @@ public partial class StoryPopup : Window
 		}
 
 		_text.Text = sb.ToString();
-		_backgroundLabel.Text = _background.Length > 0 ? $"― {_background} ―" : "";
+		var stage = StorySystem.StageOf(Current, _pageIndex);
+		var backgroundImage = LoadImage(stage.BackgroundFile);
+		_backgroundImage.Texture = backgroundImage;
+		// 背景の絵がまだ無い場面は、場所の名前を出す
+		_backgroundLabel.Text = stage.Background.Length > 0 && backgroundImage == null ? $"― {stage.Background} ―" : "";
+		ShowPortrait(_leftPortrait, stage.Left);
+		ShowPortrait(_rightPortrait, stage.Right);
+		_scroll.ScrollVertical = 0;
 		_jumpButton.Visible = jump != null;
 		_jumpButton.Text = jump != null ? $"▶ {jump.Text}" : "";
 		bool last = LastPage && _sceneIndex + 1 >= _scenes.Count;

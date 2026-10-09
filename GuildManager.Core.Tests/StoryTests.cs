@@ -233,14 +233,14 @@ namespace GuildManager.Core.Tests
 
             var first = Assert.Single(StorySystem.DueScenes(state, StoryTiming.BeforeReport));
             Assert.Equal("s02_rematch_won", first.SceneId);
-            var line1 = Assert.Single(first.Pages.SelectMany(p => p));
+            var line1 = Assert.Single(first.Pages.SelectMany(p => p), l => l.Kind == StoryLineKind.Speech);
             StorySystem.MarkSeen(state, first.SceneId);
             Assert.Empty(StorySystem.DueScenes(state, StoryTiming.BeforeReport)); // 同じ交流戦では一度だけ
 
             state.ExchangeMatchesPlayed = 3;
             state.TournamentEvents.Add(new TournamentEvent { Kind = TournamentKind.Exchange, Year = 1, Month = 7, Result = new TournamentResult { WinnerIsOurs = true } });
             var second = Assert.Single(StorySystem.DueScenes(state, StoryTiming.BeforeReport));
-            Assert.NotEqual(line1.Text, second.Pages.SelectMany(p => p).Single().Text); // 次の一言
+            Assert.NotEqual(line1.Text, second.Pages.SelectMany(p => p).Single(l => l.Kind == StoryLineKind.Speech).Text); // 次の一言
         }
 
         [Fact]

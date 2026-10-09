@@ -150,6 +150,35 @@ namespace GuildManager.Core.Systems
             return due;
         }
 
+        /// <summary>
+        /// 小窓の1ページの舞台（§0.91）。背景はそのページまでの最後の〔背景：…〕（場面をまたいでは引き継がない）。
+        /// 立ち絵はそのページで話す人のうち立ち絵がある人を、出てきた順に最大2人（表情はそのページで最初の台詞のもの）。
+        /// 左右は場面の中で立ち絵のある人が初めて話した順に左・右・左…と決め、同じページで重なったら2人目を反対側へ寄せる。
+        /// </summary>
+        public static StoryStage StageOf(StoryShowing showing, int pageIndex)
+        {
+            string background = showing.Pages.Take(pageIndex + 1).SelectMany(p => p)
+                .LastOrDefault(l => l.Kind == StoryLineKind.Background)?.Text ?? "";
+
+            var sides = new Dictionary<string, bool>(); // 話者 → 左なら true
+            foreach (var line in showing.Pages.SelectMany(p => p))
+                if (line.Kind == StoryLineKind.Speech && !sides.ContainsKey(line.Speaker) && StoryImageBalance.PortraitFile(line.Speaker) != null)
+                    sides[line.Speaker] = sides.Count % 2 == 0;
+
+            var onPage = showing.Pages[pageIndex]
+                .Where(l => l.Kind == StoryLineKind.Speech && sides.ContainsKey(l.Speaker))
+                .GroupBy(l => l.Speaker).Select(g => g.First()).Take(2)
+                .Select(l => (Left: sides[l.Speaker], Portrait: new StoryPortrait(l.Speaker, StoryImageBalance.PortraitFile(l.Speaker, l.Expression)!)))
+                .ToList();
+            StoryPortrait? left = null, right = null;
+            for (int i = 0; i < onPage.Count; i++)
+            {
+                bool toLeft = i == 0 ? onPage[0].Left : !onPage[0].Left;
+                if (toLeft) left = onPage[i].Portrait; else right = onPage[i].Portrait;
+            }
+            return new StoryStage(background, background.Length > 0 ? StoryImageBalance.BackgroundFile(background) : null, left, right);
+        }
+
         /// <summary>場面を出したことを記録する（見た週・回数。交流戦の一言は、どの交流戦まで言ったかも）。</summary>
         public static void MarkSeen(GameState state, string sceneId)
         {
@@ -294,6 +323,13 @@ namespace GuildManager.Core.Systems
             var pages = scene.Pages
                 .Select(p => p.Select(l => l with { Text = Fill(state, l.Text, sceneId) }).Where(l => !l.Text.Contains('{')).ToList())
                 .Where(p => p.Count > 0).ToList();
+            // 背景の指定だけが残ったページは次のページの頭へ寄せる（§0.91。背景だけの空のページを出さない）
+            for (int i = pages.Count - 2; i >= 0; i--)
+                if (pages[i].All(l => l.Kind == StoryLineKind.Background))
+                {
+                    pages[i + 1].InsertRange(0, pages[i]);
+                    pages.RemoveAt(i);
+                }
 
             if (scene.Variants)
             {

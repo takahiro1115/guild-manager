@@ -33,6 +33,15 @@ namespace GuildManager.Core.Models
         public bool Variants { get; init; }
     }
 
+    /// <summary>小窓に出す立ち絵1枚（File は res://assets/story/ からの相対パス、→ Balance.StoryImageBalance）。</summary>
+    public sealed record StoryPortrait(string Speaker, string File);
+
+    /// <summary>
+    /// 小窓の1ページの舞台（§0.91、→ StorySystem.StageOf）。Background は背景の名前（無ければ空）、BackgroundFile は決めてあるファイル
+    /// （画像がまだ無くても入る。出すかどうかは画面がファイルの有無で決める）。Left・Right はそのページで話す人の立ち絵（最大2人）。
+    /// </summary>
+    public sealed record StoryStage(string Background, string? BackgroundFile, StoryPortrait? Left, StoryPortrait? Right);
+
     /// <summary>場面を出す時機（→ StorySystem.DueScenes）。</summary>
     public enum StoryTiming
     {
