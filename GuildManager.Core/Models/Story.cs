@@ -42,6 +42,12 @@ namespace GuildManager.Core.Models
     /// </summary>
     public sealed record StoryStage(string Background, string? BackgroundFile, StoryPortrait? Left, StoryPortrait? Right);
 
+    /// <summary>物語の記録の1行（→ StorySystem.Record、§0.92）。SeenWeek は見た週（0＝見たことにした場面）。</summary>
+    public sealed record StoryRecordEntry(string SceneId, string Title, int SeenWeek);
+
+    /// <summary>物語の記録の章（→ StorySystem.Record）。</summary>
+    public sealed record StoryRecordChapter(string Title, IReadOnlyList<StoryRecordEntry> Entries);
+
     /// <summary>場面を出す時機（→ StorySystem.DueScenes）。</summary>
     public enum StoryTiming
     {

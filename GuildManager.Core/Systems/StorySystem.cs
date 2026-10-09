@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using GuildManager.Core.Balance;
 using GuildManager.Core.Models;
 
@@ -149,6 +150,51 @@ namespace GuildManager.Core.Systems
             }
             return due;
         }
+
+        /// <summary>物語の記録の章（台詞ファイルの番号＝場面のIdの頭 s01〜s04 → 画面に出す章の名前、§0.92）。</summary>
+        public static readonly IReadOnlyList<(string Prefix, string Title)> RecordChapters = new[]
+        {
+            ("s01", "一　出会い"),
+            ("s02", "二　白百合の杖"),
+            ("s03", "三　ギルドの日々"),
+            ("s04", "四　失われた理想郷"),
+        };
+
+        /// <summary>
+        /// 物語の記録（§0.92）：見た場面を章ごとに、見た順（同じ週なら場面の並び順）に並べる。毎回の一言（交流戦の一言・再戦の申し込み）は載せない。
+        /// 見た週が0の場面は「物語と手ほどき なし」で見たことにした場面（時期を出さない）。
+        /// </summary>
+        public static List<StoryRecordChapter> Record(GameState state)
+        {
+            var order = Rules.Select((r, i) => (r, i)).ToDictionary(x => x.r.Id, x => x.i);
+            var chapters = new List<StoryRecordChapter>();
+            foreach (var (prefix, title) in RecordChapters)
+            {
+                var entries = Rules
+                    .Where(r => !r.Repeats && r.Id.StartsWith(prefix + "_") && state.StorySeenWeeks.ContainsKey(r.Id))
+                    .OrderBy(r => state.StorySeenWeeks[r.Id]).ThenBy(r => order[r.Id])
+                    .Select(r => new StoryRecordEntry(r.Id, RecordTitle(StoryBalance.Get(r.Id).Title), state.StorySeenWeeks[r.Id]))
+                    .ToList();
+                if (entries.Count > 0)
+                    chapters.Add(new StoryRecordChapter(title, entries));
+            }
+            return chapters;
+        }
+
+        /// <summary>
+        /// 記録に出す場面の名前：台詞ファイルの見出しから、頭の番号（「3　」「3a　」「6-2　」）と、きっかけの書き添え（最後の（…）から後ろ）を除く。
+        /// 「前兆 1」「エンディング 2」のような言葉つきの番号は残す。
+        /// </summary>
+        public static string RecordTitle(string heading)
+        {
+            string title = Regex.Replace(heading, "（[^（）]*）(→.*)?$", "").Trim();
+            title = Regex.Replace(title, @"^[0-9]+[a-z]?(-[0-9]+)?[　 ]+", "");
+            title = Regex.Replace(title, "^（[^（）]*）", "").Trim();
+            return title.Length > 0 ? title : heading;
+        }
+
+        /// <summary>記録から見返す場面（台詞を今の記録で埋める。見たことの記録や数は変えない）。</summary>
+        public static StoryShowing Replay(GameState state, string sceneId) => Build(state, sceneId);
 
         /// <summary>
         /// 小窓の1ページの舞台（§0.91）。背景はそのページまでの最後の〔背景：…〕（場面をまたいでは引き継がない）。

@@ -10,7 +10,7 @@ using GuildManager.Core.Systems;
 /// <summary>
 /// 物語の会話の小窓（2026年10月・§0.86、→ Core の StorySystem・StoryBalance）。出す場面を順に、▼で区切ったページごとに見せる。
 /// 最後のページには【画面へ】のボタンと、ギルドの手引きの行（③-2でチェックリストにする。今は小窓の最後に出す）を添える。
-/// 場面を見せ始めたら StorySystem.MarkSeen で記録する。シーンは使わずコードで組む。
+/// 場面を見せ始めたら StorySystem.MarkSeen で記録する（物語の記録から見返すときは記録せず、画面へのボタンと手引きも出さない、§0.92）。シーンは使わずコードで組む。
 /// 舞台（§0.91）：背景を窓いっぱいに暗めに敷き、そのページで話す人の立ち絵を左右に最大2人、下に文の板。
 /// 背景と立ち絵は StorySystem.StageOf が決め、res://assets/story/ にファイルがあるときだけ出す（無ければ背景は無地、立ち絵は出さない）。
 /// </summary>
@@ -36,6 +36,7 @@ public partial class StoryPopup : Window
 	private readonly List<StoryShowing> _scenes = new();
 	private int _sceneIndex;
 	private int _pageIndex;
+	private bool _replay;
 
 	public override void _Ready()
 	{
@@ -121,10 +122,11 @@ public partial class StoryPopup : Window
 		rect.Visible = rect.Texture != null;
 	}
 
-	/// <summary>場面を順に見せる。1つも無ければ何もせず Closed を呼ぶ。</summary>
-	public void ShowScenes(GameState state, IEnumerable<StoryShowing> scenes)
+	/// <summary>場面を順に見せる。1つも無ければ何もせず Closed を呼ぶ。replay は物語の記録からの見返し（見たことを記録しない）。</summary>
+	public void ShowScenes(GameState state, IEnumerable<StoryShowing> scenes, bool replay = false)
 	{
 		_state = state;
+		_replay = replay;
 		_scenes.Clear();
 		_scenes.AddRange(scenes);
 		_sceneIndex = 0;
@@ -134,7 +136,7 @@ public partial class StoryPopup : Window
 			Closed.Invoke();
 			return;
 		}
-		StorySystem.MarkSeen(_state, _scenes[0].SceneId);
+		if (!_replay) StorySystem.MarkSeen(_state, _scenes[0].SceneId);
 		Render();
 		PopupCentered(Size);
 		_nextButton.GrabFocus();
@@ -155,7 +157,7 @@ public partial class StoryPopup : Window
 		{
 			_sceneIndex++;
 			_pageIndex = 0;
-			StorySystem.MarkSeen(_state, Current.SceneId);
+			if (!_replay) StorySystem.MarkSeen(_state, Current.SceneId);
 			Render();
 			return;
 		}
@@ -184,8 +186,8 @@ public partial class StoryPopup : Window
 			}
 		}
 
-		var jump = LastPage ? Current.Pages.SelectMany(p => p).FirstOrDefault(l => l.Kind == StoryLineKind.Jump) : null;
-		if (LastPage)
+		var jump = LastPage && !_replay ? Current.Pages.SelectMany(p => p).FirstOrDefault(l => l.Kind == StoryLineKind.Jump) : null;
+		if (LastPage && !_replay)
 		{
 			var guides = Current.Pages.SelectMany(p => p).Where(l => l.Kind is StoryLineKind.Guide or StoryLineKind.GuideNote).ToList();
 			if (guides.Count > 0)

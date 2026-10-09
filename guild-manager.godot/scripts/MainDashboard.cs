@@ -107,6 +107,8 @@ public partial class MainDashboard : Control
 	private StoryPopup _storyPopup = null!;
 	private GuidePopup _guidePopup = null!;
 	private Button _guideButton = null!;
+	private Button _storyRecordButton = null!;
+	private StoryRecordPopup _storyRecordPopup = null!;
 	private Button _navSystemBtn = null!;
 
 	// ---- 大迷宮（ダンジョン攻略システム：調査・討伐・採取。出撃の主画面） ----
@@ -241,6 +243,11 @@ public partial class MainDashboard : Control
 		_guideButton.Pressed += () => _guidePopup.Open(_state);
 		_squadSlotLabel.GetParent().AddChild(_guideButton);
 		_squadSlotLabel.GetParent().MoveChild(_guideButton, reportsButton.GetIndex() + 1);
+		// 物語の記録（§0.92）：見た場面を見返す。場面を1つも見ていなければ隠す
+		_storyRecordButton = new Button { Text = "📖 物語", TooltipText = "物語の記録：これまでに見た場面を、もう一度読む" };
+		_storyRecordButton.Pressed += () => _storyRecordPopup.Open(_state);
+		_squadSlotLabel.GetParent().AddChild(_storyRecordButton);
+		_squadSlotLabel.GetParent().MoveChild(_storyRecordButton, _guideButton.GetIndex() + 1);
 
 		// §0.70：月を1ターンにする。「次の月へ」（旧・自動スキップのボタン）が主な操作で、「1週進める」はデバッグ用（最終的に撤去）。
 		_autoSkipButton.Pressed += OnNextMonthPressed;
@@ -295,6 +302,10 @@ public partial class MainDashboard : Control
 		_guidePopup = new GuidePopup { Visible = false };
 		AddChild(_guidePopup);
 		_guidePopup.JumpRequested += OnStoryJump;
+		// 物語の記録（§0.92）
+		_storyRecordPopup = new StoryRecordPopup { Visible = false };
+		AddChild(_storyRecordPopup);
+		_storyRecordPopup.SceneRequested += ReplayStoryScene;
 		_tournamentPanel.HonorRecordRequested += a => _honorRecordPopup.Open(_state, a);
 		_adventurerPanel.HonorRecordRequested += a => _honorRecordPopup.Open(_state, a);
 		_adventurerPanel.RetirementCeremonyRequested += a => Callable.From(() => _retirementCeremonyPopup.ShowCeremonies(_state, new[] { a })).CallDeferred();
@@ -570,6 +581,21 @@ public partial class MainDashboard : Control
 		_storyPopup.ShowScenes(_state, due);
 	}
 
+	/// <summary>物語の記録から場面を見返す（§0.92）：記録の小窓を閉じて会話の小窓で見せ、閉じたら記録の小窓へ戻る。見たことの記録は変えない。</summary>
+	private void ReplayStoryScene(string sceneId)
+	{
+		if (_storyPopup.Visible)
+			return;
+		_storyRecordPopup.Hide();
+		void OnClosed()
+		{
+			_storyPopup.Closed -= OnClosed;
+			Callable.From(() => _storyRecordPopup.Open(_state)).CallDeferred();
+		}
+		_storyPopup.Closed += OnClosed;
+		_storyPopup.ShowScenes(_state, new[] { StorySystem.Replay(_state, sceneId) }, replay: true);
+	}
+
 	/// <summary>
 	/// 操作のあとの場面（部隊を組んだ・方針を付けたなど）：ほかの小窓が開いていない、月を進めている最中でないときだけ見る。
 	/// 画面の再描画（RefreshAll）から呼ぶ。
@@ -591,6 +617,7 @@ public partial class MainDashboard : Control
 		var groups = GuideSystem.Groups(_state);
 		int open = groups.Sum(g => g.Items.Count(i => !i.Done));
 		_guideButton.Visible = groups.Count > 0;
+		_storyRecordButton.Visible = _state.StorySeenWeeks.Count > 0;
 		_guideButton.Text = open > 0 ? $"📝 手引き（{open}）" : "📝 手引き";
 		_guideButton.Modulate = open > 0 ? new Color(1f, 0.95f, 0.6f) : Colors.White;
 		if (_guidePopup.Visible)
