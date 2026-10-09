@@ -110,6 +110,9 @@ namespace GuildManager.Core.Systems
             return Math.Pow(p, rounds);
         }
 
+        /// <summary>名前にライバルギルドの名前を添える（§0.93。「セシリア〈白百合の杖〉」。ギルドが空なら名前だけ）。</summary>
+        public static string WithGuild(string name, string guild) => guild.Length > 0 ? $"{name}〈{guild}〉" : name;
+
         /// <summary>勝てそうかの目安の言葉（本命＝4割以上／対抗＝15%以上／穴＝3%以上／厳しい）。</summary>
         public static string WinChanceLabel(double chance) =>
             chance >= 0.4 ? "本命" : chance >= 0.15 ? "対抗" : chance >= 0.03 ? "穴" : "厳しい";
@@ -403,6 +406,9 @@ namespace GuildManager.Core.Systems
             public SavedParty? Party;
             public List<Adventurer> Members = new();
             public int Placing;
+            /// <summary>ライバルギルドの子（§0.93）。名前の無い相手・自分のギルドは null。</summary>
+            public RivalMember? Rival;
+            public string Guild = "";
         }
 
         /// <summary>
@@ -443,13 +449,19 @@ namespace GuildManager.Core.Systems
                 }
             }
 
-            // 相手：名前の無い「王都の腕自慢」（段3で名前のあるライバルに置き換える）。部門の倍率は大会の部門（得意の大会は先頭の出場者の部門）。
+            // 相手：まずライバルギルドの子（§0.93。得意な部門で、強さが大会の幅に入る子）、空いた枠は名前の無い「王都の腕自慢」。
+            // 名前の無い相手の部門の倍率は大会の部門（得意の大会は先頭の出場者の部門）。
             var oppDiscipline = ev.Discipline is TournamentDiscipline.Best or TournamentDiscipline.Random
                 ? (ours.FirstOrDefault()?.Discipline ?? TournamentDiscipline.Sword)
                 : ev.Discipline;
             var (min, max) = OpponentRange(ev, oppDiscipline);
             var names = new HashSet<string>(ours.Select(o => o.Name));
             var field = new List<Competitor>();
+            foreach (var (member, guild) in RivalSystem.Entrants(state, ev, TournamentBalance.BracketSize - ours.Count))
+            {
+                names.Add(member.Name);
+                field.Add(new Competitor { Name = member.Name, Strength = RivalSystem.MatchStrength(member, ev.Year), Discipline = member.Discipline, Rival = member, Guild = guild.Name });
+            }
             while (ours.Count + field.Count < TournamentBalance.BracketSize)
             {
                 string name = NameGenerator.GenerateUniqueFirstName(_rng.NextInt(0, 1) == 0 ? NameCulture.Western : NameCulture.Eastern, names, _rng);
@@ -478,7 +490,7 @@ namespace GuildManager.Core.Systems
                     double sa = a.Strength * Luck(), sb = b.Strength * Luck();
                     double pa = Math.Pow(sa, TournamentBalance.WinExponent) / (Math.Pow(sa, TournamentBalance.WinExponent) + Math.Pow(sb, TournamentBalance.WinExponent));
                     bool aWon = Next01() < pa;
-                    result.Matches.Add(new TournamentMatch { Round = round, NameA = a.Name, NameB = b.Name, OursA = a.Ours, OursB = b.Ours, StrengthA = sa, StrengthB = sb, AWon = aWon });
+                    result.Matches.Add(new TournamentMatch { Round = round, NameA = a.Name, NameB = b.Name, GuildA = a.Guild, GuildB = b.Guild, OursA = a.Ours, OursB = b.Ours, StrengthA = sa, StrengthB = sb, AWon = aWon });
                     foreach (var c in new[] { a, b }.Where(c => c.Ours)) SpendHp(c);
                     var loser = aWon ? b : a;
                     loser.Placing = alive.Count; // 8人の1回戦で負け＝ベスト8、準決勝で負け＝ベスト4、決勝で負け＝2
@@ -490,6 +502,9 @@ namespace GuildManager.Core.Systems
             alive[0].Placing = 1;
             result.WinnerName = alive[0].Name;
             result.WinnerIsOurs = alive[0].Ours;
+            result.WinnerGuild = alive[0].Guild;
+            foreach (var c in bracket.Where(c => c!.Rival != null))
+                RivalSystem.Record(state, c!.Rival!, ev, c.Placing, state.WeekNumber);
 
             var def = TournamentBalance.Find(ev.DefinitionId);
             foreach (var c in ours)

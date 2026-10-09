@@ -98,6 +98,7 @@ namespace GuildManager.Core.Systems
             result.Flags.Week = thisWeek;
 
             bool wasCleared = state.IsGameCleared;
+            RivalSystem.ProcessWeek(state); // ライバルギルドの名簿・年の入れ替え（§0.93）
             TournamentSystem.EnsureSchedule(state); // 今年の大会の暦（§0.82。年のはじめ・新しいゲームのとき置く）
             bool hadRetiree = state.GuildRetirees.Any(); // 最初の引退者で作戦資料室・冒険者支援室が開く（§0.78。派遣の教官は数えない）
             var neededNegotiationBefore = state.Adventurers.Where(a => a.NeedsNegotiation).Select(a => a.Id).ToHashSet();
@@ -224,6 +225,7 @@ namespace GuildManager.Core.Systems
 
             // 新しい年の大会の暦（§0.82）。最初の交流戦の月のはじめには、空いている部門へ出られる子を入れておく（§0.84）。
             result.RevivedBosses.AddRange(PostGameSystem.ProcessWeek(state)); // エンディングのあと：主が蘇る・ルミナ・50年目の立ち絵（§0.90）
+            RivalSystem.ProcessWeek(state); // 来訪した週に名簿を作る・年が変わったら入れ替える（§0.93）
             TournamentSystem.EnsureSchedule(state); // 年が変わったとき・大会が開いた次の月（何度呼んでもよい）
             IsabellaSystem.AutoFillFirstExchange(state);
 

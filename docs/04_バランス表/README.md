@@ -1,3 +1,6 @@
+| `rivals.csv` | 03 §0.93 | RivalBalance（ライバルギルドの人数・年齢・全盛の強さの幅・年齢の伸び・二つ名の表。key,value 形式） |
+| `rival_guilds.csv` | 03 §0.93 | RivalBalance（ライバルギルドの一覧。**テーブル形式** `Id,Name,Specialty,Master`。Specialty＝Sword・Magic・Skill） |
+| `rival_members.csv` | 03 §0.93 | RivalBalance（名簿を作るときに必ず入る看板の子。**テーブル形式** `GuildId,Name,Discipline,Age,Peak,Epithet`。Age は名簿を作るとき〈イザベラの来訪〉の年齢） |
 # 04_バランス表（CSV版）
 
 冒険者ギルドマネージャーのバランス調整用データ。
@@ -615,3 +618,26 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
   `relic.csv` の `SellPrice*`、→ 03 §4.8）だが、**相場が動く市場システム**は未実装（→ 03 §11）。
   現時点の売却額は固定値で、需給・時期による変動は持たない。
 - **疲労（Fatigue）**：v1.1で廃止済み。旧xlsxに残っていたシートは削除した。
+
+## ライバルギルドの改訂で追加されたファイルとキー（2026年10月、→ 03 §0.93）
+
+大会と育成の栄光 段3-1。すべて仮の値。`dotnet run --project tools/balance_sim -c Release -- campaign 10 1440` で10回ともクリア、13年目〔12〜14〕（変更前13年目〔11〜14〕）。
+最初のG1優勝は剣8年目（10回中8回）・魔6年目（10回中9回）・技8年目（10回中5回）。ライバルの名簿の乱数で揺れる。
+
+**rival_guilds.csv**（新規）：白百合の杖（Magic・イザベラ）・紅蓮の牙（Sword・ヴァレリア）・銀月の弓（Skill・シルヴィア）。
+
+**rival_members.csv**（新規）：白百合の杖の看板。セシリア（Magic・21歳・全盛175・「氷華」）・ブリジット（Sword・18歳・165）・ニナ（Skill・17歳・160）。
+
+**rivals.csv**（新規）
+
+| キー | 値 | 意味 |
+|---|---|---|
+| `RosterSize`・`SpecialtyCount` | 6・3 | 1ギルドの人数と、そのうち得意な部門の人数（ほかの部門は1人ずつ、残りは抽選） |
+| `StartAgeMin`・`StartAgeMax` | 18・25 | 名簿を作るとき（イザベラの来訪）の年齢の幅 |
+| `RookieAge` | 18 | 年のはじめに入る新人の年齢（引退は aging.csv の RetirementAge＝26歳の年度末） |
+| `PeakMin`・`PeakMax` | 110・175 | 全盛（26歳）の強さの幅（大会の相手の強さと同じ尺度） |
+| `AgeCurve_18`〜`_26` | 0.30〜1.00 | 年齢ごとの強さ＝全盛×この値 |
+| `RecordMinPlacing` | 4 | ライバルの戦績に残す順位 |
+| `Epithets_Sword`・`_Magic`・`_Skill` | 6つずつ | 初めてG1を勝ったライバルに付く二つ名 |
+
+**isabella.csv**：`ExchangeOpponent_*` は、ライバルの名簿がまだ無いとき（来訪の前）の交流戦の相手の名前になった（名簿があれば白百合の杖の看板、引退後はその部門の最強の子）。

@@ -154,7 +154,7 @@ public partial class TournamentResultPopup : Window
 			var first = r.Matches.Where(m => m.Round == 1).ToList();
 			sb.Append("\n[b]組み合わせ[/b]");
 			foreach (var m in first)
-				sb.Append($"\n　{Who(m.NameA, m.OursA)}　対　{Who(m.NameB, m.OursB)}");
+				sb.Append($"\n　{Who(m.NameA, m.OursA, m.GuildA)}　対　{Who(m.NameB, m.OursB, m.GuildB)}");
 			sb.Append("\n\n[color=gray]「1回戦へ」で試合が始まる。[/color]");
 			return sb.ToString();
 		}
@@ -163,8 +163,8 @@ public partial class TournamentResultPopup : Window
 			sb.Append($"\n[b]{RoundName(round, rounds)}[/b]");
 			foreach (var m in r.Matches.Where(m => m.Round == round))
 			{
-				string winner = m.AWon ? Who(m.NameA, m.OursA) : Who(m.NameB, m.OursB);
-				string loser = m.AWon ? Who(m.NameB, m.OursB) : Who(m.NameA, m.OursA);
+				string winner = m.AWon ? Who(m.NameA, m.OursA, m.GuildA) : Who(m.NameB, m.OursB, m.GuildB);
+				string loser = m.AWon ? Who(m.NameB, m.OursB, m.GuildB) : Who(m.NameA, m.OursA, m.GuildA);
 				bool oursInvolved = m.OursA || m.OursB;
 				bool oursWon = m.AWon ? m.OursA : m.OursB;
 				string mark = !oursInvolved ? "" : oursWon ? "　[color=lime]○[/color]" : "　[color=salmon]●[/color]";
@@ -181,7 +181,7 @@ public partial class TournamentResultPopup : Window
 			}
 			else
 			{
-				sb.Append($"[b]優勝：{r.WinnerName}[/b]\n");
+				sb.Append($"[b]優勝：{TournamentSystem.WithGuild(r.WinnerName, r.WinnerGuild)}[/b]\n");
 			}
 			foreach (var p in r.Placings)
 				sb.Append($"\n{p.Name}：{TournamentSystem.PlacingLabel(p.Placing)}" + (p.Prize > 0 ? $"　賞金 {p.Prize}G" : "") + (p.Mood > 0 ? $"　マスターの機嫌 +{p.Mood}" : ""));
@@ -191,7 +191,8 @@ public partial class TournamentResultPopup : Window
 		return sb.ToString();
 	}
 
-	private static string Who(string name, bool ours) => ours ? $"[color=lime][b]{name}[/b][/color]" : name;
+	private static string Who(string name, bool ours, string guild = "") =>
+		ours ? $"[color=lime][b]{name}[/b][/color]" : guild.Length > 0 ? $"{name}[color=gray]〈{guild}〉[/color]" : name;
 
 	/// <summary>優勝したときのアルベールの一言（格で変える）。</summary>
 	private static string CheerLine(TournamentEvent ev, string winner) => ev.Grade switch

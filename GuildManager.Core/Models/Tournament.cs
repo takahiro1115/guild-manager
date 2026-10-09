@@ -122,6 +122,9 @@ namespace GuildManager.Core.Models
         public int Round { get; set; }
         public string NameA { get; set; } = "";
         public string NameB { get; set; } = "";
+        /// <summary>ライバルギルドの子ならギルドの名前（§0.93。自分のギルド・名前の無い相手は空）。</summary>
+        public string GuildA { get; set; } = "";
+        public string GuildB { get; set; } = "";
         public bool OursA { get; set; }
         public bool OursB { get; set; }
         public double StrengthA { get; set; }
@@ -133,6 +136,8 @@ namespace GuildManager.Core.Models
     public sealed class TournamentResult
     {
         public string WinnerName { get; set; } = "";
+        /// <summary>優勝者がライバルギルドの子ならギルドの名前（§0.93）。</summary>
+        public string WinnerGuild { get; set; } = "";
         public bool WinnerIsOurs { get; set; }
         public List<TournamentMatch> Matches { get; set; } = new();
         /// <summary>ギルドの出場者の順位（名前・順位：1＝優勝、2＝準優勝、4＝ベスト4、8＝ベスト8）。</summary>
@@ -163,6 +168,35 @@ namespace GuildManager.Core.Models
         public TournamentGrade Grade { get; set; }
         public TournamentDiscipline Discipline { get; set; }
         public int Placing { get; set; }
+    }
+
+    /// <summary>ライバルギルド（2026年10月・§0.93、大会と育成の栄光 段3-1、→ Systems.RivalSystem）。</summary>
+    public sealed class RivalGuild
+    {
+        /// <summary>rival_guilds.csv の Id。</summary>
+        public string Id { get; set; } = "";
+        public string Name { get; set; } = "";
+        public List<RivalMember> Members { get; set; } = new();
+    }
+
+    /// <summary>ライバルギルドの冒険者1人。強さは全盛（Peak）×年齢の伸び（→ RivalSystem.Power）。</summary>
+    public sealed class RivalMember
+    {
+        public Guid Id { get; set; } = Guid.NewGuid();
+        public string Name { get; set; } = "";
+        /// <summary>二つ名（無ければ空）。看板の子は初めから、ほかは初めてG1を勝ったときに付く。</summary>
+        public string Epithet { get; set; } = "";
+        public int Age { get; set; }
+        /// <summary>全盛（26歳）の強さ。大会の相手の強さと同じ尺度。</summary>
+        public double Peak { get; set; }
+        /// <summary>得意な部門（大会はこの部門に出る）。</summary>
+        public TournamentDiscipline Discipline { get; set; }
+        /// <summary>ギルドに入った年（名簿を作ったときにいた子は、その年）。</summary>
+        public int JoinedYear { get; set; }
+        /// <summary>引退した年（現役は0）。</summary>
+        public int RetiredYear { get; set; }
+        /// <summary>大会の記録（ベスト4以上。順位表〈段3-2〉で使う）。</summary>
+        public List<TournamentRecord> Records { get; set; } = new();
     }
 
     /// <summary>施設が開いたときの知らせ（演出の型と台詞つき）。</summary>

@@ -898,7 +898,7 @@ public partial class MainDashboard : Control
 			AppendLog($"[color=gold][b]🏗 {FacilityUnlockSystem.DescribeUnlock(notice)}。[/b][/color] {notice.Line}" +
 				(notice.Level == FacilityBalance.SpecialtyFromLevel + 1 && FacilityUnlockSystem.TrainingFacilities.Contains(notice.Facility) ? "[color=gray]（Lv3→4の改築で専門を選ぶ）[/color]" : ""));
 		foreach (var ev in settlement.TournamentsResolved) // 大会の結果（§0.82）
-			AppendLog($"[color=khaki][b]🏆 {ev.Name}（{TournamentSystem.GradeLabel(ev.Grade)}）[/b]：優勝 {ev.Result?.WinnerName}" +
+			AppendLog($"[color=khaki][b]🏆 {ev.Name}（{TournamentSystem.GradeLabel(ev.Grade)}）[/b]：優勝 {(ev.Result == null ? "" : TournamentSystem.WithGuild(ev.Result.WinnerName, ev.Result.WinnerGuild))}" +
 				string.Concat(ev.Result?.Placings.Select(p => $"／{p.Name} {TournamentSystem.PlacingLabel(p.Placing)}{(p.Prize > 0 ? $"（賞金 {p.Prize}G）" : "")}") ?? Enumerable.Empty<string>()) + "[/color]");
 		foreach (var ev in settlement.TournamentInvitations)
 			AppendLog($"[color=khaki][b]✉ 招待が届いた：{ev.Name}[/b]（{GameCalendar.Format(GameCalendar.WeekNumberOf(ev.Year, ev.Month, ev.Week))}）[/color]");

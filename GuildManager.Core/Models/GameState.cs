@@ -300,6 +300,20 @@ namespace GuildManager.Core.Models
         /// <summary>もう出した招待の鍵（"lord:フィールドId"・"royal:年"・"margrave"）。同じ招待を二度出さない。</summary>
         public HashSet<string> TournamentInviteKeys { get; set; } = new();
 
+        // ---- ライバルギルド（2026年10月・§0.93、→ Systems.RivalSystem） ----
+
+        /// <summary>王都のライバルギルド（イザベラの来訪で作る。まだなら空）。</summary>
+        public List<RivalGuild> RivalGuilds { get; set; } = new();
+
+        /// <summary>引退したライバルの冒険者（ギルドの Id は RivalGuildIdOf で引く）。</summary>
+        public List<RivalMember> RetiredRivals { get; set; } = new();
+
+        /// <summary>引退したライバルの、元のギルドの Id（RivalMember.Id → rival_guilds.csv の Id）。</summary>
+        public Dictionary<Guid, string> RetiredRivalGuilds { get; set; } = new();
+
+        /// <summary>ライバルの年の入れ替え（年を取る・引退・新人）を済ませた年。0＝名簿がまだ無い。</summary>
+        public int RivalYear { get; set; }
+
         // ---- イザベラの来訪と交流戦（2026年10月・§0.84、→ Systems.IsabellaSystem） ----
 
         /// <summary>イザベラが来訪した週（森の40Fのボスを初めて倒した週）。まだなら null（大会も依頼も無い）。</summary>
@@ -434,6 +448,10 @@ namespace GuildManager.Core.Models
                 NextUpgradeHalfPrice = NextUpgradeHalfPrice,
                 StoryRulesVersion = 1,
                 IsabellaVisitWeek = IsabellaVisitWeek,
+                RivalGuilds = RivalGuilds,
+                RetiredRivals = RetiredRivals,
+                RetiredRivalGuilds = RetiredRivalGuilds.ToDictionary(kv => kv.Key.ToString(), kv => kv.Value),
+                RivalYear = RivalYear,
                 ExchangeAnchor = ExchangeAnchor.ToDictionary(kv => kv.Key.ToString(), kv => kv.Value),
                 ExchangeMatchesPlayed = ExchangeMatchesPlayed,
                 ExchangeWins = ExchangeWins,
@@ -569,6 +587,12 @@ namespace GuildManager.Core.Models
                 NextUpgradeHalfPrice = data.NextUpgradeHalfPrice,
                 // イザベラの来訪と交流戦（§0.84）。§0.84より前のセーブ（StoryRulesVersion 0）は下で「来訪済み・大会と依頼は開いている」に補う。
                 IsabellaVisitWeek = data.IsabellaVisitWeek,
+                // ライバルギルド（§0.93）。§0.93より前のセーブは空のまま読み、来訪済みなら次の週に名簿を作る（RivalSystem.ProcessWeek）
+                RivalGuilds = (data.RivalGuilds ?? new List<RivalGuild>()).Where(g => g != null).ToList(),
+                RetiredRivals = (data.RetiredRivals ?? new List<RivalMember>()).Where(m => m != null).ToList(),
+                RetiredRivalGuilds = (data.RetiredRivalGuilds ?? new Dictionary<string, string>())
+                    .Where(kv => Guid.TryParse(kv.Key, out _)).ToDictionary(kv => Guid.Parse(kv.Key), kv => kv.Value),
+                RivalYear = data.RivalYear,
                 ExchangeAnchor = (data.ExchangeAnchor ?? new Dictionary<string, double>())
                     .Where(kv => Enum.TryParse<TournamentDiscipline>(kv.Key, out _))
                     .ToDictionary(kv => Enum.Parse<TournamentDiscipline>(kv.Key), kv => kv.Value),

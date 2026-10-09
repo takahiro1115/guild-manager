@@ -26,6 +26,7 @@ public partial class TournamentPanel : HBoxContainer
 	private VBoxContainer _eventList = null!;
 	private RichTextLabel _calendarLabel = null!;
 	private RichTextLabel _historyLabel = null!;
+	private RichTextLabel _rivalLabel = null!;
 	private VBoxContainer _hallBox = null!;
 
 	/// <summary>お知らせへの追記を依頼する（BBCode文字列）。</summary>
@@ -79,6 +80,9 @@ public partial class TournamentPanel : HBoxContainer
 		_historyLabel = NewText();
 		rightBox.AddChild(_calendarLabel);
 		rightBox.AddChild(_historyLabel);
+		// 王都のギルド（§0.93、段3-1）：ライバルギルドの名簿
+		_rivalLabel = NewText();
+		rightBox.AddChild(_rivalLabel);
 		// 殿堂（大会と育成の栄光 段2）：歴代を顔・二つ名・主な勝ち鞍で並べ、押すと戦績の頁を開く
 		_hallBox = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
 		_hallBox.AddThemeConstantOverride("separation", 6);
@@ -105,6 +109,8 @@ public partial class TournamentPanel : HBoxContainer
 		RefreshEvents();
 		_calendarLabel.Text = BuildCalendar();
 		_historyLabel.Text = BuildHistory();
+		_rivalLabel.Text = BuildRivals();
+		_rivalLabel.Visible = _rivalLabel.Text.Length > 0;
 		RefreshHall();
 	}
 
@@ -256,7 +262,7 @@ public partial class TournamentPanel : HBoxContainer
 			var label = NewText();
 			label.CustomMinimumSize = new Vector2(260, 0);
 			label.SizeFlagsHorizontal = SizeFlags.Fill;
-			label.Text = $"[b]{TournamentSystem.DisciplineLabel(d)}[/b]　相手：{IsabellaBalance.Opponent(d)}（強さ {opp:0}）";
+			label.Text = $"[b]{TournamentSystem.DisciplineLabel(d)}[/b]　相手：{IsabellaSystem.OpponentName(_state, d)}（強さ {opp:0}）";
 			row.AddChild(label);
 
 			var picker = new OptionButton { SizeFlagsHorizontal = SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 32), Disabled = !canChange };
@@ -541,7 +547,7 @@ public partial class TournamentPanel : HBoxContainer
 	{
 		var r = ev.Result!;
 		var sb = new StringBuilder();
-		sb.Append(r.WinnerIsOurs ? $"[color=gold][b]🏆 優勝：{r.WinnerName}！[/b][/color]" : $"優勝：{r.WinnerName}");
+		sb.Append(r.WinnerIsOurs ? $"[color=gold][b]🏆 優勝：{r.WinnerName}！[/b][/color]" : $"優勝：{TournamentSystem.WithGuild(r.WinnerName, r.WinnerGuild)}");
 		foreach (var p in r.Placings.Where(p => !(p.Placing == 1 && r.WinnerIsOurs && p.Name == r.WinnerName)))
 			sb.Append($"\n{p.Name}：{TournamentSystem.PlacingLabel(p.Placing)}{(p.Prize > 0 ? $"（賞金 {p.Prize}G）" : "")}");
 		return sb.ToString();
@@ -576,6 +582,25 @@ public partial class TournamentPanel : HBoxContainer
 		return sb.ToString();
 	}
 
+	/// <summary>王都のギルド（§0.93）：ライバルギルドごとに、強い順の名簿（二つ名・年齢・得意な部門・強さの目安・G1の勝ち数）。名簿が無ければ空。</summary>
+	private string BuildRivals()
+	{
+		if (_state.RivalGuilds.Count == 0)
+			return "";
+		var sb = new StringBuilder("[b]⚔ 王都のギルド[/b]");
+		foreach (var guild in _state.RivalGuilds)
+		{
+			var def = RivalBalance.Guilds.FirstOrDefault(d => d.Id == guild.Id);
+			sb.Append($"\n[color=khaki]{guild.Name}[/color]" + (def == null ? "" : $"[color=gray]（{TournamentSystem.DisciplineLabel(def.Specialty)}が得意・マスター {def.Master}）[/color]"));
+			foreach (var m in guild.Members.OrderByDescending(RivalSystem.Power))
+			{
+				int g1 = m.Records.Count(r => r.Placing == 1 && r.Grade == TournamentGrade.G1);
+				sb.Append($"\n　{RivalSystem.DisplayName(m)}　{m.Age}歳　{TournamentSystem.DisciplineLabel(m.Discipline)}　{RivalSystem.PowerLabel(m)}" + (g1 > 0 ? $"　[color=gold]G1 {g1}勝[/color]" : ""));
+			}
+		}
+		return sb.ToString();
+	}
+
 	private string BuildHistory()
 	{
 		var sb = new StringBuilder();
@@ -587,7 +612,7 @@ public partial class TournamentPanel : HBoxContainer
 			sb.Append("\n[color=gray]まだG1は行われていない。[/color]");
 		foreach (var ev in g1)
 		{
-			string winner = ev.Result!.WinnerIsOurs ? $"[color=gold]{ev.Result.WinnerName}（当ギルド）[/color]" : ev.Result.WinnerName;
+			string winner = ev.Result!.WinnerIsOurs ? $"[color=gold]{ev.Result.WinnerName}（当ギルド）[/color]" : TournamentSystem.WithGuild(ev.Result.WinnerName, ev.Result.WinnerGuild);
 			sb.Append($"\n{ev.Year}年目 {ev.Name}：{winner}");
 		}
 		return sb.ToString();

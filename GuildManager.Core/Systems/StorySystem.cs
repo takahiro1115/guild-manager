@@ -380,12 +380,10 @@ namespace GuildManager.Core.Systems
             if (scene.Variants)
             {
                 // 台詞の行のうち1つだけ（見た回数の順に回す）。それ以外の行（手引きなど）はそのまま。
-                var speeches = pages.SelectMany(p => p).Where(l => l.Kind == StoryLineKind.Speech).ToList();
-                if (speeches.Count > 0)
-                {
-                    var pick = speeches[state.StoryCounters.GetValueOrDefault(SeenCountKey(sceneId)) % speeches.Count];
-                    pages = new List<List<StoryLine>> { pages.SelectMany(p => p).Where(l => l.Kind != StoryLineKind.Speech || ReferenceEquals(l, pick)).ToList() };
-                }
+                // 引退したライバルの子（白百合の杖の看板など）の行は出さない（§0.93）
+                var speeches = pages.SelectMany(p => p).Where(l => l.Kind == StoryLineKind.Speech && !RivalSystem.IsRetiredRival(state, l.Speaker)).ToList();
+                var pick = speeches.Count > 0 ? speeches[state.StoryCounters.GetValueOrDefault(SeenCountKey(sceneId)) % speeches.Count] : null;
+                pages = new List<List<StoryLine>> { pages.SelectMany(p => p).Where(l => l.Kind != StoryLineKind.Speech || ReferenceEquals(l, pick)).ToList() };
             }
             return new StoryShowing { SceneId = sceneId, Pages = pages };
         }

@@ -130,6 +130,10 @@ namespace GuildManager.Core.Systems
                 * (1 + IsabellaBalance.ExchangeGrowthPerYear * years);
         }
 
+        /// <summary>交流戦の部門の相手の名前：白百合の杖のその部門でいちばん強い現役の子（§0.93）。名簿がまだ無ければ看板の名前。</summary>
+        public static string OpponentName(GameState state, TournamentDiscipline d) =>
+            RivalSystem.WhiteLilyAce(state, d)?.Name ?? IsabellaBalance.Opponent(d);
+
         /// <summary>1試合の勝率の目安（運を除く。大会と同じ式）。</summary>
         public static double BoutWinChance(double ours, double opponent)
         {
@@ -270,7 +274,7 @@ namespace GuildManager.Core.Systems
             foreach (var d in ExchangeDisciplines)
             {
                 double opp = OpponentStrength(state, d);
-                var bout = new ExchangeBout { Discipline = d, OpponentName = IsabellaBalance.Opponent(d), OpponentStrength = opp };
+                var bout = new ExchangeBout { Discipline = d, OpponentName = OpponentName(state, d), OpponentStrength = opp };
                 var entry = SlotEntry(state, ev, d);
                 var a = entry?.AdventurerId is Guid id ? state.Adventurers.FirstOrDefault(x => x.Id == id && !x.IsRetired && x.Injury != InjurySeverity.Severe) : null;
                 if (a == null)

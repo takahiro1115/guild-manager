@@ -272,6 +272,11 @@ namespace GuildManager.Core.Models
         /// <summary>§0.84の決まり（大会はイザベラの来訪から・依頼は初めての入賞から）で書いたセーブなら1。キーを持たない旧セーブは0。</summary>
         public int StoryRulesVersion { get; set; }
         public int? IsabellaVisitWeek { get; set; }
+        // ---- ライバルギルド（§0.93、→ GameState の同名の項目） ----
+        public List<RivalGuild>? RivalGuilds { get; set; } = new();
+        public List<RivalMember>? RetiredRivals { get; set; } = new();
+        public Dictionary<string, string>? RetiredRivalGuilds { get; set; } = new();
+        public int RivalYear { get; set; }
         public Dictionary<string, double>? ExchangeAnchor { get; set; } = new();
         public int ExchangeMatchesPlayed { get; set; }
         public int ExchangeWins { get; set; }

@@ -6,7 +6,7 @@ ExchangeFactor_Magic,1.18,倍,同・魔（セシリア。白百合の杖は魔�
 ExchangeFactor_Skill,1.08,倍,同・技（ニナ）
 ExchangeGrowthPerMatch,0.04,倍,交流戦を1回行うごとに、相手の強さが上がる割合（勝敗にかかわらず）
 ExchangeGrowthPerYear,0.05,倍,来訪から1年ごとに、相手の強さが上がる割合（白百合の杖も年ごとに育つ。週で按分）
-ExchangeOpponent_Sword,ブリジット,名,交流戦の剣の相手
+ExchangeOpponent_Sword,ブリジット,名,"交流戦の剣の相手（§0.93からは、ライバルの名簿がまだ無いときの名前。名簿があれば白百合の杖の看板、引退後はその部門の最強の子）"
 ExchangeOpponent_Magic,セシリア,名,交流戦の魔の相手
 ExchangeOpponent_Skill,ニナ,名,交流戦の技の相手
 ExchangeWeekOfMonth,4,週,交流戦を行う月の中の週（申し込んだ月の、この週の決算で行う）
