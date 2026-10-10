@@ -40,6 +40,9 @@ namespace GuildManager.Core.Tests
             Assert.Equal("portraits/lumina.png", StoryImageBalance.PortraitFile("ルミナ"));
             Assert.Equal("portraits/lumina.png", StoryImageBalance.PortraitFile("少女"));
             Assert.Equal("portraits/lumina.png", StoryImageBalance.PortraitFile("ルミナ", "まだ無い表情"));
+            Assert.Equal("portraits/albert_angry.png", StoryImageBalance.PortraitFile("アルベール", "怒り"));
+            Assert.Equal("portraits/isabella_blush.png", StoryImageBalance.PortraitFile("イザベラ", "照れ"));
+            Assert.Equal("portraits/isabella.png", StoryImageBalance.PortraitFile("イザベラ", "怒り"));
             Assert.Null(StoryImageBalance.PortraitFile("報告"));
         }
 
@@ -92,7 +95,7 @@ namespace GuildManager.Core.Tests
         {
             var showing = Showing("〔背景：森の祠〕", "報告「見つけた」", "▼", "〔背景：医務室〕", "少女「ここは……？」", "▼", "アルベール「よかった」");
             Assert.Equal("森の祠", StorySystem.StageOf(showing, 0).Background);
-            Assert.Equal("bg/forest_shrine.png", StorySystem.StageOf(showing, 0).BackgroundFile);
+            Assert.Equal("bg/forest_shrine.jpg", StorySystem.StageOf(showing, 0).BackgroundFile);
             Assert.Equal("医務室", StorySystem.StageOf(showing, 1).Background);
             Assert.Equal("医務室", StorySystem.StageOf(showing, 2).Background);
 
