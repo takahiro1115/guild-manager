@@ -87,7 +87,10 @@ public partial class MainDashboard : Control
 		Shop = 6,
 
 		/// <summary>大会（§0.82。タブはコードで末尾に足す。ナビ行では大迷宮の右に置く）。</summary>
-		Tournament = 7
+		Tournament = 7,
+
+		/// <summary>ギルドのホール（§0.95。タブはコードで末尾に足す。ナビ行では大迷宮の左に置く）。</summary>
+		Hall = 8
 	}
 
 	private TabContainer _centerPanel = null!;
@@ -100,6 +103,8 @@ public partial class MainDashboard : Control
 	private ShopPanel _shopPanel = null!;
 	private Button _navTournamentBtn = null!;
 	private TournamentPanel _tournamentPanel = null!;
+	private GuildHallPanel _hallPanel = null!;
+	private Button _navHallBtn = null!;
 	private TournamentSystem _tournamentSystem = null!;
 	private TournamentResultPopup _tournamentResultPopup = null!;
 	private HonorRecordPopup _honorRecordPopup = null!;
@@ -166,6 +171,11 @@ public partial class MainDashboard : Control
 		_navTournamentBtn = new Button { Text = "🏆 大会", ToggleMode = true, CustomMinimumSize = new Vector2(110, 36) };
 		_navDungeonBtn.AddSibling(_navTournamentBtn);
 		_navTournamentBtn.Pressed += () => SwitchView(DashboardView.Tournament);
+		// ギルドのホール（§0.95）：ナビ行では大迷宮の左
+		_navHallBtn = new Button { Text = "🏠 ホール", ToggleMode = true, CustomMinimumSize = new Vector2(110, 36) };
+		_navDungeonBtn.GetParent().AddChild(_navHallBtn);
+		_navDungeonBtn.GetParent().MoveChild(_navHallBtn, _navDungeonBtn.GetIndex());
+		_navHallBtn.Pressed += () => SwitchView(DashboardView.Hall);
 		_navDungeonBtn.Pressed += () => SwitchView(DashboardView.Dungeon);
 		_navPartyBtn.Pressed += () => SwitchView(DashboardView.Party);
 		_navResearchBtn.Pressed += () => SwitchView(DashboardView.Research);
@@ -287,6 +297,10 @@ public partial class MainDashboard : Control
 		_tournamentPanel.LogRequested += AppendLog;
 		_tournamentPanel.StateChanged += RefreshAll;
 		_centerPanel.AddChild(_tournamentPanel);
+		// ギルドのホール（§0.95）：タブはコードで末尾に足す（番号＝DashboardView.Hall）
+		_hallPanel = new GuildHallPanel();
+		_hallPanel.AreaPressed += OnHallAreaPressed;
+		_centerPanel.AddChild(_hallPanel);
 		_tournamentResultPopup = new TournamentResultPopup { Visible = false };
 		AddChild(_tournamentResultPopup);
 		// 戦績の頁と引退式（大会と育成の栄光 段2）
@@ -641,6 +655,20 @@ public partial class MainDashboard : Control
 	}
 
 	/// <summary>会話の小窓の【画面へ】：ボタンの文言から画面を選んで切り替える（小窓はそのまま）。</summary>
+	/// <summary>ギルドのホール（§0.95）で押した場所の画面へ移る。テーブルは大迷宮（部隊の方針）、依頼の掲示板は依頼の小窓、施設の扉・家具は施設管理。</summary>
+	private void OnHallAreaPressed(HallTarget target, int squadNo)
+	{
+		switch (target)
+		{
+			case HallTarget.Commission: OpenCommissionPopup(); return;
+			case HallTarget.Squad or HallTarget.Dungeon: SwitchView(DashboardView.Dungeon); return;
+			case HallTarget.Research: SwitchView(DashboardView.Research); return;
+			case HallTarget.Shop: SwitchView(DashboardView.Shop); return;
+			case HallTarget.Dorm: SwitchView(DashboardView.Party); return;
+			default: SwitchView(DashboardView.Facility); return; // 作戦資料室・医務室・訓練所・冒険者支援室・酒場・帳簿
+		}
+	}
+
 	private void OnStoryJump(string label)
 	{
 		DashboardView? view = label switch
@@ -1808,6 +1836,7 @@ public partial class MainDashboard : Control
 			(DashboardView.Facility, _navFacilityBtn),
 			(DashboardView.Warehouse, _navWarehouseBtn),
 			(DashboardView.Shop, _navShopBtn),
+			(DashboardView.Hall, _navHallBtn),
 			(DashboardView.Tournament, _navTournamentBtn),
 			(DashboardView.System, _navSystemBtn)
 		};
@@ -1886,6 +1915,7 @@ public partial class MainDashboard : Control
 		_shopPanel.Refresh(_state);
 		_tournamentPanel.Refresh(_state);
 		_tournamentPanel.Refresh(_state);
+		_hallPanel.Refresh(_state);
 
 		UpdateButtonHighlights((DashboardView)_centerPanel.CurrentTab);
 		RefreshGuideAndTabs();

@@ -1,3 +1,4 @@
+| `hall.csv` | 03 §0.95 | HallBalance（ギルドのホールの押せる場所と椅子。**テーブル形式** `Id,Kind,Target,Label,X,Y,W,H,Squad,Seat`。Kind＝`area`〈押せる範囲〉・`seat`〈椅子の顔の中心、W は直径〉。X・Y・W・H は絵の幅・高さに対する割合。Target＝squad・dungeon・commission・warroom・research・infirmary・training・support・tavern・shop・dorm・ledger。絵を差し替えたら位置だけ合わせる） |
 | `rivals.csv` | 03 §0.93・§0.94 | RivalBalance（ライバルギルドの人数・年齢・全盛の強さの幅・年齢の伸び・二つ名の表、年末のギルドの順位表の栄誉点とご褒美。key,value 形式） |
 | `rival_guilds.csv` | 03 §0.93 | RivalBalance（ライバルギルドの一覧。**テーブル形式** `Id,Name,Specialty,Master`。Specialty＝Sword・Magic・Skill） |
 | `rival_members.csv` | 03 §0.93 | RivalBalance（名簿を作るときに必ず入る看板の子。**テーブル形式** `GuildId,Name,Discipline,Age,Peak,Epithet`。Age は名簿を作るとき〈イザベラの来訪〉の年齢） |

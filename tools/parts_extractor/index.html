@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>立ち絵パーツ自動分割ツール (WebUI)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+JP:wght@400;500;600&display=swap">
+  <style>
+    :root {
+      --bg: #14171d;
+      --surface: #1a1e26;
+      --panel: #20252f;
+      --ink: #e6e9ef;
+      --muted: #9aa3b5;
+      --line: #313846;
+      --accent: #7ea2ff;
+      --accent-ink: #0f1420;
+      --accent-soft: #263253;
+      --success: #2f9e5a;
+      --warn: #e79a5c;
+      --danger: #ef4444;
+      --check-a: #2a2f39;
+      --check-b: #222730;
+      --radius: 8px;
+      --font: "IBM Plex Sans JP", "Hiragino Sans", "Yu Gothic UI", system-ui, sans-serif;
+      --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--ink);
+      font-family: var(--font);
+      font-size: 14px;
+      line-height: 1.6;
+      padding: 24px 20px 60px;
+    }
+    .wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      gap: 20px;
+    }
+    header.top {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 16px;
+    }
+    header.top h1 {
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+    header.top p {
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .eyebrow {
+      font-size: 11px;
+      font-family: var(--mono);
+      text-transform: uppercase;
+      color: var(--accent);
+      letter-spacing: 0.12em;
+    }
+
+    /* ドロップゾーン */
+    .drop-zone {
+      border: 2px dashed var(--line);
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 40px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: grid;
+      place-items: center;
+      gap: 12px;
+    }
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+    .drop-zone .icon {
+      font-size: 40px;
+      line-height: 1;
+    }
+    .drop-zone .title {
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .drop-zone .sub {
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .drop-zone .btn-select {
+      display: inline-block;
+      padding: 6px 16px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--ink);
+      margin-top: 4px;
+    }
+
+    /* オプション */
+    .options-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px 24px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 12px 16px;
+      align-items: center;
+      font-size: 13px;
+    }
+    .options-bar label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      color: var(--ink);
+    }
+    .options-bar .opt-desc {
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    /* 進行中・ステータス */
+    .status-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 16px;
+      display: grid;
+      gap: 8px;
+    }
+    .status-card.processing {
+      border-color: var(--accent);
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { border-color: var(--line); }
+      50% { border-color: var(--accent); }
+    }
+    .status-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .status-badge {
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+    .status-badge.success { background: #133a23; color: #52c481; }
+    .status-badge.error { background: #441717; color: #ff7d7d; }
+    pre.log-box {
+      font-family: var(--mono);
+      font-size: 11px;
+      line-height: 1.45;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 10px;
+      max-height: 140px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+      color: var(--muted);
+    }
+
+    /* プレビューグリッド */
+    .results-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+    }
+    .card-part {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .card-part-header {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+    .card-part-header h3 {
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .card-part-header span {
+      font-size: 11px;
+      color: var(--muted);
+      font-family: var(--mono);
+    }
+    .card-part-desc {
+      padding: 6px 12px;
+      font-size: 11px;
+      color: var(--muted);
+      background: var(--surface);
+      border-bottom: 1px solid var(--line);
+    }
+    .card-part-body {
+      padding: 12px;
+      display: grid;
+      place-items: center;
+      background: repeating-conic-gradient(var(--check-a) 0 25%, var(--check-b) 0 50%) 0 0 / 16px 16px;
+      flex: 1;
+    }
+    .card-part-body img {
+      max-width: 100%;
+      height: auto;
+      max-height: 380px;
+      object-fit: contain;
+      border-radius: 4px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+    .card-part-footer {
+      padding: 10px 12px;
+      border-top: 1px solid var(--line);
+      display: flex;
+      gap: 8px;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      border-radius: 4px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--ink);
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .btn:hover { border-color: var(--accent); color: var(--accent); }
+    .btn.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--accent-ink);
+    }
+    .btn.primary:hover { opacity: 0.9; }
+    .action-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 14px 18px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="eyebrow">Guild Manager · Portrait Tool</div>
+      <h1>立ち絵パーツ自動分割ツール (WebUI)</h1>
+    </div>
+    <p>1536×2048 px（マゼンタ背景）の立ち絵をドラッグ＆ドロップするだけで「素体」「前髪」「目元」に自動分割・透過出力します。</p>
+  </header>
+
+  <!-- ドロップゾーン -->
+  <div class="drop-zone" id="dropZone">
+    <div class="icon">📥</div>
+    <div class="title">ここに立ち絵画像をドラッグ＆ドロップ</div>
+    <div class="sub">1536 × 2048 px の PNG / JPG 画像に対応（マゼンタ #FF00FF 背景）</div>
+    <span class="btn-select">ファイルを選択</span>
+    <input type="file" id="fileInput" accept="image/png,image/jpeg" style="display:none">
+  </div>
+
+  <!-- オプション設定 -->
+  <div class="options-bar">
+    <label>
+      <input type="checkbox" id="optEraseEyes">
+      body_base の目元も肌色で塗りつぶす（表情差分用）
+    </label>
+    <label>
+      マゼンタ除去強度:
+      <input type="range" id="optDespill" min="0" max="1" step="0.1" value="1.0" style="width:80px">
+      <span id="despillVal" style="font-family:var(--mono);font-size:11px">1.0</span>
+    </label>
+  </div>
+
+  <!-- 進行状況・ログ -->
+  <div class="status-card" id="statusCard" style="display:none">
+    <div class="status-head">
+      <div style="font-weight:600" id="statusText">処理中...</div>
+      <div class="status-badge" id="statusBadge">RUNNING</div>
+    </div>
+    <pre class="log-box" id="logBox"></pre>
+  </div>
+
+  <!-- ダウンロード & 結果バー -->
+  <div class="action-bar" id="actionBar" style="display:none">
+    <div>
+      <div style="font-weight:600" id="resultTitle">分割完了</div>
+      <div style="font-size:12px;color:var(--muted)" id="resultSub">全パーツが 1536×2048 px で完全一致しています</div>
+    </div>
+    <a href="#" class="btn primary" id="btnDownloadZip" download="portrait_parts.zip">
+      📦 3パーツ一括ダウンロード (ZIP)
+    </a>
+  </div>
+
+  <!-- プレビュー表示 -->
+  <div class="results-grid" id="resultsGrid" style="display:none">
+    <!-- body_base -->
+    <div class="card-part">
+      <div class="card-part-header">
+        <h3>body_base.png</h3>
+        <span>1536×2048</span>
+      </div>
+      <div class="card-part-desc">輪郭素体。前髪で隠れていた額・生え際を肌色で滑らかにインペイント補完。</div>
+      <div class="card-part-body">
+        <img id="imgBodyBase" alt="body_base">
+      </div>
+      <div class="card-part-footer">
+        <a href="#" class="btn" id="dlBodyBase" download="body_base.png">単体保存</a>
+      </div>
+    </div>
+
+    <!-- eyes -->
+    <div class="card-part">
+      <div class="card-part-header">
+        <h3>eyes.png</h3>
+        <span>1536×2048</span>
+      </div>
+      <div class="card-part-desc">目元・眉・瞳（ハイライト含む）のみをマスク抽出。周囲の肌は完全透明。</div>
+      <div class="card-part-body">
+        <img id="imgEyes" alt="eyes">
+      </div>
+      <div class="card-part-footer">
+        <a href="#" class="btn" id="dlEyes" download="eyes.png">単体保存</a>
+      </div>
+    </div>
+
+    <!-- hair_front -->
+    <div class="card-part">
+      <div class="card-part-header">
+        <h3>hair_front.png</h3>
+        <span>1536×2048</span>
+      </div>
+      <div class="card-part-desc">頭頂部から額・目の高さまでの前髪束。顔・首・衣装は完全透明。</div>
+      <div class="card-part-body">
+        <img id="imgHairFront" alt="hair_front">
+      </div>
+      <div class="card-part-footer">
+        <a href="#" class="btn" id="dlHairFront" download="hair_front.png">単体保存</a>
+      </div>
+    </div>
+
+    <!-- composite_test -->
+    <div class="card-part">
+      <div class="card-part-header">
+        <h3>composite_test.png</h3>
+        <span>1536×2048</span>
+      </div>
+      <div class="card-part-desc">上記3枚を重ね直した再合成テスト画像。破綻なく一致することを目視確認可能。</div>
+      <div class="card-part-body">
+        <img id="imgComposite" alt="composite_test">
+      </div>
+      <div class="card-part-footer">
+        <a href="#" class="btn" id="dlComposite" download="composite_test.png">単体保存</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const dropZone = document.getElementById('dropZone');
+  const fileInput = document.getElementById('fileInput');
+  const optEraseEyes = document.getElementById('optEraseEyes');
+  const optDespill = document.getElementById('optDespill');
+  const despillVal = document.getElementById('despillVal');
+  const statusCard = document.getElementById('statusCard');
+  const statusText = document.getElementById('statusText');
+  const statusBadge = document.getElementById('statusBadge');
+  const logBox = document.getElementById('logBox');
+  const actionBar = document.getElementById('actionBar');
+  const btnDownloadZip = document.getElementById('btnDownloadZip');
+  const resultsGrid = document.getElementById('resultsGrid');
+
+  optDespill.addEventListener('input', () => {
+    despillVal.textContent = optDespill.value;
+  });
+
+  dropZone.addEventListener('click', () => fileInput.click());
+
+  dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+  });
+
+  dropZone.addEventListener('dragleave', () => {
+    dropZone.classList.remove('dragover');
+  });
+
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFile(e.dataTransfer.files[0]);
+    }
+  });
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files && fileInput.files.length > 0) {
+      handleFile(fileInput.files[0]);
+    }
+  });
+
+  async function handleFile(file) {
+    if (!file.type.startsWith('image/')) {
+      alert('画像ファイル (PNG / JPEG) を指定してください。');
+      return;
+    }
+
+    // UI初期化
+    statusCard.style.display = 'grid';
+    statusCard.className = 'status-card processing';
+    statusText.textContent = `「${file.name}」を分割処理中...`;
+    statusBadge.textContent = 'RUNNING';
+    statusBadge.className = 'status-badge';
+    logBox.textContent = 'サーバーへ送信中...\n';
+    actionBar.style.display = 'none';
+    resultsGrid.style.display = 'none';
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('erase_eyes', optEraseEyes.checked ? 'true' : 'false');
+    formData.append('despill', optDespill.value);
+
+    try {
+      const resp = await fetch('/api/process', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await resp.json();
+
+      if (!resp.ok || data.error) {
+        statusCard.className = 'status-card';
+        statusText.textContent = 'エラーが発生しました';
+        statusBadge.textContent = 'ERROR';
+        statusBadge.className = 'status-badge error';
+        logBox.textContent = (data.error || '') + '\n' + (data.stdout || '');
+        return;
+      }
+
+      // 成功
+      statusCard.className = 'status-card';
+      statusText.textContent = `「${file.name}」の分割が完了しました`;
+      statusBadge.textContent = 'SUCCESS';
+      statusBadge.className = 'status-badge success';
+      logBox.textContent = data.stdout || '完了しました。';
+
+      // プレビューとダウンロード設定
+      if (data.parts) {
+        setPart('imgBodyBase', 'dlBodyBase', data.parts.body_base);
+        setPart('imgEyes', 'dlEyes', data.parts.eyes);
+        setPart('imgHairFront', 'dlHairFront', data.parts.hair_front);
+        setPart('imgComposite', 'dlComposite', data.parts.composite_test);
+      }
+
+      if (data.zip) {
+        btnDownloadZip.href = data.zip;
+        const stem = file.name.replace(/\.[^/.]+$/, "");
+        btnDownloadZip.download = `${stem}_parts.zip`;
+      }
+
+      actionBar.style.display = 'flex';
+      resultsGrid.style.display = 'grid';
+    } catch (err) {
+      statusCard.className = 'status-card';
+      statusText.textContent = '通信エラーが発生しました';
+      statusBadge.textContent = 'FAILED';
+      statusBadge.className = 'status-badge error';
+
+      let msg = String(err);
+      if (location.protocol === 'file:') {
+        msg = '【重要】現在ブラウザで HTML ファイルを直接ダブルクリック（file://）して開いています。\n' +
+              '画像の自動分割（Python処理）を行うには、以下のいずれかでサーバーを起動してください：\n\n' +
+              '1. 「tools/parts_extractor/run_webui.bat」をダブルクリックして起動する\n' +
+              '   または\n' +
+              '2. ターミナルで「python tools/parts_extractor/server.py」を実行する\n\n' +
+              '起動後、自動で開くブラウザ画面（http://localhost:8080/）から画像をドロップしてください。';
+      } else {
+        msg += '\n\nサーバー（server.py）との通信に失敗しました。\n' +
+               '黒い画面（コマンドプロンプト）で server.py が実行中であるかご確認ください。\n' +
+               '未起動の場合は「tools/parts_extractor/run_webui.bat」を起動してください。';
+      }
+      logBox.textContent = msg;
+    }
+  }
+
+  function setPart(imgId, dlId, dataUrl) {
+    if (!dataUrl) return;
+    const img = document.getElementById(imgId);
+    const dl = document.getElementById(dlId);
+    img.src = dataUrl;
+    dl.href = dataUrl;
+  }
+</script>
+
+</body>
+</html>
