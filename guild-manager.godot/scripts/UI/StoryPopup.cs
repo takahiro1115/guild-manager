@@ -20,7 +20,6 @@ public partial class StoryPopup : Window
 	public event Action Closed = delegate { };
 
 	/// <summary>【画面へ】が押された（ボタンの文言。MainDashboard が画面を切り替える）。</summary>
-	public event Action<string> JumpRequested = delegate { };
 
 	private const string ImageFolder = "res://assets/story/";
 
@@ -30,7 +29,6 @@ public partial class StoryPopup : Window
 	private TextureRect _backgroundImage = null!;
 	private TextureRect _leftPortrait = null!;
 	private TextureRect _rightPortrait = null!;
-	private Button _jumpButton = null!;
 	private Button _nextButton = null!;
 	private GameState _state = null!;
 	private readonly List<StoryShowing> _scenes = new();
@@ -92,11 +90,8 @@ public partial class StoryPopup : Window
 
 		var buttons = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.End };
 		buttons.AddThemeConstantOverride("separation", 10);
-		_jumpButton = new Button { CustomMinimumSize = new Vector2(240, 38) };
-		_jumpButton.Pressed += () => JumpRequested.Invoke(_jumpButton.Text.Replace("▶ ", ""));
 		_nextButton = new Button { CustomMinimumSize = new Vector2(200, 38) };
 		_nextButton.Pressed += OnNext;
-		buttons.AddChild(_jumpButton);
 		buttons.AddChild(_nextButton);
 		root.AddChild(buttons);
 	}
@@ -186,7 +181,10 @@ public partial class StoryPopup : Window
 			}
 		}
 
+		// 【画面へ】の行は、押すと画面が飛ぶボタンだったが、読み終えた途端に画面が切り替わって迷子になるので、行き先の案内の文にした（§0.97、提案書 UI-04）
 		var jump = LastPage && !_replay ? Current.Pages.SelectMany(p => p).FirstOrDefault(l => l.Kind == StoryLineKind.Jump) : null;
+		if (jump != null)
+			sb.Append($"\n[color=#7dd3fc]📍 次は上の「{Escape(NavName(jump.Text))}」の画面で：{Escape(jump.Text)}[/color]\n");
 		if (LastPage && !_replay)
 		{
 			var guides = Current.Pages.SelectMany(p => p).Where(l => l.Kind is StoryLineKind.Guide or StoryLineKind.GuideNote).ToList();
@@ -207,13 +205,23 @@ public partial class StoryPopup : Window
 		ShowPortrait(_leftPortrait, stage.Left);
 		ShowPortrait(_rightPortrait, stage.Right);
 		_scroll.ScrollVertical = 0;
-		_jumpButton.Visible = jump != null;
-		_jumpButton.Text = jump != null ? $"▶ {jump.Text}" : "";
 		bool last = LastPage && _sceneIndex + 1 >= _scenes.Count;
 		_nextButton.Text = LastPage ? (last ? "閉じる" : "次の場面へ ▶") : "次へ ▼";
 	}
 
 	private static string Escape(string text) => text.Replace("[", "[lb]");
+
+	/// <summary>【画面へ】の行き先に対応するナビのボタンの名前（行き先の文から決める）。</summary>
+	private static string NavName(string label) => label switch
+	{
+		_ when label.Contains("大会") => "🏆 大会",
+		_ when label.Contains("施設") => "🏥 施設管理",
+		_ when label.Contains("研究室") => "🔬 研究室",
+		_ when label.Contains("倉庫") => "📦 倉庫・遺物",
+		_ when label.Contains("大迷宮") || label.Contains("方針") => "🏰 大迷宮",
+		_ when label.Contains("部隊") || label.Contains("冒険者") => "📋 部隊・冒険者",
+		_ => label,
+	};
 
 	private static string SpeakerColor(string speaker) => speaker switch
 	{

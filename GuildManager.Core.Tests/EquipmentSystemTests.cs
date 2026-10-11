@@ -1,3 +1,4 @@
+using System.Linq;
 using GuildManager.Core.Models;
 using GuildManager.Core.Systems;
 using Xunit;
@@ -24,6 +25,78 @@ namespace GuildManager.Core.Tests
             Assert.True(result);
             Assert.Equal(ItemCatalog.IronSwordId, adventurer.EquippedWeaponId);
             Assert.Equal(1000 - ItemCatalog.IronSword.Price, state.Gold);
+        }
+
+        // ---------------- お抱え商の増減（CompareWithEquipped、§0.97） ----------------
+
+        [Fact]
+        public void CompareWithEquipped_EmptySlot_IsTheItemsOwnBonus()
+        {
+            var a = new Adventurer { JobClass = JobClass.Warrior };
+            var c = EquipmentSystem.CompareWithEquipped(a, ItemCatalog.GreatSword);
+
+            Assert.Equal(EquipmentSlot.Weapon, c.Slot);
+            Assert.Null(c.Current);
+            Assert.Equal(ItemCatalog.GreatSword.GetStatBonus("STR"), c.StatDeltas["STR"]);
+            Assert.True(c.HasGain);
+        }
+
+        [Fact]
+        public void CompareWithEquipped_SameItem_HasNoGain()
+        {
+            var a = new Adventurer { JobClass = JobClass.Warrior };
+            new EquipmentSystem().TryPurchaseAndEquip(new GameState { Gold = 10000 }, a, ItemCatalog.GreatSwordId);
+
+            var c = EquipmentSystem.CompareWithEquipped(a, ItemCatalog.GreatSword);
+
+            Assert.Empty(c.StatDeltas);
+            Assert.Equal(0, c.HpDelta);
+            Assert.False(c.HasGain);
+        }
+
+        [Fact]
+        public void CompareWithEquipped_WeakerItem_ShowsLossAndNoGain()
+        {
+            var a = new Adventurer { JobClass = JobClass.Warrior };
+            new EquipmentSystem().TryPurchaseAndEquip(new GameState { Gold = 10000 }, a, ItemCatalog.GreatSwordId);
+
+            var c = EquipmentSystem.CompareWithEquipped(a, ItemCatalog.IronSword);
+
+            Assert.Equal(ItemCatalog.IronSword.GetStatBonus("STR") - ItemCatalog.GreatSword.GetStatBonus("STR"), c.StatDeltas["STR"]);
+            Assert.True(c.StatDeltas["STR"] < 0);
+            Assert.False(c.IsUpgrade);
+        }
+
+        [Fact]
+        public void CompareWithEquipped_MixedChangeWithNetLoss_IsNotAnUpgrade()
+        {
+            // 魔導士の杖（INT・MND）を鉄の剣（STR・VIT）に替える：STR は上がるが合計は下がる
+            var a = new Adventurer { JobClass = JobClass.Mage };
+            new EquipmentSystem().TryPurchaseAndEquip(new GameState { Gold = 10000 }, a, ItemCatalog.MageStaff.Id);
+
+            var c = EquipmentSystem.CompareWithEquipped(a, ItemCatalog.IronSword);
+
+            Assert.True(c.HasGain);
+            Assert.True(c.StatTotal < 0);
+            Assert.False(c.IsUpgrade);
+            Assert.True(EquipmentSystem.CompareWithEquipped(new Adventurer { JobClass = JobClass.Mage }, ItemCatalog.MageStaff).IsUpgrade);
+        }
+
+        [Fact]
+        public void CompareWithEquipped_BothAccessoriesFull_ComparesAgainstTheWeakerOne()
+        {
+            var a = new Adventurer { JobClass = JobClass.Warrior };
+            var state = new GameState { Gold = 100000 };
+            var system = new EquipmentSystem();
+            system.TryPurchaseAndEquip(state, a, ItemCatalog.PowerRingId);
+            system.TryPurchaseAndEquip(state, a, ItemCatalog.LifeAmuletId);
+
+            var c = EquipmentSystem.CompareWithEquipped(a, ItemCatalog.PowerRing);
+
+            Assert.True(c.AgainstWeakerAccessory);
+            int Total(EquipmentItem e) => new[] { "STR", "AGI", "VIT", "MND", "DEX", "LDR", "INT" }.Sum(e.GetTotalStatBonus) + e.GetTotalHpBonus();
+            var weaker = Total(a.EquippedAccessory1!) <= Total(a.EquippedAccessory2!) ? a.EquippedAccessory1 : a.EquippedAccessory2;
+            Assert.Same(weaker, c.Current);
         }
 
         // ---------------- 装飾品は1と2を区別しない ----------------

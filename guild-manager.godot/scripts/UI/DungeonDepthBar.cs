@@ -139,11 +139,14 @@ public partial class DungeonDepthBar : Control
 
 		// ボスの目盛り・印・名前
 		float ascent = font.GetAscent(FontSize);
+		float reachedY = FloorTop(_field.ReachedFloor) + row;
 		foreach (var boss in _field.Bosses.OrderBy(b => b.Floor))
 		{
 			float y = FloorTop(boss.Floor) + row; // ボス階層の行の下端
 			DrawLine(new Vector2(barX - 4, y), new Vector2(barX + BarWidth + 4, y), TickColor, 1f);
-			DrawString(font, new Vector2(0, y + ascent / 2 - 1), $"{boss.Floor}F", HorizontalAlignment.Right, FloorLabelWidth - 6, FontSize, MutedTextColor);
+			// 到達階層の印（▶61F）と同じ高さになる階層の数字は描かない（§0.97。左の数字の欄で重なって読めなかった）
+			if (Math.Abs(y - reachedY) >= font.GetHeight(FontSize))
+				DrawString(font, new Vector2(0, y + ascent / 2 - 1), $"{boss.Floor}F", HorizontalAlignment.Right, FloorLabelWidth - 6, FontSize, MutedTextColor);
 
 			string icon;
 			Color color;
@@ -173,7 +176,6 @@ public partial class DungeonDepthBar : Control
 		}
 
 		// 到達階層の線
-		float reachedY = FloorTop(_field.ReachedFloor) + row;
 		DrawLine(new Vector2(barX - 6, reachedY), new Vector2(barX + BarWidth + 6, reachedY), ReachedLineColor, 2f);
 		DrawString(font, new Vector2(0, reachedY + ascent / 2 - 1), $"▶{_field.ReachedFloor}F",
 			HorizontalAlignment.Right, FloorLabelWidth - 6, FontSize, ReachedLineColor);
@@ -201,6 +203,11 @@ public partial class DungeonDepthBar : Control
 			bool known = boss.IsDefeated || boss.Id == _targetBossId || boss.IntelRate > 0;
 			lines.Add($"区間の主：第{boss.Floor}層「{(known ? boss.Name : "？？？")}」{(boss.IsDefeated ? "（撃破済み）" : boss.Id == _targetBossId ? "（現在の目標）" : "")}");
 			lines.Add($"解析率 {boss.IntelRate * 100:F0}%（{DungeonPanel.TierLabel(tier)}）");
+			// 特殊能力の名前（解析率50%から。§0.97でボスの欄を縮めたので、区間ごとにここでも見られるようにした）
+			if (!boss.IsDefeated)
+				lines.Add(tier < IntelTier.Hazards ? "特殊能力：？？？（解析率50%で判明）"
+					: boss.Gimmicks.Count == 0 ? "特殊能力なし"
+					: $"特殊能力：{string.Join("・", boss.Gimmicks.Select(g => DungeonPanel.GimmickLabel(g.Type)))}");
 			lines.Add($"進軍速度 ×{DungeonTraversalResolver.IntelSpeedMultiplier(boss):0.0#}（1.0＋解析率×{DungeonTraversalBalance.IntelSpeedBonusPerIntel:0.#}）");
 		}
 		foreach (var (pinFloor, label) in _pins.Where(p => Math.Abs(p.Floor - floor) <= 1))

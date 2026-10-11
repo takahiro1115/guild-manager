@@ -61,6 +61,31 @@ namespace GuildManager.Core.Systems
             return EquipmentSlot.Accessory1;
         }
 
+        /// <summary>
+        /// お抱え商の品を、今の装備と入れ替えたときの増減（§0.97、お抱え商の画面で品ごとに出す）。能力値は装備の補正の差、HPは最大HPの補正の差。
+        /// 入れ替える枠は <see cref="ResolveSlot"/> と同じ（空いている装飾枠があればそこ＝何も外さない）。装飾枠が2つとも埋まっていれば、
+        /// 補正の合計が小さい方と入れ替えたときで比べる（<see cref="EquipCompare.AgainstWeakerAccessory"/>）。
+        /// </summary>
+        public static EquipCompare CompareWithEquipped(Adventurer adventurer, Item item)
+        {
+            var slot = ResolveSlot(adventurer, item.Slot);
+            bool weaker = NeedsAccessoryChoice(adventurer, item.Slot);
+            if (weaker)
+                slot = TotalBonus(adventurer.EquippedAccessory2) < TotalBonus(adventurer.EquippedAccessory1) ? EquipmentSlot.Accessory2 : EquipmentSlot.Accessory1;
+            var current = adventurer.GetEquipped(slot);
+            var deltas = new Dictionary<string, int>();
+            foreach (var stat in AdventurerStatAccessor.AllStatNames)
+            {
+                int d = item.GetStatBonus(stat) - (current?.GetTotalStatBonus(stat) ?? 0);
+                if (d != 0) deltas[stat] = d;
+            }
+            int hp = item.MaxHpBonus - (current?.GetTotalHpBonus() ?? 0);
+            return new EquipCompare(slot, current, deltas, hp, weaker);
+        }
+
+        private static int TotalBonus(EquipmentItem? e) =>
+            e == null ? 0 : AdventurerStatAccessor.AllStatNames.Sum(e.GetTotalStatBonus) + e.GetTotalHpBonus();
+
         /// <summary>装飾品を着けようとして、装飾枠が2つとも埋まっている（＝どちらと入れ替えるかを選ばせる必要がある）か。</summary>
         public static bool NeedsAccessoryChoice(Adventurer adventurer, EquipmentSlot itemSlot) =>
             IsAccessory(itemSlot) && adventurer.EquippedAccessory1 != null && adventurer.EquippedAccessory2 != null;
@@ -387,5 +412,24 @@ namespace GuildManager.Core.Systems
             if (adventurer.CurrentHP > adventurer.MaxHP)
                 adventurer.CurrentHP = adventurer.MaxHP;
         }
+    }
+
+    /// <summary>
+    /// 品を今の装備と入れ替えたときの増減（→ EquipmentSystem.CompareWithEquipped）。StatDeltas は0でない能力だけ。
+    /// AgainstWeakerAccessory は、装飾枠が2つとも埋まっていて補正の合計が小さい方と比べたこと。
+    /// </summary>
+    public sealed record EquipCompare(EquipmentSlot Slot, EquipmentItem? Current, IReadOnlyDictionary<string, int> StatDeltas, int HpDelta, bool AgainstWeakerAccessory)
+    {
+        /// <summary>上がる所が1つでもあるか（能力値かHP）。</summary>
+        public bool HasGain => HpDelta > 0 || StatDeltas.Values.Any(v => v > 0);
+
+        /// <summary>能力値の増減の合計。</summary>
+        public int StatTotal => StatDeltas.Values.Sum();
+
+        /// <summary>
+        /// 今の装備より良くなるか（お抱え商で、良くならない品をたたむのに使う）：能力値の増減の合計がプラス、
+        /// または合計が0で最大HPが上がる。魔導士の杖を剣に替えて STR だけ少し上がるような品は、合計が下がるので良くならない扱い。
+        /// </summary>
+        public bool IsUpgrade => StatTotal > 0 || (StatTotal == 0 && HpDelta > 0);
     }
 }

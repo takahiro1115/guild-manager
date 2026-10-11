@@ -29,6 +29,7 @@ public partial class AdventurerPanel : VBoxContainer
 
 	// ---- 右ペイン：未選択 / 詳細表示切り替え ----
 	private PanelContainer _noSelectionPanel = null!;
+	private Label _noSelectionLabel = null!;
 	private VBoxContainer _detailContainer = null!;
 
 	// ---- 基本情報カード ----
@@ -139,6 +140,7 @@ public partial class AdventurerPanel : VBoxContainer
 	{
 		// 右ペイン切り替え
 		_noSelectionPanel = GetNode<PanelContainer>("%NoSelectionPanel");
+		_noSelectionLabel = GetNode<Label>("%NoSelectionLabel");
 		_detailContainer = GetNode<VBoxContainer>("%DetailContainer");
 
 		// 基本情報
@@ -490,6 +492,14 @@ public partial class AdventurerPanel : VBoxContainer
 		_noSelectionPanel.Visible = true;
 		_detailContainer.Visible = false;
 		SetActionButtonsDisabled(true);
+	}
+
+	/// <summary>未選択の間に出す文（表示中の部隊のまとめ、§0.97）。空なら初めの案内のまま。</summary>
+	public void SetNoSelectionSummary(string text)
+	{
+		if (string.IsNullOrEmpty(text)) return;
+		_noSelectionLabel.Text = text;
+		_noSelectionLabel.HorizontalAlignment = HorizontalAlignment.Left;
 	}
 
 	/// <summary>冒険者1名分のステータス詳細を右ペインに表示する。</summary>

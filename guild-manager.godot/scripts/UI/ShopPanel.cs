@@ -118,9 +118,9 @@ public partial class ShopPanel : HBoxContainer
 	{
 		_state = state;
 
-		// 選択中の冒険者が離れた（引退など）なら、先頭の人に替える
+		// 選択中の冒険者が離れた（引退など）なら、出撃していない先頭の人に替える（§0.97。出撃中の子は装備を変えられない）
 		if (!_state.Adventurers.Any(a => a.Id == _selectedId))
-			_selectedId = _state.Adventurers.FirstOrDefault()?.Id;
+			_selectedId = (_state.Adventurers.FirstOrDefault(a => !a.IsDispatched) ?? _state.Adventurers.FirstOrDefault())?.Id;
 
 		RebuildAdventurerList();
 		RebuildInfo();
@@ -211,8 +211,45 @@ public partial class ShopPanel : HBoxContainer
 			_ => ItemCatalog.GetBySlot(EquipmentSlot.Accessory1).Concat(ItemCatalog.GetBySlot(EquipmentSlot.Accessory2)),
 		};
 
+		// 選んだ子にとって今の装備より良くならない品と、装備できない品は、たたんで1行にする（§0.97。6年目でも短剣から全部並んでいた）
+		var folded = new List<Item>();
 		foreach (var item in items.OrderBy(i => i.ShopTier).ThenBy(i => i.Price))
+		{
+			bool noGain = buyer != null && EquipmentSystem.IsInShop(_state, item)
+				&& (!item.IsAllowedFor(buyer.JobClass) || !EquipmentSystem.CompareWithEquipped(buyer, item).IsUpgrade);
+			if (noGain && !_showNoGain)
+			{
+				folded.Add(item);
+				continue;
+			}
 			_productList.AddChild(BuildProductRow(item, buyer));
+		}
+		if (folded.Count > 0 || _showNoGain)
+		{
+			var toggle = new Button
+			{
+				Text = _showNoGain ? "良くならない品・装備できない品をたたむ" : $"今の装備より良くならない品・装備できない品 {folded.Count}品（押すと並べる）",
+				TooltipText = string.Join("、", folded.Select(i => i.Name)),
+				Flat = true,
+				Alignment = HorizontalAlignment.Left,
+			};
+			toggle.Pressed += () => { _showNoGain = !_showNoGain; RebuildProducts(); };
+			_productList.AddChild(toggle);
+		}
+	}
+
+	/// <summary>今の装備より良くならない品・装備できない品も並べるか（はじめはたたむ）。</summary>
+	private bool _showNoGain;
+
+	/// <summary>品を今の装備と入れ替えたときの増減（値は Core の EquipmentSystem.CompareWithEquipped）。</summary>
+	private static string CompareText(Adventurer buyer, Item item)
+	{
+		var c = EquipmentSystem.CompareWithEquipped(buyer, item);
+		var parts = c.StatDeltas.Select(kv => $"[color={(kv.Value > 0 ? "#4ade80" : "#f87171")}]{kv.Key} {kv.Value:+0;-0}[/color]").ToList();
+		if (c.HpDelta != 0)
+			parts.Add($"[color={(c.HpDelta > 0 ? "#4ade80" : "#f87171")}]HP {c.HpDelta:+0;-0}[/color]");
+		string against = c.Current == null ? "（空いている枠に着ける）" : c.AgainstWeakerAccessory ? $"（弱い方の「{c.Current.DisplayName}」と比べて）" : $"（今の「{c.Current.DisplayName}」と比べて）";
+		return parts.Count == 0 ? $"[color=gray]今の装備と同じ{against}[/color]" : $"{string.Join("・", parts)}　[color=gray]{against}[/color]";
 	}
 
 	private Control BuildProductRow(Item item, Adventurer? buyer)
@@ -248,6 +285,9 @@ public partial class ShopPanel : HBoxContainer
 		// 今の装備は右上のペインに出ているので、商品の行には出さない（未入荷のときだけ、並ぶ条件を添える）
 		text.AppendText($"[b][color={nameColor}]{item.Name}[/color][/b]　[color=gray]{item.DescribeEffects()}[/color]" +
 			(inShop ? "" : $"\n[color=gray]{blocked}[/color]"));
+		// 選んだ子にとっての増減（§0.97）
+		if (inShop && buyer != null && item.IsAllowedFor(buyer.JobClass))
+			text.AppendText($"\n{CompareText(buyer, item)}");
 		row.AddChild(text);
 
 		var button = new Button { Text = $"購入 {item.Price}G", CustomMinimumSize = new Vector2(120, 34), SizeFlagsVertical = SizeFlags.ShrinkCenter, Disabled = blocked != null };

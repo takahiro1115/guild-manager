@@ -175,6 +175,7 @@ public partial class DungeonPanel : ScrollContainer
 		};
 
 		BuildOrderRow();
+		ConnectPreviewCards();
 
 		// 大きな3つの区画（左の探索状況・中央のボス欄・部隊と指令の欄）にアートの枠を付ける
 		_zoneA = GetNode<PanelContainer>("Margin/MainHBox/ZoneA");
@@ -252,7 +253,8 @@ public partial class DungeonPanel : ScrollContainer
 		foreach (var label in StanceChoiceLabels)
 			_stanceOption.AddItem(label);
 		_stanceOption.ItemSelected += OnStanceSelected;
-		row.AddChild(_stanceOption);
+		// 構えは潜行の見立てカードの中に置く（§0.97。潜行の方針のときだけ出る）
+		_traversalPreviewLabel.GetParent().AddChild(_stanceOption);
 		box.AddChild(row);
 		_orderInfoLabel = new RichTextLabel { BbcodeEnabled = true, FitContent = true, SizeFlagsHorizontal = SizeFlags.ExpandFill };
 		box.AddChild(_orderInfoLabel);
@@ -312,17 +314,21 @@ public partial class DungeonPanel : ScrollContainer
 		{
 			bool isOut = SquadOrderSystem.IsOut(_state, p);
 			string? reason = isOut ? null : SquadOrderSystem.GetWaitReason(_state, p);
-			(string color, string status) = isOut ? ("cyan", "出撃中") : reason != null ? ("orange", $"待機：{reason}") : ("lime", "次の週送りで出撃");
-			return $"[color=cyan]📋 {OrderSummary(p)}[/color]　[color={color}]（{status}）[/color]";
+			// 出撃中は、今いる場所と階層を出す（§0.97。おまかせの「今は○○」は次に出るときの行き先で、出撃先と食い違って見えた）
+			var mission = isOut ? _state.ActiveDungeonMissions.FirstOrDefault(m => m.SavedPartyId == p.Id) : null;
+			string outText = mission == null ? "出撃中" : $"出撃中：{mission.Field.Name} 第{mission.CurrentFloor}層";
+			(string color, string status) = isOut ? ("cyan", outText) : reason != null ? ("orange", $"待機：{reason}") : ("lime", "次の週送りで出撃");
+			return $"[color=cyan]📋 {OrderSummary(p, isOut)}[/color]　[color={color}]（{status}）[/color]";
 		});
 		_orderInfoLabel.AppendText(string.Join("\n", lines));
 	}
 
-	private string OrderSummary(SavedParty p)
+	private string OrderSummary(SavedParty p, bool isOut = false)
 	{
 		var resolved = SquadOrderSystem.ResolveField(_state, p);
+		// 出撃中は隊員が出撃できない扱いで、おまかせの選び先が仮の値になる。行き先は状態の欄（出撃中：○○ 第N層）で出す（§0.97）
 		string field = p.OrderFieldId == SavedParty.AutoFieldId
-			? $"おまかせ（今は{resolved?.Name ?? "選べるダンジョンなし"}）"
+			? isOut ? "おまかせ" : $"おまかせ（今は{resolved?.Name ?? "選べるダンジョンなし"}）"
 			: resolved?.Name ?? "？";
 		string door = p.Order == SquadOrder.Dive ? $"・扉前は{SquadOrderSystem.StanceLabel(p.Stance)}" : "";
 		// 調査の方針は、調べるボスが完全解析済みなら、その週は同じフィールドで探索（採取）を行う（→ SquadOrderSystem.DispatchByOrder）
@@ -572,8 +578,10 @@ public partial class DungeonPanel : ScrollContainer
 			  "縦バーで青い（解析済みの）区間ほど速く進める。";
 	}
 
-	private static string MissionPartyName(ActiveDungeonMission mission) =>
-		mission.Party.Members.Count > 0 ? $"{mission.Party.Members[0].Name}隊" : "部隊";
+	/// <summary>出撃の呼び名：方針で出た出撃は部隊の名前（§0.97。隊長の名前の「○○隊」と部隊の名前が2つ並んでいた）。</summary>
+	private string MissionPartyName(ActiveDungeonMission mission) =>
+		SquadOrderSystem.FindOrderedParty(_state, mission)?.Name is { Length: > 0 } name ? name
+		: mission.Party.Members.Count > 0 ? $"{mission.Party.Members[0].Name}隊" : "部隊";
 
 	private static string MissionStatusText(ActiveDungeonMission mission) => mission.Status switch
 	{
@@ -722,6 +730,13 @@ public partial class DungeonPanel : ScrollContainer
 			: viewingOther ? "　[color=#fbbf24]（閲覧中）[/color]"
 			: "　[color=#fb923c]⚔ 現在の目標[/color]";
 		_bossHeaderLabel.AppendText($"[font_size=18][b]第{boss.Floor}層の主「{boss.Name}」[/b][/font_size]{state}");
+		// §0.97：ボスの欄は2行に縮めた（提案書 UI-02。部隊と見立ての欄を広く使う）。
+		// 1行目＝名前・解析率・HP・完全解析、2行目＝特殊能力と選んだ部隊の備え。詳しい説明・対策はツールチップと深さの目盛りのツールチップへ
+		string hpText = tier < IntelTier.Basic ? "HP ？？？" : $"HP {boss.CurrentHp}/{boss.MaxHp}";
+		string complete = tier == IntelTier.Complete ? $"　[color=gold]◆ 完全解析（与ダメージ+{DungeonBalance.FullIntelDamageBonus * 100:F0}%）[/color]" : "";
+		_bossHeaderLabel.AppendText($"　解析 [color={TierColor(tier)}]{boss.IntelRate * 100:F0}%（{TierLabel(tier)}）[/color]　{hpText}{complete}");
+		_bossHeaderLabel.AppendText($"\n{GimmickSummary(boss, tier, previewParty)}");
+		_bossHeaderLabel.TooltipText = GimmickTooltip(boss, tier, previewParty);
 
 		_bossHpRow.Visible = true;
 		if (tier < IntelTier.Basic)
@@ -756,6 +771,51 @@ public partial class DungeonPanel : ScrollContainer
 	/// それ以降はボスが持つ能力ごとに1枚（危険度・75%で対策内容・選択中の部隊の備え〈万全／一部／無策、§0.68〉）。能力が無ければ「特殊能力なし」の1枚。
 	/// 旧来は4大能力を常に4枚並べ、持っていない能力も「安全」と表示していた（能力を増やすと並べきれない）。
 	/// </summary>
+	/// <summary>ボスの欄の2行目：特殊能力の名前と、選んだ部隊の備え（✔ 万全／△ 一部／✖ 無策）。</summary>
+	private static string GimmickSummary(FloorBoss boss, IntelTier tier, Party party)
+	{
+		if (tier < IntelTier.Hazards)
+			return "[color=yellow]特殊能力：？？？（解析率50%で判明）[/color]";
+		if (boss.Gimmicks.Count == 0)
+			return "[color=lime]特殊能力なし[/color]";
+		var parts = boss.Gimmicks.Select(g =>
+		{
+			string name = $"{GimmickLabel(g.Type)}{DangerStars(g.DangerLevel)}";
+			if (party.IsEmpty) return name;
+			return DungeonResolver.GetReadinessTier(DungeonResolver.Readiness(g, party.Members)) switch
+			{
+				ReadinessTier.Full => $"{name} [color=#4ade80]✔万全[/color]",
+				ReadinessTier.Partial => $"{name} [color=#fbbf24]△一部[/color]",
+				_ => $"{name} [color=#f87171]✖無策[/color]",
+			};
+		});
+		return $"特殊能力：{string.Join("　", parts)}" + (party.IsEmpty ? "　[color=gray]（部隊を選ぶと備えを表示）[/color]" : "") +
+			"　[color=gray]（詳しくはマウスを重ねる）[/color]";
+	}
+
+	/// <summary>ボスの欄のツールチップ：特殊能力ごとの説明・対策・備え（縮める前のカードの中身）。</summary>
+	private string GimmickTooltip(FloorBoss boss, IntelTier tier, Party party)
+	{
+		if (tier < IntelTier.Hazards)
+			return $"特殊能力は未判明（解析率50%で判明）。\n{NextTierHint(tier) ?? ""}";
+		if (boss.Gimmicks.Count == 0)
+			return "特殊能力なし";
+		var sb = new StringBuilder();
+		foreach (var g in boss.Gimmicks)
+		{
+			sb.AppendLine($"【{GimmickLabel(g.Type)}】危険度 {DangerStars(g.DangerLevel)}");
+			sb.AppendLine($"  {GimmickDescription(g.Type)}");
+			sb.AppendLine(tier >= IntelTier.Countermeasures
+				? $"  対策：{(CounterRoutes(g) is { Count: > 0 } r ? string.Join("／", r) : "有効な対策なし")}"
+				: "  対策：？？？（解析率75%で開示）");
+			if (!party.IsEmpty)
+				sb.AppendLine($"  備え：{StripBbcode(ReadinessText(g.Type, DungeonResolver.GetReadinessTier(DungeonResolver.Readiness(g, party.Members))))}");
+		}
+		return sb.ToString().TrimEnd();
+	}
+
+	private static string StripBbcode(string text) => System.Text.RegularExpressions.Regex.Replace(text, @"\[/?[^\]]+\]", "");
+
 	private void PopulateGimmickCards(FloorBoss? boss, IntelTier tier, Party previewParty)
 	{
 		ClearGimmickCards();
@@ -878,6 +938,7 @@ public partial class DungeonPanel : ScrollContainer
 		_squadCardBoxes.Clear();
 		_hasSelectableParty = false;
 		bool keepSelection = false;
+		var selectable = new List<(Button Button, SavedParty Saved)>();
 		int unlocked = Math.Max(1, _state.UnlockedSquadSlots);
 		for (int i = 0; i < _state.SavedParties.Count && i < 4; i++)
 		{
@@ -915,6 +976,8 @@ public partial class DungeonPanel : ScrollContainer
 				keepSelection = true;
 			}
 
+			if (!button.Disabled)
+				selectable.Add((button, saved));
 			var partyId = saved.Id;
 			button.Toggled += pressed =>
 			{
@@ -935,12 +998,28 @@ public partial class DungeonPanel : ScrollContainer
 		}
 
 		if (!keepSelection)
+		{
 			_selectedPartyId = null;
+			// 選んでいない間は、潜行の方針の部隊（無ければ先頭の部隊）を選んだ状態にする（§0.97。開いた直後に見立てが空だった）。
+			// 自分で選択を解いたときは、そのままにする
+			var pick = selectable.FirstOrDefault(x => x.Saved.Order == SquadOrder.Dive);
+			if (pick.Button == null)
+				pick = selectable.FirstOrDefault();
+			if (!_selectionClearedByUser && pick.Button != null)
+			{
+				pick.Button.SetPressedNoSignal(true);
+				_selectedPartyId = pick.Saved.Id;
+			}
+		}
 	}
+
+	/// <summary>部隊のボタンをもう一度押して選択を解いたか（解いたあとは、はじめの選択を自動で入れない）。</summary>
+	private bool _selectionClearedByUser;
 
 	/// <summary>選択中の部隊のボタンをもう一度押した：選択を解く（出撃の取り消しは呼び戻しか方針の解除で行う、§0.69）。</summary>
 	private void OnPartyUnpressed(Guid partyId)
 	{
+		_selectionClearedByUser = true;
 		_selectedPartyId = null;
 		SelectParty(null);
 	}
@@ -962,6 +1041,8 @@ public partial class DungeonPanel : ScrollContainer
 			return;
 
 		_selectedPartyId = partyId;
+		if (partyId != null)
+			_selectionClearedByUser = false;
 
 		// 部隊を選んだら、その部隊が活動中のダンジョン（出撃中の任務のフィールド、無ければ方針の対象）へ左のフィールド選択を切り替える
 		if (_selectedPartyId != null && SelectedSavedParty() is { } picked)
@@ -1257,7 +1338,10 @@ public partial class DungeonPanel : ScrollContainer
 
 		if (saved == null || party.IsEmpty)
 		{
-			string reason = !_hasSelectableParty
+			// 出撃中の部隊は「出撃できない状態」ではなく出撃中と出す（§0.97。はじめから潜行の部隊を選ぶようにしたので目に付く）
+			string reason = saved != null && MissionOfParty(saved) != null
+				? $"「{saved.Name}」は出撃中（進み具合は下の欄）。方針を変えると呼び戻す"
+				: !_hasSelectableParty
 				? "出撃可能な待機部隊がありません"
 				: GetDispatchBlockedReason(boss, saved, party) ?? GetGatheringBlockedReason(saved, party)
 					?? "出撃部隊が選択されていません。上の部隊ボタンから選んでください。";
@@ -1270,6 +1354,7 @@ public partial class DungeonPanel : ScrollContainer
 			SetCardReason(_gatheringReasonLabel, null);
 			foreach (var card in new[] { _traversalCard, _surveyCard, _gatheringCard })
 				SetCardVerdict(card, CardVerdict.Unavailable);
+			MarkOrderCards(saved);
 			return;
 		}
 
@@ -1296,6 +1381,68 @@ public partial class DungeonPanel : ScrollContainer
 		SetCardVerdict(_traversalCard, blockedReason != null ? CardVerdict.Unavailable : traversal);
 		SetCardVerdict(_surveyCard, surveyBlocked != null ? CardVerdict.Unavailable : survey);
 		SetCardVerdict(_gatheringCard, gatheringBlockedReason != null ? CardVerdict.Unavailable : gathering);
+		MarkOrderCards(saved);
+	}
+
+	// ==================== 見立てカードで方針を決める（§0.97） ====================
+
+	/// <summary>
+	/// 見立てカード3枚を押せるようにする：押すと、選んでいる部隊の方針をそのカードの任務（潜行・調査・採取）にする（§0.97、提案書 UI-01）。
+	/// 方針のプルダウンは場所の選び直しと解除のために残す。カードの中の文字も押せるよう、子は入力を親へ通す（構えのプルダウンだけは自分で受ける）。
+	/// </summary>
+	private void ConnectPreviewCards()
+	{
+		foreach (var (card, order) in new[] { (_traversalCard, SquadOrder.Dive), (_surveyCard, SquadOrder.Survey), (_gatheringCard, SquadOrder.Gather) })
+		{
+			card.MouseFilter = MouseFilterEnum.Stop;
+			card.MouseDefaultCursorShape = CursorShape.PointingHand;
+			PassMouseToParent(card);
+			card.GuiInput += e =>
+			{
+				if (e is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left })
+					OnPreviewCardPressed(order);
+			};
+		}
+	}
+
+	private void PassMouseToParent(Node node)
+	{
+		foreach (var child in node.GetChildren())
+		{
+			if (child == _stanceOption) continue;
+			if (child is Control c) c.MouseFilter = MouseFilterEnum.Pass;
+			PassMouseToParent(child);
+		}
+	}
+
+	private void OnPreviewCardPressed(SquadOrder order)
+	{
+		var saved = SelectedSavedParty();
+		if (saved == null || _orderOption.Disabled) return;
+		if (saved.Order == order) return; // もう同じ方針
+		int index = (int)order - 1;
+		_orderOption.Select(index);
+		OnOrderSelected(index);
+	}
+
+	/// <summary>今の方針のカードを青で示し、ほかのカードには「押すと方針になる」を添える（判定の枠の色はそのまま）。</summary>
+	private void MarkOrderCards(SavedParty? saved)
+	{
+		foreach (var (card, order) in new[] { (_traversalCard, SquadOrder.Dive), (_surveyCard, SquadOrder.Survey), (_gatheringCard, SquadOrder.Gather) })
+		{
+			bool active = saved != null && saved.Order == order;
+			if (active && card.GetThemeStylebox("panel") is StyleBoxFlat style)
+			{
+				var marked = (StyleBoxFlat)style.Duplicate();
+				marked.BgColor = new Color(0.16f, 0.32f, 0.55f, 0.55f); // 選択中のトグルと同じ青（UiStyles.ApplySelectedToggleStyle）
+				marked.SetBorderWidthAll(Math.Max(3, marked.BorderWidthTop));
+				card.AddThemeStyleboxOverride("panel", marked);
+			}
+			string hint = saved == null ? ""
+				: active ? $"📋 今の方針：{OrderNames[(int)order]}"
+				: $"（押すと「{saved.Name}」の方針を「{OrderNames[(int)order]}」にする）";
+			card.TooltipText = string.IsNullOrEmpty(card.TooltipText) ? hint : $"{card.TooltipText}\n{hint}";
+		}
 	}
 
 	/// <summary>カードの総合判定（枠の色）。</summary>

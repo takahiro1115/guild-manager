@@ -200,7 +200,6 @@ size_flags_vertical = 3
 theme_override_constants/separation = 8
 
 [node name="ZoneB" type="PanelContainer" parent="Margin/MainHBox/RightColumn"]
-custom_minimum_size = Vector2(0, 236)
 layout_mode = 2
 size_flags_vertical = 0
 clip_contents = true
@@ -243,6 +242,7 @@ bbcode_enabled = true
 fit_content = true
 
 [node name="StatsGimmickRow" type="HBoxContainer" parent="Margin/MainHBox/RightColumn/ZoneB/ZoneBMargin/ZoneBVBox/BossProfileCard/Margin/VBox"]
+visible = false
 layout_mode = 2
 theme_override_constants/separation = 10
 

@@ -121,6 +121,12 @@ public partial class PartyFormationPanel : VBoxContainer
 	/// </summary>
 	public event Action<Guid> AdventurerSelected = delegate { };
 
+	/// <summary>
+	/// 表示中の部隊の顔ぶれのまとめ（§0.97。右の個人詳細が未選択の間、空いた欄に出す。→ MainDashboard が AdventurerPanel.SetNoSelectionSummary へ中継）。
+	/// 冒険者を暗黙に選ぶことはしない（§9 の未選択状態の決まり）。
+	/// </summary>
+	public event Action<string> SquadSummaryChanged = delegate { };
+
 	public override void _Ready()
 	{
 		for (int i = 0; i < 4; i++)
@@ -265,6 +271,23 @@ public partial class PartyFormationPanel : VBoxContainer
 		}
 	}
 
+	private string SquadSummary(SavedParty party, bool isDispatched)
+	{
+		if (_state == null) return "";
+		var members = party.MemberIds.Select(id => _state.Adventurers.FirstOrDefault(a => a.Id == id)).OfType<Adventurer>().ToList();
+		var lines = new List<string> { $"「{party.Name}」{(isDispatched ? "（出撃中）" : "")}" };
+		if (members.Count == 0)
+			lines.Add("まだ誰もいない。下の候補一覧の「配属 +」で加える。");
+		for (int i = 0; i < members.Count; i++)
+		{
+			var a = members[i];
+			lines.Add($"{(i == 0 ? "👑 " : "・")}{a.Name}（{AdventurerPanel.JobLabel(a.JobClass)}・{a.Age}歳）　HP {a.CurrentHP}/{a.MaxHP}");
+		}
+		lines.Add("");
+		lines.Add("← 編成スロットか候補一覧で冒険者を選ぶと、ここに詳しく出る。");
+		return string.Join("\n", lines);
+	}
+
 	private SavedParty? GetCurrentParty()
 	{
 		if (_state == null || _state.SavedParties.Count <= _selectedSquadIndex)
@@ -288,6 +311,7 @@ public partial class PartyFormationPanel : VBoxContainer
 		if (currentParty == null || _state == null) return;
 
 		bool isDispatched = IsPartyDispatched(currentParty);
+		SquadSummaryChanged.Invoke(SquadSummary(currentParty, isDispatched));
 		_dispatchedBadge.Visible = isDispatched;
 		_removeAllButton.Disabled = isDispatched || currentParty.MemberIds.Count == 0;
 		_squadNameEdit.Text = currentParty.Name;
@@ -356,7 +380,9 @@ public partial class PartyFormationPanel : VBoxContainer
 	{
 		if (_state == null) return;
 
-		var party = PartyFormationSystem.BuildDispatchParty(_state, currentParty.MemberIds);
+		// 出撃中の部隊は、その出撃の顔ぶれで出す（§0.97。出撃できる者だけで組むと全員が外れ、指標がすべて0になっていた）
+		var mission = _state.ActiveDungeonMissions.FirstOrDefault(x => x.SavedPartyId == currentParty.Id);
+		var party = mission?.Party ?? PartyFormationSystem.BuildDispatchParty(_state, currentParty.MemberIds);
 		// 編成画面の数字は、全員のHPが最大のものとして算出する（負傷・消耗で揺れず、編成そのものを比べられる）。部隊健全度だけが今のHPを映す
 		var m = PartyFormationSystem.CalculateMetrics(party, _state, atFullHp: true);
 		var p = _previewIds == null ? null : PartyFormationSystem.PreviewMetrics(_state, _previewIds, atFullHp: true);

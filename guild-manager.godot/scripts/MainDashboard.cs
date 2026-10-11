@@ -200,6 +200,7 @@ public partial class MainDashboard : Control
 		_partyFormationPanel.StateChanged += RefreshAll;
 		// 部隊・冒険者画面（→ 03 §9）：編成スロット・候補行のクリックで右ペインの個人詳細を切り替える。
 		_partyFormationPanel.AdventurerSelected += id => _adventurerPanel.ShowAdventurer(id);
+		_partyFormationPanel.SquadSummaryChanged += _adventurerPanel.SetNoSelectionSummary;
 
 		_researchPanel = GetNode<ResearchPanel>("%ResearchTab");
 		_researchPanel.LogRequested += AppendLog;
@@ -311,7 +312,6 @@ public partial class MainDashboard : Control
 		// 物語の会話の小窓（§0.86）
 		_storyPopup = new StoryPopup { Visible = false };
 		AddChild(_storyPopup);
-		_storyPopup.JumpRequested += OnStoryJump;
 		// ギルドの手引き（§0.87）
 		_guidePopup = new GuidePopup { Visible = false };
 		AddChild(_guidePopup);
@@ -1878,13 +1878,14 @@ public partial class MainDashboard : Control
 
 	private void RefreshAll()
 	{
-		// 暦の表記「1年目 🌸春 第3週」（→ Core の GameCalendar。1年48週＝4季節×12週、第1週＝春の第1週）。
+		// 暦の表記「1年目 🌸春 2の月 第3週」（→ Core の GameCalendar。1年48週＝4季節×3か月×4週。§0.70で月を1ターンにしたので月も出す、§0.97）。
 		var season = GameCalendar.SeasonOf(_state.WeekNumber);
-		_weekLabel.Text = $"{GameCalendar.YearOf(_state.WeekNumber)}年目 {SeasonIcon(season)}{GameCalendar.SeasonLabel(season)} 第{GameCalendar.WeekOfSeason(_state.WeekNumber)}週";
+		_weekLabel.Text = $"{GameCalendar.YearOf(_state.WeekNumber)}年目 {SeasonIcon(season)}{GameCalendar.SeasonLabel(season)} " +
+			$"{GameCalendar.MonthOfSeason(_state.WeekNumber)}の月 第{GameCalendar.WeekOfMonth(_state.WeekNumber)}週";
 		_weekLabel.AddThemeColorOverride("font_color", SeasonColor(season));
 		_weekLabel.MouseFilter = Control.MouseFilterEnum.Pass;
 		_weekLabel.TooltipText = $"通算 第{_state.WeekNumber}週（その年の第{GameCalendar.WeekOfYear(_state.WeekNumber)}週）\n" +
-			$"1年＝{GameCalendar.WeeksPerYear}週＝春夏秋冬×{GameCalendar.WeeksPerSeason}週。毎年 春の第1週に新春採用試験（2年目から）。";
+			$"1年＝{GameCalendar.WeeksPerYear}週＝春夏秋冬×{GameCalendar.MonthsPerSeason}か月×{GameCalendar.WeeksPerMonth}週。「次の月へ」で1か月ずつ進む。毎年 春の第1週に新春採用試験（2年目から）。";
 		_goldLabel.Text = $"所持金: {_state.Gold} G";
 		// マスターの機嫌（→ 03 §8.1。旧・ギルド格付け／名声の表示枠を流用）。
 		var moodTier = MasterMoodSystem.GetTier(_state.MasterMood);
