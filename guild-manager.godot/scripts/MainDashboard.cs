@@ -399,6 +399,8 @@ public partial class MainDashboard : Control
 		{
 			Adventurers = SampleData.CreateStarterAdventurers(),
 			DungeonFields = SampleData.CreateDefaultFields(),
+			// 大会の暦の種（§0.96）。ゲームごとに暦が変わるよう新しいゲームのときだけ決め、あとはセーブに残す
+			TournamentSeed = (int)GD.Randi(),
 		};
 		if (!tutorial)
 			StorySystem.DisableTutorial(_state);

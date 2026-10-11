@@ -284,6 +284,8 @@ namespace GuildManager.Core.Models
         public int ExchangeMatchesPlayed { get; set; }
         public int ExchangeWins { get; set; }
         public int? TournamentCalendarFromWeek { get; set; }
+        /// <summary>大会の暦の乱数の種（§0.96）。キーの無い旧セーブは null で読まれ、GameState.FromSaveData が補う。</summary>
+        public int? TournamentSeed { get; set; }
         public int? CommissionsFromWeek { get; set; }
         public bool GuestTrainerPending { get; set; }
         public int? GuestTrainerUntilWeek { get; set; }

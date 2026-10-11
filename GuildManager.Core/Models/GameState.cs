@@ -337,6 +337,13 @@ namespace GuildManager.Core.Models
         /// <summary>大会の暦を置き始める週（最初の交流戦の次の月のはじめ）。まだなら null（大会を置かない）。</summary>
         public int? TournamentCalendarFromWeek { get; set; }
 
+        /// <summary>
+        /// 大会の年の暦と招待大会のご褒美を決める乱数の種（§0.96）。新しいゲームのときに画面が決めてセーブに残す。
+        /// 以前は最初の部隊の Guid のハッシュを種にしていたため、同じシードでもシミュレーターの結果がそろわず、
+        /// 最初の部隊を作り直すと翌年の暦が変わっていた。キーの無い旧セーブは、その頃と同じ値で補う（→ FromSaveData）。
+        /// </summary>
+        public int TournamentSeed { get; set; }
+
         /// <summary>依頼が届き始める週（初めての入賞の次の季節のはじめ）。まだなら null（依頼は届かない）。</summary>
         public int? CommissionsFromWeek { get; set; }
 
@@ -464,6 +471,7 @@ namespace GuildManager.Core.Models
                 ExchangeMatchesPlayed = ExchangeMatchesPlayed,
                 ExchangeWins = ExchangeWins,
                 TournamentCalendarFromWeek = TournamentCalendarFromWeek,
+                TournamentSeed = TournamentSeed,
                 CommissionsFromWeek = CommissionsFromWeek,
                 GuestTrainerPending = GuestTrainerPending,
                 GuestTrainerUntilWeek = GuestTrainerUntilWeek,
@@ -610,6 +618,8 @@ namespace GuildManager.Core.Models
                 ExchangeMatchesPlayed = data.ExchangeMatchesPlayed,
                 ExchangeWins = data.ExchangeWins,
                 TournamentCalendarFromWeek = data.TournamentCalendarFromWeek,
+                // §0.96より前のセーブは、それまで種にしていた「最初の部隊の Guid のハッシュ」で補う（部隊が無ければ0）
+                TournamentSeed = data.TournamentSeed ?? data.SavedParties.FirstOrDefault()?.Id.GetHashCode() ?? 0,
                 CommissionsFromWeek = data.CommissionsFromWeek,
                 GuestTrainerPending = data.GuestTrainerPending,
                 GuestTrainerUntilWeek = data.GuestTrainerUntilWeek,

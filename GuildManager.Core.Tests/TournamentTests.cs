@@ -460,5 +460,67 @@ namespace GuildManager.Core.Tests
             Assert.Equal(1, restored.Adventurers.Single().JoinedYear);
             Assert.Single(restored.Adventurers.Single().TournamentRecords);
         }
+
+        // ---------------- 暦の乱数の種（§0.96） ----------------
+
+        private static string ScheduleOf(GameState state) =>
+            string.Join("|", state.TournamentEvents.OrderBy(e => e.Month).ThenBy(e => e.Week).ThenBy(e => e.Name).Select(e => $"{e.Month}-{e.Week}-{e.Name}"));
+
+        private static GameState ScheduledWith(int seed, params SavedParty[] parties)
+        {
+            var state = new GameState { WeekNumber = 1, DungeonFields = SampleData.CreateDefaultFields(), TournamentCalendarFromWeek = 1, TournamentSeed = seed };
+            state.SavedParties.AddRange(parties);
+            TournamentSystem.EnsureSchedule(state);
+            return state;
+        }
+
+        [Fact]
+        public void ScheduleSeed_SameSeed_SameSchedule_EvenIfFirstSquadDiffers()
+        {
+            // 以前は最初の部隊の Guid のハッシュが種だったので、部隊が違うと暦も変わっていた
+            var a = ScheduledWith(12345, new SavedParty { Name = "第1部隊" });
+            var b = ScheduledWith(12345, new SavedParty { Name = "第1部隊" });
+            var none = ScheduledWith(12345);
+
+            Assert.Equal(ScheduleOf(a), ScheduleOf(b));
+            Assert.Equal(ScheduleOf(a), ScheduleOf(none));
+        }
+
+        [Fact]
+        public void ScheduleSeed_DifferentSeeds_CanGiveDifferentSchedules()
+        {
+            var schedules = Enumerable.Range(1, 8).Select(seed => ScheduleOf(ScheduledWith(seed))).Distinct().Count();
+            Assert.True(schedules > 1);
+        }
+
+        [Fact]
+        public void ScheduleSeed_RoundTripsThroughSave()
+        {
+            var state = ScheduledWith(-987654);
+            var restored = GameState.FromSaveData(JsonSerializer.Deserialize<SaveData>(JsonSerializer.Serialize(state.ToSaveData()))!);
+            Assert.Equal(-987654, restored.TournamentSeed);
+        }
+
+        [Fact]
+        public void ScheduleSeed_OldSaveWithoutKey_UsesFirstSquadHashAsBefore()
+        {
+            var party = new SavedParty { Name = "第1部隊" };
+            var state = ScheduledWith(0, party);
+            var json = JsonSerializer.Serialize(state.ToSaveData()).Replace("\"TournamentSeed\":0,", "");
+            Assert.DoesNotContain("TournamentSeed", json);
+
+            var restored = GameState.FromSaveData(JsonSerializer.Deserialize<SaveData>(json)!);
+
+            Assert.Equal(party.Id.GetHashCode(), restored.TournamentSeed);
+        }
+
+        [Fact]
+        public void ScheduleSeed_OldSaveWithoutKeyOrSquads_IsZero()
+        {
+            var state = ScheduledWith(0);
+            var json = JsonSerializer.Serialize(state.ToSaveData()).Replace("\"TournamentSeed\":0,", "");
+            var restored = GameState.FromSaveData(JsonSerializer.Deserialize<SaveData>(json)!);
+            Assert.Equal(0, restored.TournamentSeed);
+        }
     }
 }

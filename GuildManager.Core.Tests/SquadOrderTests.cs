@@ -55,7 +55,7 @@ namespace GuildManager.Core.Tests
             Assert.Equal(70, SquadOrderBalance.AutoDispatchMinHpPercent);
             Assert.Equal(new SquadOrderBalance.StanceRule(1.2, 80, 1.0, 1.0), SquadOrderBalance.Cautious);
             Assert.Equal(new SquadOrderBalance.StanceRule(1.0, 60, 0, 0.5), SquadOrderBalance.Standard);
-            Assert.Equal(new SquadOrderBalance.StanceRule(0.9, 40, 0, 0), SquadOrderBalance.Bold);
+            Assert.Equal(new SquadOrderBalance.StanceRule(1.0, 40, 0, 0), SquadOrderBalance.Bold); // §0.96で0.9→1.0
             Assert.Same(SquadOrderBalance.Cautious, SquadOrderBalance.For(DoorStance.Cautious));
             Assert.Same(SquadOrderBalance.Bold, SquadOrderBalance.For(DoorStance.Bold));
         }
@@ -281,8 +281,21 @@ namespace GuildManager.Core.Tests
             Assert.Equal(expectedGo, SquadOrderSystem.JudgeEngage(state, mission, stance).Go);
         }
 
+        [Theory]
+        [InlineData(DoorStance.Standard, false)] // 標準：HP60%未満が1人でもいれば撤退
+        [InlineData(DoorStance.Bold, true)]      // 強気：HP40%以上なら挑む（§0.96のあとも残る強気の役目）
+        public void Stance_Bold_EngagesWithLowerHp(DoorStance stance, bool expectedGo)
+        {
+            var (state, saved, boss) = Setup(SquadOrder.Dive, stat: 200, stance: stance);
+            var mission = AtDoor(state, saved, boss);
+            var m = mission.Party.Members[0];
+            m.CurrentHP = m.MaxHP / 2; // 50%
+
+            Assert.Equal(expectedGo, SquadOrderSystem.JudgeEngage(state, mission, stance).Go);
+        }
+
         [Fact]
-        public void Stance_Bold_EngagesSlightlyBelowRequirement_ButStandardDoesNot()
+        public void Stance_Bold_DoesNotEngageBelowRequirement() // §0.96：決戦は火力が要求以上でないと勝てないので、強気も挑まない
         {
             var (state, saved, boss) = Setup(SquadOrder.Dive, stat: 40, stance: DoorStance.Bold);
             var mission = AtDoor(state, saved, boss);
@@ -298,8 +311,9 @@ namespace GuildManager.Core.Tests
             double power = DungeonResolver.CalculateBossPower(mission.Party, boss);
             Assert.InRange(power / required, 0.9, 1.0);
 
-            Assert.True(SquadOrderSystem.JudgeEngage(state, mission, DoorStance.Bold).Go);
+            Assert.False(SquadOrderSystem.JudgeEngage(state, mission, DoorStance.Bold).Go);
             Assert.False(SquadOrderSystem.JudgeEngage(state, mission, DoorStance.Standard).Go);
+            Assert.Equal(1.0, SquadOrderBalance.Bold.PowerMargin);
         }
 
         [Fact]

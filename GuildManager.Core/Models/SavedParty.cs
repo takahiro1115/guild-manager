@@ -58,7 +58,7 @@ namespace GuildManager.Core.Models
         /// <summary>標準：撃破の見込みがあり、即死級に半分以上の備えがあれば挑む。</summary>
         Standard,
 
-        /// <summary>強気：火力が少し足りなくても、備えが無くても挑む。</summary>
+        /// <summary>強気：撃破の見込み（火力が要求以上）があれば、備えが無くても・HPが減っていても挑む（§0.96）。</summary>
         Bold,
     }
 

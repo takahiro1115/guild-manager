@@ -7,6 +7,7 @@
 //   dotnet run --project tools/balance_sim -- game 10 384 frugal 同・装備と施設を買わない
 //   dotnet run --project tools/balance_sim -- anchor          要求値と目安部隊の値
 //   dotnet run --project tools/balance_sim -- game 1 60 trace    同・1週ごとの経過を出す
+//   dotnet run --project tools/balance_sim -- audit 30 1440 L3 simple   画面どおりの流れで遊ばせ、判断の効き目を測る（→ README）
 // バランス値は実行ファイルの隣の 04_バランス表（docs/04_バランス表 のコピー）から読む。
 using System.Text;
 using GuildManager.Core.Balance;
@@ -34,6 +35,13 @@ if (mode is "all" or "game")
     GameSim.Frugal = args.Length > 3 && args[3] == "frugal";
     int weeks = args.Length > 2 ? int.Parse(args[2]) : 48 * 8;
     GameSim.RunMany(runs, weeks);
+}
+if (mode is "audit")
+{
+    int runs = args.Length > 1 ? int.Parse(args[1]) : 10;
+    int weeks = args.Length > 2 ? int.Parse(args[2]) : 48 * 30;
+    GameSim.ConfigureAudit(args.Skip(3).ToHashSet());
+    GameSim.RunAudit(runs, weeks);
 }
 if (mode is "campaign")
 {
@@ -157,7 +165,7 @@ static class StaticTables
 // ============================================================================================
 record BossKill(int Week, int Floor, double SquadAvgStat, double SquadWeightedStat, double Margin, double Intel, int DivesForBoss);
 
-class GameSim
+partial class GameSim
 {
     readonly GameState s;
     readonly RecruitmentSystem recruitment;
@@ -212,11 +220,12 @@ class GameSim
             new RestRecoverySystem(), growth, satisfaction, new AgingSystem(new SeededRng(99 + k)), facility,
             new DefeatSystem(), recruitment, expedition, commissions, isabellaSystem: new IsabellaSystem(new SeededRng(4049 + k)));
 
-        s = new GameState { Adventurers = SampleData.CreateStarterAdventurers(), DungeonFields = SampleData.CreateDefaultFields() };
+        // 大会の暦の種（§0.96）も回ごとに決める（以前は部隊の Guid から決まり、同じシードでも結果がそろわなかった）
+        s = new GameState { Adventurers = SampleData.CreateStarterAdventurers(), DungeonFields = SampleData.CreateDefaultFields(), TournamentSeed = 3373 + k };
         var draft = recruitment.StartInitialDraft(s);
         for (int guard = 0; guard < 10 && !draft.IsComplete; guard++)
         {
-            var best = draft.Offers.OrderByDescending(o => TotalPa(o.Candidate)).First();
+            var best = RandHire ? draft.Offers[RandFor(seed).Next(draft.Offers.Count)] : draft.Offers.OrderByDescending(o => TotalPa(o.Candidate)).First();
             recruitment.TryDraftHire(s, draft, best);
         }
     }
@@ -397,7 +406,7 @@ class GameSim
                 {
                     var (pmin, pmax) = TournamentSystem.OpponentRange(ev, TournamentDiscipline.Party);
                     if (TournamentSystem.PartyStrength(s, TournamentSystem.PartyMembers(s, squad)) >= (pmin + pmax) / 2 * 0.85)
-                        TournamentSystem.TryEnterParty(s, ev, squad, TournamentPrep.Rest);
+                        if (TournamentSystem.TryEnterParty(s, ev, squad, TournamentPrep.Rest)) Count("大会の出場");
                 }
                 continue;
             }
@@ -407,9 +416,9 @@ class GameSim
                 .Where(a => !(main.Contains(a.Id) && (TourneyMode == "nomain" || !(bigStage || (ev.Kind == TournamentKind.Royal && TournamentSystem.DisciplineFor(ev, a) == TournamentSystem.BestDiscipline(a))))) && HpRatio(a) >= 0.6 && TournamentSystem.EntryBlockReason(s, ev, a) == null)
                 .Select(a => (A: a, Str: TournamentSystem.MatchStrength(a, TournamentSystem.DisciplineFor(ev, a)), Range: TournamentSystem.OpponentRange(ev, TournamentSystem.DisciplineFor(ev, a))))
                 .Where(x => ev.Kind == TournamentKind.Rookie || x.Str >= (x.Range.Min + x.Range.Max) / 2 * 0.85)
-                .OrderByDescending(x => x.Str).Take(TournamentBalance.EntrantsPerGuild).ToList();
+                .OrderByDescending(x => RandTourney ? Rnd.NextDouble() : x.Str).Take(TournamentBalance.EntrantsPerGuild).ToList();
             foreach (var p in picks)
-                TournamentSystem.TryEnter(s, ev, p.A, HpRatio(p.A) < 0.8 ? TournamentPrep.Rest : TournamentPrep.Push);
+                if (TournamentSystem.TryEnter(s, ev, p.A, HpRatio(p.A) < 0.8 ? TournamentPrep.Rest : TournamentPrep.Push)) Count("大会の出場");
         }
     }
 
@@ -422,12 +431,12 @@ class GameSim
         {
             var preview = PickExchange();
             if (preview.Count == 3 && IsabellaSystem.MatchWinChance(preview.Select(p => p.Chance).ToList()) >= ExchangeApplyChance)
-                IsabellaSystem.TryApply(s);
+                if (IsabellaSystem.TryApply(s) != null) Count("交流戦の申し込み");
         }
         if (IsabellaSystem.ExchangeThisMonth(s) is not { Result: null } ev || !IsabellaSystem.TournamentsOpen(s)) return; // 最初の1回は Core が入れる
         foreach (var p in PickExchange())
             if (IsabellaSystem.SlotEntry(s, ev, p.D) == null)
-                IsabellaSystem.TryEnter(s, ev, p.A, p.D, TournamentPrep.Rest);
+                if (IsabellaSystem.TryEnter(s, ev, p.A, p.D, TournamentPrep.Rest)) Count("交流戦の出場");
     }
 
     /// <summary>交流戦の出場者の組（部門ごとに「部門の強さ÷相手の強さ」が高い順に、出られる子を重ならないように選ぶ）。</summary>
@@ -600,7 +609,8 @@ class GameSim
                 _ => Active.Count() >= 8 && CommissionSystem.GetLoanCandidates(s, c).Any(a => !top4.Contains(a.Id)),
             };
             if (AcceptTypes != null && !AcceptTypes.Split(',').Contains(c.Type.ToString())) want = false;
-            if (want) CommissionSystem.TryAccept(s, c);
+            if (RandComm) want = Rnd.Next(2) == 0;
+            if (want && CommissionSystem.TryAccept(s, c)) Count("依頼を受ける");
         }
         foreach (var c in s.Commissions.Where(c => c.Accepted).ToList())
         {
@@ -614,6 +624,7 @@ class GameSim
                 if (done != null) Loans++;
             }
             if (done == null) continue;
+            Count("依頼の納品・派遣");
             CommDone++;
             CommGold += done.Gold;
             if (done.PatronUnique != null) PatronUniques++;
@@ -654,14 +665,14 @@ class GameSim
         foreach (var relic in s.UnidentifiedItems.ToList())
             // campaign では週給4週分＋500Gを残せるときだけ鑑定する（依頼の報酬の金・虹の遺物は鑑定代が高く、序盤に一度に鑑定すると破産する）
             if (!Campaign || s.Gold - relic.AppraisalCost >= Active.Sum(a => a.WeeklyWage) * 4 + 500)
-                appraisal.Appraise(s, relic.Id);
+                { if (appraisal.Appraise(s, relic.Id) != null) Count("鑑定"); }
         foreach (var item in s.Armory.ToList())
         {
             var slot = item.GetSlot();
             if (slot == null) continue;
             var slots = slot is EquipmentSlot.Accessory1 or EquipmentSlot.Accessory2 ? new[] { EquipmentSlot.Accessory1, EquipmentSlot.Accessory2 } : new[] { slot.Value };
             var bestGain = 0.0; Adventurer? who = null; EquipmentSlot at = slot.Value;
-            foreach (var a in Active.Where(a => !a.IsDispatched && item.IsAllowedFor(a.JobClass)).OrderByDescending(StatSum).Take(8))
+            foreach (var a in Active.Where(a => !a.IsDispatched && item.IsAllowedFor(a.JobClass)).OrderByDescending(a => RandEquip ? Rnd.NextDouble() : StatSum(a)).Take(RandEquip ? 1 : 8))
                 foreach (var sl in slots)
                 {
                     double gain = Worth(item) - Worth(a.GetEquipped(sl));
@@ -669,11 +680,11 @@ class GameSim
                 }
             if (who != null)
             {
-                equipment.TryEquip(s, who, at, item); // 装飾品は1と2のどちらの枠にも着けられる
+                if (equipment.TryEquip(s, who, at, item)) Count("装備の着せ替え"); // 装飾品は1と2のどちらの枠にも着けられる
             }
         }
         var sellable = s.Armory.Where(EquipmentSystem.CanSell).Select(e => e.Id.ToString()).ToList();
-        if (sellable.Count > 0) EquipmentSystem.TrySellEquipments(s, sellable, out _);
+        if (sellable.Count > 0 && EquipmentSystem.TrySellEquipments(s, sellable, out _)) Count("武具の売却");
         // campaign では、まだ済んでいない研究に要る素材と、秘薬の触媒（紅玉鉱石）は売らずに残す。
         var keep = Campaign
             ? ResearchBalance.GetAll().Where(r => !s.IsResearchCompleted(r.Id)).SelectMany(r => r.RequiredMaterials.Keys)
@@ -682,7 +693,7 @@ class GameSim
                 .Concat(s.Commissions.Where(c => c.Accepted && c.MaterialId != null).Select(c => c.MaterialId!)).ToHashSet()
             : new HashSet<string>();
         foreach (var id in s.Materials.Keys.Where(id => !keep.Contains(id)).ToList())
-            economy.TrySellAllOfMaterial(s, id, out _);
+            { if (s.Materials.GetValueOrDefault(id) > 0 && economy.TrySellAllOfMaterial(s, id, out _)) Count("素材の売却"); }
     }
 
     static readonly FacilityType[] CampaignBuildOrder =
@@ -711,15 +722,15 @@ class GameSim
             if (s.AssignedTrainers.TryGetValue(f, out var cur) && cur != null) continue;
             var best = s.RetiredAdventurers.Where(r => !posted.Contains(r.Id))
                 .OrderByDescending(r => FacilityBalance.GetTrainingTargetStats(f).Sum(n => Acc.Stat(r, n))).FirstOrDefault();
-            if (best != null && advisors.TryAssignTrainer(s, f, best.Id))
-                posted.Add(best.Id);
+            if (UseTrainers && best != null && advisors.TryAssignTrainer(s, f, best.Id))
+            { posted.Add(best.Id); Count("教官の任命"); }
         }
 
         foreach (var r in ResearchBalance.GetAll().Where(r => !s.IsResearchCompleted(r.Id)))
             if (s.Gold - ResearchSystem.GetGoldToPay(s, r) >= Reserve)
             {
                 int discount = ResearchSystem.GetDiscount(s, r);
-                if (ResearchSystem.CompleteResearch(s, r)) ResearchCreditUsed += discount;
+                if (UseResearch && ResearchSystem.CompleteResearch(s, r)) { ResearchCreditUsed += discount; Count("研究"); }
             }
 
         // 霊薬（§0.61）：若い上位の冒険者に、火力の重みが最も伸びる霊薬を1週1本
@@ -733,7 +744,7 @@ class GameSim
                 .OrderByDescending(x => x.Gain).FirstOrDefault();
             if (pick.A != null)
             {
-                ElixirSystem.TryGive(s, pick.A, pick.R.Id);
+                if (ElixirSystem.TryGive(s, pick.A, pick.R.Id)) Count("霊薬");
                 ElixirsGiven++;
             }
         }
@@ -746,7 +757,7 @@ class GameSim
         var job = (StatSum(pair.A) >= StatSum(pair.B) ? pair.A : pair.B).JobClass;
         string? catalyst = s.Materials.GetValueOrDefault("mat_canyon_gem") >= 3 ? "mat_canyon_gem" : null;
         soulFusion ??= new SoulFusionSystem(new SeededRng(s.WeekNumber * 13 + 5));
-        soulFusion.TryPrescribe(s, pair.A, pair.B, job, catalyst);
+        if (soulFusion.TryPrescribe(s, pair.A, pair.B, job, catalyst) != null) Count("秘薬");
     }
 
     static double ItemWorth(Item i) => DungeonBalance.BossPowerWeights.Sum(w => i.GetStatBonus(w.Stat) * w.Weight) + i.MaxHpBonus * 0.05;
@@ -769,7 +780,7 @@ class GameSim
                 if (best.Who == null || score > best.Gain) best = (score, a, item);
             }
         if (best.Who != null)
-            equipment.TryPurchaseAndEquip(s, best.Who, best.Item!.Id);
+            { if (equipment.TryPurchaseAndEquip(s, best.Who, best.Item!.Id)) Count("装備の購入"); }
     }
 
     // ==== 収支の内訳（→ RunMany の「お金の出入り」表） ====
@@ -812,7 +823,8 @@ class GameSim
     }
     void BuildFacility()
     {
-        if (Frugal) return;
+        if (Frugal || !UseFacilities) return;
+        if (RandBuild) { BuildRandom(); return; }
         if (s.UnderConstruction != null) return;
         var counts = new Dictionary<FacilityType, int>();
         foreach (var f in Campaign ? CampaignBuildOrder : BuildOrder)
@@ -821,8 +833,8 @@ class GameSim
             if (s.GetFacilityLevel(f) >= counts[f]) continue;
             if (FacilitySystem.IsBlockedByLevelCap(s, f)) continue; // 施設の上限Lv（§0.79）：倒したボスの数で開く
             if (s.Gold - FacilityBalance.GetUpgradeCost(f, s.GetFacilityLevel(f)) >= 2500)
-                facility.TryStartConstruction(s, f, !FacilitySystem.NeedsSpecialtyChoice(f, s.GetFacilityLevel(f)) ? FacilitySpecialty.None
-                    : UseRivalry && FacilityBalance.IsTrainingFacility(f) ? FacilitySpecialty.Rivalry : FacilityBalance.GetDefaultSpecialty(f)); // Lv3→4は専門を選ぶ（§0.76）
+                if (facility.TryStartConstruction(s, f, !FacilitySystem.NeedsSpecialtyChoice(f, s.GetFacilityLevel(f)) ? FacilitySpecialty.None
+                    : UseRivalry && FacilityBalance.IsTrainingFacility(f) ? FacilitySpecialty.Rivalry : FacilityBalance.GetDefaultSpecialty(f))) Count("施設の着工"); // Lv3→4は専門を選ぶ（§0.76）
             return;
         }
     }
@@ -830,10 +842,10 @@ class GameSim
     void HoldTrial()
     {
         var offers = recruitment.GenerateCandidates(s);
-        foreach (var o in offers.OrderByDescending(o => TotalPa(o.Candidate)))
+        foreach (var o in offers.OrderByDescending(o => RandHire ? Rnd.NextDouble() : TotalPa(o.Candidate)))
         {
             if (Active.Count() >= 12 || s.Gold - o.SigningBonus < 1500) break;
-            recruitment.TryHire(s, o);
+            { if (recruitment.TryHire(s, o)) Count("採用"); }
         }
     }
 

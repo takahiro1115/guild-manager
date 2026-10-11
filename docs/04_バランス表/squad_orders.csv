@@ -8,7 +8,7 @@ StandardPowerMargin,1.0,倍,扉前の構え「標準」：討伐火力が要求�
 StandardMinHpPercent,60,%,構え「標準」：全員のHPがこの割合以上
 StandardMinReadiness,0,備え,構え「標準」：すべてのギミックの備えがこの値以上（0＝問わない）
 StandardMinInstantKillReadiness,0.5,備え,構え「標準」：即死級の備えがこの値以上（半分＝戦死しない）
-BoldPowerMargin,0.9,倍,扉前の構え「強気」：討伐火力が要求火力のこの倍率以上なら挑む
+BoldPowerMargin,1.0,倍,"扉前の構え「強気」：討伐火力が要求火力のこの倍率以上なら挑む（§0.96で0.9→1.0。決戦は火力が要求以上でないと勝てないので、1.0未満は必ず負ける戦いに挑んでいた。強気は備えとHPを問わない構え）"
 BoldMinHpPercent,40,%,構え「強気」：全員のHPがこの割合以上
 BoldMinReadiness,0,備え,構え「強気」：すべてのギミックの備えがこの値以上（問わない）
 BoldMinInstantKillReadiness,0,備え,構え「強気」：即死級の備えがこの値以上（問わない）

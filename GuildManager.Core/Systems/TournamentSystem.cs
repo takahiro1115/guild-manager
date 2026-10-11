@@ -181,7 +181,7 @@ namespace GuildManager.Core.Systems
         /// <summary>1年分の暦。地方大会は春〜夏（2の月から、その部門のG1の3か月前まで）、王都大会はその後でG1の前の月まで。</summary>
         private static List<TournamentEvent> BuildYear(GameState state, int year)
         {
-            var rng = new SeededRng(unchecked(year * 7919 + (state.SavedParties.FirstOrDefault()?.Id.GetHashCode() ?? 0)));
+            var rng = new SeededRng(unchecked(year * 7919 + state.TournamentSeed)); // 種はセーブに残る値から（§0.96）
             var events = new List<TournamentEvent>();
             foreach (var def in TournamentBalance.Definitions.Where(d => d.Kind is TournamentKind.Rookie or TournamentKind.Classic or TournamentKind.Final))
                 events.Add(NewEvent(def, year, def.Month, def.Week, def.Discipline, def.Name));
@@ -545,7 +545,7 @@ namespace GuildManager.Core.Systems
             {
                 var available = UniqueItemSystem.GetAvailableArtifacts(state);
                 if (available.Count > 0)
-                    UniqueItemSystem.Grant(state, available[Math.Abs(ev.Id.GetHashCode()) % available.Count], ev.Name);
+                    UniqueItemSystem.Grant(state, available[(int)((uint)unchecked(state.TournamentSeed * 31 + ev.Year * 48 + ev.Month * 4 + ev.Week) % (uint)available.Count)], ev.Name);
             }
             else if (ev.SpecialReward == "halfcost")
                 state.NextUpgradeHalfPrice = true;

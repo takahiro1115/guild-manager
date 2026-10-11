@@ -247,7 +247,7 @@ public partial class DungeonPanel : ScrollContainer
 			TooltipText = "潜行の方針だけ。扉前に着いた週のうちに、条件を満たせば挑み、満たさなければ撤退する。\n" +
 				"慎重：火力に余裕があり、すべてのギミックに万全の備え・全員のHP80%以上\n" +
 				"標準：撃破の見込みがあり、即死級に半分以上の備え・全員のHP60%以上\n" +
-				"強気：火力が少し足りなくても、備えが無くても挑む（全員のHP40%以上）",
+				"強気：火力が要求に届けば、備えが無くても挑む（全員のHP40%以上）",
 		};
 		foreach (var label in StanceChoiceLabels)
 			_stanceOption.AddItem(label);
