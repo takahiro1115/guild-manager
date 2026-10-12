@@ -168,6 +168,45 @@ namespace GuildManager.Core.Tests
             Assert.DoesNotContain("s01_hunter", Ids(state, StoryTiming.BeforeReport));
         }
 
+        [Fact]
+        public void Hunter_CountsBattleLossesToo()
+        {
+            var state = NewGame();
+            var boss = Forest(state, 40);
+            var field = state.DungeonFields.First(f => f.Id == "forest");
+
+            var retreat = new WeeklySettlementResult();
+            retreat.DungeonMissionResolutions.Add(new DungeonMissionResolution(new Party(), boss, field, DungeonMissionType.Scouting)
+                { ArrivedAtBossDoor = true, DoorRetreatReason = "勝ち目が薄い" });
+            StorySystem.ProcessWeek(state, retreat);
+            Assert.DoesNotContain("s01_hunter", Ids(state, StoryTiming.BeforeReport));
+
+            // 挑んで負けた週：扉前の判断は「挑む」（理由 null）、決戦の結果が撤退
+            var lost = new WeeklySettlementResult();
+            lost.DungeonMissionResolutions.Add(new DungeonMissionResolution(new Party(), boss, field, DungeonMissionType.Scouting)
+                { ArrivedAtBossDoor = true });
+            lost.DungeonMissionResolutions.Add(new DungeonMissionResolution(new Party(), boss, field, 0.5,
+                new DungeonResult { Outcome = DungeonOutcome.Retreat, WinChance = 0.4 }));
+            StorySystem.ProcessWeek(state, lost);
+            Assert.Contains("s01_hunter", Ids(state, StoryTiming.BeforeReport));
+        }
+
+        [Fact]
+        public void Hunter_DoesNotCountWins()
+        {
+            var state = NewGame();
+            var boss = Forest(state, 40);
+            var field = state.DungeonFields.First(f => f.Id == "forest");
+            for (int i = 0; i < 3; i++)
+            {
+                var result = new WeeklySettlementResult();
+                result.DungeonMissionResolutions.Add(new DungeonMissionResolution(new Party(), boss, field, 0.5,
+                    new DungeonResult { Outcome = DungeonOutcome.Victory }));
+                StorySystem.ProcessWeek(state, result);
+            }
+            Assert.DoesNotContain("s01_hunter", Ids(state, StoryTiming.BeforeReport));
+        }
+
         // ---------------- イザベラ ----------------
 
         [Fact]

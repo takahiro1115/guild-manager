@@ -56,6 +56,7 @@ partial class GameSim
         SeedFrom = int.Parse(opts.FirstOrDefault(o => o.StartsWith("from="))?.Substring(5) ?? "0");
         NoTutorial = opts.Contains("notutorial");
         DumpDir = opts.FirstOrDefault(o => o.StartsWith("dumpdir="))?.Substring(8) ?? DumpDir;
+        PlanPolicy = opts.FirstOrDefault(o => o.StartsWith("plan="))?.Substring(5) ?? "continue";
         DumpSaveAtWeek = int.Parse(opts.FirstOrDefault(o => o.StartsWith("dump="))?.Substring(5) ?? "0");
     }
 
@@ -135,10 +136,37 @@ partial class GameSim
                 var rep = MonthlyReport.Build(s, monthWeeks, goldAtTurn);
                 Reports++;
                 if (rep.Highlights.Count == 0) QuietReports++;
+                ChoosePlans(rep);
             }
         }
     }
     public int Reports, QuietReports;
+
+    // 来月の作戦（§0.98）：月報の作戦にどう答えるか。continue＝何もしない（今までどおり）、best＝見込みの勝率が最も高い手、
+    // survey・other＝あればその手、rand＝くじ引き。L1以上は手番の編成（FormSquads）が方針を書き直すので、効くのは主に L0。
+    public static string PlanPolicy = "continue";
+    public int PlansShown, PlansChosen;
+    void ChoosePlans(MonthlyReport rep)
+    {
+        foreach (var plan in rep.Plans.Where(p => !p.Repeated))
+        {
+            PlansShown++;
+            var option = PlanPolicy switch
+            {
+                "best" => plan.Options.OrderByDescending(o => o.WinChance).First(),
+                "survey" => plan.Options.FirstOrDefault(o => o.Choice == PlanChoice.Survey),
+                "other" => plan.Options.FirstOrDefault(o => o.Choice == PlanChoice.OtherBoss),
+                "rand" => plan.Options[Rnd.Next(plan.Options.Count)],
+                _ => null,
+            };
+            if (option == null) continue;
+            if (NextMonthPlanSystem.Apply(s, plan, option.Choice))
+            {
+                PlansChosen++;
+                Count("来月の作戦");
+            }
+        }
+    }
 
     public static string DumpDir = "save_dump";
 
@@ -151,6 +179,7 @@ partial class GameSim
         if (f.CommissionDeadlineNear) yield return "依頼の期限";
         if (f.SatisfactionWarningOccurred) yield return "契約交渉";
         if (f.CommissionsOffered) yield return "依頼の到着";
+        if (f.SquadStalledAtBoss) yield return "来月の作戦";
         if (f.GameCleared) yield return "クリア";
         if (f.DefeatOccurred) yield return "敗北";
     }
@@ -415,6 +444,7 @@ partial class GameSim
         Console.WriteLine("止まった理由（1年あたり）：" + string.Join("・", stops));
         Console.WriteLine("扉前の撤退の理由：" + string.Join("・", sims.SelectMany(x => x.RetreatReasons).GroupBy(kv => kv.Key).Select(g => $"{g.Key} {g.Sum(kv => kv.Value)}")));
         Console.WriteLine($"部隊の週：出撃 {sims.Sum(x => x.DispatchedSquadWeeks) / years:F1}回/年・待機（静養など） {sims.Sum(x => x.WaitingSquadWeeks) / years:F1}回/年");
+        Console.WriteLine($"来月の作戦（{PlanPolicy}）：出た {sims.Sum(x => x.PlansShown)}・選んで方針を変えた {sims.Sum(x => x.PlansChosen)}");
         Console.WriteLine($"扉前：挑んだ {sims.Sum(x => x.DoorEngages)}（うち負け {sims.Sum(x => x.DoorLosses)}）・撤退 {sims.Sum(x => x.DoorRetreats)}　強制除籍 {sims.Sum(x => x.ForcedRetired)}・重傷 {sims.Sum(x => x.SevereInjuries)}");
         Console.WriteLine($"所持金（各年のはじめ、中央値）：" + string.Join("・", Enumerable.Range(0, Math.Min(15, weeks / 48)).Select(y =>
         {

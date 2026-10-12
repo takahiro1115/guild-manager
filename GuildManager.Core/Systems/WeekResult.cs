@@ -54,23 +54,29 @@ namespace GuildManager.Core.Systems
         public bool FieldUnlocked { get; set; }
 
         /// <summary>
+        /// 潜行の方針の部隊が、主に勝てずに戻ったか（§0.98、→ NextMonthPlanSystem）。来月の作戦を決めてもらうため、月の途中でも止める。
+        /// 同じ部隊・同じ主では最初の1回だけ（→ SavedParty.StallNoticedBossId）。
+        /// </summary>
+        public bool SquadStalledAtBoss { get; set; }
+
+        /// <summary>
         /// 月を1ターンとして進めているとき（→ AutoSkipService.AdvanceMonth、§0.70）、月の途中でも止めるか。
         /// 本当に決めることがあるときだけ止める：強制除籍・新しいフィールドの開放・娘の誕生・採用試験・依頼の期限・
-        /// 契約交渉（2週以内に応えないと退団）・依頼の到着（季節の切れ目＝月の切れ目に来る）・クリア・敗北。
+        /// 契約交渉（2週以内に応えないと退団）・依頼の到着（季節の切れ目＝月の切れ目に来る）・潜行の部隊が主に勝てずに戻った（§0.98）・クリア・敗北。
         /// 重傷とボス撃破では止めない（方針の自動出撃が静養で待つ・月報で見せる）。施設の完成でも止めない。
         /// 迷宮の異変の予告は月の最後の週の前に来るが、異変は次の月から効くので止めずに月報で知らせる。
         /// </summary>
         public bool ShouldStopMonth =>
             DeathOrPermanentInjuryOccurred || FieldUnlocked || SoulFusionBirthOccurred ||
             RecruitmentTrialOccurred || CommissionDeadlineNear || SatisfactionWarningOccurred ||
-            CommissionsOffered ||
+            CommissionsOffered || SquadStalledAtBoss ||
             GameCleared || DefeatOccurred;
 
         public bool ShouldStopAutoSkip =>
             CommissionsOffered || AnomalyAnnounced || CommissionDeadlineNear ||
             RecruitmentTrialOccurred || SatisfactionWarningOccurred ||
             FacilityConstructionCompleted || SoulFusionBirthOccurred ||
-            SevereInjuryOccurred || BossDefeated ||
+            SevereInjuryOccurred || BossDefeated || SquadStalledAtBoss ||
             DeathOrPermanentInjuryOccurred ||
             GameCleared ||
             DefeatOccurred;

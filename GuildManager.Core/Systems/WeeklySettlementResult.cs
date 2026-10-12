@@ -101,6 +101,9 @@ namespace GuildManager.Core.Systems
         /// <summary>今週の栄誉の知らせ（新しい二つ名・殿堂入り・母娘の出撃。→ HonorSystem.ProcessWeek、大会と育成の栄光 段2）。</summary>
         public List<HonorNotice> HonorNotices { get; } = new();
 
+        /// <summary>今週、潜行の方針の部隊が主に勝てずに戻った（扉前で火力が足りず撤退・決戦の負け。→ NextMonthPlanSystem、§0.98）。</summary>
+        public List<SquadStall> SquadStalls { get; } = new();
+
         /// <summary>今週、満期で引退した冒険者のId（引退式の小窓を出す。→ HonorSystem.BuildCeremony）。</summary>
         public List<System.Guid> Retirees { get; } = new();
 

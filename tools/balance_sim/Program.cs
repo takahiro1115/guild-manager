@@ -211,7 +211,7 @@ partial class GameSim
         facility = new FacilitySystem();
         appraisal = new AppraisalSystem(new SeededRng(4649 + k));
         expedition = new DungeonExpeditionSystem(
-            new ScoutingResolver(new SeededRng(1453 + k)), new DungeonResolver(new SeededRng(1588 + k)),
+            new ScoutingResolver(new SeededRng(1453 + k)), new DungeonResolver(new SeededRng(1588 + k), new SeededRng(1597 + k)),
             satisfaction, compat,
             new DungeonTraversalResolver(new SeededRng(1719 + k)), new GatheringResolver(new SeededRng(1848 + k)),
             new GrowthSystem(new SeededRng(1907 + k)), new SeededRng(1969 + k));

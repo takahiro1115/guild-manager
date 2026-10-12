@@ -406,6 +406,10 @@ namespace GuildManager.Core.Systems
                 resolution.ArrivedAtBossDoor = true;
                 var stance = SquadOrderSystem.FindOrderedParty(state, mission)?.Stance ?? DoorStance.Standard;
                 var (go, reason) = SquadOrderSystem.JudgeEngage(state, mission, stance);
+                resolution.DoorPower = DungeonResolver.CalculateBossPower(mission.Party, traversal.TargetBoss);
+                resolution.DoorRequiredPower = DungeonResolver.RequiredPower(traversal.TargetBoss, state, mission.Party);
+                resolution.DoorWinChance = DungeonResolver.WinChance(resolution.DoorPower, resolution.DoorRequiredPower);
+                resolution.DoorHpPercent = HpPercent(mission.Party);
                 if (go)
                 {
                     mission.Status = ExpeditionStatus.EngagingBoss;
@@ -423,6 +427,13 @@ namespace GuildManager.Core.Systems
             }
 
             return resolution;
+        }
+
+        /// <summary>部隊の今のHPの合計÷最大HPの合計（%）。空の部隊は0。</summary>
+        private static int HpPercent(Party party)
+        {
+            int max = party.Members.Sum(m => m.MaxHP);
+            return max > 0 ? party.Members.Sum(m => m.CurrentHP) * 100 / max : 0;
         }
 
         /// <summary>

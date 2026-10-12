@@ -274,14 +274,21 @@ namespace GuildManager.Core.Systems
             GuideSystem.MarkAllDone(state); // 手引きも出さない（§0.87）
         }
 
-        /// <summary>週の決算のあと：場面のきっかけを数える（扉前の撤退・派遣の教官が帰った）。WeekProcessingSystem が呼ぶ。</summary>
+        /// <summary>
+        /// 週の決算のあと：場面のきっかけを数える（扉前の撤退・決戦の負け・派遣の教官が帰った）。WeekProcessingSystem が呼ぶ。
+        /// 決戦の負けも「勝てずに引き返した」1回に数える（§0.98）。
+        /// </summary>
         public static void ProcessWeek(GameState state, WeeklySettlementResult result)
         {
-            foreach (var r in result.DungeonMissionResolutions.Where(r => r.ArrivedAtBossDoor && r.DoorRetreatReason != null && r.Boss != null))
+            foreach (var r in result.DungeonMissionResolutions.Where(r => r.Boss != null && IsStalledAtBoss(r)))
                 state.StoryCounters[RetreatKey(r.Boss!.Id)] = state.StoryCounters.GetValueOrDefault(RetreatKey(r.Boss.Id)) + 1;
             if (result.GuestTrainer.Left != null)
                 state.StoryCounters[GuestLeftKey] = state.StoryCounters.GetValueOrDefault(GuestLeftKey) + 1;
         }
+
+        /// <summary>扉前で撤退したか、決戦で負けたか（§0.98）。</summary>
+        private static bool IsStalledAtBoss(DungeonMissionResolution r) =>
+            (r.ArrivedAtBossDoor && r.DoorRetreatReason != null) || r.DungeonResult?.Outcome == DungeonOutcome.Retreat;
 
         // ==================== 条件 ====================
 
@@ -325,7 +332,7 @@ namespace GuildManager.Core.Systems
                 .Select(e => e.Result!.Matches.FirstOrDefault(m => m.Round == 2 && m.AWon && m.NameB == IsabellaBalance.Opponent(TournamentDiscipline.Magic)))
                 .FirstOrDefault(m => m != null)?.NameA;
 
-        /// <summary>扉前で2回以上撤退した、まだ倒していないボス（いちばん浅いもの）。無ければ null。</summary>
+        /// <summary>扉前の撤退と決戦の負けが合わせて2回以上の、まだ倒していないボス（いちばん浅いもの）。無ければ null。</summary>
         public static FloorBoss? RetreatedBoss(GameState state) =>
             state.DungeonFields.SelectMany(f => f.Bosses)
                 .Where(b => !b.IsDefeated && state.StoryCounters.GetValueOrDefault(RetreatKey(b.Id)) >= 2)

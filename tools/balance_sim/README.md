@@ -118,12 +118,13 @@ dotnet run --project tools/balance_sim -c Release -- audit 30 1440 L3 simple ran
 | `notourney` `nocomm` `noloot` `nofac` `notrain` `noresearch` `noelixir` `nosf` `nonego` `notrainer` `norecruit` | その手入れをしない |
 | `randhire` `randtourney` `randcomm` `randequip` `randbuild` `randtrain` `randsquad` | その選び方をくじ引きにする |
 | `bold` `cautious` | 扉前の構えを強気・慎重にする（既定は標準） |
+| `plan=continue` `plan=best` `plan=survey` `plan=other` `plan=rand` | 月報の来月の作戦（03 §0.98）への答え方。既定は continue（何もしない）。best＝見込みの勝率が最も高い手。L1以上は手番の編成が方針を書き直すので、効くのは主に L0 |
 | `notutorial` `dump=週` `dumpdir=フォルダ` | 手ほどき「なし」で始め、その週のセーブを書き出す（画面を撮るとき） |
 | `trace` | 週ごとの経過を出す |
 
 **判断の効き目**＝「選び方を全部くじ引きにしたクリア年」−「`L3 simple` のクリア年」。03 §0.96 の時点で2年（12年目と14年目）。
-決戦の勝率（改修計画の段2）などのあと、これが広がるかを見る。
+決戦の勝率（03 §0.98、改修計画の段2）のあとは1年（13年目と14年目。揺れの幅の中）。強気は12年目、慎重は0/30。段4のあとにまた測る。
 
-出すもの：クリアの年・敗北・撃破数の推移・1年の手番・何もしなかった手番・操作の内訳・止まった理由・扉前の撤退の理由・機嫌と所持金の張り付き・月報の「主な出来事」が空だった割合。
+出すもの：クリアの年・敗北・撃破数の推移・1年の手番・何もしなかった手番・操作の内訳・止まった理由・扉前の撤退の理由・来月の作戦の数・機嫌と所持金の張り付き・月報の「主な出来事」が空だった割合。
 
 シミュレーターの回ごとの乱数の種（大会の暦の種 `TournamentSeed` も）は回の番号から決めるので、同じ設定なら何度流しても結果が一致する。

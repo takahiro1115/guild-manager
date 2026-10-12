@@ -28,6 +28,9 @@ namespace GuildManager.Core.Systems
         /// <summary>ボスを削り切るのに必要だった火力。</summary>
         public double RequiredPower { get; set; }
 
+        /// <summary>決戦の勝率（§0.98、→ DungeonResolver.WinChance）。勝ち負けはこの勝率で抽選する。</summary>
+        public double WinChance { get; set; } = 1.0;
+
         /// <summary>完全解析（→ IntelTier.Complete）による与ダメージ補正が乗ったか。</summary>
         public bool FullIntelBonusApplied { get; set; }
 

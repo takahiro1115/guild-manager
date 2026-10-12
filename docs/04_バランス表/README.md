@@ -146,6 +146,7 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 `{構え}PowerMargin`・`{構え}MinHpPercent`・`{構え}MinReadiness`・`{構え}MinInstantKillReadiness` に置き換えた
 （慎重 1.2・80・1.0・1.0／標準 1.0・60・0・0.5／強気 1.0・40・0・0）。
 強気の火力の倍率は03 §0.96で0.9→1.0にした（決戦は火力が要求以上でないと勝てないので、1.0未満は必ず負ける戦いに挑んでいた）。
+03 §0.98で決戦に勝率を入れ、`{構え}PowerMargin` を `{構え}MinWinChance`（慎重 0.9／標準 0.6／強気 0.3）に置き換えた（→ 下の「決戦の勝率」）。
 
 旧・環境ギミックの相殺アイテム（聖水・松明・登攀具）と効果アイテム（煙幕弾・高品質傷薬・
 携帯糧食）のキーは、参照元を失っていたため2026年9月に削除した（→ 03 §0.13）。
@@ -163,6 +164,20 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 `SubsidyWeeksPerMonth`・`SubsidyBaseAmount_G〜S` は `SideJobIntervalWeeks`・`SideJobBaseAmount`（旧Gの200G）へ、
 `SeveranceShortfallReputationPenalty` は `SeveranceShortfallMoodPenalty` へ置き換え、`dungeon.csv` の
 `BossBaseReputation` は削除した。代わりに `master_mood.csv` を新設した。
+
+## 決戦の勝率で追加／変更されたキー（2026年10月、→ 03 §0.98）
+
+決戦の勝ち負けを、火力÷要求の比 r から決まる勝率で抽選する（勝率＝1÷(1＋e^(−傾き×(r−中心)))）。目安：比0.85で2割・0.9で3割・0.95で5割・1.0で7割・1.1で9割。
+
+| ファイル | キー | 値 | 意味 |
+|---|---|---|---|
+| `dungeon.csv` | `BossWinCenterRatio` | 0.95 | 勝率5割になる火力÷要求の比 |
+| `dungeon.csv` | `BossWinSteepness` | 14 | 曲線の傾き（大きいほど比の差で勝率が大きく動く） |
+| `dungeon.csv` | `BossWinSureRatio` | 1.3 | この比以上なら必ず勝つ |
+| `dungeon.csv` | `BossWinHopelessRatio` | 0.7 | この比未満なら勝てない |
+| `squad_orders.csv` | `CautiousMinWinChance`・`StandardMinWinChance`・`BoldMinWinChance` | 0.9・0.6・0.3 | 扉前の構えごとの、挑む勝率の下限（旧 `*PowerMargin` 1.2・1.0・1.0 を撤去） |
+
+`audit 30 1440 L3 simple` で30/30・13年目、強気は12年目（決戦の負けと重傷が約2倍）。慎重はすべてのギミックに万全の備えを求めるため、まだ0/30（→ 03 §0.98）。
 
 ## 未鑑定遺物・鑑定・売却で追加されたキー（2026年9月、→ 03 §0.14〜§0.16）
 

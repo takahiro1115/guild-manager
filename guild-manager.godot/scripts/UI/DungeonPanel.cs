@@ -246,9 +246,8 @@ public partial class DungeonPanel : ScrollContainer
 		_stanceOption = new OptionButton
 		{
 			TooltipText = "潜行の方針だけ。扉前に着いた週のうちに、条件を満たせば挑み、満たさなければ撤退する。\n" +
-				"慎重：火力に余裕があり、すべてのギミックに万全の備え・全員のHP80%以上\n" +
-				"標準：撃破の見込みがあり、即死級に半分以上の備え・全員のHP60%以上\n" +
-				"強気：火力が要求に届けば、備えが無くても挑む（全員のHP40%以上）",
+				"決戦の勝ち負けは勝率で決まる（§0.98。勝率は討伐火力÷要求で決まり、見立てのカードに出る）。負けると撤退の損耗を受ける。\n" +
+				StanceRuleText(DoorStance.Cautious) + "\n" + StanceRuleText(DoorStance.Standard) + "\n" + StanceRuleText(DoorStance.Bold),
 		};
 		foreach (var label in StanceChoiceLabels)
 			_stanceOption.AddItem(label);
@@ -736,6 +735,13 @@ public partial class DungeonPanel : ScrollContainer
 		string complete = tier == IntelTier.Complete ? $"　[color=gold]◆ 完全解析（与ダメージ+{DungeonBalance.FullIntelDamageBonus * 100:F0}%）[/color]" : "";
 		_bossHeaderLabel.AppendText($"　解析 [color={TierColor(tier)}]{boss.IntelRate * 100:F0}%（{TierLabel(tier)}）[/color]　{hpText}{complete}");
 		_bossHeaderLabel.AppendText($"\n{GimmickSummary(boss, tier, previewParty)}");
+		// 選んだ部隊で挑んだときの火力・要求・勝率（§0.98、報告 UI-01）
+		if (saved != null && !previewParty.IsEmpty && !boss.IsDefeated)
+		{
+			double power = DungeonResolver.CalculateBossPower(previewParty, boss);
+			double required = DungeonResolver.RequiredPower(boss, _state, previewParty);
+			_bossHeaderLabel.AppendText($"　｜　「{saved.Name}」火力 {power:F0}／要求 {required:F0} → {WinChanceText(DungeonResolver.WinChance(power, required))}");
+		}
 		_bossHeaderLabel.TooltipText = GimmickTooltip(boss, tier, previewParty);
 
 		_bossHpRow.Visible = true;
@@ -1513,14 +1519,17 @@ public partial class DungeonPanel : ScrollContainer
 		var segments = DungeonTraversalResolver.DescribeSegments(_selectedField, 1, boss.Floor, _selectedField.ReachedFloor);
 
 		double power = DungeonResolver.CalculateBossPower(party, boss);
-		double requiredPower = DungeonResolver.RequiredPower(boss, _state); // 迷宮の異変（主の衰え・猛り、§0.64）込み
+		double requiredPower = DungeonResolver.RequiredPower(boss, _state, party); // 迷宮の異変（主の衰え・猛り、§0.64）・再生の備え込み
+		double chance = DungeonResolver.WinChance(power, requiredPower); // 決戦の勝率（§0.98）
+		var stance = SelectedSavedParty()?.Stance ?? DoorStance.Standard;
+		double minChance = SquadOrderBalance.For(stance).MinWinChance;
 
 		sb.Append($"\n目標：第{boss.Floor}層「{boss.Name}」扉前");
 		sb.Append($"\n走破力 [b]{score:F0}[/b] ／ 扉前の要求 {requirement:F0}（×{FormatRatio(ratio)}）");
 		string weeksText = weeksToDoor > 99 ? "99週超" : $"{weeksToDoor}週";
 		sb.Append($"\n見立て：扉前まで[color=cyan]{weeksText}[/color]（1週目は第{firstWeek.FloorAfter}層まで）");
 		sb.Append($"\n[color=gray]損耗/週 既踏{rankLossMin}〜{rankLossMax}%（{TraversalRankLabel(rank)}）・未踏破{unexploredLoss}[/color]");
-		sb.Append($"\n討伐火力 [b]{power:F0}[/b] ／ 要求 {requiredPower:F0}　{Check(power >= requiredPower, "撃破見込み", "火力不足")}");
+		sb.Append($"\n討伐火力 [b]{power:F0}[/b] ／ 要求 {requiredPower:F0} → {WinChanceText(chance)}　{Check(chance >= minChance, $"構え「{SquadOrderSystem.StanceLabel(stance)}」なら挑む", $"構え「{SquadOrderSystem.StanceLabel(stance)}」では引き返す")}");
 		_traversalPreviewLabel.AppendText(sb.ToString());
 
 		string tooltip =
@@ -1531,10 +1540,27 @@ public partial class DungeonPanel : ScrollContainer
 			$"損耗は階層ごとに積み上げる：その階層の基礎率（既踏／未踏破）÷歩いた階層数×区間の被ダメ倍率（完全解析区間は×{DungeonTraversalBalance.FullIntelDamageMultiplier:0.0#}）。\n" +
 			$"走破力（Σ(VIT×{DungeonTraversalBalance.WeightVit:0.#}＋MND×{DungeonTraversalBalance.WeightMnd:0.#})＋部隊長LDR補正、研究・参謀込み）：{score:F0}\n" +
 			$"討伐火力：扉前でボスに挑んだときの部隊火力（完全解析+{DungeonBalance.FullIntelDamageBonus * 100:F0}%・巨獣狩り込み）。要求＝({DungeonBalance.PartyPowerRequirementBase:0.#}＋ボス階層×{DungeonBalance.PartyPowerRequirementPerFloor:0.#})×フィールド倍率{DungeonBalance.GetFieldRequirementMultiplier(boss.FieldOrder):0.##}。\n" +
+			"火力は今のHPで計算する（HPの割合が火力に掛かる）。道中でHPが減るぶん、扉前ではここより下がる。\n" +
+			$"勝率（§0.98）：火力÷要求が{DungeonBalance.BossWinSureRatio:0.##}倍以上で必ず勝ち、{DungeonBalance.BossWinHopelessRatio:0.##}倍未満では勝てない。そのあいだは{DungeonBalance.BossWinCenterRatio:0.##}倍で5割。" +
+			(ScoutingResolver.GetTier(boss.IntelRate) != IntelTier.Complete ? $"完全解析にすると勝率{chance * 100:F0}%→{DungeonResolver.WinChanceWithFullIntel(party, boss, _state) * 100:F0}%。\n" : "\n") +
 			"道中進軍は低リスク：HPは減っても強制除籍にはならない。\n" +
 			"道中で拾った素材・ゴールドは、ギルドへ帰還した時点で格納される。";
 		_traversalPreviewLabel.TooltipText = tooltip;
-		return power >= requiredPower ? CardVerdict.Good : CardVerdict.Bad;
+		return chance >= minChance ? CardVerdict.Good : chance > 0 ? CardVerdict.Caution : CardVerdict.Bad;
+	}
+
+	/// <summary>決戦の勝率（§0.98）の表示：色つきの「勝率NN%」。</summary>
+	public static string WinChanceText(double chance) =>
+		$"[color={(chance >= 0.9 ? "lime" : chance >= 0.6 ? "#facc15" : chance >= 0.3 ? "orange" : "#f87171")}][b]勝率{chance * 100:F0}%[/b][/color]";
+
+	/// <summary>構えの挑む条件の説明（ツールチップ用。値は squad_orders.csv から）。</summary>
+	private static string StanceRuleText(DoorStance stance)
+	{
+		var rule = SquadOrderBalance.For(stance);
+		string readiness = rule.MinReadiness >= 1.0 ? "すべてのギミックに万全の備え"
+			: rule.MinInstantKillReadiness > 0 ? $"即死級に{rule.MinInstantKillReadiness * 100:F0}%以上の備え"
+			: "備えは問わない";
+		return $"{SquadOrderSystem.StanceLabel(stance)}：勝率{rule.MinWinChance * 100:F0}%以上・{readiness}・全員のHP{rule.MinHpPercent}%以上";
 	}
 
 	/// <summary>🔍 迷宮調査：護衛 ／ 要求 → 護衛評価、隠密 ／ 要求、解析 ／ 要求 → 成果。</summary>

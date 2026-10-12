@@ -9,7 +9,8 @@ using GuildManager.Core.Systems;
 /// <summary>
 /// 月報の小窓（2026年10月・§0.71、→ Core の MonthlyReport）。「次の月へ」で月を進めるたびに開き、どの画面にいても月の結果を見せる。
 /// §0.81：タブで分け、部隊・冒険者が何をしてどうなったかを見せる。
-///  - 概要：見出し（月・所持金と機嫌の増減）、主な出来事、来月への注意（項目ごとに、その画面へ移るボタン）
+///  - 概要：来月の作戦（§0.98。潜行の部隊が主に勝てずに戻った月に、次の手を選ぶボタン）、見出し（月・所持金と機嫌の増減）、
+///    主な出来事、来月への注意（項目ごとに、その画面へ移るボタン）
 ///  - 部隊：部隊ごとの方針・メンバー・週ごとの行動（出撃の結果・待機の理由）・月の結果・今のHP
 ///  - 冒険者：1人1行の表（所属・過ごし方の内訳・成長・今の状態）
 ///  - 週ごとの記録：計算の内訳つきの細かい記録（その月を進めた直後だけ。セーブには残さない）
@@ -28,10 +29,16 @@ public partial class MonthlyReportPopup : Window
 	/// <summary>注意の項目から画面へ移る（閉じたあとに呼ぶ）。</summary>
 	public event Action<MonthlyNoteTarget> JumpRequested = delegate { };
 
+	/// <summary>来月の作戦の手を選んだ（§0.98。小窓は閉じない。方針の書き換えは MainDashboard が Core で行う）。</summary>
+	public event Action<MonthlyPlan, PlanChoice> PlanChosen = delegate { };
+
 	private OptionButton _historyOption = null!;
 	private TabContainer _tabs = null!;
 	private RichTextLabel _summary = null!;
 	private VBoxContainer _notesBox = null!;
+	private VBoxContainer _plansBox = null!;
+	/// <summary>作戦のボタンを出すか（月を進めた直後だけ。過去の月報では文だけ）。</summary>
+	private bool _plansInteractive;
 	private RichTextLabel _squads = null!;
 	private RichTextLabel _adventurers = null!;
 	private RichTextLabel _weekly = null!;
@@ -74,6 +81,10 @@ public partial class MonthlyReportPopup : Window
 		overview.AddThemeConstantOverride("separation", 8);
 		_summary = NewText();
 		overview.AddChild(_summary);
+		_plansBox = new VBoxContainer();
+		_plansBox.AddThemeConstantOverride("separation", 4);
+		overview.AddChild(_plansBox);
+		overview.MoveChild(_plansBox, 0); // 来月の作戦は月報の先頭に（§0.98）
 		_notesBox = new VBoxContainer();
 		_notesBox.AddThemeConstantOverride("separation", 4);
 		overview.AddChild(_notesBox);
@@ -117,6 +128,7 @@ public partial class MonthlyReportPopup : Window
 	public void ShowMonth(MonthlyReport report, string weeklyBbcode, bool allowNext)
 	{
 		_historyOption.Visible = false;
+		_plansInteractive = true;
 		ShowEntry(report, weeklyBbcode);
 		_nextButton.Visible = allowNext;
 		PopupCentered(Size);
@@ -127,6 +139,7 @@ public partial class MonthlyReportPopup : Window
 	public void ShowHistory(IReadOnlyList<MonthlyReport> reports)
 	{
 		_history = reports.ToList();
+		_plansInteractive = false;
 		_historyOption.Clear();
 		for (int i = _history.Count - 1; i >= 0; i--)
 			_historyOption.AddItem($"{GameCalendar.FormatMonth(_history[i].LastWeek)}{(_history[i].MonthCompleted ? "" : "（途中経過）")}");
@@ -141,6 +154,7 @@ public partial class MonthlyReportPopup : Window
 			_summary.Clear();
 			_summary.AppendText("[color=gray]まだ月報は無い。「次の月へ」で月を進めると、ここに直近12か月分が残る。[/color]");
 			ClearNotes();
+			ClearBox(_plansBox);
 			_squads.Clear();
 			_adventurers.Clear();
 			_weekly.Clear();
@@ -159,6 +173,7 @@ public partial class MonthlyReportPopup : Window
 		_summary.Clear();
 		_summary.AppendText(SummaryText(report));
 
+		FillPlans(report);
 		ClearNotes();
 		if (report.Notes.Count > 0)
 		{
@@ -191,12 +206,58 @@ public partial class MonthlyReportPopup : Window
 			_weekly.AppendText(weeklyBbcode);
 	}
 
-	private void ClearNotes()
+	private void ClearNotes() => ClearBox(_notesBox);
+
+	private static void ClearBox(Container box)
 	{
-		foreach (var child in _notesBox.GetChildren())
+		foreach (var child in box.GetChildren())
 		{
-			_notesBox.RemoveChild(child);
+			box.RemoveChild(child);
 			child.QueueFree();
+		}
+	}
+
+	/// <summary>
+	/// 来月の作戦（§0.98）：主に勝てずに戻った潜行の部隊ごとに、何があったかと次の手（ボタンと見込み）。
+	/// 同じ主で2回目からは1行にたたむ。過去の月報では選んだ手を変えられないので、文だけにする。
+	/// </summary>
+	private void FillPlans(MonthlyReport report)
+	{
+		ClearBox(_plansBox);
+		if (report.Plans.Count == 0) return;
+		_plansBox.AddChild(new RichTextLabel { BbcodeEnabled = true, FitContent = true, ScrollActive = false, Text = "[b]🧭 来月の作戦[/b]" });
+		foreach (var plan in report.Plans)
+		{
+			string head = $"「{plan.PartyName}」は{plan.BossLabel}で{plan.Situation}";
+			if (plan.Repeated || !_plansInteractive)
+			{
+				string tail = plan.Repeated ? "。作戦は大迷宮の方針で変えられる" : "";
+				_plansBox.AddChild(new Label { Text = $"・{(plan.Repeated ? "また" : "")}{head}{tail}", AutowrapMode = TextServer.AutowrapMode.WordSmart });
+				continue;
+			}
+
+			_plansBox.AddChild(new Label { Text = $"・{head}。次の手は？", AutowrapMode = TextServer.AutowrapMode.WordSmart });
+			if (plan.Advice.Length > 0)
+				_plansBox.AddChild(new RichTextLabel { BbcodeEnabled = true, FitContent = true, ScrollActive = false, Text = $"[color=orange]　{plan.Advice}[/color]" });
+			var buttons = new List<Button>();
+			foreach (var option in plan.Options)
+			{
+				var row = new HBoxContainer();
+				row.AddThemeConstantOverride("separation", 8);
+				var button = new Button { Text = option.Label, CustomMinimumSize = new Vector2(240, 0), SizeFlagsVertical = Control.SizeFlags.ShrinkCenter };
+				row.AddChild(button);
+				row.AddChild(new Label { Text = option.Detail, AutowrapMode = TextServer.AutowrapMode.WordSmart, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
+				_plansBox.AddChild(row);
+				buttons.Add(button);
+				var choice = option.Choice;
+				button.Pressed += () =>
+				{
+					PlanChosen.Invoke(plan, choice);
+					foreach (var b in buttons)
+						b.Disabled = true;
+					button.Text = $"✔ {option.Label}";
+				};
+			}
 		}
 	}
 

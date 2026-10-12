@@ -14,10 +14,11 @@ namespace GuildManager.Core.Balance
         public static readonly int AutoDispatchMinHpPercent = BalanceData.GetInt(FileName, "AutoDispatchMinHpPercent");
 
         /// <summary>扉前の構え1つ分の、挑む条件（→ SquadOrderSystem.JudgeEngage）。</summary>
-        public sealed record StanceRule(double PowerMargin, int MinHpPercent, double MinReadiness, double MinInstantKillReadiness);
+        /// <summary>MinWinChance は決戦の勝率の下限（§0.98で火力の倍率から置き換えた、→ DungeonResolver.WinChance）。</summary>
+        public sealed record StanceRule(double MinWinChance, int MinHpPercent, double MinReadiness, double MinInstantKillReadiness);
 
         private static StanceRule Load(string prefix) => new(
-            BalanceData.GetDouble(FileName, $"{prefix}PowerMargin"),
+            BalanceData.GetDouble(FileName, $"{prefix}MinWinChance"),
             BalanceData.GetInt(FileName, $"{prefix}MinHpPercent"),
             BalanceData.GetDouble(FileName, $"{prefix}MinReadiness"),
             BalanceData.GetDouble(FileName, $"{prefix}MinInstantKillReadiness"));

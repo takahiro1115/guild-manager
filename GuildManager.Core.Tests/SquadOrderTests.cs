@@ -53,9 +53,10 @@ namespace GuildManager.Core.Tests
         public void CsvValues_AreLoaded()
         {
             Assert.Equal(70, SquadOrderBalance.AutoDispatchMinHpPercent);
-            Assert.Equal(new SquadOrderBalance.StanceRule(1.2, 80, 1.0, 1.0), SquadOrderBalance.Cautious);
-            Assert.Equal(new SquadOrderBalance.StanceRule(1.0, 60, 0, 0.5), SquadOrderBalance.Standard);
-            Assert.Equal(new SquadOrderBalance.StanceRule(1.0, 40, 0, 0), SquadOrderBalance.Bold); // §0.96で0.9→1.0
+            // §0.98：火力の倍率から勝率の下限に置き換えた
+            Assert.Equal(new SquadOrderBalance.StanceRule(0.9, 80, 1.0, 1.0), SquadOrderBalance.Cautious);
+            Assert.Equal(new SquadOrderBalance.StanceRule(0.6, 60, 0, 0.5), SquadOrderBalance.Standard);
+            Assert.Equal(new SquadOrderBalance.StanceRule(0.3, 40, 0, 0), SquadOrderBalance.Bold);
             Assert.Same(SquadOrderBalance.Cautious, SquadOrderBalance.For(DoorStance.Cautious));
             Assert.Same(SquadOrderBalance.Bold, SquadOrderBalance.For(DoorStance.Bold));
         }
@@ -295,25 +296,26 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
-        public void Stance_Bold_DoesNotEngageBelowRequirement() // §0.96：決戦は火力が要求以上でないと勝てないので、強気も挑まない
+        public void Stance_DecidesByWinChance() // §0.98：勝率4割前後なら、強気（3割以上）は挑み、標準（6割以上）は挑まない
         {
             var (state, saved, boss) = Setup(SquadOrder.Dive, stat: 40, stance: DoorStance.Bold);
             var mission = AtDoor(state, saved, boss);
             double required = DungeonResolver.RequiredPower(boss, state, mission.Party);
-            // 火力を要求の95%に合わせる：2人とも同じ能力なので、全能力を同じ割合で縮める
-            double ratio = 0.95 * required / DungeonResolver.CalculateBossPower(mission.Party, boss);
+            // 火力を要求の92%に合わせる：2人とも同じ能力なので、全能力を同じ割合で縮める
+            double ratio = 0.92 * required / DungeonResolver.CalculateBossPower(mission.Party, boss);
             foreach (var m in mission.Party.Members)
             {
                 m.STR = (int)(m.STR * ratio); m.AGI = (int)(m.AGI * ratio); m.VIT = (int)(m.VIT * ratio); m.MND = (int)(m.MND * ratio);
                 m.DEX = (int)(m.DEX * ratio); m.LDR = (int)(m.LDR * ratio); m.INT = (int)(m.INT * ratio);
                 m.CurrentHP = m.MaxHP;
             }
-            double power = DungeonResolver.CalculateBossPower(mission.Party, boss);
-            Assert.InRange(power / required, 0.9, 1.0);
+            double chance = DungeonResolver.WinChance(mission.Party, boss, state);
+            Assert.InRange(chance, SquadOrderBalance.Bold.MinWinChance, SquadOrderBalance.Standard.MinWinChance - 0.01);
 
-            Assert.False(SquadOrderSystem.JudgeEngage(state, mission, DoorStance.Bold).Go);
-            Assert.False(SquadOrderSystem.JudgeEngage(state, mission, DoorStance.Standard).Go);
-            Assert.Equal(1.0, SquadOrderBalance.Bold.PowerMargin);
+            Assert.True(SquadOrderSystem.JudgeEngage(state, mission, DoorStance.Bold).Go);
+            var standard = SquadOrderSystem.JudgeEngage(state, mission, DoorStance.Standard);
+            Assert.False(standard.Go);
+            Assert.Contains("勝率", standard.Reason);
         }
 
         [Fact]

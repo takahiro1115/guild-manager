@@ -37,10 +37,44 @@ namespace GuildManager.Core.Systems
     public class DungeonResolver
     {
         private readonly IRng _rng;
+        /// <summary>決戦の勝ち負けだけに使う乱数（§0.98。損耗・開眼などの抽選の順を変えないよう別にする）。</summary>
+        private readonly IRng _outcomeRng;
 
-        public DungeonResolver(IRng rng)
+        private const int DefaultOutcomeSeed = 1597;
+
+        public DungeonResolver(IRng rng, IRng? outcomeRng = null)
         {
             _rng = rng;
+            _outcomeRng = outcomeRng ?? new SeededRng(DefaultOutcomeSeed);
+        }
+
+        /// <summary>
+        /// 決戦の勝率（§0.98）：火力÷要求の比 r から、1÷(1＋e^(−傾き×(r−中心)))。r が BossWinSureRatio 以上なら1、BossWinHopelessRatio 未満なら0
+        /// （→ BAL: dungeon.csv BossWin*）。以前は火力が要求以上なら必ず勝ち、未満なら必ず負けた（見立てで答えが分かり、扉前の判断に余地が無かった）。
+        /// </summary>
+        public static double WinChance(double power, double required)
+        {
+            if (required <= 0) return 1.0;
+            double r = power / required;
+            if (r >= DungeonBalance.BossWinSureRatio) return 1.0;
+            if (r < DungeonBalance.BossWinHopelessRatio) return 0.0;
+            return 1.0 / (1.0 + Math.Exp(-DungeonBalance.BossWinSteepness * (r - DungeonBalance.BossWinCenterRatio)));
+        }
+
+        /// <summary>この部隊でこのボスに挑んだときの勝率（ギミック・再生・異変込み）。見立て・扉前の判断・決戦が共通で使う。</summary>
+        public static double WinChance(Party party, FloorBoss boss, GameState? state) =>
+            WinChance(CalculateBossPower(party, boss), RequiredPower(boss, state, party));
+
+        /// <summary>
+        /// 完全解析を済ませたあとの勝率の見込み（来月の作戦、§0.98）。まだ完全解析でなければ、火力に完全解析の上乗せ
+        /// （FullIntelDamageBonus）を掛けて求める。完全解析済みなら WinChance と同じ。
+        /// </summary>
+        public static double WinChanceWithFullIntel(Party party, FloorBoss boss, GameState? state)
+        {
+            double power = CalculateBossPower(party, boss);
+            if (ScoutingResolver.GetTier(boss.IntelRate) != IntelTier.Complete)
+                power *= 1.0 + DungeonBalance.FullIntelDamageBonus;
+            return WinChance(power, RequiredPower(boss, state, party));
         }
 
         /// <summary>
@@ -86,7 +120,11 @@ namespace GuildManager.Core.Systems
 
             result.PartyPower = partyPower;
             result.RequiredPower = RequiredPower(boss, state, party);
-            result.Outcome = partyPower >= result.RequiredPower ? DungeonOutcome.Victory : DungeonOutcome.Retreat;
+            // 勝ち負けは勝率で抽選する（§0.98）。必ず勝つ・必ず負けるときは乱数を引かない
+            result.WinChance = WinChance(partyPower, result.RequiredPower);
+            bool won = result.WinChance >= 1.0
+                || (result.WinChance > 0 && _outcomeRng.NextInt(1, 10000) <= (int)Math.Round(result.WinChance * 10000));
+            result.Outcome = won ? DungeonOutcome.Victory : DungeonOutcome.Retreat;
 
             if (result.Outcome == DungeonOutcome.Victory)
             {

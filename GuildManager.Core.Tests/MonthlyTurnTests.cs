@@ -83,6 +83,7 @@ namespace GuildManager.Core.Tests
             Assert.True(new WeekResult { CommissionDeadlineNear = true }.ShouldStopMonth);
             Assert.True(new WeekResult { GameCleared = true }.ShouldStopMonth);
             Assert.True(new WeekResult { DefeatOccurred = true }.ShouldStopMonth);
+            Assert.True(new WeekResult { SquadStalledAtBoss = true }.ShouldStopMonth); // 来月の作戦（§0.98）
             // 重傷・ボス撃破・施設の完成では止めない（月報で見せる）
             Assert.False(new WeekResult { SevereInjuryOccurred = true }.ShouldStopMonth);
             Assert.False(new WeekResult { BossDefeated = true }.ShouldStopMonth);

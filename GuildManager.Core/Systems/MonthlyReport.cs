@@ -81,7 +81,7 @@ namespace GuildManager.Core.Systems
     /// <summary>
     /// 月報（2026年10月・§0.70：月を1ターンにする、§0.71：月報の小窓と過去12か月の保存）。
     /// 「次の月へ」（→ AutoSkipService.AdvanceMonth）で進めた週の結果をまとめ、次の月の手を考える材料にする：
-    /// お金と機嫌の増減、倒したボス・決戦で退いたボス・扉前で撤退した理由、冒険者ごとの成長、来月への注意（移る先の画面つき）。
+    /// お金と機嫌の増減、倒したボス・決戦で退いたボス・扉前で撤退した理由、冒険者ごとの成長、来月の作戦（§0.98）、来月への注意（移る先の画面つき）。
     /// 月の途中で止まったときは「途中経過」で、止まった理由（StopReasons）を持つ。
     /// セーブに直近 KeptReports か月分を残す（→ GameState.MonthlyReports・Record）。表示は UI（MonthlyReportPopup）が組み立てる。
     /// </summary>
@@ -118,7 +118,7 @@ namespace GuildManager.Core.Systems
         /// <summary>倒したボス（「森 第10層「若き毒蜘蛛」」）。</summary>
         public List<string> BossesDefeated { get; set; } = new();
 
-        /// <summary>決戦で撤退したボス（火力が足りなかった）。</summary>
+        /// <summary>決戦で撤退したボス（勝率の抽選に負けた、§0.98）。</summary>
         public List<string> BossesRepelled { get; set; } = new();
 
         /// <summary>扉前で撤退した理由（「森 第20層「…」：討伐火力が足りない見込みのため撤退」）。</summary>
@@ -126,6 +126,12 @@ namespace GuildManager.Core.Systems
 
         /// <summary>この月に強制除籍された人数。</summary>
         public int ForcedRetired { get; set; }
+
+        /// <summary>
+        /// 来月の作戦（§0.98）：潜行の部隊が主に勝てずに戻ったときの次の手。月報の先頭に出す。
+        /// 旧いセーブの月報には無く、空で読まれる。
+        /// </summary>
+        public List<MonthlyPlan> Plans { get; set; } = new();
 
         /// <summary>来月への注意。</summary>
         public List<MonthlyNote> Notes { get; set; } = new();
@@ -182,6 +188,7 @@ namespace GuildManager.Core.Systems
             }
 
             report.YearStanding = settlements.Select(s => s.YearStanding).LastOrDefault(s => s != null);
+            report.Plans.AddRange(NextMonthPlanSystem.BuildPlans(state, settlements.SelectMany(s => s.SquadStalls)));
             AddNotes(state, report);
             AddHighlights(state, weeks, report);
             AddSquads(state, weeks, report);
@@ -367,12 +374,12 @@ namespace GuildManager.Core.Systems
             {
                 if (d.Outcome == DungeonOutcome.Victory)
                 {
-                    parts.Add($"{Where(r)}を撃破（火力 {d.PartyPower:F0} ／ 要求 {d.RequiredPower:F0}）");
+                    parts.Add($"{Where(r)}を撃破（火力 {d.PartyPower:F0} ／ 要求 {d.RequiredPower:F0}・勝率{d.WinChance * 100:F0}%）");
                     tone = MonthlyTone.Good;
                 }
                 else
                 {
-                    parts.Add($"{Where(r)}との決戦で退いた（火力 {d.PartyPower:F0} ／ 要求 {d.RequiredPower:F0}）");
+                    parts.Add($"{Where(r)}との決戦で退いた（火力 {d.PartyPower:F0} ／ 要求 {d.RequiredPower:F0}・勝率{d.WinChance * 100:F0}%）");
                     tone = MonthlyTone.Bad;
                 }
             }
@@ -487,6 +494,7 @@ namespace GuildManager.Core.Systems
             if (flags.CommissionDeadlineNear) reasons.Add("依頼の期限が近い");
             if (flags.SatisfactionWarningOccurred) reasons.Add("契約交渉の申し出");
             if (flags.CommissionsOffered) reasons.Add("依頼が届いた");
+            if (flags.SquadStalledAtBoss) reasons.Add("潜行の部隊が主に勝てずに戻った");
             if (flags.GameCleared) reasons.Add("深淵100Fを制覇した");
             if (flags.DefeatOccurred) reasons.Add("ゲームオーバー");
             return reasons;

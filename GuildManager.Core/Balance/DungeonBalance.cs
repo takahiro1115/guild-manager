@@ -45,6 +45,15 @@ namespace GuildManager.Core.Balance
         /// <summary>完全解析（→ IntelTier.Complete）到達時の与ダメージ補正。</summary>
         public static readonly double FullIntelDamageBonus = BalanceData.GetDouble(FileName, "FullIntelDamageBonus");
 
+        /// <summary>決戦の勝率（§0.98、→ DungeonResolver.WinChance）：火力÷要求がこの比のとき勝率5割。</summary>
+        public static readonly double BossWinCenterRatio = BalanceData.GetDouble(FileName, "BossWinCenterRatio");
+        /// <summary>決戦の勝率の曲線の傾き。</summary>
+        public static readonly double BossWinSteepness = BalanceData.GetDouble(FileName, "BossWinSteepness");
+        /// <summary>比がこの値以上なら必ず勝つ。</summary>
+        public static readonly double BossWinSureRatio = BalanceData.GetDouble(FileName, "BossWinSureRatio");
+        /// <summary>比がこの値未満なら必ず負ける。</summary>
+        public static readonly double BossWinHopelessRatio = BalanceData.GetDouble(FileName, "BossWinHopelessRatio");
+
         /// <summary>未対策ギミック1件（危険度1あたり）につき被ダメージへ加算される倍率。</summary>
         public static readonly double UncounteredDamageMultiplierPerDangerLevel =
             BalanceData.GetDouble(FileName, "UncounteredDamageMultiplierPerDangerLevel");

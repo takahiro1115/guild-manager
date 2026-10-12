@@ -73,6 +73,16 @@ namespace GuildManager.Core.Systems
         /// </summary>
         public string? DoorRetreatReason { get; set; }
 
+        /// <summary>扉前に着いたときの決戦の勝率（§0.98、→ DungeonResolver.WinChance）。ArrivedAtBossDoor が false なら null。</summary>
+        public double? DoorWinChance { get; set; }
+
+        /// <summary>扉前に着いたときの討伐火力と要求火力（道中で減ったHP込み。§0.98、来月の作戦の見込みに使う）。ArrivedAtBossDoor が false なら0。</summary>
+        public double DoorPower { get; set; }
+        public double DoorRequiredPower { get; set; }
+
+        /// <summary>扉前に着いたときの部隊のHP（今のHPの合計÷最大HPの合計、%。§0.98）。ArrivedAtBossDoor が false なら0。</summary>
+        public int DoorHpPercent { get; set; }
+
         /// <summary>今週の解決で部隊がギルドへ帰還したか（勝利・撤退・全滅・採取完了）。</summary>
         public bool ReturnedHome { get; set; }
 

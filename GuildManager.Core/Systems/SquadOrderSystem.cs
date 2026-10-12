@@ -58,10 +58,12 @@ namespace GuildManager.Core.Systems
                 if (IsOut(state, saved))
                     continue;
 
+                string resumed = ResumeDiveIfSurveyed(state, saved) ? "調べが済んだので潜行に戻す。" : "";
+
                 string? wait = GetWaitReason(state, saved);
                 if (wait != null)
                 {
-                    events.Add(new SquadOrderEvent(saved, SquadOrderAction.Waiting, wait));
+                    events.Add(new SquadOrderEvent(saved, SquadOrderAction.Waiting, resumed + wait));
                     continue;
                 }
 
@@ -70,14 +72,29 @@ namespace GuildManager.Core.Systems
                 var (ok, detail) = DispatchByOrder(state, saved, field, party);
                 if (!ok)
                 {
-                    events.Add(new SquadOrderEvent(saved, SquadOrderAction.Waiting, detail));
+                    events.Add(new SquadOrderEvent(saved, SquadOrderAction.Waiting, resumed + detail));
                     continue;
                 }
                 state.ActiveDungeonMissions[^1].SavedPartyId = saved.Id;
-                events.Add(new SquadOrderEvent(saved, SquadOrderAction.Dispatched, detail));
+                events.Add(new SquadOrderEvent(saved, SquadOrderAction.Dispatched, resumed + detail));
             }
 
             return events;
+        }
+
+        /// <summary>
+        /// 来月の作戦で調査に切り替えた部隊（→ SavedParty.ResumeDiveAfterSurvey、§0.98）が、潜った階層をすべて完全解析にしたら、
+        /// 同じフィールドの潜行の方針へ戻す。戻したら true。
+        /// </summary>
+        public static bool ResumeDiveIfSurveyed(GameState state, SavedParty saved)
+        {
+            if (!saved.ResumeDiveAfterSurvey) return false;
+            if (saved.Order != SquadOrder.Survey) { saved.ResumeDiveAfterSurvey = false; return false; }
+            var field = ResolveField(state, saved);
+            if (field == null || ScoutingResolver.FindSurveyableBoss(field) != null) return false;
+            saved.Order = SquadOrder.Dive;
+            saved.ResumeDiveAfterSurvey = false;
+            return true;
         }
 
         private (bool Ok, string Detail) DispatchByOrder(GameState state, SavedParty saved, DungeonField field, Party party)
@@ -206,7 +223,7 @@ namespace GuildManager.Core.Systems
         /// 扉前で挑むかの見込み（→ 大迷宮画面の見立てと同じ考え方、§0.68）。構えの条件（→ SquadOrderBalance.For）を
         /// 次の順に確かめ、すべて満たせば挑む：
         ///  - すべてのギミックの備え（→ DungeonResolver.Readiness）が MinReadiness 以上、即死級は MinInstantKillReadiness 以上
-        ///  - 討伐火力（ギミック込み、→ DungeonResolver.CalculateBossPower）が要求火力（再生・異変込み）×PowerMargin 以上
+        ///  - 決戦の勝率（ギミック・再生・異変込み、→ DungeonResolver.WinChance、§0.98）が MinWinChance 以上
         ///  - 全員のHPが MinHpPercent 以上
         /// 見込みがあれば Go、無ければ撤退の理由を返す。扉前に着いた週の決算で DungeonExpeditionSystem が呼ぶ（§0.69）。
         /// </summary>
@@ -227,10 +244,10 @@ namespace GuildManager.Core.Systems
                     return (false, $"{BossGimmickInfo.Label(gimmick.Type)}への備えが足りないため撤退");
             }
 
-            double power = DungeonResolver.CalculateBossPower(party, boss);
-            double required = DungeonResolver.RequiredPower(boss, state, party); // 再生・迷宮の異変（主の衰え・猛り、§0.64）込み
-            if (power < required * rule.PowerMargin)
-                return (false, "討伐火力が足りない見込みのため撤退");
+            // 勝率（§0.98。再生・迷宮の異変〈主の衰え・猛り、§0.64〉込み）が構えの下限に届かなければ撤退
+            double chance = DungeonResolver.WinChance(party, boss, state);
+            if (chance < rule.MinWinChance)
+                return (false, $"討伐火力が足りない見込み（勝率{chance * 100:F0}%、構えの下限{rule.MinWinChance * 100:F0}%）のため撤退");
 
             var tired = party.Members.Where(m => m.CurrentHP * 100 < m.MaxHP * rule.MinHpPercent).ToList();
             if (tired.Count > 0)

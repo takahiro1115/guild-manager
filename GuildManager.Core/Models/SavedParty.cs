@@ -47,18 +47,32 @@ namespace GuildManager.Core.Models
         /// 満たさなければ撤退する（→ SquadOrderSystem.JudgeEngage、§0.69）。
         /// </summary>
         public DoorStance Stance { get; set; } = DoorStance.Standard;
+
+        // ---- 来月の作戦（§0.98、→ Systems.NextMonthPlanSystem） ----
+
+        /// <summary>
+        /// 潜行の方針で勝てずに戻ったことを、月を止めて知らせたボスのId。同じボスで2回目からは月を止めず、月報も1行にたたむ。
+        /// その部隊がこのボスを倒したら消す。旧セーブには無く null で読まれる（次に勝てずに戻ったとき、もう一度知らせる）。
+        /// </summary>
+        public Guid? StallNoticedBossId { get; set; }
+
+        /// <summary>
+        /// 来月の作戦で「調査に切り替える」を選んだ印。調査の方針で、調べられるボスがもう無い（潜った階層まで完全解析）と、
+        /// 次の出撃の前に潜行の方針へ戻す（→ SquadOrderSystem.Execute）。旧セーブには無く false で読まれる。
+        /// </summary>
+        public bool ResumeDiveAfterSurvey { get; set; }
     }
 
     /// <summary>扉前の構え（→ SavedParty.Stance、Systems.SquadOrderSystem.JudgeEngage、03 §4.0.3・§0.68・§0.69）。</summary>
     public enum DoorStance
     {
-        /// <summary>慎重：火力に余裕があり、すべてのギミックに万全の備えがあるときだけ挑む。</summary>
+        /// <summary>慎重：決戦の勝率が高く（9割以上、§0.98）、すべてのギミックに万全の備えがあるときだけ挑む。</summary>
         Cautious,
 
-        /// <summary>標準：撃破の見込みがあり、即死級に半分以上の備えがあれば挑む。</summary>
+        /// <summary>標準：決戦の勝率が6割以上（§0.98）で、即死級に半分以上の備えがあれば挑む。</summary>
         Standard,
 
-        /// <summary>強気：撃破の見込み（火力が要求以上）があれば、備えが無くても・HPが減っていても挑む（§0.96）。</summary>
+        /// <summary>強気：決戦の勝率が3割以上（§0.98）あれば、備えが無くても・HPが減っていても挑む。</summary>
         Bold,
     }
 

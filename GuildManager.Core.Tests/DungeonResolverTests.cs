@@ -191,10 +191,10 @@ namespace GuildManager.Core.Tests
             // 階層5の要求火力は345＋5×7.5＝382.5のため素では届かないが、完全解析の+20%（403.2）で覆る。
             var withoutIntel = MakeBoss(floor: 5, intelRate: 0.0);
             var withIntel = MakeBoss(floor: 5, intelRate: 1.0);
-            var resolver = new DungeonResolver(new AlwaysMinRng());
-
-            var retreat = resolver.Resolve(PartyOf(MakeRanger(80)), withoutIntel);
-            var victory = resolver.Resolve(PartyOf(MakeRanger(80)), withIntel);
+            // §0.98：勝ち負けは勝率の抽選。解析なし（比≒0.89）は勝率3割ほど、完全解析（比≒1.07）は8割ほど。
+            // 勝ち負けの乱数を「いちばん悪い目」（10000）にして解析なしを、「いちばん良い目」（1）にして完全解析を見る
+            var retreat = new DungeonResolver(new AlwaysMinRng(), new AlwaysMaxRng()).Resolve(PartyOf(MakeRanger(80)), withoutIntel);
+            var victory = new DungeonResolver(new AlwaysMinRng(), new AlwaysMinRng()).Resolve(PartyOf(MakeRanger(80)), withIntel);
 
             Assert.Equal(DungeonOutcome.Retreat, retreat.Outcome);
             Assert.False(retreat.FullIntelBonusApplied);
@@ -202,6 +202,51 @@ namespace GuildManager.Core.Tests
             Assert.Equal(DungeonOutcome.Victory, victory.Outcome);
             Assert.True(victory.FullIntelBonusApplied);
             Assert.True(victory.PartyPower > retreat.PartyPower);
+            Assert.True(victory.WinChance > retreat.WinChance + 0.3);
+        }
+
+        // ---------------- 決戦の勝率（§0.98） ----------------
+
+        [Fact]
+        public void WinChance_FollowsTheCurve_WithSureAndHopelessEnds()
+        {
+            Assert.Equal(0.5, DungeonResolver.WinChance(DungeonBalance.BossWinCenterRatio * 100, 100), 3);
+            Assert.Equal(1.0, DungeonResolver.WinChance(DungeonBalance.BossWinSureRatio * 100, 100));
+            Assert.Equal(0.0, DungeonResolver.WinChance(DungeonBalance.BossWinHopelessRatio * 100 - 1, 100));
+            // 比が上がるほど勝率も上がる
+            double prev = 0;
+            for (double r = 0.7; r < 1.3; r += 0.05)
+            {
+                double c = DungeonResolver.WinChance(r * 100, 100);
+                Assert.True(c >= prev);
+                prev = c;
+            }
+            Assert.InRange(DungeonResolver.WinChance(100, 100), 0.6, 0.75); // 比1.0≒7割
+        }
+
+        [Fact]
+        public void Resolve_SureWin_DoesNotDependOnTheOutcomeRoll()
+        {
+            var boss = MakeBoss(floor: 1, intelRate: 1.0);
+            var party = PartyOf(MakeRanger(200));
+            Assert.Equal(1.0, DungeonResolver.WinChance(party, boss, null));
+
+            var result = new DungeonResolver(new AlwaysMinRng(), new AlwaysMaxRng()).Resolve(party, boss);
+
+            Assert.Equal(DungeonOutcome.Victory, result.Outcome);
+        }
+
+        [Fact]
+        public void Resolve_Hopeless_LosesEvenWithTheBestRoll()
+        {
+            var boss = MakeBoss(floor: 90, intelRate: 0.0);
+            var party = PartyOf(MakeRanger(20));
+            Assert.Equal(0.0, DungeonResolver.WinChance(party, boss, null));
+
+            var result = new DungeonResolver(new AlwaysMinRng(), new AlwaysMinRng()).Resolve(party, boss);
+
+            Assert.Equal(DungeonOutcome.Retreat, result.Outcome);
+            Assert.False(boss.IsDefeated);
         }
 
         [Fact]

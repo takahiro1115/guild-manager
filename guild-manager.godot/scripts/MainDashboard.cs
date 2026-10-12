@@ -245,6 +245,7 @@ public partial class MainDashboard : Control
 		_monthlyReportPopup.Closed += OnMonthlyReportClosed;
 		_monthlyReportPopup.NextMonthRequested += () => Callable.From(OnNextMonthPressed).CallDeferred();
 		_monthlyReportPopup.JumpRequested += OnMonthlyReportJump;
+		_monthlyReportPopup.PlanChosen += OnPlanChosen;
 		var reportsButton = new Button { Text = "📅 月報", TooltipText = "直近12か月の月報を見返す" };
 		reportsButton.Pressed += () => _monthlyReportPopup.ShowHistory(_state.MonthlyReports);
 		_squadSlotLabel.GetParent().AddChild(reportsButton);
@@ -332,7 +333,7 @@ public partial class MainDashboard : Control
 		// 大迷宮（→ ダンジョン攻略システム）。調査・討伐は別シードにし、互いの抽選回数が結果に
 		// 影響しないようにする。強制除籍の余波（満足度・相性）は既存インスタンスを共有する。
 		_dungeonExpeditionSystem = new DungeonExpeditionSystem(
-			new ScoutingResolver(new SeededRng(1453)), new DungeonResolver(new SeededRng(1588)),
+			new ScoutingResolver(new SeededRng(1453)), new DungeonResolver(new SeededRng(1588), new SeededRng(1597)), // 決戦の勝ち負けは別シード（§0.98）
 			_satisfactionSystem, _compatibilitySystem);
 		_dungeonPanel.Initialize(_dungeonExpeditionSystem);
 		_adventurerPanel.Initialize(_satisfactionSystem, _agingSystem);
@@ -984,6 +985,27 @@ public partial class MainDashboard : Control
 		});
 	}
 
+	/// <summary>
+	/// 月報の「来月の作戦」で手を選んだ（§0.98）：Core で方針を書き換え、出撃中なら呼び戻す（方針を変えたときと同じ、§0.69）。
+	/// </summary>
+	private void OnPlanChosen(MonthlyPlan plan, PlanChoice choice)
+	{
+		var saved = _state.SavedParties.FirstOrDefault(p => p.Id == plan.PartyId);
+		if (saved == null) return;
+		if (NextMonthPlanSystem.Apply(_state, plan, choice))
+		{
+			ShowToast(choice == PlanChoice.Survey
+				? $"[color=cyan]📋 「{saved.Name}」の方針を調査にした。調べが済んだら潜行に戻る。[/color]"
+				: $"[color=cyan]📋 「{saved.Name}」の方針を「おまかせで潜行」にした。[/color]");
+			if (_squadOrderSystem.Recall(_state, saved))
+				ShowToast($"[color=orange]🏃 「{saved.Name}」の出撃を呼び戻した（方針を変えたため）。[/color]");
+		}
+		else
+			ShowToast($"[color=cyan]📋 「{saved.Name}」はこのまま潜り続ける。[/color]");
+		_saveLoadService.Save(_state);
+		RefreshAll();
+	}
+
 	/// <summary>月報の小窓（§0.71）。</summary>
 	private MonthlyReportPopup _monthlyReportPopup = null!;
 
@@ -1319,7 +1341,8 @@ public partial class MainDashboard : Control
 				string stance = SquadOrderSystem.StanceLabel(orderedParty?.Stance ?? DoorStance.Standard);
 				if (resolution.DoorRetreatReason == null)
 				{
-					sb.AppendLine($"[color=gold][b]【扉前到達】部隊は第{traversal.TargetBoss.Floor}層ボスの扉前に到達し、構え「{stance}」で挑んだ。[/b][/color]");
+					string chance = resolution.DoorWinChance is double c ? $"（勝率{c * 100:F0}%）" : "";
+					sb.AppendLine($"[color=gold][b]【扉前到達】部隊は第{traversal.TargetBoss.Floor}層ボスの扉前に到達し、構え「{stance}」で挑んだ{chance}。[/b][/color]");
 				}
 				else
 				{
@@ -1393,6 +1416,8 @@ public partial class MainDashboard : Control
 		sb.AppendLine(assault.Outcome == DungeonOutcome.Victory
 			? $"[color=gold][font_size=20][b]🏆 【階層ボス撃破】部隊は見事に「{boss.Name}」を討伐した！ 第{boss.Floor}層を踏破！[/b][/font_size][/color]"
 			: "[color=orange][b]火力が及ばず、撤退を余儀なくされた。ボスは傷を癒やし、次は仕切り直しになる。[/b][/color]");
+		if (assault.WinChance < 1.0)
+			sb.AppendLine($"[color=gray]（火力 {assault.PartyPower:F0} ／ 要求 {assault.RequiredPower:F0}・勝率{assault.WinChance * 100:F0}%の決戦だった）[/color]");
 
 		if (assault.Outcome == DungeonOutcome.Victory)
 		{
