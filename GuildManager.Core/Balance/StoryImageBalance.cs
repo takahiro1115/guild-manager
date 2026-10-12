@@ -17,7 +17,7 @@ namespace GuildManager.Core.Balance
     public sealed record StoryImageDefinition(StoryImageKind Kind, IReadOnlyList<string> Names, string Expression, string File);
 
     /// <summary>
-    /// 物語の会話の小窓に出す背景と立ち絵（2026年10月・§0.91、→ docs/04_バランス表/story_images.csv、Systems.StorySystem.StageOf）。
+    /// 物語の会話の小窓に出す背景と立ち絵（2026年10月・§0.91、→ docs/04_バランス表/story_images.csv、Systems.StorySystem.StepsOf）。
     /// 正本は物語帳の「場面」と「画像」。行は画像がまだ無くても置いておき、Godot 側はファイルがあるときだけ出す
     /// （画像を作ったら、決めてあるファイル名で assets/story/ に置くだけで出る）。
     /// 立ち絵の表情が無いときは「通常」を使う。

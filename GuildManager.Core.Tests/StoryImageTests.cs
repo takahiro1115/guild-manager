@@ -8,7 +8,7 @@ using Xunit;
 
 namespace GuildManager.Core.Tests
 {
-    /// <summary>物語の背景と立ち絵（§0.91）：story_images.csv の読み込みと、小窓の1ページの舞台（StorySystem.StageOf）。</summary>
+    /// <summary>物語の背景と立ち絵（§0.91）：story_images.csv の読み込みと、小窓のコマ（StorySystem.StepsOf、§0.107）。</summary>
     public class StoryImageTests
     {
         private static readonly string[] Header = { "Kind", "Name", "Expression", "File", "note" };
@@ -91,67 +91,47 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
-        public void 背景はそのページまでの最後の指定を引き継ぐ()
+        public void 背景はその行までの最後の指定を引き継ぐ()
         {
-            var showing = Showing("〔背景：森の祠〕", "報告「見つけた」", "▼", "〔背景：医務室〕", "少女「ここは……？」", "▼", "アルベール「よかった」");
-            Assert.Equal("森の祠", StorySystem.StageOf(showing, 0).Background);
-            Assert.Equal("bg/forest_shrine.jpg", StorySystem.StageOf(showing, 0).BackgroundFile);
-            Assert.Equal("医務室", StorySystem.StageOf(showing, 1).Background);
-            Assert.Equal("医務室", StorySystem.StageOf(showing, 2).Background);
+            var steps = StorySystem.StepsOf(Showing("〔背景：森の祠〕", "報告「見つけた」", "▼", "少女「あ……」", "〔背景：医務室〕", "少女「ここは……？」", "▼", "アルベール「よかった」"));
+            Assert.Equal(new[] { "森の祠", "森の祠", "医務室", "医務室" }, steps.Select(s => s.Background));
+            Assert.Equal("bg/forest_shrine.jpg", steps[0].BackgroundFile);
 
-            var none = StorySystem.StageOf(Showing("アルベール「……」"), 0);
+            var none = StorySystem.StepsOf(Showing("アルベール「……」")).Single();
             Assert.Equal("", none.Background);
             Assert.Null(none.BackgroundFile);
         }
 
         [Fact]
-        public void 立ち絵は話す人を左右に最大2人_場面の中で同じ側に置く()
+        public void コマは台詞と地の文を1行ずつ_ページをまたいで並べる()
         {
-            var showing = Showing(
+            var steps = StorySystem.StepsOf(Showing(
                 "〔背景：研究室〕",
-                "アルベール「最初に話す人は左」", "ルミナ「次に話す人は右」", "報告「立ち絵の無い人は出さない」",
+                "アルベール「一行目」", "〔地の文〕",
                 "▼",
-                "ルミナ「このページはわたしだけ」",
-                "▼",
-                "〔地の文だけ〕",
-                "▼",
-                "イザベラ「3人目は左」", "ルミナ「ルミナは右のまま」", "アルベール「3人目からは出さない」");
-
-            var p0 = StorySystem.StageOf(showing, 0);
-            Assert.Equal("アルベール", p0.Left?.Speaker);
-            Assert.Equal("portraits/albert.png", p0.Left?.File);
-            Assert.Equal("ルミナ", p0.Right?.Speaker);
-
-            var p1 = StorySystem.StageOf(showing, 1);
-            Assert.Null(p1.Left);
-            Assert.Equal("ルミナ", p1.Right?.Speaker);
-
-            var p2 = StorySystem.StageOf(showing, 2);
-            Assert.Null(p2.Left);
-            Assert.Null(p2.Right);
-
-            var p3 = StorySystem.StageOf(showing, 3);
-            Assert.Equal("イザベラ", p3.Left?.Speaker);
-            Assert.Equal("ルミナ", p3.Right?.Speaker);
+                "ルミナ「次のページ」",
+                "【画面へ】大迷宮",
+                "【手引き】□ やること"));
+            Assert.Equal(new[] { "一行目", "地の文", "次のページ" }, steps.Select(s => s.Line.Text));
+            Assert.Equal(StoryLineKind.Narration, steps[1].Line.Kind);
         }
 
         [Fact]
-        public void 同じ側の2人が同じページなら2人目を反対側へ寄せる()
+        public void 立ち絵は話す人の1枚だけ_別名でも同じ絵()
         {
-            var showing = Showing(
-                "アルベール「左」", "ルミナ「右」",
-                "▼",
-                "イザベラ「本来は左」", "アルベール「本来も左」");
-            var p1 = StorySystem.StageOf(showing, 1);
-            Assert.Equal("イザベラ", p1.Left?.Speaker);
-            Assert.Equal("アルベール", p1.Right?.Speaker);
+            // 「？？？」はアルベールの別名：名乗る前と後で同じ立ち絵が1枚だけ出る（2人並ばない）
+            var steps = StorySystem.StepsOf(Showing("？？？「私はアルベルティナ」", "〔地の文〕", "アルベール「アルベールでいいわ」", "報告「立ち絵の無い人」"));
+            Assert.Equal("portraits/albert.png", steps[0].PortraitFile);
+            Assert.Null(steps[1].PortraitFile);
+            Assert.Equal("portraits/albert.png", steps[2].PortraitFile);
+            Assert.Null(steps[3].PortraitFile);
         }
 
         [Fact]
         public void 表情つきの台詞は表情の立ち絵_無ければ通常()
         {
-            var stage = StorySystem.StageOf(Showing("ルミナ（照れ）「えへへ」"), 0);
-            Assert.Equal("portraits/lumina.png", stage.Left?.File);
+            Assert.Equal("portraits/lumina.png", StorySystem.StepsOf(Showing("ルミナ（照れ）「えへへ」")).Single().PortraitFile);
+            Assert.Equal("portraits/albert_smile.png", StorySystem.StepsOf(Showing("アルベール（笑顔）「ふふ」")).Single().PortraitFile);
         }
     }
 }

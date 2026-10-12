@@ -197,32 +197,28 @@ namespace GuildManager.Core.Systems
         public static StoryShowing Replay(GameState state, string sceneId) => Build(state, sceneId);
 
         /// <summary>
-        /// 小窓の1ページの舞台（§0.91）。背景はそのページまでの最後の〔背景：…〕（場面をまたいでは引き継がない）。
-        /// 立ち絵はそのページで話す人のうち立ち絵がある人を、出てきた順に最大2人（表情はそのページで最初の台詞のもの）。
-        /// 左右は場面の中で立ち絵のある人が初めて話した順に左・右・左…と決め、同じページで重なったら2人目を反対側へ寄せる。
+        /// 小窓のコマ（§0.107、物語帳の舞台と同じ見せ方）：台詞と地の文を1行ずつ、ページ（▼）をまたいで順に並べる。
+        /// 背景はその行までの最後の〔背景：…〕（場面をまたいでは引き継がない）。立ち絵はその行で話す人の1枚だけ（表情つきなら表情の絵、無ければ通常）。
+        /// 画面へ・手引きの行はコマにしない（画面が最後に添える）。
         /// </summary>
-        public static StoryStage StageOf(StoryShowing showing, int pageIndex)
+        public static IReadOnlyList<StoryStep> StepsOf(StoryShowing showing)
         {
-            string background = showing.Pages.Take(pageIndex + 1).SelectMany(p => p)
-                .LastOrDefault(l => l.Kind == StoryLineKind.Background)?.Text ?? "";
-
-            var sides = new Dictionary<string, bool>(); // 話者 → 左なら true
+            var steps = new List<StoryStep>();
+            string background = "";
             foreach (var line in showing.Pages.SelectMany(p => p))
-                if (line.Kind == StoryLineKind.Speech && !sides.ContainsKey(line.Speaker) && StoryImageBalance.PortraitFile(line.Speaker) != null)
-                    sides[line.Speaker] = sides.Count % 2 == 0;
-
-            var onPage = showing.Pages[pageIndex]
-                .Where(l => l.Kind == StoryLineKind.Speech && sides.ContainsKey(l.Speaker))
-                .GroupBy(l => l.Speaker).Select(g => g.First()).Take(2)
-                .Select(l => (Left: sides[l.Speaker], Portrait: new StoryPortrait(l.Speaker, StoryImageBalance.PortraitFile(l.Speaker, l.Expression)!)))
-                .ToList();
-            StoryPortrait? left = null, right = null;
-            for (int i = 0; i < onPage.Count; i++)
             {
-                bool toLeft = i == 0 ? onPage[0].Left : !onPage[0].Left;
-                if (toLeft) left = onPage[i].Portrait; else right = onPage[i].Portrait;
+                switch (line.Kind)
+                {
+                    case StoryLineKind.Background:
+                        background = line.Text;
+                        break;
+                    case StoryLineKind.Speech or StoryLineKind.Narration:
+                        string? portrait = line.Kind == StoryLineKind.Speech ? StoryImageBalance.PortraitFile(line.Speaker, line.Expression) : null;
+                        steps.Add(new StoryStep(line, background, background.Length > 0 ? StoryImageBalance.BackgroundFile(background) : null, portrait));
+                        break;
+                }
             }
-            return new StoryStage(background, background.Length > 0 ? StoryImageBalance.BackgroundFile(background) : null, left, right);
+            return steps;
         }
 
         /// <summary>場面を出したことを記録する（見た週・回数。交流戦の一言は、どの交流戦まで言ったかも）。</summary>
