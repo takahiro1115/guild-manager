@@ -36,9 +36,7 @@ namespace GuildManager.Core.Data
                 new Adventurer
                 {
                     Name = "クラウディア", Age = 24, JobClass = JobClass.Warrior, Gender = Gender.Female,
-                    // → 項目62。対応するポートレート画像（claudia.png）は未用意のため、
-                    // Godot側のフォールバック仕様（PortraitId不明時はunknown_silhouette.png）により
-                    // シルエット表示になる（→ Adventurer.PortraitIdのクラスdocコメント）。
+                    // → 項目62。guild-manager.godot/assets/portraits/claudia.png（物語帳の立ち絵と同じ絵、§0.110）
                     PortraitId = "claudia",
                     STR = 60, AGI = 35, VIT = 55, MND = 10, DEX = 20, LDR = 40,
                     INT = 15, PA_INT = 20, // v1.2改訂：INT活性化に伴う暫定値。重戦士は低め
