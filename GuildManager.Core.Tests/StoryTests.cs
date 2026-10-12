@@ -141,7 +141,6 @@ namespace GuildManager.Core.Tests
             Assert.DoesNotContain("s01_first_report", Ids(state, StoryTiming.AfterReport));
             state.MonthlyReports.Add(new MonthlyReport());
             Assert.Contains("s01_first_report", Ids(state, StoryTiming.AfterReport));
-            Assert.DoesNotContain("s01_first_report", Ids(state, StoryTiming.BeforeReport));
         }
 
         // ---------------- 森 ----------------
@@ -153,7 +152,7 @@ namespace GuildManager.Core.Tests
             state.WeekNumber = 9;
             Forest(state, 10).IsDefeated = true;
             Forest(state, 20).IsDefeated = true;
-            Assert.Equal(new[] { "s01_forest10", "s01_lumina" }, Show(state, StoryTiming.BeforeReport));
+            Assert.Equal(new[] { "s01_forest10", "s01_lumina" }, Show(state, StoryTiming.AfterReport));
             Assert.DoesNotContain("s01_elder", Ids(state, StoryTiming.AfterReport)); // 同じ月はまだ
 
             state.WeekNumber = 13;
@@ -172,16 +171,16 @@ namespace GuildManager.Core.Tests
                 var result = new WeeklySettlementResult();
                 result.DungeonMissionResolutions.Add(new DungeonMissionResolution(new Party(), boss, field, DungeonMissionType.Scouting)
                     { ArrivedAtBossDoor = true, DoorRetreatReason = "勝ち目が薄い" });
-                Assert.DoesNotContain("s01_hunter", Ids(state, StoryTiming.BeforeReport));
+                Assert.DoesNotContain("s01_hunter", Ids(state, StoryTiming.AfterReport));
                 StorySystem.ProcessWeek(state, result);
             }
-            var hunter = Assert.Single(StorySystem.DueScenes(state, StoryTiming.BeforeReport), s => s.SceneId == "s01_hunter");
+            var hunter = Assert.Single(StorySystem.DueScenes(state, StoryTiming.AfterReport), s => s.SceneId == "s01_hunter");
             var texts = hunter.Pages.SelectMany(p => p).Select(l => l.Text).ToList();
             Assert.Contains(texts, t => t.Contains("また40階の主"));
             Assert.DoesNotContain(texts, t => t.Contains("{"));
 
             boss.IsDefeated = true; // 倒したら出さない
-            Assert.DoesNotContain("s01_hunter", Ids(state, StoryTiming.BeforeReport));
+            Assert.DoesNotContain("s01_hunter", Ids(state, StoryTiming.AfterReport));
         }
 
         [Fact]
@@ -195,7 +194,7 @@ namespace GuildManager.Core.Tests
             retreat.DungeonMissionResolutions.Add(new DungeonMissionResolution(new Party(), boss, field, DungeonMissionType.Scouting)
                 { ArrivedAtBossDoor = true, DoorRetreatReason = "勝ち目が薄い" });
             StorySystem.ProcessWeek(state, retreat);
-            Assert.DoesNotContain("s01_hunter", Ids(state, StoryTiming.BeforeReport));
+            Assert.DoesNotContain("s01_hunter", Ids(state, StoryTiming.AfterReport));
 
             // 挑んで負けた週：扉前の判断は「挑む」（理由 null）、決戦の結果が撤退
             var lost = new WeeklySettlementResult();
@@ -204,7 +203,7 @@ namespace GuildManager.Core.Tests
             lost.DungeonMissionResolutions.Add(new DungeonMissionResolution(new Party(), boss, field, 0.5,
                 new DungeonResult { Outcome = DungeonOutcome.Retreat, WinChance = 0.4 }));
             StorySystem.ProcessWeek(state, lost);
-            Assert.Contains("s01_hunter", Ids(state, StoryTiming.BeforeReport));
+            Assert.Contains("s01_hunter", Ids(state, StoryTiming.AfterReport));
         }
 
         [Fact]
@@ -220,7 +219,7 @@ namespace GuildManager.Core.Tests
                     new DungeonResult { Outcome = DungeonOutcome.Victory }));
                 StorySystem.ProcessWeek(state, result);
             }
-            Assert.DoesNotContain("s01_hunter", Ids(state, StoryTiming.BeforeReport));
+            Assert.DoesNotContain("s01_hunter", Ids(state, StoryTiming.AfterReport));
         }
 
         // ---------------- イザベラ ----------------
@@ -233,13 +232,14 @@ namespace GuildManager.Core.Tests
             IsabellaSystem.CheckVisit(state);
             state.WeekNumber = 5; // 交流戦の月のはじめ
             IsabellaSystem.AutoFillFirstExchange(state);
-            Assert.Contains("s02_visit", Show(state, StoryTiming.BeforeReport));
-            Assert.Contains("s02_disciplines", Show(state, StoryTiming.AfterReport));
+            var first = Show(state, StoryTiming.AfterReport);
+            Assert.Contains("s02_visit", first);
+            Assert.Contains("s02_disciplines", first);
 
             state.WeekNumber = 8;
             new IsabellaSystem(new AlwaysMaxRng()).ResolveWeek(state); // 負ける
             state.WeekNumber = 9;
-            var shown = Show(state, StoryTiming.BeforeReport);
+            var shown = Show(state, StoryTiming.AfterReport);
             Assert.Equal(new[] { "s02_lost", "s02_advice", "s02_tournaments" }, shown.Where(id => id.StartsWith("s02")).ToArray());
         }
 
@@ -249,7 +249,7 @@ namespace GuildManager.Core.Tests
             var state = NewGame();
             state.FacilityUnlockedLevels[FacilityType.Academy] = 1;
             state.StorySeenWeeks["s02_lost"] = 1;
-            var advice = Assert.Single(StorySystem.DueScenes(state, StoryTiming.BeforeReport), s => s.SceneId == "s02_advice");
+            var advice = Assert.Single(StorySystem.DueScenes(state, StoryTiming.AfterReport), s => s.SceneId == "s02_advice");
             var texts = advice.Pages.SelectMany(p => p).Select(l => l.Text).ToList();
             Assert.Contains(texts, t => t.Contains("魔の子に見込み") && t.Contains("学問所から建てなさいな"));
             Assert.DoesNotContain(texts, t => t.Contains("{"));
@@ -266,12 +266,12 @@ namespace GuildManager.Core.Tests
             state.WeekNumber = 8;
             new IsabellaSystem(new AlwaysMinRng()).ResolveWeek(state); // 勝つ
             state.WeekNumber = 9;
-            var shown = Show(state, StoryTiming.BeforeReport).Where(id => id.StartsWith("s02")).ToArray();
+            var shown = Show(state, StoryTiming.AfterReport).Where(id => id.StartsWith("s02")).ToArray();
             Assert.Equal(new[] { "s02_visit", "s02_won", "s02_advice", "s02_marguerite", "s02_tournaments" }, shown);
 
             var result = new WeeklySettlementResult { GuestTrainer = new GuestTrainerChange { Left = new Adventurer { Name = "マルグリット" } } };
             StorySystem.ProcessWeek(state, result);
-            Assert.Contains("s02_marguerite_leaves", Ids(state, StoryTiming.BeforeReport));
+            Assert.Contains("s02_marguerite_leaves", Ids(state, StoryTiming.AfterReport));
         }
 
         [Fact]
@@ -286,15 +286,15 @@ namespace GuildManager.Core.Tests
             StorySystem.MarkTutorialSeen(state);
             state.StoryCounters.Remove("rematchCommented"); // 2回目の一言はまだ
 
-            var first = Assert.Single(StorySystem.DueScenes(state, StoryTiming.BeforeReport));
+            var first = Assert.Single(StorySystem.DueScenes(state, StoryTiming.AfterReport));
             Assert.Equal("s02_rematch_won", first.SceneId);
             var line1 = Assert.Single(first.Pages.SelectMany(p => p), l => l.Kind == StoryLineKind.Speech);
             StorySystem.MarkSeen(state, first.SceneId);
-            Assert.Empty(StorySystem.DueScenes(state, StoryTiming.BeforeReport)); // 同じ交流戦では一度だけ
+            Assert.Empty(StorySystem.DueScenes(state, StoryTiming.AfterReport)); // 同じ交流戦では一度だけ
 
             state.ExchangeMatchesPlayed = 3;
             state.TournamentEvents.Add(new TournamentEvent { Kind = TournamentKind.Exchange, Year = 1, Month = 7, Result = new TournamentResult { WinnerIsOurs = true } });
-            var second = Assert.Single(StorySystem.DueScenes(state, StoryTiming.BeforeReport));
+            var second = Assert.Single(StorySystem.DueScenes(state, StoryTiming.AfterReport));
             Assert.NotEqual(line1.Text, second.Pages.SelectMany(p => p).Single(l => l.Kind == StoryLineKind.Speech).Text); // 次の一言
         }
 
@@ -321,10 +321,10 @@ namespace GuildManager.Core.Tests
         public void Royal_AfterFirstPlacing()
         {
             var state = NewGame();
-            Assert.DoesNotContain("s02_royal", Ids(state, StoryTiming.BeforeReport));
+            Assert.DoesNotContain("s02_royal", Ids(state, StoryTiming.AfterReport));
             state.TournamentPlacingsTotal = 1;
             IsabellaSystem.CheckCommissionUnlock(state);
-            Assert.Contains("s02_royal", Ids(state, StoryTiming.BeforeReport));
+            Assert.Contains("s02_royal", Ids(state, StoryTiming.AfterReport));
         }
 
         // ---------------- 台詞03・04（§0.89） ----------------
@@ -340,9 +340,9 @@ namespace GuildManager.Core.Tests
             var state = NewGame();
             StorySystem.MarkSeen(state, "s01_lumina");
             Defeat(state, "cave", 50);
-            Assert.DoesNotContain("s04_omen2", Ids(state, StoryTiming.BeforeReport)); // 森の前兆がまだ
+            Assert.DoesNotContain("s04_omen2", Ids(state, StoryTiming.AfterReport)); // 森の前兆がまだ
             Defeat(state, "forest", 50);
-            Assert.Equal(new[] { "s04_omen1", "s04_omen2" }, Show(state, StoryTiming.BeforeReport).Where(id => id.StartsWith("s04")).ToArray());
+            Assert.Equal(new[] { "s04_omen1", "s04_omen2" }, Show(state, StoryTiming.AfterReport).Where(id => id.StartsWith("s04")).ToArray());
         }
 
         [Fact]
@@ -352,14 +352,14 @@ namespace GuildManager.Core.Tests
             foreach (var id in new[] { "s01_lumina", "s04_omen1", "s04_omen2", "s04_omen3", "s04_omen4", "s04_trail1", "s04_trail2", "s04_trail3" })
                 StorySystem.MarkSeen(state, id);
             Defeat(state, "canyon", 100);
-            var due = StorySystem.DueScenes(state, StoryTiming.BeforeReport).Where(s => s.SceneId.StartsWith("s04")).ToList();
+            var due = StorySystem.DueScenes(state, StoryTiming.AfterReport).Where(s => s.SceneId.StartsWith("s04")).ToList();
             Assert.Equal(new[] { "s04_trail4", "s04_truth" }, due.Select(s => s.SceneId));
             Assert.Contains(Texts(due[0]), t => t == "マスター。これ、わたしの名前なんですね"); // 真相の前の台詞
             Assert.DoesNotContain(Texts(due[0]), t => t.Contains("お母さんたちの手紙"));
             foreach (var s in due) StorySystem.MarkSeen(state, s.SceneId);
 
             Defeat(state, "abyss", 90);
-            Assert.Equal(new[] { "s04_namecall" }, Show(state, StoryTiming.BeforeReport).Where(id => id.StartsWith("s04")).ToArray());
+            Assert.Equal(new[] { "s04_namecall" }, Show(state, StoryTiming.AfterReport).Where(id => id.StartsWith("s04")).ToArray());
             state.WeekNumber += GameCalendar.WeeksPerMonth;
             Assert.Contains("s04_home", Ids(state, StoryTiming.AfterReport));
         }
@@ -371,9 +371,9 @@ namespace GuildManager.Core.Tests
             foreach (var id in new[] { "s01_lumina", "s04_omen1", "s04_omen2", "s04_omen3", "s04_omen4", "s04_trail1", "s04_trail2", "s04_trail3" })
                 StorySystem.MarkSeen(state, id);
             Defeat(state, "abyss", 90);
-            Assert.Equal(new[] { "s04_namecall", "s04_truth" }, Show(state, StoryTiming.BeforeReport).Where(id => id.StartsWith("s04")).ToArray());
+            Assert.Equal(new[] { "s04_namecall", "s04_truth" }, Show(state, StoryTiming.AfterReport).Where(id => id.StartsWith("s04")).ToArray());
             Defeat(state, "canyon", 100);
-            var letter = Assert.Single(StorySystem.DueScenes(state, StoryTiming.BeforeReport), s => s.SceneId == "s04_trail4");
+            var letter = Assert.Single(StorySystem.DueScenes(state, StoryTiming.AfterReport), s => s.SceneId == "s04_trail4");
             Assert.Contains(Texts(letter), t => t == "……本当に、わたしのお母さんたちの手紙なんですね");
             Assert.DoesNotContain(Texts(letter), t => t.Contains("わたしの名前なんですね"));
         }
@@ -384,9 +384,9 @@ namespace GuildManager.Core.Tests
             var state = NewGame();
             state.IsabellaVisitWeek = 1;
             state.ExchangeWins = 2;
-            Assert.Equal(new[] { "s03_academy2" }, Show(state, StoryTiming.BeforeReport).Where(id => id.StartsWith("s03_academy")).ToArray());
+            Assert.Equal(new[] { "s03_academy2" }, Show(state, StoryTiming.AfterReport).Where(id => id.StartsWith("s03_academy")).ToArray());
             Defeat(state, "abyss", 50);
-            Assert.Equal(new[] { "s03_academy4", "s03_academy6" }, Show(state, StoryTiming.BeforeReport).Where(id => id.StartsWith("s03_academy")).ToArray());
+            Assert.Equal(new[] { "s03_academy4", "s03_academy6" }, Show(state, StoryTiming.AfterReport).Where(id => id.StartsWith("s03_academy")).ToArray());
         }
 
         [Fact]
@@ -415,7 +415,7 @@ namespace GuildManager.Core.Tests
             var (ma, mb) = (state.Adventurers[0], state.Adventurers[1]);
             var girl = new Adventurer { Name = "ミラ", JoinedYear = 2, ParentIds = { ma.Id, mb.Id } };
             state.Adventurers.Add(girl);
-            var scene = Assert.Single(StorySystem.DueScenes(state, StoryTiming.BeforeReport), s => s.SceneId == "s03_daughter");
+            var scene = Assert.Single(StorySystem.DueScenes(state, StoryTiming.AfterReport), s => s.SceneId == "s03_daughter");
             Assert.Contains(Texts(scene), t => t.Contains($"{ma.Name}さんと{mb.Name}さんの娘"));
             Assert.Contains(Texts(scene), t => t.Contains("ミラの顔を見に"));
         }
@@ -461,7 +461,7 @@ namespace GuildManager.Core.Tests
             Assert.True(StorySystem.Seen(old, "s01_prologue"));
             Assert.True(StorySystem.Seen(old, "s02_royal"));
             Assert.Empty(StorySystem.DueScenes(old, StoryTiming.Interactive));
-            Assert.Empty(StorySystem.DueScenes(old, StoryTiming.BeforeReport));
+            Assert.Empty(StorySystem.DueScenes(old, StoryTiming.AfterReport));
         }
     }
 }

@@ -159,7 +159,7 @@ namespace GuildManager.Core.Tests
             // ルミナは出て、最初の月報・最初の質問は出ない
             state.MonthlyReports.Add(new MonthlyReport());
             Forest(state, 20).IsDefeated = true;
-            Assert.Contains("s01_lumina", StorySystem.DueScenes(state, StoryTiming.BeforeReport).Select(s => s.SceneId));
+            Assert.Contains("s01_lumina", StorySystem.DueScenes(state, StoryTiming.AfterReport).Select(s => s.SceneId));
             StorySystem.MarkSeen(state, "s01_lumina");
             state.WeekNumber = 9;
             Assert.Equal(new[] { "s01_elder" }, StorySystem.DueScenes(state, StoryTiming.AfterReport).Select(s => s.SceneId));

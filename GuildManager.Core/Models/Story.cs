@@ -51,7 +51,7 @@ namespace GuildManager.Core.Models
     {
         /// <summary>操作のあと（部隊を組んだ・方針を付けたなど）。画面を再描画したときに見る。</summary>
         Interactive,
-        /// <summary>月を進めたあと、月報の前（ボスの撃破・来訪・交流戦の結果など）。</summary>
+        /// <summary>月を進めたあと、月報の前。§0.111 から使う場面は無い（撃破・来訪・交流戦の結果なども月報のあと）。</summary>
         BeforeReport,
         /// <summary>月報を閉じたあと（月のはじめの場面）。</summary>
         AfterReport,
