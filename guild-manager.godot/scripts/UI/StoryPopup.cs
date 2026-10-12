@@ -106,11 +106,14 @@ public partial class StoryPopup : Window
 		_scroll = new ScrollContainer { SizeFlagsVertical = Control.SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, MouseFilter = Control.MouseFilterEnum.Pass };
 		_text = new RichTextLabel { BbcodeEnabled = true, FitContent = true, ScrollActive = false, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MouseFilter = Control.MouseFilterEnum.Pass };
 		_text.AddThemeColorOverride("default_color", new Color(0.953f, 0.933f, 0.984f));
+		_text.AddThemeFontSizeOverride("normal_font_size", 20);
+		_text.AddThemeFontSizeOverride("bold_font_size", 20);
 		_scroll.AddChild(_text);
 		root.AddChild(_scroll);
 
 		var buttons = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.End, MouseFilter = Control.MouseFilterEnum.Ignore };
 		_nextButton = new Button { CustomMinimumSize = new Vector2(160, 34), Flat = true };
+		_nextButton.AddThemeFontSizeOverride("font_size", 18);
 		_nextButton.Pressed += OnNext;
 		buttons.AddChild(_nextButton);
 		root.AddChild(buttons);
