@@ -61,7 +61,7 @@ theme_override_constants/separation = 2
 layout_mode = 2
 theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
 theme_override_font_sizes/font_size = 15
-text = "挑戦するダンジョン（フィールド）"
+text = "🗺 ダンジョンを選ぶ（下の▼で切り替え。選んだ部隊の方針の出撃先にもなる）"
 
 [node name="FieldSelector" type="OptionButton" parent="Margin/MainHBox/ZoneA/ZoneAMargin/ZoneAVBox/FieldSelectVBox"]
 unique_name_in_owner = true

@@ -160,7 +160,9 @@ public partial class DungeonPanel : ScrollContainer
 		_emergencyRetreatButton.AddThemeColorOverride("font_color", new Color(1f, 0.8f, 0.3f));
 
 		// イベント接続
-		_fieldSelector.ItemSelected += OnFieldSelected;
+		_fieldSelector.ItemSelected += OnFieldPickedByUser;
+		UiStyles.ApplyDropdownStyle(_fieldSelector);
+		_fieldSelector.TooltipText = "クリックで、ダンジョンを選ぶ。選んでいる部隊の方針の出撃先も、ここで選んだダンジョンになる（解放済みのものだけ）。";
 		_emergencyRetreatButton.Pressed += OnRecallPressed;
 
 		VisibilityChanged += () =>
@@ -196,12 +198,7 @@ public partial class DungeonPanel : ScrollContainer
 	/// <summary>潜行の方針の扉前の構え（添字＝DoorStance の値：慎重・標準・強気、§0.68・§0.69）。</summary>
 	private OptionButton _stanceOption = null!;
 	private static readonly string[] StanceChoiceLabels = { "扉前は慎重に", "扉前は標準で", "扉前は強気に" };
-	private RichTextLabel _orderInfoLabel = null!;
 	private bool _refreshingOrderRow;
-
-	/// <summary>方針の「どこで」：開放済みのフィールド（RefreshOrderRow で作り直す。添字は _orderFieldIds と対応）。</summary>
-	private OptionButton _orderFieldOption = null!;
-	private readonly List<string> _orderFieldIds = new();
 
 	/// <summary>方針の「何を」の選択肢（添字＋1＝SquadOrder の値：潜行・調査・採取）。方針の解除は選択肢ではなく専用のボタン。</summary>
 	private static readonly string[] OrderChoiceLabels = { "🏃 潜行を続ける", "🔍 調査を続ける", "🌿 採取を続ける" };
@@ -225,19 +222,18 @@ public partial class DungeonPanel : ScrollContainer
 	{
 		var box = new VBoxContainer();
 		var row = new HBoxContainer();
-		row.AddChild(new Label { Text = "📋 部隊の方針：" });
-		// 「どこで」「何を」を別のプルダウンで選ぶ
-		_orderFieldOption = new OptionButton { TooltipText = "方針で出撃する場所（ダンジョン）" };
-		_orderFieldOption.ItemSelected += OnOrderFieldSelected;
-		row.AddChild(_orderFieldOption);
 		_orderOption = new OptionButton { TooltipText = "決めると、週送りの前に空いていれば自動で出撃し続ける（全員のHPが70%以上で重傷者がいないとき）" };
 		foreach (var label in OrderChoiceLabels)
 			_orderOption.AddItem(label);
 		_orderOption.ItemSelected += OnOrderSelected;
+		UiStyles.ApplyDropdownStyle(_orderOption);
+		// 方針は下の3枚の見立てカードを押して決める（ConnectPreviewCards）。プルダウンは内部の状態として残し、見せない
+		_orderOption.Visible = false;
 		row.AddChild(_orderOption);
 		_orderClearButton = new Button { Text = "方針を解除", TooltipText = "この部隊の方針を解除する（出撃中なら呼び戻す。方針の無い部隊は出撃しない）" };
 		_orderClearButton.Pressed += OnOrderCleared;
 		row.AddChild(_orderClearButton);
+		row.Visible = false; // 方針の変更・解除は見立てのカードを押して行う（解除は今の方針のカードをもう一度）
 		_stanceOption = new OptionButton
 		{
 			TooltipText = "潜行の方針だけ。扉前に着いた週のうちに、条件を満たせば挑み、満たさなければ撤退する。\n" +
@@ -250,8 +246,6 @@ public partial class DungeonPanel : ScrollContainer
 		// 構えは潜行の見立てカードの中に置く（§0.97。潜行の方針のときだけ出る）
 		_traversalPreviewLabel.GetParent().AddChild(_stanceOption);
 		box.AddChild(row);
-		_orderInfoLabel = new RichTextLabel { BbcodeEnabled = true, FitContent = true, SizeFlagsHorizontal = SizeFlags.ExpandFill };
-		box.AddChild(_orderInfoLabel);
 
 		var parent = _dispatchStatusLabel.GetParent();
 		parent.AddChild(box);
@@ -262,21 +256,6 @@ public partial class DungeonPanel : ScrollContainer
 	{
 		_refreshingOrderRow = true;
 		var saved = SelectedSavedParty();
-
-		// 「どこで」：開放済みのフィールド。方針なしでも、前回選んだ場所（無ければ今見ているフィールド）を出しておく
-		_orderFieldOption.Clear();
-		_orderFieldIds.Clear();
-		// 先頭は「おまかせ」：出撃のたびに、方針に合うダンジョンを自動で選ぶ（→ SquadOrderSystem.ResolveField）
-		_orderFieldOption.AddItem("おまかせ");
-		_orderFieldIds.Add(SavedParty.AutoFieldId);
-		foreach (var field in _state.DungeonFields.Where(f => f.IsUnlocked).OrderBy(f => f.Order))
-		{
-			_orderFieldOption.AddItem(field.Name);
-			_orderFieldIds.Add(field.Id);
-		}
-		string? shownFieldId = saved != null && _orderFieldIds.Contains(saved.OrderFieldId ?? "") ? saved.OrderFieldId : _selectedFieldId;
-		_orderFieldOption.Selected = Math.Max(0, _orderFieldIds.IndexOf(shownFieldId ?? ""));
-		_orderFieldOption.Disabled = saved == null || _orderFieldIds.Count == 0;
 
 		// 「何を」
 		_orderOption.Disabled = saved == null;
@@ -295,38 +274,33 @@ public partial class DungeonPanel : ScrollContainer
 		_stanceOption.Visible = saved?.Order == SquadOrder.Dive;
 		_stanceOption.Selected = (int)(saved?.Stance ?? DoorStance.Standard);
 		_refreshingOrderRow = false;
+	}
 
-		_orderInfoLabel.Clear();
-		var ordered = _state.SavedParties.Where(p => p.Order != SquadOrder.None).ToList();
-		if (ordered.Count == 0)
-		{
-			_orderInfoLabel.AppendText("[color=gray]方針つきの部隊はない。出撃は方針でだけ行う：部隊を選んで方針を決めると、週送りのたびに自動で出撃する。[/color]");
-			return;
-		}
-		// 部隊ごとに1行。状態で色分け（出撃中＝シアン、待機＝橙、次の週送りで出撃＝緑）
-		var lines = ordered.Select(p =>
-		{
-			bool isOut = SquadOrderSystem.IsOut(_state, p);
-			string? reason = isOut ? null : SquadOrderSystem.GetWaitReason(_state, p);
-			// 出撃中は、今いる場所と階層を出す（§0.97。おまかせの「今は○○」は次に出るときの行き先で、出撃先と食い違って見えた）
-			var mission = isOut ? _state.ActiveDungeonMissions.FirstOrDefault(m => m.SavedPartyId == p.Id) : null;
-			string outText = mission == null ? "出撃中" : $"出撃中：{mission.Field.Name} 第{mission.CurrentFloor}層";
-			(string color, string status) = isOut ? ("cyan", outText) : reason != null ? ("orange", $"待機：{reason}") : ("lime", "次の週送りで出撃");
-			// 事故の危険（§0.102、⚠）：次に出るときにボイコット・拒否・命令無視が起きうる顔ぶれ
-			var risks = isOut ? new List<string>() : IncidentSystem.Risks(_state, p.MemberIds.Select(id => _state.FindAdventurer(id)).OfType<Adventurer>().ToList());
-			string riskText = risks.Count > 0 ? "\n　" + string.Join("\n　", risks.Select(r => $"[color=orange]⚠ {r}[/color]")) : "";
-			return $"[color=cyan]📋 {OrderSummary(p, isOut)}[/color]　[color={color}]（{status}）[/color]{riskText}";
-		});
-		_orderInfoLabel.AppendText(string.Join("\n", lines));
+	/// <summary>待機の理由（SquadOrderSystem.GetWaitReason）を、部隊の枠の下に出す短い言い方にする。詳しい文はツールチップに残す。</summary>
+	private static string ShortWaitText(string reason)
+	{
+		var hp = System.Text.RegularExpressions.Regex.Match(reason, @"HPが(\d+)%未満");
+		if (hp.Success) return $"HP{hp.Groups[1].Value}%未満・静養";
+		if (reason.Contains("毒")) return "毒・静養";
+		if (reason.Contains("重傷")) return "重傷・待機";
+		if (reason.Contains("訓練か大会")) return "訓練・大会中";
+		if (reason.Contains("同時出撃枠")) return "出撃枠が満杯";
+		return reason;
+	}
+
+	/// <summary>方針の「どこで」の文。出撃中は隊員が出撃できない扱いで、おまかせの選び先が仮の値になる。行き先は状態の欄（出撃中：○○ 第N層）で出す（§0.97）。</summary>
+	private string OrderPlaceText(SavedParty p, bool isOut)
+	{
+		var resolved = SquadOrderSystem.ResolveField(_state, p);
+		return p.OrderFieldId == SavedParty.AutoFieldId
+			? isOut ? "おまかせ" : $"おまかせ（今は{resolved?.Name ?? "選べるダンジョンなし"}）"
+			: resolved?.Name ?? "？";
 	}
 
 	private string OrderSummary(SavedParty p, bool isOut = false)
 	{
 		var resolved = SquadOrderSystem.ResolveField(_state, p);
-		// 出撃中は隊員が出撃できない扱いで、おまかせの選び先が仮の値になる。行き先は状態の欄（出撃中：○○ 第N層）で出す（§0.97）
-		string field = p.OrderFieldId == SavedParty.AutoFieldId
-			? isOut ? "おまかせ" : $"おまかせ（今は{resolved?.Name ?? "選べるダンジョンなし"}）"
-			: resolved?.Name ?? "？";
+		string field = OrderPlaceText(p, isOut);
 		string door = p.Order == SquadOrder.Dive ? $"・扉前は{SquadOrderSystem.StanceLabel(p.Stance)}" : "";
 		// 調査の方針は、調べるボスが完全解析済みなら、その週は同じフィールドで探索（採取）を行う（→ SquadOrderSystem.DispatchByOrder）
 		string survey = "";
@@ -344,16 +318,13 @@ public partial class DungeonPanel : ScrollContainer
 		if (saved == null) return;
 		if (index < 0 || index >= OrderChoiceLabels.Length) return;
 		var order = (SquadOrder)((int)index + 1);
-		// 場所は「どこで」のプルダウンの選択（無ければ今見ているフィールド）を使う
-		int fieldIndex = _orderFieldOption.Selected;
-		string? fieldId = fieldIndex >= 0 && fieldIndex < _orderFieldIds.Count ? _orderFieldIds[fieldIndex] : _selectedFieldId;
-		bool isAuto = fieldId == SavedParty.AutoFieldId;
-		var orderField = fieldId == null || isAuto ? null : _state.DungeonFields.FirstOrDefault(f => f.Id == fieldId);
-		if (orderField == null && !isAuto) { RefreshOrderRow(); return; }
-		bool changed = saved.Order != order || saved.OrderFieldId != (isAuto ? SavedParty.AutoFieldId : orderField!.Id);
-		saved.OrderFieldId = isAuto ? SavedParty.AutoFieldId : orderField!.Id;
+		// 場所は左ペインで選んでいるダンジョン
+		var orderField = _selectedFieldId == null ? null : _state.DungeonFields.FirstOrDefault(f => f.Id == _selectedFieldId && f.IsUnlocked);
+		if (orderField == null) { RefreshOrderRow(); return; }
+		bool changed = saved.Order != order || saved.OrderFieldId != orderField.Id;
+		saved.OrderFieldId = orderField.Id;
 		saved.Order = order;
-		LogRequested.Invoke($"[color=cyan]📋 「{saved.Name}」の方針を「{(isAuto ? "おまかせ" : orderField!.Name)}で{OrderNames[(int)order]}」にした。週送りの前に、空いていれば自動で出撃する。[/color]");
+		LogRequested.Invoke($"[color=cyan]📋 「{saved.Name}」の方針を「{orderField.Name}で{OrderNames[(int)order]}」にした。週送りの前に、空いていれば自動で出撃する。[/color]");
 		// 方針を変えたら、出撃中の部隊は呼び戻す（§0.69。次の週送りで新しい方針で出撃する）
 		if (changed)
 			RecallForOrderChange(saved);
@@ -367,41 +338,27 @@ public partial class DungeonPanel : ScrollContainer
 			LogRequested.Invoke($"[color=orange]🏃 「{saved.Name}」の出撃を呼び戻した（方針を変えたため）。[/color]");
 	}
 
-	/// <summary>「どこで」を変えた：方針があればその場所へ向け直す。方針なしなら場所だけ覚えておく。</summary>
-	private void OnOrderFieldSelected(long index)
+	/// <summary>
+	/// 左ペインのダンジョンのプルダウンを、ユーザーが選んだ：表示を切り替え、選んでいる部隊の方針の出撃先もそのダンジョンにする
+	/// （方針があれば向け直して、出撃中なら呼び戻す。方針なしなら場所だけ覚えておく。ダンジョンの選択はここだけ）。
+	/// </summary>
+	private void OnFieldPickedByUser(long index)
 	{
-		if (_refreshingOrderRow) return;
+		OnFieldSelected(index);
 		var saved = SelectedSavedParty();
-		if (saved == null || index < 0 || index >= _orderFieldIds.Count) return;
-		string chosenId = _orderFieldIds[(int)index];
-		var field = _state.DungeonFields.FirstOrDefault(f => f.Id == chosenId);
-		if (field == null && chosenId != SavedParty.AutoFieldId) return;
+		if (saved == null || _selectedFieldId == null || saved.OrderFieldId == _selectedFieldId) return;
+		var field = _selectedField;
+		if (field == null || !field.IsUnlocked) return;
 
-		bool changed = saved.OrderFieldId != chosenId;
-		saved.OrderFieldId = chosenId;
-		if (changed && saved.Order != SquadOrder.None)
-			RecallForOrderChange(saved);
-		if (field == null)
-		{
-			// おまかせ：左ペインは動かさない。方針があれば、今おまかせで選ばれるダンジョンを週報に出す
-			if (saved.Order != SquadOrder.None)
-				LogRequested.Invoke($"[color=cyan]📋 「{saved.Name}」の方針の場所を「おまかせ」にした（{OrderNames[(int)saved.Order]}。出撃のたびに方針に合うダンジョンを選ぶ）。[/color]");
-			StateChanged.Invoke();
-			return;
-		}
-
-		// 選んだダンジョンを、すぐ左ペインの表示にも反映する
-		int fieldIndex = _state.DungeonFields.OrderBy(f => f.Order).ToList().FindIndex(f => f.Id == field.Id);
-		if (fieldIndex >= 0 && field.Id != _selectedFieldId)
-		{
-			_fieldSelector.Select(fieldIndex);
-			OnFieldSelected(fieldIndex);
-		}
-
+		saved.OrderFieldId = field.Id;
 		if (saved.Order != SquadOrder.None)
+		{
+			RecallForOrderChange(saved);
 			LogRequested.Invoke($"[color=cyan]📋 「{saved.Name}」の方針の場所を「{field.Name}」にした（{OrderNames[(int)saved.Order]}）。[/color]");
+		}
 		StateChanged.Invoke();
 	}
+
 
 	/// <summary>「方針を解除」：選んだ部隊の方針をなくす（出撃しない部隊になる）。出撃中なら呼び戻す（§0.69）。</summary>
 	private void OnOrderCleared()
@@ -939,6 +896,33 @@ public partial class DungeonPanel : ScrollContainer
 			cardBox.AddThemeConstantOverride("separation", 6);
 			column.AddChild(cardBox);
 			_squadCardBoxes.Add(cardBox);
+			if (!isLocked)
+			{
+				// 部隊の枠の一番下に、方針の「どこで・何を」を出す（方針なしはその旨）
+				bool hasOrder = saved.Order != SquadOrder.None;
+				column.AddChild(new Label
+				{
+					Text = hasOrder ? $"📍 {OrderPlaceText(saved, mission != null)}｜{OrderIcon(saved.Order)} {OrderNames[(int)saved.Order]}" : "📍 方針なし",
+					ClipText = true,
+					TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis,
+					HorizontalAlignment = HorizontalAlignment.Center,
+					Modulate = hasOrder ? new Color(0.7f, 0.88f, 1f) : new Color(0.6f, 0.6f, 0.65f),
+					MouseFilter = MouseFilterEnum.Ignore,
+				});
+				if (hasOrder)
+				{
+					// 状態を短く：出撃中＝シアン、待機＝橙、次の週送りで出撃＝緑。事故の危険（§0.102、⚠）は橙で添える
+					bool isOut = mission != null || SquadOrderSystem.IsOut(_state, saved);
+					string? reason = isOut ? null : SquadOrderSystem.GetWaitReason(_state, saved);
+					var (color, status) = isOut ? (new Color(0.4f, 0.9f, 1f), "出撃中")
+						: reason != null ? (new Color(1f, 0.65f, 0f), ShortWaitText(reason))
+						: (new Color(0.5f, 1f, 0.3f), "次の週送りで出撃");
+					column.AddChild(new Label { Text = status, HorizontalAlignment = HorizontalAlignment.Center, Modulate = color, MouseFilter = MouseFilterEnum.Ignore, TooltipText = reason ?? "" });
+					var risks = isOut ? new List<string>() : IncidentSystem.Risks(_state, members.OfType<Adventurer>().ToList());
+					foreach (var risk in risks)
+						column.AddChild(new Label { Text = $"⚠ {risk}", AutowrapMode = TextServer.AutowrapMode.WordSmart, HorizontalAlignment = HorizontalAlignment.Center, Modulate = new Color(1f, 0.65f, 0f), MouseFilter = MouseFilterEnum.Ignore });
+				}
+			}
 			_squadButtons.AddChild(column);
 		}
 
@@ -1347,6 +1331,19 @@ public partial class DungeonPanel : ScrollContainer
 				if (e is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left })
 					OnPreviewCardPressed(order);
 			};
+			// 押せると分かるよう、マウスを乗せたカードの地色と枠を明るい青みにする（枠や地色を作り直す更新に巻き込まれないよう、色の乗算で行う）
+			var hoverCard = card;
+			card.MouseEntered += () =>
+			{
+				if (!_orderOption.Disabled && SelectedSavedParty() != null)
+					hoverCard.SelfModulate = new Color(1.5f, 1.75f, 2.4f);
+			};
+			card.MouseExited += () =>
+			{
+				// 子の文字の上へ動いたときも MouseExited が来るので、カードの外へ出たときだけ戻す
+				if (!hoverCard.GetGlobalRect().HasPoint(hoverCard.GetGlobalMousePosition()))
+					hoverCard.SelfModulate = Colors.White;
+			};
 		}
 	}
 
@@ -1364,7 +1361,7 @@ public partial class DungeonPanel : ScrollContainer
 	{
 		var saved = SelectedSavedParty();
 		if (saved == null || _orderOption.Disabled) return;
-		if (saved.Order == order) return; // もう同じ方針
+		if (saved.Order == order) { OnOrderCleared(); return; } // 今の方針のカードをもう一度押すと解除
 		int index = (int)order - 1;
 		_orderOption.Select(index);
 		OnOrderSelected(index);
@@ -1384,7 +1381,7 @@ public partial class DungeonPanel : ScrollContainer
 				card.AddThemeStyleboxOverride("panel", marked);
 			}
 			string hint = saved == null ? ""
-				: active ? $"📋 今の方針：{OrderNames[(int)order]}"
+				: active ? $"📋 今の方針：{OrderNames[(int)order]}\n（もう一度押すと方針を解除する）"
 				: $"（押すと「{saved.Name}」の方針を「{OrderNames[(int)order]}」にする）";
 			card.TooltipText = string.IsNullOrEmpty(card.TooltipText) ? hint : $"{card.TooltipText}\n{hint}";
 		}

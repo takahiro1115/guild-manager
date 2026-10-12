@@ -43,6 +43,18 @@ public static class UiStyles
 		}
 	}
 
+	/// <summary>プルダウン（OptionButton）を「選べる」と分かる見た目にする：青みの地と枠、手の形のカーソル、乗せると明るくなる。</summary>
+	public static void ApplyDropdownStyle(OptionButton option)
+	{
+		option.AddThemeStyleboxOverride("normal", Make(new Color(0.14f, 0.24f, 0.40f), new Color(0.45f, 0.7f, 0.95f)));
+		option.AddThemeStyleboxOverride("hover", Make(new Color(0.2f, 0.34f, 0.55f), new Color(0.65f, 0.85f, 1.0f)));
+		option.AddThemeStyleboxOverride("pressed", Make(new Color(0.16f, 0.32f, 0.55f), new Color(0.65f, 0.85f, 1.0f)));
+		option.AddThemeStyleboxOverride("focus", Make(new Color(0, 0, 0, 0), new Color(0.65f, 0.85f, 1.0f)));
+		option.AddThemeColorOverride("font_color", Colors.White);
+		option.AddThemeColorOverride("font_hover_color", Colors.White);
+		option.MouseDefaultCursorShape = Control.CursorShape.PointingHand;
+	}
+
 	/// <summary>トグルボタンの「押されている（選択中）」を、黒ではなく青にする。</summary>
 	public static void ApplySelectedToggleStyle(Button button)
 	{

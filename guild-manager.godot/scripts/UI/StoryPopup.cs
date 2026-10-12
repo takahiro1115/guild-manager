@@ -230,7 +230,13 @@ public partial class StoryPopup : Window
 		// 【画面へ】の行は、押すと画面が飛ぶボタンだったが、読み終えた途端に画面が切り替わって迷子になるので、行き先の案内の文にした（§0.97、提案書 UI-04）
 		var jump = lines.FirstOrDefault(l => l.Kind == StoryLineKind.Jump);
 		if (jump != null && !IsCurrentScreen(jump.Text))
-			sb.Append($"[color=#7dd3fc]📍 次は上の「{Escape(NavName(jump.Text))}」の画面で：{Escape(jump.Text)}[/color]\n");
+		{
+			var nav = Escape(NavName(jump.Text));
+			var action = JumpAction(jump.Text);
+			sb.Append(action != null
+				? $"[color=#7dd3fc]📍 次は上の「{nav}」の画面で、{Escape(action)}。[/color]\n"
+				: $"[color=#7dd3fc]📍 次は上の「{nav}」の画面で：{Escape(jump.Text)}[/color]\n");
+		}
 		var guides = lines.Where(l => l.Kind is StoryLineKind.Guide or StoryLineKind.GuideNote).ToList();
 		if (guides.Count > 0)
 		{
@@ -243,6 +249,15 @@ public partial class StoryPopup : Window
 	}
 
 	private static string Escape(string text) => text.Replace("[", "[lb]");
+
+	/// <summary>行き先の案内に添える「そこで何をするか」の文（画面の名前だけの行き先は、読める文に言い換える。分からなければ null）。</summary>
+	private static string? JumpAction(string label)
+	{
+		if (label == "部隊・冒険者") return "冒険者を選んで部隊を編制する";
+		if (label == "部隊の方針") return "部隊に方針を付ける";
+		int open = label.IndexOf('（');
+		return open >= 0 && label.EndsWith('）') ? label[(open + 1)..^1] : null;
+	}
 
 	/// <summary>【画面へ】の行き先に対応するナビのボタンの名前（行き先の文から決める）。</summary>
 	private static string NavName(string label) => label switch
