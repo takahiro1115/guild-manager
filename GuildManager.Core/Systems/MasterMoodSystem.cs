@@ -107,11 +107,13 @@ namespace GuildManager.Core.Systems
             }
 
             bool hadActivity = false;
+            bool newAchievement = false; // 機嫌の張り合い（§0.103）：ボスの撃破・新しい階層
 
             foreach (var r in list)
             {
                 if (r.DungeonResult != null && r.DungeonResult.Outcome == DungeonOutcome.Victory)
                 {
+                    newAchievement = true;
                     hadActivity = true;
                     Record(state, report, $"階層ボス撃破「{r.Boss?.Name}」", MasterMoodBalance.BossDefeatMoodGain);
                 }
@@ -122,6 +124,7 @@ namespace GuildManager.Core.Systems
                 if (r.TraversalResult != null && r.TraversalResult.UnexploredFloorsAdvanced > 0)
                 {
                     hadActivity = true;
+                    newAchievement = true;
                     int floors = r.TraversalResult.UnexploredFloorsAdvanced;
                     Record(state, report, $"新階層開拓（{r.Field.Name} {floors}階層×{MasterMoodBalance.PioneerMoodPerFloor}）",
                         floors * MasterMoodBalance.PioneerMoodPerFloor);
@@ -170,6 +173,10 @@ namespace GuildManager.Core.Systems
                 report.Bored = true;
                 Record(state, report, "大迷宮での成果なし（退屈減衰）", -MasterMoodBalance.BoredomMoodDecay);
             }
+
+            // 機嫌の張り合い（§0.103）：上機嫌でも、新しい成果が無い週は少しずつ下がる（いつもの採取・調査だけでは上機嫌を保てない）
+            if (!newAchievement && state.MasterMood >= MasterMoodBalance.TierThresholdCheerful)
+                Record(state, report, "上機嫌の慣れ（新しい成果なし）", -MasterMoodBalance.CheerfulBoredomMoodLoss);
 
             report.WeeksSinceLastGuildActivity = state.WeeksSinceLastGuildActivity;
             report.MoodAfter = state.MasterMood;

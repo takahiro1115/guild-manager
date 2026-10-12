@@ -10,3 +10,16 @@ SeveranceContributionCoefficient,2.0,G/pt,"退職金の功績加算＝累積功�
 SeveranceShortfallMoodPenalty,15,pt,退職金を払いきれなかった場合のマスターの機嫌の低下量（「退職金を持たせて自立させる」アルベールの信念に背くため。旧SeveranceShortfallReputationPenalty）
 BankruptcyConsecutiveWeeksThreshold,4,週,所持金マイナスがこの週数連続で解消されないと破産＝敗北（→ 03 §8.3。旧security.csvから移設）
 ChoreReserveWageWeeks,4,×週給,"まとめて鑑定・交渉の自動（§0.99）で残しておく所持金＝現役の週給の合計×この週数。シミュレーターで破産しなかった線"
+StipendBase,15,G/週,教官・顧問の手当（§0.103）：引退者1人の週の手当の下限（週給と一緒に払う）
+StipendPerStat,0.5,G/週,同：引退したときの能力の平均が40を超えた分×この値を足す
+StipendMax,40,G/週,同：上限
+FeastCostPerHead,50,G,酒場の慰労会（§0.103）：1人あたりの費用
+FeastSatisfaction,8,pt,同：部隊の全員の満足度（酒場のLvごとに FeastSatisfactionPerTavernLevel を足す）
+FeastSatisfactionPerTavernLevel,1,pt,同：酒場のLv1つごとに足す満足度
+ContractMeritRaise,0.12,倍,契約更改（§0.103、年のはじめ）「成果に応じて」：前の年の功績が上位3分の1の子の週給の上がり方
+ContractMeritTopSatisfaction,10,pt,同：上げた子の満足度
+ContractMeritOthersSatisfaction,-5,pt,同：上げなかった子の満足度（志向がお金なら2倍）
+ContractEvenRaise,0.05,倍,同「全員を少しずつ」：全員の週給の上がり方
+ContractEvenSatisfaction,3,pt,同：全員の満足度（志向がお金なら+2）
+ContractFreezeSatisfaction,-5,pt,同「据え置く」：全員の満足度（志向がお金なら2倍）
+ContractGapCompatLoss,3,pt,同「成果に応じて」：同じ部隊で上げた子と上げなかった子の相性（差がつく）

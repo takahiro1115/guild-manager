@@ -19,3 +19,6 @@ NegotiationGraceWeeks,2,週,警告後この週数内に対応しないと退団
 MinRaiseMultiplier,1.5,倍,昇給提示の下限倍率
 MaxRaiseMultiplier,2.0,倍,昇給提示の上限倍率
 BonusWeeksEquivalent,8,×週給,一時金（ボーナス）＝週給×この倍数
+TavernRecoveryCeiling,60,pt,酒場の自然回復（§0.103）：満足度がこの値未満の子だけ回復する（酒場は不満を癒やす場所）
+ContentDriftAbove,70,pt,慣れ（§0.103）：満足度がこの値を超える子は毎週 ContentDrift だけ下がる（喜ぶことが続かないと上機嫌は保てない）
+ContentDrift,-1,pt,同：下がる量

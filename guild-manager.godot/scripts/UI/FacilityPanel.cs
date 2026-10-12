@@ -50,6 +50,8 @@ public partial class FacilityPanel : VBoxContainer
 		public RichTextLabel CurrentEffectLabel { get; set; } = null!;
 		public RichTextLabel NextEffectLabel { get; set; } = null!;
 		public Label CostLabel { get; set; } = null!;
+		/// <summary>取り壊し（§0.103、1Lv下げて維持費を減らす）。</summary>
+		public Button DemolishButton { get; set; } = null!;
 		public PanelContainer? InstructorPanel { get; set; }
 		public RichTextLabel? InstructorLabel { get; set; }
 		/// <summary>訓練施設の「伝授する特性」ボタン（教官欄の下。教官が任命されているときだけ表示、→ 03 §7.1・§0.54）。</summary>
@@ -213,6 +215,12 @@ public partial class FacilityPanel : VBoxContainer
 
 		binding.FacilitySpecialtyButtons.AddRange(facilitySpecialtyButtons);
 		binding.ActionButton.Pressed += () => OnStartConstructionPressed(type);
+		// 取り壊し（§0.103）：維持費を減らすために1Lv下げる。着工ボタンの下に置く
+		binding.DemolishButton = new Button { Text = "🪓 取り壊す（Lv−1）" };
+		binding.DemolishButton.AddThemeFontSizeOverride("font_size", 15);
+		binding.DemolishButton.Pressed += () => OnDemolishPressed(type);
+		binding.ActionButton.GetParent().AddChild(binding.DemolishButton);
+		binding.ActionButton.GetParent().MoveChild(binding.DemolishButton, binding.ActionButton.GetIndex() + 1);
 		if (addTrainee != null)
 			addTrainee.ItemSelected += index => OnAddTraineeSelected(binding, index);
 		if (removeTrainee != null)
@@ -271,6 +279,8 @@ public partial class FacilityPanel : VBoxContainer
 			_constructionProgressBar.Visible = false;
 			_constructionDetailLabel.Text = "各施設カードの「🔨 改築着工」ボタンから改築工事を開始できます。";
 		}
+		// お金の流れ（§0.103）：月々の維持費と、教官・顧問の手当
+		_constructionDetailLabel.Text += $"\n施設の維持費：月 {GuildFinanceSystem.MonthlyUpkeep(_state)} G（月の最後の週に払う）／教官・顧問の手当：週 {GuildFinanceSystem.WeeklyStipends(_state)} G";
 	}
 
 	private void RefreshAllCards()
@@ -325,6 +335,15 @@ public partial class FacilityPanel : VBoxContainer
 			string feeType = currentLevel == 0 ? "新設費" : "改築費";
 			binding.CostLabel.Text = $"{feeType}：{cost} G{(_state.NextUpgradeHalfPrice ? "（辺境伯杯のご褒美で半額）" : "")}　工期：{weeks} 週";
 		}
+		// 維持費（§0.103）：今と、上げたあと
+		int upkeepNow = FacilityBalance.GetUpkeep(currentLevel);
+		binding.CostLabel.Text += isMaxLevel
+			? $"\n維持費：{upkeepNow} G/月"
+			: $"\n維持費：{upkeepNow} G/月 → Lv{currentLevel + 1}で {FacilityBalance.GetUpkeep(currentLevel + 1)} G/月";
+		string? demolishBlock = FacilitySystem.DemolishBlockReason(_state, binding.Type);
+		binding.DemolishButton.Visible = currentLevel > 0;
+		binding.DemolishButton.Disabled = demolishBlock != null;
+		binding.DemolishButton.TooltipText = demolishBlock ?? $"Lv{currentLevel - 1}に下げて、維持費を月 {upkeepNow - FacilityBalance.GetUpkeep(currentLevel - 1)} G 減らす（改築費は戻らない）";
 
 		// 引退教官・顧問スロット
 		if (binding.InstructorLabel != null)
@@ -561,6 +580,23 @@ public partial class FacilityPanel : VBoxContainer
 			return;
 		if (TrainingSystem.SetTrainerFocusTrait(_state, _focusMenuFacility, _focusMenuTraitIds[(int)id]))
 			StateChanged.Invoke();
+	}
+
+	/// <summary>取り壊し（§0.103）：確かめの小窓で、下がる効果と減る維持費を見せてから1Lv下げる。</summary>
+	private void OnDemolishPressed(FacilityType type)
+	{
+		int level = _state.GetFacilityLevel(type);
+		if (FacilitySystem.DemolishBlockReason(_state, type) != null) return;
+		string text = $"{FacilityLabel(type)}を Lv{level} から Lv{level - 1} に下げる。\n\n" +
+			$"維持費：月 {FacilityBalance.GetUpkeep(level)} G → {FacilityBalance.GetUpkeep(level - 1)} G\n" +
+			"[color=orange]払った改築費は戻らない。また上げるには改築費がかかる。[/color]" +
+			(level - 1 <= FacilityBalance.SpecialtyFromLevel && _state.GetFacilitySpecialty(type) != FacilitySpecialty.None ? "\n[color=orange]専門が外れる。[/color]" : "") +
+			(level == 1 && FacilityBalance.IsTrainingFacility(type) ? "\n[color=orange]訓練生と教官の任命が外れる。[/color]" : "");
+		ChoreConfirm.Show(this, "🪓 取り壊す", text, "取り壊す", () =>
+		{
+			if (_facilitySystem.TryDemolish(_state, type))
+				StateChanged.Invoke();
+		});
 	}
 
 	private void OnStartConstructionPressed(FacilityType type)

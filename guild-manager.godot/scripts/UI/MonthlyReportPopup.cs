@@ -204,6 +204,7 @@ public partial class MonthlyReportPopup : Window
 		FillPlans(report);
 		_shownReport = report;
 		FillPoach();
+		FillContract();
 		FillRelics();
 		ClearNotes();
 		if (report.Notes.Count > 0)
@@ -425,6 +426,49 @@ public partial class MonthlyReportPopup : Window
 		}
 	}
 
+	/// <summary>
+	/// 契約更改（§0.103）：年のはじめに、給与をどう上げるかを3つから選ぶ（引き抜きの話の欄の下に足す）。月を進めた直後だけ。
+	/// 見込み（週給が週あたりいくら増えるか・誰が上がるか）は Core（GuildFinanceSystem）。答えなければ月の終わりに据え置き。
+	/// </summary>
+	private void FillContract()
+	{
+		if (!_plansInteractive || _getState == null) return;
+		var state = _getState();
+		if (state.ContractReviewPendingYear is not int year) return;
+		var top = GuildFinanceSystem.MeritTop(state);
+		_poachBox.AddChild(new RichTextLabel
+		{
+			BbcodeEnabled = true, FitContent = true, ScrollActive = false,
+			Text = $"[b]📝 {year}年目の契約更改[/b]　[color=gray]給与をどう上げるか（答えなければ、この月の終わりに据え置く）[/color]",
+		});
+		var buttons = new List<Button>();
+		foreach (var policy in new[] { ContractPolicy.Merit, ContractPolicy.Even, ContractPolicy.Freeze })
+		{
+			string detail = policy switch
+			{
+				ContractPolicy.Merit => $"功績の上位 {top.Count}人（{string.Join("・", top.Select(a => a.Name))}）だけ週給+{GuildManager.Core.Balance.EconomyBalance.ContractMeritRaise:P0}・満足度↑。ほかの子は満足度↓、同じ部隊で差がつくと相性↓",
+				ContractPolicy.Even => $"全員の週給+{GuildManager.Core.Balance.EconomyBalance.ContractEvenRaise:P0}・満足度少し↑",
+				_ => "お金はかからないが、全員の満足度↓（お金が好きな子は大きく↓）",
+			};
+			int increase = GuildFinanceSystem.WageIncrease(state, policy);
+			var row = new HBoxContainer();
+			row.AddThemeConstantOverride("separation", 8);
+			var button = new Button { Text = $"{GuildFinanceSystem.PolicyLabel(policy)}（週給 +{increase}G/週）", CustomMinimumSize = new Vector2(300, 0), SizeFlagsVertical = Control.SizeFlags.ShrinkCenter };
+			row.AddChild(button);
+			row.AddChild(new Label { Text = detail, AutowrapMode = TextServer.AutowrapMode.WordSmart, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
+			_poachBox.AddChild(row);
+			buttons.Add(button);
+			var chosen = policy;
+			button.Pressed += () =>
+			{
+				GuildFinanceSystem.ApplyContractReview(_getState(), chosen);
+				foreach (var b in buttons) b.Disabled = true;
+				button.Text = $"✔ {button.Text}";
+				StateChanged.Invoke();
+			};
+		}
+	}
+
 	/// <summary>鑑定のあと：画面を描き直し（所持金・倉庫）、この欄も作り直す。</summary>
 	private void AfterAppraisal()
 	{
@@ -479,6 +523,12 @@ public partial class MonthlyReportPopup : Window
 		int moodDelta = report.MoodAfter - report.MoodBefore;
 		sb.AppendLine($"所持金 {report.GoldBefore}G → [b]{report.GoldAfter}G[/b]（[color={(goldDelta >= 0 ? "lime" : "orange")}]{goldDelta:+0;-0}G[/color]）" +
 			$"　マスターの機嫌 {report.MoodBefore} → [b]{report.MoodAfter}[/b]（[color={(moodDelta >= 0 ? "lime" : "orange")}]{moodDelta:+0;-0}[/color]）");
+		// お金の流れ（§0.103）：施設の維持費と、教官・顧問の手当
+		var costs = new List<string>();
+		if (report.UpkeepPaid > 0) costs.Add($"施設の維持費 [color=orange]−{report.UpkeepPaid}G[/color]");
+		if (report.StipendsPaid > 0) costs.Add($"教官・顧問の手当 [color=orange]−{report.StipendsPaid}G[/color]");
+		if (costs.Count > 0)
+			sb.AppendLine(string.Join("　", costs));
 		// 研究の手伝い（§0.73）：待機中にアルベールの研究を手伝って貯まった分。次の研究費から割り引く。
 		if (report.ResearchCreditGained > 0 || report.ResearchCreditAfter > 0)
 			sb.AppendLine($"研究の手伝い [color=lime]+{report.ResearchCreditGained}G[/color]（貯まり {report.ResearchCreditAfter}G。次の研究費の{GuildManager.Core.Balance.TrainingBalance.ResearchCreditMaxDiscountRate * 100:0}%まで割り引く）");

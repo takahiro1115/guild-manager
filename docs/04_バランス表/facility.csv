@@ -1,5 +1,14 @@
 key,value,unit,note
-UpgradeCostPerLevel,500,G,"改築費＝max(現在Lv,1)×この額（Lv0→1の新設にもLv1相当額を課す）"
+UpgradeCost_Lv1,500,G,改築費（§0.103で累進に）：Lv1を建てる費用。旧 UpgradeCostPerLevel（今のLv×500）を置き換え
+UpgradeCost_Lv2,800,G,同：Lv1→Lv2
+UpgradeCost_Lv3,2000,G,同：Lv2→Lv3
+UpgradeCost_Lv4,5000,G,同：Lv3→Lv4（専門を選ぶ）
+UpgradeCost_Lv5,10000,G,同：Lv4→Lv5
+Upkeep_Lv1,40,G/月,施設の維持費（§0.103）：Lv1の施設1つの月々の維持費（4週ごと、月の最後の週に払う）
+Upkeep_Lv2,100,G/月,同：Lv2
+Upkeep_Lv3,220,G/月,同：Lv3
+Upkeep_Lv4,400,G/月,同：Lv4
+Upkeep_Lv5,700,G/月,同：Lv5（8施設すべてLv5で月5600G。払えなければ所持金がマイナスになり、破産の数えに入る）
 ConstructionWeeksPerLevel,1,週,"工事期間＝max(現在Lv,1)×この週数"
 TrainingSlotCapacity,1,枠,"訓練施設の配置枠（Lv1以上ならLvにかかわらずこの値、Lv0は0。3施設それぞれ独立。§0.75で「Lv×1枠」から変更。Lvは成長の確率に効く）"
 TrainingGrowthMultiplier_Lv1,1.0,倍,"訓練施設Lv1の成長の確率の倍率（年齢帯の基礎確率×(aging.csv TrainingFacilityMultiplier×この値＋教官)×研究×特性。§0.75・仮の値）"

@@ -139,6 +139,10 @@ namespace GuildManager.Core.Systems
         /// </summary>
         public List<string> RelicIds { get; set; } = new();
 
+        /// <summary>この月に払った施設の維持費と、教官・顧問の手当（§0.103）。</summary>
+        public int UpkeepPaid { get; set; }
+        public int StipendsPaid { get; set; }
+
         /// <summary>来月への注意。</summary>
         public List<MonthlyNote> Notes { get; set; } = new();
 
@@ -171,6 +175,8 @@ namespace GuildManager.Core.Systems
                 ForcedRetired = resolutions.Sum(r => r.DungeonResult?.ForceRetiredAdventurerIds.Count ?? 0),
                 ResearchCreditGained = settlements.Sum(s => s.IdleHelpEntries.Sum(e => e.Credit)),
                 ResearchCreditAfter = state.ResearchCredit,
+                UpkeepPaid = settlements.Sum(s => s.UpkeepPaid),
+                StipendsPaid = settlements.Sum(s => s.StipendsPaid),
             };
 
             if (!report.MonthCompleted && settlements.Count > 0)
@@ -227,6 +233,8 @@ namespace GuildManager.Core.Systems
                 foreach (var ev in w.Settlement.Incidents)
                     Add(ev.Text, ev.Good ? MonthlyTone.Good : ev.Kind == IncidentKind.PoachLeft ? MonthlyTone.Bad : MonthlyTone.Warning);
             }
+            if (weeks.Any(w => w.Settlement.ContractAutoFrozen))
+                Add("契約更改に答えないまま月が終わったので、給与を据え置いた（みんな少し不満）", MonthlyTone.Warning); // §0.103
             // さぼり（§0.101）：この月にさぼった回数を子ごとにまとめて1行
             foreach (var g in weeks.SelectMany(w => w.Settlement.Slackers).GroupBy(kv => kv.Key))
                 Add($"💤 {g.First().Value}は訓練・研究の手伝いをさぼりがちだった（{g.Count()}回）", MonthlyTone.Warning);
@@ -526,6 +534,7 @@ namespace GuildManager.Core.Systems
             if (flags.CommissionsOffered) reasons.Add("依頼が届いた");
             if (flags.SquadStalledAtBoss) reasons.Add("潜行の部隊が主に勝てずに戻った");
             if (flags.PoachOffered) reasons.Add("引き抜きの話");
+            if (flags.ContractReviewDue) reasons.Add("年のはじめの契約更改");
             if (flags.GameCleared) reasons.Add("深淵100Fを制覇した");
             if (flags.DefeatOccurred) reasons.Add("ゲームオーバー");
             return reasons;
@@ -567,6 +576,8 @@ namespace GuildManager.Core.Systems
                 report.Notes.Add(new MonthlyNote { Text = $"{a.Name}は毒状態（あと{a.PoisonWeeksRemaining}週、全能力−{a.PoisonStatPenalty * 100:0}%）", Target = MonthlyNoteTarget.Adventurer });
             foreach (var a in state.Adventurers.Where(a => a.Injury == InjurySeverity.Severe))
                 report.Notes.Add(new MonthlyNote { Text = $"{a.Name}は重傷（あと{a.InjuryWeeksRemaining}週）", Target = MonthlyNoteTarget.Adventurer });
+            if (state.ContractReviewPendingYear is int reviewYear)
+                report.Notes.Add(new MonthlyNote { Text = $"{reviewYear}年目の契約更改を決める（月報の「契約更改」で。答えなければ月の終わりに据え置く）", Target = MonthlyNoteTarget.Adventurer }); // §0.103
             // 返事を待っている引き抜きの話（§0.102）
             foreach (var offer in state.PoachOffers)
                 report.Notes.Add(new MonthlyNote { Text = $"{offer.AdventurerName}に{offer.GuildName}から引き抜きの話（{GameCalendar.FormatMonth(offer.DeadlineWeek)} 第{GameCalendar.WeekOfMonth(offer.DeadlineWeek)}週までに応えないと移籍する）。月報の「引き抜きの話」で応える", Target = MonthlyNoteTarget.Adventurer });

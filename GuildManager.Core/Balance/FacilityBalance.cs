@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using GuildManager.Core.Models;
 
 namespace GuildManager.Core.Balance
@@ -24,7 +25,11 @@ namespace GuildManager.Core.Balance
 
         public const int MaxLevel = 5;
 
-        private static readonly int UpgradeCostPerLevel = BalanceData.GetInt(FileName, "UpgradeCostPerLevel");
+        /// <summary>累進の改築費（§0.103）：Lv1〜5に上げる費用（facility.csv UpgradeCost_Lv*）。</summary>
+        private static readonly int[] UpgradeCosts = Enumerable.Range(1, 5).Select(lv => BalanceData.GetInt(FileName, $"UpgradeCost_Lv{lv}")).ToArray();
+
+        /// <summary>施設の月々の維持費（§0.103）：Lv1〜5（facility.csv Upkeep_Lv*）。Lv0は0。</summary>
+        private static readonly int[] Upkeeps = Enumerable.Range(1, 5).Select(lv => BalanceData.GetInt(FileName, $"Upkeep_Lv{lv}")).ToArray();
         private static readonly int ConstructionWeeksPerLevel = BalanceData.GetInt(FileName, "ConstructionWeeksPerLevel");
         private static readonly int TrainingSlotCapacity = BalanceData.GetInt(FileName, "TrainingSlotCapacity");
         private static readonly double[] TrainingGrowthMultipliers =
@@ -65,12 +70,15 @@ namespace GuildManager.Core.Balance
         private static readonly double PathfindingTraversalPerLevel = BalanceData.GetDouble(FileName, "PathfindingTraversalPerLevel");
 
         /// <summary>
-        /// Lvアップの改築費（現在Lvから+1する費用）。→ BAL: 施設/改築費。
+        /// Lvアップの改築費（現在Lvから+1する費用）。→ BAL: 施設/改築費。 §0.103で累進の表（facility.csv UpgradeCost_Lv*）にした。
         /// v1.4改訂：Lv0→Lv1（新設）の着工にも既存のLv1→Lv2と同額を課す
         /// （currentLevel*係数のままだとLv0の場合に0＝無料建設になってしまうバグの修正。
         /// 「資金を払って建設して初めてLv1になる」という仕様に反するため）。
         /// </summary>
-        public static int GetUpgradeCost(Models.FacilityType type, int currentLevel) => Math.Max(currentLevel, 1) * UpgradeCostPerLevel;
+        public static int GetUpgradeCost(Models.FacilityType type, int currentLevel) => UpgradeCosts[Math.Clamp(currentLevel, 0, UpgradeCosts.Length - 1)];
+
+        /// <summary>そのLvの施設の月々の維持費（§0.103。Lv0は0）。</summary>
+        public static int GetUpkeep(int level) => level <= 0 ? 0 : Upkeeps[Math.Min(level, Upkeeps.Length) - 1];
 
         /// <summary>着工から完成までの工事期間（週）。→ BAL: 施設/工事期間。</summary>
         public static int GetConstructionWeeks(Models.FacilityType type, int currentLevel) => Math.Max(currentLevel, 1) * ConstructionWeeksPerLevel;

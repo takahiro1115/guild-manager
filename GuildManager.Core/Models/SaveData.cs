@@ -299,6 +299,10 @@ namespace GuildManager.Core.Models
         public bool AutoNegotiationBonus { get; set; }
         /// <summary>引き抜きの話（§0.102）。</summary>
         public List<PoachOffer>? PoachOffers { get; set; } = new();
+        /// <summary>慰労会・契約更改（§0.103）。</summary>
+        public int? LastFeastSeason { get; set; }
+        public int ContractReviewDoneYear { get; set; }
+        public int? ContractReviewPendingYear { get; set; }
 
         /// <summary>
         /// 掲示中・受けた依頼（→ GameState.Commissions、03 §4.9・§0.64）。GuildCommission は Guid・整数・文字列・列挙だけで

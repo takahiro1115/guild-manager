@@ -59,5 +59,20 @@ namespace GuildManager.Core.Balance
 
         /// <summary>まとめて鑑定・交渉の自動（§0.99）で残しておく所持金＝現役の週給の合計×この週数（→ EconomySystem.ChoreReserve）。</summary>
         public static readonly int ChoreReserveWageWeeks = BalanceData.GetInt(FileName, "ChoreReserveWageWeeks");
+
+        // ==================== 段4d（§0.103）：手当・慰労会・契約更改 ====================
+        public static readonly int StipendBase = BalanceData.GetInt(FileName, "StipendBase");
+        public static readonly double StipendPerStat = BalanceData.GetDouble(FileName, "StipendPerStat");
+        public static readonly int StipendMax = BalanceData.GetInt(FileName, "StipendMax");
+        public static readonly int FeastCostPerHead = BalanceData.GetInt(FileName, "FeastCostPerHead");
+        public static readonly int FeastSatisfaction = BalanceData.GetInt(FileName, "FeastSatisfaction");
+        public static readonly int FeastSatisfactionPerTavernLevel = BalanceData.GetInt(FileName, "FeastSatisfactionPerTavernLevel");
+        public static readonly double ContractMeritRaise = BalanceData.GetDouble(FileName, "ContractMeritRaise");
+        public static readonly int ContractMeritTopSatisfaction = BalanceData.GetInt(FileName, "ContractMeritTopSatisfaction");
+        public static readonly int ContractMeritOthersSatisfaction = BalanceData.GetInt(FileName, "ContractMeritOthersSatisfaction");
+        public static readonly double ContractEvenRaise = BalanceData.GetDouble(FileName, "ContractEvenRaise");
+        public static readonly int ContractEvenSatisfaction = BalanceData.GetInt(FileName, "ContractEvenSatisfaction");
+        public static readonly int ContractFreezeSatisfaction = BalanceData.GetInt(FileName, "ContractFreezeSatisfaction");
+        public static readonly int ContractGapCompatLoss = BalanceData.GetInt(FileName, "ContractGapCompatLoss");
     }
 }

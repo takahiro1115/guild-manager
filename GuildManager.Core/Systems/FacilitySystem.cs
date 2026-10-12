@@ -84,6 +84,42 @@ namespace GuildManager.Core.Systems
         }
 
         /// <summary>
+        /// 取り壊し（§0.103）：施設を1Lv下げる理由（下げられるなら null）。維持費を減らすための操作で、払った改築費は戻らない。
+        /// 工事中の施設・Lv0は下げられない。宿舎は、下げたあとの枠が今の現役の数を下回るなら下げられない。
+        /// </summary>
+        public static string? DemolishBlockReason(GameState state, FacilityType type)
+        {
+            int level = state.GetFacilityLevel(type);
+            if (level <= 0) return "まだ建っていない";
+            if (state.UnderConstruction?.Type == type) return "工事中は取り壊せない";
+            if (type == FacilityType.Dormitory && level - 1 >= 1
+                && FacilityBalance.GetDormitoryCapacity(level - 1) < state.Adventurers.Count(a => !a.IsRetired))
+                return "下げると宿舎の枠が今の人数より少なくなる";
+            if (type == FacilityType.Dormitory && level == 1) return "宿舎は無くせない";
+            return null;
+        }
+
+        /// <summary>
+        /// 施設を1Lv下げる（§0.103、即時・費用なし・改築費は戻らない）。専門はLv3以下になれば外れる。Lv0になった訓練施設は、訓練生と教官の任命を外す。
+        /// 下げられなければ false。
+        /// </summary>
+        public bool TryDemolish(GameState state, FacilityType type)
+        {
+            if (DemolishBlockReason(state, type) != null) return false;
+            var facility = FindOrCreate(state, type);
+            facility.CurrentLevel--;
+            if (facility.CurrentLevel <= FacilityBalance.SpecialtyFromLevel)
+                facility.Specialty = FacilitySpecialty.None;
+            if (facility.CurrentLevel == 0 && FacilityBalance.IsTrainingFacility(type))
+            {
+                foreach (var id in state.TrainingAssignments.Where(kv => kv.Value == type).Select(kv => kv.Key).ToList())
+                    state.TrainingAssignments.Remove(id);
+                state.AssignedTrainers[type] = null;
+            }
+            return true;
+        }
+
+        /// <summary>
         /// 改装（専門の選び直し、§0.76）を試みる。専門が付いている（Lv4以上）施設で、今と違う選択肢を指定したときだけ。
         /// 費用＝今のLv×RemodelCostPerLevel（前払い）、工期 RemodelWeeks。建設キューを1件使い、工事中は今の専門のまま。
         /// </summary>

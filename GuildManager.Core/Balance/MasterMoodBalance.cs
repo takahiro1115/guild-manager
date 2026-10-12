@@ -44,6 +44,8 @@ namespace GuildManager.Core.Balance
 
         /// <summary>成果ゼロ週の退屈減衰量（正の値で持つ）。</summary>
         public static readonly int BoredomMoodDecay = BalanceData.GetInt(FileName, "BoredomMoodDecay");
+        /// <summary>機嫌の張り合い（§0.103）：上機嫌の週に新しい成果が無ければ下がる量。</summary>
+        public static readonly int CheerfulBoredomMoodLoss = BalanceData.GetInt(FileName, "CheerfulBoredomMoodLoss");
 
         /// <summary>
         /// 研究の手伝い（→ IdleActivitySystem、03 §8.1・§0.73。旧・待機お手伝い15G）：待機中に「アルベールの研究を手伝う」

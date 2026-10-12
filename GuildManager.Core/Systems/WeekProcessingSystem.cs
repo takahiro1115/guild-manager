@@ -108,6 +108,7 @@ namespace GuildManager.Core.Systems
             TournamentSystem.EnsureSchedule(state); // 今年の大会の暦（§0.82。年のはじめ・新しいゲームのとき置く）
             bool hadRetiree = state.GuildRetirees.Any(); // 最初の引退者で作戦資料室・冒険者支援室が開く（§0.78。派遣の教官は数えない）
             var neededNegotiationBefore = state.Adventurers.Where(a => a.NeedsNegotiation).Select(a => a.Id).ToHashSet();
+            result.Flags.ContractReviewDue = GuildFinanceSystem.OpenContractReviewIfDue(state, thisWeek); // 年のはじめの契約更改（§0.103）
 
             // 出撃中（今週出発した分も含む）の冒険者は、HP自然回復・訓練場成長の対象から外す（→ 03 §4.0.1）。
             var dispatchedIds = state.Adventurers.Where(a => a.IsDispatched).Select(a => a.Id).ToHashSet();
@@ -160,9 +161,11 @@ namespace GuildManager.Core.Systems
 
             // 出撃の有無にかかわらず、時間は必ず進む。
             _economySystem.ApplyWeeklyWages(state);
+            result.StipendsPaid = GuildFinanceSystem.PayStipends(state); // 教官・顧問の手当（§0.103）
 
             // アルベールの市販薬・内職売上（4週に1回。→ 03 §8.1：機嫌に応じた倍率。旧・月次助成金）。
             result.SideJobIncome = _economySystem.ProcessWeeklySideJobIncome(state);
+            result.UpkeepPaid = GuildFinanceSystem.PayUpkeepIfDue(state, thisWeek); // 施設の維持費（月の最後の週、§0.103）
 
             _trainingSystem.ProcessWeeklyTraining(state, dispatchedIds); // → 03 §3.1〜3.4・§3.5改：訓練場の週次費用・HP微減
             result.TraitTransmissionEvents.AddRange(_trainingSystem.ProcessWeeklyTraitTransmission(state)); // → 特性伝授刷新仕様：教官からの週次伝授ロール
@@ -197,6 +200,9 @@ namespace GuildManager.Core.Systems
             result.TraitGrantEvents.AddRange(_satisfactionSystem.ProcessWeeklyBurnout(state)); // → 03 §5.3.2・§0.56：燃え尽き（連続出撃）
             result.NegotiationTerminated.AddRange(_satisfactionSystem.ProcessWeeklyNegotiation(state)); // → 03 §5.2：契約交渉・退団
             result.AutoBonuses.AddRange(ChoreSystem.ProcessAutoBonus(state, _satisfactionSystem)); // → §0.99：交渉の自動（応えた子では月を止めない）
+            // 契約更改に答えないまま月が終わったら据え置く（§0.103）
+            if (state.ContractReviewPendingYear != null && GameCalendar.IsLastWeekOfMonth(thisWeek))
+                result.ContractAutoFrozen = GuildFinanceSystem.ApplyContractReview(state, ContractPolicy.Freeze);
             MoraleSystem.UpdateStages(state); // → §0.101：満足度の段階を決め直す（のりしろつき）
             result.Incidents.AddRange(IncidentSystem.ProcessWeek(state, thisWeek, missionsAtStart, _incidentRng, out bool poachOffered)); // → §0.102：満足度・相性の出来事
             result.Flags.PoachOffered = poachOffered;

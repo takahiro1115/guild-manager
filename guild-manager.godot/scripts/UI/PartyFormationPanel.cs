@@ -57,6 +57,7 @@ public partial class PartyFormationPanel : VBoxContainer
 	private readonly Button[] _slotPromoteButtons = new Button[4];
 	private Button _removeAllButton = null!;
 	private Button _recommendGearButton = null!;
+	private Button _feastButton = null!;
 
 	// 冒険者一覧（表）
 	private VBoxContainer _candidateListContainer = null!;
@@ -315,6 +316,10 @@ public partial class PartyFormationPanel : VBoxContainer
 		SquadSummaryChanged.Invoke(SquadSummary(currentParty, isDispatched));
 		_dispatchedBadge.Visible = isDispatched;
 		_removeAllButton.Disabled = isDispatched || currentParty.MemberIds.Count == 0;
+		string? feastBlock = GuildFinanceSystem.FeastBlockReason(_state, currentParty);
+		_feastButton.Text = $"🍻 慰労会（{GuildFinanceSystem.FeastCost(_state, currentParty)}G）";
+		_feastButton.Disabled = feastBlock != null;
+		_feastButton.TooltipText = feastBlock ?? $"酒場で慰労会を開き、この部隊の全員の満足度を+{GuildFinanceSystem.FeastSatisfaction(_state)}（季節に1回まで。出撃中・派遣中の子は呼べない）";
 		int gearChanges = ChoreSystem.PlanGear(_state, currentParty).Count;
 		_recommendGearButton.Disabled = gearChanges == 0;
 		_recommendGearButton.TooltipText = gearChanges > 0
@@ -1216,6 +1221,18 @@ public partial class PartyFormationPanel : VBoxContainer
 		});
 	}
 
+	/// <summary>「慰労会」（§0.103）：お金を払って、この部隊の全員の満足度をその場で上げる（季節に1回まで）。</summary>
+	private void OnFeastClicked()
+	{
+		var party = GetCurrentParty();
+		if (party == null || _state == null) return;
+		int cost = GuildFinanceSystem.FeastCost(_state, party);
+		int gain = GuildFinanceSystem.FeastSatisfaction(_state);
+		if (!GuildFinanceSystem.HoldFeast(_state, party)) return;
+		_statusLabel.Text = $"酒場で慰労会を開いた（−{cost}G、「{party.Name}」の全員の満足度+{gain}）。";
+		StateChanged.Invoke();
+	}
+
 	private static string SlotName(EquipmentSlot slot) => slot switch
 	{
 		EquipmentSlot.Weapon => "武器",
@@ -1239,6 +1256,10 @@ public partial class PartyFormationPanel : VBoxContainer
 		_removeAllButton = new Button { Text = "全員解除", TooltipText = "この部隊の全員を編成から外す（出撃中は不可）。" };
 		_removeAllButton.AddThemeFontSizeOverride("font_size", 15);
 		_removeAllButton.Pressed += OnRemoveAllClicked;
+		_feastButton = new Button { Text = "🍻 慰労会" };
+		_feastButton.AddThemeFontSizeOverride("font_size", 15);
+		_feastButton.Pressed += OnFeastClicked;
+		row.AddChild(_feastButton);
 		_recommendGearButton = new Button { Text = "🎽 おすすめを着せる" };
 		_recommendGearButton.AddThemeFontSizeOverride("font_size", 15);
 		_recommendGearButton.Pressed += OnRecommendGearClicked;

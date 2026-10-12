@@ -677,6 +677,9 @@ namespace GuildManager.Core.Models
         /// <summary>張り切り（§0.102）：次に出た週の力が上がる。その週が終わると消える。</summary>
         public bool Pumped { get; set; }
 
+        /// <summary>年のはじめ（前の契約更改）の累積功績（§0.103。この年の功績＝今の累積功績−この値）。</summary>
+        public int ContributionAtYearStart { get; set; }
+
         /// <summary>待機中の過ごし方（§0.73、→ IdleActivity・Systems.IdleActivitySystem）。旧セーブには無く、研究を手伝う（Help）で読まれる。</summary>
         public IdleActivity IdleActivity { get; set; } = IdleActivity.Help;
 

@@ -166,6 +166,23 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 `SeveranceShortfallReputationPenalty` は `SeveranceShortfallMoodPenalty` へ置き換え、`dungeon.csv` の
 `BossBaseReputation` は削除した。代わりに `master_mood.csv` を新設した。
 
+## お金の流れで追加／変更されたキー（2026年10月、→ 03 §0.103）
+
+すべて仮の値。L3 simple のシミュレーターで維持費は年に約13,000G。
+
+| ファイル | キー | 値 | 意味 |
+|---|---|---|---|
+| `facility.csv` | `UpgradeCost_Lv1`〜`Lv5` | 500・800・2000・5000・10000 | 累進の改築費（旧 `UpgradeCostPerLevel` 500＝今のLv×500 を撤去） |
+| `facility.csv` | `Upkeep_Lv1`〜`Lv5` | 40・100・220・400・700 | 施設1つの月々の維持費（月の最後の週。8施設すべてLv5で月5,600G） |
+| `economy.csv` | `StipendBase`・`StipendPerStat`・`StipendMax` | 15・0.5・40 | 教官・顧問の手当（週）＝15＋(引退したときの能力の平均−40)×0.5、上限40 |
+| `economy.csv` | `FeastCostPerHead`・`FeastSatisfaction`・`FeastSatisfactionPerTavernLevel` | 50・8・1 | 酒場の慰労会（季節に1回） |
+| `economy.csv` | `ContractMeritRaise`・`ContractMeritTopSatisfaction`・`ContractMeritOthersSatisfaction` | 0.12・10・−5 | 契約更改「成果に応じて」（上位3分の1） |
+| `economy.csv` | `ContractEvenRaise`・`ContractEvenSatisfaction` | 0.05・3 | 同「全員を少しずつ」 |
+| `economy.csv` | `ContractFreezeSatisfaction`・`ContractGapCompatLoss` | −5・3 | 同「据え置く」／「成果に応じて」で差がついた2人の相性 |
+| `satisfaction.csv` | `TavernRecoveryCeiling` | 60 | 酒場の自然回復はこの満足度未満の子だけ |
+| `satisfaction.csv` | `ContentDriftAbove`・`ContentDrift` | 70・−1 | 慣れ：この満足度を超える子は毎週下がる |
+| `master_mood.csv` | `CheerfulBoredomMoodLoss` | 2 | 機嫌の張り合い：上機嫌で新しい成果の無い週に下がる |
+
 ## 出来事と事故で追加されたキー（2026年10月、→ 03 §0.102）
 
 `personality.csv` に足した（すべて仮の値）。

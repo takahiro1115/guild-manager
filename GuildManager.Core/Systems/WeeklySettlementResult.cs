@@ -53,6 +53,11 @@ namespace GuildManager.Core.Systems
         /// <summary>満足度・相性の出来事と、引き抜きの話の期限切れの移籍（§0.102、→ IncidentSystem.ProcessWeek）。</summary>
         public List<IncidentEvent> Incidents { get; } = new();
 
+        /// <summary>お金の流れ（§0.103）：今週払った教官・顧問の手当、施設の維持費（月の最後の週だけ）、答えの無い契約更改を据え置いたか。</summary>
+        public int StipendsPaid { get; set; }
+        public int UpkeepPaid { get; set; }
+        public bool ContractAutoFrozen { get; set; }
+
         /// <summary>アルベールの市販薬・内職売上（4週に1回のみ値が入る。→ EconomySystem.ProcessWeeklySideJobIncome）。</summary>
         public SideJobIncome? SideJobIncome { get; set; }
 

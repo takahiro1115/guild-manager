@@ -284,7 +284,7 @@ partial class GameSim
     /// campaign で買い物・研究・霊薬・秘薬に使わずに残す額：今年度末に満期を迎える者（年度末に26歳になる25歳。年の後半から数える）の退職金の見込み＋週給4週分＋3000G。
     /// 残しておかないと、年度末の退職金が重なって破産する。
     /// </summary>
-    int Reserve => Active.Where(a => a.Age >= 26 || (a.Age == 25 && GameCalendar.WeekOfYear(s.WeekNumber) >= 30)).Sum(AgingSystem.CalculateSeverancePay) + Active.Sum(a => a.WeeklyWage) * 4 + 3000;
+    int Reserve => Active.Where(a => a.Age >= 26 || (a.Age == 25 && GameCalendar.WeekOfYear(s.WeekNumber) >= 30)).Sum(AgingSystem.CalculateSeverancePay) + Active.Sum(a => a.WeeklyWage) * 4 + GuildFinanceSystem.MonthlyUpkeep(s) * 2 + GuildFinanceSystem.WeeklyStipends(s) * 8 + 3000; // 維持費2か月・手当8週も残す（§0.103）
     readonly AdvisorSystem advisors = new();
     SoulFusionSystem? soulFusion;
     public readonly List<(int Order, int Floor, int Week)> FieldKills = new();
@@ -483,8 +483,45 @@ partial class GameSim
         FieldKills.Add((r.Field.Order, boss.Floor, week));
     }
 
+    /// <summary>
+    /// 経営の答え（§0.102・§0.103）：引き抜きの話は昇給で引き留める（お金が足りなければ送り出す）、年のはじめの契約更改は「全員を少しずつ」。
+    /// 画面のプレイヤーと同じく、答えないと期限で移籍・月の終わりに据え置きになるため、手入れをするプレイヤーは答える。
+    /// </summary>
+    void AnswerManagement()
+    {
+        foreach (var offer in s.PoachOffers.ToList())
+        {
+            var a = s.FindAdventurer(offer.AdventurerId);
+            var choice = a != null && s.Gold >= 1500 ? PoachChoice.Raise : PoachChoice.Release;
+            if (IncidentSystem.ResolvePoach(s, offer, choice, new SatisfactionSystem())) Count("引き抜きの話");
+        }
+        if (s.ContractReviewPendingYear != null && GuildFinanceSystem.ApplyContractReview(s, ContractPolicy.Even)) Count("契約更改");
+    }
+
+    /// <summary>改築してよいか：改築費を払っても、維持費（改築後）の3か月分＋2500Gが残るとき（§0.103）。</summary>
+    /// <summary>
+    /// 取り壊し（§0.103）：所持金が維持費1か月分を下回ったら、手放しても困りにくい施設から1Lv下げる
+    /// （冒険者支援室・酒場・作戦資料室・技巧所・学術院・鍛錬所・医務室の順に、Lvの高いもの）。宿舎は下げない。
+    /// </summary>
+    void DemolishIfShort()
+    {
+        if (s.Gold >= GuildFinanceSystem.MonthlyUpkeep(s)) return;
+        var order = new[] { FacilityType.RecruitmentOffice, FacilityType.Tavern, FacilityType.WarRoom, FacilityType.SkillHall, FacilityType.Academy, FacilityType.DrillHall, FacilityType.Infirmary };
+        var target = order.Where(f => FacilitySystem.DemolishBlockReason(s, f) == null && s.GetFacilityLevel(f) >= 2)
+            .OrderByDescending(f => s.GetFacilityLevel(f)).ThenBy(f => Array.IndexOf(order, f)).Cast<FacilityType?>().FirstOrDefault();
+        if (target is FacilityType t && facility.TryDemolish(s, t)) Count("施設の取り壊し");
+    }
+
+    bool CanAffordUpgrade(FacilityType f)
+    {
+        int lv = s.GetFacilityLevel(f);
+        int upkeepAfter = GuildFinanceSystem.MonthlyUpkeep(s) - FacilityBalance.GetUpkeep(lv) + FacilityBalance.GetUpkeep(lv + 1);
+        return s.Gold - FacilityBalance.GetUpgradeCost(f, lv) >= 2500 + upkeepAfter * 3;
+    }
+
     void ActInner()
     {
+        AnswerManagement();
         int g0 = s.Gold;
         HandleCommissions();
         HandleLoot();
@@ -772,7 +809,7 @@ partial class GameSim
         foreach (var a in Active.Where(a => !a.IsDispatched).OrderByDescending(StatSum).Take(Campaign ? 6 : 4))
             foreach (var item in ItemCatalog.GetAll().Where(i => i.IsAllowedFor(a.JobClass) && EquipmentSystem.IsInShop(s, i)))
             {
-                if (s.Gold - item.Price < (Campaign ? Reserve : 800)) continue;
+                if (s.Gold - item.Price < (Campaign ? Reserve : 800 + GuildFinanceSystem.MonthlyUpkeep(s) * 2)) continue;
                 double gain = ItemWorth(item) - Worth(a.GetEquipped(item.Slot));
                 if (gain <= 0.5) continue;
                 // campaign ではお金が余るので、1G あたりではなく伸びの大きさで選ぶ（上位装備を買い進める）
@@ -823,6 +860,7 @@ partial class GameSim
     }
     void BuildFacility()
     {
+        DemolishIfShort();
         if (Frugal || !UseFacilities) return;
         if (RandBuild) { BuildRandom(); return; }
         if (s.UnderConstruction != null) return;
@@ -832,7 +870,7 @@ partial class GameSim
             counts[f] = counts.GetValueOrDefault(f) + 1;
             if (s.GetFacilityLevel(f) >= counts[f]) continue;
             if (FacilitySystem.IsBlockedByLevelCap(s, f)) continue; // 施設の上限Lv（§0.79）：倒したボスの数で開く
-            if (s.Gold - FacilityBalance.GetUpgradeCost(f, s.GetFacilityLevel(f)) >= 2500)
+            if (CanAffordUpgrade(f))
                 if (facility.TryStartConstruction(s, f, !FacilitySystem.NeedsSpecialtyChoice(f, s.GetFacilityLevel(f)) ? FacilitySpecialty.None
                     : UseRivalry && FacilityBalance.IsTrainingFacility(f) ? FacilitySpecialty.Rivalry : FacilityBalance.GetDefaultSpecialty(f))) Count("施設の着工"); // Lv3→4は専門を選ぶ（§0.76）
             return;
@@ -844,7 +882,7 @@ partial class GameSim
         var offers = recruitment.GenerateCandidates(s);
         foreach (var o in offers.OrderByDescending(o => RandHire ? Rnd.NextDouble() : TotalPa(o.Candidate)))
         {
-            if (Active.Count() >= 12 || s.Gold - o.SigningBonus < 1500) break;
+            if (Active.Count() >= 12 || s.Gold - o.SigningBonus < 1500 + GuildFinanceSystem.MonthlyUpkeep(s) * 2) break;
             { if (recruitment.TryHire(s, o)) Count("採用"); }
         }
     }

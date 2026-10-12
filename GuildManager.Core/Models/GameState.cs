@@ -379,6 +379,15 @@ namespace GuildManager.Core.Models
         /// <summary>返事を待っている引き抜きの話（§0.102、→ IncidentSystem）。</summary>
         public List<PoachOffer> PoachOffers { get; set; } = new();
 
+        /// <summary>最後に酒場の慰労会を開いた季節（§0.103、通算の季節。季節に1回まで）。開いていなければ null。</summary>
+        public int? LastFeastSeason { get; set; }
+
+        /// <summary>契約更改（§0.103）を済ませた最後の年。年のはじめに、この年より新しければ契約更改を求める。</summary>
+        public int ContractReviewDoneYear { get; set; } = 1;
+
+        /// <summary>返事を待っている契約更改の年（年のはじめに立て、答えるか月の終わりに据え置きで閉じる）。無ければ null。</summary>
+        public int? ContractReviewPendingYear { get; set; }
+
         /// <summary>引退者のうち、ギルドの元冒険者（派遣の教官を除く）。最初の引退者の判定・年代記に使う。</summary>
         public IEnumerable<Adventurer> GuildRetirees => RetiredAdventurers.Where(a => !a.IsGuest);
 
@@ -486,6 +495,9 @@ namespace GuildManager.Core.Models
                 TutorialEnabled = TutorialEnabled,
                 AutoNegotiationBonus = AutoNegotiationBonus,
                 PoachOffers = new List<PoachOffer>(PoachOffers),
+                LastFeastSeason = LastFeastSeason,
+                ContractReviewDoneYear = ContractReviewDoneYear,
+                ContractReviewPendingYear = ContractReviewPendingYear,
                 Commissions = new List<GuildCommission>(Commissions),
                 CommissionCompletions = new Dictionary<string, int>(CommissionCompletions),
                 Anomaly = Anomaly,
@@ -636,6 +648,9 @@ namespace GuildManager.Core.Models
                 TutorialEnabled = data.TutorialEnabled ?? true, // キーの無い旧セーブは「あり」
                 AutoNegotiationBonus = data.AutoNegotiationBonus, // キーの無い旧セーブは false（しない）
                 PoachOffers = (data.PoachOffers ?? new List<PoachOffer>()).Where(o => o != null).ToList(),
+                LastFeastSeason = data.LastFeastSeason,
+                ContractReviewDoneYear = Math.Max(1, data.ContractReviewDoneYear),
+                ContractReviewPendingYear = data.ContractReviewPendingYear,
                 // 依頼と迷宮の異変（§0.64）。キーを持たない旧セーブ、または null が書かれていても空・無しで始める。
                 Commissions = (data.Commissions ?? new List<GuildCommission>()).Where(c => c != null).ToList(),
                 CommissionCompletions = new Dictionary<string, int>(data.CommissionCompletions ?? new Dictionary<string, int>()),

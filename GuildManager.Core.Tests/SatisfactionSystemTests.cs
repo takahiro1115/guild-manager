@@ -48,7 +48,7 @@ namespace GuildManager.Core.Tests
             var adventurer = new Adventurer
             {
                 Age = age,
-                Satisfaction = 70,
+                Satisfaction = 50,
                 WeeksSinceLastDeployment = 3, // 今回で4週目に到達
                 PA_STR = 100, PA_AGI = 100, PA_VIT = 100, PA_MND = 100, PA_DEX = 100, PA_LDR = 100,
                 WeeklyWage = 1000,
@@ -59,7 +59,7 @@ namespace GuildManager.Core.Tests
             system.ProcessWeeklySatisfaction(state, NoDispatch);
 
             // -5(出場機会) +1(自然回復) = -4
-            Assert.Equal(66, adventurer.Satisfaction);
+            Assert.Equal(46, adventurer.Satisfaction);
             Assert.Equal(4, adventurer.WeeksSinceLastDeployment);
         }
 
@@ -68,7 +68,7 @@ namespace GuildManager.Core.Tests
         {
             var adventurer = new Adventurer
             {
-                Age = 24, Satisfaction = 70, WeeksSinceLastDeployment = 2, // 今回で3週目
+                Age = 24, Satisfaction = 50, WeeksSinceLastDeployment = 2, // 今回で3週目
                 PA_STR = 100, PA_AGI = 100, PA_VIT = 100, PA_MND = 100, PA_DEX = 100, PA_LDR = 100,
                 WeeklyWage = 1000,
             };
@@ -77,7 +77,7 @@ namespace GuildManager.Core.Tests
 
             system.ProcessWeeklySatisfaction(state, NoDispatch);
 
-            Assert.Equal(71, adventurer.Satisfaction); // 自然回復+1のみ
+            Assert.Equal(51, adventurer.Satisfaction); // 自然回復+1のみ
         }
 
         [Theory]
@@ -88,7 +88,7 @@ namespace GuildManager.Core.Tests
         {
             var adventurer = new Adventurer
             {
-                Age = age, Satisfaction = 70, WeeksSinceLastDeployment = 10,
+                Age = age, Satisfaction = 50, WeeksSinceLastDeployment = 10,
                 PA_STR = 100, PA_AGI = 100, PA_VIT = 100, PA_MND = 100, PA_DEX = 100, PA_LDR = 100,
                 WeeklyWage = 1000,
             };
@@ -97,7 +97,7 @@ namespace GuildManager.Core.Tests
 
             system.ProcessWeeklySatisfaction(state, NoDispatch);
 
-            Assert.Equal(71, adventurer.Satisfaction); // 全盛期(23〜26歳)以外はペナルティ対象外。自然回復+1のみ
+            Assert.Equal(51, adventurer.Satisfaction); // 全盛期(23〜26歳)以外はペナルティ対象外。自然回復+1のみ
         }
 
         // ---------------- 賃金妥当性ペナルティ（§5.1） ----------------
@@ -108,7 +108,7 @@ namespace GuildManager.Core.Tests
             // TotalPA=100 → 適正週給=60。80%ライン=48。週給10なら未満。
             var adventurer = new Adventurer
             {
-                Age = 30, Satisfaction = 70, WeeklyWage = 10,
+                Age = 30, Satisfaction = 50, WeeklyWage = 10,
                 PA_STR = 100, PA_AGI = 100, PA_VIT = 100, PA_MND = 100, PA_DEX = 100, PA_LDR = 100,
             };
             var state = new GameState { Adventurers = { adventurer } };
@@ -117,7 +117,7 @@ namespace GuildManager.Core.Tests
             system.ProcessWeeklySatisfaction(state, new HashSet<Guid> { adventurer.Id }); // 出撃扱いにして出場機会は除外
 
             // -8(賃金) +1(自然回復) = -7
-            Assert.Equal(63, adventurer.Satisfaction);
+            Assert.Equal(43, adventurer.Satisfaction);
         }
 
         [Fact]
@@ -125,7 +125,7 @@ namespace GuildManager.Core.Tests
         {
             var adventurer = new Adventurer
             {
-                Age = 30, Satisfaction = 70, WeeklyWage = 1000,
+                Age = 30, Satisfaction = 50, WeeklyWage = 1000,
                 PA_STR = 100, PA_AGI = 100, PA_VIT = 100, PA_MND = 100, PA_DEX = 100, PA_LDR = 100,
             };
             var state = new GameState { Adventurers = { adventurer } };
@@ -133,19 +133,20 @@ namespace GuildManager.Core.Tests
 
             system.ProcessWeeklySatisfaction(state, new HashSet<Guid> { adventurer.Id });
 
-            Assert.Equal(71, adventurer.Satisfaction); // 自然回復+1のみ
+            Assert.Equal(51, adventurer.Satisfaction); // 自然回復+1のみ
         }
 
         [Fact]
         public void ProcessWeeklySatisfaction_ClampsAtMax()
         {
+            // 快活（+1）が2つ分あっても100で止まる。§0.103 の慣れ（70を超えると−1）を差し引いても上限を超えない
             var adventurer = new Adventurer { Age = 30, Satisfaction = 100, WeeklyWage = 1000 };
             var state = new GameState { Adventurers = { adventurer } };
             var system = new SatisfactionSystem();
 
             system.ProcessWeeklySatisfaction(state, new HashSet<Guid> { adventurer.Id });
 
-            Assert.Equal(100, adventurer.Satisfaction);
+            Assert.Equal(100 + SatisfactionBalance.ContentDrift, adventurer.Satisfaction); // 慣れで少し下がる（§0.103）
         }
 
         [Fact]
@@ -183,8 +184,8 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void ProcessWeeklySatisfaction_AppliesHostilePairPenalty_ForDispatchedHostilePair()
         {
-            var a = new Adventurer { Age = 30, Satisfaction = 70, WeeklyWage = 1000 };
-            var b = new Adventurer { Age = 30, Satisfaction = 70, WeeklyWage = 1000 };
+            var a = new Adventurer { Age = 30, Satisfaction = 50, WeeklyWage = 1000 };
+            var b = new Adventurer { Age = 30, Satisfaction = 50, WeeklyWage = 1000 };
             var party = PartyOf(a, b);
             var state = new GameState { Adventurers = { a, b } };
             state.Compatibility[CompatibilitySystem.NormalizeKey(a.Id, b.Id)] = CompatibilityBalance.HostileThreshold - 1;
@@ -194,15 +195,15 @@ namespace GuildManager.Core.Tests
             system.ProcessWeeklySatisfaction(state, new HashSet<Guid> { a.Id, b.Id });
 
             // -10(険悪ペナルティ) +1(自然回復) = -9
-            Assert.Equal(61, a.Satisfaction);
-            Assert.Equal(61, b.Satisfaction);
+            Assert.Equal(41, a.Satisfaction);
+            Assert.Equal(41, b.Satisfaction);
         }
 
         [Fact]
         public void ProcessWeeklySatisfaction_NoHostilePairPenalty_WhenCompatibilityAtOrAboveThreshold()
         {
-            var a = new Adventurer { Age = 30, Satisfaction = 70, WeeklyWage = 1000 };
-            var b = new Adventurer { Age = 30, Satisfaction = 70, WeeklyWage = 1000 };
+            var a = new Adventurer { Age = 30, Satisfaction = 50, WeeklyWage = 1000 };
+            var b = new Adventurer { Age = 30, Satisfaction = 50, WeeklyWage = 1000 };
             var party = PartyOf(a, b);
             var state = new GameState { Adventurers = { a, b } };
             state.Compatibility[CompatibilitySystem.NormalizeKey(a.Id, b.Id)] = CompatibilityBalance.HostileThreshold;
@@ -211,17 +212,17 @@ namespace GuildManager.Core.Tests
 
             system.ProcessWeeklySatisfaction(state, new HashSet<Guid> { a.Id, b.Id });
 
-            Assert.Equal(71, a.Satisfaction); // 自然回復+1のみ
-            Assert.Equal(71, b.Satisfaction);
+            Assert.Equal(51, a.Satisfaction); // 自然回復+1のみ
+            Assert.Equal(51, b.Satisfaction);
         }
 
         [Fact]
         public void ProcessWeeklySatisfaction_StacksHostilePairPenalty_ForMultipleSimultaneousHostilePairs()
         {
             // cが a・b両方と険悪な3人パーティ：cは2件分のペナルティを受ける。
-            var a = new Adventurer { Age = 30, Satisfaction = 70, WeeklyWage = 1000 };
-            var b = new Adventurer { Age = 30, Satisfaction = 70, WeeklyWage = 1000 };
-            var c = new Adventurer { Age = 30, Satisfaction = 70, WeeklyWage = 1000 };
+            var a = new Adventurer { Age = 30, Satisfaction = 50, WeeklyWage = 1000 };
+            var b = new Adventurer { Age = 30, Satisfaction = 50, WeeklyWage = 1000 };
+            var c = new Adventurer { Age = 30, Satisfaction = 50, WeeklyWage = 1000 };
             var party = PartyOf(a, b, c);
             var state = new GameState { Adventurers = { a, b, c } };
             state.Compatibility[CompatibilitySystem.NormalizeKey(a.Id, c.Id)] = CompatibilityBalance.HostileThreshold - 1;
@@ -232,17 +233,17 @@ namespace GuildManager.Core.Tests
             system.ProcessWeeklySatisfaction(state, new HashSet<Guid> { a.Id, b.Id, c.Id });
 
             // a・b：-10(険悪1件) +1(自然回復) = -9
-            Assert.Equal(61, a.Satisfaction);
-            Assert.Equal(61, b.Satisfaction);
+            Assert.Equal(41, a.Satisfaction);
+            Assert.Equal(41, b.Satisfaction);
             // c：-20(険悪2件) +1(自然回復) = -19
-            Assert.Equal(51, c.Satisfaction);
+            Assert.Equal(31, c.Satisfaction);
         }
 
         [Fact]
         public void ProcessWeeklySatisfaction_NoHostilePairPenalty_WhenNotCurrentlyDispatchedTogether()
         {
-            var a = new Adventurer { Age = 30, Satisfaction = 70, WeeklyWage = 1000 };
-            var b = new Adventurer { Age = 30, Satisfaction = 70, WeeklyWage = 1000 };
+            var a = new Adventurer { Age = 30, Satisfaction = 50, WeeklyWage = 1000 };
+            var b = new Adventurer { Age = 30, Satisfaction = 50, WeeklyWage = 1000 };
             var state = new GameState { Adventurers = { a, b } };
             state.Compatibility[CompatibilitySystem.NormalizeKey(a.Id, b.Id)] = CompatibilityBalance.HostileThreshold - 1;
             // ActiveDungeonMissionsに登録しない＝現在同パーティで出撃中ではない
@@ -250,8 +251,8 @@ namespace GuildManager.Core.Tests
 
             system.ProcessWeeklySatisfaction(state, new HashSet<Guid> { a.Id, b.Id });
 
-            Assert.Equal(71, a.Satisfaction); // 自然回復+1のみ
-            Assert.Equal(71, b.Satisfaction);
+            Assert.Equal(51, a.Satisfaction); // 自然回復+1のみ
+            Assert.Equal(51, b.Satisfaction);
         }
 
         // ---------------- 契約交渉フロー（§5.2） ----------------

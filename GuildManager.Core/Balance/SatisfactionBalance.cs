@@ -83,5 +83,10 @@ namespace GuildManager.Core.Balance
 
         /// <summary>一時金（ボーナス）＝週給のこの倍数。→ BAL: 満足度/契約交渉。</summary>
         public static readonly int BonusWeeksEquivalent = BalanceData.GetInt(FileName, "BonusWeeksEquivalent");
+        /// <summary>酒場の自然回復（§0.103）：満足度がこの値未満の子だけ回復する。</summary>
+        public static readonly int TavernRecoveryCeiling = BalanceData.GetInt(FileName, "TavernRecoveryCeiling");
+        /// <summary>慣れ（§0.103）：満足度がこの値を超える子は毎週 ContentDrift だけ下がる。</summary>
+        public static readonly int ContentDriftAbove = BalanceData.GetInt(FileName, "ContentDriftAbove");
+        public static readonly int ContentDrift = BalanceData.GetInt(FileName, "ContentDrift");
     }
 }

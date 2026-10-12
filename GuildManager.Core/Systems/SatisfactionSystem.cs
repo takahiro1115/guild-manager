@@ -79,7 +79,11 @@ namespace GuildManager.Core.Systems
                     delta -= penalty;
 
                 // 自然回復（→ 03 §5.1・§6）。ギルド酒場（Tavern）の現在Lvに連動する。
-                delta += FacilityBalance.GetTavernSatisfactionRecovery(state.GetFacilityLevel(FacilityType.Tavern), state.GetFacilitySpecialty(FacilityType.Tavern));
+                // §0.103：酒場が癒やすのは不満のある子だけ（満足度が TavernRecoveryCeiling 未満）。満ち足りた子は慣れで少しずつ下がる。
+                if (adventurer.Satisfaction < SatisfactionBalance.TavernRecoveryCeiling)
+                    delta += FacilityBalance.GetTavernSatisfactionRecovery(state.GetFacilityLevel(FacilityType.Tavern), state.GetFacilitySpecialty(FacilityType.Tavern));
+                else if (adventurer.Satisfaction > SatisfactionBalance.ContentDriftAbove)
+                    delta += SatisfactionBalance.ContentDrift;
 
                 // 快活（§0.55）：本人だけ毎週上がる。
                 if (adventurer.HasTrait(TraitCatalog.CheerfulId))
