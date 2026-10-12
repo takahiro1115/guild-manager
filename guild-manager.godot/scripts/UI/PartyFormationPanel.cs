@@ -521,9 +521,9 @@ public partial class PartyFormationPanel : VBoxContainer
 		var pairs = PartyFormationSystem.GetCompatibilityPairs(_state, currentParty.MemberIds);
 		var hostilePairs = pairs.Where(p => p.IsHostile).ToList();
 		string Name(Guid id) => _state.Adventurers.FirstOrDefault(a => a.Id == id)?.Name ?? "（不明）";
-		// 相棒（相性80以上、§0.101）：連携で力が上がり、決戦では除籍・重傷をかばうことがある
+		// 相棒（相性80以上、§0.101）：連携で力が上がり、決戦では除籍・重傷をかばうことがある。相棒・険悪は横に並べて行数を減らす
 		foreach (var pair in pairs.Where(p => MoraleSystem.IsBuddy(_state, p.IdA, p.IdB)))
-			_compatibilityWarningLabel.AppendText($"[color=#ffb6d9]🛡 相棒：{Name(pair.IdA)}・{Name(pair.IdB)}[/color]\n");
+			_compatibilityWarningLabel.AppendText($"[color=#ffb6d9]🛡 相棒：{Name(pair.IdA)}・{Name(pair.IdB)}[/color]　");
 		// 事故の危険（§0.102、⚠。表示するかは personality.csv ShowAccidentWarnings）
 		var risks = IncidentSystem.Risks(_state, currentParty.MemberIds.Select(id => _state.FindAdventurer(id)).OfType<Adventurer>().ToList());
 		foreach (var risk in risks)
@@ -539,7 +539,7 @@ public partial class PartyFormationPanel : VBoxContainer
 		{
 			string nameA = _state.Adventurers.FirstOrDefault(a => a.Id == pair.IdA)?.Name ?? "（不明）";
 			string nameB = _state.Adventurers.FirstOrDefault(a => a.Id == pair.IdB)?.Name ?? "（不明）";
-			_compatibilityWarningLabel.AppendText($"[color=red]⚠ {nameA} と {nameB} は険悪です。[/color]\n");
+			_compatibilityWarningLabel.AppendText($"[color=red]⚠ {nameA} と {nameB} は険悪です。[/color]　");
 		}
 	}
 

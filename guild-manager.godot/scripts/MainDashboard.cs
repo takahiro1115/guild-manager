@@ -1123,6 +1123,56 @@ public partial class MainDashboard : Control
 			return;
 		}
 
+		// 月報の前に、進んだ週を1週目から順に見せる（月送りが一気に終わって見えないため）
+		PlayWeekProgress(weeks, () => ShowMonthReport(weeks, report, weekly));
+	}
+
+	/// <summary>
+	/// 月送りの経過表示：進んだ週を「第1週 → 第2週 → …」と順に見せる小さな帯（約0.5秒ずつ。押すと飛ばす）。見終えたら then を呼ぶ。
+	/// 処理はもう済んでいる（Core は一気に進める）ので、見せるだけ。
+	/// </summary>
+	private void PlayWeekProgress(List<AutoSkipWeek> weeks, Action then)
+	{
+		var overlay = new PanelContainer { MouseFilter = MouseFilterEnum.Stop };
+		overlay.SetAnchorsPreset(LayoutPreset.Center);
+		var style = new StyleBoxFlat { BgColor = new Color(0.08f, 0.08f, 0.12f, 0.92f), BorderColor = new Color(0.5f, 0.7f, 0.95f) };
+		style.SetBorderWidthAll(2);
+		style.SetCornerRadiusAll(8);
+		style.SetContentMarginAll(24);
+		overlay.AddThemeStyleboxOverride("panel", style);
+		var label = new Label { HorizontalAlignment = HorizontalAlignment.Center };
+		label.AddThemeFontSizeOverride("font_size", 22);
+		overlay.AddChild(label);
+		AddChild(overlay);
+		var tween = CreateTween();
+		bool finished = false;
+		void Finish()
+		{
+			if (finished) return;
+			finished = true;
+			tween.Kill();
+			overlay.QueueFree();
+			then();
+		}
+		overlay.GuiInput += e => { if (e is InputEventMouseButton { Pressed: true }) Finish(); };
+		for (int i = 0; i < weeks.Count; i++)
+		{
+			int index = i;
+			int week = weeks[i].Settlement.Flags.Week;
+			tween.TweenCallback(Callable.From(() =>
+			{
+				string dots = string.Concat(Enumerable.Range(0, weeks.Count).Select(n => n <= index ? "●" : "○"));
+				label.Text = $"📅 {GameCalendar.FormatMonth(week)}　第{GameCalendar.WeekOfMonth(week)}週\n{dots}";
+				overlay.ResetSize();
+				overlay.Position = (Size - overlay.Size) / 2;
+			}));
+			tween.TweenInterval(0.5);
+		}
+		tween.TweenCallback(Callable.From(Finish));
+	}
+
+	private void ShowMonthReport(List<AutoSkipWeek> weeks, MonthlyReport report, string weekly)
+	{
 		// 月報の小窓を開く（§0.71）。閉じたら、最後の週の割り込み（エンディング・採用試験・依頼）を「1週進める」と同じ処理に任せる。
 		// 割り込みがある月・ゲームオーバーの月は【閉じて次の月へ】を出さない。
 		var last = weeks[^1].Settlement;
@@ -1961,8 +2011,33 @@ public partial class MainDashboard : Control
 		_ => new Color("#93c5fd"),
 	};
 
+	/// <summary>タブの元の名前（目印の●を付け外しするため）。</summary>
+	private readonly Dictionary<Button, string> _navBaseText = new();
+
+	/// <summary>今できることがあるタブに目印の ● を付ける：研究を始められる／施設を建てられる・改築できる／未鑑定の遺物を鑑定できる。</summary>
+	private void UpdateTabMarkers()
+	{
+		bool research = ResearchBalance.GetAll().Any(r => ResearchSystem.CanStartResearch(_state, r));
+		bool facility = _state.UnderConstruction == null && Enum.GetValues<FacilityType>().Any(type =>
+			FacilitySystem.IsAvailable(_state, type) && !FacilitySystem.IsBlockedByLevelCap(_state, type)
+			&& _state.GetFacilityLevel(type) < FacilityBalance.MaxLevel
+			&& _state.Gold >= FacilitySystem.GetUpgradeCost(_state, type, _state.GetFacilityLevel(type)));
+		bool appraise = _state.UnidentifiedItems.Any(i => AppraisalSystem.CanAppraise(_state, i.Id));
+		void Mark(Button btn, bool on, string tip)
+		{
+			if (!_navBaseText.TryGetValue(btn, out var baseText))
+				_navBaseText[btn] = baseText = btn.Text;
+			btn.Text = on ? baseText + " 🔴" : baseText;
+			btn.TooltipText = on ? tip : "";
+		}
+		Mark(_navResearchBtn, research, "始められる研究がある");
+		Mark(_navFacilityBtn, facility, "建てられる・改築できる施設がある");
+		Mark(_navWarehouseBtn, appraise, "鑑定できる遺物がある");
+	}
+
 	private void RefreshAll()
 	{
+		UpdateTabMarkers();
 		// 暦の表記「1年目 🌸春 2の月 第3週」（→ Core の GameCalendar。1年48週＝4季節×3か月×4週。§0.70で月を1ターンにしたので月も出す、§0.97）。
 		var season = GameCalendar.SeasonOf(_state.WeekNumber);
 		_weekLabel.Text = $"{GameCalendar.YearOf(_state.WeekNumber)}年目 {SeasonIcon(season)}{GameCalendar.SeasonLabel(season)} " +
