@@ -388,6 +388,15 @@ namespace GuildManager.Core.Models
         /// <summary>返事を待っている契約更改の年（年のはじめに立て、答えるか月の終わりに据え置きで閉じる）。無ければ null。</summary>
         public int? ContractReviewPendingYear { get; set; }
 
+        /// <summary>借りているお金（§0.104、→ FundingSystem）。返し終わったら外す。</summary>
+        public List<GuildLoan> Loans { get; set; } = new();
+
+        /// <summary>イザベラの融資を借りた週（§0.104。1年に借りられる回数の数えに使う）。</summary>
+        public List<int> IsabellaLoanWeeks { get; set; } = new();
+
+        /// <summary>届いているスポンサー契約の話と、結んでいる契約（§0.104、→ FundingSystem）。</summary>
+        public List<SponsorContract> SponsorContracts { get; set; } = new();
+
         /// <summary>引退者のうち、ギルドの元冒険者（派遣の教官を除く）。最初の引退者の判定・年代記に使う。</summary>
         public IEnumerable<Adventurer> GuildRetirees => RetiredAdventurers.Where(a => !a.IsGuest);
 
@@ -498,6 +507,9 @@ namespace GuildManager.Core.Models
                 LastFeastSeason = LastFeastSeason,
                 ContractReviewDoneYear = ContractReviewDoneYear,
                 ContractReviewPendingYear = ContractReviewPendingYear,
+                Loans = new List<GuildLoan>(Loans),
+                IsabellaLoanWeeks = new List<int>(IsabellaLoanWeeks),
+                SponsorContracts = new List<SponsorContract>(SponsorContracts),
                 Commissions = new List<GuildCommission>(Commissions),
                 CommissionCompletions = new Dictionary<string, int>(CommissionCompletions),
                 Anomaly = Anomaly,
@@ -651,6 +663,10 @@ namespace GuildManager.Core.Models
                 LastFeastSeason = data.LastFeastSeason,
                 ContractReviewDoneYear = Math.Max(1, data.ContractReviewDoneYear),
                 ContractReviewPendingYear = data.ContractReviewPendingYear,
+                // 資金の調達（§0.104）。キーの無い旧セーブは、借金も契約も無しで始める。
+                Loans = (data.Loans ?? new List<GuildLoan>()).Where(l => l != null && l.Remaining > 0).ToList(),
+                IsabellaLoanWeeks = new List<int>(data.IsabellaLoanWeeks ?? new List<int>()),
+                SponsorContracts = (data.SponsorContracts ?? new List<SponsorContract>()).Where(c => c != null).ToList(),
                 // 依頼と迷宮の異変（§0.64）。キーを持たない旧セーブ、または null が書かれていても空・無しで始める。
                 Commissions = (data.Commissions ?? new List<GuildCommission>()).Where(c => c != null).ToList(),
                 CommissionCompletions = new Dictionary<string, int>(data.CommissionCompletions ?? new Dictionary<string, int>()),

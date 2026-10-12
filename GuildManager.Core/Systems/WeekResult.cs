@@ -65,6 +65,9 @@ namespace GuildManager.Core.Systems
         /// <summary>年のはじめの契約更改を求めた（§0.103。月を止めて答えを求める）。</summary>
         public bool ContractReviewDue { get; set; }
 
+        /// <summary>スポンサー契約の話が届いた（§0.104。春と秋のはじめ。月を止めて答えを求める）。</summary>
+        public bool SponsorOffered { get; set; }
+
         /// <summary>
         /// 月を1ターンとして進めているとき（→ AutoSkipService.AdvanceMonth、§0.70）、月の途中でも止めるか。
         /// 本当に決めることがあるときだけ止める：強制除籍・新しいフィールドの開放・娘の誕生・採用試験・依頼の期限・
@@ -75,14 +78,14 @@ namespace GuildManager.Core.Systems
         public bool ShouldStopMonth =>
             DeathOrPermanentInjuryOccurred || FieldUnlocked || SoulFusionBirthOccurred ||
             RecruitmentTrialOccurred || CommissionDeadlineNear || SatisfactionWarningOccurred ||
-            CommissionsOffered || SquadStalledAtBoss || PoachOffered || ContractReviewDue ||
+            CommissionsOffered || SquadStalledAtBoss || PoachOffered || ContractReviewDue || SponsorOffered ||
             GameCleared || DefeatOccurred;
 
         public bool ShouldStopAutoSkip =>
             CommissionsOffered || AnomalyAnnounced || CommissionDeadlineNear ||
             RecruitmentTrialOccurred || SatisfactionWarningOccurred ||
             FacilityConstructionCompleted || SoulFusionBirthOccurred ||
-            SevereInjuryOccurred || BossDefeated || SquadStalledAtBoss || PoachOffered || ContractReviewDue ||
+            SevereInjuryOccurred || BossDefeated || SquadStalledAtBoss || PoachOffered || ContractReviewDue || SponsorOffered ||
             DeathOrPermanentInjuryOccurred ||
             GameCleared ||
             DefeatOccurred;

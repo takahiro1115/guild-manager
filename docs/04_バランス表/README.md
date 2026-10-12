@@ -27,6 +27,7 @@
 | `tournaments.csv` | 03 §0.82 | TournamentBalance（大会の定義。**テーブル形式** `Id,Name,Kind,Discipline,Grade,Month,Week,MinStrength,MaxStrength,Prize1,Prize2,Prize4,Mood1,Mood2,Mood4,Note`。`{地方}`・`{フィールド}` は名前の差し込み、Month・Week が0の大会は暦を作るときに決める） |
 | `tournament.csv` | 03 §0.82 | TournamentBalance（大会の式・暦・施設の開放の閾値・おすすめの申し込み〈§0.99〉。key,value 形式） |
 | `isabella.csv` | 03 §0.84 | IsabellaBalance（イザベラの来訪・交流戦・派遣の教官。key,value 形式） |
+| `funding.csv` | 03 §0.104 | FundingBalance（資金の調達：商人ギルドとイザベラの融資、スポンサー契約の前金・ノルマ・成功報酬・違約金。key,value 形式） |
 | `postgame.csv` | 03 §0.90 | PostGameBalance（エンディングのあと：主が蘇るまでの週数・異変の季節・ルミナの能力と立ち絵。key,value 形式） |
 | `story/story_01.txt`〜`story_04.txt` | 03 §0.86・§0.89 | StoryBalance（物語の台詞。物語帳〈アーティファクト「ギルド物語帳」〉の「台詞 01〜04」を書き出したもの。`s04_narration` はエンディングの窓の締めの語り。**CSVではない**：`## 場面のId　見出し` で場面が始まり、台詞は物語帳と同じ書式。書式はファイルの先頭の注記。場面を出す条件はコード `StorySystem`。物語帳を直したら書き出し直す。§0.91 からどの場面も頭に `〔背景：場面名〕`） |
 | `story_images.csv` | 03 §0.91 | StoryImageBalance（物語の会話の小窓に出す背景と立ち絵。**テーブル形式** `Kind,Name,Expression,File`。Kind＝`background`・`portrait`、Name＝背景の名前〈台詞の〔背景：…〕〉か話者名〈`\|` で別名〉、Expression＝立ち絵の表情〈空は「通常」〉、File＝`assets/story/` からの相対パス。画像がまだ無い行も置いてよく、ゲームはファイルがあるときだけ出す） |
@@ -165,6 +166,26 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 `SubsidyWeeksPerMonth`・`SubsidyBaseAmount_G〜S` は `SideJobIntervalWeeks`・`SideJobBaseAmount`（旧Gの200G）へ、
 `SeveranceShortfallReputationPenalty` は `SeveranceShortfallMoodPenalty` へ置き換え、`dungeon.csv` の
 `BossBaseReputation` は削除した。代わりに `master_mood.csv` を新設した。
+
+## 資金の調達で追加されたファイルとキー（2026年10月、→ 03 §0.104）
+
+`funding.csv`（新設、key,value 形式。すべて仮の値）。依頼と派遣の報酬の倍率（`commissions.csv` `RewardMultiplier_*`）は据え置き。
+
+| キー | 値 | 意味 |
+|---|---|---|
+| `MerchantLoanAmounts` | 3000;6000;10000 | 商人ギルドから借りられる額（1口まで） |
+| `MerchantLoanFee`・`MerchantLoanMonths` | 0.25・12 | 手数料と返す回数（月の最後の週） |
+| `MerchantLoanMoodLoss` | 1 | 返し終わるまで、マスターの機嫌が毎週下がる |
+| `IsabellaLoanBase`・`IsabellaLoanPerExchangeWin`・`IsabellaLoanMax`・`IsabellaLoanStep` | 5000・1000・10000・1000 | イザベラの融資の上限（交流戦の勝ちで上がる）と刻み |
+| `IsabellaLoanFee`・`IsabellaLoanMonths`・`IsabellaLoanPerYear` | 0.05・24・1 | 手数料・返す回数・1年に借りられる回数 |
+| `SponsorFirstWeek`・`SponsorOffers`・`SponsorWeeks` | 25・2・24 | スポンサー契約が届き始める週（1年目の秋）・1回の話の数・期間 |
+| `SponsorAdvanceBaseCap`・`SponsorAdvance_Modest`・`SponsorAdvance_Bold` | 8000・0.6・1.5 | 前金＝最前線のボスの撃破報酬（頭打ち）×倍率 |
+| `SponsorBonus`・`SponsorPenalty` | 0.3・1.5 | 成功報酬・違約金（前金×倍率） |
+| `SponsorSuccessMood`・`SponsorFailureMood` | 10・−12 | ノルマに届いた／届かなかったときの機嫌 |
+| `SponsorTarget_Bosses_*`・`SponsorTarget_Placings_*`・`SponsorTarget_Commissions_*` | 2/4・2/5・2/3 | ノルマの数（控えめ／強気） |
+| `SponsorNames` | 王都の商会;辺境伯家;魔導学院;鍛冶師組合;薬師組合 | スポンサーの名前 |
+
+シミュレーター（L3 simple）で控えめな話の達成は約8割。1回目の値（ノルマ1・前金×1.0・成功報酬×0.5）では達成が98%で、ただの収入になったので重くした。前金の基準の頭打ちは、終盤に前金と違約金が膨らみすぎないため（頭打ちなしでは終盤に違約金が2万Gを超えた）。
 
 ## お金の流れで追加／変更されたキー（2026年10月、→ 03 §0.103）
 

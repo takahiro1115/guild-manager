@@ -284,7 +284,7 @@ partial class GameSim
     /// campaign で買い物・研究・霊薬・秘薬に使わずに残す額：今年度末に満期を迎える者（年度末に26歳になる25歳。年の後半から数える）の退職金の見込み＋週給4週分＋3000G。
     /// 残しておかないと、年度末の退職金が重なって破産する。
     /// </summary>
-    int Reserve => Active.Where(a => a.Age >= 26 || (a.Age == 25 && GameCalendar.WeekOfYear(s.WeekNumber) >= 30)).Sum(AgingSystem.CalculateSeverancePay) + Active.Sum(a => a.WeeklyWage) * 4 + GuildFinanceSystem.MonthlyUpkeep(s) * 2 + GuildFinanceSystem.WeeklyStipends(s) * 8 + 3000; // 維持費2か月・手当8週も残す（§0.103）
+    int Reserve => Active.Where(a => a.Age >= 26 || (a.Age == 25 && GameCalendar.WeekOfYear(s.WeekNumber) >= 30)).Sum(AgingSystem.CalculateSeverancePay) + Active.Sum(a => a.WeeklyWage) * 4 + GuildFinanceSystem.MonthlyUpkeep(s) * 2 + GuildFinanceSystem.WeeklyStipends(s) * 8 + FundingSystem.MonthlyLoanPayments(s) * 2 + 3000; // 維持費2か月・手当8週・借金の返済2か月も残す（§0.103・§0.104）
     readonly AdvisorSystem advisors = new();
     SoulFusionSystem? soulFusion;
     public readonly List<(int Order, int Floor, int Week)> FieldKills = new();
@@ -484,7 +484,7 @@ partial class GameSim
     }
 
     /// <summary>
-    /// 経営の答え（§0.102・§0.103）：引き抜きの話は昇給で引き留める（お金が足りなければ送り出す）、年のはじめの契約更改は「全員を少しずつ」。
+    /// 経営の答え（§0.102〜§0.104）：引き抜きの話は昇給で引き留める（お金が足りなければ送り出す）、年のはじめの契約更改は「全員を少しずつ」、スポンサー契約は控えめな話、所持金がマイナスなら借りる。
     /// 画面のプレイヤーと同じく、答えないと期限で移籍・月の終わりに据え置きになるため、手入れをするプレイヤーは答える。
     /// </summary>
     void AnswerManagement()
@@ -496,6 +496,19 @@ partial class GameSim
             if (IncidentSystem.ResolvePoach(s, offer, choice, new SatisfactionSystem())) Count("引き抜きの話");
         }
         if (s.ContractReviewPendingYear != null && GuildFinanceSystem.ApplyContractReview(s, ContractPolicy.Even)) Count("契約更改");
+        // スポンサー契約（§0.104）：控えめな話を、違約金を払える所持金があるときだけ結ぶ
+        var modest = FundingSystem.Offers(s).FirstOrDefault(o => !o.Bold && s.Gold >= o.Penalty);
+        if (modest != null && FundingSystem.Sign(s, modest)) Count("スポンサー契約");
+        // 融資（§0.104）：所持金がマイナスなら、イザベラ（借りられれば）か商人ギルドから借りて破産を避ける。余裕があれば商人ギルドへ一括で返す
+        if (s.Gold < 0)
+        {
+            int need = -s.Gold + GuildFinanceSystem.MonthlyUpkeep(s);
+            int isabella = Math.Min(FundingSystem.IsabellaLoanLimit(s), (need + FundingBalance.IsabellaLoanStep - 1) / FundingBalance.IsabellaLoanStep * FundingBalance.IsabellaLoanStep);
+            if (FundingSystem.Borrow(s, LoanLender.Isabella, isabella)) Count("融資");
+            need = -s.Gold + GuildFinanceSystem.MonthlyUpkeep(s);
+            if (s.Gold < 0 && FundingSystem.Borrow(s, LoanLender.Merchant, FundingBalance.MerchantLoanAmounts.FirstOrDefault(a => a >= need, FundingBalance.MerchantLoanAmounts.Max()))) Count("融資");
+        }
+        if (FundingSystem.FindLoan(s, LoanLender.Merchant) is { } debt && s.Gold - FundingSystem.EarlyRepayment(debt) >= Reserve + 5000 && FundingSystem.RepayEarly(s, debt)) Count("借金の一括返済");
     }
 
     /// <summary>改築してよいか：改築費を払っても、維持費（改築後）の3か月分＋2500Gが残るとき（§0.103）。</summary>

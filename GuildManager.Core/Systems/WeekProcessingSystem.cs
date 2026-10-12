@@ -92,6 +92,9 @@ namespace GuildManager.Core.Systems
         private readonly IRng _incidentRng = new SeededRng(DefaultIncidentSeed);
         private const int DefaultIncidentSeed = 1619;
         private const int DefaultExchangeSeed = 4049;
+        /// <summary>スポンサー契約の話だけに使う乱数（§0.104。ほかの抽選の順を変えないよう別にする）。</summary>
+        private readonly IRng _sponsorRng = new SeededRng(DefaultSponsorSeed);
+        private const int DefaultSponsorSeed = 4057;
 
         /// <summary>
         /// 1週分の決算処理を実行し、週番号を1つ進める。出撃操作は本メソッドの対象外
@@ -166,6 +169,7 @@ namespace GuildManager.Core.Systems
             // アルベールの市販薬・内職売上（4週に1回。→ 03 §8.1：機嫌に応じた倍率。旧・月次助成金）。
             result.SideJobIncome = _economySystem.ProcessWeeklySideJobIncome(state);
             result.UpkeepPaid = GuildFinanceSystem.PayUpkeepIfDue(state, thisWeek); // 施設の維持費（月の最後の週、§0.103）
+            result.LoanRepaid = FundingSystem.PayLoansIfDue(state, thisWeek); // 借金の返済（月の最後の週、§0.104）
 
             _trainingSystem.ProcessWeeklyTraining(state, dispatchedIds); // → 03 §3.1〜3.4・§3.5改：訓練場の週次費用・HP微減
             result.TraitTransmissionEvents.AddRange(_trainingSystem.ProcessWeeklyTraitTransmission(state)); // → 特性伝授刷新仕様：教官からの週次伝授ロール
@@ -192,6 +196,9 @@ namespace GuildManager.Core.Systems
             result.CommissionsUnlocked = IsabellaSystem.CheckCommissionUnlock(state);
             // 年末のギルドの順位表（§0.94）：年の最後の週に、その年の大会（王都最強決定戦まで）を終えてから確定し、1位・2位にご褒美。
             result.YearStanding = GuildStandingSystem.ProcessWeek(state);
+            // スポンサー契約（§0.104）：迷宮・大会・依頼の結果でノルマを見て、届いたら成功報酬、期限の週に届かなければ違約金。商人ギルドの借金は機嫌を下げる。
+            result.Sponsors = FundingSystem.ProcessSettlement(state, thisWeek, result.MoodReport);
+            FundingSystem.ApplyDebtMood(state, result.MoodReport);
 
             MoraleSystem.ApplyContagion(state, missionsAtStart); // → §0.101：限界の子と同じ部隊の子の満足度が下がる
             result.PersonalityDiscoveries.AddRange(PersonalitySystem.ProcessWeek(state, thisWeek, missionsAtStart, result.DungeonMissionResolutions,
@@ -265,6 +272,8 @@ namespace GuildManager.Core.Systems
                 result.Flags.CommissionsOffered = result.Arrivals.Offered.Count > 0;
                 result.Flags.AnomalyAnnounced = result.Arrivals.AnnouncedAnomaly != null;
                 result.Flags.CommissionDeadlineNear = result.Arrivals.DeadlineNear.Count > 0;
+                result.SponsorOffered.AddRange(FundingSystem.ProcessNewWeek(state, _sponsorRng)); // スポンサー契約の話（春と秋のはじめ、§0.104）
+                result.Flags.SponsorOffered = result.SponsorOffered.Count > 0;
             }
 
             // 新春採用試験（2年目以降の新年第1週のみ）。ゲームオーバー後は発生させない。

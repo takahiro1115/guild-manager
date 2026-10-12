@@ -303,6 +303,10 @@ namespace GuildManager.Core.Models
         public int? LastFeastSeason { get; set; }
         public int ContractReviewDoneYear { get; set; }
         public int? ContractReviewPendingYear { get; set; }
+        /// <summary>資金の調達（§0.104）。キーの無い旧セーブは null（＝無し）。</summary>
+        public List<GuildLoan>? Loans { get; set; } = new();
+        public List<int>? IsabellaLoanWeeks { get; set; } = new();
+        public List<SponsorContract>? SponsorContracts { get; set; } = new();
 
         /// <summary>
         /// 掲示中・受けた依頼（→ GameState.Commissions、03 §4.9・§0.64）。GuildCommission は Guid・整数・文字列・列挙だけで

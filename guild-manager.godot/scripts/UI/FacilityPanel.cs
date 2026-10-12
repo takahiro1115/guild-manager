@@ -26,6 +26,8 @@ public partial class FacilityPanel : VBoxContainer
 	private ProgressBar _constructionProgressBar = null!;
 	private Label _constructionDetailLabel = null!;
 	private GridContainer _facilityGrid = null!;
+	/// <summary>資金の調達（§0.104）：借金・スポンサー契約の様子と、借りる・返すボタン（工事の帯の下、コードで作る）。</summary>
+	private VBoxContainer _fundingBox = null!;
 
 	private readonly Dictionary<FacilityType, FacilityCardBinding> _cardBindings = new();
 
@@ -87,6 +89,7 @@ public partial class FacilityPanel : VBoxContainer
 		_constructionProgressBar = GetNode<ProgressBar>("%ConstructionProgressBar");
 		_constructionDetailLabel = GetNode<Label>("%ConstructionDetailLabel");
 		_facilityGrid = GetNode<GridContainer>("%FacilityGrid");
+		BuildFundingPanel();
 
 		BindCard(FacilityType.Dormitory, "%Card_Dormitory");
 		BindCard(FacilityType.Infirmary, "%Card_Infirmary");
@@ -240,6 +243,7 @@ public partial class FacilityPanel : VBoxContainer
 	{
 		_state = state;
 		RefreshBanner();
+		RefreshFunding();
 		RefreshAllCards();
 	}
 
@@ -580,6 +584,106 @@ public partial class FacilityPanel : VBoxContainer
 			return;
 		if (TrainingSystem.SetTrainerFocusTrait(_state, _focusMenuFacility, _focusMenuTraitIds[(int)id]))
 			StateChanged.Invoke();
+	}
+
+	// ==================== 資金の調達（§0.104） ====================
+
+	/// <summary>工事の帯の下に、資金の欄（借金・スポンサー契約の様子と、借りる・返すボタン）を置く。</summary>
+	private void BuildFundingPanel()
+	{
+		var panel = new PanelContainer();
+		var margin = new MarginContainer();
+		foreach (var side in new[] { "left", "right", "top", "bottom" })
+			margin.AddThemeConstantOverride($"margin_{side}", 8);
+		_fundingBox = new VBoxContainer();
+		_fundingBox.AddThemeConstantOverride("separation", 4);
+		margin.AddChild(_fundingBox);
+		panel.AddChild(margin);
+		_constructionBanner.GetParent().AddChild(panel);
+		_constructionBanner.GetParent().MoveChild(panel, _constructionBanner.GetIndex() + 1);
+	}
+
+	/// <summary>資金の欄を作り直す。値と借りられない理由は Core（FundingSystem）。</summary>
+	private void RefreshFunding()
+	{
+		foreach (var child in _fundingBox.GetChildren())
+			child.QueueFree();
+
+		_fundingBox.AddChild(new RichTextLabel
+		{
+			BbcodeEnabled = true, FitContent = true, ScrollActive = false,
+			Text = "[b]💰 資金の調達[/b]　[color=gray]借金は月の最後の週に維持費と一緒に返す（払えなければ所持金がマイナスになり、破産の数えに入る）[/color]",
+		});
+
+		foreach (var loan in _state.Loans)
+		{
+			var row = new HBoxContainer();
+			row.AddThemeConstantOverride("separation", 8);
+			row.AddChild(new Label
+			{
+				Text = $"・{FundingSystem.LenderLabel(loan.Lender)}への借金：残り {loan.Remaining} G（月 {Math.Min(loan.MonthlyPayment, loan.Remaining)} G ずつ）" +
+					(loan.Lender == LoanLender.Merchant ? "。返し終わるまでマスターの機嫌が毎週下がる" : ""),
+				AutowrapMode = TextServer.AutowrapMode.WordSmart,
+				SizeFlagsHorizontal = SizeFlags.ExpandFill,
+			});
+			int early = FundingSystem.EarlyRepayment(loan);
+			var repay = new Button { Text = $"一括で返す（{early} G）", Disabled = _state.Gold < early, SizeFlagsVertical = SizeFlags.ShrinkCenter };
+			repay.TooltipText = _state.Gold < early ? "お金が足りない" : "残りの手数料はかからない";
+			var target = loan;
+			repay.Pressed += () =>
+			{
+				if (FundingSystem.RepayEarly(_state, target))
+					StateChanged.Invoke();
+			};
+			row.AddChild(repay);
+			_fundingBox.AddChild(row);
+		}
+
+		// 商人ギルドの融資（いつでも・高利）
+		var merchantRow = new HBoxContainer();
+		merchantRow.AddThemeConstantOverride("separation", 8);
+		merchantRow.AddChild(new Label { Text = $"商人ギルド（手数料{FundingBalance.MerchantLoanFee:P0}・{FundingBalance.MerchantLoanMonths}か月）：" });
+		foreach (int amount in FundingBalance.MerchantLoanAmounts)
+			merchantRow.AddChild(LoanButton(LoanLender.Merchant, amount, FundingSystem.MerchantLoanBlockReason(_state, amount)));
+		_fundingBox.AddChild(merchantRow);
+
+		// イザベラの融資（来訪のあと・低利・年1回）
+		var isabellaRow = new HBoxContainer();
+		isabellaRow.AddThemeConstantOverride("separation", 8);
+		int limit = FundingSystem.IsabellaLoanLimit(_state);
+		isabellaRow.AddChild(new Label { Text = $"イザベラ（手数料{FundingBalance.IsabellaLoanFee:P0}・{FundingBalance.IsabellaLoanMonths}か月・年1回）：" });
+		isabellaRow.AddChild(LoanButton(LoanLender.Isabella, limit, FundingSystem.IsabellaLoanBlockReason(_state, limit)));
+		_fundingBox.AddChild(isabellaRow);
+
+		// スポンサー契約（結ぶのは月報から）
+		string sponsorText = FundingSystem.ActiveContract(_state) is { } c
+			? $"・{c.SponsorName}とのスポンサー契約：{FundingSystem.QuotaLabel(c)}（いま {FundingSystem.Progress(_state, c)}/{c.Target}、{GameCalendar.FormatMonth(c.DeadlineWeek)} 第{GameCalendar.WeekOfMonth(c.DeadlineWeek)}週まで。届けば {c.Bonus} G、届かなければ違約金 {c.Penalty} G）"
+			: FundingSystem.Offers(_state).Count > 0
+				? "・スポンサー契約の話が届いている（月報の「スポンサー契約」で結ぶ）"
+				: $"・スポンサー契約：結んでいない（{(_state.WeekNumber < FundingBalance.SponsorFirstWeek ? "1年目の秋から" : "")}春と秋のはじめに話が届く）";
+		_fundingBox.AddChild(new Label { Text = sponsorText, AutowrapMode = TextServer.AutowrapMode.WordSmart });
+	}
+
+	private Button LoanButton(LoanLender lender, int amount, string? block)
+	{
+		var button = new Button { Text = $"{amount} G 借りる", Disabled = block != null };
+		button.TooltipText = block ?? $"返す額 {FundingSystem.TotalDue(lender, amount)} G（月 {FundingSystem.MonthlyPayment(lender, amount)} G × {FundingSystem.Months(lender)}か月）";
+		button.Pressed += () => OnBorrowPressed(lender, amount);
+		return button;
+	}
+
+	/// <summary>借りる前に、返す額と月々の返済を確かめの小窓で見せる。</summary>
+	private void OnBorrowPressed(LoanLender lender, int amount)
+	{
+		string text = $"{FundingSystem.LenderLabel(lender)}から {amount} G 借りる。\n\n" +
+			$"返す額：{FundingSystem.TotalDue(lender, amount)} G（月の最後の週に {FundingSystem.MonthlyPayment(lender, amount)} G ずつ、{FundingSystem.Months(lender)}か月）\n" +
+			(lender == LoanLender.Merchant ? $"[color=orange]返し終わるまで、マスターの機嫌が毎週{FundingBalance.MerchantLoanMoodLoss}下がる。[/color]\n" : "") +
+			"一括で返せば、残りの手数料はかからない。";
+		ChoreConfirm.Show(this, "💰 借りる", text, "借りる", () =>
+		{
+			if (FundingSystem.Borrow(_state, lender, amount))
+				StateChanged.Invoke();
+		});
 	}
 
 	/// <summary>取り壊し（§0.103）：確かめの小窓で、下がる効果と減る維持費を見せてから1Lv下げる。</summary>

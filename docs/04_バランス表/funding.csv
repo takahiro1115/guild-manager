@@ -1,0 +1,29 @@
+key,value,unit,note
+MerchantLoanAmounts,3000;6000;10000,G,"資金の調達（§0.104）・商人ギルドの融資：借りられる額（; 区切りで選ぶ）。いつでも借りられるが、1口まで"
+MerchantLoanFee,0.25,倍,同：手数料（借りた額×この値を足した額を返す）
+MerchantLoanMonths,12,か月,同：返す回数（月の最後の週に、維持費と一緒に1回ずつ）
+MerchantLoanMoodLoss,1,pt,同：返し終わるまで、マスターの機嫌が毎週この値だけ下がる（借金は嫌い）
+IsabellaLoanBase,5000,G,イザベラの融資（来訪のあと）：借りられる上限の基本
+IsabellaLoanPerExchangeWin,1000,G,同：交流戦に1回勝つごとに上限に足す額
+IsabellaLoanMax,10000,G,同：上限の頭打ち
+IsabellaLoanStep,1000,G,同：借りる額の刻み
+IsabellaLoanFee,0.05,倍,同：手数料
+IsabellaLoanMonths,24,か月,同：返す回数
+IsabellaLoanPerYear,1,回,同：1年に借りられる回数
+SponsorFirstWeek,25,週,スポンサー契約（§0.104）が届き始める週（1年目の秋のはじめ）。このあと春と秋のはじめに届く
+SponsorOffers,2,件,1回に届く話の数（控えめと強気を1件ずつ）。結べるのは1件まで
+SponsorWeeks,24,週,契約の期間（届いた週から数える。結ぶのを遅らせても延びない）
+SponsorAdvanceBaseCap,8000,G,前金の基準＝攻略の最前線のボス（要求火力が最も低い次のボス）の撃破報酬。ただしこの額で頭打ち（終盤に前金と違約金が膨らみすぎないように）
+SponsorAdvance_Modest,0.6,倍,控えめな話の前金＝前金の基準×この倍率
+SponsorAdvance_Bold,1.5,倍,強気な話の前金（同）
+SponsorBonus,0.3,倍,ノルマに届いたときの成功報酬＝前金×この倍率（届いた週に払う）
+SponsorPenalty,1.5,倍,期限までに届かなかったときの違約金＝前金×この倍率
+SponsorSuccessMood,10,pt,ノルマに届いたときのマスターの機嫌
+SponsorFailureMood,-12,pt,期限までに届かなかったときのマスターの機嫌
+SponsorTarget_Bosses_Modest,2,体,ノルマ「まだ倒していないボスを倒す」の数（控えめ）
+SponsorTarget_Bosses_Bold,4,体,同（強気）
+SponsorTarget_Placings_Modest,2,回,ノルマ「大会で入賞（ベスト4以上）」の数（控えめ。大会が開いてから）
+SponsorTarget_Placings_Bold,5,回,同（強気）
+SponsorTarget_Commissions_Modest,2,件,ノルマ「依頼を達成」の数（控えめ。依頼が開いてから）
+SponsorTarget_Commissions_Bold,3,件,同（強気）
+SponsorNames,王都の商会;辺境伯家;魔導学院;鍛冶師組合;薬師組合,,スポンサーの名前（; 区切り。話ごとに重ならないように選ぶ）

@@ -57,6 +57,11 @@ namespace GuildManager.Core.Systems
         public int StipendsPaid { get; set; }
         public int UpkeepPaid { get; set; }
         public bool ContractAutoFrozen { get; set; }
+        /// <summary>資金の調達（§0.104）：今週返した借金（月の最後の週だけ）、スポンサー契約の達成・未達。</summary>
+        public int LoanRepaid { get; set; }
+        public SponsorSettlement Sponsors { get; set; } = new();
+        /// <summary>この週のはじめ（決算のあと）に届いたスポンサー契約の話。</summary>
+        public List<SponsorContract> SponsorOffered { get; } = new();
 
         /// <summary>アルベールの市販薬・内職売上（4週に1回のみ値が入る。→ EconomySystem.ProcessWeeklySideJobIncome）。</summary>
         public SideJobIncome? SideJobIncome { get; set; }

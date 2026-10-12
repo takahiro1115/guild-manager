@@ -205,6 +205,7 @@ public partial class MonthlyReportPopup : Window
 		_shownReport = report;
 		FillPoach();
 		FillContract();
+		FillSponsor();
 		FillRelics();
 		ClearNotes();
 		if (report.Notes.Count > 0)
@@ -469,6 +470,58 @@ public partial class MonthlyReportPopup : Window
 		}
 	}
 
+	/// <summary>
+	/// スポンサー契約（§0.104）：春と秋のはじめに届いた話（控えめ・強気）ごとに、結ぶ・断るボタン（契約更改の欄の下に足す）。月を進めた直後だけ。
+	/// 結べるのは1件まで。結ばなければ季節の終わりに流れる（罰なし）。値と結べない理由は Core（FundingSystem）。
+	/// </summary>
+	private void FillSponsor()
+	{
+		if (!_plansInteractive || _getState == null) return;
+		var state = _getState();
+		var offers = FundingSystem.Offers(state);
+		if (offers.Count == 0) return;
+		_poachBox.AddChild(new RichTextLabel
+		{
+			BbcodeEnabled = true, FitContent = true, ScrollActive = false,
+			Text = "[b]🤝 スポンサー契約の話[/b]　[color=gray]結べるのは1件まで。前金がすぐ入り、ノルマに届けば成功報酬、期限までに届かなければ違約金（結ばなければ季節の終わりに流れる）[/color]",
+		});
+		var buttons = new List<Button>();
+		foreach (var offer in offers)
+		{
+			var row = new HBoxContainer();
+			row.AddThemeConstantOverride("separation", 8);
+			var sign = new Button { Text = $"結ぶ（前金 {offer.Advance} G）", Disabled = FundingSystem.SignBlockReason(state, offer) != null, SizeFlagsVertical = Control.SizeFlags.ShrinkCenter };
+			var decline = new Button { Text = "断る", SizeFlagsVertical = Control.SizeFlags.ShrinkCenter };
+			row.AddChild(sign);
+			row.AddChild(decline);
+			row.AddChild(new Label
+			{
+				Text = $"{(offer.Bold ? "【強気】" : "【控えめ】")}{offer.SponsorName}：{FundingSystem.QuotaLabel(offer)}（{GameCalendar.FormatMonth(offer.DeadlineWeek)} 第{GameCalendar.WeekOfMonth(offer.DeadlineWeek)}週まで）。届けば成功報酬 {offer.Bonus} G・機嫌↑、届かなければ違約金 {offer.Penalty} G・機嫌↓↓",
+				AutowrapMode = TextServer.AutowrapMode.WordSmart,
+				SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+			});
+			_poachBox.AddChild(row);
+			buttons.Add(sign);
+			buttons.Add(decline);
+			var target = offer;
+			sign.Pressed += () =>
+			{
+				if (!FundingSystem.Sign(_getState(), target)) return;
+				foreach (var b in buttons) b.Disabled = true;
+				sign.Text = $"✔ {sign.Text}";
+				StateChanged.Invoke();
+			};
+			decline.Pressed += () =>
+			{
+				if (!FundingSystem.Decline(_getState(), target)) return;
+				sign.Disabled = true;
+				decline.Disabled = true;
+				decline.Text = "✔ 断った";
+				StateChanged.Invoke();
+			};
+		}
+	}
+
 	/// <summary>鑑定のあと：画面を描き直し（所持金・倉庫）、この欄も作り直す。</summary>
 	private void AfterAppraisal()
 	{
@@ -527,6 +580,7 @@ public partial class MonthlyReportPopup : Window
 		var costs = new List<string>();
 		if (report.UpkeepPaid > 0) costs.Add($"施設の維持費 [color=orange]−{report.UpkeepPaid}G[/color]");
 		if (report.StipendsPaid > 0) costs.Add($"教官・顧問の手当 [color=orange]−{report.StipendsPaid}G[/color]");
+		if (report.LoanRepaid > 0) costs.Add($"借金の返済 [color=orange]−{report.LoanRepaid}G[/color]"); // §0.104
 		if (costs.Count > 0)
 			sb.AppendLine(string.Join("　", costs));
 		// 研究の手伝い（§0.73）：待機中にアルベールの研究を手伝って貯まった分。次の研究費から割り引く。
