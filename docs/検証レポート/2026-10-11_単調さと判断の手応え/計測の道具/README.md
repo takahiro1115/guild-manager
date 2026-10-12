@@ -42,3 +42,8 @@ dotnet run --project tools/decision_audit -c Release -- audit 30 1440 L3 simple
 
 - 同じ設定でも±1年ほど揺れる（レポートの BUG-06、大会の暦の乱数の種が部隊の Guid のハッシュ）。比べるときは30回以上で。
 - 計測のプレイヤーは決まった手順で動く。人の上手さは測れない。
+
+## 画面を撮る autoload（VerifyShots.cs.txt）
+
+サンドボックス（実セーブと保存先を分けた写し）に autoload として差し込み、画面を順に開いて撮る検証用のスクリプト。
+シナリオは環境変数 `SHOT_SCENARIO`（`midgame`・`newgame`・`stage1`・`stage2`）、出力先は `SHOT_DIR`。手順は `../引継ぎ.md` の6章。**リポジトリの Godot プロジェクトには入れない。**

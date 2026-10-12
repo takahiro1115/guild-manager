@@ -1,0 +1,230 @@
+// 検証用（サンドボックスだけに置く。リポジトリには入れない）：画面を順に開いて撮る。
+using Godot;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+using System.Threading.Tasks;
+
+public partial class VerifyShots : Node
+{
+	private string _out = "";
+	private int _n;
+
+	public override async void _Ready()
+	{
+		_out = OS.GetEnvironment("SHOT_DIR");
+		string scenario = OS.GetEnvironment("SHOT_SCENARIO");
+		if (string.IsNullOrEmpty(_out) || string.IsNullOrEmpty(scenario)) return;
+		DirAccess.MakeDirRecursiveAbsolute(_out);
+		await Frames(60);
+		try
+		{
+			switch (scenario)
+			{
+				case "midgame": await MidGame(int.Parse(OS.GetEnvironment("SHOT_MONTHS") is { Length: > 0 } m ? m : "2")); break;
+				case "newgame": await NewGame(); break;
+				case "stage1": await Stage1(); break;
+				case "stage2": await Stage2(); break;
+			}
+		}
+		catch (Exception e) { GD.PrintErr("VERIFY ERROR: " + e); }
+		GD.Print("VERIFY DONE");
+		GetTree().Quit();
+	}
+
+	private async Task Frames(int n)
+	{
+		for (int i = 0; i < n; i++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+	}
+
+	private async Task Shot(string name)
+	{
+		await Frames(15);
+		var img = GetViewport().GetTexture().GetImage();
+		string path = $"{_out}/{++_n:00}_{name}.png";
+		img.SavePng(path);
+		GD.Print($"SHOT {path} {img.GetWidth()}x{img.GetHeight()}");
+	}
+
+	private MainDashboard Dash => GetTree().Root.GetChildren().OfType<MainDashboard>().First();
+
+	private object? Call(string method, params object[] args)
+	{
+		var mi = typeof(MainDashboard).GetMethod(method, BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public);
+		if (mi == null) { GD.PrintErr("no method " + method); return null; }
+		return mi.Invoke(Dash, args);
+	}
+
+	private async Task SwitchView(string view)
+	{
+		var enumType = typeof(MainDashboard).GetNestedType("DashboardView", BindingFlags.NonPublic)!;
+		Call("SwitchView", Enum.Parse(enumType, view));
+		await Frames(10);
+	}
+
+	/// <summary>見えている小窓（Window）を、浅いものから返す。</summary>
+	private List<Window> OpenWindows() =>
+		AllNodes(GetTree().Root).OfType<Window>().Where(w => w != GetTree().Root && w.Visible).ToList();
+
+	private static IEnumerable<Node> AllNodes(Node n)
+	{
+		foreach (var c in n.GetChildren())
+		{
+			yield return c;
+			foreach (var d in AllNodes(c)) yield return d;
+		}
+	}
+
+	/// <summary>小窓を撮っては閉じる（閉じる要求を送る）。最大 max 回。</summary>
+	private async Task DrainPopups(string prefix, int max)
+	{
+		for (int i = 0; i < max; i++)
+		{
+			await Frames(20);
+			var wins = OpenWindows();
+			if (wins.Count == 0) return;
+			var w = wins.Last();
+			await Shot($"{prefix}_{w.GetType().Name}");
+			if (w is ConfirmationDialog cd) cd.EmitSignal(AcceptDialog.SignalName.Confirmed);
+			else if (w is AcceptDialog ad) ad.EmitSignal(AcceptDialog.SignalName.Confirmed);
+			else w.EmitSignal(Window.SignalName.CloseRequested);
+		}
+	}
+
+	private async Task MidGame(int months)
+	{
+		await Frames(30);
+		await Shot("continue_prompt");
+		var dlg = OpenWindows().OfType<ConfirmationDialog>().FirstOrDefault();
+		dlg?.EmitSignal(AcceptDialog.SignalName.Confirmed);
+		await Frames(30);
+		await DrainPopups("after_load", 5);
+		foreach (var v in new[] { "Dungeon", "Party", "Research", "Facility", "Warehouse", "Shop", "Tournament", "Hall", "System" })
+		{
+			await SwitchView(v);
+			await Shot("view_" + v);
+		}
+		await SwitchView("Dungeon");
+		for (int m = 1; m <= months; m++)
+		{
+			Call("OnNextMonthPressed");
+			await DrainPopups($"month{m}", 12);
+			await Shot($"month{m}_after");
+		}
+	}
+
+	private static object? CallOn(object target, string method, params object?[] args)
+	{
+		var mi = target.GetType().GetMethod(method, BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public);
+		if (mi == null) { GD.PrintErr("no method " + method); return null; }
+		return mi.Invoke(target, args);
+	}
+
+	private T Field<T>(object target, string name) =>
+		(T)target.GetType().GetField(name, BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(target)!;
+
+	private async Task Stage1()
+	{
+		await Frames(30);
+		OpenWindows().OfType<ConfirmationDialog>().FirstOrDefault()?.EmitSignal(AcceptDialog.SignalName.Confirmed);
+		await Frames(30);
+		await DrainPopups("after_load", 5);
+		var state = Field<GuildManager.Core.Models.GameState>(Dash, "_state");
+		await SwitchView("Dungeon");
+		await Shot("dungeon_default");
+		// 待機中の部隊を選び、見立てカードの「採取」を押す
+		var dungeon = Field<DungeonPanel>(Dash, "_dungeonPanel");
+		var idle = state.SavedParties.Take(4).FirstOrDefault(p => !GuildManager.Core.Systems.SquadOrderSystem.IsOut(state, p) && p.MemberIds.Count > 0);
+		if (idle != null)
+		{
+			CallOn(dungeon, "SelectParty", (Guid?)idle.Id);
+			await Shot("dungeon_idle_squad");
+			CallOn(dungeon, "OnPreviewCardPressed", GuildManager.Core.Models.SquadOrder.Gather);
+			Call("RefreshAll");
+			await Shot("dungeon_after_card_gather");
+			GD.Print($"ORDER {idle.Name} = {idle.Order}");
+		}
+		await SwitchView("Party");
+		await Shot("party_no_selection");
+		var party = Field<PartyFormationPanel>(Dash, "_partyFormationPanel");
+		var first = state.SavedParties[0].MemberIds.FirstOrDefault();
+		CallOn(party, "SelectAdventurer", first);
+		await Shot("party_detail");
+		await SwitchView("Shop");
+		await Shot("shop");
+		// 物語：【画面へ】のある場面の最後のページ
+		var popup = Field<StoryPopup>(Dash, "_storyPopup");
+		var showing = GuildManager.Core.Systems.StorySystem.Replay(state, "s01_order");
+		popup.ShowScenes(state, new[] { showing });
+		for (int i = 0; i < showing.Pages.Count - 1; i++) { await Frames(5); CallOn(popup, "OnNext"); }
+		await Shot("story_last_page");
+	}
+
+	private async Task NewGame()
+	{
+		await Frames(30);
+		for (int i = 0; i < 6; i++)
+		{
+			var wins = OpenWindows();
+			await Shot($"start_{(wins.Count == 0 ? "main" : wins.Last().GetType().Name)}");
+			if (wins.Count == 0) break;
+			var w = wins.Last();
+			if (w.GetType().Name == "RecruitmentPopup") break;
+			if (w is AcceptDialog ad) ad.EmitSignal(AcceptDialog.SignalName.Confirmed);
+			else w.EmitSignal(Window.SignalName.CloseRequested);
+			await Frames(20);
+		}
+	}
+
+	private async Task Stage2()
+	{
+		await Frames(30);
+		OpenWindows().OfType<ConfirmationDialog>().FirstOrDefault()?.EmitSignal(AcceptDialog.SignalName.Confirmed);
+		await Frames(30);
+		await DrainPopups("after_load", 5);
+		var state = Field<GuildManager.Core.Models.GameState>(Dash, "_state");
+		await SwitchView("Dungeon");
+		var dungeon = Field<DungeonPanel>(Dash, "_dungeonPanel");
+		var dive = state.SavedParties.FirstOrDefault(p => p.Order == GuildManager.Core.Models.SquadOrder.Dive && !GuildManager.Core.Systems.SquadOrderSystem.IsOut(state, p) && p.MemberIds.Count > 0)
+			?? state.SavedParties.FirstOrDefault(p => p.Order == GuildManager.Core.Models.SquadOrder.Dive);
+		if (dive != null) { CallOn(dungeon, "SelectParty", (Guid?)dive.Id); }
+		await Shot("dungeon_winchance");
+		// 来月の作戦が出るまで月を進める（最大8回）。月報が出たら撮り、作戦があれば1つ目のボタンを押して撮る。
+		var popup = Field<MonthlyReportPopup>(Dash, "_monthlyReportPopup");
+		for (int m = 1; m <= 8; m++)
+		{
+			Call("OnNextMonthPressed");
+			bool planned = false;
+			for (int i = 0; i < 12; i++)
+			{
+				await Frames(20);
+				var wins = OpenWindows();
+				if (wins.Count == 0) break;
+				var w = wins.Last();
+				if (w == popup)
+				{
+					var plans = AllNodes(popup).OfType<Button>().Where(b => b.Text.Contains("調査に切り替える") || b.Text.Contains("別の主") || b.Text.Contains("このまま")).ToList();
+					GD.Print($"MONTH {m} plans-buttons={plans.Count}");
+					if (plans.Count > 0)
+					{
+						await Shot($"m{m}_report_plan");
+						plans[0].EmitSignal(BaseButton.SignalName.Pressed);
+						await Shot($"m{m}_report_plan_chosen");
+						planned = true;
+					}
+				}
+				else await Shot($"m{m}_{w.GetType().Name}");
+				if (w is ConfirmationDialog cd) cd.EmitSignal(AcceptDialog.SignalName.Confirmed);
+				else if (w is AcceptDialog ad) ad.EmitSignal(AcceptDialog.SignalName.Confirmed);
+				else w.EmitSignal(Window.SignalName.CloseRequested);
+			}
+			if (planned)
+			{
+				await SwitchView("Dungeon");
+				await Shot($"m{m}_dungeon_after_plan");
+				break;
+			}
+		}
+	}
+}
