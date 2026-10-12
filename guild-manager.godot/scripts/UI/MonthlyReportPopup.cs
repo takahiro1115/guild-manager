@@ -38,6 +38,7 @@ public partial class MonthlyReportPopup : Window
 	private Func<GameState> _getState = null!;
 	private AppraisalSystem _appraisal = null!;
 	private VBoxContainer _relicsBox = null!;
+	private VBoxContainer _poachBox = null!;
 	/// <summary>今月の遺物の欄で直前に鑑定した結果（欄を作り直しても残す。月報を開き直したら消す）。</summary>
 	private string _relicResultText = "";
 	private MonthlyReport _shownReport;
@@ -95,6 +96,10 @@ public partial class MonthlyReportPopup : Window
 		_plansBox.AddThemeConstantOverride("separation", 4);
 		overview.AddChild(_plansBox);
 		overview.MoveChild(_plansBox, 0); // 来月の作戦は月報の先頭に（§0.98）
+		_poachBox = new VBoxContainer();
+		_poachBox.AddThemeConstantOverride("separation", 4);
+		overview.AddChild(_poachBox);
+		overview.MoveChild(_poachBox, 1); // 引き抜きの話（§0.102）は来月の作戦の次（月を止めて答えを求めるので上に）
 		_relicsBox = new VBoxContainer();
 		_relicsBox.AddThemeConstantOverride("separation", 4);
 		overview.AddChild(_relicsBox); // 今月の遺物（§0.99）は主な出来事のあと、来月への注意の前
@@ -176,6 +181,7 @@ public partial class MonthlyReportPopup : Window
 			_summary.AppendText("[color=gray]まだ月報は無い。「次の月へ」で月を進めると、ここに直近12か月分が残る。[/color]");
 			ClearNotes();
 			ClearBox(_plansBox);
+			ClearBox(_poachBox);
 			ClearBox(_relicsBox);
 			_squads.Clear();
 			_adventurers.Clear();
@@ -197,6 +203,7 @@ public partial class MonthlyReportPopup : Window
 
 		FillPlans(report);
 		_shownReport = report;
+		FillPoach();
 		FillRelics();
 		ClearNotes();
 		if (report.Notes.Count > 0)
@@ -368,6 +375,54 @@ public partial class MonthlyReportPopup : Window
 
 		if (_relicResultText.Length > 0)
 			_relicsBox.AddChild(new RichTextLabel { BbcodeEnabled = true, FitContent = true, ScrollActive = false, Text = _relicResultText });
+	}
+
+	/// <summary>
+	/// 引き抜きの話（§0.102）：返事を待っている話ごとに、昇給・ボーナスで引き留めるか、送り出すかのボタン。月を進めた直後だけボタンを出す
+	/// （過去の月報では出さない）。答えは Core（IncidentSystem.ResolvePoach）。期限までに答えなければ移籍する。
+	/// </summary>
+	private void FillPoach()
+	{
+		ClearBox(_poachBox);
+		if (!_plansInteractive || _getState == null) return;
+		var state = _getState();
+		if (state.PoachOffers.Count == 0) return;
+		_poachBox.AddChild(new RichTextLabel { BbcodeEnabled = true, FitContent = true, ScrollActive = false, Text = "[b]📨 引き抜きの話[/b]" });
+		foreach (var offer in state.PoachOffers.ToList())
+		{
+			var a = state.FindAdventurer(offer.AdventurerId);
+			if (a == null) continue;
+			int bonus = a.WeeklyWage * GuildManager.Core.Balance.SatisfactionBalance.BonusWeeksEquivalent;
+			int raised = (int)Math.Round(a.WeeklyWage * GuildManager.Core.Balance.SatisfactionBalance.MinRaiseMultiplier);
+			_poachBox.AddChild(new Label
+			{
+				Text = $"・{a.Name}（満足度{a.Satisfaction}）に{offer.GuildName}から誘いが来ている。{GameCalendar.FormatMonth(offer.DeadlineWeek)} 第{GameCalendar.WeekOfMonth(offer.DeadlineWeek)}週までに応えないと移籍する",
+				AutowrapMode = TextServer.AutowrapMode.WordSmart,
+			});
+			var row = new HBoxContainer();
+			row.AddThemeConstantOverride("separation", 8);
+			var buttons = new List<Button>
+			{
+				new() { Text = $"昇給して引き留める（週給 {a.WeeklyWage}→{raised}G）" },
+				new() { Text = $"ボーナスで引き留める（{bonus}G）", Disabled = state.Gold < bonus },
+				new() { Text = "送り出す" },
+			};
+			var choices = new[] { PoachChoice.Raise, PoachChoice.Bonus, PoachChoice.Release };
+			for (int i = 0; i < buttons.Count; i++)
+			{
+				var choice = choices[i];
+				var button = buttons[i];
+				button.Pressed += () =>
+				{
+					IncidentSystem.ResolvePoach(_getState(), offer, choice, new SatisfactionSystem());
+					foreach (var b in buttons) b.Disabled = true;
+					button.Text = $"✔ {button.Text}";
+					StateChanged.Invoke();
+				};
+				row.AddChild(button);
+			}
+			_poachBox.AddChild(row);
+		}
 	}
 
 	/// <summary>鑑定のあと：画面を描き直し（所持金・倉庫）、この欄も作り直す。</summary>

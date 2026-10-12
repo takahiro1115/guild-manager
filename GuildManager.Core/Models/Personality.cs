@@ -80,3 +80,36 @@ namespace GuildManager.Core.Models
             : DriveAttitude.Neutral;
     }
 }
+
+namespace GuildManager.Core.Models
+{
+    /// <summary>満足度の段階（§0.101、→ Systems.MoraleSystem）。のりしろがあるので、週の終わりに満足度と今の段階から決め直す。</summary>
+    public enum MoraleStage
+    {
+        Normal,
+        Cheerful,
+        Discontent,
+        Breaking,
+    }
+
+    /// <summary>相性の素地の帯（2人の隔たりで決まる。§0.101）。</summary>
+    public enum AffinityBand
+    {
+        Resonant,
+        Harmonious,
+        Neutral,
+        Dissonant,
+    }
+}
+
+namespace GuildManager.Core.Models
+{
+    /// <summary>引き抜きの話（§0.102、→ Systems.IncidentSystem）：限界の子にライバルギルドから誘いが来た。DeadlineWeek までに応えないと移籍する。</summary>
+    public sealed class PoachOffer
+    {
+        public System.Guid AdventurerId { get; set; }
+        public string AdventurerName { get; set; } = "";
+        public string GuildName { get; set; } = "";
+        public int DeadlineWeek { get; set; }
+    }
+}

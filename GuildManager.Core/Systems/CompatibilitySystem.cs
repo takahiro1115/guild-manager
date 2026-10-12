@@ -34,7 +34,17 @@ namespace GuildManager.Core.Systems
         public static int GetCompatibility(GameState state, Guid idA, Guid idB) =>
             state.Compatibility.TryGetValue(NormalizeKey(idA, idB), out var value)
                 ? value
-                : CompatibilityBalance.InitialValue;
+                : InitialCompatibility(state, idA, idB);
+
+        /// <summary>はじめて組んだ2人の相性（§0.101：相性の素地の帯で60〜45。どちらかに個性が無ければ InitialValue）。</summary>
+        public static int InitialCompatibility(GameState state, Guid idA, Guid idB)
+        {
+            var a = state.FindAdventurer(idA);
+            var b = state.FindAdventurer(idB);
+            return a?.Personality == null || b?.Personality == null
+                ? CompatibilityBalance.InitialValue
+                : MoraleSystem.InitialCompatibility(MoraleSystem.BandOf(a, b));
+        }
 
         /// <summary>相性値が険悪判定（30未満）かどうか。</summary>
         public static bool IsHostile(GameState state, Guid idA, Guid idB) =>
@@ -60,7 +70,7 @@ namespace GuildManager.Core.Systems
 
             int gain = GetExpeditionGain(missionType);
             ForEachPair(survivors, (a, b) =>
-                AdjustCompatibility(state, a.Id, b.Id, (int)Math.Round(gain * GetBeautifulMultiplier(a, b))));
+                AdjustCompatibility(state, a.Id, b.Id, (int)Math.Round((int)Math.Round(gain * GetBeautifulMultiplier(a, b)) * MoraleSystem.GainMultiplier(MoraleSystem.BandOf(a, b)), MidpointRounding.AwayFromZero))); // 素地の帯で上がり方が変わる（§0.101）
             return gain;
         }
 
@@ -86,7 +96,7 @@ namespace GuildManager.Core.Systems
             var grants = new List<TraitGrantEvent>();
 
             ForEachPair(survivors, (a, b) =>
-                AdjustCompatibility(state, a.Id, b.Id, -CompatibilityBalance.DeathWitnessLoss));
+                AdjustCompatibility(state, a.Id, b.Id, -(int)Math.Round(CompatibilityBalance.DeathWitnessLoss * MoraleSystem.LossMultiplier(MoraleSystem.BandOf(a, b)), MidpointRounding.AwayFromZero))); // 素地の帯で下がり方が変わる（§0.101）
 
             foreach (var survivor in survivors.Where(s => alsoRetiredIds == null || !alsoRetiredIds.Contains(s.Id)))
             {
@@ -125,7 +135,7 @@ namespace GuildManager.Core.Systems
         private static void AdjustCompatibility(GameState state, Guid idA, Guid idB, int delta)
         {
             var key = NormalizeKey(idA, idB);
-            int current = state.Compatibility.TryGetValue(key, out var value) ? value : CompatibilityBalance.InitialValue;
+            int current = state.Compatibility.TryGetValue(key, out var value) ? value : InitialCompatibility(state, idA, idB);
             state.Compatibility[key] = Math.Clamp(current + delta, CompatibilityBalance.MinValue, CompatibilityBalance.MaxValue);
         }
 

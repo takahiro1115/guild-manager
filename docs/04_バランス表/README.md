@@ -43,7 +43,7 @@
 | `boss_gimmicks.csv` | 03 §4.5.4 | BossGimmickBalance（ボスのギミック7種への備えと罰、毒状態、ギミックの数。2026年10月・§0.68。旧 `consumables.csv` は撤去） |
 | `boss_power_weights.csv` | 03 §4.5.4・§2.1 | DungeonBalance.GetBossPowerWeights（職業ごとの討伐火力の重み、2026年10月・§0.72。どの職業も合計4.2。dungeon.csv の `BossPowerWeight_*` は職業を決めない試算用の共通の重み）。ほかに §0.72 で combat.csv `ClericBlessingLossPctPerMnd`（0.08）・`ClericBlessingSevereThresholdRate`（0.8）＝神官の加護、recruitment.csv `JobAptitudePaBonus`（10）・`JobInaptitudePaPenalty`（10）＝採用の能力を職業に寄せる、dungeon.csv `GrowthJobWeightFloor`（1）＝出撃成長の能力の選び方を足した |
 | `potential_estimate.csv` | 03 §0.74・§2.4・§5.1 | PotentialEstimateBalance（副官の見立て〈PAを隠して段階S〜Dで見せる〉の幅・目利き〈スカウトの顧問・段階研究・在籍の学者〉・在籍の月日で狭まる割合・魂魄融和の娘の倍率・確かとする幅・段階の境目、2026年10月・§0.74） |
-| `personality.csv` | 03 §0.100 | PersonalityBalance（志向・気質・相性の素地の決め方、志向と気質による満足度の増減、見立ての回数、採用の一言。key,value 形式） |
+| `personality.csv` | 03 §0.100〜§0.102 | PersonalityBalance（志向・気質・相性の素地の決め方、志向と気質による満足度の増減、見立ての回数、採用の一言。満足度と相性の段階・志向の力と成長・さぼり・かばい合い・素地の帯〈§0.101〉。出来事・引き抜き・事故・⚠の表示〈§0.102〉。key,value 形式） |
 | `progression.csv` | 03 §4.5.1・§4.2.2 | ProgressionBalance（初期の同時出撃枠、店の上位装備が入荷する倒したボスの数 `ShopTierUnlockBosses_1〜3`＝§0.61） |
 | `dungeon.csv` | 03 §4.5.1・§4.5.4 | DungeonBalance（ボス能力重み・未踏破重損耗・ボス間隔・撃破実績点・出撃成長回数） |
 | `dungeon_traversal.csv` | 03 §4.5.3 | DungeonTraversalBalance（**走破力の重み（VIT/MND/隊長LDR）**・**1歩の消費の尺度 `FloorsPerRatio`**（比率1.0の深さで週に進める階層数、4.0。進軍ランクの段 `RankRatioScale` は別。1歩の消費＝その階層の要求値÷(走破力×この値)÷解析倍率、週の予算1、→ 03 §0.49。旧リニア進軍は §0.25）・進軍ランク別の既踏損耗率・調査度連動走破倍率・夜目 `NightVisionUnexploredDamageReductionRate`（→ 03 §0.32）） |
@@ -165,6 +165,51 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 `SubsidyWeeksPerMonth`・`SubsidyBaseAmount_G〜S` は `SideJobIntervalWeeks`・`SideJobBaseAmount`（旧Gの200G）へ、
 `SeveranceShortfallReputationPenalty` は `SeveranceShortfallMoodPenalty` へ置き換え、`dungeon.csv` の
 `BossBaseReputation` は削除した。代わりに `master_mood.csv` を新設した。
+
+## 出来事と事故で追加されたキー（2026年10月、→ 03 §0.102）
+
+`personality.csv` に足した（すべて仮の値）。
+
+| キー | 値 | 意味 |
+|---|---|---|
+| `EventChance_*` | 4・1・6・12 | 出来事の確率（%、週ごと・子ごと）：上機嫌（プラス）・ふつう（半々）・不満・限界（マイナス） |
+| `EventWeightBase`・`EventWeightPull` | 2・3 | 出来事の選ばれやすさ（その子の志向・気質・特性に合う出来事に足す） |
+| `QuarrelCompatLoss`・`QuarrelSatisfaction` | 5・−3 | 口論：相性（素地の帯の下がり方を掛ける）・2人の満足度 |
+| `GloomWeeksMin`・`GloomWeeksMax` | 1・3 | ふさぎ込みの週数（医務室Lv3以上で1週短い） |
+| `WasteWageWeeks` | 4 | 無駄づかい：週給×この週数のお金が減る |
+| `FretBossHpLossPct` | 10 | 焦り：次の決戦のHPの減り（%ポイント） |
+| `MentorCompatGain`・`MentorSatisfaction`・`TreatSatisfaction`・`PumpedPowerBonus` | 3・3・2・0.05 | 後輩の面倒・差し入れ・張り切り |
+| `BondChancePercent`・`BondCompatGain`・`BondSatisfaction` | 3・3・5 | 休日の絆（相棒の2人） |
+| `BrawlChancePercent`・`BrawlCompatLoss` | 4・5 | 宿舎の衝突（険悪の2人、2人とも軽傷1週） |
+| `PoachDeadlineWeeks`・`PoachRaiseSatisfaction`・`PoachBonusSatisfaction` | 2・20・10 | 引き抜きの話：答えの期限・引き留めの満足度 |
+| `BoycottChance_*`・`BoycottDriveModifier` | 5・15・5 | ボイコット（不満・限界）と、苦手な仕事（＋）・主志向の仕事と相棒（−） |
+| `RefuseChanceHostile`・`FeudThreshold` | 10・10 | 険悪な相手と出るのを拒む確率・犬猿の相性（同じ部隊に入れられない） |
+| `DisobeyChance_*`・`DisobeyVeryModifier`・`DisobeyLeaderLdrDivisor` | 8・15・5・160 | 命令無視の確率（×(1−リーダーのLDR÷160)、半分より下がらない） |
+| `DisobeyFleeSatisfaction`・`DisobeyFleeCompatLoss` | −5・3 | 逃げた子の満足度・仲間との相性 |
+| `ShowAccidentWarnings` | 1 | 危険の表示（⚠）を出すか（1＝出す、0＝隠す） |
+
+## 満足度と相性の段階で追加されたキー（2026年10月、→ 03 §0.101）
+
+`personality.csv` に足した（すべて仮の値）。満足度は今も上機嫌に張り付きやすいので、段4c・4d のあとで合わせ直す。
+
+| キー | 値 | 意味 |
+|---|---|---|
+| `MoraleCheerfulEnter`・`MoraleCheerfulExit` | 80・75 | 上機嫌になる・抜ける満足度（のりしろ） |
+| `MoraleDiscontentEnter`・`MoraleDiscontentExit` | 40・45 | 不満になる・不満と限界を抜ける満足度 |
+| `MoraleBreakingEnter`・`MoraleBreakingExit` | 20・25 | 限界になる・限界から不満へ戻る満足度 |
+| `MoraleMultiplier_*` | 1.05・0.95・0.90 | 上機嫌・不満・限界の力の倍率（1人分の値に掛ける。大会の旧い満足度の補正を置き換え） |
+| `MoraleCheerfulGrowthBonus`・`MoraleCheerfulHelpCreditMultiplier` | 0.02・1.5 | 上機嫌の成長の判定・研究の手伝い |
+| `MoraleLowTraversalHpLossMultiplier`・`MoraleBreakingContagion` | 1.1・−1 | 不満・限界の道中のHPの減り／限界の子と同じ部隊の子の満足度（毎週） |
+| `SlackChance_Discontent`・`SlackChance_Breaking`・`SlackTraitModifier` | 10・25・5 | さぼる確率（%）と、怠け者・飽きっぽい（＋）・求道派（−）の加減 |
+| `DrivePower_Main`・`_Sub`・`_Disliked` | 0.06・0.03・−0.05 | 志向の力の上乗せ（その仕事に出ているとき） |
+| `DriveGrowth_Main`・`_Sub`・`_Disliked` | 0.03・0.02・−0.03 | 志向の成長の上乗せ |
+| `BuddyThreshold`・`BuddyPowerBonus` | 80・0.03 | 相棒の相性・力の上乗せ |
+| `HostilePowerPenalty`・`HostileTraversalHpLossMultiplier` | −0.05・1.1 | 険悪な相手と一緒の力・道中のHPの減り |
+| `GuardChancePercent`・`GuardShareRate` | 25・0.5 | かばい合いの確率・相棒が引き受ける損耗の割合 |
+| `AffinityBand_*Max` | 24・64・104 | 素地の隔たりの帯（共鳴・調和・ふつう、これより遠いと不協和） |
+| `AffinityGain_*`・`AffinityLoss_*`・`AffinityInitial_*` | 1.75〜0.5・0.5〜1.5・60〜45 | 帯ごとの相性の上がり方・下がり方・はじめの値 |
+
+`tournament.csv` の `SatisfactionLowThreshold`・`SatisfactionLowFactor`・`SatisfactionHighThreshold`・`SatisfactionHighFactor` は撤去した。
 
 ## 冒険者の個性の土台で追加されたファイル（2026年10月、→ 03 §0.100）
 
@@ -427,7 +472,7 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 | `BracketSize`・`EntrantsPerGuild` | 8・2 | トーナメントの人数・ギルドから1大会に出られる人数 |
 | `WinExponent`・`LuckMin`・`LuckMax` | 4・0.9・1.1 | 勝つ見込み＝強さ^4の比。強さに掛ける運の幅 |
 | `HpFactorBase`・`HpCostPerMatch` | 0.6・0.1 | 試合の強さのHPの補正＝0.6＋0.4×HP比率。1試合ごとに最大HPの10%を使う |
-| `SatisfactionLow*`・`SatisfactionHigh*`・`BraveFactor` | 40未満×0.9・80以上×1.05・×1.05 | 満足度・豪胆の補正 |
+| `BraveFactor` | ×1.05 | 豪胆の補正（満足度の補正 `SatisfactionLow*`・`SatisfactionHigh*` は §0.101 で撤去し、満足度の段階〈personality.csv `MoraleMultiplier_*`〉に置き換えた） |
 | `PartyCompatibilityBonusMax` | 0.1 | 部隊戦の相性の平均による上乗せの上限 |
 | `WinnerSatisfaction` | 10 | 優勝した者の満足度 |
 | `RestRecoveryMultiplier` | 2.0 | 休養：大会の月のHPの回復の倍率 |

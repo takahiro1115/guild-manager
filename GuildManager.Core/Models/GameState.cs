@@ -376,6 +376,9 @@ namespace GuildManager.Core.Models
         /// <summary>交渉の自動（§0.99）：契約の不満が出たら、予算の範囲でボーナスを払って応える（→ ChoreSystem.ProcessAutoBonus）。システム画面で選ぶ。はじめは「しない」。</summary>
         public bool AutoNegotiationBonus { get; set; }
 
+        /// <summary>返事を待っている引き抜きの話（§0.102、→ IncidentSystem）。</summary>
+        public List<PoachOffer> PoachOffers { get; set; } = new();
+
         /// <summary>引退者のうち、ギルドの元冒険者（派遣の教官を除く）。最初の引退者の判定・年代記に使う。</summary>
         public IEnumerable<Adventurer> GuildRetirees => RetiredAdventurers.Where(a => !a.IsGuest);
 
@@ -482,6 +485,7 @@ namespace GuildManager.Core.Models
                 StoryCounters = new Dictionary<string, int>(StoryCounters),
                 TutorialEnabled = TutorialEnabled,
                 AutoNegotiationBonus = AutoNegotiationBonus,
+                PoachOffers = new List<PoachOffer>(PoachOffers),
                 Commissions = new List<GuildCommission>(Commissions),
                 CommissionCompletions = new Dictionary<string, int>(CommissionCompletions),
                 Anomaly = Anomaly,
@@ -631,6 +635,7 @@ namespace GuildManager.Core.Models
                 StoryCounters = new Dictionary<string, int>(data.StoryCounters ?? new Dictionary<string, int>()),
                 TutorialEnabled = data.TutorialEnabled ?? true, // キーの無い旧セーブは「あり」
                 AutoNegotiationBonus = data.AutoNegotiationBonus, // キーの無い旧セーブは false（しない）
+                PoachOffers = (data.PoachOffers ?? new List<PoachOffer>()).Where(o => o != null).ToList(),
                 // 依頼と迷宮の異変（§0.64）。キーを持たない旧セーブ、または null が書かれていても空・無しで始める。
                 Commissions = (data.Commissions ?? new List<GuildCommission>()).Where(c => c != null).ToList(),
                 CommissionCompletions = new Dictionary<string, int>(data.CommissionCompletions ?? new Dictionary<string, int>()),

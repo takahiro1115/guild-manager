@@ -39,13 +39,17 @@ namespace GuildManager.Core.Systems
         private readonly IRng _rng;
         /// <summary>決戦の勝ち負けだけに使う乱数（§0.98。損耗・開眼などの抽選の順を変えないよう別にする）。</summary>
         private readonly IRng _outcomeRng;
+        /// <summary>相棒のかばい合いだけに使う乱数（§0.101。損耗・勝ち負けの抽選の順を変えないよう別にする）。</summary>
+        private readonly IRng _guardRng;
 
         private const int DefaultOutcomeSeed = 1597;
+        private const int DefaultGuardSeed = 1601;
 
-        public DungeonResolver(IRng rng, IRng? outcomeRng = null)
+        public DungeonResolver(IRng rng, IRng? outcomeRng = null, IRng? guardRng = null)
         {
             _rng = rng;
             _outcomeRng = outcomeRng ?? new SeededRng(DefaultOutcomeSeed);
+            _guardRng = guardRng ?? new SeededRng(DefaultGuardSeed);
         }
 
         /// <summary>
@@ -63,7 +67,7 @@ namespace GuildManager.Core.Systems
 
         /// <summary>この部隊でこのボスに挑んだときの勝率（ギミック・再生・異変込み）。見立て・扉前の判断・決戦が共通で使う。</summary>
         public static double WinChance(Party party, FloorBoss boss, GameState? state) =>
-            WinChance(CalculateBossPower(party, boss), RequiredPower(boss, state, party));
+            WinChance(CalculateBossPower(party, boss, state), RequiredPower(boss, state, party));
 
         /// <summary>
         /// 完全解析を済ませたあとの勝率の見込み（来月の作戦、§0.98）。まだ完全解析でなければ、火力に完全解析の上乗せ
@@ -71,7 +75,7 @@ namespace GuildManager.Core.Systems
         /// </summary>
         public static double WinChanceWithFullIntel(Party party, FloorBoss boss, GameState? state)
         {
-            double power = CalculateBossPower(party, boss);
+            double power = CalculateBossPower(party, boss, state);
             if (ScoutingResolver.GetTier(boss.IntelRate) != IntelTier.Complete)
                 power *= 1.0 + DungeonBalance.FullIntelDamageBonus;
             return WinChance(power, RequiredPower(boss, state, party));
@@ -111,7 +115,7 @@ namespace GuildManager.Core.Systems
             // ---- 火力判定（ボスのHPを削り切れるか） ----
             // 重装甲ボスなら巨獣狩りの保有者の火力に上乗せが効く（→ DungeonPowerCalculator.MemberPower）。
             // 重装甲・群れ・魅了の備えが足りなければ火力が下がり、再生の備えが足りなければ要求火力が上がる。
-            double partyPower = CalculateBossPower(party, boss);
+            double partyPower = CalculateBossPower(party, boss, state);
             result.GiantHunterAdventurerIds.AddRange(
                 party.Members.Where(m => DungeonPowerCalculator.GiantHunterApplies(m, boss)).Select(m => m.Id));
             result.FullIntelBonusApplied = ScoutingResolver.GetTier(boss.IntelRate) == IntelTier.Complete;
@@ -136,7 +140,7 @@ namespace GuildManager.Core.Systems
                 ? ResearchBalance.GetTotalEffectValue(state, ResearchEffectType.SurvivalThresholdBonus)
                   + FacilityBalance.GetFieldAidSurvivalBonus(state.GetFacilityLevel(FacilityType.Infirmary), state.GetFacilitySpecialty(FacilityType.Infirmary)) // 医務室の戦地救護（§0.76）
                 : 0;
-            ApplyHpLoss(result, party, boss, survivalBonus);
+            ApplyHpLoss(result, party, boss, survivalBonus, state);
             ApplyPoisonStatus(result, party, boss);
             RollGiantHunterAwakening(result, party, boss);
 
@@ -172,7 +176,7 @@ namespace GuildManager.Core.Systems
         ///  - 重装甲：×(1−HeavyArmorPowerPenalty×不足)
         ///  - 完全解析：×(1＋FullIntelDamageBonus)
         /// </summary>
-        public static double CalculateBossPower(Party party, FloorBoss boss)
+        public static double CalculateBossPower(Party party, FloorBoss boss, GameState? state = null)
         {
             var members = party.Members;
             double swarm = Shortfall(boss, BossGimmickType.Swarm, members);
@@ -187,6 +191,7 @@ namespace GuildManager.Core.Systems
                     p *= 1.0 - BossGimmickBalance.SwarmRearPowerPenalty * swarm;
                 if (m == charmed)
                     p *= 1.0 - charm;
+                p *= MoraleSystem.PairFactor(state, m, members); // 相棒・険悪（§0.101。state を渡したときだけ）
                 total += p;
             }
             if (members.Any(m => m.HasTrait(TraitCatalog.InspiringId)))
@@ -340,7 +345,7 @@ namespace GuildManager.Core.Systems
         /// 算出後のHP消費率（%）から%ポイントで差し引く（0未満にはしない）。即死級の全損（100%）にも
         /// 適用されるため、事故を軽傷へ和らげる効果として働く。
         /// </summary>
-        private void ApplyHpLoss(DungeonResult result, Party party, FloorBoss boss, double survivalBonus = 0)
+        private void ApplyHpLoss(DungeonResult result, Party party, FloorBoss boss, double survivalBonus = 0, GameState? state = null)
         {
             // 神官の加護（§0.72）：損耗率を%ポイントで下げ、重傷になりにくくする（戦う前の顔ぶれで決める）。
             double blessing = ClericBlessing.LossReductionPct(party.Members);
@@ -376,11 +381,26 @@ namespace GuildManager.Core.Systems
 
                 // 研究の生存ボーナス（部隊全員）と豪胆（本人のみ、→ TraitEffectType.SurvivalThresholdModifier、§0.53）を差し引く。
                 double braveBonus = member.SumTraitEffect(TraitEffectType.SurvivalThresholdModifier);
+                if (member.Fretful) lossPct = Math.Min(100, lossPct + PersonalityBalance.FretBossHpLossPct); // 焦り（§0.102）
                 // 臆病・猪突猛進（§0.56）は同じ効果種別の負の値なので、ここで損耗が増える（100%で頭打ち）。
                 lossPct = (int)Math.Clamp(Math.Round(lossPct - survivalBonus - braveBonus - blessing), 0, 100);
 
                 int hpLoss = member.MaxHP * lossPct / 100;
                 int newHp = Math.Max(0, member.CurrentHP - hpLoss);
+
+                // かばい合い（§0.101）：除籍（HP0）や重傷の基準を下回りそうなとき、同じ部隊の相棒（相性80以上）が
+                // GuardChancePercent の確率で損耗の GuardShareRate を引き受ける（相棒はHP1より下がらない）。乱数はかばい合い専用。
+                if (state != null && hpLoss > 0
+                    && newHp < member.MaxHP * CombatBalance.SevereInjuryHpThresholdPct * severeMultiplier
+                    && MoraleSystem.FindGuardian(state, member, party.Members) is { } guardian
+                    && _guardRng.NextInt(1, 100) <= PersonalityBalance.GuardChancePercent)
+                {
+                    int share = Math.Min((int)Math.Round(hpLoss * PersonalityBalance.GuardShareRate), guardian.CurrentHP - 1);
+                    guardian.CurrentHP -= share;
+                    hpLoss -= share;
+                    newHp = Math.Max(0, member.CurrentHP - hpLoss);
+                    result.GuardEvents.Add(new GuardEvent(guardian.Id, guardian.Name, member.Id, member.Name, share));
+                }
 
                 result.HpLostByAdventurer[member.Id] = member.CurrentHP - newHp;
                 member.CurrentHP = newHp;

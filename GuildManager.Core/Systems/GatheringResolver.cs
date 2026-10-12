@@ -42,7 +42,7 @@ namespace GuildManager.Core.Systems
                 throw new InvalidOperationException("空のパーティは探索任務に出せません。");
 
             var result = new GatheringResult();
-            double score = CalculateGatheringScore(party);
+            double score = CalculateGatheringScore(party, state);
             result.Score = score;
             result.ScoreBreakdown = BreakDownGatheringScore(party);
 
@@ -107,11 +107,11 @@ namespace GuildManager.Core.Systems
         /// 空の部隊は0。public static にしてあるのは出撃前のプレビュー（UI）とテストから同じ式を
         /// 使うため（→ ScoutingResolver.CalculateStealthScoreと同じ考え方）。
         /// </summary>
-        public static double CalculateGatheringScore(Party party)
+        public static double CalculateGatheringScore(Party party, GameState? state = null)
         {
             if (party.IsEmpty) return 0;
 
-            double statSum = party.Members.Sum(GetMemberGatheringValue)
+            double statSum = party.Members.Sum(m => GetMemberGatheringValue(m) * MoraleSystem.PairFactor(state, m, party.Members)) // 相棒・険悪（§0.101）
                 + party.Members[0].GetEffectiveStat("LDR") * GatheringBalance.LeaderLdrCoefficient;
 
             // 盗賊・斥候ボーナス：地形の見極め・目利きに長けた職業が1名いるごとに固定ボーナスを加算する。
@@ -128,8 +128,9 @@ namespace GuildManager.Core.Systems
         /// 採取スコア・田舎育ちボーナスの計算と、編成画面の「採取」貢献列（→ PartyFormationPanel）が共通で使う。
         /// </summary>
         public static double GetMemberGatheringValue(Adventurer member) =>
-            member.GetEffectiveStat("AGI") * GatheringBalance.AgiCoefficient
-            + member.GetEffectiveStat("DEX") * GatheringBalance.DexCoefficient;
+            (member.GetEffectiveStat("AGI") * GatheringBalance.AgiCoefficient
+            + member.GetEffectiveStat("DEX") * GatheringBalance.DexCoefficient)
+            * MoraleSystem.MemberFactor(member, Drive.Gather); // 満足度の段階と志向（採取）の倍率（§0.101）
 
         /// <summary>
         /// 採取スコアの内訳（UIの出撃前プレビュー・週報の開示用）。合計は CalculateGatheringScore と同じ式。

@@ -201,12 +201,7 @@ namespace GuildManager.Core.Systems
                 // ---- 仕事 ----
                 missionOf.TryGetValue(a.Id, out var mission);
                 if (mission != null)
-                    Joy(mission.MissionType switch
-                    {
-                        DungeonMissionType.Scouting => Drive.Survey,
-                        DungeonMissionType.Gathering => Drive.Gather,
-                        _ => Drive.Dive,
-                    });
+                    Joy(MoraleSystem.DriveFor(mission.MissionType));
                 var records = a.TournamentRecords.Where(r => r.Week == week).ToList();
                 if (records.Count > 0)
                     Joy(Drive.Tournament);

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using GuildManager.Core.Balance;
 using GuildManager.Core.Models;
+using GuildManager.Core.Rng;
 
 namespace GuildManager.Core.Systems
 {
@@ -16,7 +17,7 @@ namespace GuildManager.Core.Systems
     }
 
     /// <summary>方針による自動の行動1件（週報用）。</summary>
-    public sealed record SquadOrderEvent(SavedParty Party, SquadOrderAction Action, string Detail);
+    public sealed record SquadOrderEvent(SavedParty Party, SquadOrderAction Action, string Detail, IReadOnlyList<IncidentEvent>? Incidents = null);
 
     /// <summary>
     /// 部隊の方針と自動出撃（→ 03 §4.0.3・§0.63、2026年10月新設）。作業感を減らすため、保存した部隊（→ SavedParty）に
@@ -24,15 +25,19 @@ namespace GuildManager.Core.Systems
     /// 条件（全員が出撃でき、HPが AutoDispatchMinHpPercent 以上）を満たせば方針どおりに出撃させる。
     /// §0.69で出撃はすべて方針から出す形にした（手動の出撃・扉前の指令は撤去）。扉前の判断は、着いた週の決算のうちに
     /// 構え（→ JudgeEngage）で DungeonExpeditionSystem が行う。
-    /// 呼び出すのは UI の「次週へ」（決算の前）と自動スキップ（毎週の決算の前、→ AutoSkipService）。乱数は使わない。
+    /// 呼び出すのは UI の「次週へ」（決算の前）と自動スキップ（毎週の決算の前、→ AutoSkipService）。乱数はボイコット・編成の拒否の判定（§0.102）だけ。
     /// </summary>
     public class SquadOrderSystem
     {
         private readonly DungeonExpeditionSystem _expedition;
+        /// <summary>ボイコット・編成の拒否の判定だけに使う乱数（§0.102）。</summary>
+        private readonly IRng _incidentRng;
+        private const int DefaultIncidentSeed = 1621;
 
-        public SquadOrderSystem(DungeonExpeditionSystem expedition)
+        public SquadOrderSystem(DungeonExpeditionSystem expedition, IRng? incidentRng = null)
         {
             _expedition = expedition;
+            _incidentRng = incidentRng ?? new SeededRng(DefaultIncidentSeed);
         }
 
         /// <summary>
@@ -69,6 +74,18 @@ namespace GuildManager.Core.Systems
 
                 var party = PartyFormationSystem.BuildDispatchParty(state, saved.MemberIds);
                 var field = ResolveField(state, saved)!; // 待機理由が無い＝対象が決まっている（→ GetWaitReason）
+                // ボイコット・編成の拒否（§0.102）：不満・限界の子、険悪・犬猿の相手がいる子が出撃に加わらないことがある
+                var refused = IncidentSystem.RollBoycotts(state, party, OrderDrive(saved.Order), _incidentRng);
+                var incidents = refused.Select(r => new IncidentEvent(r.Kind, r.Kind == IncidentKind.Refuse
+                    ? $"⚡ {r.Adventurer.Name}が{r.Reason}（「{saved.Name}」の出撃に加わらなかった）"
+                    : $"💤 {r.Adventurer.Name}が出撃をボイコットした（{r.Reason}）", false)).ToList();
+                int before = party.Members.Count;
+                foreach (var r in refused) party.Remove(r.Adventurer);
+                if (party.Members.Count == 0 || (before >= 2 && party.Members.Count < 2))
+                {
+                    events.Add(new SquadOrderEvent(saved, SquadOrderAction.Waiting, resumed + "出撃を拒む子がいて、出られる人数が足りない", incidents));
+                    continue;
+                }
                 var (ok, detail) = DispatchByOrder(state, saved, field, party);
                 if (!ok)
                 {
@@ -76,7 +93,7 @@ namespace GuildManager.Core.Systems
                     continue;
                 }
                 state.ActiveDungeonMissions[^1].SavedPartyId = saved.Id;
-                events.Add(new SquadOrderEvent(saved, SquadOrderAction.Dispatched, resumed + detail));
+                events.Add(new SquadOrderEvent(saved, SquadOrderAction.Dispatched, resumed + detail, incidents));
             }
 
             return events;
@@ -158,7 +175,7 @@ namespace GuildManager.Core.Systems
                     var candidates = unlocked.Select(f => (Field: f, Boss: f.GetNextActiveBoss())).Where(x => x.Boss != null).ToList();
                     if (candidates.Count == 0) return null;
                     return candidates
-                        .OrderByDescending(x => DungeonResolver.CalculateBossPower(party, x.Boss!) / Math.Max(1.0, DungeonResolver.RequiredPower(x.Boss!, state, party)))
+                        .OrderByDescending(x => DungeonResolver.CalculateBossPower(party, x.Boss!, state) / Math.Max(1.0, DungeonResolver.RequiredPower(x.Boss!, state, party)))
                         .First().Field;
                 }
                 case SquadOrder.Survey:
@@ -203,7 +220,7 @@ namespace GuildManager.Core.Systems
             var members = saved.MemberIds.Select(id => state.Adventurers.FirstOrDefault(a => a.Id == id)).OfType<Adventurer>().ToList();
             if (members.Count == 0) return "部隊にメンバーがいない";
             // 訓練中の冒険者はその月は出撃せず、ほかの隊員だけで出る（§0.70）。全員が訓練中なら待機。
-            members = members.Where(m => !TrainingSystem.IsTraining(state, m.Id) && !TournamentSystem.IsEntered(state, m.Id)).ToList(); // 大会に出る者も（§0.82）
+            members = members.Where(m => !TrainingSystem.IsTraining(state, m.Id) && !TournamentSystem.IsEntered(state, m.Id) && m.GloomWeeksRemaining <= 0).ToList(); // 大会に出る者（§0.82）・ふさぎ込みの子（§0.102）も
             if (members.Count == 0) return "全員が訓練か大会（今月は出撃しない）";
             var severe = members.FirstOrDefault(m => m.Injury == InjurySeverity.Severe);
             if (severe != null) return $"{severe.Name}が重傷のため待機";
@@ -255,6 +272,14 @@ namespace GuildManager.Core.Systems
 
             return (true, null);
         }
+
+        /// <summary>方針に当たる志向（潜行・調査・採取）。</summary>
+        public static Drive OrderDrive(SquadOrder order) => order switch
+        {
+            SquadOrder.Survey => Drive.Survey,
+            SquadOrder.Gather => Drive.Gather,
+            _ => Drive.Dive,
+        };
 
         /// <summary>扉前の構えの表示名。</summary>
         public static string StanceLabel(DoorStance stance) => stance switch

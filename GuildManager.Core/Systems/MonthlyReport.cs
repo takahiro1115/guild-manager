@@ -217,6 +217,20 @@ namespace GuildManager.Core.Systems
         {
             void Add(string text, MonthlyTone tone) => report.Highlights.Add(new MonthlyLine { Text = text, Tone = tone });
 
+            // 出来事と事故（§0.102）：週の出来事・方針の出撃のボイコット／拒否・扉前の命令無視
+            foreach (var w in weeks)
+            {
+                foreach (var ev in w.Orders.SelectMany(o => o.Incidents ?? new List<IncidentEvent>()))
+                    Add(ev.Text, ev.Good ? MonthlyTone.Good : MonthlyTone.Warning);
+                foreach (var r in w.Settlement.DungeonMissionResolutions.Where(r => r.Incident != null))
+                    Add(r.Incident!.Text, MonthlyTone.Warning);
+                foreach (var ev in w.Settlement.Incidents)
+                    Add(ev.Text, ev.Good ? MonthlyTone.Good : ev.Kind == IncidentKind.PoachLeft ? MonthlyTone.Bad : MonthlyTone.Warning);
+            }
+            // さぼり（§0.101）：この月にさぼった回数を子ごとにまとめて1行
+            foreach (var g in weeks.SelectMany(w => w.Settlement.Slackers).GroupBy(kv => kv.Key))
+                Add($"💤 {g.First().Value}は訓練・研究の手伝いをさぼりがちだった（{g.Count()}回）", MonthlyTone.Warning);
+
             foreach (var s in weeks.Select(w => w.Settlement))
             {
                 foreach (var r in s.DungeonMissionResolutions)
@@ -231,6 +245,8 @@ namespace GuildManager.Core.Systems
                         Add($"{injury.Name}が重傷（全治{injury.Weeks}週）", MonthlyTone.Bad);
                     foreach (var id in r.DungeonResult?.ForceRetiredAdventurerIds ?? new HashSet<Guid>())
                         Add($"{NameOf(state, id)}が致命傷を負い、ギルドを去った", MonthlyTone.Bad);
+                    foreach (var guard in r.DungeonResult?.GuardEvents ?? new List<GuardEvent>())
+                        Add($"🛡 {guard.GuardianName}が{guard.ProtectedName}をかばい、損耗を分け合った（HP{guard.Share}を引き受けた）", MonthlyTone.Good); // 相棒のかばい合い（§0.101）
                 }
                 foreach (var birth in s.SoulFusionBirths)
                     Add($"{birth.Child.Name}が生まれた", MonthlyTone.Good);
@@ -509,6 +525,7 @@ namespace GuildManager.Core.Systems
             if (flags.SatisfactionWarningOccurred) reasons.Add("契約交渉の申し出");
             if (flags.CommissionsOffered) reasons.Add("依頼が届いた");
             if (flags.SquadStalledAtBoss) reasons.Add("潜行の部隊が主に勝てずに戻った");
+            if (flags.PoachOffered) reasons.Add("引き抜きの話");
             if (flags.GameCleared) reasons.Add("深淵100Fを制覇した");
             if (flags.DefeatOccurred) reasons.Add("ゲームオーバー");
             return reasons;
@@ -522,6 +539,24 @@ namespace GuildManager.Core.Systems
                 state.MonthlyReports.RemoveRange(0, state.MonthlyReports.Count - KeptReports);
         }
 
+        /// <summary>
+        /// 不満・限界の子の直し方の手がかり（§0.101）。見立てで主志向が分かっていればその仕事を、分かっていなければ見立てを進めることを勧める。
+        /// 志向がお金なら昇給、仲間なら気の合う相手と組ませる。
+        /// </summary>
+        private static string MoraleRemedy(GameState state, Adventurer a)
+        {
+            var p = a.Personality;
+            if (p == null || PersonalitySystem.Knowledge(state, a, p.Main) == PersonalityKnowledge.Unknown)
+                return "何が好きなのだろう。いろいろな仕事をさせてみるか、休ませるか、昇給で応える";
+            return p.Main switch
+            {
+                Drive.Money => "お金が好きな子だ。昇給で応えると気が晴れるかもしれない",
+                Drive.Comrades => "仲間思いの子だ。仲の良い相手と同じ部隊にすると気が晴れるかもしれない",
+                Drive.Fame => "名を上げたい子だ。ボスとの決戦や大きな大会に出すと気が晴れるかもしれない",
+                _ => $"{PersonalitySystem.DriveLabel(p.Main)}に出してやると気が晴れるかもしれない",
+            };
+        }
+
         /// <summary>来月への注意（移る先の画面つき）。乱数は使わない。</summary>
         private static void AddNotes(GameState state, MonthlyReport report)
         {
@@ -532,6 +567,12 @@ namespace GuildManager.Core.Systems
                 report.Notes.Add(new MonthlyNote { Text = $"{a.Name}は毒状態（あと{a.PoisonWeeksRemaining}週、全能力−{a.PoisonStatPenalty * 100:0}%）", Target = MonthlyNoteTarget.Adventurer });
             foreach (var a in state.Adventurers.Where(a => a.Injury == InjurySeverity.Severe))
                 report.Notes.Add(new MonthlyNote { Text = $"{a.Name}は重傷（あと{a.InjuryWeeksRemaining}週）", Target = MonthlyNoteTarget.Adventurer });
+            // 返事を待っている引き抜きの話（§0.102）
+            foreach (var offer in state.PoachOffers)
+                report.Notes.Add(new MonthlyNote { Text = $"{offer.AdventurerName}に{offer.GuildName}から引き抜きの話（{GameCalendar.FormatMonth(offer.DeadlineWeek)} 第{GameCalendar.WeekOfMonth(offer.DeadlineWeek)}週までに応えないと移籍する）。月報の「引き抜きの話」で応える", Target = MonthlyNoteTarget.Adventurer });
+            // 満足度の段階（§0.101）：不満・限界の子と、分かっている志向からの直し方の手がかり
+            foreach (var a in state.Adventurers.Where(a => !a.IsRetired && MoraleSystem.IsLow(a)))
+                report.Notes.Add(new MonthlyNote { Text = $"{a.Name}は{MoraleSystem.StageLabel(a.MoraleStage)}（満足度{a.Satisfaction}）。{MoraleRemedy(state, a)}", Target = MonthlyNoteTarget.Adventurer });
 
             foreach (var p in state.SavedParties.Where(p => p.MemberIds.Count > 0))
             {

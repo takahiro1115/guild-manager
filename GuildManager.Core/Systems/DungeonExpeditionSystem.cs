@@ -50,6 +50,10 @@ namespace GuildManager.Core.Systems
         /// </summary>
         private readonly IRng _relicRng;
 
+        /// <summary>扉前の命令無視の判定だけに使う乱数（§0.102。ほかの抽選の順を変えないよう別にする）。</summary>
+        private readonly IRng _incidentRng = new SeededRng(DefaultIncidentSeed);
+        private const int DefaultIncidentSeed = 1627;
+
         public DungeonExpeditionSystem(
             ScoutingResolver scoutingResolver,
             DungeonResolver dungeonResolver,
@@ -406,7 +410,25 @@ namespace GuildManager.Core.Systems
                 resolution.ArrivedAtBossDoor = true;
                 var stance = SquadOrderSystem.FindOrderedParty(state, mission)?.Stance ?? DoorStance.Standard;
                 var (go, reason) = SquadOrderSystem.JudgeEngage(state, mission, stance);
-                resolution.DoorPower = DungeonResolver.CalculateBossPower(mission.Party, traversal.TargetBoss);
+                // 命令無視（§0.102）：気質が判断と反対の向きの子（不満・限界か、リーダーと険悪）が従わないことがある
+                if (IncidentSystem.RollDisobey(state, mission.Party, go, _incidentRng) is { } disobey)
+                {
+                    double chanceNow = DungeonResolver.WinChance(mission.Party, traversal.TargetBoss, state);
+                    if (disobey.Charge)
+                    {
+                        go = true;
+                        resolution.Incident = new IncidentEvent(IncidentKind.Charge,
+                            $"⚔ {disobey.Who.Name}が構えに従わず主へ突っ込み、部隊も決戦になった（勝率{chanceNow * 100:F0}%）", false);
+                    }
+                    else
+                    {
+                        go = false;
+                        reason = $"{disobey.Who.Name}が構えに従わず逃げ出したため撤退";
+                        IncidentSystem.ApplyFlee(state, mission.Party, disobey.Who);
+                        resolution.Incident = new IncidentEvent(IncidentKind.Flee, $"🏃 {disobey.Who.Name}が扉前で逃げ出し、部隊も撤退した（勝率{chanceNow * 100:F0}%）", false);
+                    }
+                }
+                resolution.DoorPower = DungeonResolver.CalculateBossPower(mission.Party, traversal.TargetBoss, state);
                 resolution.DoorRequiredPower = DungeonResolver.RequiredPower(traversal.TargetBoss, state, mission.Party);
                 resolution.DoorWinChance = DungeonResolver.WinChance(resolution.DoorPower, resolution.DoorRequiredPower);
                 resolution.DoorHpPercent = HpPercent(mission.Party);

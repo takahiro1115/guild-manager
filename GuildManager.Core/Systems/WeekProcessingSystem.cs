@@ -85,6 +85,12 @@ namespace GuildManager.Core.Systems
         private const int DefaultDungeonSeed = 1588;
         private const int DefaultCompatibilitySeed = 2526;
         private const int DefaultTournamentSeed = 3373;
+        /// <summary>さぼりの判定だけに使う乱数（§0.101。ほかの抽選の順を変えないよう別にする）。</summary>
+        private readonly IRng _moraleRng = new SeededRng(DefaultMoraleSeed);
+        private const int DefaultMoraleSeed = 1613;
+        /// <summary>満足度・相性の出来事だけに使う乱数（§0.102）。</summary>
+        private readonly IRng _incidentRng = new SeededRng(DefaultIncidentSeed);
+        private const int DefaultIncidentSeed = 1619;
         private const int DefaultExchangeSeed = 4049;
 
         /// <summary>
@@ -108,6 +114,11 @@ namespace GuildManager.Core.Systems
             // 今週の過ごし方（月報の「冒険者ごと」、§0.81）。待機中の過ごし方の判定（IdleActivitySystem.ProcessWeek）と同じく、HPが動く前に決める。
             foreach (var a in state.Adventurers.Where(a => !a.IsRetired))
                 result.Activities[a.Id] = IdleActivitySystem.GetWeekActivity(state, a, dispatchedIds);
+            // さぼり（§0.101）：不満・限界の子が、訓練・自主練・研究の手伝いをさぼる（その週の成長・研究の手伝いが無い）。
+            foreach (var id in MoraleSystem.RollSlackers(state, result.Activities, _moraleRng))
+                result.Slackers[id] = state.FindAdventurer(id)?.Name ?? "";
+            var idleExcludedIds = dispatchedIds.Union(result.Slackers.Keys)
+                .Union(state.Adventurers.Where(a => a.GloomWeeksRemaining > 0).Select(a => a.Id)).ToHashSet(); // ふさぎ込みの子も訓練・手伝いをしない（§0.102）
 
             // 大迷宮への出撃（道中進軍・ボス討伐・採取・迷宮調査）を1週分進める
             // （→ DungeonExpeditionSystem）。潜行は複数週にわたって進み、未撃破ボスの扉前に
@@ -144,7 +155,7 @@ namespace GuildManager.Core.Systems
 
             // 待機中の過ごし方（→ 03 §8.1・§0.73）：出撃も訓練もせず残った健康な冒険者が、研究を手伝う（研究の手伝い＋機嫌）か自主練をする。
             // HP判定は訓練・静養でHPが動く前の時点で行う。機嫌が内職売上の倍率に効くよう、内職売上より先に済ませる。
-            var idleWeek = IdleActivitySystem.ProcessWeek(state, dispatchedIds, result.MoodReport);
+            var idleWeek = IdleActivitySystem.ProcessWeek(state, idleExcludedIds, result.MoodReport); // さぼった子は手伝い・自主練をしない（§0.101）
             result.IdleHelpEntries.AddRange(idleWeek.HelpEntries);
 
             // 出撃の有無にかかわらず、時間は必ず進む。
@@ -162,7 +173,7 @@ namespace GuildManager.Core.Systems
                 .ToHashSet();
             _injuryRecoverySystem.ProcessWeeklyRecovery(state, justInjured);
             _restRecoverySystem.ProcessWeeklyRest(state, dispatchedIds); // → 03 §3.5改：静養・HP自然回復（訓練場配置中は対象外。研究の手伝い・自主練も回復する）
-            result.TrainingGrowthEvents.AddRange(_growthSystem.ProcessTrainingGrowth(state, dispatchedIds)); // → 03 §3.1〜3.4：成長トリガー経路2
+            result.TrainingGrowthEvents.AddRange(_growthSystem.ProcessTrainingGrowth(state, idleExcludedIds)); // → 03 §3.1〜3.4：成長トリガー経路2（さぼった子は除く、§0.101）
             result.SelfTrainingGrowthEvents.AddRange(_growthSystem.ProcessSelfTraining(state, idleWeek.SelfTrainerIds)); // → §0.73：自主練
             result.SelfTrainerCount = idleWeek.SelfTrainerIds.Count;
             result.TrainingGrowthEvents.AddRange(_growthSystem.ProcessTournamentPush(state)); // 大会の月の追い込み（§0.82）
@@ -179,11 +190,16 @@ namespace GuildManager.Core.Systems
             // 年末のギルドの順位表（§0.94）：年の最後の週に、その年の大会（王都最強決定戦まで）を終えてから確定し、1位・2位にご褒美。
             result.YearStanding = GuildStandingSystem.ProcessWeek(state);
 
-            result.PersonalityDiscoveries.AddRange(PersonalitySystem.ProcessWeek(state, thisWeek, missionsAtStart, result.DungeonMissionResolutions, result.Activities)); // → §0.100：志向・気質による満足度と見立て
+            MoraleSystem.ApplyContagion(state, missionsAtStart); // → §0.101：限界の子と同じ部隊の子の満足度が下がる
+            result.PersonalityDiscoveries.AddRange(PersonalitySystem.ProcessWeek(state, thisWeek, missionsAtStart, result.DungeonMissionResolutions,
+                result.Activities.Where(kv => !result.Slackers.ContainsKey(kv.Key)).ToDictionary(kv => kv.Key, kv => kv.Value))); // → §0.100：志向・気質による満足度と見立て
             _satisfactionSystem.ProcessWeeklySatisfaction(state, dispatchedIds); // → 03 §5.1：満足度変動
             result.TraitGrantEvents.AddRange(_satisfactionSystem.ProcessWeeklyBurnout(state)); // → 03 §5.3.2・§0.56：燃え尽き（連続出撃）
             result.NegotiationTerminated.AddRange(_satisfactionSystem.ProcessWeeklyNegotiation(state)); // → 03 §5.2：契約交渉・退団
             result.AutoBonuses.AddRange(ChoreSystem.ProcessAutoBonus(state, _satisfactionSystem)); // → §0.99：交渉の自動（応えた子では月を止めない）
+            MoraleSystem.UpdateStages(state); // → §0.101：満足度の段階を決め直す（のりしろつき）
+            result.Incidents.AddRange(IncidentSystem.ProcessWeek(state, thisWeek, missionsAtStart, _incidentRng, out bool poachOffered)); // → §0.102：満足度・相性の出来事
+            result.Flags.PoachOffered = poachOffered;
             // 満足度警告（契約交渉）が今週「新たに」発生したか（→ 03 §1.3自動スキップ停止条件2）。
             // 既に警告中で対応待ちのまま変化がないだけの週では発火させない。
             result.Flags.SatisfactionWarningOccurred =

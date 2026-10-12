@@ -59,13 +59,13 @@ namespace GuildManager.Core.Systems
             var tierBefore = GetTier(boss.IntelRate);
 
             // ---- 判定1：隠密・生還（AGI+DEXの隊員平均×人数倍率 ＋ 部隊長LDR・専門職・重装の補正） ----
-            result.StealthScore = CalculateStealthScore(party);
+            result.StealthScore = CalculateStealthScore(party, state);
             result.StealthRequirement = StealthRequirement(boss);
             result.StealthSucceeded = result.StealthScore >= result.StealthRequirement;
 
             // ---- 判定2：解析・情報収集（INT） ----
             double analysisRequirement = AnalysisRequirement(boss);
-            result.AnalysisScore = CalculateAnalysisScore(party);
+            result.AnalysisScore = CalculateAnalysisScore(party, state);
             result.AnalysisRequirement = analysisRequirement;
             double analysisRatio = analysisRequirement <= 0 ? double.MaxValue : result.AnalysisScore / analysisRequirement;
             result.AnalysisRatio = analysisRatio;
@@ -145,10 +145,10 @@ namespace GuildManager.Core.Systems
         /// 人数倍率は平均素点にだけ掛け、隊長・専門職・重装の補正は人数によらない固定の加減算とする。
         /// public static にしてあるのは出撃前のプレビュー（UI）とテストから同じ式を使うため。
         /// </summary>
-        public static double CalculateStealthScore(Party party)
+        public static double CalculateStealthScore(Party party, GameState? state = null)
         {
             if (party.IsEmpty) return 0;
-            double scaled = Math.Floor(CalculateBaseStealthScore(party) * ScoutingBalance.GetStealthPartySizeMultiplier(party.Members.Count));
+            double scaled = Math.Floor(CalculateBaseStealthScore(party, state) * ScoutingBalance.GetStealthPartySizeMultiplier(party.Members.Count));
             return Math.Max(0, scaled + CalculateStealthLeaderBonus(party) + CalculateStealthSpecialistBonus(party)
                 - CalculateHeavyArmorPenalty(party));
         }
@@ -157,8 +157,8 @@ namespace GuildManager.Core.Systems
         /// 平均素点＝隊員の (AGI×WeightAgi ＋ DEX×WeightDex) の平均。
         /// 人数倍率・各補正を加える前の値（UIの内訳表示・テストから使う）。空の部隊は0。
         /// </summary>
-        public static double CalculateBaseStealthScore(Party party) =>
-            party.IsEmpty ? 0 : party.Members.Average(GetStealthValue);
+        public static double CalculateBaseStealthScore(Party party, GameState? state = null) =>
+            party.IsEmpty ? 0 : party.Members.Average(m => GetStealthValue(m) * MoraleSystem.PairFactor(state, m, party.Members)); // 相棒・険悪（§0.101）
 
         /// <summary>
         /// 隊員1名の隠密素点＝(AGI×WeightAgi ＋ DEX×WeightDex)×(1＋注意深いの補正)（→ CalculateBaseStealthScore はこの平均）。
@@ -168,7 +168,8 @@ namespace GuildManager.Core.Systems
         public static double GetStealthValue(Adventurer member) =>
             (member.GetEffectiveStat("AGI") * ScoutingBalance.StealthWeightAgi
              + member.GetEffectiveStat("DEX") * ScoutingBalance.StealthWeightDex)
-            * (1.0 + member.SumTraitEffect(TraitEffectType.ScoutingModifier));
+            * (1.0 + member.SumTraitEffect(TraitEffectType.ScoutingModifier))
+            * MoraleSystem.MemberFactor(member, Drive.Survey); // 満足度の段階と志向（調査）の倍率（§0.101）
 
         /// <summary>部隊長LDR補正＝先頭の隊員のLDR×WeightLdr（パニック・事故の防止）。空の部隊は0。</summary>
         public static double CalculateStealthLeaderBonus(Party party) =>
@@ -198,7 +199,8 @@ namespace GuildManager.Core.Systems
             CountHeavyMembers(party) * ScoutingBalance.StealthHeavyArmorPenalty;
 
         /// <summary>解析スコア＝Σ(INT)×係数（→ GetAnalysisValue の合計）。空の部隊は0。</summary>
-        public static double CalculateAnalysisScore(Party party) => party.Members.Sum(GetAnalysisValue);
+        public static double CalculateAnalysisScore(Party party, GameState? state = null) =>
+            party.Members.Sum(m => GetAnalysisValue(m) * MoraleSystem.PairFactor(state, m, party.Members)); // 相棒・険悪（§0.101）
 
         /// <summary>
         /// 隊員1名の解析への寄与＝INT×AnalysisStatCoefficient×(1＋知識人の補正)（編成画面の「解析」貢献列も同じ値）。
@@ -206,7 +208,8 @@ namespace GuildManager.Core.Systems
         /// </summary>
         public static double GetAnalysisValue(Adventurer member) =>
             member.GetEffectiveStat("INT") * ScoutingBalance.AnalysisStatCoefficient
-            * (1.0 + member.SumTraitEffect(TraitEffectType.AnalysisModifier));
+            * (1.0 + member.SumTraitEffect(TraitEffectType.AnalysisModifier))
+            * MoraleSystem.MemberFactor(member, Drive.Survey); // 満足度の段階と志向（調査）の倍率（§0.101）
 
         /// <summary>隠密の要求値＝(基礎値＋階層×増分)×フィールド倍率（深い階層ほど見つかりやすい。§0.47）。</summary>
         public static double StealthRequirement(FloorBoss boss) =>
@@ -260,7 +263,8 @@ namespace GuildManager.Core.Systems
 
         /// <summary>隊員1名の護衛値＝max(STR, VIT, INT)（装備補正込みの実効値）×守り手の補正（→ GuardianMultiplier）。</summary>
         public static double GetGuardValue(Adventurer member) =>
-            Math.Max(member.GetEffectiveStat("STR"), Math.Max(member.GetEffectiveStat("VIT"), member.GetEffectiveStat("INT"))) * GuardianMultiplier(member);
+            Math.Max(member.GetEffectiveStat("STR"), Math.Max(member.GetEffectiveStat("VIT"), member.GetEffectiveStat("INT"))) * GuardianMultiplier(member)
+            * MoraleSystem.MemberFactor(member, null); // 満足度の段階だけ（護衛は調査と採取の両方で使うので志向は掛けない。§0.101）
 
         /// <summary>守り手（→ TraitCatalog.Guardian、§0.55）の護衛値の倍率。保有していなければ1.0。</summary>
         public static double GuardianMultiplier(Adventurer member) =>

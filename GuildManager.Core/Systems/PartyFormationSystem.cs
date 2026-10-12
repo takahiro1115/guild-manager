@@ -48,6 +48,7 @@ namespace GuildManager.Core.Systems
             if (party.MemberIds.Contains(adventurerId)) return true;
             PruneStaleMembers(state);
             if (ActiveMemberCount(state, party) >= Party.MaxSlots) return false;
+            if (IncidentSystem.AssignBlockReason(state, party, adventurerId) != null) return false; // 犬猿の相手がいる部隊には入らない（§0.102）
 
             RemoveFromAllParties(state, adventurerId);
             party.MemberIds.Add(adventurerId);
@@ -143,6 +144,7 @@ namespace GuildManager.Core.Systems
                 if (adventurer == null || !adventurer.IsAvailable) continue;
                 if (TrainingSystem.IsTraining(state, id)) continue; // 訓練中の冒険者はその月は出撃しない（§0.70）
                 if (TournamentSystem.IsEntered(state, id)) continue; // 大会に出る冒険者も（§0.82）
+                if (adventurer.GloomWeeksRemaining > 0) continue; // ふさぎ込みの子も（§0.102）
                 party.TryAdd(adventurer);
             }
             return party;
@@ -221,14 +223,14 @@ namespace GuildManager.Core.Systems
             var carrier = ScoutingResolver.FindGuardCarrier(party);
             return new(
                 TraversalPower: DungeonTraversalResolver.CalculateTraversalScore(party, state),
-                StealthScore: ScoutingResolver.CalculateStealthScore(party),
-                BaseStealthScore: ScoutingResolver.CalculateBaseStealthScore(party),
+                StealthScore: ScoutingResolver.CalculateStealthScore(party, state),
+                BaseStealthScore: ScoutingResolver.CalculateBaseStealthScore(party, state),
                 StealthPartySizeMultiplier: party.IsEmpty
                     ? 0
                     : Balance.ScoutingBalance.GetStealthPartySizeMultiplier(party.Members.Count),
                 StealthSpecialistCount: ScoutingResolver.CountStealthSpecialists(party),
                 HeavyMemberCount: ScoutingResolver.CountHeavyMembers(party),
-                AnalysisScore: ScoutingResolver.CalculateAnalysisScore(party),
+                AnalysisScore: ScoutingResolver.CalculateAnalysisScore(party, state),
                 GuardPower: ScoutingResolver.CalculateGuardPower(party),
                 GuardSupportPower: ScoutingResolver.CalculateGuardSupportPower(party),
                 GuardCarrierName: carrier.Member?.Name ?? "",
@@ -237,8 +239,8 @@ namespace GuildManager.Core.Systems
                 StealthLeaderBonus: ScoutingResolver.CalculateStealthLeaderBonus(party),
                 StealthSpecialistBonus: ScoutingResolver.CalculateStealthSpecialistBonus(party),
                 StealthHeavyPenalty: ScoutingResolver.CalculateHeavyArmorPenalty(party),
-                BossPower: DungeonPowerCalculator.PartyPower(party.Members),
-                GatheringScore: GatheringResolver.CalculateGatheringScore(party));
+                BossPower: DungeonPowerCalculator.PartyPower(party.Members, null, state),
+                GatheringScore: GatheringResolver.CalculateGatheringScore(party, state));
         }
     }
 

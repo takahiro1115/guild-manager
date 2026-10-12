@@ -261,7 +261,7 @@ namespace GuildManager.Core.Systems
         /// 記録としても残らないため、装備したまま消えると武具も一緒に失われてしまう
         /// （ギルドの備品は置いていってもらう、という扱い）。
         /// </summary>
-        private static void Terminate(GameState state, Adventurer adventurer)
+        internal static void Terminate(GameState state, Adventurer adventurer)
         {
             EquipmentSystem.UnequipAllToArmory(state, adventurer, $"{adventurer.Name}（退団）から返還");
 

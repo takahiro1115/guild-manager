@@ -545,6 +545,15 @@ public partial class AdventurerPanel : VBoxContainer
 			string parentB = _state.FindAdventurer(a.ParentIds[1])?.Name ?? "？";
 			_statusLabel.AppendText($"　[color=violet]🧪 {parentA}と{parentB}の娘[/color]");
 		}
+		// 出来事の名残り（§0.102）：ふさぎ込み・焦り・張り切り・引き抜きの話
+		if (a.GloomWeeksRemaining > 0)
+			_statusLabel.AppendText($"　[color=#9aa7c7]😞 ふさぎ込み（あと{a.GloomWeeksRemaining}週）[/color]");
+		if (a.Fretful)
+			_statusLabel.AppendText("　[color=orange]😣 焦り[/color]");
+		if (a.Pumped)
+			_statusLabel.AppendText("　[color=lime]🔥 張り切り[/color]");
+		if (HasPoachOffer(a))
+			_statusLabel.AppendText("　[color=#ff6b6b]📨 引き抜きの話[/color]");
 		if (a.HasUsedSoulFusion)
 			_statusLabel.AppendText("　[color=violet]🫧 秘薬の親[/color]");
 		// 二つ名と殿堂の資格（大会と育成の栄光 段2）
@@ -576,7 +585,16 @@ public partial class AdventurerPanel : VBoxContainer
 		_hpBar.MaxValue = a.MaxHP > 0 ? a.MaxHP : 100;
 		_hpBar.Value = Math.Clamp(a.CurrentHP, 0, _hpBar.MaxValue);
 
-		_satisfactionLabel.Text = $"満足度: {a.Satisfaction} / 100";
+		// 満足度の段階（§0.101）：ふつう以外は名札を添え、効き目をツールチップで
+		_satisfactionLabel.Text = $"満足度: {a.Satisfaction} / 100" + (a.MoraleStage == MoraleStage.Normal ? "" : $"　{MoraleSystem.StageLabel(a.MoraleStage)}");
+		_satisfactionLabel.MouseFilter = Control.MouseFilterEnum.Pass;
+		_satisfactionLabel.TooltipText = a.MoraleStage switch
+		{
+			MoraleStage.Cheerful => $"上機嫌：力×{PersonalityBalance.MoraleMultiplierCheerful:0.00}、成長しやすく、研究の手伝いが×{PersonalityBalance.MoraleCheerfulHelpCreditMultiplier:0.#}",
+			MoraleStage.Discontent => $"不満：力×{PersonalityBalance.MoraleMultiplierDiscontent:0.00}、道中のHPの減りが×{PersonalityBalance.MoraleLowTraversalHpLossMultiplier:0.#}、訓練・自主練・研究の手伝いをさぼることがある。好きな仕事・休み・昇給で戻る",
+			MoraleStage.Breaking => $"限界：力×{PersonalityBalance.MoraleMultiplierBreaking:0.00}、さぼりやすく、同じ部隊の仲間の満足度も下げる。契約交渉の手前",
+			_ => $"満足度{PersonalityBalance.MoraleCheerfulEnter}以上で上機嫌（力が上がる）、{PersonalityBalance.MoraleDiscontentEnter}未満で不満（力が下がる）",
+		};
 		_satisfactionBar.MaxValue = 100;
 		_satisfactionBar.Value = Math.Clamp(a.Satisfaction, 0, 100);
 		FillPersonality(a);
@@ -684,6 +702,9 @@ public partial class AdventurerPanel : VBoxContainer
 	/// バー全幅は常に上限100（→ TripleStatBar。§0.30で4層、§0.36で特性補正を分離）。実効値は特性・装備込み
 	/// （→ Adventurer.GetEffectiveStat）で、特性補正後＝実効値 − 装備の能力値補正。行の右端の書式は TripleStatBar.FormatLabel。
 	/// </summary>
+	/// <summary>引き抜きの話を待っている子か（§0.102。志願者の表示では状態が無いので false）。</summary>
+	private bool HasPoachOffer(Adventurer a) => _state != null && _state.PoachOffers.Any(o => o.AdventurerId == a.Id);
+
 	/// <summary>
 	/// 志向・気質の見立て（§0.100）。分かったものだけ名札で出し、「らしい」は「?」を付ける。相性の素地は出さない（隠す）。
 	/// 個性の無い子（旧セーブ・派遣の教官）は行ごと隠す。判定は Core（PersonalitySystem.Knowledge）。

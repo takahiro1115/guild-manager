@@ -72,12 +72,11 @@ namespace GuildManager.Core.Systems
         public static double HpFactor(double hpRatio) =>
             TournamentBalance.HpFactorBase + (1 - TournamentBalance.HpFactorBase) * Math.Clamp(hpRatio, 0, 1);
 
-        /// <summary>個人の試合の強さ（運を除く）：部門の強さ×HP×満足度×豪胆。</summary>
+        /// <summary>個人の試合の強さ（運を除く）：部門の強さ×HP×満足度の段階と志向（§0.101）×豪胆。</summary>
         public static double MatchStrength(Adventurer a, TournamentDiscipline discipline)
         {
             double s = DisciplineStrength(a, discipline) * HpFactor(a.MaxHP > 0 ? (double)a.CurrentHP / a.MaxHP : 0);
-            if (a.Satisfaction < TournamentBalance.SatisfactionLowThreshold) s *= TournamentBalance.SatisfactionLowFactor;
-            else if (a.Satisfaction >= TournamentBalance.SatisfactionHighThreshold) s *= TournamentBalance.SatisfactionHighFactor;
+            s *= MoraleSystem.MemberFactor(a, Drive.Tournament); // 満足度の段階と志向（大会）の倍率（§0.101。旧・満足度40未満×0.9／80以上×1.05 を置き換え）
             if (a.HasTrait(TraitCatalog.BraveId)) s *= TournamentBalance.BraveFactor;
             return s;
         }

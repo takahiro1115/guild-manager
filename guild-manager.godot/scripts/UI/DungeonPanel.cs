@@ -317,7 +317,10 @@ public partial class DungeonPanel : ScrollContainer
 			var mission = isOut ? _state.ActiveDungeonMissions.FirstOrDefault(m => m.SavedPartyId == p.Id) : null;
 			string outText = mission == null ? "出撃中" : $"出撃中：{mission.Field.Name} 第{mission.CurrentFloor}層";
 			(string color, string status) = isOut ? ("cyan", outText) : reason != null ? ("orange", $"待機：{reason}") : ("lime", "次の週送りで出撃");
-			return $"[color=cyan]📋 {OrderSummary(p, isOut)}[/color]　[color={color}]（{status}）[/color]";
+			// 事故の危険（§0.102、⚠）：次に出るときにボイコット・拒否・命令無視が起きうる顔ぶれ
+			var risks = isOut ? new List<string>() : IncidentSystem.Risks(_state, p.MemberIds.Select(id => _state.FindAdventurer(id)).OfType<Adventurer>().ToList());
+			string riskText = risks.Count > 0 ? "\n　" + string.Join("\n　", risks.Select(r => $"[color=orange]⚠ {r}[/color]")) : "";
+			return $"[color=cyan]📋 {OrderSummary(p, isOut)}[/color]　[color={color}]（{status}）[/color]{riskText}";
 		});
 		_orderInfoLabel.AppendText(string.Join("\n", lines));
 	}
@@ -738,7 +741,7 @@ public partial class DungeonPanel : ScrollContainer
 		// 選んだ部隊で挑んだときの火力・要求・勝率（§0.98、報告 UI-01）
 		if (saved != null && !previewParty.IsEmpty && !boss.IsDefeated)
 		{
-			double power = DungeonResolver.CalculateBossPower(previewParty, boss);
+			double power = DungeonResolver.CalculateBossPower(previewParty, boss, _state);
 			double required = DungeonResolver.RequiredPower(boss, _state, previewParty);
 			_bossHeaderLabel.AppendText($"　｜　「{saved.Name}」火力 {power:F0}／要求 {required:F0} → {WinChanceText(DungeonResolver.WinChance(power, required))}");
 		}
@@ -1518,7 +1521,7 @@ public partial class DungeonPanel : ScrollContainer
 			: $"{DungeonBalance.UnexploredHpLossPctMin}〜{DungeonBalance.UnexploredHpLossPctMax}%";
 		var segments = DungeonTraversalResolver.DescribeSegments(_selectedField, 1, boss.Floor, _selectedField.ReachedFloor);
 
-		double power = DungeonResolver.CalculateBossPower(party, boss);
+		double power = DungeonResolver.CalculateBossPower(party, boss, _state);
 		double requiredPower = DungeonResolver.RequiredPower(boss, _state, party); // 迷宮の異変（主の衰え・猛り、§0.64）・再生の備え込み
 		double chance = DungeonResolver.WinChance(power, requiredPower); // 決戦の勝率（§0.98）
 		var stance = SelectedSavedParty()?.Stance ?? DoorStance.Standard;
@@ -1590,9 +1593,9 @@ public partial class DungeonPanel : ScrollContainer
 		double reqGuard = ScoutingResolver.RequiredGuardPower(boss);
 		var (carrier, carrierStat, carrierValue) = ScoutingResolver.FindGuardCarrier(party);
 		double guardSupport = ScoutingResolver.CalculateGuardSupportPower(party);
-		double stealth = ScoutingResolver.CalculateStealthScore(party);
+		double stealth = ScoutingResolver.CalculateStealthScore(party, _state);
 		double stealthReq = ScoutingResolver.StealthRequirement(boss);
-		double analysis = ScoutingResolver.CalculateAnalysisScore(party);
+		double analysis = ScoutingResolver.CalculateAnalysisScore(party, _state);
 		double analysisReq = ScoutingResolver.AnalysisRequirement(boss);
 		double analysisRatio = analysisReq <= 0 ? double.MaxValue : analysis / analysisReq;
 
@@ -1631,7 +1634,7 @@ public partial class DungeonPanel : ScrollContainer
 			return CardVerdict.Unavailable;
 		}
 
-		double gatheringScore = GatheringResolver.CalculateGatheringScore(party);
+		double gatheringScore = GatheringResolver.CalculateGatheringScore(party, _state);
 		var breakdown = GatheringResolver.BreakDownGatheringScore(party);
 		var eligible = MaterialBalance.GetEligibleMaterials(_selectedField.Id, _selectedField.ReachedFloor);
 		string baseYieldText = eligible.Count == 0

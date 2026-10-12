@@ -189,7 +189,7 @@ namespace GuildManager.Core.Tests
             state.Compatibility[CompatibilitySystem.NormalizeKey(friendly.Id, friend.Id)] = PersonalityBalance.ComradesFriendThreshold;
             state.Compatibility[CompatibilitySystem.NormalizeKey(lonely.Id, foe.Id)] = CompatibilityBalance.HostileThreshold - 1;
 
-            Week(state, new[] { Mission(DungeonMissionType.Scouting, friendly, friend), Mission(DungeonMissionType.Scouting, lonely, foe) });
+            Week(state, new[] { Mission(DungeonMissionType.Survey, friendly, friend), Mission(DungeonMissionType.Survey, lonely, foe) });
 
             Assert.Equal(50 + PersonalityBalance.SatisfactionMain, friendly.Satisfaction);
             Assert.Equal(50 + PersonalityBalance.MotiveNegativeMain, lonely.Satisfaction);

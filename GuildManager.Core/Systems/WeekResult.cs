@@ -59,6 +59,9 @@ namespace GuildManager.Core.Systems
         /// </summary>
         public bool SquadStalledAtBoss { get; set; }
 
+        /// <summary>限界の子に引き抜きの話が来た（§0.102。月を止めて答えを求める）。</summary>
+        public bool PoachOffered { get; set; }
+
         /// <summary>
         /// 月を1ターンとして進めているとき（→ AutoSkipService.AdvanceMonth、§0.70）、月の途中でも止めるか。
         /// 本当に決めることがあるときだけ止める：強制除籍・新しいフィールドの開放・娘の誕生・採用試験・依頼の期限・
@@ -69,14 +72,14 @@ namespace GuildManager.Core.Systems
         public bool ShouldStopMonth =>
             DeathOrPermanentInjuryOccurred || FieldUnlocked || SoulFusionBirthOccurred ||
             RecruitmentTrialOccurred || CommissionDeadlineNear || SatisfactionWarningOccurred ||
-            CommissionsOffered || SquadStalledAtBoss ||
+            CommissionsOffered || SquadStalledAtBoss || PoachOffered ||
             GameCleared || DefeatOccurred;
 
         public bool ShouldStopAutoSkip =>
             CommissionsOffered || AnomalyAnnounced || CommissionDeadlineNear ||
             RecruitmentTrialOccurred || SatisfactionWarningOccurred ||
             FacilityConstructionCompleted || SoulFusionBirthOccurred ||
-            SevereInjuryOccurred || BossDefeated || SquadStalledAtBoss ||
+            SevereInjuryOccurred || BossDefeated || SquadStalledAtBoss || PoachOffered ||
             DeathOrPermanentInjuryOccurred ||
             GameCleared ||
             DefeatOccurred;

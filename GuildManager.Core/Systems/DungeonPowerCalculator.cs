@@ -40,6 +40,7 @@ namespace GuildManager.Core.Systems
                 statSum *= 1.0 + CombatBalance.GiantHunterDamageBonusRate;
             // 猪突猛進（上乗せ）・戦慄（減少）（§0.56）。ボスを問わず効く。
             statSum *= 1.0 + TraitPowerModifier(a);
+            statSum *= MoraleSystem.MemberFactor(a, Drive.Dive); // 満足度の段階と志向（潜行）の倍率（§0.101）
             return statSum * hpRatio;
         }
 
@@ -60,10 +61,10 @@ namespace GuildManager.Core.Systems
         /// boss を渡すと巨獣狩りの上乗せ（→ MemberPower）が効く。
         /// 鼓舞（§0.62）の保有者が1人でもいれば、合計に (1＋InspiringPartyPowerBonus) を掛ける（何人いても1回分）。
         /// </summary>
-        public static double PartyPower(IEnumerable<Adventurer> members, FloorBoss? boss = null)
+        public static double PartyPower(IEnumerable<Adventurer> members, FloorBoss? boss = null, GameState? state = null)
         {
             var list = members.ToList();
-            double total = list.Sum(m => MemberPower(m, boss));
+            double total = list.Sum(m => MemberPower(m, boss) * MoraleSystem.PairFactor(state, m, list)); // 相棒・険悪の倍率は state を渡したときだけ（§0.101）
             if (list.Any(m => m.HasTrait(TraitCatalog.InspiringId)))
                 total *= 1.0 + TraitBalance.InspiringPartyPowerBonus;
             return total;

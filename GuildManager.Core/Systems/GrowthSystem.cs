@@ -82,7 +82,8 @@ namespace GuildManager.Core.Systems
 
                 // 勤勉（→ TraitCatalog.Diligent、03 §5.3.2・§6.2）：基礎確率に DiligentGrowthRateBonus を加算してから倍率を掛ける。
                 double baseBonus = (adventurer.HasTrait(TraitCatalog.DiligentId) ? TrainingBalance.DiligentGrowthRateBonus : 0)
-                    + (adventurer.HasTrait(TraitCatalog.FickleId) ? TraitBalance.FickleGrowthRatePenalty : 0); // 飽きっぽい（§0.56）
+                    + (adventurer.HasTrait(TraitCatalog.FickleId) ? TraitBalance.FickleGrowthRatePenalty : 0) // 飽きっぽい（§0.56）
+                    + MoraleSystem.GrowthBonus(adventurer, Drive.Training); // 志向（訓練）と上機嫌（§0.101）
                 var growthEvent = TryGrowOne(adventurer, multiplier * TraitGrowthMultiplier(adventurer), _ => targetStats[_rng.NextInt(0, targetStats.Length - 1)], baseBonus);
                 if (growthEvent != null)
                     events.Add(growthEvent);
@@ -118,7 +119,8 @@ namespace GuildManager.Core.Systems
                     _ => new[] { "VIT", "MND" }, // 部隊戦は走破力（VIT・MND）
                 };
                 double multiplier = GrowthBalance.TrainingFacilityMultiplier * TournamentBalance.PushGrowthMultiplier * GetResearchGrowthMultiplier(state);
-                var growthEvent = TryGrowOne(adventurer, multiplier * TraitGrowthMultiplier(adventurer), _ => stats[_rng.NextInt(0, stats.Length - 1)]);
+                var growthEvent = TryGrowOne(adventurer, multiplier * TraitGrowthMultiplier(adventurer), _ => stats[_rng.NextInt(0, stats.Length - 1)],
+                    MoraleSystem.GrowthBonus(adventurer, Drive.Tournament)); // 志向（大会）と上機嫌（§0.101）
                 if (growthEvent != null)
                     events.Add(growthEvent);
             }
@@ -137,7 +139,7 @@ namespace GuildManager.Core.Systems
 
                 string? chosen = adventurer.SelfTrainingStat;
                 var growthEvent = TryGrowOne(adventurer, TrainingBalance.SelfTrainingGrowthMultiplier * researchMultiplier * TraitGrowthMultiplier(adventurer),
-                    a => chosen ?? JobWeightedStat(a));
+                    a => chosen ?? JobWeightedStat(a), MoraleSystem.GrowthBonus(adventurer, Drive.Training)); // 志向（訓練）と上機嫌（§0.101）
                 if (growthEvent != null)
                     events.Add(growthEvent);
             }
@@ -225,7 +227,8 @@ namespace GuildManager.Core.Systems
                 if (member.CurrentHP <= 0 || !state.Adventurers.Contains(member))
                     continue;
 
-                int chancePercent = (int)Math.Round(DungeonBalance.GrowthBaseChancePercent * researchMultiplier * TraitGrowthMultiplier(member));
+                int chancePercent = (int)Math.Round(DungeonBalance.GrowthBaseChancePercent * researchMultiplier * TraitGrowthMultiplier(member)
+                    + MoraleSystem.GrowthBonus(member, MoraleSystem.DriveFor(missionType)) * 100); // 志向と上機嫌（%ポイント、§0.101）
 
                 for (int i = 0; i < rolls; i++)
                 {

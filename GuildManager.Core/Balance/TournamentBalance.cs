@@ -32,10 +32,6 @@ namespace GuildManager.Core.Balance
         public static readonly double RecommendStrengthRatio = BalanceData.GetDouble(FileName, "RecommendStrengthRatio");
         /// <summary>おすすめの申し込み（§0.99）：HPがこの割合以上なら追い込み、未満なら休養。</summary>
         public static readonly double RecommendPushHpRatio = BalanceData.GetDouble(FileName, "RecommendPushHpRatio");
-        public static readonly int SatisfactionLowThreshold = BalanceData.GetInt(FileName, "SatisfactionLowThreshold");
-        public static readonly double SatisfactionLowFactor = BalanceData.GetDouble(FileName, "SatisfactionLowFactor");
-        public static readonly int SatisfactionHighThreshold = BalanceData.GetInt(FileName, "SatisfactionHighThreshold");
-        public static readonly double SatisfactionHighFactor = BalanceData.GetDouble(FileName, "SatisfactionHighFactor");
         public static readonly double BraveFactor = BalanceData.GetDouble(FileName, "BraveFactor");
         public static readonly double PartyCompatibilityBonusMax = BalanceData.GetDouble(FileName, "PartyCompatibilityBonusMax");
         public static readonly int WinnerSatisfaction = BalanceData.GetInt(FileName, "WinnerSatisfaction");

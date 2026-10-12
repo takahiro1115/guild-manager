@@ -67,6 +67,9 @@ namespace GuildManager.Core.Systems
         /// </summary>
         public bool ArrivedAtBossDoor { get; set; }
 
+        /// <summary>扉前の命令無視（§0.102、→ IncidentSystem.RollDisobey）。無ければ null。</summary>
+        public IncidentEvent? Incident { get; set; }
+
         /// <summary>
         /// 扉前での判断（§0.69、→ SquadOrderSystem.JudgeEngage）：挑んだなら null、撤退したならその理由。
         /// ArrivedAtBossDoor が false なら使わない。

@@ -88,7 +88,7 @@ namespace GuildManager.Core.Systems
                 {
                     case WeekActivity.Help:
                         int before = state.ResearchCredit;
-                        state.ResearchCredit = Math.Min(TrainingBalance.ResearchCreditMax, state.ResearchCredit + GetHelpCredit(a));
+                        state.ResearchCredit = Math.Min(TrainingBalance.ResearchCreditMax, state.ResearchCredit + (int)Math.Round(GetHelpCredit(a) * MoraleSystem.HelpCreditMultiplier(a), MidpointRounding.AwayFromZero)); // 上機嫌は×1.5（§0.101）
                         int applied = MasterMoodSystem.Adjust(state, MasterMoodBalance.IdleAdventurerHelpMood);
                         moodApplied += applied;
                         week.HelpEntries.Add(new IdleHelpEntry(a.Id, a.Name, state.ResearchCredit - before, MasterMoodBalance.IdleAdventurerHelpMood, applied));

@@ -297,6 +297,8 @@ namespace GuildManager.Core.Models
         public bool? TutorialEnabled { get; set; }
         /// <summary>交渉の自動（§0.99）。キーの無い旧セーブは false（しない）。</summary>
         public bool AutoNegotiationBonus { get; set; }
+        /// <summary>引き抜きの話（§0.102）。</summary>
+        public List<PoachOffer>? PoachOffers { get; set; } = new();
 
         /// <summary>
         /// 掲示中・受けた依頼（→ GameState.Commissions、03 §4.9・§0.64）。GuildCommission は Guid・整数・文字列・列挙だけで

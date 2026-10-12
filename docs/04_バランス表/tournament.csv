@@ -11,10 +11,6 @@ LuckMin,0.9,倍,試合ごとの運の下限
 LuckMax,1.1,倍,試合ごとの運の上限
 HpFactorBase,0.6,倍,"試合の強さに掛けるHPの補正＝この値＋(1−この値)×HP比率"
 HpCostPerMatch,0.1,倍,1試合で使うHP（最大HPに対する割合。勝ち進むほど減る）
-SatisfactionLowThreshold,40,pt,満足度がこの値未満なら試合の強さ×SatisfactionLowFactor
-SatisfactionLowFactor,0.9,倍,満足度が低いときの試合の強さの倍率
-SatisfactionHighThreshold,80,pt,満足度がこの値以上なら試合の強さ×SatisfactionHighFactor
-SatisfactionHighFactor,1.05,倍,満足度が高いときの試合の強さの倍率
 BraveFactor,1.05,倍,豪胆（Brave）の試合の強さの倍率
 PartyCompatibilityBonusMax,0.1,倍,"部隊戦の強さに足す相性の補正の上限（ペアの相性の平均÷100×この値）"
 WinnerSatisfaction,10,pt,優勝した者の満足度の上昇

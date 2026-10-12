@@ -162,8 +162,8 @@ namespace GuildManager.Core.Systems
 
             if (OtherTarget(state, saved, boss, party) is { } other)
             {
-                double here = DungeonResolver.CalculateBossPower(party, boss);
-                double power = here > 0 ? stall.Power * DungeonResolver.CalculateBossPower(party, other.Boss) / here : 0;
+                double here = DungeonResolver.CalculateBossPower(party, boss, state);
+                double power = here > 0 ? stall.Power * DungeonResolver.CalculateBossPower(party, other.Boss, state) / here : 0;
                 double chance = DungeonResolver.WinChance(power, DungeonResolver.RequiredPower(other.Boss, state, party));
                 if (chance > now)
                     plan.Options.Add(new PlanOption
@@ -215,7 +215,7 @@ namespace GuildManager.Core.Systems
             var best = state.DungeonFields.Where(f => f.IsUnlocked && !f.Bosses.Contains(current)).OrderBy(f => f.Order)
                 .Select(f => (Field: f, Boss: f.GetNextActiveBoss()))
                 .Where(x => x.Boss != null)
-                .Select(x => (x.Field, Boss: x.Boss!, Ratio: DungeonResolver.CalculateBossPower(party, x.Boss!) / Math.Max(1.0, DungeonResolver.RequiredPower(x.Boss!, state, party))))
+                .Select(x => (x.Field, Boss: x.Boss!, Ratio: DungeonResolver.CalculateBossPower(party, x.Boss!, state) / Math.Max(1.0, DungeonResolver.RequiredPower(x.Boss!, state, party))))
                 .OrderByDescending(x => x.Ratio)
                 .FirstOrDefault();
             if (best.Boss == null) return null;

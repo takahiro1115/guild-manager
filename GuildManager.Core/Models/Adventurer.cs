@@ -665,6 +665,18 @@ namespace GuildManager.Core.Models
         /// <summary>個性（志向・気質・相性の素地と見立て、2026年10月・§0.100、→ Systems.PersonalitySystem）。旧セーブ・派遣の教官などは null（効き目なし）。</summary>
         public Personality? Personality { get; set; }
 
+        /// <summary>満足度の段階（§0.101、→ Systems.MoraleSystem。週の終わりに決め直す）。旧セーブはふつう。</summary>
+        public MoraleStage MoraleStage { get; set; }
+
+        /// <summary>ふさぎ込み（§0.102）：あと何週、出撃も訓練もせず静養するか。0なら無し。</summary>
+        public int GloomWeeksRemaining { get; set; }
+
+        /// <summary>焦り（§0.102）：次に出た週の決戦でHPの減りが増える。その週が終わると消える。</summary>
+        public bool Fretful { get; set; }
+
+        /// <summary>張り切り（§0.102）：次に出た週の力が上がる。その週が終わると消える。</summary>
+        public bool Pumped { get; set; }
+
         /// <summary>待機中の過ごし方（§0.73、→ IdleActivity・Systems.IdleActivitySystem）。旧セーブには無く、研究を手伝う（Help）で読まれる。</summary>
         public IdleActivity IdleActivity { get; set; } = IdleActivity.Help;
 

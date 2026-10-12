@@ -47,6 +47,12 @@ namespace GuildManager.Core.Systems
         /// <summary>見立てで志向・気質が新しく分かった分（§0.100、→ PersonalitySystem.ProcessWeek）。</summary>
         public List<PersonalityDiscovery> PersonalityDiscoveries { get; } = new();
 
+        /// <summary>今週さぼった子（§0.101、→ MoraleSystem.RollSlackers）。</summary>
+        public Dictionary<System.Guid, string> Slackers { get; } = new(); // Id → 名前（月のうちに去った子も月報に名前で出せるように）
+
+        /// <summary>満足度・相性の出来事と、引き抜きの話の期限切れの移籍（§0.102、→ IncidentSystem.ProcessWeek）。</summary>
+        public List<IncidentEvent> Incidents { get; } = new();
+
         /// <summary>アルベールの市販薬・内職売上（4週に1回のみ値が入る。→ EconomySystem.ProcessWeeklySideJobIncome）。</summary>
         public SideJobIncome? SideJobIncome { get; set; }
 

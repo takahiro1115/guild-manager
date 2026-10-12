@@ -131,7 +131,7 @@ namespace GuildManager.Core.Systems
             result.IntelSpeedMultiplier = steps.Count > 0 ? steps.Average(s => s.Speed) : IntelSpeedMultiplier(startSegmentBoss);
             result.DamageTakenMultiplier = steps.Count > 0 ? steps.Average(s => s.Damage) : DamageTakenMultiplier(startSegmentBoss) * miasma;
 
-            ApplyHpLoss(result, party, rank, steps, startSegmentBoss, miasma);
+            ApplyHpLoss(result, party, rank, steps, startSegmentBoss, miasma, state);
 
             return result;
         }
@@ -346,7 +346,7 @@ namespace GuildManager.Core.Systems
         {
             if (party.IsEmpty) return 0;
 
-            double score = party.Members.Sum(GetMemberTraversalValue)
+            double score = party.Members.Sum(m => GetMemberTraversalValue(m) * MoraleSystem.PairFactor(state, m, party.Members)) // 相棒・険悪（§0.101）
                 + party.Members[0].GetEffectiveStat("LDR") * DungeonTraversalBalance.WeightLdr;
 
             if (state != null)
@@ -370,7 +370,8 @@ namespace GuildManager.Core.Systems
             * (1.0
                + (member.HasTrait(TraitCatalog.PathfinderId) ? TraitBalance.PathfinderTraversalBonus : 0)    // 健脚（§0.55）
                + (member.HasTrait(TraitCatalog.MapReaderId) ? TraitBalance.MapReaderTraversalBonus : 0)     // 地図読み（§0.56）
-               + (member.HasTrait(TraitCatalog.PoorDirectionId) ? TraitBalance.PoorDirectionTraversalPenalty : 0)); // 方向音痴（§0.56）
+               + (member.HasTrait(TraitCatalog.PoorDirectionId) ? TraitBalance.PoorDirectionTraversalPenalty : 0)) // 方向音痴（§0.56）
+            * MoraleSystem.MemberFactor(member, Drive.Dive); // 満足度の段階と志向（潜行）の倍率（§0.101）
 
         /// <summary>道中進軍の要求値＝現在到達階層×係数×フィールド倍率（深く潜るほど道中も険しくなる）。</summary>
         public static double CurrentFloorRequirement(DungeonField field) => FloorRequirement(field, field.ReachedFloor);
@@ -432,7 +433,7 @@ namespace GuildManager.Core.Systems
         /// HPは下限1で止まり、致死判定・負傷状態には一切接続しない。
         /// 1階層も進めなかった場合は従来どおり、進軍ランクの率×出発区間の被ダメージ倍率を1回分受ける。
         /// </summary>
-        private void ApplyHpLoss(TraversalResult result, Party party, TraversalRank rank, List<TraversalStep> steps, FloorBoss? startSegmentBoss, double miasma)
+        private void ApplyHpLoss(TraversalResult result, Party party, TraversalRank rank, List<TraversalStep> steps, FloorBoss? startSegmentBoss, double miasma, GameState? state = null)
         {
             var (rankMin, rankMax) = RankHpLossRange(rank);
             bool needRank = steps.Count == 0 || steps.Any(s => !s.Unexplored);
@@ -461,6 +462,7 @@ namespace GuildManager.Core.Systems
                     ? rankPct * DamageTakenMultiplier(startSegmentBoss) * miasma
                     : steps.Sum(s => (s.Unexplored ? unexploredPct : rankPct) * s.Damage) / steps.Count;
                 effectivePct = Math.Max(0, effectivePct - blessing);
+                effectivePct *= MoraleSystem.TraversalHpLossMultiplier(state, member, party.Members); // 不満・限界、険悪な相手と一緒（§0.101）
 
                 int hpLoss = (int)Math.Floor(member.MaxHP * effectivePct / 100.0 + LossEpsilon);
                 int newHp = Math.Max(MinHp, member.CurrentHP - hpLoss);

@@ -510,6 +510,14 @@ public partial class PartyFormationPanel : VBoxContainer
 
 		var pairs = PartyFormationSystem.GetCompatibilityPairs(_state, currentParty.MemberIds);
 		var hostilePairs = pairs.Where(p => p.IsHostile).ToList();
+		string Name(Guid id) => _state.Adventurers.FirstOrDefault(a => a.Id == id)?.Name ?? "（不明）";
+		// 相棒（相性80以上、§0.101）：連携で力が上がり、決戦では除籍・重傷をかばうことがある
+		foreach (var pair in pairs.Where(p => MoraleSystem.IsBuddy(_state, p.IdA, p.IdB)))
+			_compatibilityWarningLabel.AppendText($"[color=#ffb6d9]🛡 相棒：{Name(pair.IdA)}・{Name(pair.IdB)}[/color]\n");
+		// 事故の危険（§0.102、⚠。表示するかは personality.csv ShowAccidentWarnings）
+		var risks = IncidentSystem.Risks(_state, currentParty.MemberIds.Select(id => _state.FindAdventurer(id)).OfType<Adventurer>().ToList());
+		foreach (var risk in risks)
+			_compatibilityWarningLabel.AppendText($"[color=orange]⚠ {risk}[/color]\n");
 
 		if (hostilePairs.Count == 0)
 		{
@@ -1138,7 +1146,7 @@ public partial class PartyFormationPanel : VBoxContainer
 
 		if (!_partyFormationSystem.TryAssignMember(_state, currentParty, a.Id))
 		{
-			_statusLabel.Text = $"{a.Name} の配属に失敗しました。";
+			_statusLabel.Text = IncidentSystem.AssignBlockReason(_state, currentParty, a.Id) ?? $"{a.Name} の配属に失敗しました。"; // 犬猿の相手がいると断られる（§0.102）
 			return;
 		}
 

@@ -94,5 +94,14 @@ namespace GuildManager.Core.Systems
         /// 現役ロースターから外れる点は戦死と同じ（呼び出し側で除籍処理を行う）。
         /// </summary>
         public HashSet<Guid> ForceRetiredAdventurerIds { get; set; } = new();
+
+        /// <summary>相棒のかばい合い（§0.101、→ DungeonResolver.ApplyHpLoss）。</summary>
+        public List<GuardEvent> GuardEvents { get; set; } = new();
     }
+}
+
+namespace GuildManager.Core.Systems
+{
+    /// <summary>決戦で相棒が損耗を分け合ってかばった1件（§0.101）。Share は相棒が引き受けたHP。</summary>
+    public sealed record GuardEvent(System.Guid GuardianId, string GuardianName, System.Guid ProtectedId, string ProtectedName, int Share);
 }
