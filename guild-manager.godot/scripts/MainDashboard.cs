@@ -989,7 +989,26 @@ public partial class MainDashboard : Control
 		var settlement = _monthlyReportSettlement;
 		_monthlyReportSettlement = null;
 		// 月のはじめの場面（§0.86：最初の月報のあと・長老の来訪・交流戦の申し込みなど）を見せてから、残りの割り込みへ
-		ShowStory(StoryTiming.AfterReport, () => HandlePostSettlementInterruptions(settlement));
+		ShowStory(StoryTiming.AfterReport, () => ShowExchangeUnlocks(() => HandlePostSettlementInterruptions(settlement)));
+	}
+
+	/// <summary>交流戦のあとの助言で開いた施設の知らせ（施設の知らせの小窓）。交流戦の場面のあとに見せる。無ければすぐ then。</summary>
+	private void ShowExchangeUnlocks(Action then)
+	{
+		var notices = _pendingExchangeUnlocks;
+		_pendingExchangeUnlocks = new List<FacilityUnlockNotice>();
+		if (notices.Count == 0)
+		{
+			then();
+			return;
+		}
+		void OnClosed()
+		{
+			_tournamentResultPopup.Closed -= OnClosed;
+			Callable.From(then).CallDeferred(); // 別の排他ウィンドウは閉じ切ってから開く
+		}
+		_tournamentResultPopup.Closed += OnClosed;
+		_tournamentResultPopup.ShowResults(new List<TournamentEvent>(), notices);
 	}
 
 	/// <summary>月報の「来月への注意」から画面へ移る。</summary>
@@ -1047,6 +1066,13 @@ public partial class MainDashboard : Control
 	/// 月の途中で止める条件（→ WeekResult.ShouldStopMonth）が成り立てばそこで止まる。週ごとの記録を流したあと、月報を出す。
 	/// 処理はメインスレッドで同期的に終わるので、処理中に他の入力が割り込む余地は無い。
 	/// </summary>
+	/// <summary>月の途中で止まったときの、その月ここまでの週と、月のはじめの所持金（続きの月報にまとめるため。セーブには残さない）。</summary>
+	private List<AutoSkipWeek> _monthCarryWeeks = new();
+	private int _monthCarryGoldBefore;
+
+	/// <summary>この月の交流戦のあとの助言で開いた施設（月報と交流戦の場面のあとに知らせる）。</summary>
+	private List<FacilityUnlockNotice> _pendingExchangeUnlocks = new();
+
 	private void AdvanceMonth()
 	{
 		DisableWeekAdvancement();
@@ -1073,7 +1099,19 @@ public partial class MainDashboard : Control
 		string weekly = _logCapture.ToString();
 		_logCapture = null;
 
-		var report = MonthlyReport.Build(_state, weeks, goldBefore);
+		// 月の途中で止まったあとの続きなら、その月のはじめの週からまとめて月報にする（第1週の行動も部隊の欄に出す）。途中経過の月報は、まとめた月報に置き換える
+		var reportWeeks = weeks;
+		int reportGoldBefore = goldBefore;
+		if (weeks.Count > 0 && _monthCarryWeeks.Count > 0 && weeks[0].Settlement.Flags.Week == _monthCarryWeeks[^1].Settlement.Flags.Week + 1)
+		{
+			reportWeeks = _monthCarryWeeks.Concat(weeks).ToList();
+			reportGoldBefore = _monthCarryGoldBefore;
+			if (_state.MonthlyReports.Count > 0 && !_state.MonthlyReports[^1].MonthCompleted && _state.MonthlyReports[^1].LastWeek == _monthCarryWeeks[^1].Settlement.Flags.Week)
+				_state.MonthlyReports.RemoveAt(_state.MonthlyReports.Count - 1);
+		}
+		var report = MonthlyReport.Build(_state, reportWeeks, reportGoldBefore);
+		_monthCarryWeeks = report.MonthCompleted ? new List<AutoSkipWeek>() : reportWeeks;
+		_monthCarryGoldBefore = reportGoldBefore;
 		MonthlyReport.Record(_state, report); // 直近12か月をセーブに残す（§0.71）
 
 		_saveLoadService.Save(_state);
@@ -1093,7 +1131,9 @@ public partial class MainDashboard : Control
 		_monthlyReportSettlement = last;
 		// 大会に出た月・施設が開いた月は、月報の前に大会の結果の小窓（トーナメント表と施設の知らせ）を見せる（§0.82）
 		var tournaments = weeks.SelectMany(w => w.Settlement.TournamentsResolved).ToList();
-		var unlocks = weeks.SelectMany(w => w.Settlement.FacilityUnlocks).ToList();
+		// 交流戦のあとのイザベラの助言で開いた施設は、交流戦の場面（月報のあと）を見てから知らせる。それ以外（大会のご褒美など）は大会の結果といっしょに
+		_pendingExchangeUnlocks = weeks.SelectMany(w => w.Settlement.ExchangeMatches).Select(m => m.OpenedFacility).OfType<FacilityUnlockNotice>().ToList();
+		var unlocks = weeks.SelectMany(w => w.Settlement.FacilityUnlocks).Where(u => !_pendingExchangeUnlocks.Contains(u)).ToList();
 		void ShowReport() => _monthlyReportPopup.ShowMonth(report, weekly, allowNext: !interrupted);
 		// 年度末に満期で引退した者は、大会の結果のあと・月報の前に引退式（1人1枚、大会と育成の栄光 段2）
 		var retirees = weeks.SelectMany(w => w.Settlement.Retirees).Select(id => _state.FindAdventurer(id)).Where(a => a != null).ToList();

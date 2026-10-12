@@ -61,7 +61,7 @@ theme_override_constants/separation = 2
 layout_mode = 2
 theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
 theme_override_font_sizes/font_size = 15
-text = "🗺 ダンジョンを選ぶ（下の▼で切り替え。選んだ部隊の方針の出撃先にもなる）"
+text = "🗺 ダンジョンを選ぶ"
 
 [node name="FieldSelector" type="OptionButton" parent="Margin/MainHBox/ZoneA/ZoneAMargin/ZoneAVBox/FieldSelectVBox"]
 unique_name_in_owner = true
@@ -139,6 +139,7 @@ theme_override_font_sizes/normal_font_size = 15
 theme_override_font_sizes/bold_font_size = 15
 
 [node name="MaterialsCard" type="PanelContainer" parent="Margin/MainHBox/ZoneA/ZoneAMargin/ZoneAVBox"]
+unique_name_in_owner = true
 layout_mode = 2
 
 [node name="Margin" type="MarginContainer" parent="Margin/MainHBox/ZoneA/ZoneAMargin/ZoneAVBox/MaterialsCard"]
@@ -170,6 +171,7 @@ size_flags_vertical = 3
 theme_override_constants/separation = 8
 
 [node name="ZoneB" type="PanelContainer" parent="Margin/MainHBox/RightColumn"]
+unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 0
 clip_contents = true

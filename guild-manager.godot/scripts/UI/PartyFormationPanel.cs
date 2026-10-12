@@ -149,6 +149,11 @@ public partial class PartyFormationPanel : VBoxContainer
 		_averageHpLabel = GetNode<Label>("%AverageHpLabel");
 		_averageHpBar = GetNode<ProgressBar>("%AverageHpBar");
 		_compatibilityWarningLabel = GetNode<RichTextLabel>("%CompatibilityWarningLabel");
+		// 部隊内相性は、進軍・解析・採取・健全度の4枚の下に、横いっぱいで出す（健全度の列が細くて折り返していた）
+		var compatibilityCard = GetNode<PanelContainer>("%CompatibilityCard");
+		var summaryVBox = GetNode<VBoxContainer>("SummaryPanel/Margin/SummaryVBox");
+		compatibilityCard.GetParent().RemoveChild(compatibilityCard);
+		summaryVBox.AddChild(compatibilityCard);
 		SetMetricTooltips();
 
 		for (int i = 0; i < 4; i++)

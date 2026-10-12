@@ -106,6 +106,33 @@ public partial class DungeonPanel : ScrollContainer
 	private PanelContainer _anomalyCard = null!;
 	private RichTextLabel _anomalySummaryLabel = null!;
 
+	/// <summary>
+	/// ボスの欄（ZoneB）と「このフィールドで採れる素材」の欄を、右列の上に横に並べる（ボスの欄が左、素材が右）。
+	/// 左の探索状況は縦バーだけにして幅を狭くする。シーンは変えずにコードで組み替える。
+	/// </summary>
+	private void MoveInfoToRightTop()
+	{
+		var zoneB = GetNode<PanelContainer>("%ZoneB");
+		var materials = GetNode<PanelContainer>("%MaterialsCard");
+		var rightColumn = zoneB.GetParent();
+
+		var row = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+		row.AddThemeConstantOverride("separation", 8);
+		rightColumn.RemoveChild(zoneB);
+		zoneB.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		zoneB.SizeFlagsVertical = SizeFlags.ShrinkBegin;
+		row.AddChild(zoneB);
+		materials.GetParent().RemoveChild(materials);
+		materials.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		zoneB.SizeFlagsStretchRatio = 2; // 幅はボス2：素材1
+		materials.SizeFlagsStretchRatio = 1;
+		materials.SizeFlagsVertical = SizeFlags.ShrinkBegin;
+		row.AddChild(materials);
+
+		rightColumn.AddChild(row);
+		rightColumn.MoveChild(row, 0);
+	}
+
 	public override void _Ready()
 	{
 		// Zone A
@@ -126,6 +153,7 @@ public partial class DungeonPanel : ScrollContainer
 		_intelTierLabel = GetNode<RichTextLabel>("%IntelTierLabel");
 		_completeBadgeLabel = GetNode<RichTextLabel>("%CompleteBadgeLabel");
 		_gimmickContainer = GetNode<GridContainer>("%GimmickContainer");
+		MoveInfoToRightTop();
 
 		// Zone C
 		_squadButtons = GetNode<HBoxContainer>("%SquadButtons");
@@ -624,9 +652,8 @@ public partial class DungeonPanel : ScrollContainer
 		string state = boss.IsDefeated ? "　[color=#4ade80]✔ 撃破済み[/color]"
 			: viewingOther ? "　[color=#fbbf24]（閲覧中）[/color]"
 			: "　[color=#fb923c]⚔ 現在の目標[/color]";
-		_bossHeaderLabel.AppendText($"[font_size=18][b]第{boss.Floor}層の主「{boss.Name}」[/b][/font_size]{state}");
-		// §0.97：ボスの欄は2行に縮めた（提案書 UI-02。部隊と見立ての欄を広く使う）。
-		// 1行目＝名前・解析率・HP・完全解析、2行目＝特殊能力と選んだ部隊の備え。詳しい説明・対策はツールチップと深さの目盛りのツールチップへ
+		_bossHeaderLabel.AppendText($"[font_size=18][b]第{boss.Floor}層の主「{boss.Name}」[/b][/font_size]\n{state.Trim('　')}");
+		// ボスの欄は3行（§0.97 で縮め、テストプレイの手直しで見やすく改行）：1行目＝第N層の主と名前、2行目＝現在の目標・解析率・HP・完全解析、3行目＝特殊能力と選んだ部隊の備え。詳しい説明・対策はツールチップと深さの目盛りのツールチップへ
 		string hpText = tier < IntelTier.Basic ? "HP ？？？" : $"HP {boss.CurrentHp}/{boss.MaxHp}";
 		string complete = tier == IntelTier.Complete ? $"　[color=gold]◆ 完全解析（与ダメージ+{DungeonBalance.FullIntelDamageBonus * 100:F0}%）[/color]" : "";
 		_bossHeaderLabel.AppendText($"　解析 [color={TierColor(tier)}]{boss.IntelRate * 100:F0}%（{TierLabel(tier)}）[/color]　{hpText}{complete}");
@@ -677,7 +704,7 @@ public partial class DungeonPanel : ScrollContainer
 	private static string GimmickSummary(FloorBoss boss, IntelTier tier, Party party)
 	{
 		if (tier < IntelTier.Hazards)
-			return "[color=yellow]特殊能力：？？？（解析率50%で判明）[/color]";
+			return "[color=yellow]特殊能力：？？？？（解析率50%で判明）[/color]";
 		if (boss.Gimmicks.Count == 0)
 			return "[color=lime]特殊能力なし[/color]";
 		var parts = boss.Gimmicks.Select(g =>

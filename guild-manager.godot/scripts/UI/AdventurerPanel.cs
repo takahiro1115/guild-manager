@@ -614,15 +614,17 @@ public partial class AdventurerPanel : VBoxContainer
 		BindStatRow(_barLDR, _valLDR, a, "LDR");
 
 		// ---- 8年稼働タイムライン ----
-		// 満期は年齢で決まる（24歳なら残り2年）ため、残り週数は Core が年齢と今の週から出し、在籍期間の全体はその分に合わせる
+		// 満期は年齢で決まる（24歳なら残り2年）ため、残り週数は Core が年齢と今の週から出す。
+		// バーは「18歳加入〜26歳満期の8年」の全体で、今の年齢の位置から始まる（24歳なら4分の3まで進んだ状態。ギルドに入ってからの週数ではない）
 		int remainingWeeks = AgingSystem.GetRemainingActiveWeeks(a, _state?.WeekNumber ?? 1);
-		int maxWeeks = Math.Max(1, a.ActiveWeeks + remainingWeeks);
+		int maxWeeks = Math.Max(1, (AgingSystem.RetirementAge - 18) * GameCalendar.WeeksPerYear);
+		int progressWeeks = a.NeverRetires ? Math.Min(a.ActiveWeeks, maxWeeks) : Math.Clamp(maxWeeks - remainingWeeks, 0, maxWeeks);
 		_timelineBar.MaxValue = maxWeeks;
-		_timelineBar.Value = Math.Min(a.ActiveWeeks, maxWeeks);
+		_timelineBar.Value = progressWeeks;
 
 		int severanceEstimate = AgingSystem.CalculateSeverancePay(a);
 
-		_activeWeeksLabel.Text = $"在籍期間: {a.ActiveWeeks} / {maxWeeks}週";
+		_activeWeeksLabel.Text = $"在籍期間: {a.ActiveWeeks}週　（8年のうち {progressWeeks} / {maxWeeks}週）";
 		_remainingWeeksLabel.Text = a.NeverRetires ? "引退しない（年を取らないエルフ）" : $"引退まで: 残り {remainingWeeks}週";
 		_contributionScoreLabel.Text = $"累積功績スコア: {a.TotalContributionScore} pt";
 		_severanceEstimateLabel.Text = $"退職金見込額: {severanceEstimate:N0} G";

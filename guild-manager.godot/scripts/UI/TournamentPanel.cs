@@ -278,10 +278,7 @@ public partial class TournamentPanel : HBoxContainer
 		UiStyles.ApplyPanelArt(card);
 
 		var header = NewText();
-		header.Text = $"[b][color=plum]⚔ {ev.Name}[/color][/b]　剣・魔・技の1対1の3本勝負（2勝で勝ち）・第{ev.Week}週" +
-			(IsabellaSystem.TournamentsOpen(_state)
-				? (_state.ExchangeWins == 0 ? "\n[color=lightgreen]初めて勝つと、教官のマルグリットが半年派遣される[/color]" : $"\n[color=lightgreen]勝てば賞金{IsabellaBalance.ExchangePrize}G・機嫌+{IsabellaBalance.ExchangeMood}[/color]")
-				: "\n[color=lightgreen]勝敗にかかわらず、このあとイザベラが訓練所を1つ勧めてくれ、次の月から大会に出られる。勝てば教官のマルグリットが半年派遣される[/color]");
+		header.Text = $"[b][color=plum]⚔ {ev.Name}[/color][/b]　剣・魔・技の1対1の3本勝負（2勝で勝ち）・第{ev.Week}週";
 		box.AddChild(header);
 
 		if (ev.Result != null)

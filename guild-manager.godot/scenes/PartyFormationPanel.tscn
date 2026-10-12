@@ -270,6 +270,7 @@ value = 100.0
 show_percentage = false
 
 [node name="CompatibilityCard" type="PanelContainer" parent="SummaryPanel/Margin/SummaryVBox/SummaryHBox/StatusColumn"]
+unique_name_in_owner = true
 layout_mode = 2
 
 [node name="Margin" type="MarginContainer" parent="SummaryPanel/Margin/SummaryVBox/SummaryHBox/StatusColumn/CompatibilityCard"]
@@ -725,14 +726,6 @@ layout_mode = 2
 layout_mode = 2
 size_flags_horizontal = 3
 text = "編成候補（待機冒険者一覧）"
-
-[node name="Guidance" type="Label" parent="CandidatePanel/Margin/VBox/CandidateHeaderHBox"]
-layout_mode = 2
-size_flags_horizontal = 3
-autowrap_mode = 3
-theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
-theme_override_font_sizes/font_size = 15
-text = "※見出しクリックで並べ替え（能力値は装備・特性込みの実効値）。行にマウスを重ねると配属後の指標を上に表示"
 
 [node name="CandidateScroll" type="ScrollContainer" parent="CandidatePanel/Margin/VBox"]
 unique_name_in_owner = true
