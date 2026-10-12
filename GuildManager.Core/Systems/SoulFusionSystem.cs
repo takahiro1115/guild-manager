@@ -197,7 +197,7 @@ namespace GuildManager.Core.Systems
         /// <summary>
         /// 子を生成する（状態は変えない。TryPrescribe から呼ぶ。テスト用に公開）。乱数を引く順：
         /// 名前（文化圏・名）→ 能力ごとのばらつき（STR, AGI, VIT, MND, DEX, LDR, INT）→ 限界突破の判定（→ 当たれば上乗せ量）
-        /// → 特性の継承（親A の枠順、親B の枠順で1つずつ）→ 先天判定（→ RecruitmentSystem.RollInnateTraits）。顔は別の乱数。
+        /// → 特性の継承（親A の枠順、親B の枠順で1つずつ）→ 先天判定（→ RecruitmentSystem.RollInnateTraits）→ 魂魄の申し子 → 見立てのずれ → 個性（→ PersonalitySystem.AssignChild）。顔は別の乱数。
         /// </summary>
         public SoulFusionCulture CreateChild(GameState state, Adventurer a, Adventurer b, JobClass childJob, string? catalystMaterialId)
         {
@@ -257,6 +257,7 @@ namespace GuildManager.Core.Systems
             if (_rng.NextInt(1, 100) <= SoulFusionBalance.SoulChildChancePercent)
                 child.TryAddTrait(TraitCatalog.SoulChildId);
             PotentialEstimateSystem.AssignOffsets(child, _rng); // 副官の見立てのずれ（§0.74。親が分かっているので幅は半分）
+            PersonalitySystem.AssignChild(state, child, a, b, _rng); // 志向・気質、相性の素地は両親の中点の近く（§0.100）
             RecruitmentSystem.FinishNewcomer(state, child);
 
             AssignPortrait(state, child, a, b);

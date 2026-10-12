@@ -232,6 +232,7 @@ namespace GuildManager.Core.Systems
         {
             double clamped = Math.Clamp(multiplier, SatisfactionBalance.MinRaiseMultiplier, SatisfactionBalance.MaxRaiseMultiplier);
             adventurer.WeeklyWage = (int)Math.Round(adventurer.WeeklyWage * clamped);
+            PersonalitySystem.NotifyMoneyJoy(adventurer); // 志向「お金」の喜ぶきっかけ（§0.100）
             ResolveNegotiation(adventurer);
         }
 
@@ -241,6 +242,7 @@ namespace GuildManager.Core.Systems
         public void PayBonus(GameState state, Adventurer adventurer)
         {
             state.Gold -= adventurer.WeeklyWage * SatisfactionBalance.BonusWeeksEquivalent;
+            PersonalitySystem.NotifyMoneyJoy(adventurer); // 志向「お金」の喜ぶきっかけ（§0.100）
             ResolveNegotiation(adventurer);
         }
 
@@ -276,7 +278,7 @@ namespace GuildManager.Core.Systems
             age >= SatisfactionBalance.OpportunityPenaltyMinAge && age <= SatisfactionBalance.OpportunityPenaltyMaxAge;
 
         /// <summary>適正週給＝総合PA×係数。浪費家（§0.56）は SpendthriftWageMultiplier 倍。</summary>
-        private static double GetAppropriateWage(Adventurer adventurer) =>
+        internal static double GetAppropriateWage(Adventurer adventurer) =>
             adventurer.TotalPA * SatisfactionBalance.AppropriateWageCoefficient
             * (adventurer.HasTrait(TraitCatalog.SpendthriftId) ? TraitBalance.SpendthriftWageMultiplier : 1.0);
 
@@ -300,7 +302,7 @@ namespace GuildManager.Core.Systems
             return events;
         }
 
-        private static void Adjust(Adventurer adventurer, int delta) =>
+        internal static void Adjust(Adventurer adventurer, int delta) =>
             adventurer.Satisfaction = Math.Clamp(adventurer.Satisfaction + delta, SatisfactionBalance.Min, SatisfactionBalance.Max);
     }
 }

@@ -112,6 +112,7 @@ namespace GuildManager.Core.Systems
             // 大迷宮への出撃（道中進軍・ボス討伐・採取・迷宮調査）を1週分進める
             // （→ DungeonExpeditionSystem）。潜行は複数週にわたって進み、未撃破ボスの扉前に
             // 着いたらその週のうちに構えで判断して決戦か撤退をする（§0.69。扉前で止まることは無い）。
+            var missionsAtStart = state.ActiveDungeonMissions.ToList(); // 志向の判定（§0.100）：今週出撃していた任務（帰還で消える前に控える）
             result.DungeonMissionResolutions.AddRange(_dungeonExpeditionSystem.ProcessWeeklyMissions(state));
             foreach (var resolution in result.DungeonMissionResolutions)
             {
@@ -178,6 +179,7 @@ namespace GuildManager.Core.Systems
             // 年末のギルドの順位表（§0.94）：年の最後の週に、その年の大会（王都最強決定戦まで）を終えてから確定し、1位・2位にご褒美。
             result.YearStanding = GuildStandingSystem.ProcessWeek(state);
 
+            result.PersonalityDiscoveries.AddRange(PersonalitySystem.ProcessWeek(state, thisWeek, missionsAtStart, result.DungeonMissionResolutions, result.Activities)); // → §0.100：志向・気質による満足度と見立て
             _satisfactionSystem.ProcessWeeklySatisfaction(state, dispatchedIds); // → 03 §5.1：満足度変動
             result.TraitGrantEvents.AddRange(_satisfactionSystem.ProcessWeeklyBurnout(state)); // → 03 §5.3.2・§0.56：燃え尽き（連続出撃）
             result.NegotiationTerminated.AddRange(_satisfactionSystem.ProcessWeeklyNegotiation(state)); // → 03 §5.2：契約交渉・退団

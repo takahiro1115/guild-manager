@@ -76,6 +76,12 @@ namespace GuildManager.Core.Data
                 a.Placement = PlacementRules.GetDefault(a.JobClass);
             }
 
+            // 個性（§0.100）：初期の3人は決めておく（見立ては採用の子と同じく「？」から）。
+            // クラウディア＝潜行好きで大胆、リナ＝採取好き（調査も）で中庸、フィオナ＝仲間思いで慎重・大会が苦手。相性の素地はばらけさせる。
+            list[0].Personality = new Personality { Main = Drive.Dive, Sub = Drive.Fame, Temperament = 1, Affinity = 20, HintDrive = Drive.Dive, LastFameWeek = 1 };
+            list[1].Personality = new Personality { Main = Drive.Gather, Sub = Drive.Survey, Temperament = 0, Affinity = 60, HintDrive = Drive.Gather, LastFameWeek = 1 };
+            list[2].Personality = new Personality { Main = Drive.Comrades, Disliked = Drive.Tournament, Temperament = -1, Affinity = 170, HintDrive = Drive.Comrades, LastFameWeek = 1 };
+
             return list;
         }
 

@@ -238,6 +238,9 @@ namespace GuildManager.Core.Systems
                     Add($"{left.Name}が契約交渉の末に退団した", MonthlyTone.Bad);
                 foreach (var bonus in s.AutoBonuses)
                     Add($"{bonus.Adventurer.Name}の契約の不満に、ボーナス{bonus.Gold}Gで応えた（交渉の自動）", MonthlyTone.Normal);
+                foreach (var found in s.PersonalityDiscoveries)
+                    if (PersonalitySystem.DiscoveryText(found) is { } text)
+                        Add($"🔎 {text}", MonthlyTone.Normal); // 見立てで分かった志向・気質（§0.100）
                 foreach (var done in s.Commissions.Completed)
                     Add(done.LoanedAdventurerName != null
                         ? $"依頼を果たした（{done.ClientName}）：{done.LoanedAdventurerName}をひと季節派遣した"

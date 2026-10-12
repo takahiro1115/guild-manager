@@ -296,6 +296,10 @@ public partial class RecruitmentPopup : PopupPanel
 			(c.TraitIds.Count == 0 ? "[color=#e6e666]なし[/color]" : string.Join("[color=#e6e666]・[/color]", c.TraitIds.Select(TraitText))) + "[/font_size]");
 		info.AddChild(traitLabel);
 
+		// 4行目：志願者の一言（§0.100）。志向を匂わせるが、本心とずれることもある（入ってから見立てで分かる）
+		if (c.Personality is { } personality)
+			info.AddChild(MakeLabel(GuildManager.Core.Systems.PersonalitySystem.HintText(personality.HintDrive), 15, new Color(0.75f, 0.85f, 0.95f)));
+
 		return card;
 	}
 

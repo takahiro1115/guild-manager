@@ -44,6 +44,8 @@ public partial class AdventurerPanel : VBoxContainer
 	private Label _satisfactionLabel = null!;
 	private ProgressBar _hpBar = null!;
 	private ProgressBar _satisfactionBar = null!;
+	/// <summary>志向・気質の見立て（§0.100）。満足度のバーの下にコードで置く。</summary>
+	private RichTextLabel _personalityLabel = null!;
 
 	// ---- 7大能力値 ----
 	private TripleStatBar _barSTR = null!;
@@ -155,6 +157,10 @@ public partial class AdventurerPanel : VBoxContainer
 		_satisfactionLabel = GetNode<Label>("%SatisfactionLabel");
 		_hpBar = GetNode<ProgressBar>("%HpBar");
 		_satisfactionBar = GetNode<ProgressBar>("%SatisfactionBar");
+		_personalityLabel = new RichTextLabel { BbcodeEnabled = true, FitContent = true, ScrollActive = false, SizeFlagsHorizontal = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Pass };
+		var conditionGrid = _satisfactionBar.GetParent<Control>(); // HP・満足度の表（グリッド）の下の行に置く
+		conditionGrid.GetParent().AddChild(_personalityLabel);
+		conditionGrid.GetParent().MoveChild(_personalityLabel, conditionGrid.GetIndex() + 1);
 
 		// 7大能力値
 		_barSTR = GetNode<TripleStatBar>("%Bar_STR");
@@ -573,6 +579,7 @@ public partial class AdventurerPanel : VBoxContainer
 		_satisfactionLabel.Text = $"満足度: {a.Satisfaction} / 100";
 		_satisfactionBar.MaxValue = 100;
 		_satisfactionBar.Value = Math.Clamp(a.Satisfaction, 0, 100);
+		FillPersonality(a);
 
 		_wageLabel.Text = $"週給: {a.WeeklyWage} G";
 
@@ -677,6 +684,43 @@ public partial class AdventurerPanel : VBoxContainer
 	/// バー全幅は常に上限100（→ TripleStatBar。§0.30で4層、§0.36で特性補正を分離）。実効値は特性・装備込み
 	/// （→ Adventurer.GetEffectiveStat）で、特性補正後＝実効値 − 装備の能力値補正。行の右端の書式は TripleStatBar.FormatLabel。
 	/// </summary>
+	/// <summary>
+	/// 志向・気質の見立て（§0.100）。分かったものだけ名札で出し、「らしい」は「?」を付ける。相性の素地は出さない（隠す）。
+	/// 個性の無い子（旧セーブ・派遣の教官）は行ごと隠す。判定は Core（PersonalitySystem.Knowledge）。
+	/// </summary>
+	private void FillPersonality(Adventurer a)
+	{
+		_personalityLabel.Clear();
+		var state = _state;
+		_personalityLabel.Visible = a.Personality != null && state != null;
+		if (a.Personality is not { } p || state == null) return;
+		var known = new System.Collections.Generic.List<string>();
+		var neutral = new System.Collections.Generic.List<string>();
+		foreach (var drive in PersonalitySystem.AllDrives)
+		{
+			var level = PersonalitySystem.Knowledge(state, a, drive);
+			if (level == PersonalityKnowledge.Unknown) continue;
+			string q = level == PersonalityKnowledge.Likely ? "?" : "";
+			string label = PersonalitySystem.DriveLabel(drive);
+			switch (p.AttitudeOf(drive))
+			{
+				case DriveAttitude.Main: known.Insert(0, $"[color=gold]{PersonalitySystem.DriveIcon(drive)} {PersonalitySystem.DriveTitle(drive)}{q}[/color]"); break;
+				case DriveAttitude.Sub: known.Add($"[color=lightgreen]{label}も好き{q}[/color]"); break;
+				case DriveAttitude.Disliked: known.Add($"[color=#ff9a9a]{label}が苦手{q}[/color]"); break;
+				default: neutral.Add(label + q); break;
+			}
+		}
+		var tLevel = PersonalitySystem.Knowledge(state, a, PersonalitySystem.TemperamentKey);
+		string temperament = tLevel == PersonalityKnowledge.Unknown ? "？"
+			: PersonalitySystem.TemperamentLabel(p.Temperament) + (tLevel == PersonalityKnowledge.Likely ? "?" : "");
+		_personalityLabel.AppendText($"[font_size=15][color=gray]志向:[/color] {(known.Count > 0 ? string.Join("・", known) : "？")}" +
+			(neutral.Count > 0 ? $"　[color=gray]（ふつう：{string.Join("・", neutral)}）[/color]" : "") +
+			$"　[color=gray]気質:[/color] {temperament}[/font_size]");
+		_personalityLabel.TooltipText = "何をしたがるか（志向）と、扉前の構えの好み（気質）。いろいろな仕事をさせ、扉前の判断を重ねると分かってくる（「?」は〜らしい）。\n" +
+			"好きな仕事をした週・喜ぶことがあった週は満足度が上がり、苦手な仕事では下がる。気質に合わない構えで出すと満足度が下がる。\n" +
+			$"採用のときの言葉：{PersonalitySystem.HintText(p.HintDrive)}";
+	}
+
 	private void BindStatRow(TripleStatBar bar, Label valLabel, Adventurer a, string stat)
 	{
 		// 伸びしろは副官の見立て（§0.74、→ PotentialEstimateSystem）。段階（「B?」）で出し、バーは見立ての位置まで描く

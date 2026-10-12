@@ -43,6 +43,7 @@
 | `boss_gimmicks.csv` | 03 §4.5.4 | BossGimmickBalance（ボスのギミック7種への備えと罰、毒状態、ギミックの数。2026年10月・§0.68。旧 `consumables.csv` は撤去） |
 | `boss_power_weights.csv` | 03 §4.5.4・§2.1 | DungeonBalance.GetBossPowerWeights（職業ごとの討伐火力の重み、2026年10月・§0.72。どの職業も合計4.2。dungeon.csv の `BossPowerWeight_*` は職業を決めない試算用の共通の重み）。ほかに §0.72 で combat.csv `ClericBlessingLossPctPerMnd`（0.08）・`ClericBlessingSevereThresholdRate`（0.8）＝神官の加護、recruitment.csv `JobAptitudePaBonus`（10）・`JobInaptitudePaPenalty`（10）＝採用の能力を職業に寄せる、dungeon.csv `GrowthJobWeightFloor`（1）＝出撃成長の能力の選び方を足した |
 | `potential_estimate.csv` | 03 §0.74・§2.4・§5.1 | PotentialEstimateBalance（副官の見立て〈PAを隠して段階S〜Dで見せる〉の幅・目利き〈スカウトの顧問・段階研究・在籍の学者〉・在籍の月日で狭まる割合・魂魄融和の娘の倍率・確かとする幅・段階の境目、2026年10月・§0.74） |
+| `personality.csv` | 03 §0.100 | PersonalityBalance（志向・気質・相性の素地の決め方、志向と気質による満足度の増減、見立ての回数、採用の一言。key,value 形式） |
 | `progression.csv` | 03 §4.5.1・§4.2.2 | ProgressionBalance（初期の同時出撃枠、店の上位装備が入荷する倒したボスの数 `ShopTierUnlockBosses_1〜3`＝§0.61） |
 | `dungeon.csv` | 03 §4.5.1・§4.5.4 | DungeonBalance（ボス能力重み・未踏破重損耗・ボス間隔・撃破実績点・出撃成長回数） |
 | `dungeon_traversal.csv` | 03 §4.5.3 | DungeonTraversalBalance（**走破力の重み（VIT/MND/隊長LDR）**・**1歩の消費の尺度 `FloorsPerRatio`**（比率1.0の深さで週に進める階層数、4.0。進軍ランクの段 `RankRatioScale` は別。1歩の消費＝その階層の要求値÷(走破力×この値)÷解析倍率、週の予算1、→ 03 §0.49。旧リニア進軍は §0.25）・進軍ランク別の既踏損耗率・調査度連動走破倍率・夜目 `NightVisionUnexploredDamageReductionRate`（→ 03 §0.32）） |
@@ -164,6 +165,24 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 `SubsidyWeeksPerMonth`・`SubsidyBaseAmount_G〜S` は `SideJobIntervalWeeks`・`SideJobBaseAmount`（旧Gの200G）へ、
 `SeveranceShortfallReputationPenalty` は `SeveranceShortfallMoodPenalty` へ置き換え、`dungeon.csv` の
 `BossBaseReputation` は削除した。代わりに `master_mood.csv` を新設した。
+
+## 冒険者の個性の土台で追加されたファイル（2026年10月、→ 03 §0.100）
+
+`personality.csv`（新設、すべて仮の値）。段4a は満足度にだけ効く。力の上乗せ・相性の素地の効き目は段4b から（→ `docs/検討中_経営と育成.md`）。
+
+| キー | 値 | 意味 |
+|---|---|---|
+| `SubDriveChancePercent`・`DislikeChancePercent` | 60・40 | 副志向・苦手を持つ確率（%）。主志向は必ず1つ。苦手は仕事の5つから |
+| `TraitPullWeight` | 4 | 特性に合う志向の選ばれやすさ（勤勉→訓練、浪費家→お金、カリスマ→仲間、飽きっぽい→訓練が苦手） |
+| `TemperamentWeight_*` | 1・2・3・2・1 | 気質（とても慎重〜とても大胆）の選ばれやすさ |
+| `AffinityInheritSpread` | 8 | 秘薬の娘の相性の素地＝両親の中点±この値（0〜255で循環） |
+| `SatisfactionMain`・`SatisfactionSub`・`SatisfactionDisliked` | 2・1・−2 | 主・副志向のことをした週／苦手な仕事をした週の満足度 |
+| `MotiveNegativeMain`・`MotiveNegativeSub` | −2・−1 | 動機（仲間・お金・名声）の嫌うきっかけの満足度 |
+| `ComradesFriendThreshold` | 70 | 仲間：この相性以上の相手と同じ部隊なら喜ぶ |
+| `FameDroughtWeeks` | 24 | 名声：手柄の無いこの週数のあと、季節に1回焦る |
+| `TemperamentMatch`・`TemperamentMismatch`・`TemperamentBoldInjury` | 1・−1・−5 | 扉前の構えが気質に合う／合わない（「とても」は2倍）／強気の決戦で重傷を負った慎重寄りの子 |
+| `RevealLikely`・`RevealSure` | 4・8 | 見立て：きっかけを見た回数で「〜らしい」・確か（目利きで減り、秘薬の娘は半分） |
+| `HintTruthPercent` | 75 | 採用の一言が主志向を言い当てる確率（%） |
 
 ## 作業を減らす「まとめて」の操作で追加されたキー（2026年10月、→ 03 §0.99）
 

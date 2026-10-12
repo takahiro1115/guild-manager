@@ -662,6 +662,9 @@ namespace GuildManager.Core.Models
         /// </summary>
         public Dictionary<string, int> PaEstimateOffsets { get; set; } = new();
 
+        /// <summary>個性（志向・気質・相性の素地と見立て、2026年10月・§0.100、→ Systems.PersonalitySystem）。旧セーブ・派遣の教官などは null（効き目なし）。</summary>
+        public Personality? Personality { get; set; }
+
         /// <summary>待機中の過ごし方（§0.73、→ IdleActivity・Systems.IdleActivitySystem）。旧セーブには無く、研究を手伝う（Help）で読まれる。</summary>
         public IdleActivity IdleActivity { get; set; } = IdleActivity.Help;
 

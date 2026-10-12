@@ -44,6 +44,9 @@ namespace GuildManager.Core.Systems
         /// <summary>交渉の自動（§0.99、→ ChoreSystem.ProcessAutoBonus）でボーナスを払って応えた分。</summary>
         public List<AutoBonus> AutoBonuses { get; } = new();
 
+        /// <summary>見立てで志向・気質が新しく分かった分（§0.100、→ PersonalitySystem.ProcessWeek）。</summary>
+        public List<PersonalityDiscovery> PersonalityDiscoveries { get; } = new();
+
         /// <summary>アルベールの市販薬・内職売上（4週に1回のみ値が入る。→ EconomySystem.ProcessWeeklySideJobIncome）。</summary>
         public SideJobIncome? SideJobIncome { get; set; }
 

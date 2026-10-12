@@ -354,6 +354,7 @@ namespace GuildManager.Core.Systems
 
             RollInnateTraits(candidate, _rng);
             PotentialEstimateSystem.AssignOffsets(candidate, _rng); // 副官の見立てのずれ（§0.74）
+            PersonalitySystem.Assign(state, candidate, _rng); // 志向・気質・相性の素地（§0.100）
             FinishNewcomer(state, candidate);
 
             // 契約金も副官の見立ての総合PAで決める（§0.74）
