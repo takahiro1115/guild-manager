@@ -91,6 +91,9 @@ namespace GuildManager.Core.Models
 
         public int RequiredGold { get; init; }
 
+        /// <summary>研究にかかる週（2026年10月・§0.114）。始めてからこの週数で完了する（研究の手伝いで縮む）。</summary>
+        public int Weeks { get; init; }
+
         public ResearchEffectType EffectType { get; init; }
 
         /// <summary>効果量。意味は EffectType ごとに異なる（→ ResearchEffectTypeの各コメント）。</summary>

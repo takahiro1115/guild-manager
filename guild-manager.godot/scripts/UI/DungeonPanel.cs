@@ -112,7 +112,7 @@ public partial class DungeonPanel : ScrollContainer
 	/// </summary>
 	private void MoveInfoToRightTop()
 	{
-		var zoneB = GetNode<PanelContainer>("%ZoneB");
+		var zoneB = _zoneB = GetNode<PanelContainer>("%ZoneB");
 		var materials = GetNode<PanelContainer>("%MaterialsCard");
 		var rightColumn = zoneB.GetParent();
 
@@ -207,11 +207,12 @@ public partial class DungeonPanel : ScrollContainer
 		_zoneC = GetNode<PanelContainer>("Margin/MainHBox/RightColumn/ZoneC");
 		UiStyles.ApplyPanelArt(_zoneA);
 		_zoneA.CustomMinimumSize = new Vector2(430, 0); // 枠の厚みの分だけ広げる
-		UiStyles.ApplyPanelArt(GetNode<PanelContainer>("Margin/MainHBox/RightColumn/ZoneB"));
+		UiStyles.ApplyPanelArt(_zoneB); // MoveInfoToRightTop で右列の上の横並びへ移したので、パスでは辿らない
 		UiStyles.ApplyPanelArt(_zoneC);
 	}
 
 	private PanelContainer _zoneA = null!;
+	private PanelContainer _zoneB = null!;
 	private PanelContainer _zoneC = null!;
 
 	/// <summary>部隊と指令の欄の枠（扉前の判断待ちは§0.69で無くなったので、常に通常）。</summary>

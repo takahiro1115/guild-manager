@@ -71,11 +71,11 @@ namespace GuildManager.Core.Tests
 
             Assert.False(ResearchSystem.IsPrerequisiteMet(state, tier2));
             Assert.False(ResearchSystem.CanStartResearch(state, tier2));
-            Assert.False(ResearchSystem.CompleteResearch(state, tier2));
+            Assert.False(TestResearch.Complete(state, tier2));
 
             state.CompletedResearchIds.Add("res_scout_network_1");
             Assert.True(ResearchSystem.CanStartResearch(state, tier2));
-            Assert.True(ResearchSystem.CompleteResearch(state, tier2));
+            Assert.True(TestResearch.Complete(state, tier2));
         }
 
         // ---------------- 採用の質 ----------------

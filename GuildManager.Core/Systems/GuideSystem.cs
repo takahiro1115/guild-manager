@@ -56,7 +56,10 @@ namespace GuildManager.Core.Systems
                 s => AllEquipped(s).Any(i => i.Rarity != null),
                 s => s.DungeonFields.FirstOrDefault(f => f.Id == IsabellaBalance.VisitFieldId)?.Bosses.Any(b => b.Floor == 20 && b.EverDefeated) == true,
             },
+            ["s01_squad2"] = new Func<GameState, bool>[] { s => OrderedSquads(s) >= 2 },
+            ["s01_squad3"] = new Func<GameState, bool>[] { s => OrderedSquads(s) >= 3 },
             ["s01_question"] = new Func<GameState, bool>[] { s => s.CompletedResearchIds.Count > 0 },
+            ["s01_research"] = new Func<GameState, bool>[] { s => s.ResearchInProgress != null || s.CompletedResearchIds.Count > 0 },
             ["s01_hunter"] = new Func<GameState, bool>[]
             {
                 s => StorySystem.HunterBoss(s) is not { } b || b.EverDefeated || b.IntelRate >= 0.25,
@@ -142,6 +145,10 @@ namespace GuildManager.Core.Systems
 
         private static IEnumerable<EquipmentItem> AllEquipped(GameState state) =>
             state.Adventurers.SelectMany(a => Adventurer.AllSlots.Select(a.GetEquipped)).OfType<EquipmentItem>();
+
+        /// <summary>隊員がいて方針を付けた部隊の数（第2・第3部隊の手引き、§0.113）。</summary>
+        private static int OrderedSquads(GameState state) =>
+            state.SavedParties.Count(p => p.MemberIds.Count > 0 && p.Order != SquadOrder.None);
 
         private static bool MonthPassedSince(GameState state, string sceneId) =>
             state.StorySeenWeeks.TryGetValue(sceneId, out int seen) && IsabellaSystem.MonthStart(state.WeekNumber) > seen;

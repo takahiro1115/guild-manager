@@ -43,6 +43,9 @@ namespace GuildManager.Core.Models
         /// <summary>研究の手伝い（→ GameState.ResearchCredit、§0.73）。キーを持たない旧セーブでは0。</summary>
         public int ResearchCredit { get; set; }
 
+        /// <summary>進めている研究（→ GameState.ResearchInProgress、§0.114）。キーを持たない旧セーブでは null（研究していない）。</summary>
+        public ResearchProgress? ResearchInProgress { get; set; }
+
         /// <summary>
         /// 破産判定（→ 03 §8.3）の連続週数カウンタ。指示書のSaveDataサンプルには
         /// 含まれていなかったが、これを保存しないとロード直後に破産寸前の

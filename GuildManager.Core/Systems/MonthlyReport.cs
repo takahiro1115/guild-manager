@@ -290,6 +290,8 @@ namespace GuildManager.Core.Systems
                     Add($"依頼に失敗した（{failed.ClientName}・{failed.Reason}）", MonthlyTone.Warning);
                 if (s.CompletedFacility != null)
                     Add($"施設がLv{s.CompletedFacility.CurrentLevel}に完成した（{FacilityName(s.CompletedFacility.Type)}）", MonthlyTone.Good);
+                if (s.CompletedResearch != null)
+                    Add($"研究「{s.CompletedResearch.Name}」が完了した", MonthlyTone.Good);
                 // 大会（§0.82）：ギルドの出場者の順位（ベスト4以上）。出場しなかった大会は優勝者だけ。
                 foreach (var ev in s.TournamentsResolved)
                 {

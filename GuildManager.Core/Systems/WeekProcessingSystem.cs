@@ -242,6 +242,8 @@ namespace GuildManager.Core.Systems
 
             result.CompletedFacility = _facilitySystem.ProcessWeeklyConstruction(state); // → 03 §6.1：施設Lv投資
             result.Flags.FacilityConstructionCompleted = result.CompletedFacility != null;
+            result.CompletedResearch = ResearchSystem.ProcessWeek(state); // 研究の期間（§0.114）：今週の研究の手伝いが貯まったあとに進める
+            result.Flags.ResearchCompleted = result.CompletedResearch != null;
 
             // 施設の開放の知らせ（§0.78・§0.79）：週報に1回だけ出す。
             result.FacilityUnlocks.AddRange(FacilityUnlockSystem.Evaluate(state)); // 大会などのご褒美で開いた施設（§0.82）

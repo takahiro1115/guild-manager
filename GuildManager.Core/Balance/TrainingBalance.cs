@@ -72,7 +72,10 @@ namespace GuildManager.Core.Balance
         /// <summary>研究の手伝い（→ GameState.ResearchCredit）が貯まる上限。</summary>
         public static readonly int ResearchCreditMax = BalanceData.GetInt(FileName, "ResearchCreditMax");
 
-        /// <summary>研究1件の研究費から研究の手伝いで割り引ける上限の割合（0.5＝半額まで、→ ResearchSystem.GetDiscount）。</summary>
-        public static readonly double ResearchCreditMaxDiscountRate = BalanceData.GetDouble(FileName, "ResearchCreditMaxDiscountRate");
+        /// <summary>研究の手伝いをこれだけ使うと、進めている研究が1週ぶん余計に進む（1週に1回まで、→ ResearchSystem.ProcessWeek、§0.114）。</summary>
+        public static readonly int ResearchCreditPerWeek = BalanceData.GetInt(FileName, "ResearchCreditPerWeek");
+
+        /// <summary>研究の手伝いで縮められる週の上限の割合（研究の週×この値、切り捨て。→ ResearchSystem.MaxShortenWeeks、§0.114）。</summary>
+        public static readonly double ResearchMaxShortenRate = BalanceData.GetDouble(FileName, "ResearchMaxShortenRate");
     }
 }

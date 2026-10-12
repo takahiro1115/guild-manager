@@ -586,7 +586,7 @@ public partial class MainDashboard : Control
 	/// </summary>
 	private void ShowStory(StoryTiming timing, Action then = null)
 	{
-		var due = _storyPopup.Visible ? new List<StoryShowing>() : StorySystem.DueScenes(_state, timing, OnDungeonView);
+		var due = _storyPopup.Visible ? new List<StoryShowing>() : StorySystem.DueScenes(_state, timing, CurrentStoryView);
 		if (due.Count == 0)
 		{
 			then?.Invoke();
@@ -618,8 +618,13 @@ public partial class MainDashboard : Control
 		_storyPopup.ShowScenes(_state, new[] { StorySystem.Replay(_state, sceneId) }, replay: true);
 	}
 
-	/// <summary>今の画面が大迷宮か（大迷宮の画面で見せる場面の条件、§0.108）。</summary>
-	private bool OnDungeonView => _centerPanel.CurrentTab == (int)DashboardView.Dungeon;
+	/// <summary>今の画面（大迷宮・研究室の画面で見せる場面の条件、§0.108・§0.114）。</summary>
+	private StoryView CurrentStoryView => _centerPanel.CurrentTab switch
+	{
+		(int)DashboardView.Dungeon => StoryView.Dungeon,
+		(int)DashboardView.Research => StoryView.Research,
+		_ => StoryView.Other,
+	};
 
 	/// <summary>
 	/// 操作のあとの場面（部隊を組んだ・方針を付けたなど）：ほかの小窓が開いていない、月を進めている最中でないときだけ見る。
@@ -629,7 +634,7 @@ public partial class MainDashboard : Control
 	{
 		if (_state == null || _storyPopup.Visible || _monthlyReportSettlement != null || _recruitmentPopup.Visible || !_autoSkipButton.Visible || _autoSkipButton.Disabled)
 			return;
-		if (StorySystem.DueScenes(_state, StoryTiming.Interactive, OnDungeonView).Count > 0)
+		if (StorySystem.DueScenes(_state, StoryTiming.Interactive, CurrentStoryView).Count > 0)
 			Callable.From(() => ShowStory(StoryTiming.Interactive)).CallDeferred();
 	}
 
@@ -832,7 +837,7 @@ public partial class MainDashboard : Control
 			int credit = settlement.IdleHelpEntries.Sum(h => h.Credit);
 			// 怠け者（→ 03 §0.56）：手伝わずにだらけていたが、マスターの話し相手にはなった。
 			var lazy = settlement.IdleHelpEntries.Where(h => h.Credit == 0).Select(h => h.Name).ToList();
-			AppendLog($"[color=lime]☕ 研究の手伝い：{string.Join("・", settlement.IdleHelpEntries.Select(h => h.Name))}（+{credit}G 分・貯まり {_state.ResearchCredit}G、機嫌 +{settlement.IdleHelpEntries.Count * MasterMoodBalance.IdleAdventurerHelpMood}）" +
+			AppendLog($"[color=lime]☕ 研究の手伝い：{string.Join("・", settlement.IdleHelpEntries.Select(h => h.Name))}（+{credit}・貯まり {_state.ResearchCredit}、機嫌 +{settlement.IdleHelpEntries.Count * MasterMoodBalance.IdleAdventurerHelpMood}）" +
 				(lazy.Count > 0 ? $"[color=gray]　※{string.Join("・", lazy)}はだらけて手伝わなかった[/color]" : "") + "[/color]");
 		}
 		if (settlement.SelfTrainerCount > 0)
@@ -943,6 +948,8 @@ public partial class MainDashboard : Control
 	{
 		if (settlement.CompletedFacility != null)
 			AppendLog($"[color=lime][b]🏗 {FacilityLabel(settlement.CompletedFacility.Type)}がLv{settlement.CompletedFacility.CurrentLevel}に完成した！{(settlement.CompletedFacility.Specialty != FacilitySpecialty.None ? $"（専門：{FacilityPanel.SpecialtyLabel(settlement.CompletedFacility.Specialty)}）" : "")}[/b][/color]");
+		if (settlement.CompletedResearch != null) // 研究の期間（§0.114）
+			AppendLog($"[color=gold][b]🔬 アルベールの研究室で「{settlement.CompletedResearch.Name}」が完了した！[/b][/color] [color=gray]{settlement.CompletedResearch.Description}[/color]");
 		foreach (var notice in settlement.FacilityUnlocks) // 大会のご褒美で施設が開いた（§0.82）
 			AppendLog($"[color=gold][b]🏗 {FacilityUnlockSystem.DescribeUnlock(notice)}。[/b][/color] {notice.Line}" +
 				(notice.Level == FacilityBalance.SpecialtyFromLevel + 1 && FacilityUnlockSystem.TrainingFacilities.Contains(notice.Facility) ? "[color=gray]（Lv3→4の改築で専門を選ぶ）[/color]" : ""));

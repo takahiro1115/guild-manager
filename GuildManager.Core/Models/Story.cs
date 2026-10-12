@@ -58,4 +58,15 @@ namespace GuildManager.Core.Models
         /// <summary>クリアしたとき、エンディングの窓の前（都の心臓・祝宴・初出撃、§0.89）。</summary>
         Ending,
     }
+
+    /// <summary>
+    /// 場面を見せる画面（§0.108・§0.114、→ StorySystem.DueScenes）。その画面を開いているときだけ出す場面がある
+    /// （方針を付ける＝大迷宮、研究室の使い方＝研究室）。それ以外の画面は Other。
+    /// </summary>
+    public enum StoryView
+    {
+        Other,
+        Dungeon,
+        Research,
+    }
 }

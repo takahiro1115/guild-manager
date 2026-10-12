@@ -91,7 +91,7 @@ namespace GuildManager.Core.Tests
             Assert.True(ResearchSystem.CanStartResearch(state, research));
             Assert.False(state.IsResearchCompleted(research.Id));
 
-            Assert.True(ResearchSystem.CompleteResearch(state, research));
+            Assert.True(TestResearch.Complete(state, research));
 
             Assert.True(state.IsResearchCompleted(research.Id));
             Assert.Contains(research.Id, state.CompletedResearchIds);
@@ -101,7 +101,7 @@ namespace GuildManager.Core.Tests
 
             // 完了済みの研究はもう一度実行できない（CanStartResearchがfalseを返す）。
             Assert.False(ResearchSystem.CanStartResearch(state, research));
-            Assert.False(ResearchSystem.CompleteResearch(state, research));
+            Assert.False(TestResearch.Complete(state, research));
         }
 
         [Fact]
@@ -114,7 +114,7 @@ namespace GuildManager.Core.Tests
             foreach (var (materialId, count) in research.RequiredMaterials)
                 goldShort.AddMaterial(materialId, count);
             Assert.False(ResearchSystem.CanStartResearch(goldShort, research));
-            Assert.False(ResearchSystem.CompleteResearch(goldShort, research));
+            Assert.False(TestResearch.Complete(goldShort, research));
             Assert.Equal(research.RequiredGold - 1, goldShort.Gold); // 失敗時は減算されない
 
             // ②素材不足（ゴールドは十分）
@@ -122,7 +122,7 @@ namespace GuildManager.Core.Tests
             var firstMaterial = research.RequiredMaterials.First();
             materialShort.AddMaterial(firstMaterial.Key, firstMaterial.Value - 1);
             Assert.False(ResearchSystem.CanStartResearch(materialShort, research));
-            Assert.False(ResearchSystem.CompleteResearch(materialShort, research));
+            Assert.False(TestResearch.Complete(materialShort, research));
 
             // ③何も持っていない
             var nothing = new GameState { Gold = 0 };
@@ -149,7 +149,7 @@ namespace GuildManager.Core.Tests
                 state.CompletedResearchIds.Add(research.PrerequisiteId); // §0.77で前提が付いた（湿布→軟膏→霊香など）
 
             Assert.True(ResearchSystem.CanStartResearch(state, research));
-            Assert.True(ResearchSystem.CompleteResearch(state, research));
+            Assert.True(TestResearch.Complete(state, research));
 
             Assert.Equal(0, state.Gold);
             Assert.True(state.IsResearchCompleted(researchId));
@@ -288,7 +288,7 @@ namespace GuildManager.Core.Tests
             foreach (var (materialId, count) in research.RequiredMaterials)
                 state.AddMaterial(materialId, count);
 
-            Assert.True(ResearchSystem.CompleteResearch(state, research));
+            Assert.True(TestResearch.Complete(state, research));
 
             Assert.Equal(0, state.Gold);
             foreach (var (materialId, count) in research.RequiredMaterials)
@@ -305,7 +305,7 @@ namespace GuildManager.Core.Tests
                 state.AddMaterial(materialId, count);
 
             Assert.False(ResearchSystem.CanStartResearch(state, research));
-            Assert.False(ResearchSystem.CompleteResearch(state, research));
+            Assert.False(TestResearch.Complete(state, research));
             Assert.DoesNotContain(research.Id, state.CompletedResearchIds);
         }
 

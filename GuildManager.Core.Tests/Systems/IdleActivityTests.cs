@@ -60,8 +60,9 @@ namespace GuildManager.Core.Tests.Systems
             Assert.Equal(0.7, TrainingBalance.IdleActivityHpRatio, precision: 6);
             Assert.Equal(0.5, TrainingBalance.SelfTrainingGrowthMultiplier, precision: 6);
             Assert.Equal(5, TrainingBalance.SelfTrainingHpCost);
-            Assert.Equal(5000, TrainingBalance.ResearchCreditMax);
-            Assert.Equal(0.5, TrainingBalance.ResearchCreditMaxDiscountRate, precision: 6);
+            Assert.Equal(600, TrainingBalance.ResearchCreditMax);
+            Assert.Equal(60, TrainingBalance.ResearchCreditPerWeek);
+            Assert.Equal(0.5, TrainingBalance.ResearchMaxShortenRate, precision: 6);
         }
 
         [Fact]
@@ -296,40 +297,86 @@ namespace GuildManager.Core.Tests.Systems
             Assert.DoesNotContain(result.MoodReport.Entries, e => e.Reason.StartsWith("研究の手伝い"));
         }
 
-        // ==================== 研究費の割引 ====================
+        // ==================== 研究の期間と研究の手伝い（§0.114） ====================
 
-        private static ResearchDefinition Research(int gold) => new() { Id = "res_test", Name = "テスト", RequiredGold = gold };
-
-        [Theory]
-        [InlineData(0, 1000, 0)]
-        [InlineData(300, 1000, 300)]
-        [InlineData(800, 1000, 500)] // 半額まで
-        [InlineData(800, 301, 150)]  // 研究費×0.5 は切り捨て
-        public void Discount_IsCreditUpToHalfTheCost(int credit, int cost, int expected)
+        /// <summary>研究を始められる状態（研究費と素材を持ち、前提は済ませる）。</summary>
+        private static GameState ReadyFor(ResearchDefinition research, int credit = 0)
         {
-            var state = new GameState { ResearchCredit = credit };
-            Assert.Equal(expected, ResearchSystem.GetDiscount(state, Research(cost)));
-            Assert.Equal(cost - expected, ResearchSystem.GetGoldToPay(state, Research(cost)));
+            var state = new GameState { Gold = research.RequiredGold, ResearchCredit = credit };
+            foreach (var (materialId, count) in research.RequiredMaterials)
+                state.AddMaterial(materialId, count);
+            if (research.PrerequisiteId != null)
+                state.CompletedResearchIds.Add(research.PrerequisiteId);
+            return state;
         }
 
         [Fact]
-        public void CompleteResearch_PaysDiscountedGold_AndUsesCredit()
+        public void StartResearch_PaysFullCost_AndCompletesAfterItsWeeks()
         {
-            var state = new GameState { Gold = 600, ResearchCredit = 700 };
-            var research = Research(1000);
+            var research = ResearchBalance.Find(ResearchIds.HerbPoultice)!;
+            var state = ReadyFor(research);
 
-            Assert.True(ResearchSystem.CanStartResearch(state, research)); // 600G でも割引後の 500G なら足りる
-            Assert.True(ResearchSystem.CompleteResearch(state, research));
+            Assert.True(ResearchSystem.StartResearch(state, research));
+            Assert.Equal(0, state.Gold); // 割り引きは無い
+            Assert.True(ResearchSystem.IsInProgress(state, research.Id));
+            Assert.False(state.IsResearchCompleted(research.Id));
 
-            Assert.Equal(100, state.Gold);
-            Assert.Equal(200, state.ResearchCredit);
+            for (int w = 1; w < research.Weeks; w++)
+                Assert.Null(ResearchSystem.ProcessWeek(state));
+            Assert.Same(research, ResearchSystem.ProcessWeek(state));
+            Assert.True(state.IsResearchCompleted(research.Id));
+            Assert.Null(state.ResearchInProgress);
+            Assert.Null(ResearchSystem.ProcessWeek(state)); // 研究していない週は何もしない
         }
 
         [Fact]
-        public void CanStartResearch_IsFalse_WhenDiscountedGoldStillShort()
+        public void Credit_AdvancesOneExtraWeek_UpToHalfTheWeeks()
         {
-            var state = new GameState { Gold = 499, ResearchCredit = 700 };
-            Assert.False(ResearchSystem.CanStartResearch(state, Research(1000)));
+            var research = ResearchBalance.Find(ResearchIds.CaveOintment)!; // 8週 → 縮められるのは4週まで
+            int max = ResearchSystem.MaxShortenWeeks(research);
+            Assert.Equal(research.Weeks / 2, max);
+            var state = ReadyFor(research, credit: 10_000);
+            Assert.True(ResearchSystem.StartResearch(state, research));
+
+            int weeks = 0;
+            while (ResearchSystem.ProcessWeek(state) == null) weeks++;
+            weeks++;
+            Assert.Equal(research.Weeks - max, weeks);
+            Assert.Equal(10_000 - max * TrainingBalance.ResearchCreditPerWeek, state.ResearchCredit);
+        }
+
+        [Fact]
+        public void Credit_BelowOneWeek_IsKept()
+        {
+            var research = ResearchBalance.Find(ResearchIds.HerbPoultice)!;
+            var state = ReadyFor(research, credit: TrainingBalance.ResearchCreditPerWeek - 1);
+            Assert.True(ResearchSystem.StartResearch(state, research));
+            Assert.Null(ResearchSystem.ProcessWeek(state));
+            Assert.Equal(research.Weeks - 1, state.ResearchInProgress!.WeeksRemaining);
+            Assert.Equal(TrainingBalance.ResearchCreditPerWeek - 1, state.ResearchCredit);
+        }
+
+        [Fact]
+        public void OnlyOneResearch_AtATime_CancelDoesNotRefund()
+        {
+            var herb = ResearchBalance.Find(ResearchIds.HerbPoultice)!;
+            var bag = ResearchBalance.Find(ResearchIds.GatheringBag)!;
+            var state = ReadyFor(herb);
+            state.Gold += bag.RequiredGold;
+            foreach (var (materialId, count) in bag.RequiredMaterials)
+                state.AddMaterial(materialId, count);
+
+            Assert.True(ResearchSystem.StartResearch(state, herb));
+            Assert.False(ResearchSystem.CanStartResearch(state, bag));
+            Assert.False(ResearchSystem.StartResearch(state, bag));
+
+            int gold = state.Gold;
+            Assert.True(ResearchSystem.CancelResearch(state));
+            Assert.Null(state.ResearchInProgress);
+            Assert.Equal(gold, state.Gold);
+            Assert.False(state.IsResearchCompleted(herb.Id));
+            Assert.True(ResearchSystem.StartResearch(state, bag));
+            Assert.False(ResearchSystem.CancelResearch(new GameState()));
         }
 
         // ==================== セーブ ====================
@@ -374,6 +421,30 @@ namespace GuildManager.Core.Tests.Systems
             Assert.Equal(IdleActivity.Help, restored.Adventurers[0].IdleActivity);
         }
 
+        [Fact]
+        public void Save_RoundTrips_ResearchInProgress_OldSaveHasNone_UnknownOrDoneIsDropped()
+        {
+            var research = ResearchBalance.Find(ResearchIds.HerbPoultice)!;
+            var state = ReadyFor(research, credit: 100);
+            Assert.True(ResearchSystem.StartResearch(state, research));
+            ResearchSystem.ProcessWeek(state); // 1週進めて手伝いで1週縮める
+
+            var node = System.Text.Json.Nodes.JsonNode.Parse(System.Text.Json.JsonSerializer.Serialize(state.ToSaveData()))!;
+            var restored = GameState.FromSaveData(System.Text.Json.JsonSerializer.Deserialize<SaveData>(node.ToJsonString())!);
+            Assert.Equal(research.Id, restored.ResearchInProgress!.ResearchId);
+            Assert.Equal(state.ResearchInProgress!.WeeksRemaining, restored.ResearchInProgress.WeeksRemaining);
+            Assert.Equal(1, restored.ResearchInProgress.WeeksShortened);
+
+            node.AsObject().Remove("ResearchInProgress"); // §0.114 より前のセーブ
+            Assert.Null(GameState.FromSaveData(System.Text.Json.JsonSerializer.Deserialize<SaveData>(node.ToJsonString())!).ResearchInProgress);
+
+            node["ResearchInProgress"] = new System.Text.Json.Nodes.JsonObject { ["ResearchId"] = "res_gone", ["WeeksRemaining"] = 3 };
+            Assert.Null(GameState.FromSaveData(System.Text.Json.JsonSerializer.Deserialize<SaveData>(node.ToJsonString())!).ResearchInProgress);
+
+            node["ResearchInProgress"] = new System.Text.Json.Nodes.JsonObject { ["ResearchId"] = research.Id, ["WeeksRemaining"] = 0 };
+            Assert.Equal(1, GameState.FromSaveData(System.Text.Json.JsonSerializer.Deserialize<SaveData>(node.ToJsonString())!).ResearchInProgress!.WeeksRemaining); // 壊れた残り週は1に
+        }
+
         // ==================== 月報 ====================
 
         [Fact]
@@ -394,6 +465,31 @@ namespace GuildManager.Core.Tests.Systems
             Assert.Equal("自主練", growth.Name);
             Assert.True(growth.Gains["DEX"] > 0);
             Assert.Contains(report.Growth, g => g.Name == "自主練"); // 成長の一覧にも含まれる
+        }
+
+        /// <summary>§0.114：週の決算で研究が進み、その週の研究の手伝いも使って縮み、完了は月報の出来事に出る。</summary>
+        [Fact]
+        public void WeeklySettlement_AdvancesResearch_WithThisWeeksHelp_AndReportsCompletion()
+        {
+            var research = ResearchBalance.Find(ResearchIds.HerbPoultice)!; // 4週
+            var helpers = Enumerable.Range(0, 6).Select(i => Healthy($"手伝い{i}")).ToArray(); // 週に60貯まる
+            var state = StateWith(helpers);
+            state.Gold = research.RequiredGold + 100_000;
+            foreach (var (materialId, count) in research.RequiredMaterials)
+                state.AddMaterial(materialId, count);
+            Assert.True(ResearchSystem.StartResearch(state, research));
+            var system = Week(new AlwaysMinRng());
+
+            var weeks = new List<AutoSkipWeek>();
+            for (int w = 0; w < 2; w++)
+                weeks.Add(new AutoSkipWeek(new List<SquadOrderEvent>(), system.ProcessWeek(state)));
+
+            Assert.Null(weeks[0].Settlement.CompletedResearch);
+            Assert.Same(research, weeks[1].Settlement.CompletedResearch); // 4週の研究が手伝いで2週に
+            Assert.True(weeks[1].Settlement.Flags.ResearchCompleted);
+            Assert.True(state.IsResearchCompleted(research.Id));
+            var report = MonthlyReport.Build(state, weeks, 100_000);
+            Assert.Contains(report.Highlights, l => l.Text == $"研究「{research.Name}」が完了した");
         }
     }
 }

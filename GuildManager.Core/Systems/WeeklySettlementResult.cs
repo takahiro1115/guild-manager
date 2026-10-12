@@ -93,6 +93,9 @@ namespace GuildManager.Core.Systems
         /// <summary>今週完成した施設（無ければnull）。</summary>
         public Facility? CompletedFacility { get; set; }
 
+        /// <summary>今週完了した研究（無ければnull。→ ResearchSystem.ProcessWeek、§0.114）。</summary>
+        public ResearchDefinition? CompletedResearch { get; set; }
+
         /// <summary>今週、大会などのご褒美で開いた施設（演出の型と台詞つき。→ FacilityUnlockSystem、§0.82。§0.79の上限Lvを置き換え）。</summary>
         public List<FacilityUnlockNotice> FacilityUnlocks { get; } = new();
 

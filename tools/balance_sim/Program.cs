@@ -277,7 +277,6 @@ partial class GameSim
     public static bool SelfTrainAll;
     public static bool UseRivalry;
     public static int SelfTrainMinMood = 60;
-    public int ResearchCreditUsed;
     public int ElixirsGiven;
 
     /// <summary>
@@ -785,12 +784,10 @@ partial class GameSim
             { posted.Add(best.Id); Count("教官の任命"); }
         }
 
-        foreach (var r in ResearchBalance.GetAll().Where(r => !s.IsResearchCompleted(r.Id)))
-            if (s.Gold - ResearchSystem.GetGoldToPay(s, r) >= Reserve)
-            {
-                int discount = ResearchSystem.GetDiscount(s, r);
-                if (UseResearch && ResearchSystem.CompleteResearch(s, r)) { ResearchCreditUsed += discount; Count("研究"); }
-            }
+        // 研究（§0.114）：研究室で進められるのは1つずつ。研究していなければ、済んでいない研究を、商い（内職の売上）を先に、あとは CSV の順に始める
+        if (UseResearch && s.ResearchInProgress == null)
+            foreach (var r in ResearchBalance.GetAll().Where(r => !s.IsResearchCompleted(r.Id)).OrderBy(r => r.Branch == ResearchBranch.Trade ? 0 : 1))
+                if (s.Gold - r.RequiredGold >= Reserve && ResearchSystem.StartResearch(s, r)) { Count("研究"); break; }
 
         // 霊薬（§0.61）：若い上位の冒険者に、火力の重みが最も伸びる霊薬を1週1本
         if (UseElixirs && ElixirSystem.IsUnlocked(s))
@@ -1006,7 +1003,7 @@ partial class GameSim
         }).OfType<string>()));
         Console.WriteLine($"秘薬で生まれた娘：{string.Join(", ", sims.Select(x => x.DaughtersBorn))}");
         Console.WriteLine($"飲ませた霊薬：{string.Join(", ", sims.Select(x => x.ElixirsGiven))}　上位装備の段（最終）：{string.Join(", ", sims.Select(x => EquipmentSystem.GetUnlockedShopTier(x.s)))}");
-        Console.WriteLine($"研究の手伝いで割り引いた額（G）：{string.Join(", ", sims.Select(x => x.ResearchCreditUsed))}");
+        Console.WriteLine($"済ませた研究（全{ResearchBalance.GetAll().Count}件）：{string.Join(", ", sims.Select(x => x.s.CompletedResearchIds.Count))}");
         Console.WriteLine($"強制除籍：{string.Join(", ", sims.Select(x => x.ForcedRetired))}　敗北：{string.Join(", ", sims.Select(x => x.Defeat ?? "なし"))}");
         Console.WriteLine($"依頼（§0.64、{(UseCommissions ? "受ける" : "受けない")}・異変{(NoAnomaly ? "なし" : "あり")}）：達成 {string.Join(", ", sims.Select(x => x.CommDone))}　失敗 {string.Join(", ", sims.Select(x => x.CommFailed))}　" +
             $"報酬G（千） {string.Join(", ", sims.Select(x => x.CommGold / 1000))}　派遣 {string.Join(", ", sims.Select(x => x.Loans))}　依頼人の固有武具 {string.Join(", ", sims.Select(x => x.PatronUniques))}　異変 {string.Join(", ", sims.Select(x => x.Anomalies))}");

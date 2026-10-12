@@ -145,11 +145,17 @@ namespace GuildManager.Core.Models
         public int MasterMood { get; set; } = MasterMoodBalance.InitialMood;
 
         /// <summary>
-        /// 研究の手伝い（2026年10月・§0.73、G相当）。待機中に「アルベールの研究を手伝う」冒険者がいる週に貯まり
-        /// （→ Systems.IdleActivitySystem、上限 TrainingBalance.ResearchCreditMax）、次の研究の研究費から割り引いて使う
-        /// （→ Systems.ResearchSystem.GetDiscount）。旧セーブには無く0で読まれる。
+        /// 研究の手伝い（2026年10月・§0.73、pt）。待機中に「アルベールの研究を手伝う」冒険者がいる週に貯まり
+        /// （→ Systems.IdleActivitySystem、上限 TrainingBalance.ResearchCreditMax）、進めている研究を1週ぶん余計に進めるのに使う
+        /// （→ Systems.ResearchSystem.ProcessWeek、§0.114。それまでは研究費の割り引き）。旧セーブには無く0で読まれる。
         /// </summary>
         public int ResearchCredit { get; set; }
+
+        /// <summary>
+        /// 研究室で進めている研究（2026年10月・§0.114、→ Systems.ResearchSystem）。null＝研究していない。同時に1件だけ。
+        /// 旧セーブには無く null で読まれる（研究していない）。
+        /// </summary>
+        public ResearchProgress? ResearchInProgress { get; set; }
 
         /// <summary>
         /// クリアしたか（仕様書 03 §8.2、2026年10月・§0.59）。最終フィールド（深淵）の100Fボス撃破でtrueになり、
@@ -466,6 +472,7 @@ namespace GuildManager.Core.Models
                 Money = Gold,
                 MasterMood = MasterMood,
                 ResearchCredit = ResearchCredit,
+                ResearchInProgress = ResearchInProgress == null ? null : new ResearchProgress { ResearchId = ResearchInProgress.ResearchId, WeeksRemaining = ResearchInProgress.WeeksRemaining, WeeksShortened = ResearchInProgress.WeeksShortened },
                 ConsecutiveNegativeGoldWeeks = ConsecutiveNegativeGoldWeeks,
                 DefeatReason = DefeatReason?.ToString(),
                 WeeksSinceLastGuildActivity = WeeksSinceLastGuildActivity,
@@ -606,6 +613,10 @@ namespace GuildManager.Core.Models
                 MasterMood = Math.Clamp(data.MasterMood ?? MasterMoodBalance.InitialMood, MasterMoodBalance.Min, MasterMoodBalance.Max),
                 // 研究の手伝い（§0.73）。キーを持たない旧セーブは0。壊れた値は0〜上限に収める。
                 ResearchCredit = Math.Clamp(data.ResearchCredit, 0, TrainingBalance.ResearchCreditMax),
+                // 進めている研究（§0.114）。旧セーブは null。定義に無い研究・済んだ研究は捨てる（払った費用は戻らない）。
+                ResearchInProgress = data.ResearchInProgress is { } rp && ResearchBalance.Find(rp.ResearchId) != null && !data.CompletedResearchIds.Contains(rp.ResearchId)
+                    ? new ResearchProgress { ResearchId = rp.ResearchId, WeeksRemaining = Math.Max(1, rp.WeeksRemaining), WeeksShortened = Math.Max(0, rp.WeeksShortened) }
+                    : null,
                 ConsecutiveNegativeGoldWeeks = data.ConsecutiveNegativeGoldWeeks,
                 DefeatReason = data.DefeatReason == null ? null : ParseEnum<DefeatReason>(data.DefeatReason, nameof(DefeatReason)),
                 // 旧キー（WeeksSinceLastRankAppropriateQuest）しか無い旧セーブは、その値を引き継ぐ。

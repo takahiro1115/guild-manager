@@ -49,7 +49,7 @@ namespace GuildManager.Core.Balance
 
         /// <summary>
         /// 研究の手伝い（→ IdleActivitySystem、03 §8.1・§0.73。旧・待機お手伝い15G）：待機中に「アルベールの研究を手伝う」
-        /// 冒険者1名ごとに週ごとに貯まる研究の手伝い（G相当。次の研究費から割り引く → ResearchSystem.GetDiscount）。
+        /// 冒険者1名ごとに週ごとに貯まる研究の手伝い（pt。進めている研究を早める → ResearchSystem.ProcessWeek、§0.114）。
         /// </summary>
         public static readonly int IdleAdventurerHelpResearchCredit = BalanceData.GetInt(FileName, "IdleAdventurerHelp_ResearchCredit");
 

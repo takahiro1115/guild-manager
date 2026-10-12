@@ -130,8 +130,28 @@ namespace GuildManager.Core.Tests
 
             // 部隊・冒険者の画面で組んでいるあいだは出さない（続きの「月を進める」も出ない）
             party.Order = SquadOrder.Dive;
-            Assert.Empty(StorySystem.DueScenes(state, StoryTiming.Interactive, onDungeonView: false));
-            Assert.Equal(new[] { "s01_order", "s01_month" }, StorySystem.DueScenes(state, StoryTiming.Interactive, onDungeonView: true).Select(s => s.SceneId));
+            Assert.Empty(StorySystem.DueScenes(state, StoryTiming.Interactive, currentView: StoryView.Other));
+            Assert.Equal(new[] { "s01_order", "s01_month" }, StorySystem.DueScenes(state, StoryTiming.Interactive, currentView: StoryView.Dungeon).Select(s => s.SceneId));
+        }
+
+        /// <summary>§0.114：研究室の使い方は、最初の質問のあと、研究室の画面を開いたときに出る（手引きは研究を始めたら済む）。</summary>
+        [Fact]
+        public void 研究室の使い方は研究室の画面を開くまで待つ()
+        {
+            var state = NewGame();
+            foreach (var id in new[] { "s01_prologue", "s01_guild", "s01_order", "s01_month" })
+                StorySystem.MarkSeen(state, id);
+            Assert.Empty(StorySystem.DueScenes(state, StoryTiming.Interactive, currentView: StoryView.Research)); // 研究室が開く前
+
+            StorySystem.MarkSeen(state, "s01_question");
+            Assert.Empty(StorySystem.DueScenes(state, StoryTiming.Interactive, currentView: StoryView.Dungeon));
+            Assert.Equal(new[] { "s01_research" }, StorySystem.DueScenes(state, StoryTiming.Interactive, currentView: StoryView.Research).Select(s => s.SceneId));
+            StorySystem.MarkSeen(state, "s01_research");
+
+            var guide = GuideSystem.Groups(state).Single(g => g.SceneId == "s01_research");
+            Assert.False(guide.AllDone);
+            state.ResearchInProgress = new ResearchProgress { ResearchId = ResearchIds.BeautyLotion, WeeksRemaining = 4 };
+            Assert.True(GuideSystem.Groups(state).Single(g => g.SceneId == "s01_research").AllDone);
         }
 
         [Fact]
@@ -325,6 +345,32 @@ namespace GuildManager.Core.Tests
             state.TournamentPlacingsTotal = 1;
             IsabellaSystem.CheckCommissionUnlock(state);
             Assert.Contains("s02_royal", Ids(state, StoryTiming.AfterReport));
+        }
+
+        /// <summary>§0.112：イザベラは大会（交流戦を除く）での最高の順位を言う（優勝しても「ベスト4」と言わない）。</summary>
+        [Theory]
+        [InlineData(new[] { 4 }, "ベスト4")]
+        [InlineData(new[] { 8, 2 }, "準優勝")]
+        [InlineData(new[] { 4, 1 }, "優勝")]
+        public void Royal_SaysBestPlacing(int[] placings, string expected)
+        {
+            var state = NewGame();
+            foreach (int p in placings)
+                state.TournamentEvents.Add(new TournamentEvent { Kind = TournamentKind.Local, Result = new TournamentResult { Placings = { new TournamentPlacing { Placing = p } } } });
+            state.TournamentEvents.Add(new TournamentEvent { Kind = TournamentKind.Exchange, Result = new TournamentResult { Placings = { new TournamentPlacing { Placing = 1 } } } }); // 交流戦は数えない
+            Assert.Equal(expected, StorySystem.BestPlacingLabel(state));
+
+            var line = Texts(StorySystem.Replay(state, "s02_royal")).First(t => t.Contains("ですって"));
+            Assert.StartsWith(expected + "、", line);
+            Assert.DoesNotContain("{", line);
+        }
+
+        [Fact]
+        public void BestPlacingLabel_NullWithoutPlacing()
+        {
+            var state = NewGame();
+            state.TournamentEvents.Add(new TournamentEvent { Kind = TournamentKind.Local, Result = new TournamentResult { Placings = { new TournamentPlacing { Placing = 8 } } } });
+            Assert.Null(StorySystem.BestPlacingLabel(state));
         }
 
         // ---------------- 台詞03・04（§0.89） ----------------

@@ -20,6 +20,9 @@ namespace GuildManager.Core.Systems
         public bool RecruitmentTrialOccurred { get; set; }
         public bool SatisfactionWarningOccurred { get; set; }
         public bool FacilityConstructionCompleted { get; set; }
+
+        /// <summary>研究が完了したか（§0.114。施設の完成と同じく自動スキップだけ止める。月は止めない）。</summary>
+        public bool ResearchCompleted { get; set; }
         public bool DeathOrPermanentInjuryOccurred { get; set; }
 
         /// <summary>今週クリアしたか（深淵100Fのボス撃破、→ 03 §8.2・§0.59）。旧名 FinalQuestNewlyUnlocked。</summary>
@@ -84,7 +87,7 @@ namespace GuildManager.Core.Systems
         public bool ShouldStopAutoSkip =>
             CommissionsOffered || AnomalyAnnounced || CommissionDeadlineNear ||
             RecruitmentTrialOccurred || SatisfactionWarningOccurred ||
-            FacilityConstructionCompleted || SoulFusionBirthOccurred ||
+            FacilityConstructionCompleted || ResearchCompleted || SoulFusionBirthOccurred ||
             SevereInjuryOccurred || BossDefeated || SquadStalledAtBoss || PoachOffered || ContractReviewDue || SponsorOffered ||
             DeathOrPermanentInjuryOccurred ||
             GameCleared ||

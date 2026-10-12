@@ -131,8 +131,14 @@ public partial class ResearchPanel : ScrollContainer
 	{
 		_resourcesLabel.Clear();
 		_resourcesLabel.AppendText($"[b]所持金[/b]：{_state.Gold} G" +
-			// 研究の手伝い（§0.73）：待機中に研究を手伝った冒険者がいると貯まり、研究費から割り引く
-			$"　[b]研究の手伝い[/b]：{_state.ResearchCredit} G（研究費の{TrainingBalance.ResearchCreditMaxDiscountRate * 100:0}%まで割り引く。上限 {TrainingBalance.ResearchCreditMax} G）\n");
+			// 研究の手伝い（§0.73・§0.114）：待機中に研究を手伝った冒険者がいると貯まり、進めている研究を早める
+			$"　[b]研究の手伝い[/b]：{_state.ResearchCredit}（{TrainingBalance.ResearchCreditPerWeek}ごとに、進めている研究が1週早まる。上限 {TrainingBalance.ResearchCreditMax}）\n");
+		// 進めている研究（§0.114）：同時に1件だけ
+		if (ResearchSystem.InProgress(_state) is { } doing)
+			_resourcesLabel.AppendText($"[color=#93c5fd][b]🔬 研究中[/b]：「{doing.Name}」あと {_state.ResearchInProgress!.WeeksRemaining} 週" +
+				(_state.ResearchInProgress.WeeksShortened > 0 ? $"（研究の手伝いで {_state.ResearchInProgress.WeeksShortened} 週縮めた）" : "") + "[/color]\n");
+		else
+			_resourcesLabel.AppendText("[color=gray]🔬 研究中：なし（研究室で進められる研究は1つずつ）[/color]\n");
 
 		// 研究で使う素材IDと、実際に所持している素材IDの両方を漏れなく出す
 		// （まだ研究で使わない素材も、採取済みなら在庫として見えるようにする）。
@@ -274,7 +280,7 @@ public partial class ResearchPanel : ScrollContainer
 
 		var button = new Button
 		{
-			Text = revealed ? research.Name : "？",
+			Text = !revealed ? "？" : ResearchSystem.IsInProgress(_state, research.Id) ? $"⏳ {research.Name}" : research.Name,
 			TooltipText = revealed ? $"{research.Name}\n{research.Description}" : "まだ入っていないフィールドの素材が要る研究",
 			Position = rect.Position,
 			Size = rect.Size,
@@ -306,6 +312,8 @@ public partial class ResearchPanel : ScrollContainer
 	{
 		if (_state.IsResearchCompleted(research.Id))
 			return (new Color("#1f4d2e"), new Color("#4ade80"));
+		if (ResearchSystem.IsInProgress(_state, research.Id))
+			return (new Color("#1e3a5f"), new Color("#60a5fa")); // 研究中（§0.114）
 		if (ResearchSystem.CanStartResearch(_state, research))
 			return (new Color("#4d3b12"), new Color("#fbbf24"));
 		return (new Color("#262a33"), new Color("#6b7280"));
@@ -403,8 +411,33 @@ public partial class ResearchPanel : ScrollContainer
 		if (completed)
 			return;
 
+		// 研究中（§0.114）：残り週と、やめるボタン（押すと確かめる。払ったものは戻らない）
+		if (ResearchSystem.IsInProgress(_state, research.Id))
+		{
+			var p = _state.ResearchInProgress!;
+			_detailBox.AddChild(MakeRichLabel($"[color=#93c5fd]🔬 研究中：あと {p.WeeksRemaining} 週[/color]" +
+				$"[color=gray]（研究の手伝いで {p.WeeksShortened}/{ResearchSystem.MaxShortenWeeks(research)} 週縮めた）[/color]"));
+			var cancel = new Button { Text = "研究をやめる" };
+			cancel.Pressed += () =>
+			{
+				if (cancel.Text == "研究をやめる")
+				{
+					cancel.Text = "本当にやめる（払った研究費と素材は戻らない）";
+					return;
+				}
+				if (!ResearchSystem.CancelResearch(_state)) return;
+				LogRequested.Invoke($"[color=gray]🔬 研究「{research.Name}」をやめた。[/color]");
+				StateChanged.Invoke();
+			};
+			_detailBox.AddChild(cancel);
+			return;
+		}
+
 		_detailBox.AddChild(MakeRichLabel($"必要資材：{BuildCostLine(research)}"));
-		var button = new Button { Text = "研究する", Disabled = !ResearchSystem.CanStartResearch(_state, research) };
+		_detailBox.AddChild(MakeRichLabel($"期間：{research.Weeks} 週[color=gray]（研究の手伝いで最大 {ResearchSystem.MaxShortenWeeks(research)} 週縮む）[/color]"));
+		if (ResearchSystem.InProgress(_state) is { } doing)
+			_detailBox.AddChild(MakeRichLabel($"[color=gray]いまは「{doing.Name}」を研究中（あと {_state.ResearchInProgress!.WeeksRemaining} 週）。研究室で進められる研究は1つずつ。[/color]"));
+		var button = new Button { Text = $"研究を始める（{research.Weeks} 週）", Disabled = !ResearchSystem.CanStartResearch(_state, research) };
 		button.Pressed += () => OnResearchButtonPressed(research);
 		_detailBox.AddChild(button);
 	}
@@ -691,13 +724,8 @@ public partial class ResearchPanel : ScrollContainer
 	/// <summary>「月光草: 3/5」のような充足状況の文字列。不足している項目は赤字にする。</summary>
 	private string BuildCostLine(ResearchDefinition research)
 	{
-		// 研究の手伝い（§0.73）で割り引ける分があれば、払う額と割引を並べる
-		int discount = ResearchSystem.GetDiscount(_state, research);
-		int pay = research.RequiredGold - discount;
-		string goldPart = discount > 0
-			? $"{_state.Gold}/{pay}G（{research.RequiredGold}G − 研究の手伝い {discount}G）"
-			: $"{_state.Gold}/{research.RequiredGold}G";
-		if (_state.Gold < pay)
+		string goldPart = $"{_state.Gold}/{research.RequiredGold}G";
+		if (_state.Gold < research.RequiredGold)
 			goldPart = $"[color=red]{goldPart}[/color]";
 
 		var materialParts = research.RequiredMaterials.Select(kv =>
@@ -712,13 +740,10 @@ public partial class ResearchPanel : ScrollContainer
 
 	private void OnResearchButtonPressed(ResearchDefinition research)
 	{
-		int discount = ResearchSystem.GetDiscount(_state, research);
-		if (!ResearchSystem.CompleteResearch(_state, research))
+		if (!ResearchSystem.StartResearch(_state, research))
 			return;
 
-		LogRequested.Invoke($"[color=gold][b]🔬 アルベールの研究室で「{research.Name}」が完了した！[/b][/color]\n" +
-			$"[color=gray]{research.Description}[/color]" +
-			(discount > 0 ? $"\n[color=lime]研究の手伝いで {discount} G 割り引いた（払ったのは {research.RequiredGold - discount} G）。[/color]" : ""));
+		LogRequested.Invoke($"[color=#93c5fd]🔬 アルベールの研究室で「{research.Name}」の研究を始めた（{research.Weeks} 週。研究の手伝いで早まる）。[/color]");
 		StateChanged.Invoke();
 	}
 }

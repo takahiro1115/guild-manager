@@ -87,6 +87,45 @@ namespace GuildManager.Core.Tests
             Assert.True(GuideSystem.Groups(state).Single().AllDone);
         }
 
+        /// <summary>§0.113：同時に出せる部隊が2つ・3つになった月に、二つ目・三つ目の部隊の場面が出て、方針を付けた部隊の数で手引きが済む。</summary>
+        [Fact]
+        public void SquadSlots_TeachSecondAndThirdSquad()
+        {
+            var state = NewGame();
+            state.MonthlyReports.Add(new MonthlyReport());
+            StorySystem.MarkSeen(state, "s01_first_report");
+            Assert.DoesNotContain("s01_squad2", StorySystem.DueScenes(state, StoryTiming.AfterReport).Select(s => s.SceneId));
+
+            state.UnlockedSquadSlots = 2;
+            Assert.Equal(new[] { "s01_squad2" }, StorySystem.DueScenes(state, StoryTiming.AfterReport).Select(s => s.SceneId));
+            StorySystem.MarkSeen(state, "s01_squad2");
+            state.UnlockedSquadSlots = 3;
+            Assert.Equal(new[] { "s01_squad3" }, StorySystem.DueScenes(state, StoryTiming.AfterReport).Select(s => s.SceneId));
+            StorySystem.MarkSeen(state, "s01_squad3");
+
+            var groups = Squads(state);
+            Assert.All(groups, g => Assert.False(g.AllDone));
+            for (int i = 0; i < 3; i++)
+                state.SavedParties.Add(new SavedParty { Name = $"第{i + 1}部隊", MemberIds = { state.Adventurers[i].Id }, Order = i == 2 ? SquadOrder.None : SquadOrder.Dive });
+            Assert.Equal(new[] { true, false }, Squads(state).Select(g => g.AllDone)); // 方針の無い部隊は数えない
+            state.SavedParties[2].Order = SquadOrder.Gather;
+            Assert.All(Squads(state), g => Assert.True(g.AllDone));
+
+            static System.Collections.Generic.List<GuideGroup> Squads(GameState s) => GuideSystem.Groups(s).Where(g => g.SceneId.StartsWith("s01_squad")).ToList();
+        }
+
+        [Fact]
+        public void NoTutorial_SkipsSquadScenes()
+        {
+            var state = NewGame();
+            StorySystem.DisableTutorial(state);
+            state.MonthlyReports.Add(new MonthlyReport());
+            state.UnlockedSquadSlots = 3;
+            var ids = StorySystem.DueScenes(state, StoryTiming.AfterReport).Select(s => s.SceneId).ToList();
+            Assert.DoesNotContain("s01_squad2", ids);
+            Assert.DoesNotContain("s01_squad3", ids);
+        }
+
         [Fact]
         public void Hunter_RemembersTheBoss_AfterItIsDefeated()
         {

@@ -583,9 +583,9 @@ public partial class MonthlyReportPopup : Window
 		if (report.LoanRepaid > 0) costs.Add($"借金の返済 [color=orange]−{report.LoanRepaid}G[/color]"); // §0.104
 		if (costs.Count > 0)
 			sb.AppendLine(string.Join("　", costs));
-		// 研究の手伝い（§0.73）：待機中にアルベールの研究を手伝って貯まった分。次の研究費から割り引く。
+		// 研究の手伝い（§0.73・§0.114）：待機中にアルベールの研究を手伝って貯まった分。進めている研究を早める。
 		if (report.ResearchCreditGained > 0 || report.ResearchCreditAfter > 0)
-			sb.AppendLine($"研究の手伝い [color=lime]+{report.ResearchCreditGained}G[/color]（貯まり {report.ResearchCreditAfter}G。次の研究費の{GuildManager.Core.Balance.TrainingBalance.ResearchCreditMaxDiscountRate * 100:0}%まで割り引く）");
+			sb.AppendLine($"研究の手伝い [color=lime]+{report.ResearchCreditGained}[/color]（貯まり {report.ResearchCreditAfter}。{GuildManager.Core.Balance.TrainingBalance.ResearchCreditPerWeek}ごとに、進めている研究が1週早まる）");
 
 		sb.AppendLine();
 		sb.AppendLine("[b]📰 主な出来事[/b]");

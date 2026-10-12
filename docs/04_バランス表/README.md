@@ -39,7 +39,7 @@
 | `master_mood.csv` | 03 §8.1・§8.1.1 | MasterMoodBalance（マスターの機嫌の初期値・成果ごとの増減・退屈減衰・強制除籍への激怒・段階閾値・内職売上倍率・研究の手伝い〈旧・待機お手伝い〉の額／機嫌） |
 | `recruitment.csv` | 03 §2.4・§7.3 | RecruitmentSystem, NameGeneratorBalance（第1週の新春ドラフト：`DraftCandidateCount`・`DraftHireCount`。旧 `TutorialCandidateCount` は削除）。先天特性の確率 `InnateTraitChancePercent` は§0.55で5→3（候補19種、1人あたり平均約0.57個）。生まれつきの欠点の確率 `InnateFlawChancePercent`（2、候補9種、平均約0.18個）は§0.56で新設。レア特性の確率 `RareTraitChancePercent`（1）と重み `RareTraitWeight_Genius`（1）・`RareTraitWeight_SingleStat`（2）は§0.57で新設 |
 | `compatibility_advisor.csv` | 03 §5.3・§7 | CompatibilityBalance, AdvisorBalance（教官成長補正、参謀の大迷宮調査解析ボーナス・道中潜行走破力ボーナス、スカウト有望新人率） |
-| `training.csv` | 03 §3.1〜3.4・§3.5改・§7.1 | TrainingBalance（勤勉 `DiligentGrowthRateBonus`、→ 03 §0.32。教官からの特性伝授 `TraitInheritanceBaseChance`・師匠肌ボーナス `MentorTraitInheritanceBonus`、→ 03 §0.34。教官の在任ボーナス `TrainerTenureBonusStepWeeks`・`TrainerTenureBonusPerStep`・`TrainerTenureBonusMax`、→ 03 §0.54。待機中の過ごし方 `IdleActivityHpRatio`・`SelfTrainingGrowthMultiplier`・`SelfTrainingHpCost`・研究の手伝い `ResearchCreditMax`・`ResearchCreditMaxDiscountRate`、→ 03 §0.73） |
+| `training.csv` | 03 §3.1〜3.4・§3.5改・§7.1 | TrainingBalance（勤勉 `DiligentGrowthRateBonus`、→ 03 §0.32。教官からの特性伝授 `TraitInheritanceBaseChance`・師匠肌ボーナス `MentorTraitInheritanceBonus`、→ 03 §0.34。教官の在任ボーナス `TrainerTenureBonusStepWeeks`・`TrainerTenureBonusPerStep`・`TrainerTenureBonusMax`、→ 03 §0.54。待機中の過ごし方 `IdleActivityHpRatio`・`SelfTrainingGrowthMultiplier`・`SelfTrainingHpCost`・研究の手伝い `ResearchCreditMax`・`ResearchCreditPerWeek`・`ResearchMaxShortenRate`、→ 03 §0.73・§0.114） |
 | `trait.csv` | 03 §4.3・§5.3.2・§4.2.3 | TraitBalance（→ TraitCatalog。豪胆 `BraveSurvivalThresholdBonus`＝ボス戦の損耗−pt・注意深い `AttentiveScoutingBonus`＝隠密の寄与×(1＋値)・知識人 `ScholarAnalysisBonus`＝解析の寄与×(1＋値)、→ 03 §0.53。ペアシナジーの緩和係数は§0.53で削除）。全特性の表示名・説明・障害フラグ（`{Id}_DisplayName`・`{Id}_Description`・`{Id}_IsCurseOrInjury`、§0.31）。旧 `TraitTransmission*` 3キーは §0.34 で削除（→ training.csv）。§0.55で足した10種の効果量（`HawkEyeFlyingDamageReductionRate`・`SixthSenseInstantKillHpLossPct`・`GuardianGuardBonus`・`PathfinderTraversalBonus`・`SturdyMaxHpBonus`・`QuickHealerInjuryRecoveryBonus`・`QuickHealerRestRecoveryBonus`・`CheerfulSatisfactionBonus`・`HardworkerIdleHelpCreditMultiplier`（§0.73で `HardworkerIdleHelpGoldMultiplier` から改名）・`FireMageIntBonus`・`SwordMasterStatBonus`、すべて仮の値、→ 03 §5.3.2）。§0.56のマイナスの特性（地図読み `MapReaderTraversalBonus`、欠点の `Coward*`・`Reckless*`・`ClumsyStealthPenalty`・`PoorDirectionTraversalPenalty`・`SicklyMaxHpPenalty`・`FickleGrowthRatePenalty`・`MoodySatisfactionPenalty`・`SpendthriftWageMultiplier`、障害の `PoisonAftereffect*`・`LegWoundAgiReduction`・`ArmWoundStatReduction`・`Dread*`・`Burnout*`。すべて仮の値）。§0.57のレア特性（`GeniusStatBonus`＝0.15・`RareSingleStatBonus`＝0.30、仮の値） |
 | `equipment.csv` | 03 §4.2.2 | EquipmentBalance（→ ItemCatalog）。**テーブル形式**（`Id,Price,HpBonus,BonusStr〜BonusLdr,note`、2026年9月に key,value 形式から移行）。`HpBonus`＝最大HP加算（武器は0）。§0.37で旧 `EffectValue`（個人CP／最大HPの二義）を個人CPの撤廃に伴い `HpBonus` へ改名 |
 | `boss_gimmicks.csv` | 03 §4.5.4 | BossGimmickBalance（ボスのギミック7種への備えと罰、毒状態、ギミックの数。2026年10月・§0.68。旧 `consumables.csv` は撤去） |
@@ -55,7 +55,7 @@
 | `affixes.csv` | 03 §4.7.3・§4.2.2 | AffixBalance（鑑定品のランダムアフィックス＝接頭辞・接尾辞の一覧。**テーブル形式** `Id,Type,Name,TargetStat,MinValue,MaxValue,Tier,AllowedSlots,Weight`、2026年9月・§0.39） |
 | `portraits.csv` | 03 §2.1 | PortraitBalance（採用の応募者に割り当てる顔グラフィックの一覧。**テーブル形式** `Id,Jobs,HairColor,EyeColor`。Id＝`assets/portraits/{Id}.png`、Jobs＝似合う職業の `\|` 区切りまたは `All`。2026年9月・§0.46） |
 | `uniques.csv` | 03 §4.7.5 | UniqueBalance（固有武具＝固定アーティファクト〈紫〉・伝説級〈金〉・依頼人の固有武具〈§0.64〉の一覧。**テーブル形式** `Id,Grade,Name,BaseItemId,HpBonus,BonusStr〜BonusLdr,CounterGimmick,DropFieldId,DropFloor,SellPrice,PatronId`。伝説級は入手元のボス〈フィールドId・階層〉と対策ギミック、売値0＝売却不可。2026年9月・§0.45。§0.64で Grade `Patron` と列 `PatronId`〈commission_clients.csv の Id。Patron 以外は空〉を追加。依頼人の固有武具は売値0＝売却不可） |
-| `research.csv` | 03 §4.6 | ResearchBalance（アルベール研究室の24プロジェクト（うち内職強化 SideBusinessGoldBonus 4種、魂魄融和の秘薬の解禁 `res_soul_fusion`＝SoulFusionUnlock・効果値0、§0.58、段階研究11種＝RecruitPaBonus・GrowthRateBonus・SoulFusionPaBonus・CultureTankBonus、§0.60）・必要素材・ゴールド・効果種別・効果値・**前提 `Prerequisite`**（§0.60で列を追加。空＝前提なし、段階研究のII・IIIは前の段のId）・**系統 `Branch`・段 `Lane`**（§0.77で列を追加。研究室のツリーの行。列は必要な素材のフィールドから決まる）） |
+| `research.csv` | 03 §4.6 | ResearchBalance（アルベール研究室の24プロジェクト（うち内職強化 SideBusinessGoldBonus 4種、魂魄融和の秘薬の解禁 `res_soul_fusion`＝SoulFusionUnlock・効果値0、§0.58、段階研究11種＝RecruitPaBonus・GrowthRateBonus・SoulFusionPaBonus・CultureTankBonus、§0.60）・必要素材・ゴールド・効果種別・効果値・**前提 `Prerequisite`**（§0.60で列を追加。空＝前提なし、段階研究のII・IIIは前の段のId）・**系統 `Branch`・段 `Lane`**（§0.77で列を追加。研究室のツリーの行。列は必要な素材のフィールドから決まる）・**週 `Weeks`**（§0.114で列を追加。研究にかかる週）） |
 | `squad_orders.csv` | 03 §4.0.3 | SquadOrderBalance（部隊の方針と自動出撃、2026年10月・§0.63）：自動出撃の条件 `AutoDispatchMinHpPercent`（70）・扉前の構え（慎重・標準・強気、§0.68）ごとの火力の倍率・HP・備えの条件 |
 | `commissions.csv` | 03 §4.9・§4.10 | CommissionBalance（依頼と迷宮の異変、2026年10月・§0.64）：依頼の届き方（届き始めは初めての入賞の次の季節・§0.84、`OffersPerSeason`＝3・`MaxAccepted`＝2・期限 `DeadlineWeeks_*`＝撃破24／他12・期限の知らせ `DeadlineWarningWeeks`＝2）、条件（納品の個数 `DeliverCountBase`・`DeliverFloorsPerExtra`、派遣の基準 `LoanRank`＝3番目・`LoanMinThreshold`＝20、派遣の期間と帰還の成長 `LoanWeeks`＝12・`LoanGrowthRolls`＝12・`LoanTraitChance`＝0.25〈§0.85〉）、報酬（`RewardMultiplier_*`＝撃破0.2・完全解析0.15・納品0.15・派遣1.5、`CompletionMoodGain`＝10、`FailureMoodLoss`＝10、遺物 `RewardRelicRollBonus`＝25・`RewardRelicMinRarity`＝Epic、依頼人の固有武具 `PatronUniqueCompletions`＝5件）、異変（`FirstAnomalyWeek`＝13・`AnomalyAnnounceWeekOfSeason`＝4・`AnomalyDurationWeeks`＝4・倍率 `Anomaly_*`） |
 | `commission_clients.csv` | 03 §4.9・§0.85 | CommissionBalance.Clients（依頼人5人。**テーブル形式** `Id,Name,Types,BonusMaterialId,BonusMaterialCount,AlbertLine,LoanStats,LoanTraits`。Types は `Defeat\|Survey\|Deliver\|Loan` の `\|` 区切り、BonusMaterial はおまけの素材〈空＝なし〉、AlbertLine は掲示中の依頼に添えるアルベールの一言、LoanStats・LoanTraits は派遣から帰ってきたときに伸ばす能力と付く特性の候補〈§0.85、`\|` 区切り。派遣を頼む依頼人は LoanStats が必須〉） |
@@ -804,3 +804,34 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 | `StandingPointsPerBoss` | 1 | 迷宮のボス1体ごとの栄誉点 |
 | `StandingPrize_1`・`StandingMood_1` | 5000・15 | 1位のご褒美 |
 | `StandingPrize_2`・`StandingMood_2` | 2000・5 | 2位のご褒美 |
+
+## 研究の期間と費用の見直しで追加／変更されたキー（2026年10月、→ 03 §0.114）
+
+テストプレイの感想「研究費用が安すぎる」「研究には数か月の期間が必要」を受けた。研究室で進められる研究は同時に1件。研究費と素材は始めたときに払い、`Weeks` 週たった週の決算で完了する。
+研究の手伝い（§0.73）は研究費の割り引きをやめ、進めている研究を早めるものにした。すべて仮の値。
+
+**research.csv**：列 `Weeks`（研究にかかる週、1以上）を足した。森の研究は4〜6週、洞窟〜深淵は8〜16週、段階研究のI・II・IIIは8・16・24週（秘薬の純度は8・12・16、培養槽は8・12）、魂魄融和の秘薬と霊薬の調合法は12週。
+研究費は2000G以下だったものを上げた（段階研究など2500G以上は据え置き）。
+
+| 研究 | 研究費（旧→新） | 週 |
+|---|---|---|
+| 薬草湿布の調合・特殊保存嚢 | 200→600・250→750 | 4・4 |
+| 生体蛍光試薬・軽量踏破靴 | 300→900・300→900 | 6・6 |
+| 硬化軟膏・古代戦術録・耐熱踏破法・魂魄安定の霊香 | 500→1500・800→2400・1200→3600・2000→6000 | 8・10・12・16 |
+| 潤い美肌液・滋養強壮アンプル・古代香料の外販・不老長生薬 | 100→800・200→1500・300→2500・500→4000 | 4・6・8・10 |
+| 魂魄融和の秘薬 | 1500→3000 | 12 |
+
+**training.csv**
+
+| キー | 値 | 意味 |
+|---|---|---|
+| `ResearchCreditMax` | 5000→600 | 研究の手伝いが貯まる上限（単位を G から pt に） |
+| `ResearchCreditPerWeek`（新設） | 60 | 研究の手伝いをこれだけ使うと、進めている研究が1週ぶん余計に進む（1週に1回まで） |
+| `ResearchMaxShortenRate`（新設） | 0.5 | 研究の手伝いで縮められる週の上限＝研究の週×この値（切り捨て） |
+| `ResearchCreditMaxDiscountRate` | （削除） | 研究費の割り引きをやめた |
+
+**master_mood.csv**：`IdleAdventurerHelp_ResearchCredit`（10）の単位を G から pt に。
+
+シミュレーター（`audit 30 1440 L3 simple`）：クリア 28/30・12年目〔10〜14〕（変更前 28/30・11年目〔9〜14〕）、敗北2回（同2回）。年のはじめの所持金の中央値は2年目 5,006G・4年目 3,156G・7年目 13,004G（変更前 4,946G・3,251G・14,704G）。
+シミュレーターは研究を1つずつ、商い（内職の売上）を先に、あとは CSV の順に始める。CSV の順のまま（内職が9番目）だとクリア 23/30・敗北6回で、内職の研究が遅れて所持金が細る。研究室の使い方の場面（s01_research）でアルベールが「内職の薬から」と勧める。
+`campaign 10 1440`：クリア 10/10・12年目〔11〜13〕、済ませた研究 21〜23件（全25件）。

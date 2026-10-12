@@ -22,7 +22,7 @@ namespace GuildManager.Core.Systems
     /// </summary>
     public static class StorySystem
     {
-        private sealed record Rule(string Id, StoryTiming Timing, Func<GameState, bool> IsDue, bool Repeats = false, bool OnDungeonView = false);
+        private sealed record Rule(string Id, StoryTiming Timing, Func<GameState, bool> IsDue, bool Repeats = false, StoryView? OnView = null);
 
         /// <summary>場面の並び（同じ時機に重なったらこの順に出す）。</summary>
         private static readonly Rule[] Rules =
@@ -30,13 +30,16 @@ namespace GuildManager.Core.Systems
             // ---- 台詞01 序章とチュートリアル ----
             new("s01_prologue", StoryTiming.Interactive, s => s.WeekNumber == 1),
             new("s01_guild", StoryTiming.Interactive, s => Seen(s, "s01_prologue") && (s.WeekNumber > 1 || s.Adventurers.Count >= 5)),
-            new("s01_order", StoryTiming.Interactive, s => Seen(s, "s01_guild") && s.SavedParties.Any(p => p.MemberIds.Count > 0), OnDungeonView: true), // 部隊を組んで、初めて大迷宮の画面を開いたとき（§0.108）
+            new("s01_order", StoryTiming.Interactive, s => Seen(s, "s01_guild") && s.SavedParties.Any(p => p.MemberIds.Count > 0), OnView: StoryView.Dungeon), // 部隊を組んで、初めて大迷宮の画面を開いたとき（§0.108）
             new("s01_month", StoryTiming.Interactive, s => Seen(s, "s01_order") && s.SavedParties.Any(p => p.MemberIds.Count > 0 && p.Order != SquadOrder.None)),
             new("s01_first_report", StoryTiming.AfterReport, s => s.MonthlyReports.Count > 0),
             new("s01_forest10", StoryTiming.AfterReport, s => ForestBossDefeated(s, 10)),
+            new("s01_squad2", StoryTiming.AfterReport, s => s.UnlockedSquadSlots >= 2), // 同時に出せる部隊が2つに（森の10F、§0.113）
             new("s01_lumina", StoryTiming.AfterReport, s => ForestBossDefeated(s, 20)),
+            new("s01_squad3", StoryTiming.AfterReport, s => s.UnlockedSquadSlots >= 3), // 3つに（森の20F、§0.113）
             new("s01_elder", StoryTiming.AfterReport, s => SeenBefore(s, "s01_lumina", s.WeekNumber)),
             new("s01_question", StoryTiming.AfterReport, s => Seen(s, "s01_elder")),
+            new("s01_research", StoryTiming.Interactive, s => Seen(s, "s01_question"), OnView: StoryView.Research), // 初めて研究室の画面を開いたとき（§0.114）
             new("s01_hunter", StoryTiming.AfterReport, s => RetreatedBoss(s) != null),
             // ---- 台詞02 イザベラの来訪と交流戦 ----
             new("s02_visit", StoryTiming.AfterReport, s => IsabellaSystem.HasVisited(s)),
@@ -101,7 +104,7 @@ namespace GuildManager.Core.Systems
         public static readonly IReadOnlyCollection<string> TeachingSceneIds = new HashSet<string>
         {
             "s01_order", "s01_month", "s01_first_report", "s01_question", "s01_hunter",
-            "s02_disciplines", "s02_advice", "s02_tournaments",
+            "s02_disciplines", "s02_advice", "s02_tournaments", "s01_squad2", "s01_squad3", "s01_research",
         };
 
         /// <summary>
@@ -127,9 +130,9 @@ namespace GuildManager.Core.Systems
         /// <summary>
         /// 今の時機に出す場面（並びの順。台詞を埋めて返す）。前の場面を見たことが条件の場面（来訪→剣・魔・技、交流戦→助言など）も、
         /// 同じ時機に続けて出せるよう、並びの前の場面を見たことにして順に判定する（記録はしない。出した場面は画面が MarkSeen する）。
-        /// onDungeonView は今の画面が大迷宮か（大迷宮の画面で見せる場面は、ほかの画面のあいだは待つ。画面の無いシミュレーターは true のまま）。
+        /// currentView は今開いている画面（大迷宮・研究室の画面で見せる場面は、ほかの画面のあいだは待つ。画面の無いシミュレーター・テストは null＝どの場面も出す）。
         /// </summary>
-        public static List<StoryShowing> DueScenes(GameState state, StoryTiming timing, bool onDungeonView = true)
+        public static List<StoryShowing> DueScenes(GameState state, StoryTiming timing, StoryView? currentView = null)
         {
             var due = new List<StoryShowing>();
             var assumed = new List<string>();
@@ -137,7 +140,7 @@ namespace GuildManager.Core.Systems
             {
                 foreach (var rule in Rules.Where(r => r.Timing == timing))
                 {
-                    if ((!rule.Repeats && Seen(state, rule.Id)) || (rule.OnDungeonView && !onDungeonView) || !rule.IsDue(state))
+                    if ((!rule.Repeats && Seen(state, rule.Id)) || (rule.OnView is { } view && currentView is { } now && view != now) || !rule.IsDue(state))
                         continue;
                     due.Add(Build(state, rule.Id));
                     if (state.StorySeenWeeks.TryAdd(rule.Id, state.WeekNumber))
@@ -322,6 +325,18 @@ namespace GuildManager.Core.Systems
             state.TournamentEvents.Where(e => e.Kind != TournamentKind.Exchange && e.Grade == TournamentGrade.G1 && e.Result?.WinnerIsOurs == true)
                 .OrderBy(e => e.Year).ThenBy(e => e.Month).ThenBy(e => e.Week).FirstOrDefault();
 
+        /// <summary>
+        /// 大会（交流戦は除く）でのギルドの最高の入賞の言い方（「優勝」「準優勝」「ベスト4」）。入賞が無ければ null。
+        /// s02_royal（初めての入賞）の {入賞} に使う（§0.112：優勝してもベスト4と言わないように）。
+        /// </summary>
+        public static string? BestPlacingLabel(GameState state)
+        {
+            int best = state.TournamentEvents.Where(e => e.Kind != TournamentKind.Exchange && e.Result != null)
+                .SelectMany(e => e.Result!.Placings).Select(p => p.Placing).Where(p => p >= 1 && p <= 4)
+                .DefaultIfEmpty(0).Min();
+            return best switch { 1 => "優勝", 2 => "準優勝", 4 => "ベスト4", _ => null };
+        }
+
         /// <summary>交流戦の魔（セシリア）に初めて勝った者の名前。無ければ null。</summary>
         private static string? CeciliaBeaten(GameState state) =>
             state.TournamentEvents.Where(e => e.Kind == TournamentKind.Exchange && e.Result != null)
@@ -407,6 +422,7 @@ namespace GuildManager.Core.Systems
             };
             if (name != null) values["{名前}"] = name;
             if (FirstG1Win(state) is { } g1) values["{大会}"] = g1.Name;
+            values["{入賞}"] = BestPlacingLabel(state) ?? "入賞";
             if (FirstDaughter(state) is { } daughter)
             {
                 values["{娘}"] = values["{初めての娘の名前}"] = daughter.Name;

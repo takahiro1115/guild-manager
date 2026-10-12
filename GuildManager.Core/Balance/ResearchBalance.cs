@@ -21,6 +21,7 @@ namespace GuildManager.Core.Balance
     ///  - EffectValue：効果量（意味はEffectTypeごとに異なる）。
     ///  - Prerequisite：前提の研究Id（空＝前提なし。§0.60の段階研究）。
     ///  - Branch：系統（ResearchBranchの名前）・Lane：系統の中の段（0〜）。研究室のツリーの行（§0.77）。
+    ///  - Weeks：研究にかかる週（§0.114。1以上）。
     /// </summary>
     public static class ResearchBalance
     {
@@ -52,8 +53,12 @@ namespace GuildManager.Core.Balance
                     PrerequisiteId = string.IsNullOrWhiteSpace(row[7]) ? null : row[7].Trim(),
                     Branch = ParseBranch(row[8], i),
                     Lane = ParseInt(row[9], i, "Lane"),
+                    Weeks = ParseInt(row[10], i, "Weeks"),
                 });
             }
+
+            foreach (var d in result.Where(d => d.Weeks < 1))
+                throw new BalanceDataException($"{FileName} の研究「{d.Id}」のWeeksは1以上にしてください。");
 
             foreach (var d in result.Where(d => d.PrerequisiteId != null))
                 if (result.All(x => x.Id != d.PrerequisiteId))

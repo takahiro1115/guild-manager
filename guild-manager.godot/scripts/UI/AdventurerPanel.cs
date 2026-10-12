@@ -396,7 +396,7 @@ public partial class AdventurerPanel : VBoxContainer
 
 		_idleActivityOption = new OptionButton
 		{
-			TooltipText = $"研究を手伝う：研究の手伝いが週{MasterMoodBalance.IdleAdventurerHelpResearchCredit}G分貯まり（次の研究費の{TrainingBalance.ResearchCreditMaxDiscountRate * 100:0}%まで割り引く）、マスターの機嫌が+{MasterMoodBalance.IdleAdventurerHelpMood}。\n" +
+			TooltipText = $"研究を手伝う：研究の手伝いが週{MasterMoodBalance.IdleAdventurerHelpResearchCredit}貯まり（{TrainingBalance.ResearchCreditPerWeek}ごとに、進めている研究が1週早まる）、マスターの機嫌が+{MasterMoodBalance.IdleAdventurerHelpMood}。\n" +
 				$"自主練：能力が少し伸びることがある（訓練施設の{TrainingBalance.SelfTrainingGrowthMultiplier * 100:0}%ほどの伸び。費用なし）。HPを{TrainingBalance.SelfTrainingHpCost}使う。",
 		};
 		_idleActivityOption.AddItem(IdleActivitySystem.Label(IdleActivity.Help), (int)IdleActivity.Help);
@@ -445,7 +445,7 @@ public partial class AdventurerPanel : VBoxContainer
 			_ => $"[color=lime]{IdleActivitySystem.Label(activity)}[/color]",
 		};
 		_idleStatusLabel.Clear();
-		_idleStatusLabel.AppendText($"今週：{now}　[color=gray]研究の手伝いの貯まり {_state.ResearchCredit} G[/color]");
+		_idleStatusLabel.AppendText($"今週：{now}　[color=gray]研究の手伝いの貯まり {_state.ResearchCredit}[/color]");
 	}
 
 	private void OnIdleActivitySelected(long index)
