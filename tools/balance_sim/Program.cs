@@ -509,6 +509,15 @@ partial class GameSim
             if (s.Gold < 0 && FundingSystem.Borrow(s, LoanLender.Merchant, FundingBalance.MerchantLoanAmounts.FirstOrDefault(a => a >= need, FundingBalance.MerchantLoanAmounts.Max()))) Count("融資");
         }
         if (FundingSystem.FindLoan(s, LoanLender.Merchant) is { } debt && s.Gold - FundingSystem.EarlyRepayment(debt) >= Reserve + 5000 && FundingSystem.RepayEarly(s, debt)) Count("借金の一括返済");
+        // ギルドの方針（§0.105）と育成への投資：個人特訓は22歳以下で能力の合計が最も高い子に、スカウト網の予算は冬に。どちらも Reserve＋3,000G が残るときだけ
+        s.TrainingPolicy = AuditTrainingPolicy;
+        s.PrizePolicy = AuditPrizePolicy;
+        if (UseInvestments && Level >= 2)
+        {
+            if (s.Coachings.Count == 0 && s.Gold - PolicyBalance.CoachingCost >= Reserve + 3000
+                && Active.Where(a => a.Age <= 22 && !a.IsOnLoan).OrderByDescending(StatSum).FirstOrDefault() is { } pupil && GuildPolicySystem.StartCoaching(s, pupil)) Count("個人特訓");
+            if (GameCalendar.SeasonOf(s.WeekNumber) == Season.Winter && s.Gold - PolicyBalance.ScoutBudgetCost >= Reserve + 3000 && GuildPolicySystem.PayScoutBudget(s)) Count("スカウト網の予算");
+        }
     }
 
     /// <summary>改築してよいか：改築費を払っても、維持費（改築後）の3か月分＋2500Gが残るとき（§0.103）。</summary>
@@ -770,7 +779,7 @@ partial class GameSim
         foreach (var f in TrainingFacilities.Where(f => s.GetFacilityLevel(f) >= 1))
         {
             if (s.AssignedTrainers.TryGetValue(f, out var cur) && cur != null) continue;
-            var best = s.RetiredAdventurers.Where(r => !posted.Contains(r.Id))
+            var best = s.RetiredAdventurers.Where(r => !posted.Contains(r.Id) && !r.LeftGuild) // ギルドを去った子は任命できない（§0.105）
                 .OrderByDescending(r => FacilityBalance.GetTrainingTargetStats(f).Sum(n => Acc.Stat(r, n))).FirstOrDefault();
             if (UseTrainers && best != null && advisors.TryAssignTrainer(s, f, best.Id))
             { posted.Add(best.Id); Count("教官の任命"); }

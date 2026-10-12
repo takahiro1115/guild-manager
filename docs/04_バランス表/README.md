@@ -28,6 +28,7 @@
 | `tournament.csv` | 03 §0.82 | TournamentBalance（大会の式・暦・施設の開放の閾値・おすすめの申し込み〈§0.99〉。key,value 形式） |
 | `isabella.csv` | 03 §0.84 | IsabellaBalance（イザベラの来訪・交流戦・派遣の教官。key,value 形式） |
 | `funding.csv` | 03 §0.104 | FundingBalance（資金の調達：商人ギルドとイザベラの融資、スポンサー契約の前金・ノルマ・成功報酬・違約金。key,value 形式） |
+| `policy.csv` | 03 §0.105 | PolicyBalance（ギルドの方針〈訓練の強さ・大会の賞金の分け方〉、引退者が去るまでの週数、個人特訓・スカウト網の予算。key,value 形式） |
 | `postgame.csv` | 03 §0.90 | PostGameBalance（エンディングのあと：主が蘇るまでの週数・異変の季節・ルミナの能力と立ち絵。key,value 形式） |
 | `story/story_01.txt`〜`story_04.txt` | 03 §0.86・§0.89 | StoryBalance（物語の台詞。物語帳〈アーティファクト「ギルド物語帳」〉の「台詞 01〜04」を書き出したもの。`s04_narration` はエンディングの窓の締めの語り。**CSVではない**：`## 場面のId　見出し` で場面が始まり、台詞は物語帳と同じ書式。書式はファイルの先頭の注記。場面を出す条件はコード `StorySystem`。物語帳を直したら書き出し直す。§0.91 からどの場面も頭に `〔背景：場面名〕`） |
 | `story_images.csv` | 03 §0.91 | StoryImageBalance（物語の会話の小窓に出す背景と立ち絵。**テーブル形式** `Kind,Name,Expression,File`。Kind＝`background`・`portrait`、Name＝背景の名前〈台詞の〔背景：…〕〉か話者名〈`\|` で別名〉、Expression＝立ち絵の表情〈空は「通常」〉、File＝`assets/story/` からの相対パス。画像がまだ無い行も置いてよく、ゲームはファイルがあるときだけ出す） |
@@ -166,6 +167,22 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 `SubsidyWeeksPerMonth`・`SubsidyBaseAmount_G〜S` は `SideJobIntervalWeeks`・`SideJobBaseAmount`（旧Gの200G）へ、
 `SeveranceShortfallReputationPenalty` は `SeveranceShortfallMoodPenalty` へ置き換え、`dungeon.csv` の
 `BossBaseReputation` は削除した。代わりに `master_mood.csv` を新設した。
+
+## 方針と進路で追加されたファイルとキー（2026年10月、→ 03 §0.105）
+
+`policy.csv`（新設、key,value 形式。すべて仮の値）。霊薬（`elixir_recipes.csv` `RequiredGold`）・秘薬（`soul_fusion.csv` `PrescriptionGold`）の値段は据え置き。
+
+| キー | 値 | 意味 |
+|---|---|---|
+| `TrainingHardGrowthMultiplier`・`TrainingHardInjuryChance`・`TrainingHardSatisfaction` | 1.15・0.03・−1 | 訓練「厳しく」：成長の倍率・訓練生の毎週の軽傷の確率・満足度（志向が訓練の子は0） |
+| `TrainingGentleGrowthMultiplier`・`TrainingGentleSatisfaction` | 0.9・1 | 訓練「穏やかに」 |
+| `PrizeShareRate`・`PrizeShareSatisfaction`・`PrizeShareDriveBonus` | 0.5・5・3 | 大会の賞金「本人に分ける」：本人へ渡す割合・満足度・志向が大会／お金の子に足す満足度 |
+| `RetireeRoleGraceWeeks` | 4 | 引退者（と役職を外れた子）がこの週数のうちに任命されなければ、ギルドを去る |
+| `CoachingCost`・`CoachingWeeks`・`CoachingSlots` | 2500・12・1 | 個人特訓の費用・期間・同時の人数 |
+| `CoachingRollsPerWeek`・`CoachingGrowthMultiplier` | 2・1.3 | 個人特訓の毎週の成長の判定の回数・確率の倍率 |
+| `ScoutBudgetCost`・`ScoutBudgetExtraCandidates`・`ScoutBudgetHighPotentialBonus` | 2000・2・0.15 | スカウト網の予算：費用・志願者に足す人数・有望新人の確率に足す値 |
+
+シミュレーター（L3 simple）で、個人特訓とスカウト網の予算を使うとクリアが約1年早まる（投資なし 12年目→11年目）。方針の「厳しく」は11年目だが破産が増え、「穏やかに」は12年目で破産が少ない。
 
 ## 資金の調達で追加されたファイルとキー（2026年10月、→ 03 §0.104）
 

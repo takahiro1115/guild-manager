@@ -95,6 +95,9 @@ namespace GuildManager.Core.Systems
         /// <summary>スポンサー契約の話だけに使う乱数（§0.104。ほかの抽選の順を変えないよう別にする）。</summary>
         private readonly IRng _sponsorRng = new SeededRng(DefaultSponsorSeed);
         private const int DefaultSponsorSeed = 4057;
+        /// <summary>訓練の方針のけがだけに使う乱数（§0.105）。</summary>
+        private readonly IRng _policyRng = new SeededRng(DefaultPolicySeed);
+        private const int DefaultPolicySeed = 4073;
 
         /// <summary>
         /// 1週分の決算処理を実行し、週番号を1つ進める。出撃操作は本メソッドの対象外
@@ -184,6 +187,8 @@ namespace GuildManager.Core.Systems
             result.SelfTrainingGrowthEvents.AddRange(_growthSystem.ProcessSelfTraining(state, idleWeek.SelfTrainerIds)); // → §0.73：自主練
             result.SelfTrainerCount = idleWeek.SelfTrainerIds.Count;
             result.TrainingGrowthEvents.AddRange(_growthSystem.ProcessTournamentPush(state)); // 大会の月の追い込み（§0.82）
+            result.TrainingGrowthEvents.AddRange(GuildPolicySystem.ProcessCoaching(state, _growthSystem, thisWeek)); // 個人特訓（§0.105）
+            result.TrainingInjuries.AddRange(GuildPolicySystem.ProcessTrainingPolicy(state, idleExcludedIds, _policyRng)); // 訓練の方針（§0.105）：厳しく＝けがと満足度↓、穏やかに＝満足度↑
 
             // 大会（§0.82）：今週の大会を行い、ご褒美を与える。新しいフィールド・G1の優勝・入賞の累計で招待大会を置く。
             result.TournamentsResolved.AddRange(_tournamentSystem.ResolveWeek(state));
@@ -225,6 +230,7 @@ namespace GuildManager.Core.Systems
             var retiredBefore = state.RetiredAdventurers.Select(a => a.Id).ToHashSet();
             _agingSystem.ProcessWeeklyAging(state); // → 03 §3：加齢・8年稼働モデル
             result.Retirees.AddRange(state.RetiredAdventurers.Where(a => !retiredBefore.Contains(a.Id)).Select(a => a.Id)); // 引退式（段2）
+            result.RetireesLeft.AddRange(GuildPolicySystem.ProcessRetirees(state, thisWeek).Select(r => r.Name)); // 役職につかない引退者はギルドを去る（§0.105）
             // 満期引退で退職金を払いきれなかった場合の機嫌低下（→ AgingSystem.Retire）も週報の内訳に載せる。
             if (state.MasterMood != moodBeforeAging)
                 result.MoodReport.Entries.Add(new MasterMoodEntry("退職金の不足", state.MasterMood - moodBeforeAging, state.MasterMood - moodBeforeAging));

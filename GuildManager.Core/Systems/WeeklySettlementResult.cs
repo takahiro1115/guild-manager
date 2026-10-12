@@ -62,6 +62,9 @@ namespace GuildManager.Core.Systems
         public SponsorSettlement Sponsors { get; set; } = new();
         /// <summary>この週のはじめ（決算のあと）に届いたスポンサー契約の話。</summary>
         public List<SponsorContract> SponsorOffered { get; } = new();
+        /// <summary>ギルドの方針・進路（§0.105）：厳しい訓練でけがをした子、役職につかずにギルドを去った引退者の名前。</summary>
+        public List<InjuryEvent> TrainingInjuries { get; } = new();
+        public List<string> RetireesLeft { get; } = new();
 
         /// <summary>アルベールの市販薬・内職売上（4週に1回のみ値が入る。→ EconomySystem.ProcessWeeklySideJobIncome）。</summary>
         public SideJobIncome? SideJobIncome { get; set; }

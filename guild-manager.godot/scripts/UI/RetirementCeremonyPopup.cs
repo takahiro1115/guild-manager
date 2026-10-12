@@ -130,6 +130,8 @@ public partial class RetirementCeremonyPopup : Window
 		if (c.JoinEstimate.Length > 0)
 			sb.Append($"副官の見立ては {c.JoinEstimate}、本当の素質は [color=khaki]{c.TrueRank}[/color] だった。\n");
 
+		// 引退後の進路（§0.105）：顧問・教官の役職についた子だけが残る
+		sb.Append($"\n[color=orange]ギルドに残れるのは顧問・教官の役職についた子だけ。{GuildManager.Core.Balance.PolicyBalance.RetireeRoleGraceWeeks}週のうちに施設の画面で任命しなければ、ギルドを去る。[/color]\n");
 		if (c.AlbertLine.Length > 0)
 			sb.Append($"\n[color=violet]{c.AlbertLine}[/color]\n[right][color=gray]――アルベール[/color][/right]");
 		_text.Text = sb.ToString();

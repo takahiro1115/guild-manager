@@ -662,6 +662,60 @@ public partial class FacilityPanel : VBoxContainer
 				? "・スポンサー契約の話が届いている（月報の「スポンサー契約」で結ぶ）"
 				: $"・スポンサー契約：結んでいない（{(_state.WeekNumber < FundingBalance.SponsorFirstWeek ? "1年目の秋から" : "")}春と秋のはじめに話が届く）";
 		_fundingBox.AddChild(new Label { Text = sponsorText, AutowrapMode = TextServer.AutowrapMode.WordSmart });
+
+		RefreshInvestments();
+	}
+
+	/// <summary>育成への投資（§0.105）：個人特訓（誰につけるかを選ぶ）とスカウト網の予算。値と払えない理由は Core（GuildPolicySystem）。</summary>
+	private void RefreshInvestments()
+	{
+		_fundingBox.AddChild(new RichTextLabel
+		{
+			BbcodeEnabled = true, FitContent = true, ScrollActive = false,
+			Text = "[b]🎓 育成への投資[/b]",
+		});
+		foreach (var c in _state.Coachings)
+			if (_state.FindAdventurer(c.AdventurerId) is { } coached)
+				_fundingBox.AddChild(new Label { Text = $"・{coached.Name}に個人特訓がついている（{GameCalendar.FormatMonth(c.UntilWeek)} 第{GameCalendar.WeekOfMonth(c.UntilWeek)}週まで）" });
+
+		var coachRow = new HBoxContainer();
+		coachRow.AddThemeConstantOverride("separation", 8);
+		coachRow.AddChild(new Label { Text = $"個人特訓（{PolicyBalance.CoachingWeeks}週・{PolicyBalance.CoachingCost} G）：" });
+		var pick = new OptionButton { CustomMinimumSize = new Vector2(220, 0) };
+		var candidates = _state.Adventurers.Where(a => !a.IsRetired && GuildPolicySystem.CoachingOf(_state, a.Id) == null).OrderBy(a => a.Name, StringComparer.Ordinal).ToList();
+		foreach (var a in candidates)
+			pick.AddItem($"{a.Name}（{a.Age}歳）");
+		var coach = new Button { Text = "特訓をつける" };
+		void UpdateCoach()
+		{
+			string? block = candidates.Count == 0 ? "つけられる子がいない" : GuildPolicySystem.CoachingBlockReason(_state, candidates[Math.Max(0, pick.Selected)]);
+			coach.Disabled = block != null;
+			coach.TooltipText = block ?? $"外部の講師が{PolicyBalance.CoachingWeeks}週つき、毎週{PolicyBalance.CoachingRollsPerWeek}回の成長の判定（職業の伸び方。出撃中も続く。重傷・派遣中は無し）";
+		}
+		pick.ItemSelected += _ => UpdateCoach();
+		coach.Pressed += () =>
+		{
+			if (candidates.Count > 0 && GuildPolicySystem.StartCoaching(_state, candidates[Math.Max(0, pick.Selected)]))
+				StateChanged.Invoke();
+		};
+		UpdateCoach();
+		coachRow.AddChild(pick);
+		coachRow.AddChild(coach);
+		_fundingBox.AddChild(coachRow);
+
+		var scoutRow = new HBoxContainer();
+		scoutRow.AddThemeConstantOverride("separation", 8);
+		string? scoutBlock = GuildPolicySystem.ScoutBudgetBlockReason(_state);
+		scoutRow.AddChild(new Label { Text = $"スカウト網の予算（{GuildPolicySystem.NextScoutYear(_state)}年目の新春の採用試験）：" });
+		var scout = new Button { Text = _state.ScoutBudgetYear >= GuildPolicySystem.NextScoutYear(_state) ? "✔ 払った" : $"{PolicyBalance.ScoutBudgetCost} G 払う", Disabled = scoutBlock != null };
+		scout.TooltipText = scoutBlock ?? $"志願者+{PolicyBalance.ScoutBudgetExtraCandidates}人、有望新人の出る確率+{PolicyBalance.ScoutBudgetHighPotentialBonus:P0}";
+		scout.Pressed += () =>
+		{
+			if (GuildPolicySystem.PayScoutBudget(_state))
+				StateChanged.Invoke();
+		};
+		scoutRow.AddChild(scout);
+		_fundingBox.AddChild(scoutRow);
 	}
 
 	private Button LoanButton(LoanLender lender, int amount, string? block)

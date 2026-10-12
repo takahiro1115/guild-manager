@@ -224,9 +224,12 @@ namespace GuildManager.Core.Systems
         public List<RecruitmentOffer> GenerateCandidates(GameState state, double scoutMasterBonus = 0, int? candidateCount = null)
         {
             double highPotentialChance = HighPotentialBaseChance + scoutMasterBonus;
+            bool scoutBudget = GuildPolicySystem.ScoutBudgetActive(state); // スカウト網の予算（§0.105）
+            if (scoutBudget) highPotentialChance += PolicyBalance.ScoutBudgetHighPotentialBonus;
             int paBonus = GetRecruitPaBonus(state);
             int count = candidateCount ?? RecruitmentBalance.CandidateCount
-                + FacilityBalance.GetRecruitingCandidateBonus(state.GetFacilityLevel(FacilityType.RecruitmentOffice), state.GetFacilitySpecialty(FacilityType.RecruitmentOffice)); // 冒険者支援室の募集（§0.76）
+                + FacilityBalance.GetRecruitingCandidateBonus(state.GetFacilityLevel(FacilityType.RecruitmentOffice), state.GetFacilitySpecialty(FacilityType.RecruitmentOffice)) // 冒険者支援室の募集（§0.76）
+                + (scoutBudget ? PolicyBalance.ScoutBudgetExtraCandidates : 0); // スカウト網の予算（§0.105）
 
             // 氏名の重複回避対象：現役ロースターに加え、同じ採用試験内で既に生成した
             // 候補の名前も含める（同じ回の応募者同士で名前が被らないようにするため）。

@@ -307,6 +307,11 @@ namespace GuildManager.Core.Models
         public List<GuildLoan>? Loans { get; set; } = new();
         public List<int>? IsabellaLoanWeeks { get; set; } = new();
         public List<SponsorContract>? SponsorContracts { get; set; } = new();
+        /// <summary>ギルドの方針・育成への投資（§0.105）。キーの無い旧セーブは既定値（ふつう・ギルドが取る・無し）。</summary>
+        public TrainingPolicy TrainingPolicy { get; set; }
+        public PrizePolicy PrizePolicy { get; set; }
+        public List<CoachingContract>? Coachings { get; set; } = new();
+        public int ScoutBudgetYear { get; set; }
 
         /// <summary>
         /// 掲示中・受けた依頼（→ GameState.Commissions、03 §4.9・§0.64）。GuildCommission は Guid・整数・文字列・列挙だけで

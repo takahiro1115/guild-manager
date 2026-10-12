@@ -397,6 +397,16 @@ namespace GuildManager.Core.Models
         /// <summary>届いているスポンサー契約の話と、結んでいる契約（§0.104、→ FundingSystem）。</summary>
         public List<SponsorContract> SponsorContracts { get; set; } = new();
 
+        /// <summary>ギルドの方針（§0.105）：訓練の強さ・大会の賞金の分け方。システム画面で選ぶ。</summary>
+        public TrainingPolicy TrainingPolicy { get; set; } = TrainingPolicy.Normal;
+        public PrizePolicy PrizePolicy { get; set; } = PrizePolicy.Guild;
+
+        /// <summary>個人特訓の契約（§0.105、→ GuildPolicySystem）。期間が終わったら外す。</summary>
+        public List<CoachingContract> Coachings { get; set; } = new();
+
+        /// <summary>スカウト網の予算を払った新春の年（§0.105。この年の採用試験で志願者が増える）。払っていなければ0。</summary>
+        public int ScoutBudgetYear { get; set; }
+
         /// <summary>引退者のうち、ギルドの元冒険者（派遣の教官を除く）。最初の引退者の判定・年代記に使う。</summary>
         public IEnumerable<Adventurer> GuildRetirees => RetiredAdventurers.Where(a => !a.IsGuest);
 
@@ -510,6 +520,10 @@ namespace GuildManager.Core.Models
                 Loans = new List<GuildLoan>(Loans),
                 IsabellaLoanWeeks = new List<int>(IsabellaLoanWeeks),
                 SponsorContracts = new List<SponsorContract>(SponsorContracts),
+                TrainingPolicy = TrainingPolicy,
+                PrizePolicy = PrizePolicy,
+                Coachings = new List<CoachingContract>(Coachings),
+                ScoutBudgetYear = ScoutBudgetYear,
                 Commissions = new List<GuildCommission>(Commissions),
                 CommissionCompletions = new Dictionary<string, int>(CommissionCompletions),
                 Anomaly = Anomaly,
@@ -667,6 +681,11 @@ namespace GuildManager.Core.Models
                 Loans = (data.Loans ?? new List<GuildLoan>()).Where(l => l != null && l.Remaining > 0).ToList(),
                 IsabellaLoanWeeks = new List<int>(data.IsabellaLoanWeeks ?? new List<int>()),
                 SponsorContracts = (data.SponsorContracts ?? new List<SponsorContract>()).Where(c => c != null).ToList(),
+                // ギルドの方針・育成への投資（§0.105）。キーの無い旧セーブは、ふつう・ギルドが取る・特訓なし・予算なし。
+                TrainingPolicy = data.TrainingPolicy,
+                PrizePolicy = data.PrizePolicy,
+                Coachings = (data.Coachings ?? new List<CoachingContract>()).Where(c => c != null).ToList(),
+                ScoutBudgetYear = data.ScoutBudgetYear,
                 // 依頼と迷宮の異変（§0.64）。キーを持たない旧セーブ、または null が書かれていても空・無しで始める。
                 Commissions = (data.Commissions ?? new List<GuildCommission>()).Where(c => c != null).ToList(),
                 CommissionCompletions = new Dictionary<string, int>(data.CommissionCompletions ?? new Dictionary<string, int>()),

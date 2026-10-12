@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using GuildManager.Core.Models;
 using GuildManager.Core.Systems;
@@ -22,6 +23,8 @@ public partial class AdvisorPopup : PopupPanel
 	private Label _statusLabel = null!;
 
 	private GameState _state = null!;
+	/// <summary>一覧に出している候補（ギルドを去った子は出さない、§0.105）。並びは _candidateList と同じ。</summary>
+	private readonly List<Adventurer> _candidates = new();
 	private AdvisorSystem _advisorSystem = null!;
 
 	/// <summary>ポップアップが閉じたことを通知する（役職割り当ての変化をUI側に反映させるため）。</summary>
@@ -85,14 +88,18 @@ public partial class AdvisorPopup : PopupPanel
 	private void RefreshList()
 	{
 		_candidateList.Clear();
+		_candidates.Clear();
 		if (_state?.RetiredAdventurers != null)
 		{
-			foreach (var candidate in _state.RetiredAdventurers)
+			foreach (var candidate in _state.RetiredAdventurers.Where(r => !r.LeftGuild)) // ギルドを去った子は任命できない（§0.105）
 			{
+				_candidates.Add(candidate);
+				int? leave = GuildPolicySystem.LeaveWeek(_state, candidate);
 				_candidateList.AddItem(
 					(candidate.IsGuest
 						? $"{candidate.Name}（白百合の杖から派遣・教官だけ・残り{Math.Max(0, (_state.GuestTrainerUntilWeek ?? _state.WeekNumber) - _state.WeekNumber)}週）"
 						: $"{candidate.Name}（{candidate.JobClass}） 引退時{candidate.RetiredAtAge}歳") +
+					(leave is int w ? $"　⚠ 任命しないと{GameCalendar.FormatMonth(w)} 第{GameCalendar.WeekOfMonth(w)}週に去る" : "") + // §0.105
 					$"　STR{candidate.STR}/VIT{candidate.VIT}/AGI{candidate.AGI}" +
 					$"/DEX{candidate.DEX}/MND{candidate.MND}/INT{candidate.INT}/LDR{candidate.LDR}");
 			}
@@ -128,7 +135,7 @@ public partial class AdvisorPopup : PopupPanel
 			return false;
 		}
 
-		candidateId = _state.RetiredAdventurers[selected[0]].Id;
+		candidateId = _candidates[selected[0]].Id;
 		return true;
 	}
 

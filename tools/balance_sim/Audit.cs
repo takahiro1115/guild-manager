@@ -13,6 +13,10 @@ partial class GameSim
     public static bool UseTrainers = true, UseResearch = true, UseFacilities = true, UseTraining = true, UseRecruit = true, UseNegotiation = true;
     public static DoorStance AuditStance = DoorStance.Standard;
     public static bool RandHire, RandTourney, RandComm, RandEquip, RandBuild, RandTrain, RandSquad;
+    /// <summary>ギルドの方針と育成への投資（§0.105）：オプション hardtrain・gentletrain・prizeshare・noinvest。</summary>
+    public static TrainingPolicy AuditTrainingPolicy = TrainingPolicy.Normal;
+    public static PrizePolicy AuditPrizePolicy = PrizePolicy.Guild;
+    public static bool UseInvestments = true;
     Random? _rnd;
     Random Rnd => _rnd ??= new Random(s.Adventurers.Count * 31 + 7 + RunIndex * 1009);
     public int RunIndex;
@@ -47,6 +51,10 @@ partial class GameSim
         if (opts.Contains("bold")) AuditStance = DoorStance.Bold;
         if (opts.Contains("cautious")) AuditStance = DoorStance.Cautious;
         if (opts.Contains("noelixir")) UseElixirs = false;
+        if (opts.Contains("hardtrain")) AuditTrainingPolicy = TrainingPolicy.Hard;
+        if (opts.Contains("gentletrain")) AuditTrainingPolicy = TrainingPolicy.Gentle;
+        if (opts.Contains("prizeshare")) AuditPrizePolicy = PrizePolicy.Share;
+        if (opts.Contains("noinvest")) UseInvestments = false;
         if (opts.Contains("nosf")) UseSoulFusion = false;
         if (opts.Contains("nonego")) UseNegotiation = false;
         if (opts.Contains("norecruit")) UseRecruit = false;
@@ -187,7 +195,7 @@ partial class GameSim
     public int WeeksTotal, WeeksMoodMax, WeeksMoodCheerful, WeeksGold10k, WeeksAfterYear3, WeeksGold10kAfterYear3, WeeksCheerfulAfterYear3;
     /// <summary>満足度の段階ごとの冒険者・週（§0.101）と、出来事（§0.102）・維持費と手当（§0.103）の合計。</summary>
     public readonly int[] StageWeeks = new int[4];
-    public int GoodIncidents, BadIncidents, UpkeepTotal, StipendTotal, PoachLeft, LoanRepaidTotal, SponsorWins, SponsorLosses;
+    public int GoodIncidents, BadIncidents, UpkeepTotal, StipendTotal, PoachLeft, LoanRepaidTotal, SponsorWins, SponsorLosses, RetireesLeft, TrainingInjuries;
 
     void AfterWeek(WeeklySettlementResult result, int goldBefore)
     {
@@ -201,6 +209,8 @@ partial class GameSim
         LoanRepaidTotal += result.LoanRepaid; // 資金の調達（§0.104）
         SponsorWins += result.Sponsors.Completed.Count;
         SponsorLosses += result.Sponsors.Failed.Count;
+        RetireesLeft += result.RetireesLeft.Count; // 方針と進路（§0.105）
+        TrainingInjuries += result.TrainingInjuries.Count;
         if (s.MasterMood >= 100) WeeksMoodMax++;
         if (s.MasterMood >= 80) WeeksMoodCheerful++;
         if (s.Gold >= 10000) WeeksGold10k++;
@@ -447,7 +457,7 @@ partial class GameSim
         Console.WriteLine($"何もしなかった手番：{idle}/{turns}（{100.0 * idle / Math.Max(1, turns):F0}%）、月のはじめに限ると {idleMonth}/{monthTurns}（{100.0 * idleMonth / Math.Max(1, monthTurns):F0}%）");
         Console.WriteLine($"機嫌：上機嫌（80以上）の週 {100.0 * sims.Sum(x => x.WeeksMoodCheerful) / Math.Max(1, sims.Sum(x => x.WeeksTotal)):F0}%・上限100の週 {100.0 * sims.Sum(x => x.WeeksMoodMax) / Math.Max(1, sims.Sum(x => x.WeeksTotal)):F0}%（4年目以降の上機嫌 {100.0 * sims.Sum(x => x.WeeksCheerfulAfterYear3) / Math.Max(1, sims.Sum(x => x.WeeksAfterYear3)):F0}%）　所持金1万G以上の週 {100.0 * sims.Sum(x => x.WeeksGold10k) / Math.Max(1, sims.Sum(x => x.WeeksTotal)):F0}%（4年目以降 {100.0 * sims.Sum(x => x.WeeksGold10kAfterYear3) / Math.Max(1, sims.Sum(x => x.WeeksAfterYear3)):F0}%）");
         { int stTotal = Math.Max(1, sims.Sum(x => x.StageWeeks.Sum())); string P(int i) => $"{100.0 * sims.Sum(x => x.StageWeeks[i]) / stTotal:F0}%";
-          Console.WriteLine($"満足度の段階（冒険者・週）：上機嫌 {P(1)}・ふつう {P(0)}・不満 {P(2)}・限界 {P(3)}　出来事（1年あたり）：プラス {sims.Sum(x => x.GoodIncidents) / years:F1}・マイナス {sims.Sum(x => x.BadIncidents) / years:F1}　引き抜きで移籍 {sims.Sum(x => x.PoachLeft)}　維持費 {sims.Sum(x => x.UpkeepTotal) / years:F0}G/年・手当 {sims.Sum(x => x.StipendTotal) / years:F0}G/年"); Console.WriteLine($"資金の調達（§0.104）：借金の返済 {sims.Sum(x => x.LoanRepaidTotal) / years:F0}G/年　スポンサー契約 達成 {sims.Sum(x => x.SponsorWins)}・未達 {sims.Sum(x => x.SponsorLosses)}（全回の合計）"); }
+          Console.WriteLine($"満足度の段階（冒険者・週）：上機嫌 {P(1)}・ふつう {P(0)}・不満 {P(2)}・限界 {P(3)}　出来事（1年あたり）：プラス {sims.Sum(x => x.GoodIncidents) / years:F1}・マイナス {sims.Sum(x => x.BadIncidents) / years:F1}　引き抜きで移籍 {sims.Sum(x => x.PoachLeft)}　維持費 {sims.Sum(x => x.UpkeepTotal) / years:F0}G/年・手当 {sims.Sum(x => x.StipendTotal) / years:F0}G/年"); Console.WriteLine($"資金の調達（§0.104）：借金の返済 {sims.Sum(x => x.LoanRepaidTotal) / years:F0}G/年　スポンサー契約 達成 {sims.Sum(x => x.SponsorWins)}・未達 {sims.Sum(x => x.SponsorLosses)}（全回の合計）"); Console.WriteLine($"方針と進路（§0.105）：役職につかずに去った引退者 {sims.Sum(x => x.RetireesLeft) / years:F1}人/年　厳しい訓練のけが {sims.Sum(x => x.TrainingInjuries) / years:F1}回/年"); }
         Console.WriteLine($"月報の「主な出来事」が空だった回：{sims.Sum(x => x.QuietReports)}/{sims.Sum(x => x.Reports)}（{100.0 * sims.Sum(x => x.QuietReports) / Math.Max(1, sims.Sum(x => x.Reports)):F0}%）");
         Console.WriteLine($"1手番あたりの操作：平均 {sims.Sum(x => x.Turns.Sum(t => t.ActionCount)) / (double)Math.Max(1, turns):F1}回");
         var cats = sims.SelectMany(x => x.Actions).GroupBy(kv => kv.Key).Select(g => (g.Key, Sum: g.Sum(kv => kv.Value))).OrderByDescending(x => x.Sum).ToList();

@@ -32,6 +32,9 @@ public partial class SystemPanel : ScrollContainer
 
 	private Button _endingBtn = null!;
 	private CheckButton _autoBonusCheck = null!;
+	/// <summary>ギルドの方針（§0.105）：訓練の強さ・大会の賞金の分け方。</summary>
+	private OptionButton _trainingPolicyOption = null!;
+	private OptionButton _prizePolicyOption = null!;
 	private GuildManager.Core.Models.GameState _state = null!;
 
 	public override void _Ready()
@@ -63,6 +66,7 @@ public partial class SystemPanel : ScrollContainer
 		UpdateDisplayModeButtons();
 		VisibilityChanged += UpdateDisplayModeButtons;
 		BuildAutoBonusToggle();
+		BuildPolicyOptions();
 	}
 
 	/// <summary>窓表示の大きさ：基準解像度（1920×1080）を上限に、タイトルバー・タスクバー分を除いた作業領域へ収める。</summary>
@@ -126,11 +130,52 @@ public partial class SystemPanel : ScrollContainer
 		box.MoveChild(_autoBonusCheck, label.GetIndex() + 1);
 	}
 
+	/// <summary>
+	/// ギルドの方針（§0.105）：契約交渉の下に「訓練の強さ」「大会の賞金の分け方」を置く（シーンは変えずにコードで組む）。
+	/// 選んだ値はセーブに残る（GameState.TrainingPolicy・PrizePolicy）。効き目は Core（GuildPolicySystem）。
+	/// </summary>
+	private void BuildPolicyOptions()
+	{
+		var box = _autoBonusCheck.GetParent();
+		int index = _autoBonusCheck.GetIndex() + 1;
+		var label = new Label { Text = "📜 ギルドの方針" };
+		box.AddChild(label);
+		box.MoveChild(label, index++);
+
+		_trainingPolicyOption = new OptionButton();
+		var policies = new[] { GuildManager.Core.Models.TrainingPolicy.Normal, GuildManager.Core.Models.TrainingPolicy.Hard, GuildManager.Core.Models.TrainingPolicy.Gentle };
+		foreach (var p in policies)
+			_trainingPolicyOption.AddItem($"訓練：{GuildManager.Core.Systems.GuildPolicySystem.TrainingPolicyLabel(p)}", (int)p);
+		_trainingPolicyOption.TooltipText =
+			$"厳しく：訓練の成長×{GuildManager.Core.Balance.PolicyBalance.TrainingHardGrowthMultiplier}、訓練生が毎週{GuildManager.Core.Balance.PolicyBalance.TrainingHardInjuryChance:P0}で軽傷・満足度{GuildManager.Core.Balance.PolicyBalance.TrainingHardSatisfaction}（訓練が好きな子は下がらない）\n" +
+			$"穏やかに：訓練の成長×{GuildManager.Core.Balance.PolicyBalance.TrainingGentleGrowthMultiplier}、訓練生の満足度が毎週+{GuildManager.Core.Balance.PolicyBalance.TrainingGentleSatisfaction}";
+		_trainingPolicyOption.ItemSelected += i =>
+		{
+			if (_state != null) _state.TrainingPolicy = (GuildManager.Core.Models.TrainingPolicy)_trainingPolicyOption.GetItemId((int)i);
+		};
+		box.AddChild(_trainingPolicyOption);
+		box.MoveChild(_trainingPolicyOption, index++);
+
+		_prizePolicyOption = new OptionButton();
+		foreach (var p in new[] { GuildManager.Core.Models.PrizePolicy.Guild, GuildManager.Core.Models.PrizePolicy.Share })
+			_prizePolicyOption.AddItem($"大会の賞金：{GuildManager.Core.Systems.GuildPolicySystem.PrizePolicyLabel(p)}", (int)p);
+		_prizePolicyOption.TooltipText =
+			$"本人に分ける：賞金の{GuildManager.Core.Balance.PolicyBalance.PrizeShareRate:P0}を入賞した本人へ渡し、満足度+{GuildManager.Core.Balance.PolicyBalance.PrizeShareSatisfaction}（志向が大会・お金の子はさらに+{GuildManager.Core.Balance.PolicyBalance.PrizeShareDriveBonus}）。ギルドに入るのは残りだけ";
+		_prizePolicyOption.ItemSelected += i =>
+		{
+			if (_state != null) _state.PrizePolicy = (GuildManager.Core.Models.PrizePolicy)_prizePolicyOption.GetItemId((int)i);
+		};
+		box.AddChild(_prizePolicyOption);
+		box.MoveChild(_prizePolicyOption, index);
+	}
+
 	/// <summary>今のゲームの設定を映す（MainDashboard.RefreshAll から呼ぶ）。</summary>
 	public void Refresh(GuildManager.Core.Models.GameState state)
 	{
 		_state = state;
 		_autoBonusCheck.SetPressedNoSignal(state.AutoNegotiationBonus);
+		_trainingPolicyOption.Select(_trainingPolicyOption.GetItemIndex((int)state.TrainingPolicy));
+		_prizePolicyOption.Select(_prizePolicyOption.GetItemIndex((int)state.PrizePolicy));
 	}
 
 	/// <summary>クリア済みなら「エンディングを見る」を出す（MainDashboard.RefreshAll から呼ぶ）。</summary>

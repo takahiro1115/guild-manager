@@ -138,6 +138,7 @@ namespace GuildManager.Core.Systems
             adventurer.IsRetired = true;
             adventurer.RetiredAtAge = adventurer.Age;
             adventurer.RetiredAtWeek = state.WeekNumber;
+            adventurer.UnassignedSinceWeek = state.WeekNumber; // 役職につかないまま RetireeRoleGraceWeeks がたつとギルドを去る（§0.105）
             HonorSystem.OnRetired(state, adventurer); // 年表に引退を書き、殿堂入りを判定する（大会と育成の栄光 段2）
 
             int severance = CalculateSeverancePay(adventurer);

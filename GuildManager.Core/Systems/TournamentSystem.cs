@@ -511,7 +511,7 @@ namespace GuildManager.Core.Systems
             {
                 int prize = def == null ? 0 : c.Placing switch { 1 => def.Prize1, 2 => def.Prize2, 4 => def.Prize4, _ => 0 };
                 int mood = def == null ? 0 : c.Placing switch { 1 => def.Mood1, 2 => def.Mood2, 4 => def.Mood4, _ => 0 };
-                state.Gold += prize;
+                state.Gold += GuildPolicySystem.GuildShareOfPrize(state, prize); // 賞金の分け方（§0.105）：本人に分けるなら一部を本人へ
                 state.TournamentPrizeTotal += prize;
                 if (mood != 0) MasterMoodSystem.Adjust(state, mood);
                 if (c.Placing <= 4) state.TournamentPlacingsTotal++;
@@ -525,6 +525,7 @@ namespace GuildManager.Core.Systems
                     });
                     if (c.Placing == 1)
                         h.Satisfaction = Math.Min(100, h.Satisfaction + TournamentBalance.WinnerSatisfaction);
+                    GuildPolicySystem.RewardPrizeShare(state, h, prize);
                 }
                 if (c.Placing == 1)
                     GrantSpecialReward(state, ev);

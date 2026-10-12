@@ -238,6 +238,11 @@ namespace GuildManager.Core.Systems
             }
             if (weeks.Any(w => w.Settlement.ContractAutoFrozen))
                 Add("契約更改に答えないまま月が終わったので、給与を据え置いた（みんな少し不満）", MonthlyTone.Warning); // §0.103
+            // ギルドの方針・進路（§0.105）
+            foreach (var inj in weeks.SelectMany(w => w.Settlement.TrainingInjuries))
+                Add($"🏋 {inj.Name}が厳しい訓練でけがをした（軽傷{inj.Weeks}週）", MonthlyTone.Warning);
+            foreach (var name in weeks.SelectMany(w => w.Settlement.RetireesLeft))
+                Add($"👋 {name}は役職につかず、ギルドを去った（記録には残る）", MonthlyTone.Normal);
             // スポンサー契約（§0.104）
             foreach (var c in weeks.SelectMany(w => w.Settlement.Sponsors.Completed))
                 Add($"🤝 {c.SponsorName}とのスポンサー契約のノルマ（{FundingSystem.QuotaLabel(c)}）に届いた。成功報酬 {c.Bonus} G", MonthlyTone.Good);
@@ -587,6 +592,12 @@ namespace GuildManager.Core.Systems
                 report.Notes.Add(new MonthlyNote { Text = $"{a.Name}は重傷（あと{a.InjuryWeeksRemaining}週）", Target = MonthlyNoteTarget.Adventurer });
             if (state.ContractReviewPendingYear is int reviewYear)
                 report.Notes.Add(new MonthlyNote { Text = $"{reviewYear}年目の契約更改を決める（月報の「契約更改」で。答えなければ月の終わりに据え置く）", Target = MonthlyNoteTarget.Adventurer }); // §0.103
+            foreach (var r in GuildPolicySystem.WaitingRetirees(state))
+                if (GuildPolicySystem.LeaveWeek(state, r) is int leave)
+                    report.Notes.Add(new MonthlyNote { Text = $"引退した{r.Name}は、{GameCalendar.FormatMonth(leave)} 第{GameCalendar.WeekOfMonth(leave)}週までに顧問・教官の役職につけないとギルドを去る", Target = MonthlyNoteTarget.Facility }); // §0.105
+            foreach (var c in state.Coachings)
+                if (state.FindAdventurer(c.AdventurerId) is { } coached)
+                    report.Notes.Add(new MonthlyNote { Text = $"{coached.Name}に個人特訓がついている（{GameCalendar.FormatMonth(c.UntilWeek)} 第{GameCalendar.WeekOfMonth(c.UntilWeek)}週まで）", Target = MonthlyNoteTarget.Adventurer });
             if (FundingSystem.Offers(state).Count > 0)
                 report.Notes.Add(new MonthlyNote { Text = "スポンサー契約の話が届いている（月報の「スポンサー契約」で。結ばなければ季節の終わりに流れる）", Target = MonthlyNoteTarget.Facility }); // §0.104
             if (FundingSystem.ActiveContract(state) is { } sponsor)

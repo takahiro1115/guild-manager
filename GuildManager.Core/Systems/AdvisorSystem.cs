@@ -102,7 +102,7 @@ namespace GuildManager.Core.Systems
         public void UnassignScoutMaster(GameState state) => state.AssignedScoutMaster = null;
 
         private static bool IsRetiredCandidate(GameState state, Guid candidateId) =>
-            state.RetiredAdventurers.Any(a => a.Id == candidateId);
+            state.RetiredAdventurers.Any(a => a.Id == candidateId && !a.LeftGuild); // ギルドを去った子は任命できない（§0.105）
 
         private static bool IsGuest(GameState state, Guid candidateId) =>
             state.RetiredAdventurers.Any(a => a.Id == candidateId && a.IsGuest);

@@ -680,6 +680,12 @@ namespace GuildManager.Core.Models
         /// <summary>年のはじめ（前の契約更改）の累積功績（§0.103。この年の功績＝今の累積功績−この値）。</summary>
         public int ContributionAtYearStart { get; set; }
 
+        /// <summary>引退者がギルドを去った（§0.105。役職につかないまま RetireeRoleGraceWeeks がたった）。顧問・教官の候補から外れる（記録には残る）。</summary>
+        public bool LeftGuild { get; set; }
+
+        /// <summary>引退者が役職についていない状態になった週（§0.105、→ GuildPolicySystem.ProcessRetirees）。役職についていれば null。</summary>
+        public int? UnassignedSinceWeek { get; set; }
+
         /// <summary>待機中の過ごし方（§0.73、→ IdleActivity・Systems.IdleActivitySystem）。旧セーブには無く、研究を手伝う（Help）で読まれる。</summary>
         public IdleActivity IdleActivity { get; set; } = IdleActivity.Help;
 

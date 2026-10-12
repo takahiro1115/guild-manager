@@ -78,7 +78,8 @@ namespace GuildManager.Core.Systems
                     continue; // 訓練施設未配置＝単純待機（成長ロールなし）
 
                 var targetStats = TrainingSystem.GetGrowthStats(state, facility); // 特化していればその能力だけ（§0.75）
-                double multiplier = (TrainingSystem.GetFacilityGrowthMultiplier(state, facility) + GetTrainerBonus(state, facility)) * GetResearchGrowthMultiplier(state);
+                double multiplier = (TrainingSystem.GetFacilityGrowthMultiplier(state, facility) + GetTrainerBonus(state, facility)) * GetResearchGrowthMultiplier(state)
+                    * GuildPolicySystem.TrainingGrowthMultiplier(state); // 訓練の方針（§0.105）
 
                 // 勤勉（→ TraitCatalog.Diligent、03 §5.3.2・§6.2）：基礎確率に DiligentGrowthRateBonus を加算してから倍率を掛ける。
                 double baseBonus = (adventurer.HasTrait(TraitCatalog.DiligentId) ? TrainingBalance.DiligentGrowthRateBonus : 0)
@@ -159,6 +160,23 @@ namespace GuildManager.Core.Systems
             for (int i = 0; i < rolls; i++)
             {
                 var growthEvent = TryGrowOne(adventurer, multiplier, _ => stats[_rng.NextInt(0, stats.Count - 1)]);
+                if (growthEvent != null)
+                    events.Add(growthEvent);
+            }
+            return events;
+        }
+
+        /// <summary>
+        /// 個人特訓の成長（§0.105、→ GuildPolicySystem.ProcessCoaching）：rolls 回、年齢帯別の基礎確率×TrainingFacilityMultiplier×multiplier×研究×特性で、
+        /// 職業の伸び方（→ GrowthBalance.PickJobWeightedStat）から選んだ能力を伸ばす。
+        /// </summary>
+        public List<GrowthEvent> ProcessCoachingGrowth(GameState state, Adventurer adventurer, int rolls, double multiplier)
+        {
+            var events = new List<GrowthEvent>();
+            double m = GrowthBalance.TrainingFacilityMultiplier * multiplier * GetResearchGrowthMultiplier(state) * TraitGrowthMultiplier(adventurer);
+            for (int i = 0; i < rolls; i++)
+            {
+                var growthEvent = TryGrowOne(adventurer, m, JobWeightedStat);
                 if (growthEvent != null)
                     events.Add(growthEvent);
             }
