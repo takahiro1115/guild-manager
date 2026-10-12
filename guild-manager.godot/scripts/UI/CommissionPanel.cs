@@ -7,45 +7,62 @@ using GuildManager.Core.Models;
 using GuildManager.Core.Systems;
 
 /// <summary>
-/// 依頼掲示板（→ 03 §4.9・§4.10・§0.64）。季節のはじめに依頼が届いた週は自動で開き、大迷宮画面の「📜 依頼掲示板」からいつでも開ける。
+/// 「📜 依頼」の画面（→ 03 §4.9・§4.10・§0.64、§0.106で依頼掲示板の小窓からタブへ）。依頼が開くまで（§0.84）はナビのタブを隠す。
+/// 季節のはじめに依頼が届いた週は、月報を閉じたあとこの画面へ切り替わる。
 ///
 /// 掲示中の依頼は「受ける／断る」、受けた納品は「納める」、受けた派遣は相手を選んで「派遣する」（ひと季節で帰ってくる、§0.85）。撃破・完全解析は
 /// 週次決算で自動で判定する。文言・条件・報酬の値はすべて Core（CommissionSystem・DungeonAnomalySystem）から取る。
-/// 行は依頼の数だけ毎回作り直す（数が週ごとに変わるため）。
+/// 行は依頼の数だけ毎回作り直す（数が週ごとに変わるため）。シーンは持たず、コードで組む。
 /// </summary>
-public partial class CommissionPopup : PopupPanel
+public partial class CommissionPanel : MarginContainer
 {
-	private RichTextLabel _headerLabel = null!;
-	private RichTextLabel _anomalyLabel = null!;
-	private VBoxContainer _commissionList = null!;
-	private RichTextLabel _statusLabel = null!;
+	private readonly RichTextLabel _headerLabel;
+	private readonly RichTextLabel _anomalyLabel;
+	private readonly VBoxContainer _commissionList;
+	private readonly RichTextLabel _statusLabel;
 
 	private GameState _state = null!;
 	private CommissionSystem _commissionSystem = null!;
 
-	/// <summary>ポップアップが閉じたことを通知する（所持金・在庫・在籍者の変化を画面に反映させるため）。</summary>
-	public event Action Closed = delegate { };
+	/// <summary>受ける・納める・派遣するでゲーム状態が変わったことを通知する（所持金・在庫・在籍者の変化を画面に反映させるため）。</summary>
+	public event Action StateChanged = delegate { };
 
 	/// <summary>週報ログへの追記を依頼する（納品・派遣の達成を記録するため。BBCode文字列）。</summary>
 	public event Action<string> LogRequested = delegate { };
 
-	public override void _Ready()
+	public CommissionPanel()
 	{
-		_headerLabel = GetNode<RichTextLabel>("%HeaderLabel");
-		_anomalyLabel = GetNode<RichTextLabel>("%AnomalyLabel");
-		_commissionList = GetNode<VBoxContainer>("%CommissionList");
-		_statusLabel = GetNode<RichTextLabel>("%StatusLabel");
-		GetNode<Button>("%CloseButton").Pressed += Hide;
-		PopupHide += () => Closed.Invoke();
+		Name = "CommissionTab";
+		SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		SizeFlagsVertical = SizeFlags.ExpandFill;
+		foreach (var side in new[] { "left", "top", "right", "bottom" })
+			AddThemeConstantOverride($"margin_{side}", 12);
+		var box = new VBoxContainer();
+		box.AddThemeConstantOverride("separation", 6);
+		AddChild(box);
+		box.AddChild(new Label { Text = "📜 依頼掲示板" });
+		_headerLabel = new RichTextLabel { BbcodeEnabled = true, FitContent = true, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+		_anomalyLabel = new RichTextLabel { BbcodeEnabled = true, FitContent = true, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+		box.AddChild(_headerLabel);
+		box.AddChild(_anomalyLabel);
+		var scroll = new ScrollContainer { SizeFlagsVertical = SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+		_commissionList = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+		_commissionList.AddThemeConstantOverride("separation", 8);
+		scroll.AddChild(_commissionList);
+		box.AddChild(scroll);
+		_statusLabel = new RichTextLabel { BbcodeEnabled = true, FitContent = true };
+		box.AddChild(_statusLabel);
 	}
 
-	public void Open(GameState state, CommissionSystem commissionSystem)
+	public void Initialize(CommissionSystem commissionSystem) => _commissionSystem = commissionSystem;
+
+	/// <summary>最新のゲーム状態で画面を描き直す（MainDashboard.RefreshAll から毎回呼ぶ）。</summary>
+	public void Refresh(GameState state)
 	{
+		if (!ReferenceEquals(_state, state))
+			_statusLabel.Clear(); // 別のゲームを読んだら、前のゲームの操作の知らせは消す
 		_state = state;
-		_commissionSystem = commissionSystem;
-		_statusLabel.Clear();
 		Refresh();
-		PopupCentered();
 	}
 
 	private void Refresh()
@@ -119,14 +136,14 @@ public partial class CommissionPopup : PopupPanel
 			{
 				if (CommissionSystem.TryAccept(_state, c))
 					SetStatus($"[color=lime]{CommissionSystem.ClientName(c)}の依頼を受けた。[/color]");
-				Refresh();
+				StateChanged.Invoke(); // 全体を描き直す（この画面も Refresh される）
 			};
 			var decline = new Button { Text = "断る" };
 			decline.Pressed += () =>
 			{
 				CommissionSystem.Decline(_state, c);
 				SetStatus($"[color=gray]{CommissionSystem.ClientName(c)}の依頼を断った。[/color]");
-				Refresh();
+				StateChanged.Invoke();
 			};
 			buttons.AddChild(accept);
 			buttons.AddChild(decline);
@@ -140,7 +157,7 @@ public partial class CommissionPopup : PopupPanel
 			{
 				if (_commissionSystem.TryDeliver(_state, c) is { } done)
 					ReportCompletion(done);
-				Refresh();
+				StateChanged.Invoke();
 			};
 			buttons.AddChild(deliver);
 		}
@@ -166,7 +183,7 @@ public partial class CommissionPopup : PopupPanel
 				if (index < 0 || index >= candidates.Count) return;
 				if (_commissionSystem.TryLoan(_state, c, candidates[index]) is { } done)
 					ReportCompletion(done);
-				Refresh();
+				StateChanged.Invoke();
 			};
 			// 候補の6能力をまとめて見せる（条件の能力だけでは、誰を送るか選びにくいため）
 			var detail = new Label { Modulate = new Color(0.7f, 0.7f, 0.7f), AutowrapMode = TextServer.AutowrapMode.WordSmart };
@@ -239,7 +256,7 @@ public partial class CommissionPopup : PopupPanel
 	}
 }
 
-/// <summary>依頼の達成・失敗・到着の週報の文面（MainDashboard と CommissionPopup で共通）。</summary>
+/// <summary>依頼の達成・失敗・到着の週報の文面（MainDashboard と CommissionPanel で共通）。</summary>
 public static class CommissionLog
 {
 	public static IEnumerable<string> CompletionLines(CommissionCompletion done)

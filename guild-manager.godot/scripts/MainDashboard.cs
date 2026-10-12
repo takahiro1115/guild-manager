@@ -41,8 +41,6 @@ public partial class MainDashboard : Control
 	private SquadOrderSystem _squadOrderSystem = null!;
 	private CommissionSystem _commissionSystem = null!;
 
-	/// <summary>依頼が届いた週に採用試験が重なったとき、採用試験を閉じてから依頼掲示板を開く（§0.64）。</summary>
-	private bool _openCommissionsAfterRecruitment;
 
 	private Label _weekLabel = null!;
 	private Label _goldLabel = null!;
@@ -65,7 +63,9 @@ public partial class MainDashboard : Control
 	private RecruitmentPopup _recruitmentPopup = null!;
 	private AdvisorPopup _advisorPopup = null!;
 	private EquipmentPopup _equipmentPopup = null!;
-	private CommissionPopup _commissionPopup = null!;
+	/// <summary>「📜 依頼」の画面（§0.106。タブはコードで末尾に足す。ナビ行では大会の右に置く）。</summary>
+	private CommissionPanel _commissionPanel = null!;
+	private Button _navCommissionBtn = null!;
 
 	// ---- メニューナビゲーションバー & ペイン制御 ----
 	private enum DashboardView
@@ -90,7 +90,10 @@ public partial class MainDashboard : Control
 		Tournament = 7,
 
 		/// <summary>ギルドのホール（§0.95。タブはコードで末尾に足す。ナビ行では大迷宮の左に置く）。</summary>
-		Hall = 8
+		Hall = 8,
+
+		/// <summary>依頼（§0.106。依頼掲示板の小窓からタブへ。タブはコードで末尾に足す。ナビ行では大会の右に置く。依頼が開くまで隠す）。</summary>
+		Commission = 9
 	}
 
 	private TabContainer _centerPanel = null!;
@@ -154,7 +157,6 @@ public partial class MainDashboard : Control
 		_recruitmentPopup = GetNode<RecruitmentPopup>("%RecruitmentPopup");
 		_advisorPopup = GetNode<AdvisorPopup>("%AdvisorPopup");
 		_equipmentPopup = GetNode<EquipmentPopup>("%EquipmentPopup");
-		_commissionPopup = GetNode<CommissionPopup>("%CommissionPopup");
 
 		_centerPanel = GetNode<TabContainer>("%CenterPanel");
 		_centerPanel.TabsVisible = false;
@@ -171,6 +173,10 @@ public partial class MainDashboard : Control
 		_navTournamentBtn = new Button { Text = "🏆 大会", ToggleMode = true, CustomMinimumSize = new Vector2(110, 36) };
 		_navDungeonBtn.AddSibling(_navTournamentBtn);
 		_navTournamentBtn.Pressed += () => SwitchView(DashboardView.Tournament);
+		// 依頼（§0.106）：ナビ行では大会の右
+		_navCommissionBtn = new Button { Text = "📜 依頼", ToggleMode = true, CustomMinimumSize = new Vector2(110, 36), Visible = false };
+		_navTournamentBtn.AddSibling(_navCommissionBtn);
+		_navCommissionBtn.Pressed += () => SwitchView(DashboardView.Commission);
 		// ギルドのホール（§0.95）：ナビ行では大迷宮の左
 		_navHallBtn = new Button { Text = "🏠 ホール", ToggleMode = true, CustomMinimumSize = new Vector2(110, 36) };
 		_navDungeonBtn.GetParent().AddChild(_navHallBtn);
@@ -187,7 +193,6 @@ public partial class MainDashboard : Control
 		_dungeonPanel = GetNode<DungeonPanel>("%DungeonTab");
 		_dungeonPanel.LogRequested += AppendLog;
 		_dungeonPanel.StateChanged += RefreshAll;
-		_dungeonPanel.CommissionsRequested += OpenCommissionPopup;
 
 		_adventurerPanel = GetNode<AdventurerPanel>("%AdventurerDetailTab");
 		_adventurerPanel.LogRequested += AppendLog;
@@ -268,8 +273,6 @@ public partial class MainDashboard : Control
 		_recruitmentPopup.Closed += OnRecruitmentPopupClosed;
 		_advisorPopup.Closed += OnAdvisorPopupClosed;
 		_equipmentPopup.Closed += OnEquipmentPopupClosed;
-		_commissionPopup.Closed += RefreshAll;
-		_commissionPopup.LogRequested += AppendLog;
 
 		// シード固定の乱数。同じシードなら毎回同じ結果になる（デバッグしやすくするため）。
 		// 戦闘用と加齢用で別インスタンス・別シードにし、互いの抽選回数が結果に影響しないようにする。
@@ -303,6 +306,11 @@ public partial class MainDashboard : Control
 		_hallPanel = new GuildHallPanel();
 		_hallPanel.AreaPressed += OnHallAreaPressed;
 		_centerPanel.AddChild(_hallPanel);
+		// 依頼（§0.106）：タブはコードで末尾に足す（番号＝DashboardView.Commission）
+		_commissionPanel = new CommissionPanel();
+		_commissionPanel.LogRequested += AppendLog;
+		_commissionPanel.StateChanged += RefreshAll;
+		_centerPanel.AddChild(_commissionPanel);
 		_tournamentResultPopup = new TournamentResultPopup { Visible = false };
 		AddChild(_tournamentResultPopup);
 		// 戦績の頁と引退式（大会と育成の栄光 段2）
@@ -345,6 +353,7 @@ public partial class MainDashboard : Control
 		// そのまま共有し、二重管理（別インスタンスによる状態不整合）を避ける。
 		// 依頼と迷宮の異変（→ 03 §4.9・§4.10・§0.64）。依頼の生成・報酬の遺物の抽選は他と別シードにする。
 		_commissionSystem = new CommissionSystem(new SeededRng(2718));
+		_commissionPanel.Initialize(_commissionSystem);
 		// 大会（§0.82）。組み合わせ・試合の運・相手の名前は他と別シードにする。
 		_tournamentSystem = new TournamentSystem(new SeededRng(3373));
 		_weekProcessingSystem = new WeekProcessingSystem(
@@ -567,12 +576,6 @@ public partial class MainDashboard : Control
 	{
 		EnableWeekAdvancement();
 		RefreshAll();
-		if (_openCommissionsAfterRecruitment)
-		{
-			// 採用試験と依頼の到着が同じ週（新年＝春のはじめ）：ポップアップが閉じ切ってから開く（排他ウィンドウの重なりを避ける）。
-			_openCommissionsAfterRecruitment = false;
-			Callable.From(OpenCommissionPopup).CallDeferred();
-		}
 	}
 
 	// ==================== 物語の場面（§0.86） ====================
@@ -657,6 +660,11 @@ public partial class MainDashboard : Control
 			if (!openTab && _centerPanel.CurrentTab == (int)view)
 				SwitchView(DashboardView.Dungeon);
 		}
+		// 依頼（§0.106）：依頼が開くまで（初めての入賞の次の季節、§0.84）はタブを隠す
+		bool commissionsOpen = IsabellaSystem.CommissionsOpen(_state) || _state.Commissions.Count > 0;
+		_navCommissionBtn.Visible = commissionsOpen;
+		if (!commissionsOpen && _centerPanel.CurrentTab == (int)DashboardView.Commission)
+			SwitchView(DashboardView.Dungeon);
 	}
 
 	/// <summary>会話の小窓の【画面へ】：ボタンの文言から画面を選んで切り替える（小窓はそのまま）。</summary>
@@ -665,7 +673,7 @@ public partial class MainDashboard : Control
 	{
 		switch (target)
 		{
-			case HallTarget.Commission: OpenCommissionPopup(); return;
+			case HallTarget.Commission: OpenCommissionBoard(); return;
 			case HallTarget.Squad or HallTarget.Dungeon: SwitchView(DashboardView.Dungeon); return;
 			case HallTarget.Research: SwitchView(DashboardView.Research); return;
 			case HallTarget.Shop: SwitchView(DashboardView.Shop); return;
@@ -679,6 +687,7 @@ public partial class MainDashboard : Control
 		DashboardView? view = label switch
 		{
 			_ when label.Contains("大会") => DashboardView.Tournament,
+			_ when label.Contains("依頼") => DashboardView.Commission,
 			_ when label.Contains("施設") => DashboardView.Facility,
 			_ when label.Contains("研究室") => DashboardView.Research,
 			_ when label.Contains("倉庫") => DashboardView.Warehouse,
@@ -690,11 +699,12 @@ public partial class MainDashboard : Control
 			SwitchView(v);
 	}
 
-	/// <summary>依頼掲示板を開く（依頼が届いた週は自動で、大迷宮画面の「📜 依頼掲示板」からはいつでも。§0.64）。</summary>
-	private void OpenCommissionPopup()
+	/// <summary>依頼の画面へ切り替える（依頼が届いた週は自動で、ナビの「📜 依頼」・ホールの掲示板からはいつでも。§0.64・§0.106）。</summary>
+	private void OpenCommissionBoard()
 	{
 		if (_state == null) return;
-		_commissionPopup.Open(_state, _commissionSystem);
+		_navCommissionBtn.Visible = true;
+		SwitchView(DashboardView.Commission);
 	}
 
 	/// <summary>
@@ -762,8 +772,9 @@ public partial class MainDashboard : Control
 		else if (settlement.Flags.RecruitmentTrialOccurred)
 		{
 			// 新春採用試験（2年目以降の新年第1週のみ）。ポップアップが閉じるまで次週へ進めさせない（→ 03 §9）。
-			// 春のはじめは依頼も届くので、採用試験を閉じた後に依頼掲示板を開く（§0.64）。
-			_openCommissionsAfterRecruitment = settlement.Flags.CommissionsOffered;
+			// 春のはじめは依頼も届くので、後ろの画面を依頼に切り替えておく（採用試験を閉じると見える、§0.64・§0.106）。
+			if (settlement.Flags.CommissionsOffered)
+				OpenCommissionBoard();
 			DisableWeekAdvancement();
 			_recruitmentPopup.Open(_state, _recruitmentSystem);
 		}
@@ -775,7 +786,7 @@ public partial class MainDashboard : Control
 			EnableWeekAdvancement();
 			// 季節のはじめに依頼が届いた（§0.64）：受けるかどうかを選んでもらう（閉じても週は進められる）。
 			if (settlement.Flags.CommissionsOffered)
-				OpenCommissionPopup();
+				OpenCommissionBoard();
 		}
 	}
 
@@ -910,7 +921,7 @@ public partial class MainDashboard : Control
 		if (arrivals.Offered.Count > 0)
 			AppendLog($"[color=khaki][b]📜 {GameCalendar.Format(_state.WeekNumber)}：依頼が{arrivals.Offered.Count}件届いた（" +
 				$"{string.Join("・", arrivals.Offered.Select(c => $"{CommissionSystem.ClientName(c)}の{CommissionSystem.TypeLabel(c.Type)}"))}）。" +
-				$"大迷宮画面の「📜 依頼掲示板」で受けるか選ぶ（{CommissionBalance.MaxAccepted}件まで）。[/b][/color]");
+				$"「📜 依頼」の画面で受けるか選ぶ（{CommissionBalance.MaxAccepted}件まで）。[/b][/color]");
 		if (arrivals.AnnouncedAnomaly != null)
 			AppendLog($"[color=orange][b]⚠ 迷宮の異変の予告：{DungeonAnomalySystem.GetName(arrivals.AnnouncedAnomaly)}[/b] " +
 				$"{DungeonAnomalySystem.Describe(_state, arrivals.AnnouncedAnomaly)}[/color]");
@@ -1867,6 +1878,7 @@ public partial class MainDashboard : Control
 			(DashboardView.Shop, _navShopBtn),
 			(DashboardView.Hall, _navHallBtn),
 			(DashboardView.Tournament, _navTournamentBtn),
+			(DashboardView.Commission, _navCommissionBtn),
 			(DashboardView.System, _navSystemBtn)
 		};
 
@@ -1947,6 +1959,7 @@ public partial class MainDashboard : Control
 		_tournamentPanel.Refresh(_state);
 		_tournamentPanel.Refresh(_state);
 		_hallPanel.Refresh(_state);
+		_commissionPanel.Refresh(_state);
 
 		UpdateButtonHighlights((DashboardView)_centerPanel.CurrentTab);
 		RefreshGuideAndTabs();

@@ -104,10 +104,9 @@ public partial class DungeonPanel : ScrollContainer
 	/// <summary>出撃・取り消し等でゲーム状態が変わったことを通知する。</summary>
 	public event Action StateChanged = delegate { };
 
-	/// <summary>「📜 依頼掲示板」が押された（MainDashboard が依頼のポップアップを開く。§0.64）。</summary>
-	public event Action CommissionsRequested = delegate { };
-
-	private RichTextLabel _commissionSummaryLabel = null!;
+	/// <summary>迷宮の異変の欄（§0.106で依頼の一覧を「📜 依頼」の画面へ移し、異変だけにした。異変が無ければ隠す）。</summary>
+	private PanelContainer _anomalyCard = null!;
+	private RichTextLabel _anomalySummaryLabel = null!;
 
 	public override void _Ready()
 	{
@@ -119,8 +118,8 @@ public partial class DungeonPanel : ScrollContainer
 		_expeditionLootContainer = GetNode<PanelContainer>("%ExpeditionLootContainer");
 		_expeditionLootLabel = GetNode<RichTextLabel>("%ExpeditionLootLabel");
 		_materialsLabel = GetNode<RichTextLabel>("%MaterialsLabel");
-		_commissionSummaryLabel = GetNode<RichTextLabel>("%CommissionSummaryLabel");
-		GetNode<Button>("%OpenCommissionsButton").Pressed += () => CommissionsRequested.Invoke();
+		_anomalyCard = GetNode<PanelContainer>("%AnomalyCard");
+		_anomalySummaryLabel = GetNode<RichTextLabel>("%AnomalySummaryLabel");
 
 		// Zone B
 		_bossProfileCard = GetNode<PanelContainer>("%BossProfileCard");
@@ -448,7 +447,7 @@ public partial class DungeonPanel : ScrollContainer
 		RefreshProgress(boss);
 		RefreshExpeditionLoot();
 		RefreshMaterialsInfo();
-		RefreshCommissionSummary();
+		RefreshAnomalySummary();
 		RefreshBossInfo(DisplayedBoss(boss), boss);
 		RefreshPartyOptions();
 		RefreshDispatchSection(boss);
@@ -661,35 +660,17 @@ public partial class DungeonPanel : ScrollContainer
 	}
 
 	/// <summary>
-	/// 受けている依頼と迷宮の異変の一覧（→ 03 §4.9・§4.10・§0.64）。文言・条件の判定は Core（CommissionSystem・DungeonAnomalySystem）から取る。
+	/// 迷宮の異変（→ 03 §4.10・§0.64）。文言は Core（DungeonAnomalySystem）から取る。依頼の一覧は「📜 依頼」の画面へ移した（§0.106）。
 	/// </summary>
-	private void RefreshCommissionSummary()
+	private void RefreshAnomalySummary()
 	{
-		_commissionSummaryLabel.Clear();
-		var lines = new List<string>();
-
+		_anomalySummaryLabel.Clear();
+		_anomalyCard.Visible = _state.Anomaly != null;
 		if (_state.Anomaly is { } anomaly)
 		{
 			string color = anomaly.IsUpcoming(_state.WeekNumber) ? "khaki" : "orange";
-			lines.Add($"[color={color}]⚠ {DungeonAnomalySystem.DescribeStatus(_state, anomaly)}[/color]");
+			_anomalySummaryLabel.AppendText($"[color={color}]⚠ {DungeonAnomalySystem.DescribeStatus(_state, anomaly)}[/color]");
 		}
-
-		var accepted = _state.Commissions.Where(c => c.Accepted).ToList();
-		foreach (var c in accepted)
-		{
-			int left = c.WeeksLeft(_state.WeekNumber);
-			string done = CommissionSystem.IsAchieved(_state, c) ? "　[color=lime]達成できる[/color]" : "";
-			lines.Add($"・{CommissionSystem.TypeLabel(c.Type)}：{CommissionSystem.DescribeCondition(_state, c)}" +
-				$"　[color={(left <= CommissionBalance.DeadlineWarningWeeks ? "orange" : "gray")}]残り{left}週[/color]{done}");
-		}
-
-		int offered = _state.Commissions.Count(c => !c.Accepted);
-		if (accepted.Count == 0)
-			lines.Add("[color=gray]受けている依頼は無い。[/color]");
-		if (offered > 0)
-			lines.Add($"[color=khaki]掲示中の依頼が{offered}件ある（受けられるのは{CommissionBalance.MaxAccepted}件まで）。[/color]");
-
-		_commissionSummaryLabel.AppendText(string.Join("\n", lines));
 	}
 
 	// ==================== Zone B: ボス警戒 ====================
