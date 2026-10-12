@@ -22,7 +22,7 @@ namespace GuildManager.Core.Systems
     /// </summary>
     public static class StorySystem
     {
-        private sealed record Rule(string Id, StoryTiming Timing, Func<GameState, bool> IsDue, bool Repeats = false);
+        private sealed record Rule(string Id, StoryTiming Timing, Func<GameState, bool> IsDue, bool Repeats = false, bool OnDungeonView = false);
 
         /// <summary>場面の並び（同じ時機に重なったらこの順に出す）。</summary>
         private static readonly Rule[] Rules =
@@ -30,7 +30,7 @@ namespace GuildManager.Core.Systems
             // ---- 台詞01 序章とチュートリアル ----
             new("s01_prologue", StoryTiming.Interactive, s => s.WeekNumber == 1),
             new("s01_guild", StoryTiming.Interactive, s => Seen(s, "s01_prologue") && (s.WeekNumber > 1 || s.Adventurers.Count >= 5)),
-            new("s01_order", StoryTiming.Interactive, s => Seen(s, "s01_guild") && s.SavedParties.Any(p => p.MemberIds.Count > 0)),
+            new("s01_order", StoryTiming.Interactive, s => Seen(s, "s01_guild") && s.SavedParties.Any(p => p.MemberIds.Count > 0), OnDungeonView: true), // 部隊を組んで、初めて大迷宮の画面を開いたとき（§0.108）
             new("s01_month", StoryTiming.Interactive, s => Seen(s, "s01_order") && s.SavedParties.Any(p => p.MemberIds.Count > 0 && p.Order != SquadOrder.None)),
             new("s01_first_report", StoryTiming.AfterReport, s => s.MonthlyReports.Count > 0),
             new("s01_forest10", StoryTiming.BeforeReport, s => ForestBossDefeated(s, 10)),
@@ -127,8 +127,9 @@ namespace GuildManager.Core.Systems
         /// <summary>
         /// 今の時機に出す場面（並びの順。台詞を埋めて返す）。前の場面を見たことが条件の場面（来訪→剣・魔・技、交流戦→助言など）も、
         /// 同じ時機に続けて出せるよう、並びの前の場面を見たことにして順に判定する（記録はしない。出した場面は画面が MarkSeen する）。
+        /// onDungeonView は今の画面が大迷宮か（大迷宮の画面で見せる場面は、ほかの画面のあいだは待つ。画面の無いシミュレーターは true のまま）。
         /// </summary>
-        public static List<StoryShowing> DueScenes(GameState state, StoryTiming timing)
+        public static List<StoryShowing> DueScenes(GameState state, StoryTiming timing, bool onDungeonView = true)
         {
             var due = new List<StoryShowing>();
             var assumed = new List<string>();
@@ -136,7 +137,7 @@ namespace GuildManager.Core.Systems
             {
                 foreach (var rule in Rules.Where(r => r.Timing == timing))
                 {
-                    if ((!rule.Repeats && Seen(state, rule.Id)) || !rule.IsDue(state))
+                    if ((!rule.Repeats && Seen(state, rule.Id)) || (rule.OnDungeonView && !onDungeonView) || !rule.IsDue(state))
                         continue;
                     due.Add(Build(state, rule.Id));
                     if (state.StorySeenWeeks.TryAdd(rule.Id, state.WeekNumber))

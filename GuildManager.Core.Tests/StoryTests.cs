@@ -119,6 +119,22 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
+        public void 方針の場面は部隊を組んで大迷宮の画面を開くまで待つ()
+        {
+            var state = NewGame();
+            StorySystem.MarkSeen(state, "s01_prologue");
+            StorySystem.MarkSeen(state, "s01_guild");
+            var party = new SavedParty { Name = "第1部隊" };
+            party.MemberIds.Add(state.Adventurers[0].Id);
+            state.SavedParties.Add(party);
+
+            // 部隊・冒険者の画面で組んでいるあいだは出さない（続きの「月を進める」も出ない）
+            party.Order = SquadOrder.Dive;
+            Assert.Empty(StorySystem.DueScenes(state, StoryTiming.Interactive, onDungeonView: false));
+            Assert.Equal(new[] { "s01_order", "s01_month" }, StorySystem.DueScenes(state, StoryTiming.Interactive, onDungeonView: true).Select(s => s.SceneId));
+        }
+
+        [Fact]
         public void FirstReport_AfterTheReport()
         {
             var state = NewGame();

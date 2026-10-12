@@ -319,7 +319,7 @@ public partial class MainDashboard : Control
 		_retirementCeremonyPopup = new RetirementCeremonyPopup { Visible = false };
 		AddChild(_retirementCeremonyPopup);
 		// 物語の会話の小窓（§0.86）
-		_storyPopup = new StoryPopup { Visible = false };
+		_storyPopup = new StoryPopup { Visible = false, IsCurrentScreen = label => ViewOfJump(label) is DashboardView v && _centerPanel.CurrentTab == (int)v };
 		AddChild(_storyPopup);
 		// ギルドの手引き（§0.87）
 		_guidePopup = new GuidePopup { Visible = false };
@@ -586,7 +586,7 @@ public partial class MainDashboard : Control
 	/// </summary>
 	private void ShowStory(StoryTiming timing, Action then = null)
 	{
-		var due = _storyPopup.Visible ? new List<StoryShowing>() : StorySystem.DueScenes(_state, timing);
+		var due = _storyPopup.Visible ? new List<StoryShowing>() : StorySystem.DueScenes(_state, timing, OnDungeonView);
 		if (due.Count == 0)
 		{
 			then?.Invoke();
@@ -618,15 +618,18 @@ public partial class MainDashboard : Control
 		_storyPopup.ShowScenes(_state, new[] { StorySystem.Replay(_state, sceneId) }, replay: true);
 	}
 
+	/// <summary>今の画面が大迷宮か（大迷宮の画面で見せる場面の条件、§0.108）。</summary>
+	private bool OnDungeonView => _centerPanel.CurrentTab == (int)DashboardView.Dungeon;
+
 	/// <summary>
 	/// 操作のあとの場面（部隊を組んだ・方針を付けたなど）：ほかの小窓が開いていない、月を進めている最中でないときだけ見る。
-	/// 画面の再描画（RefreshAll）から呼ぶ。
+	/// 画面の再描画（RefreshAll）と画面の切り替え（SwitchView）から呼ぶ。
 	/// </summary>
 	private void CheckInteractiveStory()
 	{
 		if (_state == null || _storyPopup.Visible || _monthlyReportSettlement != null || _recruitmentPopup.Visible || !_autoSkipButton.Visible || _autoSkipButton.Disabled)
 			return;
-		if (StorySystem.DueScenes(_state, StoryTiming.Interactive).Count > 0)
+		if (StorySystem.DueScenes(_state, StoryTiming.Interactive, OnDungeonView).Count > 0)
 			Callable.From(() => ShowStory(StoryTiming.Interactive)).CallDeferred();
 	}
 
@@ -684,20 +687,22 @@ public partial class MainDashboard : Control
 
 	private void OnStoryJump(string label)
 	{
-		DashboardView? view = label switch
-		{
-			_ when label.Contains("大会") => DashboardView.Tournament,
-			_ when label.Contains("依頼") => DashboardView.Commission,
-			_ when label.Contains("施設") => DashboardView.Facility,
-			_ when label.Contains("研究室") => DashboardView.Research,
-			_ when label.Contains("倉庫") => DashboardView.Warehouse,
-			_ when label.Contains("大迷宮") || label.Contains("方針") => DashboardView.Dungeon,
-			_ when label.Contains("部隊") || label.Contains("冒険者") => DashboardView.Party,
-			_ => null,
-		};
-		if (view is DashboardView v)
+		if (ViewOfJump(label) is DashboardView v)
 			SwitchView(v);
 	}
+
+	/// <summary>台詞の【画面へ】の行き先の画面（行き先の文から決める。分からなければ null）。</summary>
+	private static DashboardView? ViewOfJump(string label) => label switch
+	{
+		_ when label.Contains("大会") => DashboardView.Tournament,
+		_ when label.Contains("依頼") => DashboardView.Commission,
+		_ when label.Contains("施設") => DashboardView.Facility,
+		_ when label.Contains("研究室") => DashboardView.Research,
+		_ when label.Contains("倉庫") => DashboardView.Warehouse,
+		_ when label.Contains("大迷宮") || label.Contains("方針") => DashboardView.Dungeon,
+		_ when label.Contains("部隊") || label.Contains("冒険者") => DashboardView.Party,
+		_ => null,
+	};
 
 	/// <summary>依頼の画面へ切り替える（依頼が届いた週は自動で、ナビの「📜 依頼」・ホールの掲示板からはいつでも。§0.64・§0.106）。</summary>
 	private void OpenCommissionBoard()
@@ -1861,6 +1866,7 @@ public partial class MainDashboard : Control
 		_centerPanel.CurrentTab = (int)view;
 
 		UpdateButtonHighlights(view);
+		CheckInteractiveStory(); // 大迷宮の画面を開いたときに見せる場面（§0.108）
 	}
 
 	/// <summary>

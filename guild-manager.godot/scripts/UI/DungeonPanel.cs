@@ -35,8 +35,6 @@ public partial class DungeonPanel : ScrollContainer
 	private DungeonDepthBar _depthBar = null!;
 	private RichTextLabel _depthLegend = null!;
 	private RichTextLabel _floorDisplay = null!;
-	private PanelContainer _expeditionLootContainer = null!;
-	private RichTextLabel _expeditionLootLabel = null!;
 	private RichTextLabel _materialsLabel = null!;
 
 	// ==================== Zone B: ボス警戒 ====================
@@ -115,8 +113,6 @@ public partial class DungeonPanel : ScrollContainer
 		_depthBar = GetNode<DungeonDepthBar>("%DepthBar");
 		_depthLegend = GetNode<RichTextLabel>("%DepthLegend");
 		_floorDisplay = GetNode<RichTextLabel>("%FloorDisplay");
-		_expeditionLootContainer = GetNode<PanelContainer>("%ExpeditionLootContainer");
-		_expeditionLootLabel = GetNode<RichTextLabel>("%ExpeditionLootLabel");
 		_materialsLabel = GetNode<RichTextLabel>("%MaterialsLabel");
 		_anomalyCard = GetNode<PanelContainer>("%AnomalyCard");
 		_anomalySummaryLabel = GetNode<RichTextLabel>("%AnomalySummaryLabel");
@@ -445,7 +441,6 @@ public partial class DungeonPanel : ScrollContainer
 		RefreshZoneFrames();
 		var boss = _selectedField?.GetNextActiveBoss();
 		RefreshProgress(boss);
-		RefreshExpeditionLoot();
 		RefreshMaterialsInfo();
 		RefreshAnomalySummary();
 		RefreshBossInfo(DisplayedBoss(boss), boss);
@@ -507,7 +502,6 @@ public partial class DungeonPanel : ScrollContainer
 
 		var boss = _selectedField.GetNextActiveBoss();
 		RefreshProgress(boss);
-		RefreshExpeditionLoot();
 		RefreshMaterialsInfo();
 		RefreshBossInfo(boss, boss);
 		RefreshDispatchSection(boss);
@@ -597,45 +591,6 @@ public partial class DungeonPanel : ScrollContainer
 		ExpeditionStatus.Retreating => "撤退中",
 		_ => "進軍中",
 	};
-
-	private void RefreshExpeditionLoot()
-	{
-		_expeditionLootLabel.Clear();
-		if (_selectedField == null)
-		{
-			_expeditionLootLabel.AppendText("[color=gray]ダンジョンが選択されていません。[/color]");
-			return;
-		}
-
-		var fieldMissions = _state.ActiveDungeonMissions
-			.Where(m => m.Field.Id == _selectedField.Id && m.MissionType == DungeonMissionType.Scouting)
-			.ToList();
-
-		if (fieldMissions.Count == 0)
-		{
-			_expeditionLootLabel.AppendText("[color=gray]待機中（この迷宮を潜行中の部隊はありません）[/color]");
-			return;
-		}
-
-		int totalGold = fieldMissions.Sum(m => m.CarriedGold);
-		var allMats = fieldMissions.SelectMany(m => m.CarriedMaterials)
-			.GroupBy(kv => kv.Key)
-			.ToDictionary(g => g.Key, g => g.Sum(x => x.Value));
-
-		var sb = new StringBuilder();
-		sb.AppendLine($"💰 拾得ゴールド：[color=gold][b]{totalGold}G[/b][/color]");
-		if (allMats.Count > 0)
-		{
-			string matSummary = string.Join("、", allMats.Select(kv => $"{MaterialBalance.GetName(kv.Key)}×{kv.Value}"));
-			sb.Append($"📦 拾得素材：{matSummary}");
-		}
-		else
-		{
-			sb.Append("[color=gray]📦 拾得素材：なし[/color]");
-		}
-
-		_expeditionLootLabel.AppendText(sb.ToString());
-	}
 
 	private void RefreshMaterialsInfo()
 	{

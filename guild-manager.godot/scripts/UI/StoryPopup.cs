@@ -19,6 +19,9 @@ public partial class StoryPopup : Window
 	/// <summary>全部の場面を見終えて閉じた。</summary>
 	public event Action Closed = delegate { };
 
+	/// <summary>【画面へ】の行き先が今見ている画面か（そうなら案内を出さない。MainDashboard が決める、§0.108）。</summary>
+	public Func<string, bool> IsCurrentScreen { get; init; } = _ => false;
+
 	private const string ImageFolder = "res://assets/story/";
 
 	private RichTextLabel _text = null!;
@@ -216,14 +219,14 @@ public partial class StoryPopup : Window
 		_nextButton.Text = LastStep ? (last ? "閉じる" : "次の場面へ ▶") : "次へ ▼";
 	}
 
-	/// <summary>場面の最後に添える行き先の案内とギルドの手引き（無ければ空）。</summary>
-	private static string GuideText(StoryShowing scene)
+	/// <summary>場面の最後に添える行き先の案内とギルドの手引き（無ければ空）。行き先が今の画面なら案内は省く。</summary>
+	private string GuideText(StoryShowing scene)
 	{
 		var lines = scene.Pages.SelectMany(p => p).ToList();
 		var sb = new StringBuilder();
 		// 【画面へ】の行は、押すと画面が飛ぶボタンだったが、読み終えた途端に画面が切り替わって迷子になるので、行き先の案内の文にした（§0.97、提案書 UI-04）
 		var jump = lines.FirstOrDefault(l => l.Kind == StoryLineKind.Jump);
-		if (jump != null)
+		if (jump != null && !IsCurrentScreen(jump.Text))
 			sb.Append($"[color=#7dd3fc]📍 次は上の「{Escape(NavName(jump.Text))}」の画面で：{Escape(jump.Text)}[/color]\n");
 		var guides = lines.Where(l => l.Kind is StoryLineKind.Guide or StoryLineKind.GuideNote).ToList();
 		if (guides.Count > 0)
