@@ -181,6 +181,7 @@ namespace GuildManager.Core.Systems
             _satisfactionSystem.ProcessWeeklySatisfaction(state, dispatchedIds); // → 03 §5.1：満足度変動
             result.TraitGrantEvents.AddRange(_satisfactionSystem.ProcessWeeklyBurnout(state)); // → 03 §5.3.2・§0.56：燃え尽き（連続出撃）
             result.NegotiationTerminated.AddRange(_satisfactionSystem.ProcessWeeklyNegotiation(state)); // → 03 §5.2：契約交渉・退団
+            result.AutoBonuses.AddRange(ChoreSystem.ProcessAutoBonus(state, _satisfactionSystem)); // → §0.99：交渉の自動（応えた子では月を止めない）
             // 満足度警告（契約交渉）が今週「新たに」発生したか（→ 03 §1.3自動スキップ停止条件2）。
             // 既に警告中で対応待ちのまま変化がないだけの週では発火させない。
             result.Flags.SatisfactionWarningOccurred =

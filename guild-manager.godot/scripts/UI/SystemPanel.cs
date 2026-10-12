@@ -31,6 +31,8 @@ public partial class SystemPanel : ScrollContainer
 	public event Action QuitRequested = () => { };
 
 	private Button _endingBtn = null!;
+	private CheckButton _autoBonusCheck = null!;
+	private GuildManager.Core.Models.GameState _state = null!;
 
 	public override void _Ready()
 	{
@@ -60,6 +62,7 @@ public partial class SystemPanel : ScrollContainer
 		_fullscreenBtn.Pressed += () => SetDisplayMode(Window.ModeEnum.Fullscreen);
 		UpdateDisplayModeButtons();
 		VisibilityChanged += UpdateDisplayModeButtons;
+		BuildAutoBonusToggle();
 	}
 
 	/// <summary>窓表示の大きさ：基準解像度（1920×1080）を上限に、タイトルバー・タスクバー分を除いた作業領域へ収める。</summary>
@@ -95,6 +98,39 @@ public partial class SystemPanel : ScrollContainer
 		_windowedBtn.SetPressedNoSignal(mode == Window.ModeEnum.Windowed);
 		_maximizedBtn.SetPressedNoSignal(mode == Window.ModeEnum.Maximized);
 		_fullscreenBtn.SetPressedNoSignal(mode is Window.ModeEnum.Fullscreen or Window.ModeEnum.ExclusiveFullscreen);
+	}
+
+	/// <summary>
+	/// 交渉の自動（§0.99）：環境設定の欄の画面表示の下に、「契約の不満にボーナスで自動で応える」を置く（シーンは変えずにコードで組む）。
+	/// 選んだ値はセーブに残る（GameState.AutoNegotiationBonus）。払うかどうかの判定は Core（ChoreSystem.ProcessAutoBonus）。
+	/// </summary>
+	private void BuildAutoBonusToggle()
+	{
+		var displayRow = _windowedBtn.GetParent<Control>();
+		var box = displayRow.GetParent();
+		var label = new Label { Text = "🤝 契約交渉" };
+		_autoBonusCheck = new CheckButton
+		{
+			Text = "契約の不満が出たら、ボーナスで自動で応える",
+			TooltipText = $"満足度が下がって契約の不満が出た子へ、週給×{GuildManager.Core.Balance.SatisfactionBalance.BonusWeeksEquivalent}のボーナスを自動で払う。" +
+				$"所持金に週給の{GuildManager.Core.Balance.EconomyBalance.ChoreReserveWageWeeks}週分を残せないときは払わず、今までどおり月を止めて知らせる。払ったことは月報の主な出来事に出る",
+		};
+		_autoBonusCheck.Toggled += on =>
+		{
+			if (_state != null)
+				_state.AutoNegotiationBonus = on;
+		};
+		box.AddChild(label);
+		box.MoveChild(label, displayRow.GetIndex() + 1);
+		box.AddChild(_autoBonusCheck);
+		box.MoveChild(_autoBonusCheck, label.GetIndex() + 1);
+	}
+
+	/// <summary>今のゲームの設定を映す（MainDashboard.RefreshAll から呼ぶ）。</summary>
+	public void Refresh(GuildManager.Core.Models.GameState state)
+	{
+		_state = state;
+		_autoBonusCheck.SetPressedNoSignal(state.AutoNegotiationBonus);
 	}
 
 	/// <summary>クリア済みなら「エンディングを見る」を出す（MainDashboard.RefreshAll から呼ぶ）。</summary>

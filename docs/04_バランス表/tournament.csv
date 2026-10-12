@@ -37,3 +37,6 @@ TavernPrize_Lv2,2000,G,ギルド酒場をLv2まで開くのに要る大会の賞
 TavernPrize_Lv3,8000,G,同・Lv3
 TavernPrize_Lv4,20000,G,同・Lv4
 TavernPrize_Lv5,40000,G,同・Lv5
+RecommendMinHpRatio,0.6,割合,おすすめの申し込み（§0.99）：HPがこの割合未満の子は選ばない
+RecommendStrengthRatio,0.85,倍,同：試合の強さが相手の幅の中央×この倍率に届かない大会には出さない（新人戦は届かなくても出す）
+RecommendPushHpRatio,0.8,割合,同：HPがこの割合以上なら過ごし方を追い込み、未満なら休養にする

@@ -56,5 +56,8 @@ namespace GuildManager.Core.Balance
         /// 脅威度とは無関係なこの値（唯一の敗北条件）をここへ移設した。
         /// </summary>
         public static readonly int BankruptcyConsecutiveWeeksThreshold = BalanceData.GetInt(FileName, "BankruptcyConsecutiveWeeksThreshold");
+
+        /// <summary>まとめて鑑定・交渉の自動（§0.99）で残しておく所持金＝現役の週給の合計×この週数（→ EconomySystem.ChoreReserve）。</summary>
+        public static readonly int ChoreReserveWageWeeks = BalanceData.GetInt(FileName, "ChoreReserveWageWeeks");
     }
 }

@@ -330,6 +330,8 @@ public partial class MainDashboard : Control
 		// 鑑定（→ 03 §4.7）。他の判定と別シードにし、互いの抽選回数が結果に影響しないようにする。
 		_appraisalSystem = new AppraisalSystem(new SeededRng(4649));
 		_inventoryPanel.Initialize(_appraisalSystem, _economySystem);
+		_monthlyReportPopup.Initialize(() => _state, _appraisalSystem); // 月報の「今月の遺物」から鑑定する（§0.99）
+		_monthlyReportPopup.StateChanged += RefreshAll;
 		// 大迷宮（→ ダンジョン攻略システム）。調査・討伐は別シードにし、互いの抽選回数が結果に
 		// 影響しないようにする。強制除籍の余波（満足度・相性）は既存インスタンスを共有する。
 		_dungeonExpeditionSystem = new DungeonExpeditionSystem(
@@ -1940,6 +1942,7 @@ public partial class MainDashboard : Control
 		_facilityPanel.Refresh(_state);
 		_inventoryPanel.Refresh(_state);
 		_systemPanel.SetEndingAvailable(_state.IsGameCleared);
+		_systemPanel.Refresh(_state);
 		_shopPanel.Refresh(_state);
 		_tournamentPanel.Refresh(_state);
 		_tournamentPanel.Refresh(_state);

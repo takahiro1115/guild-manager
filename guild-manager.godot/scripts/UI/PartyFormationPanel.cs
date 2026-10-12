@@ -56,6 +56,7 @@ public partial class PartyFormationPanel : VBoxContainer
 	private readonly Button[] _slotRemoveButtons = new Button[4];
 	private readonly Button[] _slotPromoteButtons = new Button[4];
 	private Button _removeAllButton = null!;
+	private Button _recommendGearButton = null!;
 
 	// 冒険者一覧（表）
 	private VBoxContainer _candidateListContainer = null!;
@@ -314,6 +315,11 @@ public partial class PartyFormationPanel : VBoxContainer
 		SquadSummaryChanged.Invoke(SquadSummary(currentParty, isDispatched));
 		_dispatchedBadge.Visible = isDispatched;
 		_removeAllButton.Disabled = isDispatched || currentParty.MemberIds.Count == 0;
+		int gearChanges = ChoreSystem.PlanGear(_state, currentParty).Count;
+		_recommendGearButton.Disabled = gearChanges == 0;
+		_recommendGearButton.TooltipText = gearChanges > 0
+			? $"保管庫の武具を、この部隊のメンバーへ強い順に着せる（{gearChanges}か所）。上がる値を見てから決める"
+			: "保管庫に、この部隊のメンバーが今より強くなる武具が無い（出撃中・派遣中の子は変えない）";
 		_squadNameEdit.Text = currentParty.Name;
 		_squadNameEdit.Editable = !isDispatched;
 		_squadRenameButton.Disabled = isDispatched;
@@ -1171,6 +1177,45 @@ public partial class PartyFormationPanel : VBoxContainer
 		StateChanged.Invoke();
 	}
 
+	/// <summary>
+	/// 「おすすめを着せる」（§0.99）：保管庫の武具を、この部隊のメンバーへ職業の重みで強い順に着せる（Core の ChoreSystem.PlanGear）。
+	/// 誰の何がどう変わり、能力がいくつ上がるかを確かめの小窓で見せてから着せる。
+	/// </summary>
+	private void OnRecommendGearClicked()
+	{
+		var party = GetCurrentParty();
+		if (party == null || _state == null) return;
+		var plan = ChoreSystem.PlanGear(_state, party);
+		if (plan.Count == 0) return;
+
+		var sb = new System.Text.StringBuilder();
+		sb.AppendLine($"「{party.Name}」のメンバーに、保管庫の武具を着せる。外した物は保管庫へ戻る。");
+		foreach (var (who, stats, hp) in ChoreSystem.SummarizeGear(plan))
+		{
+			var gains = stats.OrderByDescending(kv => kv.Value).Select(kv => $"[color={(kv.Value > 0 ? "lime" : "orange")}]{kv.Key}{kv.Value:+0;-0}[/color]").ToList();
+			if (hp != 0) gains.Add($"[color={(hp > 0 ? "lime" : "orange")}]HP{hp:+0;-0}[/color]");
+			sb.AppendLine($"\n[b]{who.Name}[/b]　[color=gray]{AdventurerPanel.JobLabel(who.JobClass)}[/color]　{string.Join(" ", gains)}");
+			foreach (var change in plan.Where(c => c.Adventurer == who))
+				sb.AppendLine($"　{SlotName(change.Slot)}：{(change.Before != null ? ItemColorHelper.GetColoredBBCode(change.Before) : "[color=gray]なし[/color]")} → {ItemColorHelper.GetColoredBBCode(change.After)}");
+		}
+		sb.Append("\n[color=gray]強さは、職業ごとの火力の重み（迷宮のボス戦と同じ）で比べる。出撃中・派遣中の子と、ほかの部隊の子の装備は変えない。[/color]");
+
+		ChoreConfirm.Show(this, "🎽 おすすめを着せる", sb.ToString(), "着せる", () =>
+		{
+			var applied = ChoreSystem.ApplyGear(_state, party);
+			_statusLabel.Text = $"{applied.Select(c => c.Adventurer).Distinct().Count()}人に、おすすめの武具を着せた（{applied.Count}か所）。";
+			StateChanged.Invoke();
+		});
+	}
+
+	private static string SlotName(EquipmentSlot slot) => slot switch
+	{
+		EquipmentSlot.Weapon => "武器",
+		EquipmentSlot.Armor => "防具",
+		EquipmentSlot.Accessory1 => "装飾品1",
+		_ => "装飾品2",
+	};
+
 	/// <summary>見出しの行を横に割って、右端に「全員解除」を置く（シーンは変えずにコードで組む）。</summary>
 	private void BuildRemoveAllButton()
 	{
@@ -1186,6 +1231,10 @@ public partial class PartyFormationPanel : VBoxContainer
 		_removeAllButton = new Button { Text = "全員解除", TooltipText = "この部隊の全員を編成から外す（出撃中は不可）。" };
 		_removeAllButton.AddThemeFontSizeOverride("font_size", 15);
 		_removeAllButton.Pressed += OnRemoveAllClicked;
+		_recommendGearButton = new Button { Text = "🎽 おすすめを着せる" };
+		_recommendGearButton.AddThemeFontSizeOverride("font_size", 15);
+		_recommendGearButton.Pressed += OnRecommendGearClicked;
+		row.AddChild(_recommendGearButton);
 		row.AddChild(_removeAllButton);
 
 		parent.AddChild(row);

@@ -133,6 +133,12 @@ namespace GuildManager.Core.Systems
         /// </summary>
         public List<MonthlyPlan> Plans { get; set; } = new();
 
+        /// <summary>
+        /// 今月の遺物（§0.99）：この月に持ち帰った未鑑定の遺物の Id（出撃・依頼の報酬）。月報から鑑定するのに使う。
+        /// 鑑定・消えた物は画面が倉庫（GameState.UnidentifiedItems）と突き合わせて外す。旧いセーブの月報には無く、空で読まれる。
+        /// </summary>
+        public List<string> RelicIds { get; set; } = new();
+
         /// <summary>来月への注意。</summary>
         public List<MonthlyNote> Notes { get; set; } = new();
 
@@ -189,6 +195,9 @@ namespace GuildManager.Core.Systems
 
             report.YearStanding = settlements.Select(s => s.YearStanding).LastOrDefault(s => s != null);
             report.Plans.AddRange(NextMonthPlanSystem.BuildPlans(state, settlements.SelectMany(s => s.SquadStalls)));
+            report.RelicIds.AddRange(resolutions.SelectMany(r => r.RelicsFound)
+                .Concat(settlements.SelectMany(s => s.Commissions.Completed).Select(c => c.Relic).OfType<UnidentifiedItem>())
+                .Select(r => r.Id).Distinct());
             AddNotes(state, report);
             AddHighlights(state, weeks, report);
             AddSquads(state, weeks, report);
@@ -227,6 +236,8 @@ namespace GuildManager.Core.Systems
                     Add($"{birth.Child.Name}が生まれた", MonthlyTone.Good);
                 foreach (var left in s.NegotiationTerminated)
                     Add($"{left.Name}が契約交渉の末に退団した", MonthlyTone.Bad);
+                foreach (var bonus in s.AutoBonuses)
+                    Add($"{bonus.Adventurer.Name}の契約の不満に、ボーナス{bonus.Gold}Gで応えた（交渉の自動）", MonthlyTone.Normal);
                 foreach (var done in s.Commissions.Completed)
                     Add(done.LoanedAdventurerName != null
                         ? $"依頼を果たした（{done.ClientName}）：{done.LoanedAdventurerName}をひと季節派遣した"

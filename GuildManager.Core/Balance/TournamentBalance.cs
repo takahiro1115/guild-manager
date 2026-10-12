@@ -26,6 +26,12 @@ namespace GuildManager.Core.Balance
         public static readonly double LuckMax = BalanceData.GetDouble(FileName, "LuckMax");
         public static readonly double HpFactorBase = BalanceData.GetDouble(FileName, "HpFactorBase");
         public static readonly double HpCostPerMatch = BalanceData.GetDouble(FileName, "HpCostPerMatch");
+        /// <summary>おすすめの申し込み（§0.99）：HPがこの割合未満の子は選ばない。</summary>
+        public static readonly double RecommendMinHpRatio = BalanceData.GetDouble(FileName, "RecommendMinHpRatio");
+        /// <summary>おすすめの申し込み（§0.99）：試合の強さが相手の幅の中央×この倍率に届かない大会には出さない（新人戦は除く）。</summary>
+        public static readonly double RecommendStrengthRatio = BalanceData.GetDouble(FileName, "RecommendStrengthRatio");
+        /// <summary>おすすめの申し込み（§0.99）：HPがこの割合以上なら追い込み、未満なら休養。</summary>
+        public static readonly double RecommendPushHpRatio = BalanceData.GetDouble(FileName, "RecommendPushHpRatio");
         public static readonly int SatisfactionLowThreshold = BalanceData.GetInt(FileName, "SatisfactionLowThreshold");
         public static readonly double SatisfactionLowFactor = BalanceData.GetDouble(FileName, "SatisfactionLowFactor");
         public static readonly int SatisfactionHighThreshold = BalanceData.GetInt(FileName, "SatisfactionHighThreshold");

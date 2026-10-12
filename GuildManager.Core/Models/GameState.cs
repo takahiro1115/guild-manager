@@ -373,6 +373,9 @@ namespace GuildManager.Core.Models
         /// <summary>物語と手ほどき（§0.88）：「なし」で始めたゲームは false（操作を教える場面・手引きを出さず、タブを全部見せる）。</summary>
         public bool TutorialEnabled { get; set; } = true;
 
+        /// <summary>交渉の自動（§0.99）：契約の不満が出たら、予算の範囲でボーナスを払って応える（→ ChoreSystem.ProcessAutoBonus）。システム画面で選ぶ。はじめは「しない」。</summary>
+        public bool AutoNegotiationBonus { get; set; }
+
         /// <summary>引退者のうち、ギルドの元冒険者（派遣の教官を除く）。最初の引退者の判定・年代記に使う。</summary>
         public IEnumerable<Adventurer> GuildRetirees => RetiredAdventurers.Where(a => !a.IsGuest);
 
@@ -478,6 +481,7 @@ namespace GuildManager.Core.Models
                 StorySeenWeeks = new Dictionary<string, int>(StorySeenWeeks),
                 StoryCounters = new Dictionary<string, int>(StoryCounters),
                 TutorialEnabled = TutorialEnabled,
+                AutoNegotiationBonus = AutoNegotiationBonus,
                 Commissions = new List<GuildCommission>(Commissions),
                 CommissionCompletions = new Dictionary<string, int>(CommissionCompletions),
                 Anomaly = Anomaly,
@@ -626,6 +630,7 @@ namespace GuildManager.Core.Models
                 StorySeenWeeks = new Dictionary<string, int>(data.StorySeenWeeks ?? new Dictionary<string, int>()),
                 StoryCounters = new Dictionary<string, int>(data.StoryCounters ?? new Dictionary<string, int>()),
                 TutorialEnabled = data.TutorialEnabled ?? true, // キーの無い旧セーブは「あり」
+                AutoNegotiationBonus = data.AutoNegotiationBonus, // キーの無い旧セーブは false（しない）
                 // 依頼と迷宮の異変（§0.64）。キーを持たない旧セーブ、または null が書かれていても空・無しで始める。
                 Commissions = (data.Commissions ?? new List<GuildCommission>()).Where(c => c != null).ToList(),
                 CommissionCompletions = new Dictionary<string, int>(data.CommissionCompletions ?? new Dictionary<string, int>()),

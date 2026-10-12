@@ -18,14 +18,14 @@
 
 | ファイル | 対応する仕様書セクション | 対応する実装 |
 |---|---|---|
-| `economy.csv` | 03 §8.1・§5.2・§8.3 | EconomyBalance（初期資金・週給/契約金/退職金係数・退職金不足の機嫌低下・内職売上の基本額と間隔・破産判定週数）, SatisfactionBalance(賃金), RecruitmentSystem(契約金) |
+| `economy.csv` | 03 §8.1・§5.2・§8.3 | EconomyBalance（初期資金・週給/契約金/退職金係数・退職金不足の機嫌低下・内職売上の基本額と間隔・破産判定週数・まとめての予算〈§0.99〉）, SatisfactionBalance(賃金), RecruitmentSystem(契約金) |
 | `combat.csv` | 03 §2.3・§4.3 | CombatBalance：最大HP（`MaxHpBase`・`MaxHpVitCoefficient`）・**負傷**（重傷の全治週数 `SevereInjuryWeeksMin/Max`・重傷になるHPの割合 `SevereInjuryHpThresholdPct`・軽傷の全治週数 `LightInjuryWeeksMin/Max`・軽傷の能力値低下 `LightInjuryStatPenaltyRate`、→ 03 §0.53）・耐毒体質 `ResistPoisonDamageReductionRate`・巨獣狩り `GiantHunterDamageBonusRate`・古傷 `OldWoundCriticalChance`・`OldWoundRetreatHpThresholdPct`・巨獣狩りの後天開眼 `GiantHunterAwakeningChance`。旧クエストの戦闘処理の値（敵CP・索敵・奇襲/不意打ち・戦闘比率・HP消費率・致死回避閾値・不可逆帯幅）は読み込むだけで未使用だったため §0.53 で削除 |
 | `aging.csv` | 03 §3.0〜3.7 | GrowthBalance（年齢帯別成長ロール基礎確率＝新鋭/成長/全盛の3区分・難易度係数・成長量幅）, AgingSystem（満期引退年齢・稼働週数） |
 | `growth_job_weights.csv` | 03 §3.1〜3.4 | GrowthBalance.JobStatWeights |
 | `satisfaction.csv` | 03 §5.1・§5.2 | SatisfactionBalance |
 | `facility.csv` | 03 §6・§6.1 | FacilityBalance |
 | `tournaments.csv` | 03 §0.82 | TournamentBalance（大会の定義。**テーブル形式** `Id,Name,Kind,Discipline,Grade,Month,Week,MinStrength,MaxStrength,Prize1,Prize2,Prize4,Mood1,Mood2,Mood4,Note`。`{地方}`・`{フィールド}` は名前の差し込み、Month・Week が0の大会は暦を作るときに決める） |
-| `tournament.csv` | 03 §0.82 | TournamentBalance（大会の式・暦・施設の開放の閾値。key,value 形式） |
+| `tournament.csv` | 03 §0.82 | TournamentBalance（大会の式・暦・施設の開放の閾値・おすすめの申し込み〈§0.99〉。key,value 形式） |
 | `isabella.csv` | 03 §0.84 | IsabellaBalance（イザベラの来訪・交流戦・派遣の教官。key,value 形式） |
 | `postgame.csv` | 03 §0.90 | PostGameBalance（エンディングのあと：主が蘇るまでの週数・異変の季節・ルミナの能力と立ち絵。key,value 形式） |
 | `story/story_01.txt`〜`story_04.txt` | 03 §0.86・§0.89 | StoryBalance（物語の台詞。物語帳〈アーティファクト「ギルド物語帳」〉の「台詞 01〜04」を書き出したもの。`s04_narration` はエンディングの窓の締めの語り。**CSVではない**：`## 場面のId　見出し` で場面が始まり、台詞は物語帳と同じ書式。書式はファイルの先頭の注記。場面を出す条件はコード `StorySystem`。物語帳を直したら書き出し直す。§0.91 からどの場面も頭に `〔背景：場面名〕`） |
@@ -164,6 +164,19 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 `SubsidyWeeksPerMonth`・`SubsidyBaseAmount_G〜S` は `SideJobIntervalWeeks`・`SideJobBaseAmount`（旧Gの200G）へ、
 `SeveranceShortfallReputationPenalty` は `SeveranceShortfallMoodPenalty` へ置き換え、`dungeon.csv` の
 `BossBaseReputation` は削除した。代わりに `master_mood.csv` を新設した。
+
+## 作業を減らす「まとめて」の操作で追加されたキー（2026年10月、→ 03 §0.99）
+
+まとめて鑑定・交渉の自動の予算と、大会の【おすすめの子で申し込む】の選び方。どれもシミュレーターの手入れと同じ考え方の値で、ゲームの決まりは変えていない（シミュレーターの数字は §0.98 のまま）。
+
+| ファイル | キー | 値 | 意味 |
+|---|---|---|---|
+| `economy.csv` | `ChoreReserveWageWeeks` | 4 | まとめて鑑定・交渉の自動で残しておく所持金＝現役の週給の合計×この週数（派遣中の子の週給は数えない） |
+| `tournament.csv` | `RecommendMinHpRatio` | 0.6 | おすすめの申し込み：HPがこの割合未満の子は選ばない |
+| `tournament.csv` | `RecommendStrengthRatio` | 0.85 | 同：試合の強さが相手の幅の中央×この倍率に届かない大会には出さない（新人戦は除く） |
+| `tournament.csv` | `RecommendPushHpRatio` | 0.8 | 同：HPがこの割合以上なら過ごし方を追い込み、未満なら休養 |
+
+まとめて売る素材の「残す数」と、おすすめの装備の値打ち（`boss_power_weights.csv` の職業の重み）は既存の表から計算する（新しいキーは無い）。
 
 ## 決戦の勝率で追加／変更されたキー（2026年10月、→ 03 §0.98）
 

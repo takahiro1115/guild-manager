@@ -32,6 +32,16 @@ public partial class MonthlyReportPopup : Window
 	/// <summary>来月の作戦の手を選んだ（§0.98。小窓は閉じない。方針の書き換えは MainDashboard が Core で行う）。</summary>
 	public event Action<MonthlyPlan, PlanChoice> PlanChosen = delegate { };
 
+	/// <summary>今月の遺物を鑑定してゲームの状態が変わった（§0.99。MainDashboard が画面を描き直す）。</summary>
+	public event Action StateChanged = delegate { };
+
+	private Func<GameState> _getState = null!;
+	private AppraisalSystem _appraisal = null!;
+	private VBoxContainer _relicsBox = null!;
+	/// <summary>今月の遺物の欄で直前に鑑定した結果（欄を作り直しても残す。月報を開き直したら消す）。</summary>
+	private string _relicResultText = "";
+	private MonthlyReport _shownReport;
+
 	private OptionButton _historyOption = null!;
 	private TabContainer _tabs = null!;
 	private RichTextLabel _summary = null!;
@@ -85,6 +95,9 @@ public partial class MonthlyReportPopup : Window
 		_plansBox.AddThemeConstantOverride("separation", 4);
 		overview.AddChild(_plansBox);
 		overview.MoveChild(_plansBox, 0); // 来月の作戦は月報の先頭に（§0.98）
+		_relicsBox = new VBoxContainer();
+		_relicsBox.AddThemeConstantOverride("separation", 4);
+		overview.AddChild(_relicsBox); // 今月の遺物（§0.99）は主な出来事のあと、来月への注意の前
 		_notesBox = new VBoxContainer();
 		_notesBox.AddThemeConstantOverride("separation", 4);
 		overview.AddChild(_notesBox);
@@ -108,6 +121,13 @@ public partial class MonthlyReportPopup : Window
 		root.AddChild(buttons);
 	}
 
+	/// <summary>今月の遺物（§0.99）を鑑定するための、今のゲームの状態と鑑定の仕組み（MainDashboard が渡す。ロードで状態が入れ替わるので関数で受ける）。</summary>
+	public void Initialize(Func<GameState> getState, AppraisalSystem appraisal)
+	{
+		_getState = getState;
+		_appraisal = appraisal;
+	}
+
 	private static RichTextLabel NewText() =>
 		new() { BbcodeEnabled = true, FitContent = true, ScrollActive = false, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
 
@@ -129,6 +149,7 @@ public partial class MonthlyReportPopup : Window
 	{
 		_historyOption.Visible = false;
 		_plansInteractive = true;
+		_relicResultText = "";
 		ShowEntry(report, weeklyBbcode);
 		_nextButton.Visible = allowNext;
 		PopupCentered(Size);
@@ -155,6 +176,7 @@ public partial class MonthlyReportPopup : Window
 			_summary.AppendText("[color=gray]まだ月報は無い。「次の月へ」で月を進めると、ここに直近12か月分が残る。[/color]");
 			ClearNotes();
 			ClearBox(_plansBox);
+			ClearBox(_relicsBox);
 			_squads.Clear();
 			_adventurers.Clear();
 			_weekly.Clear();
@@ -174,6 +196,8 @@ public partial class MonthlyReportPopup : Window
 		_summary.AppendText(SummaryText(report));
 
 		FillPlans(report);
+		_shownReport = report;
+		FillRelics();
 		ClearNotes();
 		if (report.Notes.Count > 0)
 		{
@@ -259,6 +283,98 @@ public partial class MonthlyReportPopup : Window
 				};
 			}
 		}
+	}
+
+	/// <summary>
+	/// 今月の遺物（§0.99）：この月に持ち帰って、まだ鑑定していない遺物。銅・銀は【まとめて鑑定（予算内）】、金・虹は1つずつ【鑑定】。
+	/// 鑑定の結果はこの欄の下に出す。月を進めた直後だけボタンを出し、過去の月報では数だけ。
+	/// </summary>
+	private void FillRelics()
+	{
+		ClearBox(_relicsBox);
+		if (_shownReport == null || _shownReport.RelicIds.Count == 0) return;
+		if (!_plansInteractive || _getState == null)
+		{
+			_relicsBox.AddChild(new Label { Text = $"🔬 この月に持ち帰った遺物：{_shownReport.RelicIds.Count}個" });
+			return;
+		}
+
+		var state = _getState();
+		var ids = _shownReport.RelicIds.ToHashSet();
+		var relics = AppraisalSystem.SortForDisplay(state).Where(r => ids.Contains(r.Id)).ToList();
+		int others = state.UnidentifiedItems.Count - relics.Count;
+		_relicsBox.AddChild(new RichTextLabel
+		{
+			BbcodeEnabled = true, FitContent = true, ScrollActive = false,
+			Text = $"[b]🔬 今月の遺物[/b]　[color=gray]" +
+				(relics.Count > 0 ? $"持ち帰った{_shownReport.RelicIds.Count}個のうち、まだ鑑定していない{relics.Count}個" : $"持ち帰った{_shownReport.RelicIds.Count}個は、すべて鑑定した") +
+				(others > 0 ? $"（倉庫にはほかに{others}個）" : "") + "[/color]",
+		});
+
+		foreach (var relic in relics.Where(r => !ChoreSystem.IsBulkAppraisable(r)))
+		{
+			var profile = GuildManager.Core.Balance.RelicBalance.Get(relic.Rarity);
+			var row = new HBoxContainer();
+			row.AddThemeConstantOverride("separation", 8);
+			row.AddChild(new RichTextLabel
+			{
+				BbcodeEnabled = true, FitContent = true, ScrollActive = false, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+				Text = $"　[color={profile.ColorName}][{profile.Label}][/color] {relic.Name}　[color=gray]第{relic.OriginFloor}層[/color]",
+			});
+			var button = new Button { Text = $"鑑定する（{relic.AppraisalCost}G）", Disabled = state.Gold < relic.AppraisalCost, SizeFlagsVertical = Control.SizeFlags.ShrinkCenter };
+			string id = relic.Id;
+			button.Pressed += () =>
+			{
+				var s = _getState();
+				if (_appraisal.Appraise(s, id) is not { } result) return;
+				_relicResultText = InventoryPanel.BulkAppraisalText(new[] { result }, s.MasterMood) + $"\n[color=cyan]アルベール『{result.FlavorText}』[/color]";
+				AfterAppraisal();
+			};
+			row.AddChild(button);
+			_relicsBox.AddChild(row);
+		}
+
+		var bulk = relics.Where(ChoreSystem.IsBulkAppraisable).ToList();
+		if (bulk.Count > 0)
+		{
+			var plan = ChoreSystem.PlanAppraisal(state, bulk.Select(r => r.Id));
+			var row = new HBoxContainer();
+			row.AddThemeConstantOverride("separation", 8);
+			string counts = string.Join("・", bulk.GroupBy(r => r.Rarity).OrderByDescending(g => g.Key)
+				.Select(g => $"{GuildManager.Core.Balance.RelicBalance.Get(g.Key).Label}{g.Count()}"));
+			row.AddChild(new Label
+			{
+				Text = $"　銅・銀 {bulk.Count}個（{counts}）" + (plan.OverBudget > 0 ? $"。予算に収まるのは{plan.Items.Count}個（週給の{GuildManager.Core.Balance.EconomyBalance.ChoreReserveWageWeeks}週分 {plan.Reserve}G を残す）" : ""),
+				AutowrapMode = TextServer.AutowrapMode.WordSmart, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+			});
+			var button = new Button
+			{
+				Text = plan.Items.Count > 0 ? $"🔬 まとめて鑑定（{plan.Items.Count}個・{plan.TotalCost}G）" : "🔬 予算が足りない",
+				Disabled = plan.Items.Count == 0, SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
+				TooltipText = $"所持金に週給の{GuildManager.Core.Balance.EconomyBalance.ChoreReserveWageWeeks}週分（{plan.Reserve}G）を残して鑑定する",
+			};
+			var bulkIds = bulk.Select(r => r.Id).ToList();
+			button.Pressed += () =>
+			{
+				var s = _getState();
+				var results = ChoreSystem.AppraiseBulk(s, _appraisal, bulkIds);
+				if (results.Count == 0) return;
+				_relicResultText = InventoryPanel.BulkAppraisalText(results, s.MasterMood);
+				AfterAppraisal();
+			};
+			row.AddChild(button);
+			_relicsBox.AddChild(row);
+		}
+
+		if (_relicResultText.Length > 0)
+			_relicsBox.AddChild(new RichTextLabel { BbcodeEnabled = true, FitContent = true, ScrollActive = false, Text = _relicResultText });
+	}
+
+	/// <summary>鑑定のあと：画面を描き直し（所持金・倉庫）、この欄も作り直す。</summary>
+	private void AfterAppraisal()
+	{
+		StateChanged.Invoke();
+		Callable.From(FillRelics).CallDeferred(); // 押したボタンの合図の中で欄を作り直さない
 	}
 
 	private void CloseWith(Action after)

@@ -30,6 +30,8 @@ public partial class InventoryPanel : VBoxContainer
 	private Button _appraiseButton = null!;
 	private VBoxContainer _materialListBox = null!;
 	private VBoxContainer _armoryListBox = null!;
+	private Button _bulkAppraiseButton = null!;
+	private Button _bulkSellButton = null!;
 
 	private GameState _state = null!;
 	private AppraisalSystem _appraisalSystem = null!;
@@ -46,6 +48,9 @@ public partial class InventoryPanel : VBoxContainer
 	/// 画面が作り直されるため、結果表示が消えないようフィールドに保持して毎回描き直す。
 	/// </summary>
 	private string _lastAppraisalText = "";
+
+	/// <summary>まとめて鑑定の結果（§0.99）。遺物を選んでいないとき右の詳細の欄に出す（アルベールの欄は狭いので）。前回の結果と同じときに消す。</summary>
+	private string _bulkResultText = "";
 
 	/// <summary>週報ログ（右ペイン）への追記を依頼する（BBCode文字列）。</summary>
 	public event Action<string> LogRequested = delegate { };
@@ -72,6 +77,7 @@ public partial class InventoryPanel : VBoxContainer
 
 		_relicList.ItemSelected += OnRelicSelected;
 		_appraiseButton.Pressed += OnAppraiseButtonPressed;
+		BuildChoreToolbar();
 
 		// 前回の鑑定結果は、タブ（内側・画面上部とも）を切り替えたら消す
 		_tabs.TabChanged += _ => ClearAppraisalResult();
@@ -95,20 +101,145 @@ public partial class InventoryPanel : VBoxContainer
 	/// <summary>直近の鑑定結果の表示を消す（アルベールのコメント欄は通常の一言に戻る）。</summary>
 	private void ClearAppraisalResult()
 	{
-		if (_lastAppraisalText.Length == 0)
+		if (_lastAppraisalText.Length == 0 && _bulkResultText.Length == 0)
 			return;
 		_lastAppraisalText = "";
+		_bulkResultText = "";
 		if (_state != null)
+		{
+			RefreshRelicDetail();
 			RefreshAlbertComment();
+		}
 	}
 
 	/// <summary>最新のゲーム状態でタブ全体を再描画する（MainDashboard.RefreshAllから毎回呼ぶ）。</summary>
 	public void Refresh(GameState state)
 	{
 		_state = state;
+		RefreshChoreToolbar();
 		RefreshRelicTab();
 		RefreshMaterialTab();
 		RefreshArmoryTab();
+	}
+
+	// ==================== まとめて鑑定・まとめて売る（§0.99） ====================
+
+	/// <summary>タブの上に【まとめて鑑定】【いらない物をまとめて売る】の行を置く（シーンは変えずにコードで組む）。</summary>
+	private void BuildChoreToolbar()
+	{
+		var row = new HBoxContainer();
+		row.AddThemeConstantOverride("separation", 8);
+		_bulkAppraiseButton = new Button { Text = "🔬 まとめて鑑定（予算内）" };
+		_bulkAppraiseButton.Pressed += OnBulkAppraisePressed;
+		row.AddChild(_bulkAppraiseButton);
+		_bulkSellButton = new Button { Text = "💰 いらない物をまとめて売る" };
+		_bulkSellButton.Pressed += OnBulkSellPressed;
+		row.AddChild(_bulkSellButton);
+		AddChild(row);
+		MoveChild(row, _tabs.GetIndex()); // 画面の見出しの下、タブの上
+	}
+
+	private void RefreshChoreToolbar()
+	{
+		var appraisal = ChoreSystem.PlanAppraisal(_state);
+		_bulkAppraiseButton.Disabled = appraisal.Items.Count == 0;
+		_bulkAppraiseButton.TooltipText = appraisal.Items.Count > 0
+			? $"銅・銀の遺物{appraisal.Items.Count}個を鑑定する（{appraisal.TotalCost}G）。所持金に週給の{EconomyBalance.ChoreReserveWageWeeks}週分（{appraisal.Reserve}G）を残す。金・虹は1つずつ"
+			: $"鑑定できる銅・銀の遺物が無い（所持金に週給の{EconomyBalance.ChoreReserveWageWeeks}週分〈{appraisal.Reserve}G〉を残す。金・虹は1つずつ）";
+		var sale = ChoreSystem.PlanSale(_state);
+		_bulkSellButton.Disabled = sale.IsEmpty;
+		_bulkSellButton.TooltipText = sale.IsEmpty
+			? "売ってよい物が無い（誰かの役に立つ武具と、研究・霊薬・秘薬・受けた依頼に要る素材は残す）"
+			: $"武具{sale.Equipment.Count}点と素材{sale.Materials.Values.Sum()}個を売る（{sale.TotalGold}G）";
+	}
+
+	private void OnBulkAppraisePressed()
+	{
+		var plan = ChoreSystem.PlanAppraisal(_state);
+		if (plan.Items.Count == 0) return;
+		ChoreConfirm.Show(this, "🔬 まとめて鑑定", AppraisalPlanText(plan, _state.Gold), $"鑑定する（{plan.TotalCost}G）", () =>
+		{
+			var results = ChoreSystem.AppraiseBulk(_state, _appraisalSystem);
+			if (results.Count == 0) return;
+			_tabs.CurrentTab = 0; // 結果は遺物のタブの右に出す（先にタブを移す：タブを移すと前の結果を消すため）
+			_selectedRelicId = null;
+			_bulkResultText = BulkAppraisalText(results, _state.MasterMood);
+			_lastAppraisalText = "[color=cyan]アルベール『まとめて見ておいたよ。中身は上に並べてある。金と虹は、1つずつじっくり見させてくれ。』[/color]";
+			LogRequested.Invoke($"[color=gold][b]🔬 まとめて鑑定：{results.Count}個[/b][/color]（鑑定費用 -{results.Sum(r => r.AppraisalCost)}G）");
+			StateChanged.Invoke();
+		});
+	}
+
+	private void OnBulkSellPressed()
+	{
+		var plan = ChoreSystem.PlanSale(_state);
+		if (plan.IsEmpty) return;
+		ChoreConfirm.Show(this, "💰 いらない物をまとめて売る", SalePlanText(plan), $"売る（{plan.TotalGold}G）", () =>
+		{
+			var sold = ChoreSystem.ExecuteSale(_state, _economySystem);
+			LogRequested.Invoke($"[color=yellow]💰 まとめて売った：武具{sold.Equipment.Count}点・素材{sold.Materials.Values.Sum()}個で {sold.TotalGold} G を得た。[/color]");
+			StateChanged.Invoke();
+		});
+	}
+
+	/// <summary>まとめて鑑定の確かめの本文（月報の「今月の遺物」からも使う）。</summary>
+	public static string AppraisalPlanText(AppraisalPlan plan, int gold)
+	{
+		var sb = new System.Text.StringBuilder();
+		sb.AppendLine($"銅・銀の遺物 [b]{plan.Items.Count}個[/b] をアルベールに鑑定させる。鑑定費用 [b]{plan.TotalCost} G[/b]");
+		sb.AppendLine($"[color=gray]所持金 {gold} G → {gold - plan.TotalCost} G（週給の{EconomyBalance.ChoreReserveWageWeeks}週分 {plan.Reserve} G は残す）[/color]");
+		sb.AppendLine();
+		foreach (var relic in plan.Items)
+		{
+			var profile = RelicBalance.Get(relic.Rarity);
+			sb.AppendLine($"・[color={profile.ColorName}][{profile.Label}][/color] {relic.Name}　[color=gray]{relic.AppraisalCost}G[/color]");
+		}
+		if (plan.OverBudget > 0)
+			sb.AppendLine($"\n[color=orange]予算に収まらない銅・銀 {plan.OverBudget}個は、また今度。[/color]");
+		if (plan.OneByOne > 0)
+			sb.AppendLine($"[color=gold]金・虹 {plan.OneByOne}個は、中身が大きいので1つずつ鑑定する。[/color]");
+		return sb.ToString().TrimEnd('\n');
+	}
+
+	/// <summary>まとめて鑑定の結果（アルベールの欄・月報に出す）。武具はアフィックスの数で色分けする。</summary>
+	public static string BulkAppraisalText(IReadOnlyList<AppraisalResult> results, int moodAfter)
+	{
+		var sb = new System.Text.StringBuilder();
+		sb.AppendLine($"[font_size=18][b]{results.Count}個の封を解いた……[/b][/font_size]");
+		foreach (var r in results)
+		{
+			var profile = RelicBalance.Get(r.Rarity);
+			string what = r.Type == AppraisalResultType.Equipment && r.ResultEquipment != null
+				? $"⚔️ {ItemColorHelper.GetColoredBBCode(r.ResultEquipment)}（{AffixEffectText(r.ResultEquipment)}）"
+				: r.Type == AppraisalResultType.Material ? $"🌿 {AppraisalSystem.BuildResultSummary(r)}" : $"💰 {AppraisalSystem.BuildResultSummary(r)}";
+			sb.AppendLine($"・[color={profile.ColorName}][{profile.Label}][/color] {what}");
+		}
+		sb.Append($"[color=gray]（鑑定費用 -{results.Sum(r => r.AppraisalCost)} G／マスターの機嫌 +{results.Sum(r => r.MoodGained)} → {moodAfter}/100）[/color]");
+		return sb.ToString();
+	}
+
+	/// <summary>まとめて売る物の確かめの本文。</summary>
+	private static string SalePlanText(SalePlan plan)
+	{
+		var sb = new System.Text.StringBuilder();
+		sb.AppendLine($"合わせて [b]{plan.TotalGold} G[/b] になる。");
+		if (plan.Equipment.Count > 0)
+		{
+			sb.AppendLine($"\n[b]⚔️ 武具 {plan.Equipment.Count}点[/b]　[color=gray]誰が着けても今の装備より良くならない物[/color]");
+			foreach (var group in plan.Equipment.GroupBy(e => (e.ItemId, e.Rarity)))
+				sb.AppendLine($"・{ItemColorHelper.GetColoredBBCode(group.First())} ×{group.Count()}　[color=yellow]{group.Sum(EquipmentSystem.GetSellPrice)}G[/color]");
+		}
+		if (plan.Materials.Count > 0)
+		{
+			sb.AppendLine($"\n[b]🌿 素材[/b]　[color=gray]研究・霊薬・秘薬・受けた依頼に要る分は残す[/color]");
+			foreach (var (id, count) in plan.Materials)
+			{
+				var material = MaterialBalance.Find(id);
+				sb.AppendLine($"・{material?.Name ?? id} ×{count}　[color=yellow]{(material?.SellPrice ?? 0) * count}G[/color]");
+			}
+		}
+		sb.Append("\n[color=gray]アフィックス付き・金・虹・固有の武具は、ここでは売らない（保管庫で1点ずつ）。[/color]");
+		return sb.ToString();
 	}
 
 	// ==================== 📦 未鑑定遺物タブ ====================
@@ -170,6 +301,8 @@ public partial class InventoryPanel : VBoxContainer
 		var relic = SelectedRelic();
 		if (relic == null)
 		{
+			if (_bulkResultText.Length > 0)
+				_relicDetailLabel.AppendText(_bulkResultText + "\n\n");
 			_relicDetailLabel.AppendText(_displayedRelics.Count == 0
 				? "[color=gray]未鑑定の遺物はまだ1つも無い。\n大迷宮の探索（採取）任務の副産物か、階層ボスの撃破で手に入る（→ 大迷宮タブ）。[/color]"
 				: "[color=gray]左の一覧から鑑定したい遺物を選ぶこと。[/color]");
@@ -209,6 +342,7 @@ public partial class InventoryPanel : VBoxContainer
 
 		_selectedRelicId = _displayedRelics[(int)index].Id;
 		_lastAppraisalText = ""; // 次の遺物を選んだら、前回の結果は消す
+		_bulkResultText = "";
 		RefreshRelicDetail();
 		RefreshAlbertComment();
 	}
@@ -230,6 +364,7 @@ public partial class InventoryPanel : VBoxContainer
 
 		_selectedRelicId = null;
 		_lastAppraisalText = BuildAppraisalText(result, relicName, profile);
+		_bulkResultText = "";
 
 		LogRequested.Invoke(
 			$"[color=gold][b]🔬 鑑定：{relicName}（{origin}、{profile.Label}）[/b][/color]\n" +

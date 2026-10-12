@@ -22,6 +22,7 @@ public partial class TournamentPanel : HBoxContainer
 	private GameState _state = null!;
 
 	private RichTextLabel _statusLabel = null!;
+	private Button _recommendButton = null!;
 	private VBoxContainer _isabellaBox = null!;
 	private VBoxContainer _eventList = null!;
 	private RichTextLabel _calendarLabel = null!;
@@ -61,6 +62,9 @@ public partial class TournamentPanel : HBoxContainer
 		leftBox.AddChild(new Label { Text = "🏆 今月の大会：出場者と、大会の月の過ごし方を決める（月のはじめだけ）" });
 		_statusLabel = NewText();
 		leftBox.AddChild(_statusLabel);
+		_recommendButton = new Button { Text = "⭐ おすすめの子で申し込む", SizeFlagsHorizontal = SizeFlags.ShrinkBegin };
+		_recommendButton.Pressed += OnRecommendPressed;
+		leftBox.AddChild(_recommendButton);
 		_isabellaBox = new VBoxContainer();
 		_isabellaBox.AddThemeConstantOverride("separation", 6);
 		leftBox.AddChild(_isabellaBox);
@@ -162,8 +166,44 @@ public partial class TournamentPanel : HBoxContainer
 		}
 	}
 
+	/// <summary>
+	/// 【おすすめの子で申し込む】（§0.99）：今月の個人の大会へ、Core（ChoreSystem.RecommendEntries）が選んだ子をまとめて申し込む。
+	/// 月のはじめで、おすすめが1人以上いるときだけ出す。誰をどの大会へ、どの過ごし方で出すかを確かめの小窓で見せてから申し込む。
+	/// </summary>
+	private void RefreshRecommendButton()
+	{
+		var picks = ChoreSystem.RecommendEntries(_state);
+		_recommendButton.Visible = picks.Count > 0;
+		_recommendButton.Text = $"⭐ おすすめの子で申し込む（{picks.Count}人）";
+		_recommendButton.TooltipText = "潜行の部隊の子は G1・特別と得意な部門の G2 だけ。ほかは控えの子から、勝ち目のある大会へ強い順に（部隊戦・交流戦は手で選ぶ）";
+	}
+
+	private void OnRecommendPressed()
+	{
+		var picks = ChoreSystem.RecommendEntries(_state);
+		if (picks.Count == 0) return;
+		var sb = new StringBuilder();
+		sb.AppendLine("今月の大会に、次の子を申し込む。出る子はこの月、迷宮に出ず訓練もしない。");
+		foreach (var ev in picks.Select(p => p.Event).Distinct())
+		{
+			sb.AppendLine($"\n[b][color={GradeColor(ev.Grade)}]{ev.Name}[/color][/b]　{TournamentSystem.GradeLabel(ev.Grade)}・第{ev.Week}週");
+			foreach (var p in picks.Where(p => p.Event == ev))
+				sb.AppendLine($"・{p.Adventurer.Name}　{CandidateSummary(ev, p.Adventurer)}　{(p.Prep == TournamentPrep.Push ? "🔥 追い込み" : "🛌 休養")}");
+		}
+		sb.Append($"\n[color=gray]潜行の部隊の子は G1・特別と、得意な部門の G2 だけに出す。HP {TournamentBalance.RecommendMinHpRatio:P0}未満の子と、勝ち目の薄い大会には出さない。" +
+			$"HP {TournamentBalance.RecommendPushHpRatio:P0}以上なら追い込み、未満なら休養。部隊戦・交流戦は含めない。[/color]");
+		ChoreConfirm.Show(this, "⭐ おすすめの子で申し込む", sb.ToString(), "申し込む", () =>
+		{
+			var applied = ChoreSystem.ApplyEntries(_state);
+			if (applied.Count == 0) return;
+			LogRequested.Invoke($"[color=lime]⭐ 大会に{applied.Count}人を申し込んだ：{string.Join("・", applied.Select(p => $"{p.Adventurer.Name}（{p.Event.Name}）"))}[/color]");
+			StateChanged.Invoke();
+		});
+	}
+
 	private void RefreshStatus()
 	{
+		RefreshRecommendButton();
 		bool canChange = TournamentSystem.CanChangeEntries(_state);
 		_statusLabel.Text =
 			(canChange
