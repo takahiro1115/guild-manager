@@ -740,9 +740,28 @@ namespace GuildManager.Core.Systems
                 if (defeatedBoss.Floor == 10)
                     state.UnlockedSquadSlots = Math.Max(state.UnlockedSquadSlots, 2);
                 else if (defeatedBoss.Floor == 20)
-                    state.UnlockedSquadSlots = Math.Max(state.UnlockedSquadSlots, 3);
+                    RefreshSquadSlots(state); // 3枠目は人数がそろってから（§0.120）
             }
         }
+
+        /// <summary>
+        /// 3つ目の部隊の枠（§0.120）：森の20Fの主を倒していて、現役（引退していない子）が ProgressionBalance.Slot3MinActive 人以上なら3枠にする。
+        /// 森の20Fを倒した時点で人数が足りなければ、採用などで人数がそろった週の決算で開く（→ WeekProcessingSystem）。枠を増やしたら true。
+        /// </summary>
+        public static bool RefreshSquadSlots(GameState state)
+        {
+            if (state.UnlockedSquadSlots >= 3 || !Slot3BossDefeated(state)) return false;
+            if (ActiveCount(state) < ProgressionBalance.Slot3MinActive) return false;
+            state.UnlockedSquadSlots = 3;
+            return true;
+        }
+
+        /// <summary>森の20Fの主を倒したことがあるか（3つ目の部隊の条件の片方）。</summary>
+        public static bool Slot3BossDefeated(GameState state) =>
+            state.DungeonFields.FirstOrDefault(f => f.Order == 1)?.Bosses.Any(b => b.Floor == 20 && b.EverDefeated) == true;
+
+        /// <summary>3つ目の部隊の人数の条件で数える現役（引退していない子）。</summary>
+        public static int ActiveCount(GameState state) => state.Adventurers.Count(a => !a.IsRetired);
 
         private static void ReleaseMembers(Party party)
         {

@@ -288,6 +288,7 @@ partial class GameSim
     SoulFusionSystem? soulFusion;
     public readonly List<(int Order, int Floor, int Week)> FieldKills = new();
     public int DaughtersBorn;
+    public int? Slot2Week, Slot3Week;
     public int TrainerWeeks;
 
     /// <summary>
@@ -321,6 +322,12 @@ partial class GameSim
             int wages = s.Adventurers.Sum(a => a.WeeklyWage);
             int trainees = s.TrainingAssignments.Count;
             if (NoAnomaly) s.Anomaly = null;
+            if (FirstExchangeChance == null && !IsabellaSystem.TournamentsOpen(s) && IsabellaSystem.ExchangeThisMonth(s) is { Result: null } fev && GameCalendar.WeekOfMonth(s.WeekNumber) == IsabellaBalance.ExchangeWeekOfMonth)
+            {
+                var bouts = IsabellaSystem.ExchangeDisciplines.Select(d => IsabellaSystem.SlotEntry(s, fev, d) is { } en && s.Adventurers.FirstOrDefault(a => a.Id == en.AdventurerId) is { } ea
+                    ? IsabellaSystem.BoutWinChance(TournamentSystem.MatchStrength(ea, d), IsabellaSystem.OpponentStrength(s, d)) : 0).ToList();
+                FirstExchangeChance = IsabellaSystem.MatchWinChance(bouts);
+            }
             var result = week.ProcessWeek(s);
             CommDone += result.Commissions.Completed.Count;
             CommFailed += result.Commissions.Failed.Count;
@@ -329,11 +336,15 @@ partial class GameSim
             if (result.Arrivals.AnnouncedAnomaly != null && !NoAnomaly) Anomalies++;
             BookSettlement(result, s.Gold - goldBefore, wages, trainees);
             DaughtersBorn += result.SoulFusionBirths.Count;
+            if (Slot2Week == null && s.UnlockedSquadSlots >= 2) Slot2Week = result.Flags.Week;
+            if (Slot3Week == null && s.UnlockedSquadSlots >= 3) Slot3Week = result.Flags.Week; // 3つ目の部隊（§0.120）
             foreach (var n in result.FacilityUnlocks) UnlockWeek.TryAdd((n.Facility, n.Level), result.Flags.Week);
             if (result.IsabellaVisited) VisitWeek = result.Flags.Week;
+            foreach (var fb in s.DungeonFields.First(f => f.Order == 1).Bosses) if (fb.EverDefeated) ForestKillWeek.TryAdd(fb.Floor, result.Flags.Week);
             foreach (var m in result.ExchangeMatches)
             {
                 ExchangePlayed++;
+                ExchangeLog.Add(((result.Flags.Week - (VisitWeek ?? result.Flags.Week)) / 48, m.Won));
                 if (m.Won) { ExchangeWon++; if (m.FirstWin) FirstExchangeWinWeek = result.Flags.Week; }
             }
             if (result.GuestTrainer.Arrived != null) GuestArrivalWeek = result.Flags.Week;
@@ -460,6 +471,9 @@ partial class GameSim
 
     public int? VisitWeek, FirstExchangeWinWeek, GuestArrivalWeek, CommissionsOpenWeek;
     public int ExchangePlayed, ExchangeWon;
+    public List<(int Year, bool Won)> ExchangeLog = new();
+    public double? FirstExchangeChance;
+    public Dictionary<int, int> ForestKillWeek = new();
 
     public readonly Dictionary<(FacilityType, int), int> UnlockWeek = new();
     public readonly Dictionary<TournamentDiscipline, int> FirstG1Week = new();
@@ -965,6 +979,8 @@ partial class GameSim
         Console.WriteLine($"来訪（森の{IsabellaBalance.VisitFloor}F）：{WeekStat(x => x.VisitWeek)}　交流戦の初勝利：{WeekStat(x => x.FirstExchangeWinWeek)}　派遣の教官が来た：{WeekStat(x => x.GuestArrivalWeek)}");
         Console.WriteLine($"依頼が届き始めた（初めての入賞の次の季節）：{WeekStat(x => x.CommissionsOpenWeek)}");
         Console.WriteLine($"交流戦（行った／勝った）：{string.Join(", ", sims.Select(x => $"{x.ExchangePlayed}/{x.ExchangeWon}"))}");
+        Console.WriteLine($"森の主を初めて倒した週：{string.Join("・", new[] { 30, 40, 50, 60, 70 }.Select(f => $"{f}F {WeekStat(x => x.ForestKillWeek.TryGetValue(f, out int w) ? w : null)}"))}");
+        Console.WriteLine($"交流戦の勝率（来訪からの年数ごと、全回の合計）：{string.Join("・", sims.SelectMany(x => x.ExchangeLog).GroupBy(e => Math.Min(e.Year, 5)).OrderBy(g => g.Key).Select(g => $"{(g.Key == 5 ? "6年目〜" : $"{g.Key + 1}年目")} {g.Count(e => e.Won)}/{g.Count()}"))}　初戦：{sims.Count(x => x.ExchangeLog.Count > 0 && x.ExchangeLog[0].Won)}/{sims.Count(x => x.ExchangeLog.Count > 0)}勝（見込みの中央値 {(sims.Any(x => x.FirstExchangeChance != null) ? Median(sims.Select(x => x.FirstExchangeChance).OfType<double>().ToList()) : 0):P0}）");
         Console.WriteLine();
         Console.WriteLine($"### 大会（§0.82、出場の方針：{TourneyMode}）");
         Console.WriteLine($"出場：{string.Join(", ", sims.Select(x => x.TournamentEntries))}　優勝：{string.Join(", ", sims.Select(x => x.TournamentWins))}");
@@ -1005,6 +1021,8 @@ partial class GameSim
             var l = sims.Where(x => x.YearlyKills.Count > y).Select(x => (double)x.YearlyKills[y]).ToList();
             return l.Count == 0 ? null : $"{y + 2}年目 {Median(l):F0}";
         }).OfType<string>()));
+        string SlotWeek(Func<GameSim, int?> pick) { var ws = sims.Select(pick).OfType<int>().Select(w => (double)w).ToList(); return ws.Count == 0 ? "―" : $"{Median(ws):F0}週〔{ws.Min():F0}〜{ws.Max():F0}〕（{ws.Count}/{runs}）"; }
+        Console.WriteLine($"同時に出せる部隊（§0.120）：2つ目 {SlotWeek(x => x.Slot2Week)}・3つ目 {SlotWeek(x => x.Slot3Week)}");
         Console.WriteLine($"秘薬で生まれた娘：{string.Join(", ", sims.Select(x => x.DaughtersBorn))}");
         Console.WriteLine($"飲ませた霊薬：{string.Join(", ", sims.Select(x => x.ElixirsGiven))}　上位装備の段（最終）：{string.Join(", ", sims.Select(x => EquipmentSystem.GetUnlockedShopTier(x.s)))}");
         Console.WriteLine($"済ませた研究（全{ResearchBalance.GetAll().Count}件）：{string.Join(", ", sims.Select(x => x.s.CompletedResearchIds.Count))}");

@@ -47,7 +47,7 @@
 | `boss_power_weights.csv` | 03 §4.5.4・§2.1 | DungeonBalance.GetBossPowerWeights（職業ごとの討伐火力の重み、2026年10月・§0.72。どの職業も合計4.2。dungeon.csv の `BossPowerWeight_*` は職業を決めない試算用の共通の重み）。ほかに §0.72 で combat.csv `ClericBlessingLossPctPerMnd`（0.08）・`ClericBlessingSevereThresholdRate`（0.8）＝神官の加護、recruitment.csv `JobAptitudePaBonus`（10）・`JobInaptitudePaPenalty`（10）＝採用の能力を職業に寄せる、dungeon.csv `GrowthJobWeightFloor`（1）＝出撃成長の能力の選び方を足した |
 | `potential_estimate.csv` | 03 §0.74・§2.4・§5.1 | PotentialEstimateBalance（副官の見立て〈PAを隠して段階S〜Dで見せる〉の幅・目利き〈スカウトの顧問・段階研究・在籍の学者〉・在籍の月日で狭まる割合・魂魄融和の娘の倍率・確かとする幅・段階の境目、2026年10月・§0.74） |
 | `personality.csv` | 03 §0.100〜§0.102 | PersonalityBalance（志向・気質・相性の素地の決め方、志向と気質による満足度の増減、見立ての回数、採用の一言。満足度と相性の段階・志向の力と成長・さぼり・かばい合い・素地の帯〈§0.101〉。出来事・引き抜き・事故・⚠の表示〈§0.102〉。key,value 形式） |
-| `progression.csv` | 03 §4.5.1・§4.2.2 | ProgressionBalance（初期の同時出撃枠、店の上位装備が入荷する倒したボスの数 `ShopTierUnlockBosses_1〜3`＝§0.61） |
+| `progression.csv` | 03 §4.5.1・§4.2.2 | ProgressionBalance（初期の同時出撃枠、3つ目の部隊に要る現役の人数 `Slot3MinActive`＝§0.120、店の上位装備が入荷する倒したボスの数 `ShopTierUnlockBosses_1〜3`＝§0.61） |
 | `dungeon.csv` | 03 §4.5.1・§4.5.4 | DungeonBalance（ボス能力重み・未踏破重損耗・ボス間隔・撃破実績点・出撃成長回数） |
 | `dungeon_traversal.csv` | 03 §4.5.3 | DungeonTraversalBalance（**走破力の重み（VIT/MND/隊長LDR）**・**1歩の消費の尺度 `FloorsPerRatio`**（比率1.0の深さで週に進める階層数、4.0。進軍ランクの段 `RankRatioScale` は別。1歩の消費＝その階層の要求値÷(走破力×この値)÷解析倍率、週の予算1、→ 03 §0.49。旧リニア進軍は §0.25）・進軍ランク別の既踏損耗率・調査度連動走破倍率・夜目 `NightVisionUnexploredDamageReductionRate`（→ 03 §0.32）） |
 | `scouting.csv` | 03 §4.5.3 | ScoutingBalance（**隠密適性の重み・専門職ボーナス・人数倍率・重装ペナルティ**、迷宮調査の4段階護衛判定・解析成果倍率・護衛HP損耗） |
@@ -456,8 +456,8 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 
 | キー | 値 | 意味 |
 |---|---|---|
-| `VisitFieldId`・`VisitFloor` | forest・40 | このフィールドのこの階層のボスを初めて倒した週にイザベラが来訪し、翌月の第4週に最初の交流戦 |
-| `ExchangeFactor_Sword`・`_Magic`・`_Skill` | 1.08・1.18・1.08 | 交流戦の相手の強さ＝来訪したときの自分のギルドで部門の強さが最も高い子の値×この倍率（初回に勝てるのは3本勝負で約35%） |
+| `VisitFieldId`・`VisitFloor` | forest・60（§0.121で40から） | このフィールドのこの階層のボスを初めて倒した週にイザベラが来訪し、翌月の第4週に最初の交流戦 |
+| `ExchangeFactor_Sword`・`_Magic`・`_Skill` | 1.00・1.08・1.00（§0.121で1.08・1.18・1.08から） | 交流戦の相手の強さ＝来訪したときの自分のギルドで部門の強さが最も高い子の値×この倍率（初回に勝てる見込みは3本勝負で約4割） |
 | `ExchangeGrowthPerMatch` | 0.04 | 交流戦を1回行うごとに相手が強くなる割合 |
 | `ExchangeGrowthPerYear` | 0.05 | 来訪から1年ごとに相手が強くなる割合（週で按分） |
 | `ExchangeOpponent_*` | ブリジット・セシリア・ニナ | 部門ごとの相手の名前 |
@@ -663,6 +663,7 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 |---|---|---|---|
 | `equipment.csv` | `Mithril*`・`Orichalcum*`・`StarIron*`（各7行） | 補正+8／+13／+18前後、価格1500〜2000／4500〜6000／15000〜18000G | 店の上位装備（段はコードの `Item.ShopTier`） |
 | `progression.csv` | `ShopTierUnlockBosses_1〜3` | 15／25／35 | 上位装備が店に並ぶ、倒した階層ボスの総数 |
+| `progression.csv` | `Slot3MinActive` | 7 | 3つ目の部隊が開くのに要る現役の人数（森の20Fの主を倒したうえで。§0.120） |
 | `relic.csv` | `AffixDepthScaleStartFloor`／`AffixDepthScaleAt100` | 20／2.0 | 鑑定品のアフィックスの値に掛ける出土階層の倍率（20F以下1.0、100Fで2.0、その間は直線） |
 | `research.csv` | `res_elixir_brewing` | 5000G・黒鉱石×5・ルーン石×3 | 霊薬の解禁（ElixirUnlock） |
 | `elixir.csv`・`elixir_recipes.csv` | （新設） | 1人3本・5種 | 霊薬（→ 上のファイル一覧） |
@@ -877,3 +878,13 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 | `NurtureWorldExposure`（新設） | 2 | 外の世界を見せる：主志向と気質の見立ての回数 |
 
 シミュレーター（育て方は「体を鍛える」）：`campaign 10 1440` でクリア 9/10・12年目〔11〜13〕、秘薬の娘は1回に1〜6人（前 5〜8人）。`audit 30 1440 L3 simple` で 27/30・12年目。
+
+## イザベラの来訪を遅らせた改訂で変えたキー（2026年10月、→ 03 §0.121）
+
+| キー | 値（前→今） | 意味 |
+|---|---|---|
+| `isabella.csv` の `VisitFloor` | 40 → 60 | イザベラが来訪する森の階（来訪で大会・交流戦・最初の訓練所・依頼・スポンサー・イザベラの融資が開く） |
+| `isabella.csv` の `ExchangeFactor_Sword`・`_Magic`・`_Skill` | 1.08・1.18・1.08 → 1.00・1.08・1.00 | 交流戦の相手の強さの倍率。初戦に勝てる見込みが約3割→約4割 |
+
+シミュレーター：来訪は 2.6年目→4.6年目（森の60F）。初戦の見込み（中央値）は倍率を据え置くと28%、下げて38%。
+`campaign 20 1440` でクリア 16/20・13年目（前 18/20・12年目）、`audit 30 1440 L3 simple` で 30/30・12年目（前 28/30・12年目）。

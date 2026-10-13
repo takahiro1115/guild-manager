@@ -851,6 +851,14 @@ public partial class DungeonPanel : ScrollContainer
 
 	// ==================== Zone C: 部隊状況・出撃フロー ====================
 
+	/// <summary>未開放の部隊の枠が開く条件（§0.120：3つ目は森の20Fの撃破と現役の人数）。</summary>
+	internal static string SlotUnlockHint(int index) => index switch
+	{
+		1 => "出撃枠が未開放の部隊（森の10Fの主を倒すと開く）",
+		2 => $"出撃枠が未開放の部隊（森の20Fの主を倒し、現役が{GuildManager.Core.Balance.ProgressionBalance.Slot3MinActive}人以上になると開く）",
+		_ => "出撃枠が未開放の部隊（今は開かない）",
+	};
+
 	/// <summary>
 	/// 出撃部隊の選択：第1〜第4部隊をトグルボタンで横に並べる（§0.43。旧来はプルダウン）。
 	/// 出撃枠の未開放の部隊は「第N部隊（未開放）」、待機中のメンバーがいない部隊は押せない。
@@ -891,7 +899,7 @@ public partial class DungeonPanel : ScrollContainer
 					$"{(mission != null ? MissionIcon(mission) + " " : "")}{saved.Name}{(saved.Order != SquadOrder.None ? " " + OrderIcon(saved.Order) : "")}",
 				Disabled = isLocked || (available == 0 && mission == null),
 				TooltipText = isLocked
-					? "出撃枠が未開放の部隊（森の節目ボス撃破で開放）"
+					? SlotUnlockHint(i)
 					: (mission != null ? $"{MissionLabel(mission)}\n" + (mission.WeeksElapsed == 0 ? "（もう一度押すと出撃を取り消す）\n" : "") : "") +
 					  (saved.Order != SquadOrder.None ? $"📋 方針：{OrderSummary(saved)}\n" : "") +
 					  $"{saved.Name}\n{(members.Count == 0 ? "（編成が空）" : string.Join("・", members.Select(a => a!.Name)))}" +

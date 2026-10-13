@@ -262,6 +262,7 @@ public partial class PartyFormationPanel : VBoxContainer
 				btn.Disabled = true;
 				btn.ButtonPressed = false;
 				btn.Text = $"第{i + 1}部隊 (未開放)";
+				btn.TooltipText = DungeonPanel.SlotUnlockHint(i); // 開く条件（§0.120）
 			}
 			else
 			{

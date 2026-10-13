@@ -963,6 +963,8 @@ public partial class MainDashboard : Control
 	{
 		if (settlement.CompletedFacility != null)
 			AppendLog($"[color=lime][b]🏗 {FacilityLabel(settlement.CompletedFacility.Type)}がLv{settlement.CompletedFacility.CurrentLevel}に完成した！{(settlement.CompletedFacility.Specialty != FacilitySpecialty.None ? $"（専門：{FacilityPanel.SpecialtyLabel(settlement.CompletedFacility.Specialty)}）" : "")}[/b][/color]");
+		if (settlement.SquadSlotsExpandedTo is int slots) // 人数がそろって3つ目の部隊（§0.120）
+			AppendLog($"[color=gold][b]📡 現役が{ProgressionBalance.Slot3MinActive}人そろい、同時に出撃できる部隊が{slots}つになった！[/b][/color]");
 		if (settlement.CompletedResearch != null) // 研究の期間（§0.114）
 			AppendLog($"[color=gold][b]🔬 アルベールの研究室で「{settlement.CompletedResearch.Name}」が完了した！[/b][/color] [color=gray]{settlement.CompletedResearch.Description}[/color]");
 		foreach (var notice in settlement.FacilityUnlocks) // 大会のご褒美で施設が開いた（§0.82）

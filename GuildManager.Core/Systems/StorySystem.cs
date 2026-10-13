@@ -36,7 +36,7 @@ namespace GuildManager.Core.Systems
             new("s01_forest10", StoryTiming.AfterReport, s => ForestBossDefeated(s, 10)),
             new("s01_squad2", StoryTiming.AfterReport, s => s.UnlockedSquadSlots >= 2), // 同時に出せる部隊が2つに（森の10F、§0.113）
             new("s01_lumina", StoryTiming.AfterReport, s => ForestBossDefeated(s, 20)),
-            new("s01_squad3", StoryTiming.AfterReport, s => s.UnlockedSquadSlots >= 3), // 3つに（森の20F、§0.113）
+            new("s01_squad3", StoryTiming.AfterReport, s => s.UnlockedSquadSlots >= 3), // 3つに（森の20F＋現役7人以上、§0.113・§0.120）
             new("s01_elder", StoryTiming.AfterReport, s => SeenBefore(s, "s01_lumina", s.WeekNumber)),
             new("s01_question", StoryTiming.AfterReport, s => Seen(s, "s01_elder")),
             new("s01_research", StoryTiming.Interactive, s => Seen(s, "s01_question"), OnView: StoryView.Research), // 初めて研究室の画面を開いたとき（§0.114）

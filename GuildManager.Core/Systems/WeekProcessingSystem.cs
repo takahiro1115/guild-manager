@@ -145,7 +145,7 @@ namespace GuildManager.Core.Systems
                     result.Flags.BossDefeated = true;
             }
 
-            // イザベラの来訪（§0.84）：森の40Fのボスを初めて倒した週。最初の交流戦を次の月に置く。
+            // イザベラの来訪（§0.84）：森の60F（VisitFloor）のボスを初めて倒した週。最初の交流戦を次の月に置く。
             result.IsabellaVisited = IsabellaSystem.CheckVisit(state);
 
             // マスターの機嫌（→ 03 §8.1・§8.1.1）：大迷宮での成果で上げ、成果ゼロなら退屈減衰。
@@ -243,6 +243,8 @@ namespace GuildManager.Core.Systems
             result.CompletedFacility = _facilitySystem.ProcessWeeklyConstruction(state); // → 03 §6.1：施設Lv投資
             result.Flags.FacilityConstructionCompleted = result.CompletedFacility != null;
             result.CompletedResearch = ResearchSystem.ProcessWeek(state); // 研究の期間（§0.114）：今週の研究の手伝いが貯まったあとに進める
+            if (DungeonExpeditionSystem.RefreshSquadSlots(state)) // 3つ目の部隊：森の20Fを倒していて、人数がそろった週（§0.120）
+                result.SquadSlotsExpandedTo = state.UnlockedSquadSlots;
             result.Flags.ResearchCompleted = result.CompletedResearch != null;
 
             // 施設の開放の知らせ（§0.78・§0.79）：週報に1回だけ出す。

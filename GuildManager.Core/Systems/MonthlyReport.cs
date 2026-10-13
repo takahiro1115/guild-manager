@@ -298,6 +298,8 @@ namespace GuildManager.Core.Systems
                     Add($"依頼に失敗した（{failed.ClientName}・{failed.Reason}）", MonthlyTone.Warning);
                 if (s.CompletedFacility != null)
                     Add($"施設がLv{s.CompletedFacility.CurrentLevel}に完成した（{FacilityName(s.CompletedFacility.Type)}）", MonthlyTone.Good);
+                if (s.SquadSlotsExpandedTo is int moreSlots) // 人数がそろって3つ目の部隊（§0.120）
+                    Add($"現役が{ProgressionBalance.Slot3MinActive}人そろい、同時に出撃できる部隊が{moreSlots}つになった", MonthlyTone.Good);
                 if (s.CompletedResearch != null)
                     Add($"研究「{s.CompletedResearch.Name}」が完了した", MonthlyTone.Good);
                 // 大会（§0.82）：ギルドの出場者の順位（ベスト4以上）。出場しなかった大会は優勝者だけ。
@@ -612,6 +614,9 @@ namespace GuildManager.Core.Systems
                 report.Notes.Add(new MonthlyNote { Text = "スポンサー契約の話が届いている（資金の画面か月報の「スポンサー契約」で。結ばなければ季節の終わりに流れる）", Target = MonthlyNoteTarget.Funding }); // §0.104・§0.115
             if (FundingSystem.ActiveContract(state) is { } sponsor)
                 report.Notes.Add(new MonthlyNote { Text = $"{sponsor.SponsorName}とのスポンサー契約：{FundingSystem.QuotaLabel(sponsor)}（いま {FundingSystem.Progress(state, sponsor)}/{sponsor.Target}、{GameCalendar.FormatMonth(sponsor.DeadlineWeek)} 第{GameCalendar.WeekOfMonth(sponsor.DeadlineWeek)}週まで・あと{FundingSystem.WeeksLeft(state, sponsor)}週。届かなければ違約金 {sponsor.Penalty} G）", Target = MonthlyNoteTarget.Funding });
+            // 3つ目の部隊（§0.120）：森の20Fは倒したが、人数が足りない
+            if (state.UnlockedSquadSlots < 3 && DungeonExpeditionSystem.Slot3BossDefeated(state))
+                report.Notes.Add(new MonthlyNote { Text = $"3つ目の部隊は、現役が{ProgressionBalance.Slot3MinActive}人以上になると出せる（いま{DungeonExpeditionSystem.ActiveCount(state)}人。新春の採用試験で迎える）", Target = MonthlyNoteTarget.Adventurer });
             // 派遣の教官（§0.84）：帰る2か月前から知らせる（§0.119。帰る場面が唐突にならないように）
             if (state.GuestTrainerUntilWeek is int guestUntil && guestUntil - state.WeekNumber < 2 * GameCalendar.WeeksPerMonth && IsabellaSystem.GuestTrainer(state) is { } guest)
                 report.Notes.Add(new MonthlyNote { Text = $"派遣の教官{guest.Name}は、{GameCalendar.FormatMonth(guestUntil)}に王都へ帰る（教官の任命は施設の画面で）", Target = MonthlyNoteTarget.Facility });

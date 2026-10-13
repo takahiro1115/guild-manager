@@ -328,7 +328,7 @@ namespace GuildManager.Core.Models
 
         // ---- イザベラの来訪と交流戦（2026年10月・§0.84、→ Systems.IsabellaSystem） ----
 
-        /// <summary>イザベラが来訪した週（森の40Fのボスを初めて倒した週）。まだなら null（大会も依頼も無い）。</summary>
+        /// <summary>イザベラが来訪した週（森の60F（VisitFloor）のボスを初めて倒した週）。まだなら null（大会も依頼も無い）。</summary>
         public int? IsabellaVisitWeek { get; set; }
 
         /// <summary>交流戦の相手の強さの基準（来訪したときの、自分のギルドの部門ごとの最も強い子の部門の強さ）。</summary>

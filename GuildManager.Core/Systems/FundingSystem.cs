@@ -47,7 +47,7 @@ namespace GuildManager.Core.Systems
         /// <summary>イザベラから借りられない理由（借りられるなら null）。</summary>
         public static string? IsabellaLoanBlockReason(GameState state, int amount)
         {
-            if (!IsabellaSystem.HasVisited(state)) return "イザベラが来訪してから（森の40Fのボスを倒したあと）";
+            if (!IsabellaSystem.HasVisited(state)) return $"イザベラが来訪してから（森の{IsabellaBalance.VisitFloor}Fのボスを倒したあと）";
             if (FindLoan(state, LoanLender.Isabella) != null) return "イザベラへの借金を返し終わるまで、次は借りられない";
             int year = GameCalendar.YearOf(state.WeekNumber);
             if (state.IsabellaLoanWeeks.Count(w => GameCalendar.YearOf(w) == year) >= FundingBalance.IsabellaLoanPerYear) return "イザベラの融資は年に1回まで（来年また頼める）";

@@ -467,6 +467,23 @@ namespace GuildManager.Core.Tests.Systems
             Assert.Contains(report.Growth, g => g.Name == "自主練"); // 成長の一覧にも含まれる
         }
 
+        /// <summary>§0.120：森の20Fを倒していて現役がそろった週の決算で3つ目の部隊が開き、月報の出来事に出る。</summary>
+        [Fact]
+        public void WeeklySettlement_OpensTheThirdSquad_WhenEnoughActive()
+        {
+            var adventurers = Enumerable.Range(0, ProgressionBalance.Slot3MinActive).Select(i => Healthy($"子{i}")).ToArray();
+            var state = StateWith(adventurers);
+            state.Gold = 100_000;
+            state.UnlockedSquadSlots = 2;
+            state.DungeonFields = GuildManager.Core.Data.SampleData.CreateDefaultFields();
+            state.DungeonFields.First(f => f.Order == 1).Bosses.Single(b => b.Floor == 20).IsDefeated = true;
+
+            var week = new AutoSkipWeek(new List<SquadOrderEvent>(), Week(new AlwaysMinRng()).ProcessWeek(state));
+            Assert.Equal(3, week.Settlement.SquadSlotsExpandedTo);
+            Assert.Equal(3, state.UnlockedSquadSlots);
+            Assert.Contains(MonthlyReport.Build(state, new List<AutoSkipWeek> { week }, 100_000).Highlights, l => l.Text.Contains("部隊が3つになった"));
+        }
+
         /// <summary>§0.114：週の決算で研究が進み、その週の研究の手伝いも使って縮み、完了は月報の出来事に出る。</summary>
         [Fact]
         public void WeeklySettlement_AdvancesResearch_WithThisWeeksHelp_AndReportsCompletion()

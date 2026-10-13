@@ -99,6 +99,9 @@ namespace GuildManager.Core.Systems
         /// <summary>今週完了した研究（無ければnull。→ ResearchSystem.ProcessWeek、§0.114）。</summary>
         public ResearchDefinition? CompletedResearch { get; set; }
 
+        /// <summary>今週、人数がそろって同時に出せる部隊が増えた（§0.120。森の20Fの撃破のときの増え方は DungeonMissionResolution の側）。増えなければ null。</summary>
+        public int? SquadSlotsExpandedTo { get; set; }
+
         /// <summary>今週、大会などのご褒美で開いた施設（演出の型と台詞つき。→ FacilityUnlockSystem、§0.82。§0.79の上限Lvを置き換え）。</summary>
         public List<FacilityUnlockNotice> FacilityUnlocks { get; } = new();
 
@@ -117,7 +120,7 @@ namespace GuildManager.Core.Systems
         /// <summary>今週、依頼の派遣から帰ってきた冒険者（成長と特性つき。→ CommissionSystem.ProcessLoanReturns、§0.85）。</summary>
         public List<LoanReturn> LoanReturns { get; } = new();
 
-        /// <summary>今週、イザベラが来訪した（森の40Fのボスを初めて倒した。次の月に最初の交流戦、§0.84）。</summary>
+        /// <summary>今週、イザベラが来訪した（森の60Fのボスを初めて倒した。次の月に最初の交流戦、§0.84）。</summary>
         public bool IsabellaVisited { get; set; }
 
         /// <summary>今週行った交流戦（→ IsabellaSystem.ResolveWeek、§0.84）。</summary>

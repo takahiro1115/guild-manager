@@ -99,20 +99,42 @@ namespace GuildManager.Core.Tests
             Assert.Equal(2, state.UnlockedSquadSlots);
         }
 
+        /// <summary>§0.120：森の20Fの撃破だけでは3枠にならない。現役が Slot3MinActive 人以上いれば、撃破と同時に3枠になる。</summary>
         [Fact]
-        public void Defeating_Forest_20F_Boss_Unlocks_Slot3()
+        public void Defeating_Forest_20F_Boss_Unlocks_Slot3_OnlyWithEnoughActive()
         {
             var fields = SampleData.CreateDefaultFields();
-            var state = new GameState { DungeonFields = fields };
-            var forest = fields.Single(f => f.Order == 1);
-            // 10Fを経由せず20Fだけを撃破しても、Math.Maxにより一気に3枠まで到達する
-            // （「既に到達値以上の場合はダウングレードしない」の裏として、途中を飛ばしても機能する）。
-            var boss20F = forest.Bosses.Single(b => b.Floor == 20);
+            var state = new GameState { DungeonFields = fields, UnlockedSquadSlots = 2 };
+            for (int i = 0; i < ProgressionBalance.Slot3MinActive - 1; i++) state.Adventurers.Add(new Adventurer { Name = $"子{i}" });
+            var boss20F = fields.Single(f => f.Order == 1).Bosses.Single(b => b.Floor == 20);
             boss20F.IsDefeated = true;
 
             DungeonExpeditionSystem.ApplyFieldProgression(state, boss20F);
+            Assert.Equal(2, state.UnlockedSquadSlots); // 1人足りない
 
+            state.Adventurers.Add(new Adventurer { Name = "新人" });
+            Assert.True(DungeonExpeditionSystem.RefreshSquadSlots(state)); // そろった週の決算で開く
             Assert.Equal(3, state.UnlockedSquadSlots);
+            Assert.False(DungeonExpeditionSystem.RefreshSquadSlots(state)); // 2度は数えない
+        }
+
+        [Fact]
+        public void Slot3_NeedsTheForest20FBoss_AndRetireesDoNotCount()
+        {
+            var fields = SampleData.CreateDefaultFields();
+            var state = new GameState { DungeonFields = fields, UnlockedSquadSlots = 2 };
+            for (int i = 0; i < ProgressionBalance.Slot3MinActive; i++) state.Adventurers.Add(new Adventurer { Name = $"子{i}" });
+            Assert.False(DungeonExpeditionSystem.RefreshSquadSlots(state)); // 20Fをまだ倒していない
+
+            fields.Single(f => f.Order == 1).Bosses.Single(b => b.Floor == 20).IsDefeated = true;
+            state.Adventurers[0].IsRetired = true;
+            Assert.False(DungeonExpeditionSystem.RefreshSquadSlots(state)); // 引退した子は数えない
+            var report = MonthlyReport.Build(state, new System.Collections.Generic.List<AutoSkipWeek>(), 0);
+            Assert.Contains(report.Notes, n => n.Text.StartsWith("3つ目の部隊は") && n.Text.Contains($"いま{ProgressionBalance.Slot3MinActive - 1}人"));
+
+            state.Adventurers[0].IsRetired = false;
+            Assert.True(DungeonExpeditionSystem.RefreshSquadSlots(state));
+            Assert.DoesNotContain(MonthlyReport.Build(state, new System.Collections.Generic.List<AutoSkipWeek>(), 0).Notes, n => n.Text.StartsWith("3つ目の部隊は"));
         }
 
         [Fact]

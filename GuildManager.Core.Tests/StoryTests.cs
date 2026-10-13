@@ -248,7 +248,7 @@ namespace GuildManager.Core.Tests
         public void Isabella_Visit_Disciplines_Lost_Advice_Tournaments()
         {
             var state = NewGame();
-            Forest(state, 40).IsDefeated = true;
+            Forest(state, IsabellaBalance.VisitFloor).IsDefeated = true;
             IsabellaSystem.CheckVisit(state);
             state.WeekNumber = 5; // 交流戦の月のはじめ
             IsabellaSystem.AutoFillFirstExchange(state);
@@ -279,7 +279,7 @@ namespace GuildManager.Core.Tests
         public void Won_ThenMarguerite_ThenLeaves()
         {
             var state = NewGame();
-            Forest(state, 40).IsDefeated = true;
+            Forest(state, IsabellaBalance.VisitFloor).IsDefeated = true;
             IsabellaSystem.CheckVisit(state);
             state.WeekNumber = 5;
             IsabellaSystem.AutoFillFirstExchange(state);

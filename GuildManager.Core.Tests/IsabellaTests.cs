@@ -44,14 +44,14 @@ namespace GuildManager.Core.Tests
             return state;
         }
 
-        private static void DefeatForest40(GameState state) =>
-            state.DungeonFields.First(f => f.Id == "forest").Bosses.First(b => b.Floor == 40).IsDefeated = true;
+        private static void DefeatVisitFloor(GameState state) =>
+            state.DungeonFields.First(f => f.Id == "forest").Bosses.First(b => b.Floor == IsabellaBalance.VisitFloor).IsDefeated = true;
 
         /// <summary>来訪して、最初の交流戦の月のはじめ（2の月 第1週＝通算5週）に進めた状態。</summary>
         private static (GameState State, TournamentEvent Exchange) Visited()
         {
             var state = NewGame();
-            DefeatForest40(state);
+            DefeatVisitFloor(state);
             Assert.True(IsabellaSystem.CheckVisit(state));
             state.WeekNumber = 5;
             IsabellaSystem.AutoFillFirstExchange(state);
@@ -82,10 +82,21 @@ namespace GuildManager.Core.Tests
         // ---------------- 来訪 ----------------
 
         [Fact]
-        public void Visit_WhenForest40Defeated_SchedulesFirstExchangeNextMonth()
+        public void Visit_IsTheForest60F_NotThe40F()
+        {
+            Assert.Equal(60, IsabellaBalance.VisitFloor); // §0.121：40F から遅らせた
+            var state = NewGame();
+            foreach (var b in state.DungeonFields.First(f => f.Id == "forest").Bosses.Where(b => b.Floor < 60)) b.IsDefeated = true;
+            Assert.False(IsabellaSystem.CheckVisit(state));
+            DefeatVisitFloor(state);
+            Assert.True(IsabellaSystem.CheckVisit(state));
+        }
+
+        [Fact]
+        public void Visit_WhenForestVisitFloorDefeated_SchedulesFirstExchangeNextMonth()
         {
             var state = NewGame();
-            DefeatForest40(state);
+            DefeatVisitFloor(state);
             Assert.True(IsabellaSystem.CheckVisit(state));
             Assert.False(IsabellaSystem.CheckVisit(state)); // 二度は来ない
 
@@ -130,13 +141,13 @@ namespace GuildManager.Core.Tests
         // ---------------- 相手の強さ ----------------
 
         [Fact]
-        public void FirstMatch_WinChance_IsAboutAThird()
+        public void FirstMatch_WinChance_EvenWithTheBest_IsUnderHalf()
         {
             var (state, _) = Visited();
             var chances = IsabellaSystem.ExchangeDisciplines
                 .Select(d => IsabellaSystem.BoutWinChance(state.ExchangeAnchor[d], IsabellaSystem.OpponentStrength(state, d))).ToList();
             double win = IsabellaSystem.MatchWinChance(chances);
-            Assert.InRange(win, 0.30, 0.40);
+            Assert.InRange(win, 0.40, 0.50); // 部門ごとに最強の子をそろえたとき。実際は同じ子を2部門に出せないので約4割（§0.121）
         }
 
         [Fact]
@@ -317,7 +328,7 @@ namespace GuildManager.Core.Tests
         public void WeekProcessing_VisitThenExchange_ThenCalendar()
         {
             var state = NewGame();
-            DefeatForest40(state);
+            DefeatVisitFloor(state);
             var week = new WeekProcessingSystem(new MasterMoodSystem(), new EconomySystem(), new TrainingSystem(), new InjuryRecoverySystem(),
                 new RestRecoverySystem(), new GrowthSystem(new SeededRng(1)), new SatisfactionSystem(), new AgingSystem(new SeededRng(1)),
                 new FacilitySystem(), new DefeatSystem(), new RecruitmentSystem(new SeededRng(1)), isabellaSystem: new IsabellaSystem(new AlwaysMaxRng()));
