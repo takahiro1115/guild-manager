@@ -137,6 +137,42 @@ namespace GuildManager.Core.Systems
 
         // ==================== 週の判定（満足度と見立て） ====================
 
+        // ==================== 副官の注目（§0.117） ====================
+
+        /// <summary>同時に注目できる人数：FocusSlots（倒した階層ボスが FocusExtraBosses 体以上なら FocusSlotsExtra を足す）。</summary>
+        public static int FocusSlots(GameState state) =>
+            PersonalityBalance.FocusSlots
+            + (state.DungeonFields.Sum(f => f.Bosses.Count(b => b.EverDefeated)) >= PersonalityBalance.FocusExtraBosses ? PersonalityBalance.FocusSlotsExtra : 0);
+
+        public static bool IsFocused(GameState state, Adventurer a) => state.FocusedAdventurerIds.Contains(a.Id);
+
+        /// <summary>注目を付ける・外すことができない理由（できるなら null）。変えられるのは月のはじめ（月の第1週）だけ。</summary>
+        public static string? FocusBlockReason(GameState state, Adventurer a)
+        {
+            if (a.Personality == null || a.IsRetired) return "この子の志向・気質は見立てられない";
+            if (!GameCalendar.IsFirstWeekOfMonth(state.WeekNumber)) return "注目は月のはじめだけ変えられる";
+            if (!IsFocused(state, a) && state.FocusedAdventurerIds.Count >= FocusSlots(state)) return $"注目できるのは{FocusSlots(state)}人まで";
+            return null;
+        }
+
+        /// <summary>注目を付ける（付いていれば外す）。できなければ false。</summary>
+        public static bool ToggleFocus(GameState state, Adventurer a)
+        {
+            if (FocusBlockReason(state, a) != null) return false;
+            if (!state.FocusedAdventurerIds.Remove(a.Id))
+                state.FocusedAdventurerIds.Add(a.Id);
+            return true;
+        }
+
+        /// <summary>月の最後の週の見立てで数える項目の順：主志向・副志向・苦手・気質（中庸なら数えない）。確かになったものは飛ばす。</summary>
+        private static IEnumerable<string> FocusKeys(Personality p)
+        {
+            yield return p.Main.ToString();
+            if (p.Sub is { } sub) yield return sub.ToString();
+            if (p.Disliked is { } disliked) yield return disliked.ToString();
+            if (p.Temperament != 0) yield return TemperamentKey;
+        }
+
         /// <summary>昇給・ボーナスを受けた（次の週の決算で「お金」の喜ぶきっかけにする）。</summary>
         public static void NotifyMoneyJoy(Adventurer a)
         {
@@ -160,16 +196,20 @@ namespace GuildManager.Core.Systems
                 .SelectMany(r => r.Party.Members.Select(m => m.Id)).ToHashSet();
             var severe = resolutions.SelectMany(r => r.InjuryEvents).Where(e => e.Severity == InjurySeverity.Severe).Select(e => e.AdventurerId).ToHashSet();
 
+            // 副官の注目（§0.117）：ギルドを去った子・引退した子は外す
+            state.FocusedAdventurerIds.RemoveAll(id => state.Adventurers.All(x => x.Id != id || x.IsRetired));
+
             foreach (var a in state.Adventurers.Where(a => a.Personality != null && !a.IsRetired && !a.IsOnLoan).ToList())
             {
                 var p = a.Personality!;
                 var thresholds = RevealThresholds(state, a);
                 int delta = 0;
+                bool focused = IsFocused(state, a);
 
                 void See(string key)
                 {
                     var before = LevelOf(p.Exposure.GetValueOrDefault(key), thresholds);
-                    p.Exposure[key] = p.Exposure.GetValueOrDefault(key) + 1;
+                    p.Exposure[key] = p.Exposure.GetValueOrDefault(key) + (focused ? PersonalityBalance.FocusExposureMultiplier : 1);
                     var after = LevelOf(p.Exposure[key], thresholds);
                     if (after != before)
                         discoveries.Add(new PersonalityDiscovery(a, key, after));
@@ -257,6 +297,15 @@ namespace GuildManager.Core.Systems
                     if (stance == DoorStance.Bold && door.DungeonResult != null && p.Temperament < 0 && severe.Contains(a.Id))
                         delta += PersonalityBalance.TemperamentBoldInjury;
                 }
+
+                // ---- 副官の注目（§0.117）：月の最後の週に、まだ確かでない項目を数える（1回ぶん。注目の倍率はかけない） ----
+                if (focused && GameCalendar.IsLastWeekOfMonth(week))
+                    foreach (var key in FocusKeys(p).Where(k => LevelOf(p.Exposure.GetValueOrDefault(k), thresholds) != PersonalityKnowledge.Sure).Take(PersonalityBalance.FocusMonthlyReveals))
+                    {
+                        focused = false;
+                        See(key);
+                        focused = true;
+                    }
 
                 if (delta != 0)
                     SatisfactionSystem.Adjust(a, delta);

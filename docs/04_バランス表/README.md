@@ -36,6 +36,7 @@
 | `titles.csv` | 03 §0.83 | HonorBalance.Titles（二つ名15種。**テーブル形式** `Id,Name,Rank,Param,Note`。Rank＝Legend／Name／Honor／Plain、Param＝条件の回数・年数・週数、Name の `{G1}` は大会の名前で埋める。条件の判定はコード `HonorSystem.GetTitles`） |
 | `honor.csv` | 03 §0.83 | HonorBalance（殿堂の条件と顧問の効果の倍率・関係タグの閾値・引退式の行数。key,value 形式） |
 | `retirement_lines.csv` | 03 §0.83 | HonorBalance.RetirementLines（引退式のアルベールの言葉。**テーブル形式** `Key,Text`。Key＝HallOfFame／Legend／Name／Honor／Plain／Short、`{name}`・`{title}` を差し込む） |
+| `report_lines.csv` | 03 §0.116 | SquadReportBalance（部隊長の報告の台詞の型。**テーブル形式** `Kind,Speaker,Text`。Kind＝Victory／Defeat／Injury／Retreat／Growth／Survey／Gather／Dive／Idle、Speaker＝`temper:cautious`・`temper:normal`・`temper:bold`（気質）／`drive:志向名`（主志向）／`char:claudia`・`char:rina`・`char:fiona`（物語帳の人物）。`{主}`・`{階}`・`{フィールド}`・`{名前}`・`{成果}`・`{解析}` を差し込む） |
 | `master_mood.csv` | 03 §8.1・§8.1.1 | MasterMoodBalance（マスターの機嫌の初期値・成果ごとの増減・退屈減衰・強制除籍への激怒・段階閾値・内職売上倍率・研究の手伝い〈旧・待機お手伝い〉の額／機嫌） |
 | `recruitment.csv` | 03 §2.4・§7.3 | RecruitmentSystem, NameGeneratorBalance（第1週の新春ドラフト：`DraftCandidateCount`・`DraftHireCount`。旧 `TutorialCandidateCount` は削除）。先天特性の確率 `InnateTraitChancePercent` は§0.55で5→3（候補19種、1人あたり平均約0.57個）。生まれつきの欠点の確率 `InnateFlawChancePercent`（2、候補9種、平均約0.18個）は§0.56で新設。レア特性の確率 `RareTraitChancePercent`（1）と重み `RareTraitWeight_Genius`（1）・`RareTraitWeight_SingleStat`（2）は§0.57で新設 |
 | `compatibility_advisor.csv` | 03 §5.3・§7 | CompatibilityBalance, AdvisorBalance（教官成長補正、参謀の大迷宮調査解析ボーナス・道中潜行走破力ボーナス、スカウト有望新人率） |
@@ -57,6 +58,7 @@
 | `uniques.csv` | 03 §4.7.5 | UniqueBalance（固有武具＝固定アーティファクト〈紫〉・伝説級〈金〉・依頼人の固有武具〈§0.64〉の一覧。**テーブル形式** `Id,Grade,Name,BaseItemId,HpBonus,BonusStr〜BonusLdr,CounterGimmick,DropFieldId,DropFloor,SellPrice,PatronId`。伝説級は入手元のボス〈フィールドId・階層〉と対策ギミック、売値0＝売却不可。2026年9月・§0.45。§0.64で Grade `Patron` と列 `PatronId`〈commission_clients.csv の Id。Patron 以外は空〉を追加。依頼人の固有武具は売値0＝売却不可） |
 | `research.csv` | 03 §4.6 | ResearchBalance（アルベール研究室の24プロジェクト（うち内職強化 SideBusinessGoldBonus 4種、魂魄融和の秘薬の解禁 `res_soul_fusion`＝SoulFusionUnlock・効果値0、§0.58、段階研究11種＝RecruitPaBonus・GrowthRateBonus・SoulFusionPaBonus・CultureTankBonus、§0.60）・必要素材・ゴールド・効果種別・効果値・**前提 `Prerequisite`**（§0.60で列を追加。空＝前提なし、段階研究のII・IIIは前の段のId）・**系統 `Branch`・段 `Lane`**（§0.77で列を追加。研究室のツリーの行。列は必要な素材のフィールドから決まる）・**週 `Weeks`**（§0.114で列を追加。研究にかかる週）） |
 | `squad_orders.csv` | 03 §4.0.3 | SquadOrderBalance（部隊の方針と自動出撃、2026年10月・§0.63）：自動出撃の条件 `AutoDispatchMinHpPercent`（70）・扉前の構え（慎重・標準・強気、§0.68）ごとの火力の倍率・HP・備えの条件 |
+| `squad_report.csv` | 03 §0.116 | SquadReportBalance（部隊長の報告：成長を報告する伸びの下限 `GrowthMinGain`（3）・慎重／大胆な口調の気質の境目 `TemperamentCautiousMax`（−1）・`TemperamentBoldMin`（1）） |
 | `commissions.csv` | 03 §4.9・§4.10 | CommissionBalance（依頼と迷宮の異変、2026年10月・§0.64）：依頼の届き方（届き始めは初めての入賞の次の季節・§0.84、`OffersPerSeason`＝3・`MaxAccepted`＝2・期限 `DeadlineWeeks_*`＝撃破24／他12・期限の知らせ `DeadlineWarningWeeks`＝2）、条件（納品の個数 `DeliverCountBase`・`DeliverFloorsPerExtra`、派遣の基準 `LoanRank`＝3番目・`LoanMinThreshold`＝20、派遣の期間と帰還の成長 `LoanWeeks`＝12・`LoanGrowthRolls`＝12・`LoanTraitChance`＝0.25〈§0.85〉）、報酬（`RewardMultiplier_*`＝撃破0.2・完全解析0.15・納品0.15・派遣1.5、`CompletionMoodGain`＝10、`FailureMoodLoss`＝10、遺物 `RewardRelicRollBonus`＝25・`RewardRelicMinRarity`＝Epic、依頼人の固有武具 `PatronUniqueCompletions`＝5件）、異変（`FirstAnomalyWeek`＝13・`AnomalyAnnounceWeekOfSeason`＝4・`AnomalyDurationWeeks`＝4・倍率 `Anomaly_*`） |
 | `commission_clients.csv` | 03 §4.9・§0.85 | CommissionBalance.Clients（依頼人5人。**テーブル形式** `Id,Name,Types,BonusMaterialId,BonusMaterialCount,AlbertLine,LoanStats,LoanTraits`。Types は `Defeat\|Survey\|Deliver\|Loan` の `\|` 区切り、BonusMaterial はおまけの素材〈空＝なし〉、AlbertLine は掲示中の依頼に添えるアルベールの一言、LoanStats・LoanTraits は派遣から帰ってきたときに伸ばす能力と付く特性の候補〈§0.85、`\|` 区切り。派遣を頼む依頼人は LoanStats が必須〉） |
 | `commission_texts.csv` | 03 §4.9 | CommissionBalance（依頼文の文例。**テーブル形式** `ClientId,Type,Text`。{field}{boss}{floor}{material}{count}{stat}{value}{weeks} を差し込む。依頼人が扱う種類ごとに1本以上ないと起動失敗） |
@@ -835,3 +837,27 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 シミュレーター（`audit 30 1440 L3 simple`）：クリア 28/30・12年目〔10〜14〕（変更前 28/30・11年目〔9〜14〕）、敗北2回（同2回）。年のはじめの所持金の中央値は2年目 5,006G・4年目 3,156G・7年目 13,004G（変更前 4,946G・3,251G・14,704G）。
 シミュレーターは研究を1つずつ、商い（内職の売上）を先に、あとは CSV の順に始める。CSV の順のまま（内職が9番目）だとクリア 23/30・敗北6回で、内職の研究が遅れて所持金が細る。研究室の使い方の場面（s01_research）でアルベールが「内職の薬から」と勧める。
 `campaign 10 1440`：クリア 10/10・12年目〔11〜13〕、済ませた研究 21〜23件（全25件）。
+
+## 部隊長の報告で追加されたファイル（2026年10月、→ 03 §0.116）
+
+テストプレイの感想「月報として、各部隊のリーダーが結果を報告しに来る。冒険者に愛着が持てるように」を受けた。値も台詞もすべて仮。
+
+**squad_report.csv**（新規）
+
+| キー | 値 | 意味 |
+|---|---|---|
+| `GrowthMinGain` | 3 | 「成長」を報告する条件：部隊長以外の隊員のうち、その月の能力の伸びの合計が最も大きい子がこの値以上 |
+| `TemperamentCautiousMax`・`TemperamentBoldMin` | −1・1 | 気質がこれ以下なら慎重、これ以上なら大胆な口調（ほかと個性の無い子は中庸） |
+
+**report_lines.csv**（新規）：報告の種類9つ × 気質3つの台詞、主志向ごとの言い回し（お金・仲間・名声・訓練・潜行・調査・採取）、初期の3人（クラウディア・リナ・フィオナ）の専用の台詞。物語帳の人物は専用の台詞だけ、ほかの子は気質と主志向の台詞を合わせた中から月ごとに回して選ぶ。
+
+## 副官の注目で追加されたキー（2026年10月、→ 03 §0.117）
+
+**personality.csv**（すべて仮の値）
+
+| キー | 値 | 意味 |
+|---|---|---|
+| `FocusSlots` | 2 | 同時に注目できる人数 |
+| `FocusSlotsExtra`・`FocusExtraBosses` | 1・20 | 倒した階層ボスが20体以上なら、注目できる人数が1人増える |
+| `FocusExposureMultiplier` | 2 | 注目している子は、志向・気質のきっかけを見た回数をこの倍で数える |
+| `FocusMonthlyReveals` | 1 | 注目している子は、月の最後の週に、まだ確かでない主志向・副志向・苦手・気質をこの回数ぶん数える |

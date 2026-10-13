@@ -223,5 +223,94 @@ namespace GuildManager.Core.Tests
             Assert.Empty(fresh.Loans);
             Assert.Empty(fresh.SponsorContracts);
         }
+
+        // ---------------- 資金の画面（§0.115） ----------------
+
+        [Fact]
+        public void Outlook_SumsAMonthOfWagesUpkeepAndLoans_AgainstTheSideJob()
+        {
+            var state = State(gold: 1000);
+            state.Adventurers.AddRange(SampleData.CreateStarterAdventurers());
+            state.MasterMood = 50;
+            state.Adventurers[2].LoanUntilWeek = 30; // 派遣中の週給は先方持ち
+            Assert.True(FundingSystem.Borrow(state, LoanLender.Merchant, Amount(0)));
+
+            var o = FundingSystem.Outlook(state);
+            int wages = (state.Adventurers[0].WeeklyWage + state.Adventurers[1].WeeklyWage) * GameCalendar.WeeksPerMonth;
+            Assert.Equal(wages, o.Wages);
+            Assert.Equal((int)System.Math.Round(EconomyBalance.SideJobBaseAmount * MasterMoodSystem.GetSideJobMultiplier(MasterMoodSystem.GetTier(50))), o.SideJob);
+            Assert.Equal(GuildFinanceSystem.MonthlyUpkeep(state), o.Upkeep);
+            Assert.Equal(FundingSystem.MonthlyLoanPayments(state), o.LoanPayments);
+            Assert.True(o.LoanPayments > 0);
+            Assert.Equal(o.SideJob - o.Wages - o.Stipends - o.Upkeep - o.LoanPayments, o.Net);
+            Assert.Equal(0, o.Severance);
+
+            if (o.Net < 0)
+                Assert.Equal(state.Gold / -o.Net, FundingSystem.MonthsOfRunway(state, o));
+            Assert.Null(FundingSystem.MonthsOfRunway(state, o with { SideJob = 100_000 }));
+        }
+
+        [Fact]
+        public void Outlook_CountsSeveranceOfThoseRetiringAtThisYearEnd()
+        {
+            var state = State();
+            state.Adventurers.AddRange(SampleData.CreateStarterAdventurers());
+            state.Adventurers[0].Age = AgingSystem.RetirementAge - 1; // 年度末に満期
+            state.Adventurers[1].Age = AgingSystem.RetirementAge - 2; // まだ
+            Assert.Equal(AgingSystem.CalculateSeverancePay(state.Adventurers[0]), FundingSystem.Outlook(state).Severance);
+        }
+
+        [Fact]
+        public void DeadlineClashes_AcceptedCommissionInTheSameMonth_AndYearEndSeverance()
+        {
+            var state = State(week: 10);
+            var contract = new SponsorContract { SponsorName = "王都の商会", DeadlineWeek = 26, Signed = true }; // 1年目 秋1の月（25〜28週）の第2週
+            state.SponsorContracts.Add(contract);
+            Assert.Equal(17, FundingSystem.WeeksLeft(state, contract));
+            Assert.Empty(FundingSystem.DeadlineClashes(state, contract));
+
+            state.Commissions.Add(new GuildCommission { ClientId = "Merchants", Type = CommissionType.Deliver, DeadlineWeek = 28, Accepted = false });
+            Assert.Empty(FundingSystem.DeadlineClashes(state, contract)); // 受けていない依頼は数えない
+            state.Commissions[0].Accepted = true;
+            Assert.Single(FundingSystem.DeadlineClashes(state, contract)); // 同じ月（25〜28週）
+            state.Commissions[0].DeadlineWeek = 29;
+            Assert.Empty(FundingSystem.DeadlineClashes(state, contract)); // 次の月
+
+            state.Adventurers.AddRange(SampleData.CreateStarterAdventurers());
+            state.Adventurers[0].Age = AgingSystem.RetirementAge - 1;
+            contract.DeadlineWeek = GameCalendar.WeeksPerYear - 1; // 年度末の月
+            Assert.Contains(FundingSystem.DeadlineClashes(state, contract), t => t.Contains("退職金"));
+        }
+
+        /// <summary>§0.115：初めて話が届いた月の月報のあとにスポンサーの場面。手引きは話が無くなる（結ぶ・断る・流れる）と済む。</summary>
+        [Fact]
+        public void SponsorScene_OnTheFirstOffer_GuideDoneWhenNoOfferIsLeft()
+        {
+            var state = State(week: FundingBalance.SponsorFirstWeek - 1);
+            Assert.DoesNotContain("s01_sponsor", StorySystem.DueScenes(state, StoryTiming.AfterReport).Select(s => s.SceneId));
+            state.WeekNumber = FundingBalance.SponsorFirstWeek;
+            FundingSystem.ProcessNewWeek(state, new SeededRng(1));
+            Assert.Contains("s01_sponsor", StorySystem.DueScenes(state, StoryTiming.AfterReport).Select(s => s.SceneId));
+            StorySystem.MarkSeen(state, "s01_sponsor");
+
+            Assert.False(GuideSystem.Groups(state).Single(g => g.SceneId == "s01_sponsor").AllDone);
+            Assert.True(FundingSystem.Decline(state, FundingSystem.Offers(state)[0]));
+            Assert.False(GuideSystem.Groups(state).Single(g => g.SceneId == "s01_sponsor").AllDone);
+            Assert.True(FundingSystem.Decline(state, FundingSystem.Offers(state)[0]));
+            Assert.True(GuideSystem.Groups(state).Single(g => g.SceneId == "s01_sponsor").AllDone);
+        }
+
+        [Fact]
+        public void MonthlyNotes_PointSponsorToTheFundingView()
+        {
+            var state = State(week: FundingBalance.SponsorFirstWeek);
+            FundingSystem.ProcessNewWeek(state, new SeededRng(1));
+            var report = MonthlyReport.Build(state, new System.Collections.Generic.List<AutoSkipWeek>(), state.Gold);
+            Assert.Contains(report.Notes, n => n.Text.StartsWith("スポンサー契約の話が届いている") && n.Target == MonthlyNoteTarget.Funding);
+
+            Assert.True(FundingSystem.Sign(state, FundingSystem.Offers(state)[0]));
+            report = MonthlyReport.Build(state, new System.Collections.Generic.List<AutoSkipWeek>(), state.Gold);
+            Assert.Contains(report.Notes, n => n.Text.Contains("スポンサー契約") && n.Text.Contains("あと") && n.Target == MonthlyNoteTarget.Funding);
+        }
     }
 }

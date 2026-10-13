@@ -257,6 +257,52 @@ namespace GuildManager.Core.Systems
             return result;
         }
 
+        // ==================== 資金の画面（§0.115） ====================
+
+        /// <summary>
+        /// 1か月の収支の見込み（資金の画面）：いまの機嫌での内職の売上、週給・手当（4週分）、維持費、借金の返済。
+        /// 依頼・撃破の報酬や大会の賞金は読めないので入れない。Severance は今年度末に満期を迎える子（いま25歳以上）の退職金の合計。
+        /// </summary>
+        public sealed record MonthlyOutlook(int SideJob, int Wages, int Stipends, int Upkeep, int LoanPayments, int Severance)
+        {
+            /// <summary>月の差し引き（内職の売上 − 週給・手当・維持費・返済）。</summary>
+            public int Net => SideJob - Wages - Stipends - Upkeep - LoanPayments;
+        }
+
+        public static MonthlyOutlook Outlook(GameState state)
+        {
+            double multiplier = MasterMoodSystem.GetSideJobMultiplier(MasterMoodSystem.GetTier(state.MasterMood));
+            int sideJob = (int)Math.Round((EconomyBalance.SideJobBaseAmount + EconomySystem.GetSideJobResearchBonus(state) + EconomySystem.GetSideJobTradeBonus(state)) * multiplier);
+            int wages = state.Adventurers.Where(a => !a.IsOnLoan).Sum(a => a.WeeklyWage) * GameCalendar.WeeksPerMonth; // 派遣中は先方持ち（§0.85）
+            int stipends = GuildFinanceSystem.WeeklyStipends(state) * GameCalendar.WeeksPerMonth;
+            int severance = state.Adventurers.Where(a => !a.IsRetired && !a.NeverRetires && a.Age + 1 >= AgingSystem.RetirementAge)
+                .Sum(AgingSystem.CalculateSeverancePay);
+            return new MonthlyOutlook(sideJob, wages, stipends, GuildFinanceSystem.MonthlyUpkeep(state), MonthlyLoanPayments(state), severance);
+        }
+
+        /// <summary>いまの所持金で、月の差し引きの赤字が何か月もつか（赤字でなければ null）。</summary>
+        public static int? MonthsOfRunway(GameState state, MonthlyOutlook outlook) =>
+            outlook.Net >= 0 ? null : Math.Max(0, state.Gold) / -outlook.Net;
+
+        /// <summary>スポンサー契約の期限まで残りの週（今週を含む）。</summary>
+        public static int WeeksLeft(GameState state, SponsorContract c) => c.DeadlineWeek - state.WeekNumber + 1;
+
+        /// <summary>
+        /// スポンサー契約の期限の月に重なる、ほかの「届かなければ損をする」もの（§0.115。引継ぎ書の「敗北の重なり」）：
+        /// 受けた依頼の期限、年度末の退職金。重なりが無ければ空。
+        /// </summary>
+        public static List<string> DeadlineClashes(GameState state, SponsorContract c)
+        {
+            var clashes = new List<string>();
+            int year = GameCalendar.YearOf(c.DeadlineWeek), month = GameCalendar.MonthOfYear(c.DeadlineWeek);
+            bool SameMonth(int week) => GameCalendar.YearOf(week) == year && GameCalendar.MonthOfYear(week) == month;
+            foreach (var com in state.Commissions.Where(x => x.Accepted && SameMonth(x.DeadlineWeek)))
+                clashes.Add($"依頼（{CommissionSystem.ClientName(com)}の{CommissionSystem.TypeLabel(com.Type)}）の期限");
+            if (month == GameCalendar.MonthOfYear(GameCalendar.WeeksPerYear) && Outlook(state).Severance is int sev and > 0)
+                clashes.Add($"年度末の退職金（約 {sev} G）");
+            return clashes;
+        }
+
         public static string QuotaLabel(SponsorContract c) => c.Quota switch
         {
             SponsorQuota.Placings => $"大会で{c.Target}回入賞（ベスト4以上）",

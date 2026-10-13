@@ -40,6 +40,7 @@ namespace GuildManager.Core.Systems
             new("s01_elder", StoryTiming.AfterReport, s => SeenBefore(s, "s01_lumina", s.WeekNumber)),
             new("s01_question", StoryTiming.AfterReport, s => Seen(s, "s01_elder")),
             new("s01_research", StoryTiming.Interactive, s => Seen(s, "s01_question"), OnView: StoryView.Research), // 初めて研究室の画面を開いたとき（§0.114）
+            new("s01_sponsor", StoryTiming.AfterReport, s => FundingSystem.Offers(s).Count > 0 || FundingSystem.ActiveContract(s) != null), // 初めてスポンサー契約の話が届いた月（§0.115）
             new("s01_hunter", StoryTiming.AfterReport, s => RetreatedBoss(s) != null),
             // ---- 台詞02 イザベラの来訪と交流戦 ----
             new("s02_visit", StoryTiming.AfterReport, s => IsabellaSystem.HasVisited(s)),
@@ -104,7 +105,7 @@ namespace GuildManager.Core.Systems
         public static readonly IReadOnlyCollection<string> TeachingSceneIds = new HashSet<string>
         {
             "s01_order", "s01_month", "s01_first_report", "s01_question", "s01_hunter",
-            "s02_disciplines", "s02_advice", "s02_tournaments", "s01_squad2", "s01_squad3", "s01_research",
+            "s02_disciplines", "s02_advice", "s02_tournaments", "s01_squad2", "s01_squad3", "s01_research", "s01_sponsor",
         };
 
         /// <summary>

@@ -300,6 +300,10 @@ namespace GuildManager.Core.Models
         public bool? TutorialEnabled { get; set; }
         /// <summary>交渉の自動（§0.99）。キーの無い旧セーブは false（しない）。</summary>
         public bool AutoNegotiationBonus { get; set; }
+        /// <summary>部隊長の報告を見せないか（§0.116）。キーの無い旧セーブは false（見せる）。</summary>
+        public bool HideSquadReports { get; set; }
+        /// <summary>副官が注目している冒険者（§0.117）。キーの無い旧セーブは null（注目なし）。</summary>
+        public List<Guid>? FocusedAdventurerIds { get; set; }
         /// <summary>引き抜きの話（§0.102）。</summary>
         public List<PoachOffer>? PoachOffers { get; set; } = new();
         /// <summary>慰労会・契約更改（§0.103）。</summary>

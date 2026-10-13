@@ -32,6 +32,8 @@ public partial class SystemPanel : ScrollContainer
 
 	private Button _endingBtn = null!;
 	private CheckButton _autoBonusCheck = null!;
+	/// <summary>部隊長の報告（§0.116）を見るか。</summary>
+	private CheckButton _squadReportCheck = null!;
 	/// <summary>ギルドの方針（§0.105）：訓練の強さ・大会の賞金の分け方。</summary>
 	private OptionButton _trainingPolicyOption = null!;
 	private OptionButton _prizePolicyOption = null!;
@@ -128,6 +130,23 @@ public partial class SystemPanel : ScrollContainer
 		box.MoveChild(label, displayRow.GetIndex() + 1);
 		box.AddChild(_autoBonusCheck);
 		box.MoveChild(_autoBonusCheck, label.GetIndex() + 1);
+
+		// 部隊長の報告（§0.116）：月報の前に見るか（セーブに残る GameState.HideSquadReports の裏返し）
+		var reportLabel = new Label { Text = "📣 部隊長の報告" };
+		_squadReportCheck = new CheckButton
+		{
+			Text = "月報の前に、部隊長の報告を見る",
+			TooltipText = "月を進めたあと、部隊ごとに部隊長がその月のいちばん大きな出来事を一言で報告する（「報告をとばす」でまとめて飛ばせる）",
+		};
+		_squadReportCheck.Toggled += on =>
+		{
+			if (_state != null)
+				_state.HideSquadReports = !on;
+		};
+		box.AddChild(reportLabel);
+		box.MoveChild(reportLabel, _autoBonusCheck.GetIndex() + 1);
+		box.AddChild(_squadReportCheck);
+		box.MoveChild(_squadReportCheck, reportLabel.GetIndex() + 1);
 	}
 
 	/// <summary>
@@ -174,6 +193,7 @@ public partial class SystemPanel : ScrollContainer
 	{
 		_state = state;
 		_autoBonusCheck.SetPressedNoSignal(state.AutoNegotiationBonus);
+		_squadReportCheck.SetPressedNoSignal(!state.HideSquadReports);
 		_trainingPolicyOption.Select(_trainingPolicyOption.GetItemIndex((int)state.TrainingPolicy));
 		_prizePolicyOption.Select(_prizePolicyOption.GetItemIndex((int)state.PrizePolicy));
 	}

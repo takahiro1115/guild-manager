@@ -483,7 +483,7 @@ public partial class MonthlyReportPopup : Window
 		_poachBox.AddChild(new RichTextLabel
 		{
 			BbcodeEnabled = true, FitContent = true, ScrollActive = false,
-			Text = "[b]🤝 スポンサー契約の話[/b]　[color=gray]結べるのは1件まで。前金がすぐ入り、ノルマに届けば成功報酬、期限までに届かなければ違約金（結ばなければ季節の終わりに流れる）[/color]",
+			Text = "[b]🤝 スポンサー契約の話[/b]　[color=gray]結べるのは1件まで。結ばなければ季節の終わりに流れる。進み具合とほかの期限との重なりは「💰 資金」の画面で見られる[/color]",
 		});
 		var buttons = new List<Button>();
 		foreach (var offer in offers)
@@ -494,10 +494,11 @@ public partial class MonthlyReportPopup : Window
 			var decline = new Button { Text = "断る", SizeFlagsVertical = Control.SizeFlags.ShrinkCenter };
 			row.AddChild(sign);
 			row.AddChild(decline);
-			row.AddChild(new Label
+			// 損得は資金の画面と同じ3行（§0.115）
+			row.AddChild(new RichTextLabel
 			{
-				Text = $"{(offer.Bold ? "【強気】" : "【控えめ】")}{offer.SponsorName}：{FundingSystem.QuotaLabel(offer)}（{GameCalendar.FormatMonth(offer.DeadlineWeek)} 第{GameCalendar.WeekOfMonth(offer.DeadlineWeek)}週まで）。届けば成功報酬 {offer.Bonus} G・機嫌↑、届かなければ違約金 {offer.Penalty} G・機嫌↓↓",
-				AutowrapMode = TextServer.AutowrapMode.WordSmart,
+				BbcodeEnabled = true, FitContent = true, ScrollActive = false,
+				Text = $"[b]{(offer.Bold ? "【強気】" : "【控えめ】")}{offer.SponsorName}[/b]：{FundingSystem.QuotaLabel(offer)}（{GameCalendar.FormatMonth(offer.DeadlineWeek)} 第{GameCalendar.WeekOfMonth(offer.DeadlineWeek)}週まで）\n{FundingPanel.OfferTerms(offer)}",
 				SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
 			});
 			_poachBox.AddChild(row);
@@ -541,6 +542,7 @@ public partial class MonthlyReportPopup : Window
 		MonthlyNoteTarget.Dungeon => "🏰 大迷宮へ",
 		MonthlyNoteTarget.Facility => "🏥 施設へ",
 		MonthlyNoteTarget.Adventurer => "📋 冒険者へ",
+		MonthlyNoteTarget.Funding => "💰 資金へ",
 		_ => "",
 	};
 

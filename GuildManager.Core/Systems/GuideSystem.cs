@@ -60,6 +60,7 @@ namespace GuildManager.Core.Systems
             ["s01_squad3"] = new Func<GameState, bool>[] { s => OrderedSquads(s) >= 3 },
             ["s01_question"] = new Func<GameState, bool>[] { s => s.CompletedResearchIds.Count > 0 },
             ["s01_research"] = new Func<GameState, bool>[] { s => s.ResearchInProgress != null || s.CompletedResearchIds.Count > 0 },
+            ["s01_sponsor"] = new Func<GameState, bool>[] { s => FundingSystem.Offers(s).Count == 0 },
             ["s01_hunter"] = new Func<GameState, bool>[]
             {
                 s => StorySystem.HunterBoss(s) is not { } b || b.EverDefeated || b.IntelRate >= 0.25,

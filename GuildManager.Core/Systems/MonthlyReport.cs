@@ -17,6 +17,8 @@ namespace GuildManager.Core.Systems
         Facility,
         /// <summary>部隊・冒険者画面（毒状態・重傷）。</summary>
         Adventurer,
+        /// <summary>資金画面（スポンサー契約・借金、§0.115）。</summary>
+        Funding,
     }
 
     /// <summary>月報の「来月への注意」1件。</summary>
@@ -157,6 +159,9 @@ namespace GuildManager.Core.Systems
         /// <summary>部隊ごと（メンバーのいる部隊。§0.81）。</summary>
         public List<MonthlySquad> Squads { get; set; } = new();
 
+        /// <summary>部隊長の報告（§0.116。月報を開く前に1件ずつ見せる）。§0.116 より前の月報は空。</summary>
+        public List<SquadLeaderReport> LeaderReports { get; set; } = new();
+
         /// <summary>冒険者ごと（この月に在籍した現役。§0.81）。</summary>
         public List<MonthlyAdventurer> Adventurers { get; set; } = new();
 
@@ -211,6 +216,7 @@ namespace GuildManager.Core.Systems
             AddHighlights(state, weeks, report);
             AddSquads(state, weeks, report);
             AddAdventurers(state, weeks, report);
+            report.LeaderReports = SquadReportSystem.Build(state, weeks, report); // 成長の集計（report.Growth）を使うので最後に
             return report;
         }
 
@@ -277,7 +283,7 @@ namespace GuildManager.Core.Systems
                     Add($"{bonus.Adventurer.Name}の契約の不満に、ボーナス{bonus.Gold}Gで応えた（交渉の自動）", MonthlyTone.Normal);
                 foreach (var found in s.PersonalityDiscoveries)
                     if (PersonalitySystem.DiscoveryText(found) is { } text)
-                        Add($"🔎 {text}", MonthlyTone.Normal); // 見立てで分かった志向・気質（§0.100）
+                        Add($"{(state.FocusedAdventurerIds.Contains(found.Adventurer.Id) ? "👁 副官の見立て：" : "🔎 ")}{text}", MonthlyTone.Normal); // 見立てで分かった志向・気質（§0.100）。注目している子は副官の見立て（§0.117）
                 foreach (var done in s.Commissions.Completed)
                     Add(done.LoanedAdventurerName != null
                         ? $"依頼を果たした（{done.ClientName}）：{done.LoanedAdventurerName}をひと季節派遣した"
@@ -601,9 +607,12 @@ namespace GuildManager.Core.Systems
                 if (state.FindAdventurer(c.AdventurerId) is { } coached)
                     report.Notes.Add(new MonthlyNote { Text = $"{coached.Name}に個人特訓がついている（{GameCalendar.FormatMonth(c.UntilWeek)} 第{GameCalendar.WeekOfMonth(c.UntilWeek)}週まで）", Target = MonthlyNoteTarget.Adventurer });
             if (FundingSystem.Offers(state).Count > 0)
-                report.Notes.Add(new MonthlyNote { Text = "スポンサー契約の話が届いている（月報の「スポンサー契約」で。結ばなければ季節の終わりに流れる）", Target = MonthlyNoteTarget.Facility }); // §0.104
+                report.Notes.Add(new MonthlyNote { Text = "スポンサー契約の話が届いている（資金の画面か月報の「スポンサー契約」で。結ばなければ季節の終わりに流れる）", Target = MonthlyNoteTarget.Funding }); // §0.104・§0.115
             if (FundingSystem.ActiveContract(state) is { } sponsor)
-                report.Notes.Add(new MonthlyNote { Text = $"{sponsor.SponsorName}とのスポンサー契約：{FundingSystem.QuotaLabel(sponsor)}（いま {FundingSystem.Progress(state, sponsor)}/{sponsor.Target}、{GameCalendar.FormatMonth(sponsor.DeadlineWeek)} 第{GameCalendar.WeekOfMonth(sponsor.DeadlineWeek)}週まで。届かなければ違約金 {sponsor.Penalty} G）", Target = MonthlyNoteTarget.Dungeon });
+                report.Notes.Add(new MonthlyNote { Text = $"{sponsor.SponsorName}とのスポンサー契約：{FundingSystem.QuotaLabel(sponsor)}（いま {FundingSystem.Progress(state, sponsor)}/{sponsor.Target}、{GameCalendar.FormatMonth(sponsor.DeadlineWeek)} 第{GameCalendar.WeekOfMonth(sponsor.DeadlineWeek)}週まで・あと{FundingSystem.WeeksLeft(state, sponsor)}週。届かなければ違約金 {sponsor.Penalty} G）", Target = MonthlyNoteTarget.Funding });
+            // 副官の注目（§0.117）：空きがあれば、月のはじめに選べることを知らせる
+            if (state.FocusedAdventurerIds.Count < PersonalitySystem.FocusSlots(state) && state.Adventurers.Any(a => a.Personality != null && !a.IsRetired && !PersonalitySystem.IsFocused(state, a)))
+                report.Notes.Add(new MonthlyNote { Text = $"副官の注目に空きがある（{state.FocusedAdventurerIds.Count}/{PersonalitySystem.FocusSlots(state)}人。冒険者の詳細で、志向・気質を見立てたい子を選ぶ。変えられるのは月のはじめだけ）", Target = MonthlyNoteTarget.Adventurer });
             // 返事を待っている引き抜きの話（§0.102）
             foreach (var offer in state.PoachOffers)
                 report.Notes.Add(new MonthlyNote { Text = $"{offer.AdventurerName}に{offer.GuildName}から引き抜きの話（{GameCalendar.FormatMonth(offer.DeadlineWeek)} 第{GameCalendar.WeekOfMonth(offer.DeadlineWeek)}週までに応えないと移籍する）。月報の「引き抜きの話」で応える", Target = MonthlyNoteTarget.Adventurer });

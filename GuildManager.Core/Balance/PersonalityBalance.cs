@@ -47,6 +47,14 @@ namespace GuildManager.Core.Balance
         public static readonly int RevealLikely = BalanceData.GetInt(FileName, "RevealLikely");
         /// <summary>見立て：この回数で確か。</summary>
         public static readonly int RevealSure = BalanceData.GetInt(FileName, "RevealSure");
+
+        // ---- 副官の注目（§0.117、→ PersonalitySystem.FocusSlots・ProcessWeek） ----
+
+        public static readonly int FocusSlots = BalanceData.GetInt(FileName, "FocusSlots");
+        public static readonly int FocusSlotsExtra = BalanceData.GetInt(FileName, "FocusSlotsExtra");
+        public static readonly int FocusExtraBosses = BalanceData.GetInt(FileName, "FocusExtraBosses");
+        public static readonly int FocusExposureMultiplier = BalanceData.GetInt(FileName, "FocusExposureMultiplier");
+        public static readonly int FocusMonthlyReveals = BalanceData.GetInt(FileName, "FocusMonthlyReveals");
         /// <summary>採用の一言が主志向を言い当てる確率（%）。</summary>
         public static readonly int HintTruthPercent = BalanceData.GetInt(FileName, "HintTruthPercent");
 

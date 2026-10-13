@@ -39,6 +39,9 @@ public partial class StoryPopup : Window
 	private int _sceneIndex;
 	private int _stepIndex;
 	private bool _replay;
+	/// <summary>部隊長の報告（§0.116）を見せているときのコマ（物語の場面の代わりに、そのまま並べる）。物語の場面なら null。</summary>
+	private IReadOnlyList<StoryStep>? _presetSteps;
+	private Button _skipAllButton = null!;
 
 	public override void _Ready()
 	{
@@ -112,6 +115,15 @@ public partial class StoryPopup : Window
 		root.AddChild(_scroll);
 
 		var buttons = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.End, MouseFilter = Control.MouseFilterEnum.Ignore };
+		// 部隊長の報告（§0.116）だけ：残りをまとめてとばして月報へ
+		_skipAllButton = new Button { Text = "報告をとばす ⏭", CustomMinimumSize = new Vector2(160, 34), Flat = true, Visible = false };
+		_skipAllButton.AddThemeFontSizeOverride("font_size", 18);
+		_skipAllButton.Pressed += () =>
+		{
+			Hide();
+			Closed.Invoke();
+		};
+		buttons.AddChild(_skipAllButton);
 		_nextButton = new Button { CustomMinimumSize = new Vector2(160, 34), Flat = true };
 		_nextButton.AddThemeFontSizeOverride("font_size", 18);
 		_nextButton.Pressed += OnNext;
@@ -134,11 +146,35 @@ public partial class StoryPopup : Window
 	}
 
 	/// <summary>assets/story/ の画像（ファイルがまだ無ければ null）。</summary>
-	private static Texture2D? LoadImage(string? file) =>
-		file != null && ResourceLoader.Exists(ImageFolder + file) ? GD.Load<Texture2D>(ImageFolder + file) : null;
+	private static Texture2D? LoadImage(string? file)
+	{
+		if (file == null) return null;
+		string path = file.StartsWith("res://") ? file : ImageFolder + file; // 冒険者の顔（assets/portraits）は res:// から渡す（§0.116）
+		return ResourceLoader.Exists(path) ? GD.Load<Texture2D>(path) : null;
+	}
+
+	/// <summary>
+	/// 部隊長の報告（§0.116）を見せる：コマ（話し手の名札・立ち絵・背景つき）を順に。見たことは記録しない。「報告をとばす」で残りを飛ばせる。
+	/// コマが無ければ何もせず Closed を呼ぶ。
+	/// </summary>
+	public void ShowReport(GameState state, IReadOnlyList<StoryStep> steps)
+	{
+		Title = "📣 部隊長の報告";
+		_skipAllButton.Visible = true;
+		_presetSteps = steps;
+		Open(state, new[] { new StoryShowing { SceneId = "squad_report" } }, replay: true);
+	}
 
 	/// <summary>場面を順に見せる。1つも無ければ何もせず Closed を呼ぶ。replay は物語の記録からの見返し（見たことを記録しない）。</summary>
 	public void ShowScenes(GameState state, IEnumerable<StoryShowing> scenes, bool replay = false)
+	{
+		Title = "📖 物語";
+		_skipAllButton.Visible = false;
+		_presetSteps = null;
+		Open(state, scenes, replay);
+	}
+
+	private void Open(GameState state, IEnumerable<StoryShowing> scenes, bool replay)
 	{
 		_state = state;
 		_replay = replay;
@@ -167,7 +203,7 @@ public partial class StoryPopup : Window
 		{
 			var scene = _scenes[_sceneIndex];
 			if (!_replay) StorySystem.MarkSeen(_state, scene.SceneId);
-			_steps = StorySystem.StepsOf(scene);
+			_steps = _presetSteps ?? StorySystem.StepsOf(scene);
 			_guide = _replay ? "" : GuideText(scene);
 			_stepIndex = 0;
 			if (StepCount > 0) return true;
@@ -219,7 +255,8 @@ public partial class StoryPopup : Window
 
 		_scroll.ScrollVertical = 0;
 		bool last = LastStep && _sceneIndex + 1 >= _scenes.Count;
-		_nextButton.Text = LastStep ? (last ? "閉じる" : "次の場面へ ▶") : "次へ ▼";
+		_nextButton.Text = LastStep ? (last ? (_presetSteps != null ? "月報を見る ▶" : "閉じる") : "次の場面へ ▶") : "次へ ▼";
+		_skipAllButton.Visible = _presetSteps != null && !last;
 	}
 
 	/// <summary>場面の最後に添える行き先の案内とギルドの手引き（無ければ空）。行き先が今の画面なら案内は省く。</summary>

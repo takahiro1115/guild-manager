@@ -382,6 +382,12 @@ namespace GuildManager.Core.Models
         /// <summary>交渉の自動（§0.99）：契約の不満が出たら、予算の範囲でボーナスを払って応える（→ ChoreSystem.ProcessAutoBonus）。システム画面で選ぶ。はじめは「しない」。</summary>
         public bool AutoNegotiationBonus { get; set; }
 
+        /// <summary>部隊長の報告（§0.116）を見せないか。システム画面で選ぶ。はじめは見せる（false）。</summary>
+        public bool HideSquadReports { get; set; }
+
+        /// <summary>副官が注目している冒険者（§0.117、→ PersonalitySystem）。見立てが早く進む。旧セーブは空（注目なし）。</summary>
+        public List<Guid> FocusedAdventurerIds { get; set; } = new();
+
         /// <summary>返事を待っている引き抜きの話（§0.102、→ IncidentSystem）。</summary>
         public List<PoachOffer> PoachOffers { get; set; } = new();
 
@@ -520,6 +526,8 @@ namespace GuildManager.Core.Models
                 StoryCounters = new Dictionary<string, int>(StoryCounters),
                 TutorialEnabled = TutorialEnabled,
                 AutoNegotiationBonus = AutoNegotiationBonus,
+                HideSquadReports = HideSquadReports,
+                FocusedAdventurerIds = new List<Guid>(FocusedAdventurerIds),
                 PoachOffers = new List<PoachOffer>(PoachOffers),
                 LastFeastSeason = LastFeastSeason,
                 ContractReviewDoneYear = ContractReviewDoneYear,
@@ -684,6 +692,8 @@ namespace GuildManager.Core.Models
                 StoryCounters = new Dictionary<string, int>(data.StoryCounters ?? new Dictionary<string, int>()),
                 TutorialEnabled = data.TutorialEnabled ?? true, // キーの無い旧セーブは「あり」
                 AutoNegotiationBonus = data.AutoNegotiationBonus, // キーの無い旧セーブは false（しない）
+                HideSquadReports = data.HideSquadReports, // キーの無い旧セーブは false（見せる）
+                FocusedAdventurerIds = (data.FocusedAdventurerIds ?? new List<Guid>()).Distinct().ToList(), // 旧セーブは注目なし。いない子は週の決算で外す
                 PoachOffers = (data.PoachOffers ?? new List<PoachOffer>()).Where(o => o != null).ToList(),
                 LastFeastSeason = data.LastFeastSeason,
                 ContractReviewDoneYear = Math.Max(1, data.ContractReviewDoneYear),

@@ -66,6 +66,9 @@ public partial class MainDashboard : Control
 	/// <summary>「📜 依頼」の画面（§0.106。タブはコードで末尾に足す。ナビ行では大会の右に置く）。</summary>
 	private CommissionPanel _commissionPanel = null!;
 	private Button _navCommissionBtn = null!;
+	/// <summary>「💰 資金」の画面（§0.115）。</summary>
+	private FundingPanel _fundingPanel = null!;
+	private Button _navFundingBtn = null!;
 
 	// ---- メニューナビゲーションバー & ペイン制御 ----
 	private enum DashboardView
@@ -93,7 +96,10 @@ public partial class MainDashboard : Control
 		Hall = 8,
 
 		/// <summary>依頼（§0.106。依頼掲示板の小窓からタブへ。タブはコードで末尾に足す。ナビ行では大会の右に置く。依頼が開くまで隠す）。</summary>
-		Commission = 9
+		Commission = 9,
+
+		/// <summary>資金（§0.115。収支の見込み・スポンサー契約・借金。タブはコードで末尾に足す。最初から見せる。ナビ行ではお抱え商の右に置く）。</summary>
+		Funding = 10
 	}
 
 	private TabContainer _centerPanel = null!;
@@ -188,6 +194,10 @@ public partial class MainDashboard : Control
 		_navFacilityBtn.Pressed += () => SwitchView(DashboardView.Facility);
 		_navWarehouseBtn.Pressed += () => SwitchView(DashboardView.Warehouse);
 		_navShopBtn.Pressed += () => SwitchView(DashboardView.Shop);
+		// 資金（§0.115）：ナビ行ではお抱え商の右。最初から見せる
+		_navFundingBtn = new Button { Text = "💰 資金", ToggleMode = true, CustomMinimumSize = new Vector2(110, 36) };
+		_navShopBtn.AddSibling(_navFundingBtn);
+		_navFundingBtn.Pressed += () => SwitchView(DashboardView.Funding);
 		_navSystemBtn.Pressed += () => SwitchView(DashboardView.System);
 
 		_dungeonPanel = GetNode<DungeonPanel>("%DungeonTab");
@@ -311,6 +321,10 @@ public partial class MainDashboard : Control
 		_commissionPanel.LogRequested += AppendLog;
 		_commissionPanel.StateChanged += RefreshAll;
 		_centerPanel.AddChild(_commissionPanel);
+		// 資金（§0.115）：タブはコードで末尾に足す（番号＝DashboardView.Funding）
+		_fundingPanel = new FundingPanel();
+		_fundingPanel.StateChanged += RefreshAll;
+		_centerPanel.AddChild(_fundingPanel);
 		_tournamentResultPopup = new TournamentResultPopup { Visible = false };
 		AddChild(_tournamentResultPopup);
 		// 戦績の頁と引退式（大会と育成の栄光 段2）
@@ -700,6 +714,7 @@ public partial class MainDashboard : Control
 	private static DashboardView? ViewOfJump(string label) => label switch
 	{
 		_ when label.Contains("大会") => DashboardView.Tournament,
+		_ when label.Contains("資金") => DashboardView.Funding,
 		_ when label.Contains("依頼") => DashboardView.Commission,
 		_ when label.Contains("施設") => DashboardView.Facility,
 		_ when label.Contains("研究室") => DashboardView.Research,
@@ -1025,6 +1040,7 @@ public partial class MainDashboard : Control
 		{
 			MonthlyNoteTarget.Facility => DashboardView.Facility,
 			MonthlyNoteTarget.Adventurer => DashboardView.Party,
+			MonthlyNoteTarget.Funding => DashboardView.Funding,
 			_ => DashboardView.Dungeon,
 		});
 	}
@@ -1060,7 +1076,7 @@ public partial class MainDashboard : Control
 	private System.Text.StringBuilder _logCapture;
 
 	/// <summary>機嫌の段階名（→ MasterMoodSystem.GetTier）。</summary>
-	private static string MoodTierLabel(MasterMoodTier tier) => tier switch
+	internal static string MoodTierLabel(MasterMoodTier tier) => tier switch
 	{
 		MasterMoodTier.Cheerful => "上機嫌",
 		MasterMoodTier.Normal => "平常",
@@ -1178,6 +1194,35 @@ public partial class MainDashboard : Control
 		tween.TweenCallback(Callable.From(Finish));
 	}
 
+	/// <summary>
+	/// 部隊長の報告（§0.116）：月報の前に、部隊ごとに部隊長が物語の小窓と同じ舞台で一言報告する（「報告をとばす」で月報へ）。
+	/// 見せない設定（システム画面）・報告の無い月は then だけ。台詞と種類は Core（SquadReportSystem）が月報を作るときに決めている。
+	/// </summary>
+	private void ShowSquadReports(MonthlyReport report, Action then)
+	{
+		if (_state.HideSquadReports || report.LeaderReports.Count == 0)
+		{
+			then();
+			return;
+		}
+		const string background = "ギルドの広間";
+		var steps = report.LeaderReports.Select(r =>
+		{
+			// 物語帳の人物（初期の3人・ルミナ）は物語の立ち絵、ほかの子は冒険者の顔
+			var leader = _state.FindAdventurer(r.LeaderId);
+			string portrait = leader != null && SquadReportSystem.CharacterKey(leader) != null ? StoryImageBalance.PortraitFile(r.LeaderName) : null;
+			portrait ??= r.PortraitId != null ? $"res://assets/portraits/{r.PortraitId}.png" : null;
+			return new StoryStep(new StoryLine(StoryLineKind.Speech, r.Line, $"{r.LeaderName}（{r.SquadName}の部隊長）"), background, StoryImageBalance.BackgroundFile(background), portrait);
+		}).ToList();
+		void OnClosed()
+		{
+			_storyPopup.Closed -= OnClosed;
+			Callable.From(then).CallDeferred(); // 別の排他ウィンドウは閉じ切ってから開く
+		}
+		_storyPopup.Closed += OnClosed;
+		_storyPopup.ShowReport(_state, steps);
+	}
+
 	private void ShowMonthReport(List<AutoSkipWeek> weeks, MonthlyReport report, string weekly)
 	{
 		// 月報の小窓を開く（§0.71）。閉じたら、最後の週の割り込み（エンディング・採用試験・依頼）を「1週進める」と同じ処理に任せる。
@@ -1191,7 +1236,8 @@ public partial class MainDashboard : Control
 		// 交流戦のあとのイザベラの助言で開いた施設は、交流戦の場面（月報のあと）を見てから知らせる。それ以外（大会のご褒美など）は大会の結果といっしょに
 		_pendingExchangeUnlocks = weeks.SelectMany(w => w.Settlement.ExchangeMatches).Select(m => m.OpenedFacility).OfType<FacilityUnlockNotice>().ToList();
 		var unlocks = weeks.SelectMany(w => w.Settlement.FacilityUnlocks).Where(u => !_pendingExchangeUnlocks.Contains(u)).ToList();
-		void ShowReport() => _monthlyReportPopup.ShowMonth(report, weekly, allowNext: !interrupted);
+		// 部隊長の報告（§0.116）を見てから月報
+		void ShowReport() => ShowSquadReports(report, () => _monthlyReportPopup.ShowMonth(report, weekly, allowNext: !interrupted));
 		// 年度末に満期で引退した者は、大会の結果のあと・月報の前に引退式（1人1枚、大会と育成の栄光 段2）
 		var retirees = weeks.SelectMany(w => w.Settlement.Retirees).Select(id => _state.FindAdventurer(id)).Where(a => a != null).ToList();
 		void ShowCeremonies()
@@ -1982,6 +2028,7 @@ public partial class MainDashboard : Control
 			(DashboardView.Hall, _navHallBtn),
 			(DashboardView.Tournament, _navTournamentBtn),
 			(DashboardView.Commission, _navCommissionBtn),
+			(DashboardView.Funding, _navFundingBtn),
 			(DashboardView.System, _navSystemBtn)
 		};
 
@@ -2040,6 +2087,7 @@ public partial class MainDashboard : Control
 		Mark(_navResearchBtn, research, "始められる研究がある");
 		Mark(_navFacilityBtn, facility, "建てられる・改築できる施設がある");
 		Mark(_navWarehouseBtn, appraise, "鑑定できる遺物がある");
+		Mark(_navFundingBtn, FundingSystem.Offers(_state).Count > 0, "スポンサー契約の話が届いている");
 	}
 
 	private void RefreshAll()
@@ -2088,6 +2136,7 @@ public partial class MainDashboard : Control
 		_tournamentPanel.Refresh(_state);
 		_hallPanel.Refresh(_state);
 		_commissionPanel.Refresh(_state);
+		_fundingPanel.Refresh(_state);
 
 		UpdateButtonHighlights((DashboardView)_centerPanel.CurrentTab);
 		RefreshGuideAndTabs();

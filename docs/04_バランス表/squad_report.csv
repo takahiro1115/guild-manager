@@ -1,0 +1,4 @@
+key,value,unit,note
+GrowthMinGain,3,pt,部隊長の報告（§0.116）で「成長」を報告する条件：部隊長以外の隊員のうち、その月の能力の伸びの合計が最も大きい子がこの値以上
+TemperamentCautiousMax,-1,段,気質がこの値以下なら慎重な口調（−2＝とても慎重〜2＝とても大胆。個性の無い子は中庸）
+TemperamentBoldMin,1,段,気質がこの値以上なら大胆な口調
