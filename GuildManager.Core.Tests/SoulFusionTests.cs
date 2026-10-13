@@ -67,7 +67,8 @@ namespace GuildManager.Core.Tests
         {
             Assert.Equal(100, SoulFusionBalance.RequiredCompatibility);
             Assert.Equal(2500, SoulFusionBalance.PrescriptionGold);
-            Assert.Equal(12, SoulFusionBalance.CultureWeeks);
+            Assert.Equal(96, SoulFusionBalance.CultureWeeks); // §0.118 で12→96（2年）
+            Assert.Equal(16, SoulFusionBalance.ChildJoinAge);
             Assert.Equal(1, SoulFusionBalance.CultureTankCount);
             Assert.Equal(-5, SoulFusionBalance.PaVarianceMin);
             Assert.Equal(10, SoulFusionBalance.PaVarianceMax);
@@ -205,7 +206,7 @@ namespace GuildManager.Core.Tests
             Assert.True(a.HasUsedSoulFusion);
             Assert.True(b.HasUsedSoulFusion);
             Assert.Same(culture, Assert.Single(state.SoulFusionCultures));
-            Assert.Equal(12, culture!.WeeksRemaining);
+            Assert.Equal(SoulFusionBalance.CultureWeeks, culture!.WeeksRemaining);
             Assert.Equal("mat_forest_herb", culture.CatalystMaterialId);
             Assert.Equal(SoulFusionNyxTier.Destined, culture.NyxTier);
 
@@ -214,7 +215,7 @@ namespace GuildManager.Core.Tests
             Assert.Equal(new[] { a.Id, b.Id }, child.ParentIds);
             Assert.Equal(JobClass.Cleric, child.JobClass);
             Assert.Equal(Placement.Back, child.Placement);
-            Assert.Equal(18, child.Age);
+            Assert.Equal(SoulFusionBalance.ChildJoinAge, child.Age); // 培養槽で2年育って16歳（§0.118）
             Assert.Equal(Gender.Female, child.Gender);
             Assert.False(child.HasUsedSoulFusion); // 子もいずれ親になれる
             Assert.Equal(child.MaxHP, child.CurrentHP);
@@ -445,7 +446,7 @@ namespace GuildManager.Core.Tests
             Assert.Equal(new[] { a.Id, b.Id }, rc.Child.ParentIds);
             Assert.Equal(culture.BreakthroughStats, rc.BreakthroughStats);
             Assert.Equal(SoulFusionNyxTier.Destined, rc.NyxTier);
-            Assert.Equal(12, rc.WeeksRemaining);
+            Assert.Equal(SoulFusionBalance.CultureWeeks, rc.WeeksRemaining);
             Assert.All(restored.Adventurers, x => Assert.True(x.HasUsedSoulFusion));
         }
 
@@ -489,6 +490,117 @@ namespace GuildManager.Core.Tests
             Assert.Same(retired, state.FindAdventurer(retired.Id));
             Assert.Same(fallen, state.FindAdventurer(fallen.Id));
             Assert.Null(state.FindAdventurer(Guid.NewGuid()));
+        }
+
+        // ---------------- 培養槽の2年と育て方（§0.118） ----------------
+
+        private static SoulFusionCulture CultureOf(GameState state, Adventurer a, Adventurer b) =>
+            new SoulFusionSystem(new AlwaysMaxRng()).TryPrescribe(state, a, b, JobClass.Cleric)!;
+
+        [Fact]
+        public void Nurture_IsAppliedEverySeason_WithTheChosenKind_AndRecorded()
+        {
+            var (state, a, b) = Setup();
+            var culture = CultureOf(state, a, b);
+            culture.Nurture = NurtureKind.Body;
+            var before = AllStats.ToDictionary(s => s, s => GetStat(culture.Child, s));
+            var events = new List<NurtureEvent>();
+
+            for (int w = 1; w < SoulFusionBalance.NurtureSeasonWeeks; w++)
+                SoulFusionSystem.ProcessWeeklyCultures(state, events);
+            Assert.Empty(events);
+            SoulFusionSystem.ProcessWeeklyCultures(state, events); // 季節の終わり
+            var ev = Assert.Single(events);
+            Assert.Equal(NurtureKind.Body, ev.Kind);
+            Assert.Equal(new[] { NurtureKind.Body }, culture.NurtureHistory);
+            foreach (var s in new[] { "STR", "VIT", "AGI" })
+                Assert.Equal(Math.Min(GetPa(culture.Child, s), before[s] + SoulFusionBalance.NurtureStatGain), GetStat(culture.Child, s));
+            foreach (var s in new[] { "DEX", "INT", "MND", "LDR" })
+                Assert.Equal(before[s], GetStat(culture.Child, s));
+
+            // 2年で8回、最後の週に名簿に加わる（16歳）
+            for (int w = SoulFusionBalance.NurtureSeasonWeeks; w < SoulFusionBalance.CultureWeeks; w++)
+                SoulFusionSystem.ProcessWeeklyCultures(state, events);
+            Assert.Equal(SoulFusionBalance.CultureWeeks / SoulFusionBalance.NurtureSeasonWeeks, culture.NurtureHistory.Count);
+            Assert.Empty(state.SoulFusionCultures);
+            Assert.Equal(SoulFusionBalance.ChildJoinAge, Assert.Single(state.Adventurers, x => x.ParentIds.Count == 2).Age);
+        }
+
+        [Fact]
+        public void Nurture_StatGainsStopAtThePotential_EntrustRaisesAll()
+        {
+            var (state, a, b) = Setup();
+            var culture = CultureOf(state, a, b);
+            culture.Child.DEX = culture.Child.PA_DEX - 1;
+            culture.Nurture = NurtureKind.Skill;
+            var ev = SoulFusionSystem.ApplyNurture(state, culture);
+            Assert.Equal(1, ev.Gains["DEX"]); // 素質で頭打ち
+            Assert.Equal(GetPa(culture.Child, "DEX"), GetStat(culture.Child, "DEX"));
+
+            culture.Nurture = NurtureKind.Entrust;
+            var before = AllStats.ToDictionary(s => s, s => GetStat(culture.Child, s));
+            SoulFusionSystem.ApplyNurture(state, culture);
+            foreach (var s in AllStats)
+                Assert.Equal(Math.Min(GetPa(culture.Child, s), before[s] + SoulFusionBalance.NurtureEntrustGain), GetStat(culture.Child, s));
+        }
+
+        [Fact]
+        public void Nurture_Mothers_RaisesCompatibilityAndSatisfaction_World_RevealsMainAndTemperament()
+        {
+            var (state, a, b) = Setup();
+            a.Satisfaction = 50;
+            var culture = CultureOf(state, a, b);
+            culture.Nurture = NurtureKind.Mothers;
+            int compat = CompatibilitySystem.GetCompatibility(state, culture.Child.Id, a.Id);
+            var ev = SoulFusionSystem.ApplyNurture(state, culture);
+            Assert.Empty(ev.Gains);
+            Assert.Equal(compat + SoulFusionBalance.NurtureMotherCompatibility, CompatibilitySystem.GetCompatibility(state, culture.Child.Id, a.Id));
+            Assert.Equal(50 + SoulFusionBalance.NurtureMotherSatisfaction, a.Satisfaction);
+
+            culture.Child.Personality ??= new Personality { Main = Drive.Dive, Temperament = 1 };
+            var p = culture.Child.Personality;
+            int main = p.Exposure.GetValueOrDefault(p.Main.ToString());
+            culture.Nurture = NurtureKind.World;
+            SoulFusionSystem.ApplyNurture(state, culture);
+            Assert.Equal(main + SoulFusionBalance.NurtureWorldExposure, p.Exposure[p.Main.ToString()]);
+            Assert.True(p.Exposure[PersonalitySystem.TemperamentKey] >= SoulFusionBalance.NurtureWorldExposure);
+        }
+
+        [Fact]
+        public void Nurture_RoundTripsInTheSave_OldCultureIsEntrust()
+        {
+            var (state, a, b) = Setup();
+            var culture = CultureOf(state, a, b);
+            culture.Nurture = NurtureKind.Heart;
+            SoulFusionSystem.ApplyNurture(state, culture);
+            var node = System.Text.Json.Nodes.JsonNode.Parse(JsonSerializer.Serialize(state.ToSaveData()))!;
+            var rc = GameState.FromSaveData(JsonSerializer.Deserialize<SaveData>(node.ToJsonString())!).SoulFusionCultures.Single();
+            Assert.Equal(NurtureKind.Heart, rc.Nurture);
+            Assert.Equal(new[] { NurtureKind.Heart }, rc.NurtureHistory);
+
+            var c = node["SoulFusionCultures"]![0]!.AsObject(); // §0.118 より前の培養
+            c.Remove("Nurture");
+            c.Remove("NurtureHistory");
+            rc = GameState.FromSaveData(JsonSerializer.Deserialize<SaveData>(node.ToJsonString())!).SoulFusionCultures.Single();
+            Assert.Equal(NurtureKind.Entrust, rc.Nurture);
+            Assert.Empty(rc.NurtureHistory);
+        }
+
+        [Fact]
+        public void CultureScene_NamesTheMothers_AndTheReportNotesTheCulture()
+        {
+            var (state, a, b) = Setup();
+            state.WeekNumber = 9;
+            var culture = CultureOf(state, a, b);
+            Assert.Contains("s03_culture", StorySystem.DueScenes(state, StoryTiming.AfterReport).Select(s => s.SceneId));
+            var lines = StorySystem.Replay(state, "s03_culture").Pages.SelectMany(p => p).Select(l => l.Text).ToList();
+            Assert.Contains(lines, t => t.Contains(a.Name) && t.Contains(b.Name));
+            Assert.DoesNotContain(lines, t => t.Contains("{母"));
+
+            var report = MonthlyReport.Build(state, new List<AutoSkipWeek>(), 0);
+            Assert.Contains(report.Notes, n => n.Text.Contains($"培養槽の{culture.Child.Name}") && n.Text.Contains("2年"));
+            Assert.Equal("1年11か月", SoulFusionSystem.RemainingLabel(new SoulFusionCulture { WeeksRemaining = SoulFusionBalance.CultureWeeks - 4 }));
+            Assert.Equal("1か月", SoulFusionSystem.RemainingLabel(new SoulFusionCulture { WeeksRemaining = 1 }));
         }
 
         // ---------------- ヘルパー ----------------

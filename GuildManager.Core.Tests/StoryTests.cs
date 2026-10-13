@@ -365,6 +365,38 @@ namespace GuildManager.Core.Tests
             Assert.DoesNotContain("{", line);
         }
 
+        /// <summary>§0.119：唐突だった場面は冒頭の地の文できっかけを書く。学園時代は交流戦のあとでも深淵のあとでも通るよう応接間で。</summary>
+        [Theory]
+        [InlineData("s02_visit", "噂")]
+        [InlineData("s02_tournaments", "ひと月後")]
+        [InlineData("s02_marguerite_leaves", "半年がたった")]
+        [InlineData("s03_academy2", "応接間")]
+        [InlineData("s03_academy4", "応接間")]
+        [InlineData("s03_academy6", "応接間")]
+        [InlineData("s03_bow", "交流戦のあと")]
+        [InlineData("s03_sword", "交流戦の帰り")]
+        [InlineData("s03_sharp", "五年がたった")]
+        [InlineData("s01_elder", "知らせを受けて")]
+        public void AbruptScenes_OpenWithALeadIn(string sceneId, string leadIn)
+        {
+            var first = StorySystem.Replay(NewGame(), sceneId).Pages.SelectMany(p => p).First(l => l.Kind == StoryLineKind.Narration);
+            Assert.Contains(leadIn, first.Text);
+            if (sceneId.StartsWith("s03_academy"))
+                Assert.Equal("応接間", StorySystem.StepsOf(StorySystem.Replay(NewGame(), sceneId))[0].Background);
+        }
+
+        [Fact]
+        public void GuestTrainer_LeavingSoon_IsNotedTheMonthBefore()
+        {
+            var state = NewGame();
+            state.RetiredAdventurers.Add(new Adventurer { Name = "マルグリット", IsGuest = true, IsRetired = true });
+            state.WeekNumber = 9;
+            state.GuestTrainerUntilWeek = 9 + 2 * GameCalendar.WeeksPerMonth; // まだ2か月先
+            Assert.DoesNotContain(MonthlyReport.Build(state, new List<AutoSkipWeek>(), 0).Notes, n => n.Text.Contains("王都へ帰る"));
+            state.GuestTrainerUntilWeek = 9 + 2 * GameCalendar.WeeksPerMonth - 1;
+            Assert.Contains(MonthlyReport.Build(state, new List<AutoSkipWeek>(), 0).Notes, n => n.Text.Contains("マルグリット") && n.Text.Contains("王都へ帰る"));
+        }
+
         [Fact]
         public void BestPlacingLabel_NullWithoutPlacing()
         {

@@ -90,6 +90,9 @@ namespace GuildManager.Core.Systems
         /// <summary>今週、培養槽から誕生した子（→ SoulFusionSystem.ProcessWeeklyCultures、03 §5.4・§0.58）。子はロースターに加わっている。</summary>
         public List<SoulFusionCulture> SoulFusionBirths { get; } = new();
 
+        /// <summary>今週、培養槽の娘に反映した育て方（→ SoulFusionSystem.ApplyNurture、§0.118）。</summary>
+        public List<NurtureEvent> NurtureEvents { get; } = new();
+
         /// <summary>今週完成した施設（無ければnull）。</summary>
         public Facility? CompletedFacility { get; set; }
 

@@ -132,7 +132,7 @@ namespace GuildManager.Core.Systems
             return multiplier;
         }
 
-        private static void AdjustCompatibility(GameState state, Guid idA, Guid idB, int delta)
+        internal static void AdjustCompatibility(GameState state, Guid idA, Guid idB, int delta)
         {
             var key = NormalizeKey(idA, idB);
             int current = state.Compatibility.TryGetValue(key, out var value) ? value : InitialCompatibility(state, idA, idB);

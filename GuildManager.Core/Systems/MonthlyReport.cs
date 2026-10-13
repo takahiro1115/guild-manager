@@ -277,6 +277,8 @@ namespace GuildManager.Core.Systems
                 }
                 foreach (var birth in s.SoulFusionBirths)
                     Add($"{birth.Child.Name}が生まれた", MonthlyTone.Good);
+                foreach (var n in s.NurtureEvents) // 培養槽の育て方（§0.118）
+                    Add($"🧪 培養槽の{n.Culture.Child.Name}：{SoulFusionSystem.NurtureLabel(n.Kind)}" + (n.Gains.Count > 0 ? "（" + string.Join("・", n.Gains.Select(g => $"{g.Key}+{g.Value}")) + "）" : ""), MonthlyTone.Good);
                 foreach (var left in s.NegotiationTerminated)
                     Add($"{left.Name}が契約交渉の末に退団した", MonthlyTone.Bad);
                 foreach (var bonus in s.AutoBonuses)
@@ -610,6 +612,14 @@ namespace GuildManager.Core.Systems
                 report.Notes.Add(new MonthlyNote { Text = "スポンサー契約の話が届いている（資金の画面か月報の「スポンサー契約」で。結ばなければ季節の終わりに流れる）", Target = MonthlyNoteTarget.Funding }); // §0.104・§0.115
             if (FundingSystem.ActiveContract(state) is { } sponsor)
                 report.Notes.Add(new MonthlyNote { Text = $"{sponsor.SponsorName}とのスポンサー契約：{FundingSystem.QuotaLabel(sponsor)}（いま {FundingSystem.Progress(state, sponsor)}/{sponsor.Target}、{GameCalendar.FormatMonth(sponsor.DeadlineWeek)} 第{GameCalendar.WeekOfMonth(sponsor.DeadlineWeek)}週まで・あと{FundingSystem.WeeksLeft(state, sponsor)}週。届かなければ違約金 {sponsor.Penalty} G）", Target = MonthlyNoteTarget.Funding });
+            // 派遣の教官（§0.84）：帰る2か月前から知らせる（§0.119。帰る場面が唐突にならないように）
+            if (state.GuestTrainerUntilWeek is int guestUntil && guestUntil - state.WeekNumber < 2 * GameCalendar.WeeksPerMonth && IsabellaSystem.GuestTrainer(state) is { } guest)
+                report.Notes.Add(new MonthlyNote { Text = $"派遣の教官{guest.Name}は、{GameCalendar.FormatMonth(guestUntil)}に王都へ帰る（教官の任命は施設の画面で）", Target = MonthlyNoteTarget.Facility });
+            // 培養槽の娘（§0.118）：あとどれくらいで加わるかと、いまの育て方
+            foreach (var c in state.SoulFusionCultures)
+                report.Notes.Add(new MonthlyNote { Text = SoulFusionSystem.IsWaitingForRoom(c)
+                    ? $"培養槽の{c.Child.Name}は育ちきった。宿舎に空きができると加わる"
+                    : $"培養槽の{c.Child.Name}はすくすく育っている（あと{SoulFusionSystem.RemainingLabel(c)}・育て方：{SoulFusionSystem.NurtureLabel(c.Nurture)}。研究室の培養槽で変えられる）", Target = MonthlyNoteTarget.None });
             // 副官の注目（§0.117）：空きがあれば、月のはじめに選べることを知らせる
             if (state.FocusedAdventurerIds.Count < PersonalitySystem.FocusSlots(state) && state.Adventurers.Any(a => a.Personality != null && !a.IsRetired && !PersonalitySystem.IsFocused(state, a)))
                 report.Notes.Add(new MonthlyNote { Text = $"副官の注目に空きがある（{state.FocusedAdventurerIds.Count}/{PersonalitySystem.FocusSlots(state)}人。冒険者の詳細で、志向・気質を見立てたい子を選ぶ。変えられるのは月のはじめだけ）", Target = MonthlyNoteTarget.Adventurer });

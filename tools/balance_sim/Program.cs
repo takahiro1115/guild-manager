@@ -813,7 +813,11 @@ partial class GameSim
         var job = (StatSum(pair.A) >= StatSum(pair.B) ? pair.A : pair.B).JobClass;
         string? catalyst = s.Materials.GetValueOrDefault("mat_canyon_gem") >= 3 ? "mat_canyon_gem" : null;
         soulFusion ??= new SoulFusionSystem(new SeededRng(s.WeekNumber * 13 + 5));
-        if (soulFusion.TryPrescribe(s, pair.A, pair.B, job, catalyst) != null) Count("秘薬");
+        if (soulFusion.TryPrescribe(s, pair.A, pair.B, job, catalyst) is { } culture)
+        {
+            culture.Nurture = NurtureKind.Body; // 育て方（§0.118）：火力に効く体を鍛える
+            Count("秘薬");
+        }
     }
 
     static double ItemWorth(Item i) => DungeonBalance.BossPowerWeights.Sum(w => i.GetStatBonus(w.Stat) * w.Weight) + i.MaxHpBonus * 0.05;

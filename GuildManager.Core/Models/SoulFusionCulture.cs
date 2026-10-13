@@ -43,5 +43,28 @@ namespace GuildManager.Core.Models
 
         /// <summary>能力限界突破した能力名（"STR" など。突破しなければ空）。</summary>
         public List<string> BreakthroughStats { get; set; } = new();
+
+        /// <summary>いま選んでいる育て方（§0.118）。季節（NurtureSeasonWeeks）ごとに1回反映する。旧セーブ・選んでいなければ「まかせる」。</summary>
+        public NurtureKind Nurture { get; set; } = NurtureKind.Entrust;
+
+        /// <summary>これまでに反映した育て方（古い順）。</summary>
+        public List<NurtureKind> NurtureHistory { get; set; } = new();
+    }
+
+    /// <summary>培養槽の娘の育て方（§0.118、→ Systems.SoulFusionSystem）。</summary>
+    public enum NurtureKind
+    {
+        /// <summary>アルベールにまかせる：全能力を少しずつ。</summary>
+        Entrust,
+        /// <summary>体を鍛える：STR・VIT・AGI。</summary>
+        Body,
+        /// <summary>技を磨く：DEX・INT。</summary>
+        Skill,
+        /// <summary>心を育てる：MND・LDR。</summary>
+        Heart,
+        /// <summary>母に会わせる：母2人との相性・母の満足度。</summary>
+        Mothers,
+        /// <summary>外の世界を見せる：主志向・気質の見立て。</summary>
+        World,
     }
 }

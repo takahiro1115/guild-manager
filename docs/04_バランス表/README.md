@@ -861,3 +861,19 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 | `FocusSlotsExtra`・`FocusExtraBosses` | 1・20 | 倒した階層ボスが20体以上なら、注目できる人数が1人増える |
 | `FocusExposureMultiplier` | 2 | 注目している子は、志向・気質のきっかけを見た回数をこの倍で数える |
 | `FocusMonthlyReveals` | 1 | 注目している子は、月の最後の週に、まだ確かでない主志向・副志向・苦手・気質をこの回数ぶん数える |
+
+## 培養槽の2年と育て方で変更／追加されたキー（2026年10月、→ 03 §0.118）
+
+**soul_fusion.csv**（すべて仮の値）
+
+| キー | 値 | 意味 |
+|---|---|---|
+| `CultureWeeks` | 12→96 | 処方から名簿に加わるまでの週（2年） |
+| `ChildJoinAge`（新設） | 16 | 娘が加わるときの年齢（満期は26歳の年度末なので10年現役） |
+| `NurtureSeasonWeeks`（新設） | 12 | 育て方を反映する間隔（季節。2年で8回） |
+| `NurtureStatGain`（新設） | 3 | 体を鍛える（STR・VIT・AGI）／技を磨く（DEX・INT）／心を育てる（MND・LDR）：1回ごとに今の値に足す（素質で頭打ち） |
+| `NurtureEntrustGain`（新設） | 1 | アルベールにまかせる（選ばなかったとき）：1回ごとに全能力に足す |
+| `NurtureMotherCompatibility`・`NurtureMotherSatisfaction`（新設） | 5・5 | 母に会わせる：娘と母2人の相性・母の満足度 |
+| `NurtureWorldExposure`（新設） | 2 | 外の世界を見せる：主志向と気質の見立ての回数 |
+
+シミュレーター（育て方は「体を鍛える」）：`campaign 10 1440` でクリア 9/10・12年目〔11〜13〕、秘薬の娘は1回に1〜6人（前 5〜8人）。`audit 30 1440 L3 simple` で 27/30・12年目。

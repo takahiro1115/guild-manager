@@ -45,6 +45,18 @@ namespace GuildManager.Core.Balance
         public static readonly int CultureWeeks = BalanceData.GetInt(FileName, "CultureWeeks");
         public static readonly int CultureTankCount = BalanceData.GetInt(FileName, "CultureTankCount");
 
+        // ---- 培養槽の2年と育て方（§0.118、→ SoulFusionSystem.ProcessWeeklyCultures） ----
+
+        /// <summary>娘が名簿に加わるときの年齢。</summary>
+        public static readonly int ChildJoinAge = BalanceData.GetInt(FileName, "ChildJoinAge");
+        /// <summary>育て方を反映する間隔（週）。</summary>
+        public static readonly int NurtureSeasonWeeks = BalanceData.GetInt(FileName, "NurtureSeasonWeeks");
+        public static readonly int NurtureStatGain = BalanceData.GetInt(FileName, "NurtureStatGain");
+        public static readonly int NurtureEntrustGain = BalanceData.GetInt(FileName, "NurtureEntrustGain");
+        public static readonly int NurtureMotherCompatibility = BalanceData.GetInt(FileName, "NurtureMotherCompatibility");
+        public static readonly int NurtureMotherSatisfaction = BalanceData.GetInt(FileName, "NurtureMotherSatisfaction");
+        public static readonly int NurtureWorldExposure = BalanceData.GetInt(FileName, "NurtureWorldExposure");
+
         /// <summary>娘のPAの基準で、両親のうち高い方に掛ける重み（残りを低い方に掛ける。0.5＝平均、1.0＝高い方そのもの。§0.60）。</summary>
         public static readonly double HigherParentWeight = BalanceData.GetDouble(FileName, "HigherParentWeight");
 

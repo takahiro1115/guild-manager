@@ -61,6 +61,7 @@ namespace GuildManager.Core.Systems
             new("s03_academy2", StoryTiming.AfterReport, s => IsabellaSystem.HasVisited(s) && (s.ExchangeWins >= 2 || BossDefeated(s, "abyss", 50))),
             new("s03_academy4", StoryTiming.AfterReport, s => Seen(s, "s03_academy2") && (s.ExchangeWins >= 4 || BossDefeated(s, "abyss", 50))),
             new("s03_academy6", StoryTiming.AfterReport, s => Seen(s, "s03_academy4") && (s.ExchangeWins >= 6 || BossDefeated(s, "abyss", 50))),
+            new("s03_culture", StoryTiming.AfterReport, s => s.SoulFusionCultures.Count > 0 && !Seen(s, "s03_daughter")), // 初めて秘薬を処方した月（§0.118）
             new("s03_daughter", StoryTiming.AfterReport, s => FirstDaughter(s) != null),
             new("s03_g1", StoryTiming.AfterReport, s => FirstG1Win(s) != null),
             new("s03_fallen", StoryTiming.AfterReport, s => s.FallenAdventurers.Count > 0),
@@ -105,7 +106,7 @@ namespace GuildManager.Core.Systems
         public static readonly IReadOnlyCollection<string> TeachingSceneIds = new HashSet<string>
         {
             "s01_order", "s01_month", "s01_first_report", "s01_question", "s01_hunter",
-            "s02_disciplines", "s02_advice", "s02_tournaments", "s01_squad2", "s01_squad3", "s01_research", "s01_sponsor",
+            "s02_disciplines", "s02_advice", "s02_tournaments", "s01_squad2", "s01_squad3", "s01_research", "s01_sponsor", "s03_culture",
         };
 
         /// <summary>
@@ -433,6 +434,12 @@ namespace GuildManager.Core.Systems
                     values["{母A}"] = mothers[0]!.Name;
                     values["{母B}"] = mothers[1]!.Name;
                 }
+            }
+            else if (state.SoulFusionCultures.FirstOrDefault() is { } culture && state.FindAdventurer(culture.ParentAId) is { } motherA && state.FindAdventurer(culture.ParentBId) is { } motherB)
+            {
+                // 培養槽の娘（§0.118）：まだ生まれていないので、最初の培養の母
+                values["{母A}"] = motherA.Name;
+                values["{母B}"] = motherB.Name;
             }
             if (FirstHallOfFame(state) is { } hall) values["{殿堂の名前}"] = hall.Name;
             if (FirstRetiree(state) is { } retiree)

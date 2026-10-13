@@ -237,7 +237,7 @@ namespace GuildManager.Core.Systems
             result.MoodReport.MoodAfter = state.MasterMood;
 
             // 魂魄融和の培養（→ 03 §5.4・§0.58）：満期引退で宿舎が空いた週に誕生できるよう、加齢の後に進める。
-            result.SoulFusionBirths.AddRange(SoulFusionSystem.ProcessWeeklyCultures(state));
+            result.SoulFusionBirths.AddRange(SoulFusionSystem.ProcessWeeklyCultures(state, result.NurtureEvents));
             result.Flags.SoulFusionBirthOccurred = result.SoulFusionBirths.Count > 0;
 
             result.CompletedFacility = _facilitySystem.ProcessWeeklyConstruction(state); // → 03 §6.1：施設Lv投資

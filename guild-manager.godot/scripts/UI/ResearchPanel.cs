@@ -456,11 +456,15 @@ public partial class ResearchPanel : ScrollContainer
 
 		vbox.AddChild(MakeRichLabel("[font_size=18][b]🧪 培養槽（魂魄融和の秘薬）[/b][/font_size]"));
 		vbox.AddChild(MakeRichLabel(
-			$"[color=gray]相性{SoulFusionBalance.RequiredCompatibility}のペアに秘薬を処方すると、2人の素質を受け継ぐ娘が{SoulFusionBalance.CultureWeeks}週で18歳まで育ち、新人として加わる。" +
-			"親になれるのは1人1回まで。引退した者も親になれる。[/color]"));
+			$"[color=gray]相性{SoulFusionBalance.RequiredCompatibility}のペアに秘薬を処方すると、2人の素質を受け継ぐ娘が{SoulFusionBalance.CultureWeeks}週（2年）で{SoulFusionBalance.ChildJoinAge}歳まで育ち、新人として加わる。" +
+			$"その間、季節（{SoulFusionBalance.NurtureSeasonWeeks}週）ごとに選んだ育て方が娘に残る。親になれるのは1人1回まで。引退した者も親になれる。[/color]"));
 
 		foreach (var culture in _state.SoulFusionCultures)
+		{
 			vbox.AddChild(MakeRichLabel(CultureStatusText(culture)));
+			if (!SoulFusionSystem.IsWaitingForRoom(culture))
+				vbox.AddChild(BuildNurtureRow(culture));
+		}
 
 		if (!SoulFusionSystem.HasFreeTank(_state))
 			return card;
@@ -652,9 +656,32 @@ public partial class ResearchPanel : ScrollContainer
 		string parentB = _state.FindAdventurer(culture.ParentBId)?.Name ?? "？";
 		string progress = SoulFusionSystem.IsWaitingForRoom(culture)
 			? "[color=orange]育ちきった。宿舎に空きができしだい加わる[/color]"
-			: $"誕生まで残り{culture.WeeksRemaining}週";
+			: $"加わるまで あと{SoulFusionSystem.RemainingLabel(culture)}（{culture.WeeksRemaining}週）";
+		string history = culture.NurtureHistory.Count == 0 ? ""
+			: "\n[color=gray]これまでの育て方：" + string.Join("・", culture.NurtureHistory.GroupBy(k => k).Select(g => $"{SoulFusionSystem.NurtureLabel(g.Key)}×{g.Count()}")) + "[/color]";
 		return $"🫧 培養中：[b]{culture.Child.Name}[/b]（{AdventurerPanel.JobLabel(culture.Child.JobClass)}）" +
-			$"　{parentA}と{parentB}の娘・百合相性：{SoulFusionSystem.GetNyxTierLabel(culture.NyxTier)}　{progress}";
+			$"　{parentA}と{parentB}の娘・百合相性：{SoulFusionSystem.GetNyxTierLabel(culture.NyxTier)}　{progress}" + history;
+	}
+
+	/// <summary>
+	/// 育て方（§0.118）：いまの育て方を選ぶ（季節の終わりに1回反映。次の季節の終わりまでに変えればよい）。効き目の文は Core（SoulFusionSystem.NurtureDescription）。
+	/// </summary>
+	private Control BuildNurtureRow(SoulFusionCulture culture)
+	{
+		var option = new OptionButton();
+		var kinds = Enum.GetValues<NurtureKind>();
+		foreach (var kind in kinds)
+			option.AddItem($"{SoulFusionSystem.NurtureLabel(kind)}：{SoulFusionSystem.NurtureDescription(kind)}", (int)kind);
+		option.Selected = Array.IndexOf(kinds, culture.Nurture);
+		option.ItemSelected += index =>
+		{
+			culture.Nurture = (NurtureKind)option.GetItemId((int)index);
+			Callable.From(() => StateChanged.Invoke()).CallDeferred(); // 発信元の OptionButton を作り直すので次のフレームで
+		};
+		int weeksToSeason = SoulFusionBalance.NurtureSeasonWeeks - (SoulFusionBalance.CultureWeeks - culture.WeeksRemaining) % SoulFusionBalance.NurtureSeasonWeeks;
+		var row = MakeRow("育て方", option);
+		row.TooltipText = $"次に反映するのは {weeksToSeason} 週後（季節の終わり）。選ばなければアルベールにまかせる。";
+		return row;
 	}
 
 	/// <summary>候補の表示名。引退者は（引退）を付ける。</summary>

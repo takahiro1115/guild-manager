@@ -8,6 +8,9 @@ using GuildManager.Core.Rng;
 
 namespace GuildManager.Core.Systems
 {
+    /// <summary>培養槽の娘に育て方を1回反映した記録（§0.118。月報へ）。Gains は伸びた能力と量。</summary>
+    public sealed record NurtureEvent(SoulFusionCulture Culture, NurtureKind Kind, IReadOnlyDictionary<string, int> Gains);
+
     /// <summary>秘薬を処方できるかの判定結果（→ SoulFusionSystem.CheckPrescription）。Ok 以外は処方できない理由。</summary>
     public enum SoulFusionCheck
     {
@@ -30,7 +33,7 @@ namespace GuildManager.Core.Systems
     /// 魂魄融和の秘薬（女性同士の配合・継承。→ 03 §5.4・§0.58、2026年10月新設）。
     ///
     /// アルベールがギルドを作った理由である秘薬。相性が最大（→ soul_fusion.csv RequiredCompatibility）に達したペアに処方すると、
-    /// 2人の素質を掛け合わせた娘が培養槽で育ち、CultureWeeks 週後に18歳の新人として加わる。
+    /// 2人の素質を掛け合わせた娘が培養槽で育ち、CultureWeeks 週（2年、§0.118）後に16歳の新人として加わる。その間、季節ごとに選んだ育て方が反映される（→ ApplyNurture）。
     ///  - 解禁：研究「魂魄融和の秘薬」（→ ResearchIds.SoulFusion）
     ///  - 親：ギルドにいる者（現役・引退者。除籍者は不可）。1人が親になれるのは生涯1回まで（→ Adventurer.HasUsedSoulFusion）。
     ///    培養中も親は出撃できる
@@ -208,7 +211,7 @@ namespace GuildManager.Core.Systems
             {
                 Name = NameGenerator.GenerateUniqueFirstName(culture, existingNames, _rng),
                 Gender = Gender.Female,
-                Age = RecruitmentBalance.MinCandidateAge,
+                Age = SoulFusionBalance.ChildJoinAge, // 培養槽で2年育ち、16歳で加わる（§0.118）
                 JobClass = childJob,
                 Placement = PlacementRules.GetDefault(childJob),
                 ParentIds = new List<Guid> { a.Id, b.Id },
@@ -335,13 +338,19 @@ namespace GuildManager.Core.Systems
         /// 処方の古い順に誕生させる：職業の初期装備を着せてロースターへ加える。空きが無ければ培養槽で待つ。
         /// 誕生した培養の記録を返す（週報用）。
         /// </summary>
-        public static List<SoulFusionCulture> ProcessWeeklyCultures(GameState state)
+        public static List<SoulFusionCulture> ProcessWeeklyCultures(GameState state, List<NurtureEvent>? nurtured = null)
         {
             var born = new List<SoulFusionCulture>();
             foreach (var culture in state.SoulFusionCultures.ToList())
             {
                 if (culture.WeeksRemaining > 0)
+                {
                     culture.WeeksRemaining--;
+                    // 育て方（§0.118）：培養の始まりから季節ごとに、選んでいる育て方を1回反映する
+                    int elapsed = SoulFusionBalance.CultureWeeks - culture.WeeksRemaining;
+                    if (elapsed > 0 && elapsed % SoulFusionBalance.NurtureSeasonWeeks == 0)
+                        (nurtured ?? new List<NurtureEvent>()).Add(ApplyNurture(state, culture));
+                }
                 if (culture.WeeksRemaining > 0 || RecruitmentSystem.CountOpenSlots(state) <= 0)
                     continue;
 
@@ -355,5 +364,77 @@ namespace GuildManager.Core.Systems
 
         /// <summary>培養の残り週数が0で、宿舎の空きを待っているか（画面の表示用）。</summary>
         public static bool IsWaitingForRoom(SoulFusionCulture culture) => culture.WeeksRemaining <= 0;
+
+        // ==================== 培養槽の2年と育て方（§0.118） ====================
+
+        /// <summary>育て方で伸ばす能力（体＝STR・VIT・AGI、技＝DEX・INT、心＝MND・LDR、まかせる＝全部。母・外の世界は無し）。</summary>
+        public static IReadOnlyList<string> NurtureStats(NurtureKind kind) => kind switch
+        {
+            NurtureKind.Body => new[] { "STR", "VIT", "AGI" },
+            NurtureKind.Skill => new[] { "DEX", "INT" },
+            NurtureKind.Heart => new[] { "MND", "LDR" },
+            NurtureKind.Entrust => AdventurerStatAccessor.AllStatNames,
+            _ => Array.Empty<string>(),
+        };
+
+        public static string NurtureLabel(NurtureKind kind) => kind switch
+        {
+            NurtureKind.Body => "体を鍛える",
+            NurtureKind.Skill => "技を磨く",
+            NurtureKind.Heart => "心を育てる",
+            NurtureKind.Mothers => "母に会わせる",
+            NurtureKind.World => "外の世界を見せる",
+            _ => "アルベールにまかせる",
+        };
+
+        /// <summary>育て方の効き目の説明（画面の選択肢の添え書き）。</summary>
+        public static string NurtureDescription(NurtureKind kind) => kind switch
+        {
+            NurtureKind.Body or NurtureKind.Skill or NurtureKind.Heart => $"{string.Join("・", NurtureStats(kind))} +{SoulFusionBalance.NurtureStatGain}（素質で頭打ち）",
+            NurtureKind.Mothers => $"母2人との相性 +{SoulFusionBalance.NurtureMotherCompatibility}・母の満足度 +{SoulFusionBalance.NurtureMotherSatisfaction}",
+            NurtureKind.World => $"主志向・気質の見立て +{SoulFusionBalance.NurtureWorldExposure}回（加わるときから分かっている）",
+            _ => $"全能力 +{SoulFusionBalance.NurtureEntrustGain}",
+        };
+
+        /// <summary>
+        /// 育て方を1回反映する（季節ごと。ProcessWeeklyCultures から呼ぶ。テスト用に公開）：娘の今の能力を素質まで伸ばす／母との相性と母の満足度／
+        /// 主志向・気質の見立て。反映したことを記録して返す。
+        /// </summary>
+        public static NurtureEvent ApplyNurture(GameState state, SoulFusionCulture culture)
+        {
+            var child = culture.Child;
+            var gains = new Dictionary<string, int>();
+            int statGain = culture.Nurture == NurtureKind.Entrust ? SoulFusionBalance.NurtureEntrustGain : SoulFusionBalance.NurtureStatGain;
+            foreach (var stat in NurtureStats(culture.Nurture))
+            {
+                int before = AdventurerStatAccessor.GetStat(child, stat);
+                int after = Math.Min(AdventurerStatAccessor.GetPa(child, stat), before + statGain);
+                if (after <= before) continue;
+                AdventurerStatAccessor.SetStat(child, stat, after);
+                gains[stat] = after - before;
+            }
+            if (culture.Nurture == NurtureKind.Mothers)
+                foreach (var motherId in new[] { culture.ParentAId, culture.ParentBId })
+                {
+                    CompatibilitySystem.AdjustCompatibility(state, child.Id, motherId, SoulFusionBalance.NurtureMotherCompatibility);
+                    if (state.Adventurers.FirstOrDefault(a => a.Id == motherId && !a.IsRetired) is { } mother)
+                        SatisfactionSystem.Adjust(mother, SoulFusionBalance.NurtureMotherSatisfaction);
+                }
+            if (culture.Nurture == NurtureKind.World && child.Personality is { } p)
+                foreach (var key in new[] { p.Main.ToString(), PersonalitySystem.TemperamentKey })
+                    p.Exposure[key] = p.Exposure.GetValueOrDefault(key) + SoulFusionBalance.NurtureWorldExposure;
+            culture.NurtureHistory.Add(culture.Nurture);
+            return new NurtureEvent(culture, culture.Nurture, gains);
+        }
+
+        /// <summary>名簿に加わるまで（宿舎の空きを待つ週は数えない）の残りの言い方：「1年3か月」「2か月」など。</summary>
+        public static string RemainingLabel(SoulFusionCulture culture)
+        {
+            int weeks = Math.Max(0, culture.WeeksRemaining);
+            int years = weeks / GameCalendar.WeeksPerYear;
+            int months = (weeks % GameCalendar.WeeksPerYear + GameCalendar.WeeksPerMonth - 1) / GameCalendar.WeeksPerMonth;
+            if (months == 12) { years++; months = 0; }
+            return years > 0 ? (months > 0 ? $"{years}年{months}か月" : $"{years}年") : $"{Math.Max(1, months)}か月";
+        }
     }
 }
