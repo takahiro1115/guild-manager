@@ -683,6 +683,9 @@ namespace GuildManager.Core.Models
         /// <summary>引退者がギルドを去った（§0.105。役職につかないまま RetireeRoleGraceWeeks がたった）。顧問・教官の候補から外れる（記録には残る）。</summary>
         public bool LeftGuild { get; set; }
 
+        /// <summary>ギルドを去った週（§0.122。初めての引退式〈s03_retire〉はギルドを去った最初の子で出す）。去っていなければ null。旧セーブは FromSaveData で補う。</summary>
+        public int? LeftGuildAtWeek { get; set; }
+
         /// <summary>引退者が役職についていない状態になった週（§0.105、→ GuildPolicySystem.ProcessRetirees）。役職についていれば null。</summary>
         public int? UnassignedSinceWeek { get; set; }
 

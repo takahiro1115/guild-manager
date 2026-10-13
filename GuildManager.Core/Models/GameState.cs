@@ -724,6 +724,10 @@ namespace GuildManager.Core.Models
                 state.CommissionsFromWeek ??= LegacyFirstOfferWeek;
             }
 
+            // ギルドを去った週（§0.122）を持たない旧セーブ：引退した週＋役職を待つ週数で去ったとして読む（初めての引退式の順に使う）。
+            foreach (var r in state.RetiredAdventurers.Where(r => r.LeftGuild && r.LeftGuildAtWeek == null))
+                r.LeftGuildAtWeek = (r.RetiredAtWeek ?? state.WeekNumber) + PolicyBalance.RetireeRoleGraceWeeks - 1;
+
             // 物語の場面（§0.86）を持たないセーブ（§0.86より前に始めたゲーム）は、チュートリアルの一度きりの場面をすべて見たことにする
             // （途中まで進んだゲームで、序章や救出の場面が今さら出ないように）。毎回の一言（交流戦の勝ち負けなど）はこれからも出る。
             if (data.StorySeenWeeks == null)

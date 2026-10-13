@@ -123,6 +123,7 @@ namespace GuildManager.Core.Tests
             Assert.Empty(GuildPolicySystem.ProcessRetirees(state, last - 1));
             Assert.Single(GuildPolicySystem.ProcessRetirees(state, last));
             Assert.True(r.LeftGuild);
+            Assert.Equal(last, r.LeftGuildAtWeek); // 初めての引退式の順に使う（§0.122）
             Assert.False(new AdvisorSystem().TryAssignTrainer(state, FacilityType.DrillHall, r.Id));
         }
 
@@ -224,6 +225,8 @@ namespace GuildManager.Core.Tests
             Assert.Equal(3, back.ScoutBudgetYear);
             Assert.Equal(a.Id, back.Coachings.Single().AdventurerId);
             Assert.True(back.RetiredAdventurers.Single().LeftGuild);
+            Assert.Null(back.RetiredAdventurers.Single().RetiredAtWeek); // 去った週の無い旧セーブ（§0.122）は、引退した週（無ければ今の週）＋役職を待つ週数で補う
+            Assert.Equal(back.WeekNumber + PolicyBalance.RetireeRoleGraceWeeks - 1, back.RetiredAdventurers.Single().LeftGuildAtWeek);
 
             var legacy = JsonSerializer.Deserialize<SaveData>("{}")!;
             legacy.Coachings = null;

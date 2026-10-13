@@ -468,6 +468,35 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
+        public void FirstRetirementCeremony_SkipsRetireesWhoStayAsInstructors()
+        {
+            // §0.122：教官・顧問として残る子では初めての引退式を出さない。役職につかずにギルドを去った最初の子で出す
+            var state = NewGame();
+            var claudia = state.Adventurers[0];
+            var other = state.Adventurers[1];
+            foreach (var (r, week) in new[] { (claudia, 48), (other, 96) })
+            {
+                state.Adventurers.Remove(r);
+                r.IsRetired = true;
+                r.RetiredAtWeek = week;
+                r.UnassignedSinceWeek = week;
+                state.RetiredAdventurers.Add(r);
+            }
+            state.AssignedTrainers[FacilityType.DrillHall] = claudia.Id; // 教官として残る
+            state.WeekNumber = 48 + PolicyBalance.RetireeRoleGraceWeeks;
+            GuildPolicySystem.ProcessRetirees(state, state.WeekNumber);
+            Assert.False(claudia.LeftGuild);
+            Assert.DoesNotContain("s03_retire", StorySystem.DueScenes(state, StoryTiming.AfterReport).Select(s => s.SceneId));
+
+            state.WeekNumber = 96 + PolicyBalance.RetireeRoleGraceWeeks - 1;
+            GuildPolicySystem.ProcessRetirees(state, state.WeekNumber);
+            Assert.True(other.LeftGuild);
+            var retire = Assert.Single(StorySystem.DueScenes(state, StoryTiming.AfterReport), s => s.SceneId == "s03_retire");
+            Assert.Contains(Texts(retire), t => t.Contains($"{other.Name}さん、行っちゃいましたね"));
+            Assert.Equal(other, StorySystem.FirstRetiree(state));
+        }
+
+        [Fact]
         public void FirstRetiree_Name_AndHallOfFameLineOnlyWhenHallOfFame()
         {
             var state = NewGame();
@@ -475,6 +504,8 @@ namespace GuildManager.Core.Tests
             state.Adventurers.Remove(a);
             a.IsRetired = true;
             a.RetiredAtWeek = 48;
+            a.LeftGuild = true;
+            a.LeftGuildAtWeek = 51;
             state.RetiredAdventurers.Add(a);
             var retire = Assert.Single(StorySystem.DueScenes(state, StoryTiming.AfterReport), s => s.SceneId == "s03_retire");
             Assert.Contains(Texts(retire), t => t.Contains($"{a.Name}さん、行っちゃいましたね"));
@@ -486,16 +517,59 @@ namespace GuildManager.Core.Tests
             Assert.Contains("s03_hall", StorySystem.DueScenes(state, StoryTiming.AfterReport).Select(s => s.SceneId));
         }
 
+
+        private static Adventurer Starter(GameState state, string portrait) => state.Adventurers.First(a => a.PortraitId == portrait);
+
+        private static SoulFusionCulture AddCulture(GameState state, Adventurer ma, Adventurer mb, int weeksIn)
+        {
+            var c = new SoulFusionCulture { ParentAId = ma.Id, ParentBId = mb.Id, Child = new Adventurer { Name = "ミラ" }, WeeksRemaining = SoulFusionBalance.CultureWeeks - weeksIn };
+            state.SoulFusionCultures.Add(c);
+            return c;
+        }
+
         [Fact]
-        public void Daughter_FillsMothersAndName()
+        public void Daughter_ComesTheMonthAfterTheCulture_WithTheBabysName_AndRinaWitnesses()
+        {
+            // §0.123：初めて処方した翌月、生まれた赤子を見せる。母がクラウディアとフィオナなら、立ち会うのはリナ
+            var state = NewGame();
+            var (claudia, fiona) = (Starter(state, "claudia"), Starter(state, "fiona"));
+            var culture = AddCulture(state, claudia, fiona, 0);
+            Assert.Contains("s03_culture", Ids(state, StoryTiming.AfterReport));
+            Assert.DoesNotContain("s03_daughter", Ids(state, StoryTiming.AfterReport));
+
+            culture.WeeksRemaining -= GameCalendar.WeeksPerMonth;
+            var scene = Assert.Single(StorySystem.DueScenes(state, StoryTiming.AfterReport), s => s.SceneId == "s03_daughter");
+            var texts = Texts(scene);
+            Assert.Contains(texts, t => t.Contains($"{claudia.Name}さんと{fiona.Name}さんの娘"));
+            Assert.Contains(texts, t => t.Contains("もうミラを培養槽に戻して"));
+            Assert.Contains(texts, t => t.Contains("森の子鹿"));
+            Assert.DoesNotContain(texts, t => t.Contains("本当に、よかったですね") || t.Contains("今夜は眠れない") || t.Contains("{"));
+            Assert.Contains(scene.Pages.SelectMany(p => p), l => l.Kind == StoryLineKind.Guide && l.Text.Contains("育て方"));
+        }
+
+        [Fact]
+        public void DaughterWitness_FionaFirst_SkipsMothersAndThoseWhoLeft()
         {
             var state = NewGame();
-            var (ma, mb) = (state.Adventurers[0], state.Adventurers[1]);
-            var girl = new Adventurer { Name = "ミラ", JoinedYear = 2, ParentIds = { ma.Id, mb.Id } };
-            state.Adventurers.Add(girl);
-            var scene = Assert.Single(StorySystem.DueScenes(state, StoryTiming.AfterReport), s => s.SceneId == "s03_daughter");
-            Assert.Contains(Texts(scene), t => t.Contains($"{ma.Name}さんと{mb.Name}さんの娘"));
-            Assert.Contains(Texts(scene), t => t.Contains("ミラの顔を見に"));
+            var (claudia, rina, fiona) = (Starter(state, "claudia"), Starter(state, "rina"), Starter(state, "fiona"));
+            var outsiders = new[] { new Adventurer { Name = "甲" }, new Adventurer { Name = "乙" } };
+            state.Adventurers.AddRange(outsiders);
+            AddCulture(state, outsiders[0], outsiders[1], GameCalendar.WeeksPerMonth);
+            Assert.Equal(fiona, StorySystem.DaughterWitness(state)); // 母が初期の3人でなければフィオナ
+
+            state.SoulFusionCultures.Clear();
+            AddCulture(state, fiona, outsiders[0], GameCalendar.WeeksPerMonth);
+            state.Adventurers.Remove(rina);
+            rina.IsRetired = true;
+            rina.LeftGuild = true;
+            state.RetiredAdventurers.Add(rina);
+            Assert.Equal(claudia, StorySystem.DaughterWitness(state)); // フィオナは母、リナは去った
+            Assert.Contains(Texts(StorySystem.DueScenes(state, StoryTiming.AfterReport).Single(s => s.SceneId == "s03_daughter")), t => t.Contains("今夜は眠れない"));
+
+            state.Adventurers.Remove(claudia);
+            state.FallenAdventurers.Add(claudia);
+            Assert.Null(StorySystem.DaughterWitness(state)); // 誰もいなければ立ち会いの行を飛ばす
+            Assert.DoesNotContain(Texts(StorySystem.DueScenes(state, StoryTiming.AfterReport).Single(s => s.SceneId == "s03_daughter")), t => t.Contains("{"));
         }
 
         [Fact]

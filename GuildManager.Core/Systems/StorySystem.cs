@@ -62,13 +62,13 @@ namespace GuildManager.Core.Systems
             new("s03_academy4", StoryTiming.AfterReport, s => Seen(s, "s03_academy2") && (s.ExchangeWins >= 4 || BossDefeated(s, "abyss", 50))),
             new("s03_academy6", StoryTiming.AfterReport, s => Seen(s, "s03_academy4") && (s.ExchangeWins >= 6 || BossDefeated(s, "abyss", 50))),
             new("s03_culture", StoryTiming.AfterReport, s => s.SoulFusionCultures.Count > 0 && !Seen(s, "s03_daughter")), // 初めて秘薬を処方した月（§0.118）
-            new("s03_daughter", StoryTiming.AfterReport, s => FirstDaughter(s) != null),
+            new("s03_daughter", StoryTiming.AfterReport, s => FirstCulture(s) is { } c && SoulFusionBalance.CultureWeeks - c.WeeksRemaining >= GameCalendar.WeeksPerMonth || FirstDaughter(s) != null), // 初めて処方した翌月、生まれた赤子を見せる（§0.123）
             new("s03_g1", StoryTiming.AfterReport, s => FirstG1Win(s) != null),
             new("s03_fallen", StoryTiming.AfterReport, s => s.FallenAdventurers.Count > 0),
             new("s03_bow", StoryTiming.AfterReport, s => Seen(s, "s01_lumina") && s.ExchangeMatchesPlayed >= 3),
             new("s03_sword", StoryTiming.AfterReport, s => Seen(s, "s03_bow") && s.ExchangeMatchesPlayed >= 5),
             new("s03_cecilia", StoryTiming.AfterReport, s => CeciliaBeaten(s) != null),
-            new("s03_retire", StoryTiming.AfterReport, s => FirstRetiree(s) != null),
+            new("s03_retire", StoryTiming.AfterReport, s => FirstRetiree(s) != null), // 引退者が役職につかずにギルドを去った月（教官・顧問で残る子では出さない、§0.122）
             new("s03_hall", StoryTiming.AfterReport, s => FirstHallOfFame(s) != null),
             new("s03_sharp", StoryTiming.AfterReport, s => s.StorySeenWeeks.TryGetValue("s01_lumina", out int w) && s.WeekNumber - w >= 5 * GameCalendar.WeeksPerYear),
             // ---- 台詞04 前兆・足跡・真相・エンディング（§0.89）。前兆も足跡も森→洞窟→廃墟→峡谷の順に、前の場面を待つ ----
@@ -310,9 +310,12 @@ namespace GuildManager.Core.Systems
         private static IEnumerable<Adventurer> Everyone(GameState state) =>
             state.Adventurers.Concat(state.GuildRetirees).Concat(state.FallenAdventurers);
 
-        /// <summary>最初の引退者（引退した週の順）。</summary>
+        /// <summary>
+        /// 最初にギルドを去った引退者（§0.122：初めての引退式〈s03_retire〉とエンディングの「初めての引退者」）。
+        /// 教官・顧問として残っている子は数えない（役職を外れて、のちに去ったら数える）。去った週の順、同じ週なら引退した週の順。
+        /// </summary>
         public static Adventurer? FirstRetiree(GameState state) =>
-            state.GuildRetirees.OrderBy(a => a.RetiredAtWeek ?? int.MaxValue).FirstOrDefault();
+            state.GuildRetirees.Where(a => a.LeftGuild).OrderBy(a => a.LeftGuildAtWeek ?? int.MaxValue).ThenBy(a => a.RetiredAtWeek ?? int.MaxValue).FirstOrDefault();
 
         /// <summary>最初に殿堂入りした者。</summary>
         public static Adventurer? FirstHallOfFame(GameState state) =>
@@ -321,6 +324,25 @@ namespace GuildManager.Core.Systems
         /// <summary>魂魄融和で最初に生まれた娘（加わった年の順、同じ年なら名簿の順）。</summary>
         public static Adventurer? FirstDaughter(GameState state) =>
             Everyone(state).Where(a => a.ParentIds.Count >= 2).OrderBy(a => a.JoinedYear).FirstOrDefault();
+
+        /// <summary>いちばん古い培養（培養槽の娘、§0.118）。無ければ null。</summary>
+        public static SoulFusionCulture? FirstCulture(GameState state) =>
+            state.SoulFusionCultures.OrderBy(c => c.WeeksRemaining).FirstOrDefault();
+
+        /// <summary>初めての娘（s03_daughter）に立ち会う子の印の名前（物語帳の行末の {○○が立ち会うなら}、§0.123）。</summary>
+        private static readonly Dictionary<string, string> WitnessNames = new() { ["fiona"] = "フィオナ", ["rina"] = "リナ", ["claudia"] = "クラウディア" };
+
+        /// <summary>
+        /// 初めての娘（s03_daughter）に立ち会う子（§0.123）：初期の3人のうち、その娘の母でない子。2人以上ならフィオナ→リナ→クラウディアの順。
+        /// ギルドを去った子・除籍された子は立ち会わない（誰もいなければ null で、立ち会いの行を飛ばす）。
+        /// </summary>
+        public static Adventurer? DaughterWitness(GameState state)
+        {
+            var mothers = FirstDaughter(state) is { } daughter ? daughter.ParentIds.ToHashSet()
+                : FirstCulture(state) is { } culture ? new HashSet<Guid> { culture.ParentAId, culture.ParentBId } : new HashSet<Guid>();
+            var inGuild = state.Adventurers.Concat(state.GuildRetirees.Where(r => !r.LeftGuild)).ToList();
+            return WitnessNames.Keys.Select(key => inGuild.FirstOrDefault(a => a.PortraitId == key)).FirstOrDefault(a => a != null && !mothers.Contains(a.Id));
+        }
 
         /// <summary>最初のG1の優勝（交流戦は除く）。</summary>
         private static TournamentEvent? FirstG1Win(GameState state) =>
@@ -435,12 +457,14 @@ namespace GuildManager.Core.Systems
                     values["{母B}"] = mothers[1]!.Name;
                 }
             }
-            else if (state.SoulFusionCultures.FirstOrDefault() is { } culture && state.FindAdventurer(culture.ParentAId) is { } motherA && state.FindAdventurer(culture.ParentBId) is { } motherB)
+            else if (FirstCulture(state) is { } culture && state.FindAdventurer(culture.ParentAId) is { } motherA && state.FindAdventurer(culture.ParentBId) is { } motherB)
             {
-                // 培養槽の娘（§0.118）：まだ生まれていないので、最初の培養の母
+                // 培養槽の娘（§0.118）：まだ名簿にいないので、いちばん古い培養の母と子の名前（§0.123）
+                values["{娘}"] = culture.Child.Name;
                 values["{母A}"] = motherA.Name;
                 values["{母B}"] = motherB.Name;
             }
+            if (DaughterWitness(state) is { } witness) values[$"{{{WitnessNames[witness.PortraitId!]}が立ち会うなら}}"] = ""; // 初めての娘に立ち会う子（§0.123）
             if (FirstHallOfFame(state) is { } hall) values["{殿堂の名前}"] = hall.Name;
             if (FirstRetiree(state) is { } retiree)
             {

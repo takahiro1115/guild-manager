@@ -119,6 +119,7 @@ namespace GuildManager.Core.Systems
                 if (week >= r.UnassignedSinceWeek.Value + PolicyBalance.RetireeRoleGraceWeeks - 1)
                 {
                     r.LeftGuild = true;
+                    r.LeftGuildAtWeek = week; // 初めての引退式はギルドを去った最初の子（§0.122）
                     left.Add(r);
                 }
             }
