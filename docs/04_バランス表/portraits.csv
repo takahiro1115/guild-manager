@@ -41,8 +41,8 @@ adv_011_red_green,Ranger|Thief|Scholar,赤,緑,adv_011 の色違い（背景透�
 adv_011_red_orig,Ranger|Thief|Scholar,赤,青緑,adv_011 の色違い（背景透過）
 adv_011_red_red,Ranger|Thief|Scholar,赤,赤,adv_011 の色違い（背景透過）
 adv_012,Mage,金,青,背景透過
-adv_013,Cleric|Mage,緑,灰,神官・白と金の祭服・サイドの三つ編み（背景透過）
-adv_014,Mage|Scholar,紫,青,魔導士・藍のローブ・編み込みのまとめ髪（背景透過）
-adv_015,Ranger|Thief,桃,金,斥候・森色の外套・編み込みのまとめ髪（背景透過）
-adv_016,Scholar|Mage,赤銅,琥珀,学者・深緑青の学者服・編み込みのまとめ髪（背景透過）
-adv_017,Knight|Warrior,赤銅,灰,騎士・黒銀の胸甲と紺の外套・ポニーテール（背景透過）
+adv_013,Cleric,緑,灰,神官・白と金の祭服・サイドの三つ編み（背景透過）
+adv_014,Mage,紫,青,魔導士・藍のローブ・編み込みのまとめ髪（背景透過）
+adv_015,Ranger,桃,金,斥候・森色の外套・編み込みのまとめ髪（背景透過）
+adv_016,Scholar,赤銅,琥珀,学者・深緑青の学者服・編み込みのまとめ髪（背景透過）
+adv_017,Knight,赤銅,灰,騎士・黒銀の胸甲と紺の外套・ポニーテール（背景透過）
