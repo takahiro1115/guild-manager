@@ -170,7 +170,7 @@ namespace GuildManager.Core.Tests
             RulerSystem.ProcessNewWeek(s); // 代表が月を過ごし終えた
             Assert.True(RulerSystem.IsDuelDue(s, Vespera(s)));
 
-            var duel = RulerSystem.ResolveAuto(s, Vespera(s), new AlwaysMinRng(), useInterventions: false)!;
+            var duel = (RulerDuel)RulerSystem.ResolveAuto(s, Vespera(s), new AlwaysMinRng(), useInterventions: false)!;
 
             Assert.True(duel.Retreated);
             Assert.True(ForestBoss(s, 70).IsDefeated);
@@ -192,7 +192,7 @@ namespace GuildManager.Core.Tests
             var s = NewState(60, weak);
             RulerSystem.TrySetRepresentatives(s, Vespera(s), weak.Select(a => a.Id));
 
-            var duel = RulerSystem.ResolveAuto(s, Vespera(s), new AlwaysMaxRng(), useInterventions: false)!;
+            var duel = (RulerDuel)RulerSystem.ResolveAuto(s, Vespera(s), new AlwaysMaxRng(), useInterventions: false)!;
 
             Assert.Equal(2, duel.Bouts.Count); // 2人とも負けて終わり
             Assert.All(duel.Bouts, b => { Assert.Equal(DuelCharm.Charmed, b.Charm); Assert.False(b.Won); Assert.Equal(0, b.Damage); });
@@ -207,14 +207,14 @@ namespace GuildManager.Core.Tests
             var weak = Make("新人", 20);
             var s = NewState(60, weak);
             RulerSystem.TrySetRepresentatives(s, Vespera(s), new[] { weak.Id });
-            var first = RulerSystem.ResolveAuto(s, Vespera(s), new AlwaysMaxRng(), useInterventions: false)!;
+            var first = (RulerDuel)RulerSystem.ResolveAuto(s, Vespera(s), new AlwaysMaxRng(), useInterventions: false)!;
             Assert.Equal(TournamentDiscipline.Sword, first.Bouts[0].Discipline);
             Assert.Equal(1, Vespera(s).WeaponIndex);
 
             weak.CurrentHP = weak.MaxHP;
             weak.Injury = InjurySeverity.None;
             s.WeekNumber = 9;
-            var second = RulerSystem.ResolveAuto(s, Vespera(s), new AlwaysMaxRng(), useInterventions: false)!;
+            var second = (RulerDuel)RulerSystem.ResolveAuto(s, Vespera(s), new AlwaysMaxRng(), useInterventions: false)!;
             Assert.Equal(TournamentDiscipline.Magic, second.Bouts[0].Discipline);
         }
 
@@ -228,7 +228,7 @@ namespace GuildManager.Core.Tests
             RulerSystem.TrySetRepresentatives(s, Vespera(s), new[] { doomed.Id });
             int moodBefore = s.MasterMood;
 
-            var duel = RulerSystem.ResolveAuto(s, Vespera(s), new AlwaysMinRng(), useInterventions: false)!;
+            var duel = (RulerDuel)RulerSystem.ResolveAuto(s, Vespera(s), new AlwaysMinRng(), useInterventions: false)!;
 
             Assert.Contains(doomed.Id, duel.FallenIds);
             Assert.True(duel.Bouts[0].Fallen);
@@ -246,7 +246,7 @@ namespace GuildManager.Core.Tests
             var s = NewState(60, lucky);
             RulerSystem.TrySetRepresentatives(s, Vespera(s), new[] { lucky.Id });
 
-            var duel = RulerSystem.ResolveAuto(s, Vespera(s), new AlwaysMaxRng(), useInterventions: false)!; // 判定 100 > 10%
+            var duel = (RulerDuel)RulerSystem.ResolveAuto(s, Vespera(s), new AlwaysMaxRng(), useInterventions: false)!; // 判定 100 > 10%
 
             Assert.Contains(lucky.Id, duel.NearDeathIds);
             Assert.Equal(1, lucky.CurrentHP);
@@ -332,7 +332,7 @@ namespace GuildManager.Core.Tests
             var s = NewState(60, aces);
             RulerSystem.TrySetRepresentatives(s, Vespera(s), aces.Select(a => a.Id));
 
-            var duel = RulerSystem.ResolveAuto(s, Vespera(s), new AlwaysMinRng(), useInterventions: false)!;
+            var duel = (RulerDuel)RulerSystem.ResolveAuto(s, Vespera(s), new AlwaysMinRng(), useInterventions: false)!;
 
             int wins = duel.Bouts.Count(b => b.Won);
             Assert.True(wins > 0);
@@ -376,7 +376,7 @@ namespace GuildManager.Core.Tests
             s.Adventurers.Add(ace);
             RulerSystem.TrySetRepresentatives(s, Vespera(s), new[] { ace.Id });
 
-            var duel = RulerSystem.ResolveAuto(s, Vespera(s), new AlwaysMinRng(), useInterventions: false)!;
+            var duel = (RulerDuel)RulerSystem.ResolveAuto(s, Vespera(s), new AlwaysMinRng(), useInterventions: false)!;
 
             Assert.True(duel.Defeated);
             Assert.True(ForestBoss(s, 100).IsDefeated);

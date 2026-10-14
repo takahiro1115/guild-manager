@@ -480,7 +480,33 @@ partial class GameSim
     IRng rulerRng = null!;
     public int? VesperaRetreatWeek, VesperaDefeatWeek;
     public int VesperaDuels, VesperaFallen, VesperaNearDeath;
-    int rulerRestUntilWeek;
+    readonly Dictionary<string, int> rulerRestUntilWeek = new();
+    /// <summary>audit（画面と同じ手番）で回しているか（保存した部隊を使う）。campaign は false。</summary>
+    public bool AuditMode;
+
+    /// <summary>
+    /// campaign のメルジーネ用の部隊（§0.129）：ギルドの子で上位4人の合い具合がいちばん高い調べ2つに、それぞれ4人（重ならない）で
+    /// 「メルジーネ戦」の部隊を組み直す（方針は無し）。ヴェスペラの代表は入れない。
+    /// </summary>
+    void BuildMelusineSquads(bool outpost)
+    {
+        var pool = s.Adventurers.Where(a => RulerSystem.RepresentativeBlockReason(s, a) == null && !s.Rulers.Any(r => r.RepresentativeIds.Contains(a.Id))).ToList();
+        var used = new HashSet<Guid>();
+        var modes = Enum.GetValues<SongMode>()
+            .OrderByDescending(m => pool.OrderByDescending(a => MelusineBattle.MemberFit(a, m)).Take(4).Select(a => MelusineBattle.MemberFit(a, m)).DefaultIfEmpty(0).Average())
+            .Take(2).ToList();
+        for (int i = 0; i < modes.Count; i++)
+        {
+            string name = $"メルジーネ戦{i + 1}";
+            var squad = s.SavedParties.FirstOrDefault(p => p.Name == name);
+            if (squad == null) { squad = new SavedParty { Name = name }; s.SavedParties.Add(squad); }
+            var members = pool.Where(a => !used.Contains(a.Id)).OrderByDescending(a => MelusineBattle.MemberFit(a, modes[i])).Take(4).ToList();
+            squad.MemberIds = members.Select(a => a.Id).ToList();
+            foreach (var a in members) used.Add(a.Id);
+        }
+    }
+    public int? MelusineRetreatWeek, MelusineDefeatWeek;
+    public int MelusineBattles;
     /// <summary>支配者戦のプレイヤー役：決闘で削れた量が月の回復の1.5倍に届かなければ1季節休む。所持金がこの値未満なら挑まない。</summary>
     const int RulerMinGold = 3000;
 
@@ -494,24 +520,35 @@ partial class GameSim
         RulerSystem.EnsureRulers(s);
         foreach (var ruler in s.Rulers)
         {
+            bool vespera = ruler.RulerId == RulerSystem.VesperaId;
             if (RulerSystem.IsDuelDue(s, ruler) && RulerSystem.ResolveAuto(s, ruler, rulerRng, useInterventions: true) is { } duel)
             {
-                VesperaDuels++;
+                if (vespera) VesperaDuels++; else MelusineBattles++;
                 VesperaFallen += duel.FallenIds.Count;
                 VesperaNearDeath += duel.NearDeathIds.Count;
-                if (duel.Retreated) VesperaRetreatWeek ??= s.WeekNumber;
-                if (duel.Defeated) VesperaDefeatWeek ??= s.WeekNumber;
-                if (duel.Retreated || duel.Defeated) FieldKills.Add((1, duel.Boss.Floor, s.WeekNumber)); // 節目の表（100F）に決着を数える
-                else if (duel.HpBefore - duel.Ruler.Hp < RulerBalance.RegenPerMonth * 3 / 2) rulerRestUntilWeek = s.WeekNumber + GameCalendar.WeeksPerSeason;
+                if (duel.Retreated) { if (vespera) VesperaRetreatWeek ??= s.WeekNumber; else MelusineRetreatWeek ??= s.WeekNumber; }
+                if (duel.Defeated) { if (vespera) VesperaDefeatWeek ??= s.WeekNumber; else MelusineDefeatWeek ??= s.WeekNumber; }
+                if (duel.Retreated || duel.Defeated) FieldKills.Add((RulerSystem.FieldOf(s, ruler)!.Order, duel.Boss.Floor, s.WeekNumber)); // 節目の表（100F）に決着を数える
+                else if (duel.HpBefore - duel.Ruler.Hp < RulerBalance.RegenPerMonth * 3 / 2) rulerRestUntilWeek[ruler.RulerId] = s.WeekNumber + GameCalendar.WeeksPerSeason;
             }
             if (!RulerSystem.CanChallenge(s, ruler)) continue;
-            if (s.WeekNumber < rulerRestUntilWeek || s.Gold < RulerMinGold)
+            bool outpost = RulerSystem.IsOutpost(s, ruler);
+            bool rest = s.WeekNumber < rulerRestUntilWeek.GetValueOrDefault(ruler.RulerId) || s.Gold < RulerMinGold;
+            if (RulerSystem.UsesSquads(ruler))
             {
-                RulerSystem.TrySetRepresentatives(s, ruler, Array.Empty<Guid>());
+                if (!AuditMode && !rest) BuildMelusineSquads(outpost); // campaign：保存した部隊を使わないので、その場で組む
+                // メルジーネ：どれかの調べで合い具合が届く部隊を、合う順に2つまで（稼ぐ部隊を1つは残す）
+                var squads = rest ? new List<Guid>() : s.SavedParties
+                    .Where(p => p.MemberIds.Count > 0)
+                    .Select(p => (p.Id, Best: Enum.GetValues<SongMode>().Max(m => MelusineBattle.SquadFit(p.MemberIds.Select(s.FindAdventurer).OfType<Adventurer>().ToList(), m, outpost))))
+                    .Where(x => x.Best >= 1.0)
+                    .OrderByDescending(x => x.Best)
+                    .Take(Math.Min(2, Math.Max(0, s.SavedParties.Count(p => p.MemberIds.Count > 0) - 1)))
+                    .Select(x => x.Id).ToList();
+                RulerSystem.TrySetSquads(s, ruler, squads);
                 continue;
             }
-            bool outpost = RulerSystem.IsOutpost(s, ruler);
-            var reps = s.Adventurers
+            var reps = rest ? new List<Guid>() : s.Adventurers
                 .Where(a => RulerSystem.RepresentativeBlockReason(s, a) == null)
                 .Select(a => (a, Best: RulerSystem.VesperaWeapons.Max(d => TournamentSystem.MatchStrength(a, d) / RulerSystem.VesperaStrength(outpost, d))))
                 .Where(x => x.Best >= 1.0 && RulerSystem.JudgeCharm(s, x.a, outpost) != DuelCharm.Charmed)
@@ -627,7 +664,7 @@ partial class GameSim
 
         // 訓練は月の約束（§0.70）：割り振りを変えられるのは月のはじめだけ。月の途中は訓練生を出撃に回さない。
         bool monthStart = TrainingSystem.CanChangeAssignments(s);
-        bool Free(Adventurer a) => (monthStart || !TrainingSystem.IsTraining(s, a.Id)) && !TournamentSystem.IsEntered(s, a.Id);
+        bool Free(Adventurer a) => (monthStart || !TrainingSystem.IsTraining(s, a.Id)) && !TournamentSystem.IsEntered(s, a.Id) && !RulerSystem.IsRepresentative(s, a.Id); // 支配者戦の代表（§0.127）
 
         // 主力：次のボスへ潜行（森だけのモードでは森、campaign では要求火力の最も低いボス）
         var target = PickTarget()?.Boss;
@@ -1031,6 +1068,7 @@ partial class GameSim
         Console.WriteLine($"依頼が届き始めた（初めての入賞の次の季節）：{WeekStat(x => x.CommissionsOpenWeek)}");
         Console.WriteLine($"交流戦（行った／勝った）：{string.Join(", ", sims.Select(x => $"{x.ExchangePlayed}/{x.ExchangeWon}"))}");
         Console.WriteLine($"ヴェスペラ（§0.127）：前哨戦で退かせた {WeekStat(x => x.VesperaRetreatWeek)}　決着 {WeekStat(x => x.VesperaDefeatWeek)}　決闘の回数 {string.Join(", ", sims.Select(x => x.VesperaDuels))}　強制除籍 {sims.Sum(x => x.VesperaFallen)}・一命を取り留めた {sims.Sum(x => x.VesperaNearDeath)}");
+        Console.WriteLine($"メルジーネ（§0.129）：前哨戦で退かせた {WeekStat(x => x.MelusineRetreatWeek)}　決着 {WeekStat(x => x.MelusineDefeatWeek)}　戦いの回数 {string.Join(", ", sims.Select(x => x.MelusineBattles))}");
         Console.WriteLine($"森の主を初めて倒した週：{string.Join("・", new[] { 30, 40, 50, 60, 70, 80, 90, 100 }.Select(f => $"{f}F {WeekStat(x => x.ForestKillWeek.TryGetValue(f, out int w) ? w : null)}"))}");
         Console.WriteLine($"交流戦の勝率（来訪からの年数ごと、全回の合計）：{string.Join("・", sims.SelectMany(x => x.ExchangeLog).GroupBy(e => Math.Min(e.Year, 5)).OrderBy(g => g.Key).Select(g => $"{(g.Key == 5 ? "6年目〜" : $"{g.Key + 1}年目")} {g.Count(e => e.Won)}/{g.Count()}"))}　初戦：{sims.Count(x => x.ExchangeLog.Count > 0 && x.ExchangeLog[0].Won)}/{sims.Count(x => x.ExchangeLog.Count > 0)}勝（見込みの中央値 {(sims.Any(x => x.FirstExchangeChance != null) ? Median(sims.Select(x => x.FirstExchangeChance).OfType<double>().ToList()) : 0):P0}）");
         Console.WriteLine();

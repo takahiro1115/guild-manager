@@ -1286,44 +1286,34 @@ public partial class MainDashboard : Control
 		}
 	}
 
-	// ==================== 支配者戦（§0.127） ====================
+	// ==================== 支配者戦（§0.127〜） ====================
 
 	/// <summary>
-	/// 支配者戦（§0.127、→ RulerSystem）：月を終えたあと（月報のあと）、代表を選んだ支配者との決闘を1試合ずつ段で見せる。
-	/// 山場（見切り・名を呼ぶ）では護符の介入を聞く。決闘を待っていなければすぐ then。
+	/// 支配者戦（§0.127〜、→ RulerSystem・RulerBattle）：月を終えたあと（月報のあと）、出る子・部隊を選んだ支配者との戦いを段で見せる。
+	/// 山場では護符の介入を聞く（戦い方ごとに中身が違う）。戦いを待っていなければすぐ then。
 	/// </summary>
 	private void ShowRulerDuel(Action then)
 	{
 		var ruler = RulerSystem.DueDuel(_state);
-		var duel = ruler == null ? null : RulerSystem.StartDuel(_state, ruler, new SeededRng(_state.WeekNumber * 7919 + ruler.DuelCount * 31 + 17));
-		if (duel == null)
+		var battle = ruler == null ? null : RulerSystem.StartBattle(_state, ruler, new SeededRng(_state.WeekNumber * 7919 + ruler.DuelCount * 31 + 17));
+		if (battle == null)
 		{
 			then();
 			return;
 		}
-		int shown = 0;
-		bool opened = false;
 		void Step()
 		{
-			duel.Advance();
-			var lines = new List<StoryLine>();
-			if (!opened)
-			{
-				lines.AddRange(RulerSystem.DuelOpeningLines(duel));
-				opened = true;
-			}
-			foreach (var bout in duel.Bouts.Skip(shown))
-				lines.AddRange(RulerSystem.BoutLines(bout));
-			shown = duel.Bouts.Count;
-			bool prompt = duel.Prompt != DuelPromptKind.None;
+			battle.Advance();
+			var lines = battle.TakeNewLines();
+			bool prompt = battle.Prompt != DuelPromptKind.None;
 			if (prompt)
-				lines.AddRange(RulerSystem.PromptLines(duel));
+				lines.AddRange(battle.PromptLines());
 			else
 			{
-				duel.Finish();
-				lines.AddRange(RulerSystem.DuelClosingLines(duel));
+				battle.Finish();
+				lines.AddRange(battle.ClosingLines());
 			}
-			var steps = lines.Select(l => new StoryStep(l, RulerSystem.DuelBackground, StoryImageBalance.BackgroundFile(RulerSystem.DuelBackground),
+			var steps = lines.Select(l => new StoryStep(l, battle.Background, StoryImageBalance.BackgroundFile(battle.Background),
 				l.Kind == StoryLineKind.Speech ? StoryImageBalance.PortraitFile(l.Speaker) : null)).ToList();
 			void OnClosed()
 			{
@@ -1331,53 +1321,42 @@ public partial class MainDashboard : Control
 				Callable.From(() =>
 				{
 					if (prompt)
-						AskDuelIntervention(duel, Step);
+						AskDuelIntervention(battle, Step);
 					else
 					{
-						AppendLog($"[color=gold][b]⚔ 支配者戦：{RulerSystem.VesperaName}[/b][/color] 体力 {duel.HpBefore}→{duel.Ruler.Hp}" +
-							(duel.Retreated ? "（退いた）" : duel.Defeated ? "（倒した）" : ""));
+						AppendLog($"[color=gold][b]⚔ 支配者戦：{battle.RulerName}[/b][/color] 体力 {battle.HpBefore}→{battle.Ruler.Hp}" +
+							(battle.Retreated ? "（退いた）" : battle.Defeated ? "（倒した）" : ""));
 						RefreshAll();
 						then();
 					}
 				}).CallDeferred(); // 別の排他ウィンドウは閉じ切ってから開く
 			}
 			_storyPopup.Closed += OnClosed;
-			_storyPopup.ShowSteps(_state, $"⚔ 支配者戦　{RulerSystem.VesperaName}", steps, prompt ? "護符を使うか決める ▶" : "閉じる");
+			_storyPopup.ShowSteps(_state, $"⚔ 支配者戦　{battle.RulerName}", steps, prompt ? "護符を使うか決める ▶" : "閉じる");
 		}
 		Step();
 	}
 
-	/// <summary>護符（多頭通信術式）の介入を聞く小窓。答えたら next。</summary>
-	private void AskDuelIntervention(RulerDuel duel, Action next)
+	/// <summary>護符（多頭通信術式）の介入を聞く小窓。説明・ボタン・選択肢は戦い方が決める（→ RulerBattle.PromptDialog・PromptChoices）。答えたら next。</summary>
+	private void AskDuelIntervention(RulerBattle battle, Action next)
 	{
 		var dialog = new ConfirmationDialog { Title = "📿 部隊の護符（多頭通信術式）", Exclusive = true };
 		var box = new VBoxContainer();
 		var label = new RichTextLabel { BbcodeEnabled = true, FitContent = true, CustomMinimumSize = new Vector2(480, 0), ScrollActive = false };
 		box.AddChild(label);
+		var (text, ok, cancel) = battle.PromptDialog();
+		label.AppendText(text);
+		var choices = battle.PromptChoices();
 		OptionButton pick = null;
-		var candidates = new List<Adventurer>();
-		var fighter = duel.CurrentFighter;
-		string left = $"[color=gray]声が届くのは、この決闘であと{duel.InterventionsLeft}回。[/color]";
-		if (duel.Prompt == DuelPromptKind.Foresight && fighter != null)
+		if (choices.Count > 0)
 		{
-			var d = duel.PendingDiscipline;
-			string label2 = TournamentSystem.DisciplineLabel(d);
-			label.AppendText($"次はヴェスペラの[b]{RulerSystem.WeaponLabel(d)}[/b]（{label2}）。\n今の代表：{fighter.Name}（{label2}の強さ {TournamentSystem.MatchStrength(fighter, d):F0}）\n" +
-				$"見切りを伝えて、次に出る代表を入れ替えますか？\n{left}");
-			candidates = duel.ForesightCandidates();
 			pick = new OptionButton();
-			foreach (var c in candidates)
-				pick.AddItem($"{c.Name}（{label2}の強さ {TournamentSystem.MatchStrength(c, d):F0}）");
+			foreach (var c in choices)
+				pick.AddItem(c.Label);
 			box.AddChild(pick);
-			dialog.OkButtonText = "見切りを伝える";
-			dialog.CancelButtonText = "伝えない";
 		}
-		else if (fighter != null)
-		{
-			label.AppendText($"{fighter.Name}がヴェスペラの囁きに魅入られかけている。\n名を呼べば、届く見込み [b]{RulerSystem.CallNameChance(_state, fighter)}%[/b]（相性と満足度が高いほど届く）。\n{left}");
-			dialog.OkButtonText = "名を呼ぶ";
-			dialog.CancelButtonText = "呼ばない";
-		}
+		dialog.OkButtonText = ok;
+		dialog.CancelButtonText = cancel;
 		dialog.AddChild(box);
 		AddChild(dialog);
 		bool answered = false;
@@ -1385,10 +1364,8 @@ public partial class MainDashboard : Control
 		{
 			if (answered) return;
 			answered = true;
-			if (duel.Prompt == DuelPromptKind.Foresight)
-				duel.AnswerForesight(use && pick != null && pick.Selected >= 0 && pick.Selected < candidates.Count ? candidates[pick.Selected].Id : null);
-			else
-				duel.AnswerCallName(use);
+			Guid? choice = pick != null && pick.Selected >= 0 && pick.Selected < choices.Count ? choices[pick.Selected].Id : null;
+			battle.Answer(use, choice);
 			dialog.QueueFree();
 			Callable.From(next).CallDeferred();
 		}

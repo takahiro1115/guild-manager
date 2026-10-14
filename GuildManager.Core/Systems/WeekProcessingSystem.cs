@@ -186,6 +186,7 @@ namespace GuildManager.Core.Systems
             result.TrainingGrowthEvents.AddRange(_growthSystem.ProcessTrainingGrowth(state, idleExcludedIds)); // → 03 §3.1〜3.4：成長トリガー経路2（さぼった子は除く、§0.101）
             result.SelfTrainingGrowthEvents.AddRange(_growthSystem.ProcessSelfTraining(state, idleWeek.SelfTrainerIds)); // → §0.73：自主練
             result.SelfTrainerCount = idleWeek.SelfTrainerIds.Count;
+            result.SelfTrainingGrowthEvents.AddRange(_growthSystem.ProcessMeditation(state, idleWeek.MeditatorIds)); // 瞑想（§0.129）
             result.TrainingGrowthEvents.AddRange(_growthSystem.ProcessTournamentPush(state)); // 大会の月の追い込み（§0.82）
             result.TrainingGrowthEvents.AddRange(GuildPolicySystem.ProcessCoaching(state, _growthSystem, thisWeek)); // 個人特訓（§0.105）
             result.TrainingInjuries.AddRange(GuildPolicySystem.ProcessTrainingPolicy(state, idleExcludedIds, _policyRng)); // 訓練の方針（§0.105）：厳しく＝けがと満足度↓、穏やかに＝満足度↑

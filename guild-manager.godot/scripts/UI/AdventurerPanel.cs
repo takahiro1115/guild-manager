@@ -404,10 +404,12 @@ public partial class AdventurerPanel : VBoxContainer
 		_idleActivityOption = new OptionButton
 		{
 			TooltipText = $"研究を手伝う：研究の手伝いが週{MasterMoodBalance.IdleAdventurerHelpResearchCredit}貯まり（{TrainingBalance.ResearchCreditPerWeek}ごとに、進めている研究が1週早まる）、マスターの機嫌が+{MasterMoodBalance.IdleAdventurerHelpMood}。\n" +
-				$"自主練：能力が少し伸びることがある（訓練施設の{TrainingBalance.SelfTrainingGrowthMultiplier * 100:0}%ほどの伸び。費用なし）。HPを{TrainingBalance.SelfTrainingHpCost}使う。",
+				$"自主練：能力が少し伸びることがある（訓練施設の{TrainingBalance.SelfTrainingGrowthMultiplier * 100:0}%ほどの伸び。費用なし）。HPを{TrainingBalance.SelfTrainingHpCost}使う。\n" +
+				$"瞑想：MND だけが伸びることがある（訓練施設の{TrainingBalance.MeditationGrowthMultiplier * 100:0}%ほど）。HPを使わない。メルジーネとの決着で湧く静寂の泉が要る。",
 		};
 		_idleActivityOption.AddItem(IdleActivitySystem.Label(IdleActivity.Help), (int)IdleActivity.Help);
 		_idleActivityOption.AddItem(IdleActivitySystem.Label(IdleActivity.SelfTraining), (int)IdleActivity.SelfTraining);
+		_idleActivityOption.AddItem(IdleActivitySystem.Label(IdleActivity.Meditation), (int)IdleActivity.Meditation); // 静寂の泉が湧いてから選べる（§0.129）
 		_idleActivityOption.ItemSelected += OnIdleActivitySelected;
 		row.AddChild(_idleActivityOption);
 
@@ -438,6 +440,9 @@ public partial class AdventurerPanel : VBoxContainer
 		if (_state == null) return;
 		_idleCard.Visible = true;
 		_idleUpdating = true;
+		int meditation = _idleActivityOption.GetItemIndex((int)IdleActivity.Meditation);
+		_idleActivityOption.SetItemDisabled(meditation, !RulerSystem.IsMeditationOpen(_state));
+		_idleActivityOption.SetItemText(meditation, RulerSystem.IsMeditationOpen(_state) ? "瞑想" : "瞑想（静寂の泉が湧いてから）");
 		_idleActivityOption.Select(_idleActivityOption.GetItemIndex((int)a.IdleActivity));
 		_selfTrainingStatOption.Select(Math.Max(0, Array.IndexOf(SelfTrainingStatChoices, a.SelfTrainingStat ?? "")));
 		_idleUpdating = false;

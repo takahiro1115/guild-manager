@@ -149,6 +149,23 @@ namespace GuildManager.Core.Systems
         }
 
         /// <summary>
+        /// 瞑想（§0.129、静寂の泉）：MND だけを、自主練の MeditationGrowthMultiplier÷SelfTrainingGrowthMultiplier 倍の確率で伸ばす（研究・特性・志向〈訓練〉・上機嫌は自主練と同じく効く）。
+        /// </summary>
+        public List<GrowthEvent> ProcessMeditation(GameState state, IReadOnlySet<Guid> meditatorIds)
+        {
+            var events = new List<GrowthEvent>();
+            double researchMultiplier = GetResearchGrowthMultiplier(state);
+            foreach (var adventurer in state.Adventurers.Where(a => meditatorIds.Contains(a.Id)))
+            {
+                var growthEvent = TryGrowOne(adventurer, TrainingBalance.MeditationGrowthMultiplier * researchMultiplier * TraitGrowthMultiplier(adventurer),
+                    _ => "MND", MoraleSystem.GrowthBonus(adventurer, Drive.Training));
+                if (growthEvent != null)
+                    events.Add(growthEvent);
+            }
+            return events;
+        }
+
+        /// <summary>
         /// 派遣から帰ってきたときの成長（§0.85、→ CommissionSystem.ReturnFromLoan）：rolls 回、訓練所Lv1・教官なしと同じ確率
         /// （年齢帯別の基礎確率×TrainingFacilityMultiplier×研究×特性）で、stats から等確率に選んだ能力を伸ばす。
         /// </summary>

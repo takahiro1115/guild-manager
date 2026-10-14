@@ -35,7 +35,7 @@ namespace GuildManager.Core.Tests.Balance
         public void UniquesCsv_LoadsFiveArtifactsAndFiveLegendaries()
         {
             Assert.Equal(5, UniqueBalance.All.Count(d => d.Grade == UniqueGrade.Artifact));
-            Assert.Equal(6, UniqueBalance.All.Count(d => d.Grade == UniqueGrade.Legendary)); // §0.128 でヴェスペラの双剣を足した
+            Assert.Equal(7, UniqueBalance.All.Count(d => d.Grade == UniqueGrade.Legendary)); // §0.128 でヴェスペラの双剣、§0.129 で歌姫の耳飾りを足した
             Assert.Equal(5, UniqueBalance.Artifacts.Count);
         }
 

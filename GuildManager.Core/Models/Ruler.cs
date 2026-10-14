@@ -39,5 +39,24 @@ namespace GuildManager.Core.Models
         /// 月のはじめに代表を選んですぐ決闘にならないよう、月を終えたときに付ける（→ RulerSystem.ProcessNewWeek）。
         /// </summary>
         public int? PendingDuelWeek { get; set; }
+
+        /// <summary>出す部隊（メルジーネ、§0.129。SavedParty の Id、順番つき）。旧セーブでは空。</summary>
+        public List<Guid> SquadIds { get; set; } = new();
+
+        /// <summary>メルジーネの4曲の調べの並び（月ごとに入れ替わる、§0.129）。旧セーブでは空（読み込みで補う）。</summary>
+        public List<SongMode> SongOrder { get; set; } = new();
+    }
+
+    /// <summary>メルジーネの調べ（§0.129）。</summary>
+    public enum SongMode
+    {
+        /// <summary>激しい調べ（STR・VIT）。</summary>
+        Fierce,
+        /// <summary>静かな調べ（MND）。</summary>
+        Calm,
+        /// <summary>速い調べ（AGI・DEX）。</summary>
+        Swift,
+        /// <summary>甘い調べ（INT。INT の低い子は魅了される）。</summary>
+        Sweet,
     }
 }

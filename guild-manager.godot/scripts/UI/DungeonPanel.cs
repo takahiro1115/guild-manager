@@ -212,16 +212,17 @@ public partial class DungeonPanel : ScrollContainer
 		BuildRulerCard();
 	}
 
-	// ==================== 支配者の欄（§0.127） ====================
+	// ==================== 支配者の欄（§0.127〜） ====================
 
 	private PanelContainer _rulerCard = null!;
 	private RichTextLabel _rulerLabel = null!;
+	private readonly List<Label> _rulerSlotLabels = new();
 	private readonly List<OptionButton> _rulerSlots = new();
-	/// <summary>代表の枠ごとの選択肢（添字0は「空き」＝null）。</summary>
+	/// <summary>枠ごとの選択肢（添字0は「空き」＝null）。ヴェスペラは冒険者の Id、メルジーネは部隊の Id。</summary>
 	private readonly List<List<Guid?>> _rulerSlotIds = new();
 	private bool _rulerRefreshing;
 
-	/// <summary>ボスの欄の下に、支配者の欄（体力・次の武器・魅了の閾値・代表の5枠）をコードで作る。挑めるときだけ見せる。</summary>
+	/// <summary>ボスの欄の下に、支配者の欄（体力・手の内・出る子や部隊の枠）をコードで作る。挑めるときだけ見せる。</summary>
 	private void BuildRulerCard()
 	{
 		_rulerCard = new PanelContainer { Visible = false };
@@ -236,9 +237,12 @@ public partial class DungeonPanel : ScrollContainer
 		vbox.AddChild(_rulerLabel);
 		var grid = new GridContainer { Columns = 2 };
 		grid.AddThemeConstantOverride("h_separation", 6);
-		for (int i = 0; i < RulerBalance.VesperaMaxRepresentatives; i++)
+		int slots = Math.Max(RulerBalance.VesperaMaxRepresentatives, RulerBalance.MelusineMaxSquads);
+		for (int i = 0; i < slots; i++)
 		{
-			grid.AddChild(new Label { Text = $"{i + 1}人目" });
+			var label = new Label();
+			grid.AddChild(label);
+			_rulerSlotLabels.Add(label);
 			var slot = new OptionButton { SizeFlagsHorizontal = SizeFlags.ExpandFill, FitToLongestItem = false };
 			UiStyles.ApplyDropdownStyle(slot);
 			slot.ItemSelected += _ => OnRulerSlotChanged();
@@ -267,11 +271,63 @@ public partial class DungeonPanel : ScrollContainer
 		_rulerRefreshing = true;
 		bool outpost = RulerSystem.IsOutpost(_state!, ruler);
 		double intel = RulerSystem.IntelOf(_state!, ruler);
+		bool squads = RulerSystem.UsesSquads(ruler);
 		var sb = new StringBuilder();
-		sb.Append($"[b]👑 支配者{RulerSystem.VesperaName}[/b]　{(outpost ? "前哨戦（70F）" : "決着（100F）")}　[color=gray]勝ち抜きの一騎打ち[/color]\n");
+		sb.Append($"[b]👑 支配者{RulerSystem.NameOf(ruler.RulerId)}[/b]　{(outpost ? "前哨戦（70F）" : "決着（100F）")}　[color=gray]{(squads ? "調べの読み合い" : "勝ち抜きの一騎打ち")}[/color]\n");
 		int filled = (int)Math.Round(10.0 * ruler.Hp / RulerBalance.MaxHp);
 		sb.Append($"体力 [color=#f87171]{new string('■', filled)}[/color][color=#4b5563]{new string('□', 10 - filled)}[/color] {ruler.Hp}/{RulerBalance.MaxHp}" +
 			$"[color=gray]（{(outpost ? $"{RulerBalance.OutpostRetreatHp}を切ると退く・" : "")}毎月+{RulerBalance.RegenPerMonth}）[/color]\n");
+		bool canChange = RulerSystem.CanChangeRepresentatives(_state!);
+		if (squads) AppendMelusineInfo(sb, ruler, outpost, intel, canChange);
+		else AppendVesperaInfo(sb, ruler, outpost, intel, canChange);
+		_rulerLabel.Clear();
+		_rulerLabel.AppendText(sb.ToString());
+
+		int slotCount = squads ? RulerBalance.MelusineMaxSquads : RulerBalance.VesperaMaxRepresentatives;
+		var current = squads ? ruler.SquadIds : ruler.RepresentativeIds;
+		for (int i = 0; i < _rulerSlots.Count; i++)
+		{
+			var slot = _rulerSlots[i];
+			bool visible = i < slotCount;
+			slot.Visible = visible;
+			_rulerSlotLabels[i].Visible = visible;
+			if (!visible) continue;
+			_rulerSlotLabels[i].Text = squads ? $"{i + 1}番目" : $"{i + 1}人目";
+			var ids = _rulerSlotIds[i];
+			Guid? chosen = i < current.Count ? current[i] : null;
+			slot.Clear();
+			ids.Clear();
+			slot.AddItem("（空き）");
+			ids.Add(null);
+			if (squads)
+			{
+				foreach (var p in _state!.SavedParties.Where(p => p.MemberIds.Count > 0))
+				{
+					slot.AddItem(SquadFitText(p, outpost));
+					ids.Add(p.Id);
+				}
+			}
+			else
+			{
+				foreach (var a in _state!.Adventurers.Where(a => !a.IsRetired))
+				{
+					string? block = RulerSystem.RepresentativeBlockReason(_state, a);
+					if (block != null && a.Id != chosen) continue;
+					slot.AddItem(RepresentativeText(a, outpost, intel, block));
+					ids.Add(a.Id);
+				}
+			}
+			slot.Select(Math.Max(0, ids.IndexOf(chosen)));
+			slot.Disabled = !canChange;
+			slot.TooltipText = !canChange ? "変えられるのは月のはじめだけ。"
+				: squads ? "出す部隊を順番に選ぶ。調べの分からない曲は、この順番で前に出る。" : "代表を選ぶ。同じ子を2つの枠に入れたら、上の枠を残す。";
+		}
+		_rulerRefreshing = false;
+	}
+
+	/// <summary>ヴェスペラの手の内（解析で見える分）と説明。</summary>
+	private static void AppendVesperaInfo(StringBuilder sb, RulerState ruler, bool outpost, double intel, bool canChange)
+	{
 		sb.Append(intel >= RulerBalance.VesperaIntelWeaponReveal
 			? "次の武器：" + string.Join(" → ", RulerSystem.UpcomingWeapons(ruler, 3).Select(d => $"{RulerSystem.WeaponLabel(d)}（{TournamentSystem.DisciplineLabel(d)}）")) + "\n"
 			: $"次の武器：[color=gray]？？？（解析{RulerBalance.VesperaIntelWeaponReveal * 100:F0}%で分かる）[/color]\n");
@@ -282,35 +338,38 @@ public partial class DungeonPanel : ScrollContainer
 		sb.Append(intel >= RulerBalance.VesperaIntelStrengthReveal
 			? "強さ：" + string.Join("・", RulerSystem.VesperaWeapons.Select(d => $"{TournamentSystem.DisciplineLabel(d)}{RulerSystem.VesperaStrength(outpost, d):F0}")) + "\n"
 			: $"強さ：[color=gray]？？？（解析{RulerBalance.VesperaIntelStrengthReveal * 100:F0}%で分かる）[/color]\n");
-		bool canChange = RulerSystem.CanChangeRepresentatives(_state!);
 		sb.Append($"[color=gray]代表を順番に選ぶ（勝った子は残って次の試合へ）。決闘は月を終えたあと。代表はその月、出撃・訓練・大会に出ない。" +
 			(canChange ? "" : "[color=orange]代表を変えられるのは月のはじめだけ。[/color]") + "[/color]");
-		_rulerLabel.Clear();
-		_rulerLabel.AppendText(sb.ToString());
+	}
 
-		var candidates = _state!.Adventurers.Where(a => !a.IsRetired).ToList();
-		for (int i = 0; i < _rulerSlots.Count; i++)
+	/// <summary>メルジーネの調べの並び（解析で見える分）と説明。</summary>
+	private void AppendMelusineInfo(StringBuilder sb, RulerState ruler, bool outpost, double intel, bool canChange)
+	{
+		int known = MelusineBattle.RevealedSongs(intel);
+		var songs = ruler.SongOrder.Select((m, i) => i < known
+			? $"{MelusineBattle.ModeLabel(m)}（{MelusineBattle.ModeStatLabel(m)}）"
+			: "[color=gray]？？？[/color]");
+		sb.Append("調べ：" + string.Join(" → ", songs) +
+			$"　[color=gray]（解析{RulerBalance.MelusineIntelRevealOne * 100:F0}%で1曲目・{RulerBalance.MelusineIntelRevealTwo * 100:F0}%で2曲目まで・{RulerBalance.MelusineIntelRevealAll * 100:F0}%で全曲）[/color]\n");
+		int threshold = MelusineBattle.Threshold(outpost);
+		sb.Append($"閾値：合う能力の部隊の平均が {threshold} の{RulerBalance.MelusineSwallowRate * 100:F0}%に届けば打ち破る。甘い調べは INT が {threshold * RulerBalance.MelusineSweetCharmRate:F0} より低い子が魅了される\n");
+		if (MelusineBattle.LuminaCanListen(_state!))
+			sb.Append("[color=#a5f3fc]ルミナが歌を聞き取れる（護符で、分からない曲の調べを聞き取ってもらえる）[/color]\n");
+		sb.Append("[color=gray]部隊を順番に選ぶ（調べの分かった曲はいちばん合う部隊が、分からない曲は順番どおりの部隊が前に出る）。戦いは月を終えたあと。出す部隊はその月、ほかに出ない。" +
+			(canChange ? "" : "[color=orange]部隊を変えられるのは月のはじめだけ。[/color]") + "[/color]");
+	}
+
+	/// <summary>部隊の選択肢の1行：部隊の名前と、4つの調べへの合い具合。</summary>
+	private string SquadFitText(SavedParty p, bool outpost)
+	{
+		var members = p.MemberIds.Select(id => _state!.FindAdventurer(id)).OfType<Adventurer>().Where(a => !a.IsRetired).ToList();
+		var fits = Enum.GetValues<SongMode>().Select(m =>
 		{
-			var slot = _rulerSlots[i];
-			var ids = _rulerSlotIds[i];
-			Guid? current = i < ruler.RepresentativeIds.Count ? ruler.RepresentativeIds[i] : null;
-			slot.Clear();
-			ids.Clear();
-			slot.AddItem("（空き）");
-			ids.Add(null);
-			foreach (var a in candidates)
-			{
-				string? block = RulerSystem.RepresentativeBlockReason(_state, a);
-				if (block != null && a.Id != current) continue;
-				slot.AddItem(RepresentativeText(a, outpost, intel, block));
-				ids.Add(a.Id);
-			}
-			int selected = Math.Max(0, ids.IndexOf(current));
-			slot.Select(selected);
-			slot.Disabled = !canChange;
-			slot.TooltipText = canChange ? "代表を選ぶ。同じ子を2つの枠に入れたら、上の枠を残す。" : "代表を変えられるのは月のはじめだけ。";
-		}
-		_rulerRefreshing = false;
+			double fit = MelusineBattle.SquadFit(members, m, outpost);
+			string mark = fit >= 1.0 ? "✔" : fit >= RulerBalance.MelusineSwallowRate ? "△" : "✖";
+			return $"{MelusineBattle.ModeLabel(m).Replace("調べ", "")}{fit * 100:F0}%{mark}";
+		});
+		return $"{p.Name}（{members.Count}人）　{string.Join(" ", fits)}";
 	}
 
 	/// <summary>代表の選択肢の1行：名前・剣魔技の試合の強さ・MND（解析で閾値が分かれば届くか）・相棒の有無。</summary>
@@ -331,9 +390,10 @@ public partial class DungeonPanel : ScrollContainer
 		var boss = _selectedField?.GetNextActiveBoss();
 		var ruler = boss != null ? RulerSystem.RulerAt(_state, boss) : null;
 		if (ruler == null) return;
-		var ids = _rulerSlots.Select((slot, i) => slot.Selected >= 0 && slot.Selected < _rulerSlotIds[i].Count ? _rulerSlotIds[i][slot.Selected] : null)
+		var ids = _rulerSlots.Select((slot, i) => slot.Visible && slot.Selected >= 0 && slot.Selected < _rulerSlotIds[i].Count ? _rulerSlotIds[i][slot.Selected] : null)
 			.OfType<Guid>().ToList();
-		RulerSystem.TrySetRepresentatives(_state, ruler, ids);
+		if (RulerSystem.UsesSquads(ruler)) RulerSystem.TrySetSquads(_state, ruler, ids);
+		else RulerSystem.TrySetRepresentatives(_state, ruler, ids);
 		StateChanged.Invoke();
 		Refresh(_state);
 	}

@@ -13,5 +13,8 @@ namespace GuildManager.Core.Models
 
         /// <summary>自主練：能力が少し伸びることがある（伸ばす能力は Adventurer.SelfTrainingStat、無ければ職業の伸び方）。HPを少し使う（静養の回復は受けるので、回復が少し遅くなる）。</summary>
         SelfTraining = 1,
+
+        /// <summary>瞑想（§0.129）：静寂の泉（メルジーネとの決着の見返り）が湧いてから選べる。MND だけが伸びることがある（自主練の2倍ほど）。HPを使わない。泉が無ければ研究を手伝う。</summary>
+        Meditation = 2,
     }
 }

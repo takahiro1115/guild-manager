@@ -8,26 +8,32 @@ using GuildManager.Core.Rng;
 namespace GuildManager.Core.Systems
 {
     /// <summary>
-    /// 大迷宮の支配者（2026年10月・§0.127、→ docs/検討中_大迷宮の支配者.md）。
+    /// 大迷宮の支配者（2026年10月・§0.127〜、→ docs/検討中_大迷宮の支配者.md）。
     /// 支配者は各フィールドの70F（前哨戦）と100F（決着）の主の代わりに待ち、主の決戦では倒せない（扉前で必ず引き返す）。
-    /// 支配者とは支配者戦（支配者ごとに戦い方が違う）で戦う。今はヴェスペラ（森、勝ち抜きの一騎打ち）だけ。
-    ///
-    /// ヴェスペラの一騎打ち（設計書 §3-5）：
-    ///  - 60F（90F）の主を倒すと、70F（100F）でヴェスペラに挑める。代表を最大5人、順番つきで選ぶ（月のはじめだけ変えられる。翌月も残る）。
-    ///    代表はその月、出撃・訓練・大会に出ない。
-    ///  - 決闘は月を終えたあと（月報のあと）に1回。最大5試合の勝ち抜き。勝った代表は残って次の試合へ、負けた代表は下がる。
-    ///  - ヴェスペラの武器は試合ごとに剣→魔→技と替わり、並びは月をまたいで続く。試合の前に MND で魅了の判定。
-    ///  - 体力は月をまたいで残り、毎月回復する。前哨戦は体力50を切ると退き（70Fを倒したことになる）、決着は0で撃破。
-    ///  - 介入（部隊の護符の多頭通信術式）：見切りを伝える（次の代表を入れ替える）・名を呼ぶ（魅了をやり直す）。
-    ///  - HPが0になった代表は、低い確率で強制除籍（§0.125 と同じ決まり）。ほかは HP1 で重傷。
+    /// 支配者とは支配者戦（支配者ごとに戦い方が違う、→ RulerBattle）で戦う。
+    ///  - ヴェスペラ（森、§0.127）：代表を最大5人選ぶ勝ち抜きの一騎打ち（→ RulerDuel、設計書 §3-5）。
+    ///  - メルジーネ（洞窟、§0.129）：部隊を最大3つ出す調べの読み合い（→ MelusineBattle、設計書 §3-7）。
+    /// 共通：60F（90F）の主を倒すと挑める。出る子・部隊は月のはじめに決め（翌月も残る）、その月はほかに出ない。
+    /// 月を過ごし終えたら月報のあとに戦う。体力は月をまたいで残り、毎月回復する。前哨戦は体力50を切ると退き（70Fを倒したことになる）、
+    /// 決着は0で撃破。介入は部隊の護符の多頭通信術式。HPが0になった子は、低い確率で強制除籍（§0.125 と同じ決まり）。
     /// </summary>
     public static class RulerSystem
     {
         public const string VesperaId = "vespera";
         public const string VesperaName = "ヴェスペラ";
+        public const string MelusineId = "melusine";
+        public const string MelusineName = "メルジーネ";
         public const string ForestId = "forest";
+        public const string CaveId = "cave";
         public const int OutpostFloor = 70;
         public const int FinalFloor = 100;
+
+        /// <summary>支配者とフィールドの組（作った順）。</summary>
+        private static readonly (string RulerId, string FieldId, string Name)[] Rulers =
+        {
+            (VesperaId, ForestId, VesperaName),
+            (MelusineId, CaveId, MelusineName),
+        };
 
         /// <summary>ヴェスペラの武器の並び（剣→魔→技）。</summary>
         public static readonly TournamentDiscipline[] VesperaWeapons =
@@ -46,11 +52,17 @@ namespace GuildManager.Core.Systems
         /// <summary>支配者の状態が無ければ足す（新しいゲーム・旧セーブ。何度呼んでもよい）。</summary>
         public static void EnsureRulers(GameState state)
         {
-            if (state.Rulers.All(r => r.RulerId != VesperaId))
-                state.Rulers.Add(new RulerState { RulerId = VesperaId, Hp = RulerBalance.MaxHp });
+            foreach (var (id, _, _) in Rulers)
+                if (state.Rulers.All(r => r.RulerId != id))
+                    state.Rulers.Add(new RulerState { RulerId = id, Hp = RulerBalance.MaxHp });
             foreach (var ruler in state.Rulers)
             {
+                ruler.RepresentativeIds ??= new List<Guid>();
+                ruler.SquadIds ??= new List<Guid>();
+                ruler.SongOrder ??= new List<SongMode>();
                 Refresh(state, ruler);
+                if (ruler.RulerId == MelusineId && ruler.SongOrder.Count != MelusineBattle.SongCount)
+                    ruler.SongOrder = MelusineBattle.ShuffleSongs(state.WeekNumber);
                 // 支配者の待つ主（まだ倒していない70F・100F）の名前を支配者の名前にする（深さの目盛り・目標・調査の表示がそろう）
                 if (FieldOf(state, ruler) is { } field)
                     foreach (var boss in field.Bosses.Where(b => (b.Floor == OutpostFloor || b.Floor == FinalFloor) && !b.IsDefeated))
@@ -65,7 +77,10 @@ namespace GuildManager.Core.Systems
         public static RulerState? Find(GameState state, string rulerId) => state.Rulers.FirstOrDefault(r => r.RulerId == rulerId);
 
         /// <summary>支配者の名前。</summary>
-        public static string NameOf(string rulerId) => rulerId == VesperaId ? VesperaName : rulerId;
+        public static string NameOf(string rulerId) => Rulers.FirstOrDefault(r => r.RulerId == rulerId).Name ?? rulerId;
+
+        /// <summary>出るのが部隊か（メルジーネ）。そうでなければ代表の子（ヴェスペラ）。</summary>
+        public static bool UsesSquads(RulerState ruler) => ruler.RulerId == MelusineId;
 
         /// <summary>その支配者が待っている主（まだ倒していない70F、なければ100F）。両方倒していれば null。</summary>
         public static FloorBoss? BossOf(GameState state, RulerState ruler)
@@ -76,9 +91,12 @@ namespace GuildManager.Core.Systems
                 .OrderBy(b => b.Floor).FirstOrDefault();
         }
 
-        /// <summary>その支配者のフィールド（今はヴェスペラ＝森だけ）。</summary>
-        public static DungeonField? FieldOf(GameState state, RulerState ruler) =>
-            ruler.RulerId == VesperaId ? state.DungeonFields.FirstOrDefault(f => f.Id == ForestId) : null;
+        /// <summary>その支配者のフィールド。</summary>
+        public static DungeonField? FieldOf(GameState state, RulerState ruler)
+        {
+            string? fieldId = Rulers.FirstOrDefault(r => r.RulerId == ruler.RulerId).FieldId;
+            return fieldId == null ? null : state.DungeonFields.FirstOrDefault(f => f.Id == fieldId);
+        }
 
         /// <summary>この主の代わりに支配者が待っているか（待っていればその支配者）。主の決戦では倒せない。</summary>
         public static RulerState? RulerAt(GameState state, FloorBoss boss)
@@ -113,6 +131,7 @@ namespace GuildManager.Core.Systems
 
         /// <summary>
         /// 新しい週の処理（週の決算のあと、→ WeekProcessingSystem）：支配者の状態を補い、月のはじめなら体力を回復する。
+        /// 出る子・部隊がこの月を過ごし終えていれば、月報のあとの決闘を待つ印を付ける。メルジーネは戦わない月に調べの並びを入れ替える。
         /// </summary>
         public static void ProcessNewWeek(GameState state)
         {
@@ -121,19 +140,22 @@ namespace GuildManager.Core.Systems
             foreach (var ruler in state.Rulers.Where(r => BossOf(state, r) != null))
             {
                 ruler.Hp = Math.Min(RulerBalance.MaxHp, ruler.Hp + RulerBalance.RegenPerMonth);
-                // 代表がこの月を過ごし終えた：月報のあとに決闘する
-                if (CanChallenge(state, ruler) && AvailableRepresentatives(state, ruler).Count > 0)
+                if (CanChallenge(state, ruler) && HasParticipants(state, ruler))
                     ruler.PendingDuelWeek = state.WeekNumber;
+                else if (ruler.RulerId == MelusineId)
+                    ruler.SongOrder = MelusineBattle.ShuffleSongs(state.WeekNumber); // 戦う月は、戦い終えてから入れ替える
             }
         }
 
-        // ==================== 代表 ====================
+        // ==================== 出る子・部隊 ====================
 
-        /// <summary>今月、支配者戦の代表になっている（挑める支配者の代表に入っている）か。代表はその月、出撃・訓練・大会に出ない。</summary>
+        /// <summary>今月、支配者戦に出る（代表の子、または出す部隊のメンバー）か。その月は出撃・訓練・大会に出ない。</summary>
         public static bool IsRepresentative(GameState state, Guid adventurerId) =>
-            state.Rulers.Any(r => r.RepresentativeIds.Contains(adventurerId) && CanChallenge(state, r));
+            state.Rulers.Any(r => CanChallenge(state, r) && (UsesSquads(r)
+                ? r.SquadIds.Any(sid => state.SavedParties.FirstOrDefault(p => p.Id == sid)?.MemberIds.Contains(adventurerId) == true)
+                : r.RepresentativeIds.Contains(adventurerId)));
 
-        /// <summary>代表を変えられるのは月のはじめだけ（訓練の割り振り・大会の出場と同じ、§0.70）。</summary>
+        /// <summary>出る子・部隊を変えられるのは月のはじめだけ（訓練の割り振り・大会の出場と同じ、§0.70）。</summary>
         public static bool CanChangeRepresentatives(GameState state) => GameCalendar.IsFirstWeekOfMonth(state.WeekNumber);
 
         /// <summary>その冒険者を代表にできない理由（できるなら null）。</summary>
@@ -148,7 +170,7 @@ namespace GuildManager.Core.Systems
         }
 
         /// <summary>
-        /// 代表を決める（順番つき、上限 VesperaMaxRepresentatives。出られない子は外す）。月のはじめでなければ false。
+        /// 代表を決める（ヴェスペラ。順番つき、上限 VesperaMaxRepresentatives。出られない子は外す）。月のはじめでなければ false。
         /// 代表に入った子は訓練所から外す。
         /// </summary>
         public static bool TrySetRepresentatives(GameState state, RulerState ruler, IEnumerable<Guid> ids)
@@ -166,24 +188,52 @@ namespace GuildManager.Core.Systems
             return true;
         }
 
+        /// <summary>
+        /// 出す部隊を決める（メルジーネ。順番つき、上限 MelusineMaxSquads。メンバーのいない部隊は外す）。月のはじめでなければ false。
+        /// メンバーは訓練所から外す。
+        /// </summary>
+        public static bool TrySetSquads(GameState state, RulerState ruler, IEnumerable<Guid> squadIds)
+        {
+            if (!CanChangeRepresentatives(state)) return false;
+            var list = squadIds.Distinct()
+                .Where(id => state.SavedParties.FirstOrDefault(p => p.Id == id) is { MemberIds.Count: > 0 })
+                .Take(RulerBalance.MelusineMaxSquads)
+                .ToList();
+            ruler.SquadIds = list;
+            foreach (var p in state.SavedParties.Where(p => list.Contains(p.Id)))
+                foreach (var id in p.MemberIds)
+                    state.TrainingAssignments.Remove(id);
+            return true;
+        }
+
         /// <summary>代表のうち、いま戦える子（順番どおり）。</summary>
         public static List<Adventurer> AvailableRepresentatives(GameState state, RulerState ruler) =>
-            ruler.RepresentativeIds
-                .Select(id => state.Adventurers.FirstOrDefault(a => a.Id == id))
-                .Where(a => a != null && !a.IsRetired && a.Injury != InjurySeverity.Severe && !a.IsOnLoan && a.CurrentHP > 0)
-                .Select(a => a!)
+            ruler.RepresentativeIds.Select(id => state.Adventurers.FirstOrDefault(a => a.Id == id)).Where(CanFight).Select(a => a!).ToList();
+
+        /// <summary>出す部隊のうち、戦える子が1人以上いる部隊（順番どおり。メンバーは戦える子だけ）。</summary>
+        public static List<(SavedParty Squad, List<Adventurer> Members)> AvailableSquads(GameState state, RulerState ruler) =>
+            ruler.SquadIds
+                .Select(id => state.SavedParties.FirstOrDefault(p => p.Id == id))
+                .Where(p => p != null)
+                .Select(p => (p!, p!.MemberIds.Select(id => state.Adventurers.FirstOrDefault(a => a.Id == id)).Where(CanFight).Select(a => a!).ToList()))
+                .Where(x => x.Item2.Count > 0)
                 .ToList();
+
+        private static bool CanFight(Adventurer? a) =>
+            a != null && !a.IsRetired && a.Injury != InjurySeverity.Severe && !a.IsOnLoan && a.CurrentHP > 0;
+
+        /// <summary>戦える子・部隊がいるか。</summary>
+        public static bool HasParticipants(GameState state, RulerState ruler) =>
+            UsesSquads(ruler) ? AvailableSquads(state, ruler).Count > 0 : AvailableRepresentatives(state, ruler).Count > 0;
 
         // ==================== 決闘の段取り ====================
 
         /// <summary>
-        /// 月を終えたあとの決闘を待っているか：代表が月を過ごし終えた印（PendingDuelWeek）が今の週で、挑めて、戦える代表がいる
-        /// （1か月に1回。月を進めた直後〈新しい月の第1週〉に画面が決闘を始める。月のはじめに代表を選んだだけでは決闘にならない）。
+        /// 月を終えたあとの決闘を待っているか：出る子・部隊が月を過ごし終えた印（PendingDuelWeek）が今の週で、挑めて、戦える子・部隊がいる
+        /// （1か月に1回。月を進めた直後〈新しい月の第1週〉に画面が決闘を始める。月のはじめに選んだだけでは決闘にならない）。
         /// </summary>
         public static bool IsDuelDue(GameState state, RulerState ruler) =>
-            ruler.PendingDuelWeek == state.WeekNumber
-            && CanChallenge(state, ruler)
-            && AvailableRepresentatives(state, ruler).Count > 0;
+            ruler.PendingDuelWeek == state.WeekNumber && CanChallenge(state, ruler) && HasParticipants(state, ruler);
 
         /// <summary>決闘を待っている支配者（無ければ null）。</summary>
         public static RulerState? DueDuel(GameState state) => state.Rulers.FirstOrDefault(r => IsDuelDue(state, r));
@@ -192,16 +242,59 @@ namespace GuildManager.Core.Systems
         public static int InterventionsPerBattle(GameState state) =>
             RulerBalance.InterventionsBase + (int)Math.Round(ResearchBalance.GetTotalEffectValue(state, ResearchEffectType.InterventionBonus));
 
-        // ==================== 見返り（§0.128） ====================
+        /// <summary>支配者戦を始める（挑めない・出る子がいなければ null）。支配者ごとの戦い方で作る。</summary>
+        public static RulerBattle? StartBattle(GameState state, RulerState ruler, IRng rng)
+        {
+            Refresh(state, ruler);
+            if (!CanChallenge(state, ruler) || !HasParticipants(state, ruler)) return null;
+            var boss = BossOf(state, ruler)!;
+            int interventions = InterventionsPerBattle(state);
+            return UsesSquads(ruler)
+                ? new MelusineBattle(state, ruler, boss, AvailableSquads(state, ruler), rng, interventions)
+                : new RulerDuel(state, ruler, boss, AvailableRepresentatives(state, ruler), rng, interventions);
+        }
+
+        /// <summary>ヴェスペラとの決闘を始める（ヴェスペラでない・挑めなければ null。テスト用）。</summary>
+        public static RulerDuel? StartDuel(GameState state, RulerState ruler, IRng rng) => StartBattle(state, ruler, rng) as RulerDuel;
+
+        /// <summary>
+        /// 支配者戦を最後まで自動で行う（シミュレーター・テスト用。画面は1段ずつ進めて介入を聞く）。
+        /// useInterventions なら、それぞれの戦い方のいちばん良い手で介入する（→ RulerBattle.AutoAnswer）。
+        /// </summary>
+        public static RulerBattle? ResolveAuto(GameState state, RulerState ruler, IRng rng, bool useInterventions)
+        {
+            var battle = StartBattle(state, ruler, rng);
+            if (battle == null) return null;
+            while (!battle.IsOver)
+            {
+                battle.Advance();
+                if (battle.Prompt != DuelPromptKind.None)
+                    battle.AutoAnswer(useInterventions);
+            }
+            battle.Finish();
+            return battle;
+        }
+
+        // ==================== 見返り（§0.128・§0.129） ====================
 
         /// <summary>茨の欠片（ヴェスペラとの試合に勝つたびに1つ。研究「多頭通信術式の強化」の材料、→ materials.csv）。</summary>
         public const string ThornMaterialId = "mat_ruler_thorn";
 
+        /// <summary>水妖の真珠（メルジーネの調べを打ち破るたびに1つ、→ materials.csv）。</summary>
+        public const string PearlMaterialId = "mat_ruler_pearl";
+
         /// <summary>
         /// 一対一の稽古場（ヴェスペラとの決着の見返り）：森の100Fを倒していれば開いている。個人特訓を同時に1人多くつけられる（→ GuildPolicySystem.CoachingSlots）。
         /// </summary>
-        public static bool IsTrainingHallOpen(GameState state) =>
-            state.DungeonFields.FirstOrDefault(f => f.Id == ForestId)?.Bosses.FirstOrDefault(b => b.Floor == FinalFloor)?.EverDefeated == true;
+        public static bool IsTrainingHallOpen(GameState state) => FinalDefeated(state, ForestId);
+
+        /// <summary>
+        /// 静寂の泉（メルジーネとの決着の見返り、§0.129）：洞窟の100Fを倒していれば開いている。待機中の過ごし方に「瞑想」が増える（→ IdleActivitySystem）。
+        /// </summary>
+        public static bool IsMeditationOpen(GameState state) => FinalDefeated(state, CaveId);
+
+        private static bool FinalDefeated(GameState state, string fieldId) =>
+            state.DungeonFields.FirstOrDefault(f => f.Id == fieldId)?.Bosses.FirstOrDefault(b => b.Floor == FinalFloor)?.EverDefeated == true;
 
         // ==================== ヴェスペラの見立て ====================
 
@@ -247,145 +340,24 @@ namespace GuildManager.Core.Systems
         public static List<TournamentDiscipline> UpcomingWeapons(RulerState ruler, int count) =>
             Enumerable.Range(0, count).Select(i => VesperaWeapons[(ruler.WeaponIndex + i) % VesperaWeapons.Length]).ToList();
 
-        /// <summary>決闘を始める（挑めなければ null）。結果は試合ごとに状態へ反映し、最後に <see cref="RulerDuel.Finish"/> で締める。</summary>
-        public static RulerDuel? StartDuel(GameState state, RulerState ruler, IRng rng)
-        {
-            Refresh(state, ruler);
-            if (!CanChallenge(state, ruler)) return null;
-            var reps = AvailableRepresentatives(state, ruler);
-            if (reps.Count == 0) return null;
-            return new RulerDuel(state, ruler, BossOf(state, ruler)!, reps, rng, InterventionsPerBattle(state));
-        }
+        // ==================== 決闘の語り（テスト・画面の互換。中身は各戦い方が持つ） ====================
 
-        /// <summary>
-        /// 決闘を最後まで自動で行う（シミュレーター・テスト用。画面は1試合ずつ進めて介入を聞く）。
-        /// useInterventions なら、見切りは「次の武器でもっと強い代表がいれば入れ替える」、名を呼ぶは「いつも呼ぶ」で使う。
-        /// </summary>
-        public static RulerDuel? ResolveAuto(GameState state, RulerState ruler, IRng rng, bool useInterventions)
-        {
-            var duel = StartDuel(state, ruler, rng);
-            if (duel == null) return null;
-            while (!duel.IsOver)
-            {
-                duel.Advance();
-                switch (duel.Prompt)
-                {
-                    case DuelPromptKind.Foresight:
-                        duel.AnswerForesight(useInterventions ? duel.BestForesightCandidate() : null);
-                        break;
-                    case DuelPromptKind.CallName:
-                        duel.AnswerCallName(useInterventions);
-                        break;
-                }
-            }
-            duel.Finish();
-            return duel;
-        }
-
-        // ==================== 決闘の語り（画面の小窓、→ RulerDuel） ====================
-
-        /// <summary>決闘の小窓の背景。</summary>
+        /// <summary>決闘の小窓の背景（ヴェスペラ）。</summary>
         public const string DuelBackground = "翠緑の原生林・主の巣";
 
-        /// <summary>決闘のはじめの語り。</summary>
-        public static List<StoryLine> DuelOpeningLines(RulerDuel duel) => new()
-        {
-            new(StoryLineKind.Narration, $"{(duel.IsOutpost ? "森の70階" : "森の100階")}、茨の決闘場。ヴェスペラの体力 {duel.HpBefore}/{RulerBalance.MaxHp}" +
-                (duel.IsOutpost ? $"（{RulerBalance.OutpostRetreatHp}を切ると退く）" : "")),
-            new(StoryLineKind.Speech, duel.IsOutpost ? "来たか。……一人ずつだ。順に来い" : "ここはわたしの家だ。……今度は、退かん", VesperaName),
-        };
-
-        /// <summary>1試合の語り（地の文の段）。</summary>
-        public static List<StoryLine> BoutLines(DuelBout b)
-        {
-            var lines = new List<StoryLine>
-            {
-                new(StoryLineKind.Narration, $"第{b.Number}試合　ヴェスペラの{WeaponLabel(b.Discipline)}（{TournamentSystem.DisciplineLabel(b.Discipline)}）。{b.Name}が前へ出る"),
-            };
-            if (b.CalledName)
-                lines.Add(new(StoryLineKind.Narration, b.CallNameReached
-                    ? $"護符から、{b.Name}の名を呼ぶ声が届いた。{b.Name}の目に、光が戻る"
-                    : $"護符から、{b.Name}の名を呼ぶ声が響いた。……けれど、届かなかった"));
-            lines.Add(new(StoryLineKind.Narration, b.Charm switch
-            {
-                DuelCharm.Charmed => $"{b.Name}はヴェスペラの囁きに魅入られ、刃を下ろした",
-                DuelCharm.Wavered => $"ヴェスペラの囁きに、{b.Name}の足がわずかに揺らいだ",
-                _ => $"{b.Name}は、ヴェスペラの囁きを振り払った",
-            }));
-            if (b.Charm != DuelCharm.Charmed)
-                lines.Add(new(StoryLineKind.Narration, b.Won
-                    ? $"{b.Name}の一撃が届いた！　ヴェスペラの体力 {b.RulerHpAfter}（−{b.Damage}）"
-                    : $"{b.Name}は押し返された。ヴェスペラの体力 {b.RulerHpAfter}（−{b.Damage}）"));
-            if (b.Guard is { } g)
-                lines.Add(new(StoryLineKind.Narration, $"{g.GuardianName}が飛び込み、{b.Name}をかばった（HP{g.Share}を引き受けた）"));
-            if (b.SixthSense)
-                lines.Add(new(StoryLineKind.Narration, $"{b.Name}は危機を察し、倒れる寸前で自ら退いた"));
-            if (b.NearDeath)
-                lines.Add(new(StoryLineKind.Narration, $"{b.Name}は致命傷を負った。……アルベールの秘薬で、一命を取り留めた（重傷）"));
-            if (b.Fallen)
-                lines.Add(new(StoryLineKind.Narration, $"{b.Name}は致命傷を負った。命は助かったが、もう二度と剣は握れない（強制除籍）"));
-            if (b.Won)
-                lines.Add(new(StoryLineKind.Narration, $"折れた茨の棘が1つ残った（茨の欠片）"));
-            return lines;
-        }
-
-        /// <summary>介入を待つ山場の語り。</summary>
-        public static List<StoryLine> PromptLines(RulerDuel duel)
-        {
-            if (duel.CurrentFighter is not { } a) return new List<StoryLine>();
-            return duel.Prompt switch
-            {
-                DuelPromptKind.Foresight => new()
-                {
-                    new(StoryLineKind.Narration, $"次はヴェスペラの{WeaponLabel(duel.PendingDiscipline)}（{TournamentSystem.DisciplineLabel(duel.PendingDiscipline)}）。{a.Name}が構える"),
-                    new(StoryLineKind.Narration, "【護符】見切りを伝えれば、次に出る代表を入れ替えられる"),
-                },
-                DuelPromptKind.CallName => new()
-                {
-                    new(StoryLineKind.Narration, $"ヴェスペラの囁きに、{a.Name}の目がうつろになっていく……"),
-                    new(StoryLineKind.Narration, "【護符】名を呼べば、引き戻せるかもしれない"),
-                },
-                _ => new List<StoryLine>(),
-            };
-        }
-
-        /// <summary>決闘のおわりの語り（<see cref="RulerDuel.Finish"/> のあと）。</summary>
-        public static List<StoryLine> DuelClosingLines(RulerDuel duel)
-        {
-            var lines = new List<StoryLine>();
-            int dealt = duel.HpBefore - duel.Ruler.Hp;
-            if (duel.Retreated)
-            {
-                lines.Add(new(StoryLineKind.Speech, "……ふん。今日のところは、退いてやる", VesperaName));
-                lines.Add(new(StoryLineKind.Narration, "ヴェスペラは茨の奥へ退いた。森の70階の先へ進めるようになった"));
-            }
-            else if (duel.Defeated)
-            {
-                lines.Add(new(StoryLineKind.Speech, "……見事だ", VesperaName));
-                lines.Add(new(StoryLineKind.Narration, "ヴェスペラの最後の刃が折れた。森の100階を制した"));
-            }
-            if (duel.LegendaryFound is { } blades)
-                lines.Add(new(StoryLineKind.Narration, $"ヴェスペラが置いていった「{blades.Name}」を手に入れた（伝説級。持つ子が部隊にいれば、主の魅了を対策済みにする）"));
-            if (duel.Defeated)
-                lines.Add(new(StoryLineKind.Narration, "一対一の稽古場が開いた（個人特訓を同時に2人までつけられる）"));
-            if (duel.ThornsGained > 0)
-                lines.Add(new(StoryLineKind.Narration, $"茨の欠片を{duel.ThornsGained}つ持ち帰った（研究「多頭通信術式の強化」の材料。売ることもできる）"));
-            if (!duel.Retreated && !duel.Defeated)
-            {
-                lines.Add(new(StoryLineKind.Speech, dealt > 0 ? "……悪くない。次は、もっと強い者を寄越せ" : "その程度か。出直せ", VesperaName));
-                lines.Add(new(StoryLineKind.Narration, $"決闘は終わった。ヴェスペラの体力 {duel.Ruler.Hp}/{RulerBalance.MaxHp}（この決闘で−{dealt}。毎月{RulerBalance.RegenPerMonth}ずつ回復する）"));
-            }
-            return lines;
-        }
+        public static List<StoryLine> DuelOpeningLines(RulerDuel duel) => duel.OpeningLines();
+        public static List<StoryLine> BoutLines(DuelBout b) => RulerDuel.LinesOf(b);
+        public static List<StoryLine> PromptLines(RulerBattle battle) => battle.PromptLines();
+        public static List<StoryLine> DuelClosingLines(RulerBattle battle) => battle.ClosingLines();
 
         // ==================== 強制除籍 ====================
 
         /// <summary>
         /// 支配者戦で強制除籍になった子の後始末（→ DungeonExpeditionSystem.ApplyForcedRetirements と同じ手順）：
-        /// 居合わせた代表の満足度・相性の余波、装備を保管庫へ、記録へ移す。マスターの激怒も。
-        /// 居合わせた仲間は、除籍された子を先頭にした代表の4人まで（部隊の大きさ）で数える。
+        /// 居合わせた子の満足度・相性の余波、装備を保管庫へ、記録へ移す。マスターの激怒も。
+        /// 居合わせた仲間は、除籍された子を先頭にした4人まで（部隊の大きさ）で数える。
         /// </summary>
-        internal static void ApplyForcedRetirements(GameState state, IReadOnlyList<Adventurer> present, IReadOnlyCollection<Guid> fallenIds, IRng rng, RulerDuel duel)
+        internal static void ApplyForcedRetirements(GameState state, IReadOnlyList<Adventurer> present, IReadOnlyCollection<Guid> fallenIds, IRng rng, RulerBattle battle)
         {
             if (fallenIds.Count == 0) return;
             var satisfaction = new SatisfactionSystem(rng);
@@ -399,7 +371,7 @@ namespace GuildManager.Core.Systems
                 foreach (var other in present.Where(a => a.Id != id))
                     party.TryAdd(other);
                 satisfaction.ApplyPartyLossPenalty(party, id);
-                duel.TraitGrants.AddRange(compatibility.ApplyDeathAftermath(state, party, id, fallenIds));
+                battle.TraitGrants.AddRange(compatibility.ApplyDeathAftermath(state, party, id, fallenIds));
 
                 EquipmentSystem.UnequipAllToArmory(state, fallen, $"{fallen.Name}（除籍）から返還");
                 fallen.FellAtWeek = state.WeekNumber;
@@ -409,7 +381,7 @@ namespace GuildManager.Core.Systems
                 foreach (var r in state.Rulers)
                     r.RepresentativeIds.Remove(fallen.Id);
             }
-            duel.MoodApplied = MasterMoodSystem.ApplyForcedRetirementFury(state, fallenIds.Count);
+            battle.MoodApplied = MasterMoodSystem.ApplyForcedRetirementFury(state, fallenIds.Count);
         }
     }
 
@@ -424,17 +396,198 @@ namespace GuildManager.Core.Systems
         Charmed,
     }
 
-    /// <summary>決闘の途中で聞く介入（無ければ None）。</summary>
+    /// <summary>支配者戦の途中で聞く介入（無ければ None）。</summary>
     public enum DuelPromptKind
     {
         None,
-        /// <summary>見切りを伝える：次の試合の前、次に出る代表を入れ替えるか。</summary>
+        /// <summary>見切りを伝える（ヴェスペラ）：次の試合の前、次に出る代表を入れ替えるか。</summary>
         Foresight,
-        /// <summary>名を呼ぶ：代表が魅了されたとき、呼びかけるか。</summary>
+        /// <summary>名を呼ぶ（ヴェスペラ）：代表が魅了されたとき、呼びかけるか。</summary>
         CallName,
+        /// <summary>ルミナが歌を聞き取る（メルジーネ）：調べの分からない曲の前、聞き取ってもらうか。</summary>
+        LuminaListen,
+        /// <summary>交代（メルジーネ）：前に出た部隊が調べに呑まれかけたとき、ほかの部隊と入れ替えるか。</summary>
+        Swap,
     }
 
-    /// <summary>決闘の1試合。</summary>
+    /// <summary>介入の選択肢（入れ替える相手など）。</summary>
+    public sealed record PromptChoice(Guid Id, string Label);
+
+    /// <summary>1人分の損耗の結果（→ RulerBattle.ApplyLoss）。</summary>
+    public sealed class LossOutcome
+    {
+        public int HpLost { get; set; }
+        public bool SixthSense { get; set; }
+        public bool NearDeath { get; set; }
+        public bool Fallen { get; set; }
+        public GuardEvent? Guard { get; set; }
+    }
+
+    /// <summary>
+    /// 支配者戦1回の共通の土台（§0.127〜）。<see cref="Advance"/> で次の介入か終わりまで進み、介入（<see cref="Prompt"/>）があれば
+    /// <see cref="Answer"/> で答えてまた進める。終わったら <see cref="Finish"/> で締める（戦った記録、強制除籍の後始末、
+    /// 前哨戦で退いた・決着で倒したら主を倒したことにしてフィールドを進める、伝説級の装備）。
+    /// 語り（<see cref="TakeNewLines"/>・<see cref="PromptLines"/>・<see cref="ClosingLines"/>）は画面の小窓が段で見せる。
+    /// 乱数は支配者戦専用（勝ち負け・損耗・かばい合い・強制除籍・介入）。
+    /// </summary>
+    public abstract class RulerBattle
+    {
+        protected readonly GameState State;
+        protected readonly IRng Rng;
+        /// <summary>居合わせた子（強制除籍の余波・かばい合いの相手）。</summary>
+        protected readonly List<Adventurer> Present;
+        private bool _finished;
+
+        public RulerState Ruler { get; }
+        public FloorBoss Boss { get; }
+        public bool IsOutpost { get; }
+        public int HpBefore { get; }
+        public int InterventionsLeft { get; protected set; }
+        public DuelPromptKind Prompt { get; protected set; }
+        public bool IsOver { get; protected set; }
+        /// <summary>前哨戦で退いた（70Fを倒したことになる）。</summary>
+        public bool Retreated { get; private set; }
+        /// <summary>決着で倒した（100Fを倒したことになる）。</summary>
+        public bool Defeated { get; private set; }
+        public List<Guid> FallenIds { get; } = new();
+        public List<Guid> NearDeathIds { get; } = new();
+        public List<InjuryEvent> InjuryEvents { get; } = new();
+        public List<TraitGrantEvent> TraitGrants { get; } = new();
+        public int MoodApplied { get; internal set; }
+        /// <summary>前哨戦で退かせて手に入れた伝説級の装備（無ければ null）。</summary>
+        public EquipmentItem? LegendaryFound { get; private set; }
+
+        /// <summary>支配者の名前。</summary>
+        public string RulerName => RulerSystem.NameOf(Ruler.RulerId);
+        /// <summary>小窓の背景。</summary>
+        public abstract string Background { get; }
+
+        protected RulerBattle(GameState state, RulerState ruler, FloorBoss boss, IEnumerable<Adventurer> present, IRng rng, int interventions)
+        {
+            State = state;
+            Rng = rng;
+            Ruler = ruler;
+            Boss = boss;
+            IsOutpost = boss.Floor == RulerSystem.OutpostFloor;
+            HpBefore = ruler.Hp;
+            Present = present.ToList();
+            InterventionsLeft = interventions;
+        }
+
+        /// <summary>支配者の体力が線を切ったか（前哨戦は50未満、決着は0）。</summary>
+        protected bool OverByHp => IsOutpost ? Ruler.Hp < RulerBalance.OutpostRetreatHp : Ruler.Hp <= 0;
+
+        /// <summary>次の介入か終わりまで進める。</summary>
+        public abstract void Advance();
+
+        /// <summary>介入の選択肢（入れ替える相手。はい／いいえだけなら空）。</summary>
+        public abstract List<PromptChoice> PromptChoices();
+
+        /// <summary>介入に答える（use＝使う。選択肢があるなら choice で選ぶ）。</summary>
+        public abstract void Answer(bool use, Guid? choice);
+
+        /// <summary>自動で答える（シミュレーター・テスト）：useInterventions ならいちばん良い手で使う。</summary>
+        public void AutoAnswer(bool useInterventions)
+        {
+            var choices = PromptChoices();
+            Answer(useInterventions && (choices.Count > 0 || Prompt is DuelPromptKind.CallName or DuelPromptKind.LuminaListen),
+                choices.FirstOrDefault()?.Id);
+        }
+
+        /// <summary>介入の小窓の説明（BBCode）とボタンの文言。</summary>
+        public abstract (string Text, string Ok, string Cancel) PromptDialog();
+
+        /// <summary>前回から増えた語り（はじめの語りと、済んだ試合・曲の語り）。</summary>
+        public abstract List<StoryLine> TakeNewLines();
+
+        /// <summary>介入を待つ山場の語り。</summary>
+        public abstract List<StoryLine> PromptLines();
+
+        /// <summary>おわりの語り（<see cref="Finish"/> のあと）。</summary>
+        public abstract List<StoryLine> ClosingLines();
+
+        /// <summary>試合・曲に勝つたびに手に入る素材の数。</summary>
+        public int MaterialsGained { get; protected set; }
+
+        /// <summary>
+        /// 1人分の損耗（最大HPに対する pct %）。HP0 になりそうなら、居合わせた相棒のかばい合い・危機察知・強制除籍の判定（§0.125）を順に通す。
+        /// 重傷の判定もする。
+        /// </summary>
+        protected LossOutcome ApplyLoss(Adventurer a, int pct)
+        {
+            var result = new LossOutcome();
+            int loss = a.MaxHP * pct / 100;
+            int newHp = a.CurrentHP - loss;
+            if (newHp <= 0
+                && MoraleSystem.FindGuardian(State, a, Present.Where(p => State.Adventurers.Contains(p))) is { } guardian
+                && Rng.NextInt(1, 100) <= PersonalityBalance.GuardChancePercent)
+            {
+                int share = Math.Min((int)Math.Round(loss * PersonalityBalance.GuardShareRate), guardian.CurrentHP - 1);
+                guardian.CurrentHP -= share;
+                loss -= share;
+                newHp = a.CurrentHP - loss;
+                result.Guard = new GuardEvent(guardian.Id, guardian.Name, a.Id, a.Name, share);
+            }
+            if (newHp <= 0 && a.HasTrait(TraitCatalog.SixthSenseId))
+            {
+                newHp = 1; // 危機察知：倒れる前に自分から下がる
+                result.SixthSense = true;
+            }
+            if (newHp <= 0)
+            {
+                if (Rng.NextInt(1, 100) <= CombatBalance.FatalChancePercent)
+                {
+                    newHp = 0;
+                    result.Fallen = true;
+                    FallenIds.Add(a.Id);
+                }
+                else
+                {
+                    newHp = 1;
+                    result.NearDeath = true;
+                    NearDeathIds.Add(a.Id);
+                    if (CriticalInjury.RollOldWound(a, Rng) is { } grant) TraitGrants.Add(grant);
+                }
+            }
+            result.HpLost = a.CurrentHP - Math.Max(0, newHp);
+            a.CurrentHP = Math.Max(0, newHp);
+            if (!result.Fallen && CriticalInjury.TryInflictSevere(a, Rng) is { } injury)
+                InjuryEvents.Add(injury);
+            return result;
+        }
+
+        /// <summary>戦い終えたあとの、支配者ごとの後片付け（メルジーネの調べの並びの入れ替えなど）。</summary>
+        protected virtual void OnFinished() { }
+
+        /// <summary>締める（1回だけ）。</summary>
+        public void Finish()
+        {
+            if (_finished) return;
+            _finished = true;
+            IsOver = true;
+            Prompt = DuelPromptKind.None;
+            Ruler.DuelCount++;
+            Ruler.LastDuelWeek = State.WeekNumber;
+            Ruler.PendingDuelWeek = null;
+
+            RulerSystem.ApplyForcedRetirements(State, Present, FallenIds, Rng, this);
+
+            if (OverByHp)
+            {
+                if (IsOutpost) Retreated = true; else Defeated = true;
+                Boss.CurrentHp = 0;
+                Boss.IsDefeated = true;
+                DungeonExpeditionSystem.ApplyFieldProgression(State, Boss);
+                // 見返り：前哨戦で退かせたら、その支配者の伝説級（uniques.csv のそのフィールドの70F）。決着の見返りは100Fを倒したことで開く
+                if (RulerSystem.FieldOf(State, Ruler) is { } field)
+                    LegendaryFound = UniqueItemSystem.TryGrantBossDrop(State, field, Boss);
+                RulerSystem.Refresh(State, Ruler);
+            }
+            OnFinished();
+        }
+    }
+
+    /// <summary>決闘の1試合（ヴェスペラ）。</summary>
     public sealed class DuelBout
     {
         public int Number { get; init; }
@@ -462,60 +615,31 @@ namespace GuildManager.Core.Systems
     }
 
     /// <summary>
-    /// ヴェスペラとの決闘1回（→ RulerSystem.StartDuel）。<see cref="Advance"/> で次の介入か終わりまで進み、
-    /// 介入（<see cref="Prompt"/>）があれば <see cref="AnswerForesight"/>・<see cref="AnswerCallName"/> で答えてまた進める。
-    /// 終わったら <see cref="Finish"/> で締める（退いた・倒した主の進行、強制除籍、戦った記録）。
-    /// 乱数は決闘専用（勝ち負け・損耗・かばい合い・強制除籍・名を呼ぶ）。
+    /// ヴェスペラとの決闘（勝ち抜きの一騎打ち、§0.127、設計書 §3-5）。介入は「見切りを伝える」（<see cref="AnswerForesight"/>）と
+    /// 「名を呼ぶ」（<see cref="AnswerCallName"/>）。
     /// </summary>
-    public sealed class RulerDuel
+    public sealed class RulerDuel : RulerBattle
     {
-        private readonly GameState _state;
-        private readonly IRng _rng;
         private readonly List<Adventurer> _queue;
-        private readonly List<Adventurer> _present;
         private Adventurer? _fighter;
         private bool _fighterIsFresh;
         private int _foresightAskedForBout = -1;
         private DuelCharm? _pendingCharm;
-        private bool _finished;
+        private int _linesShown = -1;
 
-        public RulerState Ruler { get; }
-        public FloorBoss Boss { get; }
-        public bool IsOutpost { get; }
-        public int HpBefore { get; }
         public List<DuelBout> Bouts { get; } = new();
-        public int InterventionsLeft { get; private set; }
-        public DuelPromptKind Prompt { get; private set; }
         /// <summary>介入を待っている試合の部門（Prompt があるとき）。</summary>
         public TournamentDiscipline PendingDiscipline { get; private set; }
         /// <summary>介入を待っている今の代表（Prompt があるとき）。</summary>
         public Adventurer? CurrentFighter => _fighter;
-        public bool IsOver { get; private set; }
-        /// <summary>前哨戦で退いた（70Fを倒したことになる）。</summary>
-        public bool Retreated { get; private set; }
-        /// <summary>決着で倒した（100Fを倒したことになる）。</summary>
-        public bool Defeated { get; private set; }
-        public List<Guid> FallenIds { get; } = new();
-        public List<Guid> NearDeathIds { get; } = new();
-        public List<InjuryEvent> InjuryEvents { get; } = new();
-        public List<TraitGrantEvent> TraitGrants { get; } = new();
-        public int MoodApplied { get; internal set; }
         /// <summary>この決闘で持ち帰った茨の欠片（勝った試合の数）。</summary>
-        public int ThornsGained { get; private set; }
-        /// <summary>前哨戦で退かせて手に入れた伝説級の装備（ヴェスペラの双剣。無ければ null）。</summary>
-        public EquipmentItem? LegendaryFound { get; private set; }
+        public int ThornsGained => MaterialsGained;
+        public override string Background => RulerSystem.DuelBackground;
 
         internal RulerDuel(GameState state, RulerState ruler, FloorBoss boss, List<Adventurer> reps, IRng rng, int interventions)
+            : base(state, ruler, boss, reps, rng, interventions)
         {
-            _state = state;
-            _rng = rng;
-            Ruler = ruler;
-            Boss = boss;
-            IsOutpost = boss.Floor == RulerSystem.OutpostFloor;
-            HpBefore = ruler.Hp;
             _queue = reps.ToList();
-            _present = reps.ToList();
-            InterventionsLeft = interventions;
         }
 
         /// <summary>まだ出ていない代表（順番どおり）。</summary>
@@ -533,10 +657,7 @@ namespace GuildManager.Core.Systems
         /// <summary>見切りでいちばん良い入れ替え（無ければ null）。</summary>
         public Guid? BestForesightCandidate() => ForesightCandidates().FirstOrDefault()?.Id;
 
-        private bool OverByHp => IsOutpost ? Ruler.Hp < RulerBalance.OutpostRetreatHp : Ruler.Hp <= 0;
-
-        /// <summary>次の介入か終わりまで進める。</summary>
-        public void Advance()
+        public override void Advance()
         {
             Prompt = DuelPromptKind.None;
             while (!IsOver)
@@ -555,7 +676,7 @@ namespace GuildManager.Core.Systems
 
                 // 見切りを伝える：次の武器が解析で分かっていて、もっと強い代表が待っているとき（1試合に1回だけ聞く）
                 if (_pendingCharm == null && _foresightAskedForBout != boutIndex && InterventionsLeft > 0
-                    && RulerSystem.IntelOf(_state, Ruler) >= RulerBalance.VesperaIntelWeaponReveal
+                    && RulerSystem.IntelOf(State, Ruler) >= RulerBalance.VesperaIntelWeaponReveal
                     && ForesightCandidates().Count > 0)
                 {
                     _foresightAskedForBout = boutIndex;
@@ -566,7 +687,7 @@ namespace GuildManager.Core.Systems
                 // 魅了の判定。魅了されたら、名を呼ぶかを聞く（介入が残っていれば）
                 if (_pendingCharm == null)
                 {
-                    var charm = RulerSystem.JudgeCharm(_state, _fighter, IsOutpost);
+                    var charm = RulerSystem.JudgeCharm(State, _fighter, IsOutpost);
                     if (charm == DuelCharm.Charmed && InterventionsLeft > 0)
                     {
                         _pendingCharm = charm;
@@ -578,6 +699,17 @@ namespace GuildManager.Core.Systems
 
                 FightBout(_pendingCharm.Value, calledName: false, reached: false);
             }
+        }
+
+        public override List<PromptChoice> PromptChoices() =>
+            Prompt == DuelPromptKind.Foresight
+                ? ForesightCandidates().Select(a => new PromptChoice(a.Id, $"{a.Name}（{TournamentSystem.DisciplineLabel(PendingDiscipline)}の強さ {TournamentSystem.MatchStrength(a, PendingDiscipline):F0}）")).ToList()
+                : new List<PromptChoice>();
+
+        public override void Answer(bool use, Guid? choice)
+        {
+            if (Prompt == DuelPromptKind.Foresight) AnswerForesight(use ? choice : null);
+            else if (Prompt == DuelPromptKind.CallName) AnswerCallName(use);
         }
 
         /// <summary>見切りを伝える：入れ替える代表（null なら使わない）。勝ち残っている代表は HP を残して下がる。</summary>
@@ -603,7 +735,7 @@ namespace GuildManager.Core.Systems
             Prompt = DuelPromptKind.None;
             if (!use) { FightBout(DuelCharm.Charmed, false, false); return; }
             InterventionsLeft--;
-            bool reached = _rng.NextInt(1, 100) <= RulerSystem.CallNameChance(_state, _fighter);
+            bool reached = Rng.NextInt(1, 100) <= RulerSystem.CallNameChance(State, _fighter);
             FightBout(reached ? DuelCharm.Wavered : DuelCharm.Charmed, calledName: true, reached);
         }
 
@@ -622,19 +754,34 @@ namespace GuildManager.Core.Systems
                 OurStrength = ours, RulerStrength = ruler,
             };
 
-            bout.Won = charm != DuelCharm.Charmed && _rng.NextInt(0, 999_999) / 1_000_000.0 < IsabellaSystem.BoutWinChance(ours, ruler);
+            bout.Won = charm != DuelCharm.Charmed && Rng.NextInt(0, 999_999) / 1_000_000.0 < IsabellaSystem.BoutWinChance(ours, ruler);
             bout.Damage = bout.Won
                 ? Math.Clamp((int)Math.Round(RulerBalance.VesperaWinDamageBase * ours / Math.Max(1, ruler)), RulerBalance.VesperaWinDamageMin, RulerBalance.VesperaWinDamageMax)
                 : charm == DuelCharm.Charmed ? 0 : RulerBalance.VesperaLossDamage;
             Ruler.Hp = Math.Max(0, Ruler.Hp - bout.Damage);
             bout.RulerHpAfter = Ruler.Hp;
 
-            ApplyHpLoss(a, bout, ruler, ours);
+            int pct;
+            if (bout.Won)
+                pct = Rng.NextInt(RulerBalance.VesperaWinHpLossPctMin, RulerBalance.VesperaWinHpLossPctMax);
+            else
+            {
+                // 強さの差が大きいほど重い（ヴェスペラが代表の1.5倍以上で上限）
+                double gap = Math.Clamp((ruler / Math.Max(1, ours) - 1.0) / 0.5, 0, 1);
+                pct = (int)Math.Round(RulerBalance.VesperaLossHpLossPctMin + (RulerBalance.VesperaLossHpLossPctMax - RulerBalance.VesperaLossHpLossPctMin) * gap);
+            }
+            var loss = ApplyLoss(a, pct);
+            bout.HpLost = loss.HpLost;
+            bout.SixthSense = loss.SixthSense;
+            bout.NearDeath = loss.NearDeath;
+            bout.Fallen = loss.Fallen;
+            bout.Guard = loss.Guard;
+
             Bouts.Add(bout);
             if (bout.Won)
             {
-                _state.AddMaterial(RulerSystem.ThornMaterialId, 1); // 茨の欠片（§0.128）
-                ThornsGained++;
+                State.AddMaterial(RulerSystem.ThornMaterialId, 1); // 茨の欠片（§0.128）
+                MaterialsGained++;
             }
             Ruler.WeaponIndex = (Ruler.WeaponIndex + 1) % RulerSystem.VesperaWeapons.Length;
 
@@ -643,89 +790,129 @@ namespace GuildManager.Core.Systems
             else _fighterIsFresh = false;
         }
 
-        private void ApplyHpLoss(Adventurer a, DuelBout bout, double ruler, double ours)
-        {
-            int pct;
-            if (bout.Won)
-            {
-                pct = _rng.NextInt(RulerBalance.VesperaWinHpLossPctMin, RulerBalance.VesperaWinHpLossPctMax);
-            }
-            else
-            {
-                // 強さの差が大きいほど重い（ヴェスペラが代表の1.5倍以上で上限）
-                double gap = Math.Clamp((ruler / Math.Max(1, ours) - 1.0) / 0.5, 0, 1);
-                pct = (int)Math.Round(RulerBalance.VesperaLossHpLossPctMin + (RulerBalance.VesperaLossHpLossPctMax - RulerBalance.VesperaLossHpLossPctMin) * gap);
-            }
-            int loss = a.MaxHP * pct / 100;
-            int newHp = a.CurrentHP - loss;
+        // ---- 語り ----
 
-            if (newHp <= 0)
+        /// <summary>はじめの語り。</summary>
+        public List<StoryLine> OpeningLines() => new()
+        {
+            new(StoryLineKind.Narration, $"{(IsOutpost ? "森の70階" : "森の100階")}、茨の決闘場。ヴェスペラの体力 {HpBefore}/{RulerBalance.MaxHp}" +
+                (IsOutpost ? $"（{RulerBalance.OutpostRetreatHp}を切ると退く）" : "")),
+            new(StoryLineKind.Speech, IsOutpost ? "来たか。……一人ずつだ。順に来い" : "ここはわたしの家だ。……今度は、退かん", RulerSystem.VesperaName),
+        };
+
+        /// <summary>1試合の語り（地の文の段）。</summary>
+        public static List<StoryLine> LinesOf(DuelBout b)
+        {
+            var lines = new List<StoryLine>
             {
-                // かばい合い（§0.101）：代表の中の相棒が、損耗の半分を引き受けることがある
-                if (MoraleSystem.FindGuardian(_state, a, _present.Where(p => _state.Adventurers.Contains(p))) is { } guardian
-                    && _rng.NextInt(1, 100) <= PersonalityBalance.GuardChancePercent)
-                {
-                    int share = Math.Min((int)Math.Round(loss * PersonalityBalance.GuardShareRate), guardian.CurrentHP - 1);
-                    guardian.CurrentHP -= share;
-                    loss -= share;
-                    newHp = a.CurrentHP - loss;
-                    bout.Guard = new GuardEvent(guardian.Id, guardian.Name, a.Id, a.Name, share);
-                }
-            }
-            if (newHp <= 0 && a.HasTrait(TraitCatalog.SixthSenseId))
+                new(StoryLineKind.Narration, $"第{b.Number}試合　ヴェスペラの{RulerSystem.WeaponLabel(b.Discipline)}（{TournamentSystem.DisciplineLabel(b.Discipline)}）。{b.Name}が前へ出る"),
+            };
+            if (b.CalledName)
+                lines.Add(new(StoryLineKind.Narration, b.CallNameReached
+                    ? $"護符から、{b.Name}の名を呼ぶ声が届いた。{b.Name}の目に、光が戻る"
+                    : $"護符から、{b.Name}の名を呼ぶ声が響いた。……けれど、届かなかった"));
+            lines.Add(new(StoryLineKind.Narration, b.Charm switch
             {
-                newHp = 1; // 危機察知：倒れる前に自分から下がる
-                bout.SixthSense = true;
-            }
-            if (newHp <= 0)
-            {
-                // HP0（§0.125）：低い確率で強制除籍、外れれば HP1 で一命を取り留める
-                if (_rng.NextInt(1, 100) <= CombatBalance.FatalChancePercent)
-                {
-                    newHp = 0;
-                    bout.Fallen = true;
-                    FallenIds.Add(a.Id);
-                }
-                else
-                {
-                    newHp = 1;
-                    bout.NearDeath = true;
-                    NearDeathIds.Add(a.Id);
-                    if (CriticalInjury.RollOldWound(a, _rng) is { } grant) TraitGrants.Add(grant);
-                }
-            }
-            bout.HpLost = a.CurrentHP - Math.Max(0, newHp);
-            a.CurrentHP = Math.Max(0, newHp);
-            if (!bout.Fallen && CriticalInjury.TryInflictSevere(a, _rng) is { } injury)
-                InjuryEvents.Add(injury);
+                DuelCharm.Charmed => $"{b.Name}はヴェスペラの囁きに魅入られ、刃を下ろした",
+                DuelCharm.Wavered => $"ヴェスペラの囁きに、{b.Name}の足がわずかに揺らいだ",
+                _ => $"{b.Name}は、ヴェスペラの囁きを振り払った",
+            }));
+            if (b.Charm != DuelCharm.Charmed)
+                lines.Add(new(StoryLineKind.Narration, b.Won
+                    ? $"{b.Name}の一撃が届いた！　ヴェスペラの体力 {b.RulerHpAfter}（−{b.Damage}）"
+                    : $"{b.Name}は押し返された。ヴェスペラの体力 {b.RulerHpAfter}（−{b.Damage}）"));
+            lines.AddRange(LossLines(b.Name, b.Guard, b.SixthSense, b.NearDeath, b.Fallen));
+            if (b.Won)
+                lines.Add(new(StoryLineKind.Narration, "折れた茨の棘が1つ残った（茨の欠片）"));
+            return lines;
         }
 
-        /// <summary>
-        /// 決闘を締める（1回だけ）：戦った記録、強制除籍の後始末、前哨戦で退いた・決着で倒したら主を倒したことにしてフィールドを進める。
-        /// </summary>
-        public void Finish()
+        /// <summary>損耗の語り（かばい合い・危機察知・一命・強制除籍）。</summary>
+        internal static IEnumerable<StoryLine> LossLines(string name, GuardEvent? guard, bool sixthSense, bool nearDeath, bool fallen)
         {
-            if (_finished) return;
-            _finished = true;
-            IsOver = true;
-            Prompt = DuelPromptKind.None;
-            Ruler.DuelCount++;
-            Ruler.LastDuelWeek = _state.WeekNumber;
-            Ruler.PendingDuelWeek = null;
+            if (guard is { } g)
+                yield return new(StoryLineKind.Narration, $"{g.GuardianName}が飛び込み、{name}をかばった（HP{g.Share}を引き受けた）");
+            if (sixthSense)
+                yield return new(StoryLineKind.Narration, $"{name}は危機を察し、倒れる寸前で自ら退いた");
+            if (nearDeath)
+                yield return new(StoryLineKind.Narration, $"{name}は致命傷を負った。……アルベールの秘薬で、一命を取り留めた（重傷）");
+            if (fallen)
+                yield return new(StoryLineKind.Narration, $"{name}は致命傷を負った。命は助かったが、もう二度と剣は握れない（強制除籍）");
+        }
 
-            RulerSystem.ApplyForcedRetirements(_state, _present, FallenIds, _rng, this);
-
-            if (IsOutpost ? Ruler.Hp < RulerBalance.OutpostRetreatHp : Ruler.Hp <= 0)
+        public override List<StoryLine> TakeNewLines()
+        {
+            var lines = new List<StoryLine>();
+            if (_linesShown < 0)
             {
-                if (IsOutpost) Retreated = true; else Defeated = true;
-                Boss.CurrentHp = 0;
-                Boss.IsDefeated = true;
-                DungeonExpeditionSystem.ApplyFieldProgression(_state, Boss);
-                // 見返り（§0.128）：前哨戦で退かせたらヴェスペラの双剣（uniques.csv の森70F）。決着の一対一の稽古場は100Fを倒したことで開く（→ IsTrainingHallOpen）
-                if (RulerSystem.FieldOf(_state, Ruler) is { } field)
-                    LegendaryFound = UniqueItemSystem.TryGrantBossDrop(_state, field, Boss);
-                RulerSystem.Refresh(_state, Ruler);
+                lines.AddRange(OpeningLines());
+                _linesShown = 0;
             }
+            foreach (var b in Bouts.Skip(_linesShown))
+                lines.AddRange(LinesOf(b));
+            _linesShown = Bouts.Count;
+            return lines;
+        }
+
+        public override List<StoryLine> PromptLines()
+        {
+            if (_fighter is not { } a) return new List<StoryLine>();
+            return Prompt switch
+            {
+                DuelPromptKind.Foresight => new()
+                {
+                    new(StoryLineKind.Narration, $"次はヴェスペラの{RulerSystem.WeaponLabel(PendingDiscipline)}（{TournamentSystem.DisciplineLabel(PendingDiscipline)}）。{a.Name}が構える"),
+                    new(StoryLineKind.Narration, "【護符】見切りを伝えれば、次に出る代表を入れ替えられる"),
+                },
+                DuelPromptKind.CallName => new()
+                {
+                    new(StoryLineKind.Narration, $"ヴェスペラの囁きに、{a.Name}の目がうつろになっていく……"),
+                    new(StoryLineKind.Narration, "【護符】名を呼べば、引き戻せるかもしれない"),
+                },
+                _ => new List<StoryLine>(),
+            };
+        }
+
+        public override (string Text, string Ok, string Cancel) PromptDialog()
+        {
+            string left = $"[color=gray]声が届くのは、この決闘であと{InterventionsLeft}回。[/color]";
+            if (Prompt == DuelPromptKind.Foresight && _fighter != null)
+            {
+                string label = TournamentSystem.DisciplineLabel(PendingDiscipline);
+                return ($"次はヴェスペラの[b]{RulerSystem.WeaponLabel(PendingDiscipline)}[/b]（{label}）。\n今の代表：{_fighter.Name}（{label}の強さ {TournamentSystem.MatchStrength(_fighter, PendingDiscipline):F0}）\n" +
+                        $"見切りを伝えて、次に出る代表を入れ替えますか？\n{left}", "見切りを伝える", "伝えない");
+            }
+            if (_fighter != null)
+                return ($"{_fighter.Name}がヴェスペラの囁きに魅入られかけている。\n名を呼べば、届く見込み [b]{RulerSystem.CallNameChance(State, _fighter)}%[/b]（相性と満足度が高いほど届く）。\n{left}", "名を呼ぶ", "呼ばない");
+            return ("", "使う", "使わない");
+        }
+
+        public override List<StoryLine> ClosingLines()
+        {
+            var lines = new List<StoryLine>();
+            int dealt = HpBefore - Ruler.Hp;
+            if (Retreated)
+            {
+                lines.Add(new(StoryLineKind.Speech, "……ふん。今日のところは、退いてやる", RulerSystem.VesperaName));
+                lines.Add(new(StoryLineKind.Narration, "ヴェスペラは茨の奥へ退いた。森の70階の先へ進めるようになった"));
+            }
+            else if (Defeated)
+            {
+                lines.Add(new(StoryLineKind.Speech, "……見事だ", RulerSystem.VesperaName));
+                lines.Add(new(StoryLineKind.Narration, "ヴェスペラの最後の刃が折れた。森の100階を制した"));
+            }
+            if (LegendaryFound is { } blades)
+                lines.Add(new(StoryLineKind.Narration, $"ヴェスペラが置いていった「{blades.Name}」を手に入れた（伝説級。持つ子が部隊にいれば、主の魅了を対策済みにする）"));
+            if (Defeated)
+                lines.Add(new(StoryLineKind.Narration, "一対一の稽古場が開いた（個人特訓を同時に2人までつけられる）"));
+            if (ThornsGained > 0)
+                lines.Add(new(StoryLineKind.Narration, $"茨の欠片を{ThornsGained}つ持ち帰った（研究「多頭通信術式の強化」の材料。売ることもできる）"));
+            if (!Retreated && !Defeated)
+            {
+                lines.Add(new(StoryLineKind.Speech, dealt > 0 ? "……悪くない。次は、もっと強い者を寄越せ" : "その程度か。出直せ", RulerSystem.VesperaName));
+                lines.Add(new(StoryLineKind.Narration, $"決闘は終わった。ヴェスペラの体力 {Ruler.Hp}/{RulerBalance.MaxHp}（この決闘で−{dealt}。毎月{RulerBalance.RegenPerMonth}ずつ回復する）"));
+            }
+            return lines;
         }
     }
 }

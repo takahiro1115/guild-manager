@@ -97,6 +97,7 @@ partial class GameSim
     // ==== 1回分 ====
     public void RunUi(int weeks)
     {
+        AuditMode = true;
         int start = s.WeekNumber;
         bool first = true;
         if (NoTutorial) StorySystem.DisableTutorial(s);
@@ -445,6 +446,7 @@ partial class GameSim
         Console.WriteLine($"敗北：{string.Join(", ", sims.Select(x => x.Defeat ?? "なし"))}");
         string YearOfWeek(int? w) => w is int v ? $"{GameCalendar.YearOf(v)}" : "―";
         Console.WriteLine($"ヴェスペラ（§0.127）：退かせた年 {string.Join(", ", sims.Select(x => YearOfWeek(x.VesperaRetreatWeek)))}　倒した年 {string.Join(", ", sims.Select(x => YearOfWeek(x.VesperaDefeatWeek)))}　決闘 {sims.Sum(x => x.VesperaDuels)}回・強制除籍 {sims.Sum(x => x.VesperaFallen)}・一命を取り留めた {sims.Sum(x => x.VesperaNearDeath)}");
+        Console.WriteLine($"メルジーネ（§0.129）：退かせた年 {string.Join(", ", sims.Select(x => YearOfWeek(x.MelusineRetreatWeek)))}　倒した年 {string.Join(", ", sims.Select(x => YearOfWeek(x.MelusineDefeatWeek)))}　戦い {sims.Sum(x => x.MelusineBattles)}回");
         Console.WriteLine($"撃破（最終、50体中）：{string.Join(", ", sims.Select(x => x.s.DungeonFields.Sum(f => f.Bosses.Count(b => b.IsDefeated))))}");
         Console.WriteLine("撃破数の推移（各年のはじめ、中央値）：" + string.Join("・", Enumerable.Range(0, weeks / 48).Select(y =>
         {

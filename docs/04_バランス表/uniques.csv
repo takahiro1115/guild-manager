@@ -15,3 +15,4 @@ PatronAcademyStaff,Patron,学院長の杖,MithrilStaff,0,0,0,0,0,7,5,0,,,0,0,Aca
 PatronNobleMail,Patron,辺境伯の銀甲,MithrilMail,25,0,5,0,0,0,4,0,,,0,0,Noble,依頼人の固有武具。辺境伯家の依頼を5件達成すると届く。売却不可
 PatronElvesEarring,Patron,星詠みの耳飾り,MithrilEarring,10,0,0,4,4,0,2,0,,,0,0,Elves,依頼人の固有武具。エルフの里の依頼を5件達成すると届く。売却不可
 LegendVesperaBlades,Legendary,ヴェスペラの双剣,MithrilSword,0,5,0,5,0,0,6,0,Charm,forest,70,0,,伝説級（金）。森の70Fでヴェスペラを前哨戦で退かせたとき（支配者戦、§0.128）に確定入手。装備者が部隊にいれば主の特殊能力「魅了」を対策済みにする。MNDも上がるので、ヴェスペラの魅了にも強くなる。売却不可
+LegendSirenEarring,Legendary,歌姫の耳飾り,MithrilEarring,10,0,0,0,0,5,5,0,Regeneration,cave,70,0,,伝説級（金）。洞窟の70Fでメルジーネを前哨戦で退かせたとき（支配者戦、§0.129）に確定入手。装備者が部隊にいれば主の特殊能力「再生」を対策済みにする。INT と MND が上がるので、甘い調べ・静かな調べにも強くなる。売却不可

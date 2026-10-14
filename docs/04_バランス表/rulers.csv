@@ -28,3 +28,18 @@ CallNameBaseChance,40,%,介入「名を呼ぶ」が届く見込みの基礎（�
 CallNameCompatibilityDivisor,4,,届く見込みに、その子のいちばん高い相性÷この値（%）を足す
 CallNameMoraleDivisor,4,,届く見込みに、その子の満足度÷この値（%）を足す
 CallNameMaxChance,90,%,届く見込みの上限
+MelusineMaxSquads,3,部隊,メルジーネの調べの読み合い（§0.129、設計書 §3-7）：出す部隊の上限（順番つき）
+MelusineThresholdOutpost,60,pt,調べの閾値（前哨戦）。部隊の合い具合＝調べに合う能力の部隊の平均（装備込み）÷この値
+MelusineThresholdFinal,80,pt,調べの閾値（決着）
+MelusineSwallowRate,0.85,割合,合い具合がこの値より下なら調べに呑まれて削れない（損耗も重い）
+MelusineSweetCharmRate,0.85,割合,甘い調べ：INT が閾値×この値より下の子は魅了されて戦わない（合い具合の平均から外し、損耗は最も重い）
+MelusineDamageBase,20,pt,調べを打ち破ったときに削る体力＝この値×合い具合（Min〜Max で止める）
+MelusineDamageMin,10,pt,同・下限
+MelusineDamageMax,25,pt,同・上限
+MelusineWinHpLossPctMin,10,%,打ち破った部隊のHPの減り（最大HPに対する%）の下限
+MelusineWinHpLossPctMax,20,%,同・上限
+MelusineLossHpLossPctMin,30,%,呑まれた部隊のHPの減りの下限（合い具合が線に近いとき）
+MelusineLossHpLossPctMax,50,%,同・上限（合い具合が線より0.35以上低いとき・魅了された子）
+MelusineIntelRevealOne,0.3,割合,解析がこれ以上なら、1曲目の調べが前もって分かる
+MelusineIntelRevealTwo,0.6,割合,解析がこれ以上なら、2曲目まで分かる
+MelusineIntelRevealAll,1.0,割合,解析がこれ以上なら、全曲分かる

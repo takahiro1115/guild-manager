@@ -484,7 +484,7 @@ namespace GuildManager.Core.Systems
                     Job = a.JobClass,
                     Age = a.Age,
                     Squad = state.SavedParties.FirstOrDefault(p => p.MemberIds.Contains(a.Id))?.Name ?? "",
-                    Activities = string.Join("・", new[] { WeekActivity.Dispatched, WeekActivity.OnLoan, WeekActivity.Tournament, WeekActivity.RulerDuel, WeekActivity.Training, WeekActivity.SelfTraining, WeekActivity.Help, WeekActivity.Resting }
+                    Activities = string.Join("・", new[] { WeekActivity.Dispatched, WeekActivity.OnLoan, WeekActivity.Tournament, WeekActivity.RulerDuel, WeekActivity.Training, WeekActivity.SelfTraining, WeekActivity.Meditation, WeekActivity.Help, WeekActivity.Resting }
                         .Where(counts.ContainsKey)
                         .Select(act => $"{ActivityLabel(state, a, act)}{counts[act]}週")),
                     Gains = growth.Where(e => e.Adventurer.Id == a.Id).GroupBy(e => e.Stat)
@@ -522,6 +522,7 @@ namespace GuildManager.Core.Systems
             WeekActivity.Help => "研究の手伝い",
             WeekActivity.Tournament => TournamentSystem.EntryOf(state, a.Id)?.Prep == TournamentPrep.Push ? "大会（追い込み）" : "大会（休養）",
             WeekActivity.RulerDuel => "支配者戦の準備",
+            WeekActivity.Meditation => "瞑想（MND）",
             _ => "静養",
         };
 

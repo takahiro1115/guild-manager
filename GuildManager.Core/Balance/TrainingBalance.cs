@@ -66,6 +66,9 @@ namespace GuildManager.Core.Balance
         /// <summary>自主練の成長ロールの倍率（年齢帯別の基礎確率に掛ける。訓練施設は TrainingFacilityMultiplier＋教官）。</summary>
         public static readonly double SelfTrainingGrowthMultiplier = BalanceData.GetDouble(FileName, "SelfTrainingGrowthMultiplier");
 
+        /// <summary>瞑想（§0.129、静寂の泉）の成長ロールの倍率（MND だけ。HPは使わない）。</summary>
+        public static readonly double MeditationGrowthMultiplier = BalanceData.GetDouble(FileName, "MeditationGrowthMultiplier");
+
         /// <summary>自主練をした週のHP消費量（静養の回復は受けるので、回復がこの分だけ遅くなる）。</summary>
         public static readonly int SelfTrainingHpCost = BalanceData.GetInt(FileName, "SelfTrainingHpCost");
 

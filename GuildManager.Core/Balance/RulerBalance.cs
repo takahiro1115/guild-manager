@@ -37,6 +37,23 @@ namespace GuildManager.Core.Balance
         public static readonly double VesperaIntelWeaponReveal = BalanceData.GetDouble(FileName, "VesperaIntelWeaponReveal");
         public static readonly double VesperaIntelStrengthReveal = BalanceData.GetDouble(FileName, "VesperaIntelStrengthReveal");
 
+        // ---- メルジーネ（洞窟）の調べの読み合い（§0.129） ----
+        public static readonly int MelusineMaxSquads = BalanceData.GetInt(FileName, "MelusineMaxSquads");
+        public static readonly int MelusineThresholdOutpost = BalanceData.GetInt(FileName, "MelusineThresholdOutpost");
+        public static readonly int MelusineThresholdFinal = BalanceData.GetInt(FileName, "MelusineThresholdFinal");
+        public static readonly double MelusineSwallowRate = BalanceData.GetDouble(FileName, "MelusineSwallowRate");
+        public static readonly double MelusineSweetCharmRate = BalanceData.GetDouble(FileName, "MelusineSweetCharmRate");
+        public static readonly int MelusineDamageBase = BalanceData.GetInt(FileName, "MelusineDamageBase");
+        public static readonly int MelusineDamageMin = BalanceData.GetInt(FileName, "MelusineDamageMin");
+        public static readonly int MelusineDamageMax = BalanceData.GetInt(FileName, "MelusineDamageMax");
+        public static readonly int MelusineWinHpLossPctMin = BalanceData.GetInt(FileName, "MelusineWinHpLossPctMin");
+        public static readonly int MelusineWinHpLossPctMax = BalanceData.GetInt(FileName, "MelusineWinHpLossPctMax");
+        public static readonly int MelusineLossHpLossPctMin = BalanceData.GetInt(FileName, "MelusineLossHpLossPctMin");
+        public static readonly int MelusineLossHpLossPctMax = BalanceData.GetInt(FileName, "MelusineLossHpLossPctMax");
+        public static readonly double MelusineIntelRevealOne = BalanceData.GetDouble(FileName, "MelusineIntelRevealOne");
+        public static readonly double MelusineIntelRevealTwo = BalanceData.GetDouble(FileName, "MelusineIntelRevealTwo");
+        public static readonly double MelusineIntelRevealAll = BalanceData.GetDouble(FileName, "MelusineIntelRevealAll");
+
         // ---- 介入「名を呼ぶ」 ----
         public static readonly int CallNameBaseChance = BalanceData.GetInt(FileName, "CallNameBaseChance");
         public static readonly int CallNameCompatibilityDivisor = BalanceData.GetInt(FileName, "CallNameCompatibilityDivisor");

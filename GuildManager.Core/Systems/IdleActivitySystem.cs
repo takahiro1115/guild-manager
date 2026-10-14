@@ -24,6 +24,8 @@ namespace GuildManager.Core.Systems
         OnLoan,
         /// <summary>支配者戦の代表（その月は出撃・訓練・大会に出ない。§0.127）。</summary>
         RulerDuel,
+        /// <summary>瞑想（静寂の泉が湧いてから、§0.129）。</summary>
+        Meditation,
     }
 
     /// <summary>
@@ -40,6 +42,8 @@ namespace GuildManager.Core.Systems
 
         /// <summary>自主練をした冒険者（HPは消費済み。成長のロールは GrowthSystem.ProcessSelfTraining）。</summary>
         public HashSet<Guid> SelfTrainerIds { get; } = new();
+        /// <summary>瞑想をした冒険者（§0.129。HPは使わない。成長のロールは GrowthSystem.ProcessMeditation）。</summary>
+        public HashSet<Guid> MeditatorIds { get; } = new();
     }
 
     /// <summary>
@@ -64,6 +68,7 @@ namespace GuildManager.Core.Systems
             if (RulerSystem.IsRepresentative(state, a.Id)) return WeekActivity.RulerDuel; // 支配者戦の代表（§0.127）
             if (state.TrainingAssignments.ContainsKey(a.Id)) return WeekActivity.Training;
             if (RestReason(a) != null) return WeekActivity.Resting;
+            if (a.IdleActivity == IdleActivity.Meditation && RulerSystem.IsMeditationOpen(state)) return WeekActivity.Meditation; // 静寂の泉（§0.129）
             return a.IdleActivity == IdleActivity.SelfTraining ? WeekActivity.SelfTraining : WeekActivity.Help;
         }
 
@@ -100,6 +105,9 @@ namespace GuildManager.Core.Systems
                         a.CurrentHP = Math.Max(TrainingBalance.MinHp, a.CurrentHP - TrainingBalance.SelfTrainingHpCost);
                         week.SelfTrainerIds.Add(a.Id);
                         break;
+                    case WeekActivity.Meditation:
+                        week.MeditatorIds.Add(a.Id);
+                        break;
                 }
             }
 
@@ -128,6 +136,7 @@ namespace GuildManager.Core.Systems
         public static string Label(IdleActivity activity) => activity switch
         {
             IdleActivity.SelfTraining => "自主練",
+            IdleActivity.Meditation => "瞑想",
             _ => "研究を手伝う",
         };
 
@@ -141,6 +150,7 @@ namespace GuildManager.Core.Systems
             WeekActivity.Tournament => "大会の準備",
             WeekActivity.OnLoan => "派遣中",
             WeekActivity.RulerDuel => "支配者戦の準備",
+            WeekActivity.Meditation => "瞑想",
             _ => "研究を手伝う",
         };
     }
