@@ -118,7 +118,8 @@ namespace GuildManager.Core.Tests
         public void Scenario_RecklessAssaultWithoutAnyReadiness_WipesOutTheParty()
         {
             // 同じボスへ、騎士も指揮（LDR）も無い部隊で突撃した場合。即死級への備えが0になる。
-            var dungeon = new DungeonResolver(new AlwaysMinRng());
+            // 強制除籍の判定はいつも当たる（§0.125 より前と同じく HP0＝強制除籍で確かめる）
+            var dungeon = new DungeonResolver(new AlwaysMinRng(), fatalRng: new AlwaysMinRng());
             var boss = MakeGuardian(floor: 2);
 
             var warrior = MakeAdventurer(JobClass.Warrior, 60);

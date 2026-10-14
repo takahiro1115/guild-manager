@@ -272,6 +272,8 @@ namespace GuildManager.Core.Systems
                         Add($"{injury.Name}が重傷（全治{injury.Weeks}週）", MonthlyTone.Bad);
                     foreach (var id in r.DungeonResult?.ForceRetiredAdventurerIds ?? new HashSet<Guid>())
                         Add($"{NameOf(state, id)}が致命傷を負い、ギルドを去った", MonthlyTone.Bad);
+                    foreach (var id in r.DungeonResult?.NearDeathSurvivorIds ?? new List<Guid>())
+                        Add($"{NameOf(state, id)}が致命傷を負ったが、一命を取り留めた", MonthlyTone.Bad); // HP0から強制除籍を免れた（§0.125。重傷の行は上に出る）
                     foreach (var guard in r.DungeonResult?.GuardEvents ?? new List<GuardEvent>())
                         Add($"🛡 {guard.GuardianName}が{guard.ProtectedName}をかばい、損耗を分け合った（HP{guard.Share}を引き受けた）", MonthlyTone.Good); // 相棒のかばい合い（§0.101）
                 }

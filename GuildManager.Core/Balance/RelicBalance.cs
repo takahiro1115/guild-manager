@@ -80,25 +80,49 @@ namespace GuildManager.Core.Balance
         /// <summary>採取スコア÷この値をドロップ確率へ加算する（DEX/AGI/隊長LDRが効く経路）。</summary>
         public static readonly double GatheringDropScoreDivisor = BalanceData.GetDouble(FileName, "GatheringDropScoreDivisor");
 
-        /// <summary>フィールドの最高到達階層÷この値をドロップ確率へ加算する。</summary>
-        public static readonly double GatheringDropFloorDivisor = BalanceData.GetDouble(FileName, "GatheringDropFloorDivisor");
+        /// <summary>深さの段×この値をドロップ確率へ加算する（§0.126。以前の「最高到達階層÷20」を置き換えた）。</summary>
+        public static readonly int GatheringDropPerDepthPct = BalanceData.GetInt(FileName, "GatheringDropPerDepthPct");
 
-        // ---- 希少度ロール（採取・ボス撃破で共通、→ Systems.AppraisalSystem.CreateRelic） ----
+        // ---- 希少度（採取・ボス撃破・依頼で共通、→ Systems.AppraisalSystem.CreateRelic。§0.126） ----
 
-        /// <summary>希少度ロールへの深度ボーナス＝出土階層÷この値。</summary>
-        public static readonly double RarityFloorBonusDivisor = BalanceData.GetDouble(FileName, "RarityFloorBonusDivisor");
+        /// <summary>希少度の帯の境目（深さの段がこの値以下なら、その帯。4つ。最後の値より深ければ帯5）。</summary>
+        public static readonly IReadOnlyList<int> RarityDepthBandMax = ParseBandMax(BalanceData.GetString(FileName, "RarityDepthBandMax"));
 
-        public static readonly int RareRollThreshold = BalanceData.GetInt(FileName, "RareRollThreshold");
-        public static readonly int EpicRollThreshold = BalanceData.GetInt(FileName, "EpicRollThreshold");
-        public static readonly int LegendaryRollThreshold = BalanceData.GetInt(FileName, "LegendaryRollThreshold");
+        /// <summary>帯ごとの希少度の割合（%。銅・銀・金・虹の順で合計100）。添字0＝帯1。</summary>
+        private static readonly IReadOnlyList<IReadOnlyList<int>> RarityWeightsByBand =
+            Enumerable.Range(1, RarityDepthBandMax.Count + 1).Select(b => ParseWeights($"RarityWeightsBand{b}")).ToList();
 
         // ---- 階層ボス撃破ドロップ（→ Systems.DungeonExpeditionSystem） ----
 
-        /// <summary>階層ボス撃破ドロップの希少度ロールへ加算するボーナス。</summary>
-        public static readonly int BossRelicRollBonus = BalanceData.GetInt(FileName, "BossRelicRollBonus");
+        /// <summary>階層ボス撃破のドロップは、出土階層の帯よりこの数だけ深い帯の割合で引く（§0.126）。</summary>
+        public static readonly int BossRarityBandBonus = BalanceData.GetInt(FileName, "BossRarityBandBonus");
+
+        /// <summary>階層ボス撃破で2つ目の遺物が出ることがある深さの段の下限（§0.126）。</summary>
+        public static readonly int BossExtraRelicMinDepth = BalanceData.GetInt(FileName, "BossExtraRelicMinDepth");
+
+        /// <summary>2つ目の遺物が出る確率＝深さの段×この値（%、§0.126）。</summary>
+        public static readonly int BossExtraRelicPctPerDepth = BalanceData.GetInt(FileName, "BossExtraRelicPctPerDepth");
 
         /// <summary>階層ボス撃破ドロップの最低保証希少度。</summary>
         public static readonly ItemRarity BossMinimumRarity = ParseRarity(BalanceData.GetString(FileName, "BossMinimumRarity"));
+
+        private static IReadOnlyList<int> ParseBandMax(string raw)
+        {
+            var values = raw.Split(';').Select(s => int.Parse(s.Trim())).ToList();
+            for (int i = 1; i < values.Count; i++)
+                if (values[i] <= values[i - 1])
+                    throw new BalanceDataException($"{FileName} の RarityDepthBandMax（{raw}）は小さい順に並べてください。");
+            return values;
+        }
+
+        private static IReadOnlyList<int> ParseWeights(string key)
+        {
+            string raw = BalanceData.GetString(FileName, key);
+            var values = raw.Split(';').Select(s => int.Parse(s.Trim())).ToList();
+            if (values.Count != 4 || values.Any(v => v < 0) || values.Sum() != 100)
+                throw new BalanceDataException($"{FileName} の {key}（{raw}）は「銅;銀;金;虹」の4つの0以上の数で、合計100にしてください。");
+            return values;
+        }
 
         private static Dictionary<ItemRarity, RarityProfile> BuildProfiles() => new()
         {
@@ -228,30 +252,55 @@ namespace GuildManager.Core.Balance
         public static string GetRarityColorName(ItemRarity rarity) => Profiles[rarity].ColorName;
 
         /// <summary>
-        /// 希少度ロール：1〜100の乱数に、出土階層の深度ボーナスと任務ボーナス（ボス撃破等）を
-        /// 加算した値を閾値と比べて希少度を決める（→ Systems.AppraisalSystem.CreateRelic）。
+        /// 深さの段（§0.126）＝出土階層÷10（切り捨て）＋(フィールドの順−1)、最低1。主の体力の「段」と同じ数え方
+        /// （森の10F＝1・森の100F＝10・深淵の100F＝14）。
         /// </summary>
-        public static ItemRarity RollRarity(int roll1To100, int floor, int rollBonus)
-        {
-            int score = roll1To100 + (int)(floor / RarityFloorBonusDivisor) + rollBonus;
+        public static int DepthStep(int fieldOrder, int floor) => Math.Max(1, floor / 10 + (Math.Max(1, fieldOrder) - 1));
 
-            if (score >= LegendaryRollThreshold) return ItemRarity.Legendary;
-            if (score >= EpicRollThreshold) return ItemRarity.Epic;
-            if (score >= RareRollThreshold) return ItemRarity.Rare;
-            return ItemRarity.Common;
+        /// <summary>深さの段が入る希少度の帯（1〜5、→ RarityDepthBandMax）。</summary>
+        public static int DepthBand(int depthStep)
+        {
+            for (int i = 0; i < RarityDepthBandMax.Count; i++)
+                if (depthStep <= RarityDepthBandMax[i]) return i + 1;
+            return RarityDepthBandMax.Count + 1;
+        }
+
+        /// <summary>帯ごとの希少度の割合（%。銅・銀・金・虹の順）。帯は1〜5に収める。</summary>
+        public static IReadOnlyList<int> RarityWeights(int band) =>
+            RarityWeightsByBand[Math.Clamp(band, 1, RarityWeightsByBand.Count) - 1];
+
+        /// <summary>
+        /// 希少度ロール（§0.126）：深さの段の帯（＋bandBonus。ボス撃破・依頼の報酬は1つ深い帯）の割合で、
+        /// 1〜100の乱数から希少度を決める（→ Systems.AppraisalSystem.CreateRelic）。浅い帯では金・虹が出ない。
+        /// 以前は「乱数＋出土階層÷10＋上乗せ」を閾値と比べていて、深さの効きが弱く、浅い主からも金・虹がよく出た。
+        /// </summary>
+        public static ItemRarity RollRarity(int roll1To100, int depthStep, int bandBonus)
+        {
+            var weights = RarityWeights(DepthBand(depthStep) + bandBonus);
+            int cumulative = 0;
+            for (int i = 0; i < weights.Count; i++)
+            {
+                cumulative += weights[i];
+                if (roll1To100 <= cumulative) return (ItemRarity)i;
+            }
+            return ItemRarity.Legendary;
         }
 
         /// <summary>
-        /// 探索（採取）任務での未鑑定遺物ドロップ確率（%）。基礎確率に採取スコア・到達階層のボーナスを
+        /// 探索（採取）任務での未鑑定遺物ドロップ確率（%）。基礎確率に採取スコアと深さの段（§0.126）の上乗せを
         /// 乗せ、上限（GatheringDropMaxPct）でクランプする（→ Systems.GatheringResolver）。
         /// </summary>
-        public static int GetGatheringDropPercent(double gatheringScore, int reachedFloor)
+        public static int GetGatheringDropPercent(double gatheringScore, int depthStep)
         {
             int pct = GatheringDropBasePct
                 + (int)(gatheringScore / GatheringDropScoreDivisor)
-                + (int)(reachedFloor / GatheringDropFloorDivisor);
+                + depthStep * GatheringDropPerDepthPct;
 
             return Math.Clamp(pct, GatheringDropBasePct, GatheringDropMaxPct);
         }
+
+        /// <summary>階層ボス撃破で2つ目の遺物が出る確率（%、§0.126）。深さの段が BossExtraRelicMinDepth 未満なら0。</summary>
+        public static int BossExtraRelicPercent(int depthStep) =>
+            depthStep < BossExtraRelicMinDepth ? 0 : Math.Min(100, depthStep * BossExtraRelicPctPerDepth);
     }
 }

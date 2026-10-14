@@ -25,7 +25,7 @@ namespace GuildManager.Core.Tests
 
         private static DungeonExpeditionSystem BuildSystem() => new(
             new ScoutingResolver(new AlwaysMinRng()),
-            new DungeonResolver(new AlwaysMinRng()),
+            new DungeonResolver(new AlwaysMinRng(), fatalRng: new AlwaysMinRng()), // 強制除籍の判定はいつも当たる（§0.125 より前と同じく HP0＝強制除籍で確かめる）
             new SatisfactionSystem(),
             new CompatibilitySystem(new AlwaysMinRng()),
             new DungeonTraversalResolver(new AlwaysMinRng()),
@@ -1128,7 +1128,7 @@ namespace GuildManager.Core.Tests
         /// <summary>成長ロールが常に成功する（AlwaysMinRng）GrowthSystemを差し込んだ出撃システム。</summary>
         private static DungeonExpeditionSystem BuildSystemWithGuaranteedGrowth() => new(
             new ScoutingResolver(new AlwaysMinRng()),
-            new DungeonResolver(new AlwaysMinRng()),
+            new DungeonResolver(new AlwaysMinRng(), fatalRng: new AlwaysMinRng()), // 強制除籍の判定はいつも当たる（§0.125 より前と同じく HP0＝強制除籍で確かめる）
             new SatisfactionSystem(),
             new CompatibilitySystem(new AlwaysMinRng()),
             new DungeonTraversalResolver(new AlwaysMinRng()),

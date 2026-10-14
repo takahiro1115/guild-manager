@@ -1571,6 +1571,13 @@ public partial class MainDashboard : Control
 			if (sensor != null)
 				sb.AppendLine($"[color=cyan]⚡ {sensor.Name}は危機察知で致命の一撃を寸前でかわした（損耗{TraitBalance.SixthSenseInstantKillHpLossPct}%で止まった）。[/color]");
 		}
+		// HP0から強制除籍を免れた隊員（§0.125）
+		foreach (var survivorId in assault.NearDeathSurvivorIds)
+		{
+			var survivor = _state.Adventurers.FirstOrDefault(a => a.Id == survivorId);
+			if (survivor != null)
+				sb.AppendLine($"[color=orange]💔 {survivor.Name}は致命傷を負ったが、一命を取り留めた（重傷）。[/color]");
+		}
 		foreach (var hunterId in assault.GiantHunterAdventurerIds)
 		{
 			var hunter = _state.Adventurers.FirstOrDefault(a => a.Id == hunterId);

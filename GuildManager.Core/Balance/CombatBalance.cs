@@ -50,6 +50,12 @@ namespace GuildManager.Core.Balance
         public static readonly double OldWoundCriticalChance = BalanceData.GetDouble(FileName, "OldWoundCriticalChance");
 
         /// <summary>
+        /// 階層ボス戦でHPが0になった隊員が強制除籍される確率（%、§0.125。命は秘薬で助かるが、二度と戦えずギルドを去る。冒険者は戦死しない）。外れれば HP1 で一命を取り留め、重傷になる
+        /// （→ Systems.DungeonResolver.ApplyHpLoss）。
+        /// </summary>
+        public static readonly int FatalChancePercent = BalanceData.GetInt(FileName, "FatalChancePercent");
+
+        /// <summary>
         /// 階層ボス討伐の撤退で古傷ロールの対象になるHPの上限（最大HPに対する比率、→ DungeonResolver、03 §4.3.2）。
         /// 上限HP＝max(1, floor(最大HP×この値))。ボス戦はHP下限0のためHPちょうど1が残ることが稀で、
         /// HP≤1条件ではほぼ発生しなかった（2026年9月・§0.34で緩和）。

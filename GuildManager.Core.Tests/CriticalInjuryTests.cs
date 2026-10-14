@@ -276,7 +276,7 @@ namespace GuildManager.Core.Tests
             state.DungeonFields.Add(field);
 
             var system = new DungeonExpeditionSystem(
-                new ScoutingResolver(new AlwaysMinRng()), new DungeonResolver(new AlwaysMaxRng()),
+                new ScoutingResolver(new AlwaysMinRng()), new DungeonResolver(new AlwaysMaxRng(), fatalRng: new AlwaysMinRng()), // 強制除籍の判定はいつも当たる（§0.125）
                 new SatisfactionSystem(), new CompatibilitySystem(new AlwaysMinRng()));
             Assert.True(system.TryDispatch(state, PartyOf(doomed, survivor), boss, DungeonMissionType.BossAssault));
 

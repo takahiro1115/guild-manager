@@ -143,7 +143,8 @@ namespace GuildManager.Core.Tests
             var doomed = Strong("倒れる者");
             doomed.CurrentHP = 1; // 撃破時の損耗（12%〜）でHP0＝強制除籍
 
-            var result = new DungeonResolver(new AlwaysMinRng()).Resolve(PartyOf(survivor, doomed), Boss(heavyArmor: true));
+            // 強制除籍の判定はいつも当たる（§0.125 より前と同じく HP0＝強制除籍で確かめる）
+            var result = new DungeonResolver(new AlwaysMinRng(), fatalRng: new AlwaysMinRng()).Resolve(PartyOf(survivor, doomed), Boss(heavyArmor: true));
 
             Assert.Equal(DungeonOutcome.Victory, result.Outcome);
             Assert.Contains(doomed.Id, result.ForceRetiredAdventurerIds);

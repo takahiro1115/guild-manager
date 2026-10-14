@@ -98,6 +98,10 @@ namespace GuildManager.Core.Data
             new("abyss", "深淵の特異点", 5, new[] { "深淵の腐蝕体", "漆黒の重装兵", "深淵の堕天使", "特異点の支配者", "果てなき肉塊", "眷属を統べる者", "深淵の誘惑者" }),
         };
 
+        /// <summary>フィールドの順（森1〜深淵5）。知らない Id は1（遺物の深さの段に使う、→ RelicBalance.DepthStep、§0.126）。</summary>
+        public static int FieldOrderOf(string? fieldId) =>
+            FieldDefinitions.FirstOrDefault(d => d.Id == fieldId) is { Id: not null } def ? def.Order : 1;
+
         /// <summary>ギミック7種の並び（一番の特徴のギミックはフィールドごとにずらしてこの順に巡る。→ PrimaryGimmick）。</summary>
         private static readonly BossGimmickType[] GimmickCycle =
         {

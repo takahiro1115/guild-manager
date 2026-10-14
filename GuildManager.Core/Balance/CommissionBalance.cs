@@ -113,8 +113,8 @@ namespace GuildManager.Core.Balance
         /// <summary>受けた依頼が期限切れ・達成できなくなったときの機嫌の低下（断った依頼・受けずに流れた依頼は罰なし）。</summary>
         public static readonly int FailureMoodLoss = BalanceData.GetInt(FileName, "FailureMoodLoss");
 
-        /// <summary>報酬の遺物の希少度ロールの上乗せ（→ RelicBalance.RollRarity）。</summary>
-        public static readonly int RewardRelicRollBonus = BalanceData.GetInt(FileName, "RewardRelicRollBonus");
+        /// <summary>報酬の遺物は、出土階層の帯よりこの数だけ深い帯の割合で引く（→ RelicBalance.RollRarity、§0.126）。</summary>
+        public static readonly int RewardRelicBandBonus = BalanceData.GetInt(FileName, "RewardRelicBandBonus");
 
         /// <summary>報酬の遺物の最低保証の希少度（Common/Rare/Epic/Legendary）。</summary>
         public static readonly ItemRarity RewardRelicMinRarity = ParseRarity(BalanceData.GetString(FileName, "RewardRelicMinRarity"));

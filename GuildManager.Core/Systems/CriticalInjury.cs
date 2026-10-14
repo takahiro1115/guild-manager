@@ -8,8 +8,8 @@ namespace GuildManager.Core.Systems
     /// <summary>
     /// 重傷（HP1）で生還した隊員の古傷判定（→ 03 §4.3、2026年9月・§0.33）。
     /// 道中進軍（→ DungeonTraversalResolver）と階層ボス討伐の撤退（→ DungeonResolver）が共通で使う。
-    /// 旧通常クエストの致死判定（不可逆障害域）は撤去済みで、大迷宮では HP0＝強制除籍のため、
-    /// 古傷が付く経路はここだけ。
+    /// 旧通常クエストの致死判定（不可逆障害域）は撤去済みで、大迷宮では HP0 は低い確率で強制除籍、外れれば HP1 で
+    /// 一命を取り留める（§0.125）ため、古傷が付く経路はここだけ。
     /// </summary>
     public static class CriticalInjury
     {
@@ -53,7 +53,7 @@ namespace GuildManager.Core.Systems
         /// </summary>
         public static InjuryEvent? TryInflictSevere(Adventurer adventurer, IRng rng, double thresholdMultiplier = 1.0)
         {
-            if (adventurer.CurrentHP <= 0) return null; // HP0は強制除籍（→ DungeonResolver）
+            if (adventurer.CurrentHP <= 0) return null; // HP0のまま＝強制除籍（→ DungeonResolver。§0.125）
             // thresholdMultiplier：神官の加護（§0.72、→ ClericBlessing）があれば基準が下がり、重傷になりにくい
             if (adventurer.CurrentHP >= adventurer.MaxHP * CombatBalance.SevereInjuryHpThresholdPct * thresholdMultiplier) return null;
             if (adventurer.Injury == InjurySeverity.Severe) return null;

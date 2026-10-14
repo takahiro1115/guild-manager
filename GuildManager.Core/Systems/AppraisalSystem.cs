@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using GuildManager.Core.Balance;
+using GuildManager.Core.Data;
 using GuildManager.Core.Models;
 using GuildManager.Core.Rng;
 
@@ -205,14 +206,15 @@ namespace GuildManager.Core.Systems
 
         /// <summary>
         /// 未鑑定遺物を1個生成する（→ GatheringResolver・DungeonExpeditionSystem）。
-        /// 希少度は「1〜100の乱数＋出土階層の深度ボーナス＋任務ボーナス」を閾値と比べて決まる
-        /// （→ RelicBalance.RollRarity）。<paramref name="minimumRarity"/> を指定すると、
-        /// ロール結果がそれ未満だった場合に引き上げる（階層ボス撃破の最低保証）。
+        /// 希少度は、出土した深さの段（階層とフィールドの順、§0.126）の帯の割合で、1〜100の乱数から決まる
+        /// （→ RelicBalance.RollRarity）。<paramref name="bandBonus"/> だけ深い帯で引く（階層ボス撃破・依頼の報酬）。
+        /// <paramref name="minimumRarity"/> を指定すると、ロール結果がそれ未満だった場合に引き上げる（階層ボス撃破の最低保証）。
         /// </summary>
         public static UnidentifiedItem CreateRelic(
-            IRng rng, string fieldId, int floor, int rollBonus = 0, ItemRarity? minimumRarity = null)
+            IRng rng, string fieldId, int floor, int bandBonus = 0, ItemRarity? minimumRarity = null)
         {
-            var rarity = RelicBalance.RollRarity(rng.NextInt(1, 100), floor, rollBonus);
+            int depth = RelicBalance.DepthStep(SampleData.FieldOrderOf(fieldId), floor);
+            var rarity = RelicBalance.RollRarity(rng.NextInt(1, 100), depth, bandBonus);
             if (minimumRarity.HasValue && rarity < minimumRarity.Value)
                 rarity = minimumRarity.Value;
 

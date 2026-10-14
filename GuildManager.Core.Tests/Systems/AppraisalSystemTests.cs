@@ -295,7 +295,7 @@ namespace GuildManager.Core.Tests.Systems
         public void CreateRelic_MinimumRarity_RaisesLowRolls()
         {
             var relic = AppraisalSystem.CreateRelic(
-                new AlwaysMinRng(), "forest", floor: 1, rollBonus: 0, minimumRarity: ItemRarity.Epic);
+                new AlwaysMinRng(), "forest", floor: 1, bandBonus: 0, minimumRarity: ItemRarity.Epic);
 
             Assert.Equal(ItemRarity.Epic, relic.Rarity);
             Assert.Equal(RelicBalance.GetAppraisalCost(ItemRarity.Epic), relic.AppraisalCost);
@@ -305,10 +305,72 @@ namespace GuildManager.Core.Tests.Systems
         public void CreateRelic_MinimumRarity_DoesNotLowerHighRolls()
         {
             var relic = AppraisalSystem.CreateRelic(
-                new AlwaysMaxRng(), "abyss", floor: 100, rollBonus: 0, minimumRarity: ItemRarity.Rare);
+                new AlwaysMaxRng(), "abyss", floor: 100, bandBonus: 0, minimumRarity: ItemRarity.Rare);
 
             Assert.Equal(ItemRarity.Legendary, relic.Rarity);
         }
+
+        // ---------------- 深さの段と希少度の帯（§0.126） ----------------
+
+        [Theory]
+        [InlineData(1, 5, 1)]    // 森の浅いところ（最低1）
+        [InlineData(1, 10, 1)]   // 森の10F
+        [InlineData(1, 100, 10)] // 森の100F
+        [InlineData(2, 20, 3)]   // 洞窟の20F
+        [InlineData(5, 100, 14)] // 深淵の100F
+        public void DepthStep_IsFloorTensPlusFieldOrder(int fieldOrder, int floor, int expected) =>
+            Assert.Equal(expected, RelicBalance.DepthStep(fieldOrder, floor));
+
+        [Theory]
+        [InlineData(1, 1)]
+        [InlineData(3, 1)]
+        [InlineData(4, 2)]
+        [InlineData(9, 3)]
+        [InlineData(12, 4)]
+        [InlineData(14, 5)]
+        public void DepthBand_FollowsTheBorders(int depthStep, int band) =>
+            Assert.Equal(band, RelicBalance.DepthBand(depthStep));
+
+        [Theory]
+        [InlineData(1)]
+        [InlineData(5)]
+        [InlineData(8)]
+        [InlineData(11)]
+        [InlineData(14)]
+        public void RollRarity_OverEveryRoll_MatchesTheBandWeights(int depthStep)
+        {
+            // 1〜100 の乱数をすべて試すと、希少度ごとの数がその帯の割合（%）と一致する
+            var weights = RelicBalance.RarityWeights(RelicBalance.DepthBand(depthStep));
+            var counts = Enumerable.Range(1, 100).Select(r => RelicBalance.RollRarity(r, depthStep, 0))
+                .GroupBy(x => x).ToDictionary(g => g.Key, g => g.Count());
+            for (int i = 0; i < 4; i++)
+                Assert.Equal(weights[i], counts.GetValueOrDefault((ItemRarity)i));
+        }
+
+        [Fact]
+        public void ShallowRelics_NeverEpicOrLegendary_AndAShallowBoss_NeverLegendary()
+        {
+            // 森の浅いところ（帯1）からは金・虹が出ない。森の10Fの主（1つ深い帯2）でも虹は出ない（§0.126 より前は金以上が約4割）
+            var shallow = Enumerable.Range(1, 100).Select(r => RelicBalance.RollRarity(r, RelicBalance.DepthStep(1, 10), 0)).ToList();
+            Assert.DoesNotContain(ItemRarity.Epic, shallow);
+            Assert.DoesNotContain(ItemRarity.Legendary, shallow);
+            var boss = Enumerable.Range(1, 100).Select(r => RelicBalance.RollRarity(r, RelicBalance.DepthStep(1, 10), RelicBalance.BossRarityBandBonus)).ToList();
+            Assert.DoesNotContain(ItemRarity.Legendary, boss);
+            Assert.Equal(ItemRarity.Epic, AppraisalSystem.CreateRelic(new AlwaysMaxRng(), "forest", floor: 10, bandBonus: RelicBalance.BossRarityBandBonus).Rarity);
+        }
+
+        [Fact]
+        public void BandBonus_StopsAtTheDeepestBand()
+        {
+            Assert.Equal(RelicBalance.RarityWeights(5), RelicBalance.RarityWeights(RelicBalance.DepthBand(14) + 1));
+        }
+
+        [Theory]
+        [InlineData(6, 0)]
+        [InlineData(7, 35)]
+        [InlineData(14, 70)]
+        public void BossExtraRelic_ComesFromTheDepthThreshold(int depthStep, int pct) =>
+            Assert.Equal(pct, RelicBalance.BossExtraRelicPercent(depthStep));
 
         // ---------------- relic.csv の整合性 ----------------
 
@@ -333,10 +395,10 @@ namespace GuildManager.Core.Tests.Systems
         [Fact]
         public void RelicBalance_GatheringDropPercent_StaysWithinConfiguredBand()
         {
-            Assert.Equal(RelicBalance.GatheringDropBasePct, RelicBalance.GetGatheringDropPercent(0, 1));
-            Assert.Equal(RelicBalance.GatheringDropMaxPct, RelicBalance.GetGatheringDropPercent(100000, 100));
+            Assert.Equal(RelicBalance.GatheringDropBasePct, RelicBalance.GetGatheringDropPercent(0, 0));
+            Assert.Equal(RelicBalance.GatheringDropMaxPct, RelicBalance.GetGatheringDropPercent(100000, 14));
             Assert.InRange(
-                RelicBalance.GetGatheringDropPercent(150, 40),
+                RelicBalance.GetGatheringDropPercent(150, 4),
                 RelicBalance.GatheringDropBasePct, RelicBalance.GatheringDropMaxPct);
         }
 

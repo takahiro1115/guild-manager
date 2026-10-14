@@ -21,6 +21,11 @@ namespace GuildManager.Core.Tests
             public int NextInt(int min, int max) => max;
         }
 
+        private class AlwaysMinRng : IRng
+        {
+            public int NextInt(int min, int max) => min;
+        }
+
         private static readonly string[] NewTraitIds =
         {
             TraitCatalog.HawkEyeId, TraitCatalog.SixthSenseId, TraitCatalog.GuardianId, TraitCatalog.PathfinderId,
@@ -143,7 +148,8 @@ namespace GuildManager.Core.Tests
             var other = Make();
             int sensorMax = sensor.MaxHP;
 
-            var result = new DungeonResolver(new AlwaysMaxRng()).Resolve(PartyOf(sensor, other), MakeBoss(Uncounterable(BossGimmickType.InstantKill)));
+            // 強制除籍の判定はいつも当たる（§0.125 より前と同じく HP0＝強制除籍で確かめる）
+            var result = new DungeonResolver(new AlwaysMaxRng(), fatalRng: new AlwaysMinRng()).Resolve(PartyOf(sensor, other), MakeBoss(Uncounterable(BossGimmickType.InstantKill)));
 
             Assert.Contains(BossGimmickType.InstantKill, result.UncounteredGimmicks);
             Assert.Equal(sensorMax * 60 / 100, result.HpLostByAdventurer[sensor.Id]);

@@ -1614,7 +1614,7 @@ public partial class DungeonPanel : ScrollContainer
 		int scoreYield = GatheringResolver.ScoreYield(gatheringScore);
 		int floorYield = GatheringResolver.FloorYield(_selectedField);
 		int researchYield = GatheringResolver.ResearchYield(_state);
-		int relicPct = RelicBalance.GetGatheringDropPercent(gatheringScore, _selectedField.ReachedFloor);
+		int relicPct = RelicBalance.GetGatheringDropPercent(gatheringScore, RelicBalance.DepthStep(_selectedField.Order, _selectedField.ReachedFloor));
 
 		sb.Append($"\n採取 [b]{gatheringScore:F0}[/b]{(breakdown.RuralTotal > 0 ? $"（田舎育ち+{breakdown.RuralTotal:F0}）" : "")}");
 		sb.Append(eligible.Count == 0

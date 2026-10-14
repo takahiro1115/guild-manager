@@ -95,6 +95,12 @@ namespace GuildManager.Core.Systems
         /// </summary>
         public HashSet<Guid> ForceRetiredAdventurerIds { get; set; } = new();
 
+        /// <summary>
+        /// HPが0になったが、強制除籍の判定（→ CombatBalance.FatalChancePercent、§0.125）を免れて HP1 で一命を取り留めた冒険者ID。
+        /// 重傷になり、古傷のロールもある（週報・月報の開示用）。
+        /// </summary>
+        public List<Guid> NearDeathSurvivorIds { get; set; } = new();
+
         /// <summary>相棒のかばい合い（§0.101、→ DungeonResolver.ApplyHpLoss）。</summary>
         public List<GuardEvent> GuardEvents { get; set; } = new();
     }

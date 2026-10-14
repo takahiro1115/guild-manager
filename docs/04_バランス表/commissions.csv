@@ -21,7 +21,7 @@ RewardMultiplier_Deliver,0.15,倍,納品の報酬ゴールド＝攻略の最前�
 RewardMultiplier_Loan,1.5,倍,"派遣の報酬ゴールド＝攻略の最前線のボスの撃破報酬×この倍率（§0.85。献上の×3から、育てた子が帰ってくる分を下げた）"
 CompletionMoodGain,10,pt,依頼を達成したときの機嫌の上昇
 FailureMoodLoss,10,pt,受けた依頼が期限切れ・達成できなくなったときの機嫌の低下（断った依頼・受けずに流れた依頼は罰なし）
-RewardRelicRollBonus,25,pt,報酬の未鑑定遺物の希少度ロールへの上乗せ（階層ボス撃破のドロップと同じ）
+RewardRelicBandBonus,1,帯,報酬の未鑑定遺物は、出土階層の希少度の帯よりこの数だけ深い帯の割合で引く（階層ボス撃破のドロップと同じ。§0.126 で RewardRelicRollBonus〈+25〉から置き換えた。→ relic.csv）
 RewardRelicMinRarity,Epic,ItemRarity,報酬の未鑑定遺物の最低保証の希少度（金以上）
 PatronUniqueCompletions,5,件,同じ依頼人の依頼をこの件数達成すると、その依頼人の固有武具（uniques.csv の Patron）が届く
 AnomalyAnnounceWeekOfSeason,4,週目,季節の何週目に迷宮の異変を予告するか（翌週から効く）

@@ -508,7 +508,7 @@ namespace GuildManager.Core.Systems
             // 撤退（Retreat）時は何も進行しない。
             int? squadSlotsExpandedTo = null;
             DungeonField? fieldNewlyUnlocked = null;
-            UnidentifiedItem? relic = null;
+            var relics = new List<UnidentifiedItem>();
             EquipmentItem? legendary = null;
             if (assault.Outcome == DungeonOutcome.Victory)
             {
@@ -534,13 +534,18 @@ namespace GuildManager.Core.Systems
                 fieldNewlyUnlocked = state.DungeonFields
                     .FirstOrDefault(f => f.IsUnlocked && !unlockedFieldIdsBefore.Contains(f.Id));
 
-                // 未鑑定の古代遺物の確定ドロップ（→ 03 §4.7）。撃破したボスの階層が深いほど
-                // 希少度ロールが伸び、さらにボス撃破ボーナスと最低保証希少度が乗る
-                // （→ RelicBalance.BossRelicRollBonus・BossMinimumRarity）。
-                relic = AppraisalSystem.CreateRelic(
+                // 未鑑定の古代遺物の確定ドロップ（→ 03 §4.7）。希少度は撃破したボスの深さの段の帯より1つ深い帯の割合で引き、
+                // 最低保証の希少度が乗る（→ RelicBalance.BossRarityBandBonus・BossMinimumRarity、§0.126）。
+                // 深さの段が BossExtraRelicMinDepth 以上なら、2つ目が出ることがある（段×BossExtraRelicPctPerDepth %）。
+                relics.Add(AppraisalSystem.CreateRelic(
                     _relicRng, mission.Field.Id, boss.Floor,
-                    RelicBalance.BossRelicRollBonus, RelicBalance.BossMinimumRarity);
-                state.UnidentifiedItems.Add(relic);
+                    RelicBalance.BossRarityBandBonus, RelicBalance.BossMinimumRarity));
+                int extraPct = RelicBalance.BossExtraRelicPercent(RelicBalance.DepthStep(mission.Field.Order, boss.Floor));
+                if (extraPct > 0 && _relicRng.NextInt(1, 100) <= extraPct)
+                    relics.Add(AppraisalSystem.CreateRelic(
+                        _relicRng, mission.Field.Id, boss.Floor,
+                        RelicBalance.BossRarityBandBonus, RelicBalance.BossMinimumRarity));
+                state.UnidentifiedItems.AddRange(relics);
 
                 // 伝説級の固有武具（→ 03 §4.7.5、2026年9月・§0.45）：割り当てのあるボスの初回撃破で確定入手（乱数なし）。
                 legendary = UniqueItemSystem.TryGrantBossDrop(state, mission.Field, boss);
@@ -548,8 +553,7 @@ namespace GuildManager.Core.Systems
 
             var resolution = new DungeonMissionResolution(
                 mission.Party, boss, mission.Field, intelBefore, assault, squadSlotsExpandedTo, fieldNewlyUnlocked);
-            if (relic != null)
-                resolution.RelicsFound.Add(relic);
+            resolution.RelicsFound.AddRange(relics);
             resolution.LegendaryFound = legendary;
             resolution.RecoveredEquipment = recoveredEquipment;
             // 障害特性の開示（→ 03 §5.3.2）：撤退時の重傷生還による古傷と、仲間除籍の衝撃によるトラウマ。

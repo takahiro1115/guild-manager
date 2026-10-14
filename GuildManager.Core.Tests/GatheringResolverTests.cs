@@ -348,15 +348,15 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void Gathering_RelicDropChance_RisesWithScoreAndDepth()
         {
-            // ドロップ確率は採取スコア（DEX/AGI/隊長LDR由来）と到達階層で伸びる
-            // （→ RelicBalance.GetGatheringDropPercent）。
+            // ドロップ確率は採取スコア（DEX/AGI/隊長LDR由来）と深さの段で伸びる
+            // （→ RelicBalance.GetGatheringDropPercent。深さの段1＝森の浅いところ、14＝深淵の最深部。§0.126）。
             double weakScore = GatheringResolver.CalculateGatheringScore(PartyOf(MakeAdventurer(agiDex: 5)));
             double strongScore = GatheringResolver.CalculateGatheringScore(PartyOf(MakeAdventurer(agiDex: 200, ldr: 100)));
 
             int shallowWeak = RelicBalance.GetGatheringDropPercent(weakScore, 1);
-            int deepStrong = RelicBalance.GetGatheringDropPercent(strongScore, 80);
+            int deepStrong = RelicBalance.GetGatheringDropPercent(strongScore, 14);
 
-            Assert.Equal(RelicBalance.GatheringDropBasePct, shallowWeak);
+            Assert.Equal(RelicBalance.GatheringDropBasePct + RelicBalance.GatheringDropPerDepthPct, shallowWeak);
             Assert.True(deepStrong > shallowWeak);
             Assert.True(deepStrong <= RelicBalance.GatheringDropMaxPct);
         }

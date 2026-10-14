@@ -29,10 +29,11 @@ namespace GuildManager.Core.Systems
     ///    対策の能力の部隊合計÷基準の値を足して上限1。伝説級の装備（§0.45）があれば1。携行アイテムは撤去した。
     ///  - 備えが足りない分（不足＝1−備え）だけ、ギミックごとの罰が効く（→ BossGimmickType）：
     ///    猛毒・飛行・群れは損耗の加算、重装甲・群れ・魅了は火力の低下、再生は要求火力の上昇、即死級は損耗の下限
-    ///    （不足×100%。備えが0なら全損＝戦死）。猛毒は戦闘後の毒状態も残す。
+    ///    （不足×100%。備えが0なら全損＝HP0、強制除籍の判定へ。§0.125）。猛毒は戦闘後の毒状態も残す。
     ///  - 完全解析ボーナス：解析率1.0（→ ScoutingResolver）で与ダメージが上乗せされる。
     ///
-    /// HP下限は0で、0に到達した冒険者は強制除籍（恒久ロスト）になる（→ DungeonResult.ForceRetiredAdventurerIds）。
+    /// HP下限は0。0に到達した冒険者は FatalChancePercent の確率で強制除籍（恒久ロスト、→ DungeonResult.ForceRetiredAdventurerIds）、
+    /// 外れれば HP1 で一命を取り留めて重傷になる（§0.125、→ DungeonResult.NearDeathSurvivorIds）。
     /// </summary>
     public class DungeonResolver
     {
@@ -41,15 +42,19 @@ namespace GuildManager.Core.Systems
         private readonly IRng _outcomeRng;
         /// <summary>相棒のかばい合いだけに使う乱数（§0.101。損耗・勝ち負けの抽選の順を変えないよう別にする）。</summary>
         private readonly IRng _guardRng;
+        /// <summary>HP0の強制除籍の判定だけに使う乱数（§0.125。損耗・勝ち負け・かばい合いの抽選の順を変えないよう別にする）。</summary>
+        private readonly IRng _fatalRng;
 
         private const int DefaultOutcomeSeed = 1597;
         private const int DefaultGuardSeed = 1601;
+        private const int DefaultFatalSeed = 1607;
 
-        public DungeonResolver(IRng rng, IRng? outcomeRng = null, IRng? guardRng = null)
+        public DungeonResolver(IRng rng, IRng? outcomeRng = null, IRng? guardRng = null, IRng? fatalRng = null)
         {
             _rng = rng;
             _outcomeRng = outcomeRng ?? new SeededRng(DefaultOutcomeSeed);
             _guardRng = guardRng ?? new SeededRng(DefaultGuardSeed);
+            _fatalRng = fatalRng ?? new SeededRng(DefaultFatalSeed);
         }
 
         /// <summary>
@@ -337,9 +342,10 @@ namespace GuildManager.Core.Systems
         ///    SixthSenseInstantKillHpLossPct で止まる
         ///  - 魅了：操られた隊員の損耗に CharmExtraHpLossPct×不足を足す
         ///
-        /// HP下限は0：0に到達した冒険者は強制除籍（恒久ロスト）となる
+        /// HP下限は0：0に到達した冒険者は FatalChancePercent の確率で強制除籍（恒久ロスト）となる
         /// （→ DungeonResult.ForceRetiredAdventurerIds。世界観上は「秘薬で一命を取り留めたが
-        /// アルベールが登録を抹消した」という扱い）。
+        /// アルベールが登録を抹消した」という扱い）。外れれば HP1 で一命を取り留め、重傷になる。
+        /// 撃破・撤退にかかわらず古傷のロールもある（§0.125、→ DungeonResult.NearDeathSurvivorIds）。
         ///
         /// survivalBonus（2026年9月新設、→ ResearchEffectType.SurvivalThresholdBonus）は
         /// 算出後のHP消費率（%）から%ポイントで差し引く（0未満にはしない）。即死級の全損（100%）にも
@@ -366,7 +372,7 @@ namespace GuildManager.Core.Systems
 
                 if (instantKill > 0)
                 {
-                    // 即死級は備えの不足が損耗の下限になる（備え0なら全損＝戦死）。
+                    // 即死級は備えの不足が損耗の下限になる（備え0なら全損＝HP0。強制除籍になるかは FatalChancePercent、§0.125）。
                     // 危機察知（§0.55）の保有者だけは SixthSenseInstantKillHpLossPct で止まる。
                     int floorPct = (int)Math.Round(DungeonBalance.InstantKillUncounteredHpLossPct * instantKill);
                     if (member.HasTrait(TraitCatalog.SixthSenseId) && floorPct > TraitBalance.SixthSenseInstantKillHpLossPct)
@@ -402,6 +408,16 @@ namespace GuildManager.Core.Systems
                     result.GuardEvents.Add(new GuardEvent(guardian.Id, guardian.Name, member.Id, member.Name, share));
                 }
 
+                // HP0の強制除籍（§0.125）：FatalChancePercent の確率で強制除籍。外れれば HP1 で一命を取り留める（重傷は下で付く）。
+                // 乱数は強制除籍の判定専用で、HPが0になった隊員のときだけ引く。
+                bool nearDeath = false;
+                if (newHp == 0 && _fatalRng.NextInt(1, 100) > CombatBalance.FatalChancePercent)
+                {
+                    newHp = 1;
+                    nearDeath = true;
+                    result.NearDeathSurvivorIds.Add(member.Id);
+                }
+
                 result.HpLostByAdventurer[member.Id] = member.CurrentHP - newHp;
                 member.CurrentHP = newHp;
 
@@ -411,7 +427,8 @@ namespace GuildManager.Core.Systems
                 // で生還した隊員だけロールする（撃破時は対象外）。
                 else
                 {
-                    if (result.Outcome == DungeonOutcome.Retreat
+                    // 一命を取り留めた隊員（§0.125）は、撃破でもロールする。
+                    if ((result.Outcome == DungeonOutcome.Retreat || nearDeath)
                         && CriticalInjury.RollOldWound(member, _rng, CriticalInjury.RetreatHpThreshold(member)) is { } grant)
                         result.TraitGrantEvents.Add(grant);
                     // 後天の障害（§0.56）：猛毒に備えが足りずHPが大きく削れた生還者に毒の後遺症、

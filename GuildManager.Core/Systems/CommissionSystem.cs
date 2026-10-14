@@ -391,7 +391,7 @@ namespace GuildManager.Core.Systems
             result.Gold = c.RewardGold;
 
             var relic = AppraisalSystem.CreateRelic(_rng, c.FieldId, c.RewardRelicFloor,
-                CommissionBalance.RewardRelicRollBonus, CommissionBalance.RewardRelicMinRarity);
+                CommissionBalance.RewardRelicBandBonus, CommissionBalance.RewardRelicMinRarity);
             state.UnidentifiedItems.Add(relic);
             result.Relic = relic;
 

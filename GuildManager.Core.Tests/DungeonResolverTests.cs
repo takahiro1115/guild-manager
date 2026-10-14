@@ -362,11 +362,65 @@ namespace GuildManager.Core.Tests
             var doomed = MakeRanger(0);
             var boss = MakeBoss(floor: 1, intelRate: 0.0, Gimmick(BossGimmickType.InstantKill, danger: 5, roles: JobClass.Knight));
 
-            var result = new DungeonResolver(new AlwaysMinRng()).Resolve(PartyOf(doomed), boss);
+            // 強制除籍の判定はいつも当たる（§0.125 より前と同じく HP0＝強制除籍で確かめる）
+            var result = new DungeonResolver(new AlwaysMinRng(), fatalRng: new AlwaysMinRng()).Resolve(PartyOf(doomed), boss);
 
             Assert.Contains(BossGimmickType.InstantKill, result.UncounteredGimmicks);
             Assert.Equal(0, doomed.CurrentHP);
             Assert.Contains(doomed.Id, result.ForceRetiredAdventurerIds);
+        }
+
+        private sealed class FixedFatalRng : IRng
+        {
+            private readonly int _value;
+            public FixedFatalRng(int value) => _value = value;
+            public int NextInt(int min, int max) => Math.Clamp(_value, min, max);
+        }
+
+        [Theory]
+        [InlineData(1, true)]
+        [InlineData(10, true)]  // FatalChancePercent（10）以下で強制除籍
+        [InlineData(11, false)]
+        [InlineData(100, false)]
+        public void HpZero_IsFatal_OnlyWithTheFatalChance_OtherwiseSurvivesAtOneHp_SeverelyInjured(int fatalRoll, bool fatal)
+        {
+            Assert.Equal(10, CombatBalance.FatalChancePercent);
+            var doomed = MakeRanger(0);
+            var boss = MakeBoss(floor: 1, intelRate: 0.0, Gimmick(BossGimmickType.InstantKill, danger: 5, roles: JobClass.Knight));
+
+            var result = new DungeonResolver(new AlwaysMinRng(), fatalRng: new FixedFatalRng(fatalRoll)).Resolve(PartyOf(doomed), boss);
+
+            if (fatal)
+            {
+                Assert.Equal(0, doomed.CurrentHP);
+                Assert.Contains(doomed.Id, result.ForceRetiredAdventurerIds);
+                Assert.Empty(result.NearDeathSurvivorIds);
+            }
+            else
+            {
+                // §0.125：一命を取り留め、HP1で重傷。強制除籍にはならない
+                Assert.Equal(1, doomed.CurrentHP);
+                Assert.Empty(result.ForceRetiredAdventurerIds);
+                Assert.Contains(doomed.Id, result.NearDeathSurvivorIds);
+                Assert.Equal(InjurySeverity.Severe, doomed.Injury);
+                Assert.Contains(result.InjuryEvents, e => e.AdventurerId == doomed.Id && e.Severity == InjurySeverity.Severe);
+                Assert.Equal(doomed.MaxHP - 1, result.HpLostByAdventurer[doomed.Id]);
+            }
+        }
+
+        [Fact]
+        public void NearDeathSurvivor_RollsAnOldWound_EvenOnVictory()
+        {
+            // 撃破でも、HP0から一命を取り留めた隊員は古傷のロールを受ける（§0.125。AlwaysMinRng の 1 は古傷の確率10%に当たる）
+            var strong = MakeRanger(90);
+            strong.LDR = 0; // 即死級の備え（LDR）を0にして、撃破しても全損させる
+            var boss = MakeBoss(floor: 1, intelRate: 1.0, Gimmick(BossGimmickType.InstantKill, danger: 5, roles: JobClass.Knight));
+
+            var result = new DungeonResolver(new AlwaysMinRng(), new AlwaysMinRng(), fatalRng: new FixedFatalRng(100)).Resolve(PartyOf(strong), boss);
+
+            Assert.Equal(DungeonOutcome.Victory, result.Outcome);
+            Assert.Contains(strong.Id, result.NearDeathSurvivorIds);
+            Assert.Contains(result.TraitGrantEvents, g => g.AdventurerId == strong.Id && TraitCatalog.OldWoundVariantIds.Contains(g.TraitId));
         }
 
         [Fact]
