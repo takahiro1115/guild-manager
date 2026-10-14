@@ -144,6 +144,7 @@ namespace GuildManager.Core.Systems
                 if (adventurer == null || !adventurer.IsAvailable) continue;
                 if (TrainingSystem.IsTraining(state, id)) continue; // 訓練中の冒険者はその月は出撃しない（§0.70）
                 if (TournamentSystem.IsEntered(state, id)) continue; // 大会に出る冒険者も（§0.82）
+                if (RulerSystem.IsRepresentative(state, id)) continue; // 支配者戦の代表も（§0.127）
                 if (adventurer.GloomWeeksRemaining > 0) continue; // ふさぎ込みの子も（§0.102）
                 party.TryAdd(adventurer);
             }

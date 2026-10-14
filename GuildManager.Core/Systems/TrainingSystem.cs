@@ -75,6 +75,8 @@ namespace GuildManager.Core.Systems
                 return false;
             if (state.Adventurers.FirstOrDefault(a => a.Id == adventurerId)?.IsOnLoan == true)
                 return false; // 派遣中（§0.85）は訓練できない
+            if (RulerSystem.IsRepresentative(state, adventurerId))
+                return false; // 支配者戦の代表（§0.127）は訓練しない
 
             state.TrainingAssignments[adventurerId] = facility;
             return true;

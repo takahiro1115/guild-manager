@@ -209,6 +209,133 @@ public partial class DungeonPanel : ScrollContainer
 		_zoneA.CustomMinimumSize = new Vector2(430, 0); // 枠の厚みの分だけ広げる
 		UiStyles.ApplyPanelArt(_zoneB); // MoveInfoToRightTop で右列の上の横並びへ移したので、パスでは辿らない
 		UiStyles.ApplyPanelArt(_zoneC);
+		BuildRulerCard();
+	}
+
+	// ==================== 支配者の欄（§0.127） ====================
+
+	private PanelContainer _rulerCard = null!;
+	private RichTextLabel _rulerLabel = null!;
+	private readonly List<OptionButton> _rulerSlots = new();
+	/// <summary>代表の枠ごとの選択肢（添字0は「空き」＝null）。</summary>
+	private readonly List<List<Guid?>> _rulerSlotIds = new();
+	private bool _rulerRefreshing;
+
+	/// <summary>ボスの欄の下に、支配者の欄（体力・次の武器・魅了の閾値・代表の5枠）をコードで作る。挑めるときだけ見せる。</summary>
+	private void BuildRulerCard()
+	{
+		_rulerCard = new PanelContainer { Visible = false };
+		var margin = new MarginContainer();
+		margin.AddThemeConstantOverride("margin_left", 8);
+		margin.AddThemeConstantOverride("margin_right", 8);
+		margin.AddThemeConstantOverride("margin_top", 4);
+		margin.AddThemeConstantOverride("margin_bottom", 4);
+		var vbox = new VBoxContainer();
+		vbox.AddThemeConstantOverride("separation", 3);
+		_rulerLabel = new RichTextLabel { BbcodeEnabled = true, FitContent = true, ScrollActive = false, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+		vbox.AddChild(_rulerLabel);
+		var grid = new GridContainer { Columns = 2 };
+		grid.AddThemeConstantOverride("h_separation", 6);
+		for (int i = 0; i < RulerBalance.VesperaMaxRepresentatives; i++)
+		{
+			grid.AddChild(new Label { Text = $"{i + 1}人目" });
+			var slot = new OptionButton { SizeFlagsHorizontal = SizeFlags.ExpandFill, FitToLongestItem = false };
+			UiStyles.ApplyDropdownStyle(slot);
+			slot.ItemSelected += _ => OnRulerSlotChanged();
+			grid.AddChild(slot);
+			_rulerSlots.Add(slot);
+			_rulerSlotIds.Add(new List<Guid?>());
+		}
+		vbox.AddChild(grid);
+		margin.AddChild(vbox);
+		_rulerCard.AddChild(margin);
+		var parent = _bossProfileCard.GetParent();
+		parent.AddChild(_rulerCard);
+		parent.MoveChild(_rulerCard, _bossProfileCard.GetIndex() + 1);
+	}
+
+	/// <summary>支配者の欄を今の状態で描き直す（次に挑む主の代わりに、挑める支配者が待っているときだけ見せる）。</summary>
+	private void RefreshRulerCard(FloorBoss? target)
+	{
+		var ruler = _state != null && target != null ? RulerSystem.RulerAt(_state, target) : null;
+		if (ruler == null || !RulerSystem.CanChallenge(_state!, ruler))
+		{
+			_rulerCard.Visible = false;
+			return;
+		}
+		_rulerCard.Visible = true;
+		_rulerRefreshing = true;
+		bool outpost = RulerSystem.IsOutpost(_state!, ruler);
+		double intel = RulerSystem.IntelOf(_state!, ruler);
+		var sb = new StringBuilder();
+		sb.Append($"[b]👑 支配者{RulerSystem.VesperaName}[/b]　{(outpost ? "前哨戦（70F）" : "決着（100F）")}　[color=gray]勝ち抜きの一騎打ち[/color]\n");
+		int filled = (int)Math.Round(10.0 * ruler.Hp / RulerBalance.MaxHp);
+		sb.Append($"体力 [color=#f87171]{new string('■', filled)}[/color][color=#4b5563]{new string('□', 10 - filled)}[/color] {ruler.Hp}/{RulerBalance.MaxHp}" +
+			$"[color=gray]（{(outpost ? $"{RulerBalance.OutpostRetreatHp}を切ると退く・" : "")}毎月+{RulerBalance.RegenPerMonth}）[/color]\n");
+		sb.Append(intel >= RulerBalance.VesperaIntelWeaponReveal
+			? "次の武器：" + string.Join(" → ", RulerSystem.UpcomingWeapons(ruler, 3).Select(d => $"{RulerSystem.WeaponLabel(d)}（{TournamentSystem.DisciplineLabel(d)}）")) + "\n"
+			: $"次の武器：[color=gray]？？？（解析{RulerBalance.VesperaIntelWeaponReveal * 100:F0}%で分かる）[/color]\n");
+		int charm = outpost ? RulerBalance.VesperaCharmThresholdOutpost : RulerBalance.VesperaCharmThresholdFinal;
+		sb.Append(intel >= RulerBalance.VesperaIntelCharmReveal
+			? $"魅了の閾値：MND {charm}（相棒のいない子は{charm + RulerBalance.VesperaLonelyThresholdBonus}）\n"
+			: $"魅了の閾値：[color=gray]？？？（解析{RulerBalance.VesperaIntelCharmReveal * 100:F0}%で分かる）[/color]\n");
+		sb.Append(intel >= RulerBalance.VesperaIntelStrengthReveal
+			? "強さ：" + string.Join("・", RulerSystem.VesperaWeapons.Select(d => $"{TournamentSystem.DisciplineLabel(d)}{RulerSystem.VesperaStrength(outpost, d):F0}")) + "\n"
+			: $"強さ：[color=gray]？？？（解析{RulerBalance.VesperaIntelStrengthReveal * 100:F0}%で分かる）[/color]\n");
+		bool canChange = RulerSystem.CanChangeRepresentatives(_state!);
+		sb.Append($"[color=gray]代表を順番に選ぶ（勝った子は残って次の試合へ）。決闘は月を終えたあと。代表はその月、出撃・訓練・大会に出ない。" +
+			(canChange ? "" : "[color=orange]代表を変えられるのは月のはじめだけ。[/color]") + "[/color]");
+		_rulerLabel.Clear();
+		_rulerLabel.AppendText(sb.ToString());
+
+		var candidates = _state!.Adventurers.Where(a => !a.IsRetired).ToList();
+		for (int i = 0; i < _rulerSlots.Count; i++)
+		{
+			var slot = _rulerSlots[i];
+			var ids = _rulerSlotIds[i];
+			Guid? current = i < ruler.RepresentativeIds.Count ? ruler.RepresentativeIds[i] : null;
+			slot.Clear();
+			ids.Clear();
+			slot.AddItem("（空き）");
+			ids.Add(null);
+			foreach (var a in candidates)
+			{
+				string? block = RulerSystem.RepresentativeBlockReason(_state, a);
+				if (block != null && a.Id != current) continue;
+				slot.AddItem(RepresentativeText(a, outpost, intel, block));
+				ids.Add(a.Id);
+			}
+			int selected = Math.Max(0, ids.IndexOf(current));
+			slot.Select(selected);
+			slot.Disabled = !canChange;
+			slot.TooltipText = canChange ? "代表を選ぶ。同じ子を2つの枠に入れたら、上の枠を残す。" : "代表を変えられるのは月のはじめだけ。";
+		}
+		_rulerRefreshing = false;
+	}
+
+	/// <summary>代表の選択肢の1行：名前・剣魔技の試合の強さ・MND（解析で閾値が分かれば届くか）・相棒の有無。</summary>
+	private string RepresentativeText(Adventurer a, bool outpost, double intel, string? block)
+	{
+		string strengths = string.Join(" ", RulerSystem.VesperaWeapons.Select(d => $"{TournamentSystem.DisciplineLabel(d)}{TournamentSystem.MatchStrength(a, d):F0}"));
+		int mnd = (int)Math.Round(a.GetEffectiveStat("MND"));
+		string charm = intel >= RulerBalance.VesperaIntelCharmReveal
+			? RulerSystem.JudgeCharm(_state!, a, outpost) switch { DuelCharm.Resisted => "✔", DuelCharm.Wavered => "△", _ => "✖" }
+			: "";
+		string buddy = RulerSystem.HasBuddy(_state!, a) ? "相棒あり" : "相棒なし";
+		return $"{a.Name}　{strengths}　MND{mnd}{charm}　{buddy}" + (block != null ? $"（{block}）" : "");
+	}
+
+	private void OnRulerSlotChanged()
+	{
+		if (_rulerRefreshing || _state == null) return;
+		var boss = _selectedField?.GetNextActiveBoss();
+		var ruler = boss != null ? RulerSystem.RulerAt(_state, boss) : null;
+		if (ruler == null) return;
+		var ids = _rulerSlots.Select((slot, i) => slot.Selected >= 0 && slot.Selected < _rulerSlotIds[i].Count ? _rulerSlotIds[i][slot.Selected] : null)
+			.OfType<Guid>().ToList();
+		RulerSystem.TrySetRepresentatives(_state, ruler, ids);
+		StateChanged.Invoke();
+		Refresh(_state);
 	}
 
 	private PanelContainer _zoneA = null!;
@@ -430,6 +557,7 @@ public partial class DungeonPanel : ScrollContainer
 		RefreshMaterialsInfo();
 		RefreshAnomalySummary();
 		RefreshBossInfo(DisplayedBoss(boss), boss);
+		RefreshRulerCard(boss); // 支配者の欄（§0.127）
 		RefreshPartyOptions();
 		RefreshDispatchSection(boss);
 		UpdateCommandAreaVisibility();
@@ -649,6 +777,20 @@ public partial class DungeonPanel : ScrollContainer
 		}
 
 		var tier = ScoutingResolver.GetTier(boss.IntelRate);
+
+		// 支配者（§0.127）が待つ階：主の名前・特殊能力の代わりに、支配者戦で挑むことを出す（くわしくは下の支配者の欄）
+		if (RulerSystem.RulerAt(_state, boss) is { } ruler)
+		{
+			_bossHeaderLabel.AppendText($"[font_size=18][b]第{boss.Floor}層　👑 支配者{RulerSystem.NameOf(ruler.RulerId)}[/b][/font_size]\n" +
+				(viewingOther ? "[color=#fbbf24]（閲覧中）[/color]" : "[color=#fb923c]⚔ 現在の目標[/color]") +
+				$"　解析 [color={TierColor(tier)}]{boss.IntelRate * 100:F0}%[/color]\n" +
+				"[color=#fbbf24]主の決戦では戦えない（部隊は扉前で引き返す）。支配者戦で挑む。迷宮調査で解析を進めると、手の内が分かる。[/color]");
+			_bossHeaderLabel.TooltipText = "";
+			_bossHpRow.Visible = false;
+			_completeBadgeLabel.Visible = false;
+			PopulateGimmickCards(null, tier, previewParty);
+			return;
+		}
 
 		string state = boss.IsDefeated ? "　[color=#4ade80]✔ 撃破済み[/color]"
 			: viewingOther ? "　[color=#fbbf24]（閲覧中）[/color]"

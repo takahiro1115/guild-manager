@@ -385,6 +385,9 @@ namespace GuildManager.Core.Models
         /// <summary>部隊長の報告（§0.116）を見せないか。システム画面で選ぶ。はじめは見せる（false）。</summary>
         public bool HideSquadReports { get; set; }
 
+        /// <summary>大迷宮の支配者の状態（§0.127、→ Systems.RulerSystem）。旧セーブには無いので読み込みで補う。</summary>
+        public List<RulerState> Rulers { get; set; } = new();
+
         /// <summary>副官が注目している冒険者（§0.117、→ PersonalitySystem）。見立てが早く進む。旧セーブは空（注目なし）。</summary>
         public List<Guid> FocusedAdventurerIds { get; set; } = new();
 
@@ -527,6 +530,7 @@ namespace GuildManager.Core.Models
                 TutorialEnabled = TutorialEnabled,
                 AutoNegotiationBonus = AutoNegotiationBonus,
                 HideSquadReports = HideSquadReports,
+                Rulers = Rulers.Select(r => new RulerState { RulerId = r.RulerId, Hp = r.Hp, HpFloor = r.HpFloor, WeaponIndex = r.WeaponIndex, RepresentativeIds = new List<Guid>(r.RepresentativeIds), DuelCount = r.DuelCount, LastDuelWeek = r.LastDuelWeek, PendingDuelWeek = r.PendingDuelWeek }).ToList(),
                 FocusedAdventurerIds = new List<Guid>(FocusedAdventurerIds),
                 PoachOffers = new List<PoachOffer>(PoachOffers),
                 LastFeastSeason = LastFeastSeason,
@@ -693,6 +697,7 @@ namespace GuildManager.Core.Models
                 TutorialEnabled = data.TutorialEnabled ?? true, // キーの無い旧セーブは「あり」
                 AutoNegotiationBonus = data.AutoNegotiationBonus, // キーの無い旧セーブは false（しない）
                 HideSquadReports = data.HideSquadReports, // キーの無い旧セーブは false（見せる）
+                Rulers = data.Rulers ?? new List<RulerState>(), // 旧セーブ（§0.127 より前）は空。下の EnsureRulers で補う
                 FocusedAdventurerIds = (data.FocusedAdventurerIds ?? new List<Guid>()).Distinct().ToList(), // 旧セーブは注目なし。いない子は週の決算で外す
                 PoachOffers = (data.PoachOffers ?? new List<PoachOffer>()).Where(o => o != null).ToList(),
                 LastFeastSeason = data.LastFeastSeason,
@@ -744,6 +749,10 @@ namespace GuildManager.Core.Models
             foreach (var field in state.DungeonFields)
                 foreach (var boss in field.Bosses)
                     boss.FieldOrder = field.Order;
+
+            // 大迷宮の支配者（§0.127）。旧セーブには無いので補う。すでに森の70F・100Fを倒していれば、その分は済んだ扱い（支配者は次の階で待つか、もういない）。
+            foreach (var r in state.Rulers) r.RepresentativeIds ??= new List<Guid>();
+            Systems.RulerSystem.EnsureRulers(state);
 
             // 待機中の過ごし方（§0.73）。知らない過ごし方・能力名が書かれていたら既定（研究を手伝う・職業の伸び方）に戻す。
             foreach (var a in state.Adventurers.Concat(state.RetiredAdventurers).Concat(state.FallenAdventurers))

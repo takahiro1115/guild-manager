@@ -1,0 +1,30 @@
+key,value,unit,note
+MaxHp,100,pt,支配者の体力（§0.127、→ docs/検討中_大迷宮の支配者.md §3）。月をまたいで残る。前哨戦（70F）で退いたあと、決着（100F）では癒えて満タンから
+RegenPerMonth,10,pt,支配者の体力が毎月のはじめに回復する量（最大まで）
+OutpostRetreatHp,50,pt,前哨戦（70F）で、体力がこの値を切ると支配者は退く（70Fの主を倒したことになる）
+InterventionsBase,1,回,1回の支配者戦で使える介入（部隊の護符の多頭通信術式）の回数。研究で増える（研究はまだ無い）
+VesperaMaxRepresentatives,5,人,ヴェスペラの一騎打ち（§3-5）：代表の上限（順番つき）
+VesperaMaxBouts,5,試合,1回の決闘の試合の上限（勝った代表は残って次の試合へ）
+VesperaStrengthOutpost,130,pt,前哨戦（70F）のヴェスペラの強さ（試合の強さ〈TournamentSystem.MatchStrength〉と比べる。能力65前後の子で130前後）。魔の部門は大会と同じ DisciplineFactor（0.75）を掛ける
+VesperaStrengthFinal,170,pt,決着（100F）のヴェスペラの強さ（能力85前後の子で170前後）
+VesperaFatiguePerBout,0.05,割合,ヴェスペラの疲れ：試合ごとに強さがこの割合ずつ下がる（その決闘の中だけ）
+VesperaCharmThresholdOutpost,60,pt,魅了の閾値（前哨戦）：代表の MND（装備込みの実効値）がこれ以上なら耐える
+VesperaCharmThresholdFinal,80,pt,魅了の閾値（決着）
+VesperaLonelyThresholdBonus,10,pt,孤独の囁き：ギルドに相棒（相性 BuddyThreshold 以上）のいない代表は、魅了の閾値にこの値を足す
+VesperaWaverRate,0.85,割合,MND が閾値×この値以上なら「揺らいだ」（試合の強さ×VesperaWaverStrengthFactor）。それより下は「魅了された」（戦わずに負ける）
+VesperaWaverStrengthFactor,0.7,倍,揺らいだ代表の試合の強さの倍率
+VesperaWinDamageBase,20,pt,代表が勝ったときに削る体力＝この値×(代表の強さ÷ヴェスペラの強さ)（Min〜Max で止める）
+VesperaWinDamageMin,10,pt,同・下限
+VesperaWinDamageMax,30,pt,同・上限
+VesperaLossDamage,3,pt,代表が負けても削る体力（魅了されて戦わなかったときは0）
+VesperaWinHpLossPctMin,10,%,勝った代表のHPの減り（最大HPに対する%）の下限
+VesperaWinHpLossPctMax,20,%,同・上限
+VesperaLossHpLossPctMin,30,%,負けた・魅了された代表のHPの減りの下限（ヴェスペラとの強さの差が小さいとき）
+VesperaLossHpLossPctMax,60,%,同・上限（ヴェスペラの強さが代表の1.5倍以上のとき）
+VesperaIntelCharmReveal,0.3,割合,解析（迷宮調査）がこれ以上なら、魅了の閾値が見える
+VesperaIntelWeaponReveal,0.6,割合,解析がこれ以上なら、この先の武器の並びが見え、介入「見切りを伝える」が使える
+VesperaIntelStrengthReveal,1.0,割合,解析がこれ以上なら、部門ごとの強さが見える
+CallNameBaseChance,40,%,介入「名を呼ぶ」が届く見込みの基礎（魅了の判定をやり直し、届けば「揺らいだ」で戦う）
+CallNameCompatibilityDivisor,4,,届く見込みに、その子のいちばん高い相性÷この値（%）を足す
+CallNameMoraleDivisor,4,,届く見込みに、その子の満足度÷この値（%）を足す
+CallNameMaxChance,90,%,届く見込みの上限

@@ -286,6 +286,7 @@ partial class GameSim
             if (first) SetupOnce();
             return;
         }
+        RulerTurn(); // 支配者戦（§0.127）
         AnswerManagement();
         if (UseNegotiation) HandleNegotiations();
         HandleCommissions();
@@ -442,6 +443,8 @@ partial class GameSim
         var cleared = sims.Where(x => x.s.IsGameCleared).Select(x => (double)GameCalendar.YearOf(x.s.ClearedAtWeek!.Value)).ToList();
         Console.WriteLine(cleared.Count == 0 ? $"クリア：0/{runs}回" : $"クリア：{cleared.Count}/{runs}回、{Median(cleared):F0}年目〔{cleared.Min():F0}〜{cleared.Max():F0}〕");
         Console.WriteLine($"敗北：{string.Join(", ", sims.Select(x => x.Defeat ?? "なし"))}");
+        string YearOfWeek(int? w) => w is int v ? $"{GameCalendar.YearOf(v)}" : "―";
+        Console.WriteLine($"ヴェスペラ（§0.127）：退かせた年 {string.Join(", ", sims.Select(x => YearOfWeek(x.VesperaRetreatWeek)))}　倒した年 {string.Join(", ", sims.Select(x => YearOfWeek(x.VesperaDefeatWeek)))}　決闘 {sims.Sum(x => x.VesperaDuels)}回・強制除籍 {sims.Sum(x => x.VesperaFallen)}・一命を取り留めた {sims.Sum(x => x.VesperaNearDeath)}");
         Console.WriteLine($"撃破（最終、50体中）：{string.Join(", ", sims.Select(x => x.s.DungeonFields.Sum(f => f.Bosses.Count(b => b.IsDefeated))))}");
         Console.WriteLine("撃破数の推移（各年のはじめ、中央値）：" + string.Join("・", Enumerable.Range(0, weeks / 48).Select(y =>
         {

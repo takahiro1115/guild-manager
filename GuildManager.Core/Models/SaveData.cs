@@ -302,6 +302,9 @@ namespace GuildManager.Core.Models
         public bool AutoNegotiationBonus { get; set; }
         /// <summary>部隊長の報告を見せないか（§0.116）。キーの無い旧セーブは false（見せる）。</summary>
         public bool HideSquadReports { get; set; }
+
+        /// <summary>大迷宮の支配者の状態（§0.127）。旧セーブでは null。</summary>
+        public List<RulerState>? Rulers { get; set; }
         /// <summary>副官が注目している冒険者（§0.117）。キーの無い旧セーブは null（注目なし）。</summary>
         public List<Guid>? FocusedAdventurerIds { get; set; }
         /// <summary>引き抜きの話（§0.102）。</summary>

@@ -302,6 +302,7 @@ namespace GuildManager.Core.Systems
             return state.Adventurers
                 .Where(a => !a.IsRetired && !a.IsDispatched && !a.IsOnLoan && a.Injury == InjurySeverity.None && !a.IsPoisoned
                     && !TournamentSystem.IsEntered(state, a.Id)
+                    && !RulerSystem.IsRepresentative(state, a.Id)
                     && AdventurerStatAccessor.GetStat(a, c.StatName) >= c.StatThreshold)
                 .OrderBy(a => AdventurerStatAccessor.GetStat(a, c.StatName))
                 .ToList();

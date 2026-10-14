@@ -216,6 +216,7 @@ partial class GameSim
             new DungeonTraversalResolver(new SeededRng(1719 + k)), new GatheringResolver(new SeededRng(1848 + k)),
             new GrowthSystem(new SeededRng(1907 + k)), new SeededRng(1969 + k));
         commissions = new CommissionSystem(new SeededRng(2718 + k));
+        rulerRng = new SeededRng(3301 + k); // 支配者戦（§0.127）
         week = new WeekProcessingSystem(new MasterMoodSystem(), new EconomySystem(), training, new InjuryRecoverySystem(),
             new RestRecoverySystem(), growth, satisfaction, new AgingSystem(new SeededRng(99 + k)), facility,
             new DefeatSystem(), recruitment, expedition, commissions, isabellaSystem: new IsabellaSystem(new SeededRng(4049 + k)));
@@ -301,7 +302,7 @@ partial class GameSim
             return Forest.GetNextActiveBoss() is { } b ? (Forest, b) : null;
         return s.DungeonFields.Where(f => f.IsUnlocked)
             .Select(f => (Field: f, Boss: f.GetNextActiveBoss()))
-            .Where(x => x.Boss != null)
+            .Where(x => x.Boss != null && RulerSystem.RulerAt(s, x.Boss) == null) // 支配者（§0.127）は支配者戦で挑む
             .OrderBy(x => DungeonResolver.RequiredPower(x.Boss!))
             .Select(x => ((DungeonField, FloorBoss)?)(x.Field, x.Boss!))
             .FirstOrDefault();
@@ -475,6 +476,52 @@ partial class GameSim
     public double? FirstExchangeChance;
     public Dictionary<int, int> ForestKillWeek = new();
 
+    // ==== 支配者戦（§0.127）====
+    IRng rulerRng = null!;
+    public int? VesperaRetreatWeek, VesperaDefeatWeek;
+    public int VesperaDuels, VesperaFallen, VesperaNearDeath;
+    int rulerRestUntilWeek;
+    /// <summary>支配者戦のプレイヤー役：決闘で削れた量が月の回復の1.5倍に届かなければ1季節休む。所持金がこの値未満なら挑まない。</summary>
+    const int RulerMinGold = 3000;
+
+    /// <summary>
+    /// 月のはじめの支配者戦：月を終えた決闘を行い（介入は「もっと強い代表がいれば入れ替える・名はいつも呼ぶ」）、今月の代表を選び直す。
+    /// 代表は、ヴェスペラの武器のどれかで勝てる見込みが5割ある子（試合の強さ≥ヴェスペラの強さ）を強い順に上限まで。いなければ挑まない。
+    /// </summary>
+    void RulerTurn()
+    {
+        if (!GameCalendar.IsFirstWeekOfMonth(s.WeekNumber)) return;
+        RulerSystem.EnsureRulers(s);
+        foreach (var ruler in s.Rulers)
+        {
+            if (RulerSystem.IsDuelDue(s, ruler) && RulerSystem.ResolveAuto(s, ruler, rulerRng, useInterventions: true) is { } duel)
+            {
+                VesperaDuels++;
+                VesperaFallen += duel.FallenIds.Count;
+                VesperaNearDeath += duel.NearDeathIds.Count;
+                if (duel.Retreated) VesperaRetreatWeek ??= s.WeekNumber;
+                if (duel.Defeated) VesperaDefeatWeek ??= s.WeekNumber;
+                if (duel.Retreated || duel.Defeated) FieldKills.Add((1, duel.Boss.Floor, s.WeekNumber)); // 節目の表（100F）に決着を数える
+                else if (duel.HpBefore - duel.Ruler.Hp < RulerBalance.RegenPerMonth * 3 / 2) rulerRestUntilWeek = s.WeekNumber + GameCalendar.WeeksPerSeason;
+            }
+            if (!RulerSystem.CanChallenge(s, ruler)) continue;
+            if (s.WeekNumber < rulerRestUntilWeek || s.Gold < RulerMinGold)
+            {
+                RulerSystem.TrySetRepresentatives(s, ruler, Array.Empty<Guid>());
+                continue;
+            }
+            bool outpost = RulerSystem.IsOutpost(s, ruler);
+            var reps = s.Adventurers
+                .Where(a => RulerSystem.RepresentativeBlockReason(s, a) == null)
+                .Select(a => (a, Best: RulerSystem.VesperaWeapons.Max(d => TournamentSystem.MatchStrength(a, d) / RulerSystem.VesperaStrength(outpost, d))))
+                .Where(x => x.Best >= 1.0 && RulerSystem.JudgeCharm(s, x.a, outpost) != DuelCharm.Charmed)
+                .OrderByDescending(x => x.Best)
+                .Take(RulerBalance.VesperaMaxRepresentatives)
+                .Select(x => x.a.Id).ToList();
+            RulerSystem.TrySetRepresentatives(s, ruler, reps);
+        }
+    }
+
     public readonly Dictionary<(FacilityType, int), int> UnlockWeek = new();
     public readonly Dictionary<TournamentDiscipline, int> FirstG1Week = new();
     public int TournamentEntries, TournamentWins;
@@ -483,7 +530,11 @@ partial class GameSim
     ActiveDungeonMission? lastMain;
     readonly HashSet<Guid> mainIds = new();
 
-    void Act() => ActInner();
+    void Act()
+    {
+        RulerTurn(); // 支配者戦（§0.127）
+        ActInner();
+    }
 
     /// <summary>決戦の決着を記録（§0.69：扉前に着いた週の決算のうちに決戦するので、その週の解決から拾う）。</summary>
     void RecordAssault(int week, DungeonMissionResolution r)
@@ -979,7 +1030,8 @@ partial class GameSim
         Console.WriteLine($"来訪（森の{IsabellaBalance.VisitFloor}F）：{WeekStat(x => x.VisitWeek)}　交流戦の初勝利：{WeekStat(x => x.FirstExchangeWinWeek)}　派遣の教官が来た：{WeekStat(x => x.GuestArrivalWeek)}");
         Console.WriteLine($"依頼が届き始めた（初めての入賞の次の季節）：{WeekStat(x => x.CommissionsOpenWeek)}");
         Console.WriteLine($"交流戦（行った／勝った）：{string.Join(", ", sims.Select(x => $"{x.ExchangePlayed}/{x.ExchangeWon}"))}");
-        Console.WriteLine($"森の主を初めて倒した週：{string.Join("・", new[] { 30, 40, 50, 60, 70 }.Select(f => $"{f}F {WeekStat(x => x.ForestKillWeek.TryGetValue(f, out int w) ? w : null)}"))}");
+        Console.WriteLine($"ヴェスペラ（§0.127）：前哨戦で退かせた {WeekStat(x => x.VesperaRetreatWeek)}　決着 {WeekStat(x => x.VesperaDefeatWeek)}　決闘の回数 {string.Join(", ", sims.Select(x => x.VesperaDuels))}　強制除籍 {sims.Sum(x => x.VesperaFallen)}・一命を取り留めた {sims.Sum(x => x.VesperaNearDeath)}");
+        Console.WriteLine($"森の主を初めて倒した週：{string.Join("・", new[] { 30, 40, 50, 60, 70, 80, 90, 100 }.Select(f => $"{f}F {WeekStat(x => x.ForestKillWeek.TryGetValue(f, out int w) ? w : null)}"))}");
         Console.WriteLine($"交流戦の勝率（来訪からの年数ごと、全回の合計）：{string.Join("・", sims.SelectMany(x => x.ExchangeLog).GroupBy(e => Math.Min(e.Year, 5)).OrderBy(g => g.Key).Select(g => $"{(g.Key == 5 ? "6年目〜" : $"{g.Key + 1}年目")} {g.Count(e => e.Won)}/{g.Count()}"))}　初戦：{sims.Count(x => x.ExchangeLog.Count > 0 && x.ExchangeLog[0].Won)}/{sims.Count(x => x.ExchangeLog.Count > 0)}勝（見込みの中央値 {(sims.Any(x => x.FirstExchangeChance != null) ? Median(sims.Select(x => x.FirstExchangeChance).OfType<double>().ToList()) : 0):P0}）");
         Console.WriteLine();
         Console.WriteLine($"### 大会（§0.82、出場の方針：{TourneyMode}）");

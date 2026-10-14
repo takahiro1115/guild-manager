@@ -172,7 +172,8 @@ namespace GuildManager.Core.Systems
             {
                 case SquadOrder.Dive:
                 {
-                    var candidates = unlocked.Select(f => (Field: f, Boss: f.GetNextActiveBoss())).Where(x => x.Boss != null).ToList();
+                    // 支配者（§0.127）の待つフィールドは潜行の行き先にしない（扉前で必ず引き返すため）
+                    var candidates = unlocked.Select(f => (Field: f, Boss: f.GetNextActiveBoss())).Where(x => x.Boss != null && RulerSystem.RulerAt(state, x.Boss) == null).ToList();
                     if (candidates.Count == 0) return null;
                     return candidates
                         .OrderByDescending(x => DungeonResolver.CalculateBossPower(party, x.Boss!, state) / Math.Max(1.0, DungeonResolver.RequiredPower(x.Boss!, state, party)))
@@ -217,11 +218,14 @@ namespace GuildManager.Core.Systems
             var field = ResolveField(state, saved);
             if (field == null) return saved.OrderFieldId == SavedParty.AutoFieldId ? "おまかせで選べるダンジョンがない" : "方針の対象フィールドが見つからない";
             if (!field.IsUnlocked) return $"{field.Name}がまだ開放されていない";
+            // 支配者（§0.127）の待つフィールドへは潜行しない（扉前で必ず引き返すため）。調査・採取はできる
+            if (saved.Order == SquadOrder.Dive && field.GetNextActiveBoss() is { } next && RulerSystem.RulerAt(state, next) is { } ruler)
+                return $"{field.Name}の次は支配者{RulerSystem.NameOf(ruler.RulerId)}が待っている（支配者戦で挑む。潜行の行き先を変えるか、調査で解析を進める）";
             var members = saved.MemberIds.Select(id => state.Adventurers.FirstOrDefault(a => a.Id == id)).OfType<Adventurer>().ToList();
             if (members.Count == 0) return "部隊にメンバーがいない";
             // 訓練中の冒険者はその月は出撃せず、ほかの隊員だけで出る（§0.70）。全員が訓練中なら待機。
-            members = members.Where(m => !TrainingSystem.IsTraining(state, m.Id) && !TournamentSystem.IsEntered(state, m.Id) && m.GloomWeeksRemaining <= 0).ToList(); // 大会に出る者（§0.82）・ふさぎ込みの子（§0.102）も
-            if (members.Count == 0) return "全員が訓練か大会（今月は出撃しない）";
+            members = members.Where(m => !TrainingSystem.IsTraining(state, m.Id) && !TournamentSystem.IsEntered(state, m.Id) && !RulerSystem.IsRepresentative(state, m.Id) && m.GloomWeeksRemaining <= 0).ToList(); // 大会に出る者（§0.82）・ふさぎ込みの子（§0.102）も
+            if (members.Count == 0) return "全員が訓練か大会か支配者戦の代表（今月は出撃しない）";
             var severe = members.FirstOrDefault(m => m.Injury == InjurySeverity.Severe);
             if (severe != null) return $"{severe.Name}が重傷のため待機";
             var poisoned = members.Where(m => m.IsPoisoned).ToList();
@@ -248,6 +252,9 @@ namespace GuildManager.Core.Systems
         {
             var boss = mission.TargetedBoss;
             if (boss == null || boss.IsDefeated) return (false, "挑むボスがいない");
+            // 支配者（§0.127）は主の決戦では倒せない。支配者戦で戦う
+            if (RulerSystem.RulerAt(state, boss) is { } ruler)
+                return (false, $"{RulerSystem.NameOf(ruler.RulerId)}は支配者戦でしか戦えないため撤退（大迷宮の画面で代表を選ぶ）");
             var rule = SquadOrderBalance.For(stance);
 
             var party = mission.Party;

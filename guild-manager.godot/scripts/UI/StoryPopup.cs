@@ -41,6 +41,8 @@ public partial class StoryPopup : Window
 	private bool _replay;
 	/// <summary>部隊長の報告（§0.116）を見せているときのコマ（物語の場面の代わりに、そのまま並べる）。物語の場面なら null。</summary>
 	private IReadOnlyList<StoryStep>? _presetSteps;
+	/// <summary>用意したコマを見せるとき（部隊長の報告・支配者戦）の、最後のボタンの文言。</summary>
+	private string _presetLastText = "月報を見る ▶";
 	private Button _skipAllButton = null!;
 
 	public override void _Ready()
@@ -160,9 +162,25 @@ public partial class StoryPopup : Window
 	public void ShowReport(GameState state, IReadOnlyList<StoryStep> steps)
 	{
 		Title = "📣 部隊長の報告";
+		_skipAllButton.Text = "報告をとばす ⏭";
 		_skipAllButton.Visible = true;
 		_presetSteps = steps;
+		_presetLastText = "月報を見る ▶";
 		Open(state, new[] { new StoryShowing { SceneId = "squad_report" } }, replay: true);
+	}
+
+	/// <summary>
+	/// 用意したコマ（支配者戦の段など、§0.127）を見せる。見たことは記録しない。skipText があれば、残りをとばすボタンを出す。
+	/// コマが無ければ何もせず Closed を呼ぶ。
+	/// </summary>
+	public void ShowSteps(GameState state, string title, IReadOnlyList<StoryStep> steps, string lastText, string? skipText = null)
+	{
+		Title = title;
+		_skipAllButton.Text = skipText ?? "";
+		_skipAllButton.Visible = skipText != null;
+		_presetSteps = steps;
+		_presetLastText = lastText;
+		Open(state, new[] { new StoryShowing { SceneId = "preset_steps" } }, replay: true);
 	}
 
 	/// <summary>場面を順に見せる。1つも無ければ何もせず Closed を呼ぶ。replay は物語の記録からの見返し（見たことを記録しない）。</summary>
@@ -255,8 +273,8 @@ public partial class StoryPopup : Window
 
 		_scroll.ScrollVertical = 0;
 		bool last = LastStep && _sceneIndex + 1 >= _scenes.Count;
-		_nextButton.Text = LastStep ? (last ? (_presetSteps != null ? "月報を見る ▶" : "閉じる") : "次の場面へ ▶") : "次へ ▼";
-		_skipAllButton.Visible = _presetSteps != null && !last;
+		_nextButton.Text = LastStep ? (last ? (_presetSteps != null ? _presetLastText : "閉じる") : "次の場面へ ▶") : "次へ ▼";
+		_skipAllButton.Visible = _presetSteps != null && !last && _skipAllButton.Text.Length > 0;
 	}
 
 	/// <summary>場面の最後に添える行き先の案内とギルドの手引き（無ければ空）。行き先が今の画面なら案内は省く。</summary>

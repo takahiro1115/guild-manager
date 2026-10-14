@@ -306,6 +306,7 @@ namespace GuildManager.Core.Systems
             if (a.Injury != InjurySeverity.None) return "負傷している";
             if (a.IsPoisoned) return "毒状態";
             if (IsEntered(state, a.Id)) return "今月はほかの大会に出る（1人1か月1大会）";
+            if (RulerSystem.IsRepresentative(state, a.Id)) return "支配者戦の代表になっている";
             if (EntriesOf(state, ev).Count >= TournamentBalance.EntrantsPerGuild) return $"この大会にはもう{TournamentBalance.EntrantsPerGuild}人出る";
             return QualificationBlock(ev, a);
         }

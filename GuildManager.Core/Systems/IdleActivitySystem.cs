@@ -22,6 +22,8 @@ namespace GuildManager.Core.Systems
         Tournament,
         /// <summary>依頼の派遣で先方へ出ている（§0.85）。</summary>
         OnLoan,
+        /// <summary>支配者戦の代表（その月は出撃・訓練・大会に出ない。§0.127）。</summary>
+        RulerDuel,
     }
 
     /// <summary>
@@ -59,6 +61,7 @@ namespace GuildManager.Core.Systems
             if (a.IsOnLoan) return WeekActivity.OnLoan;
             if (a.IsDispatched || (dispatchedIds != null && dispatchedIds.Contains(a.Id))) return WeekActivity.Dispatched;
             if (TournamentSystem.IsEntered(state, a.Id)) return WeekActivity.Tournament;
+            if (RulerSystem.IsRepresentative(state, a.Id)) return WeekActivity.RulerDuel; // 支配者戦の代表（§0.127）
             if (state.TrainingAssignments.ContainsKey(a.Id)) return WeekActivity.Training;
             if (RestReason(a) != null) return WeekActivity.Resting;
             return a.IdleActivity == IdleActivity.SelfTraining ? WeekActivity.SelfTraining : WeekActivity.Help;
@@ -137,6 +140,7 @@ namespace GuildManager.Core.Systems
             WeekActivity.SelfTraining => "自主練",
             WeekActivity.Tournament => "大会の準備",
             WeekActivity.OnLoan => "派遣中",
+            WeekActivity.RulerDuel => "支配者戦の準備",
             _ => "研究を手伝う",
         };
     }

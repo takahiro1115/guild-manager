@@ -273,6 +273,7 @@ namespace GuildManager.Core.Systems
             RivalSystem.ProcessWeek(state); // 来訪した週に名簿を作る・年が変わったら入れ替える（§0.93）
             TournamentSystem.EnsureSchedule(state); // 年が変わったとき・大会が開いた次の月（何度呼んでもよい）
             IsabellaSystem.AutoFillFirstExchange(state);
+            RulerSystem.ProcessNewWeek(state); // 支配者の状態を補い、月のはじめに体力を回復する（§0.127）
 
             // 新しい週の依頼と迷宮の異変（→ CommissionSystem.ProcessNewWeek、§0.64）。届いた週・予告の週・期限の近い週は
             // 自動スキップを止める（受けるか、どこへ行くかを決めてもらう）。ゲームオーバー後は何も届けない。
