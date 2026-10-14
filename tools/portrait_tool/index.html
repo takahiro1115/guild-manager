@@ -234,6 +234,7 @@ details summary { cursor: pointer; font-size: 12px; color: var(--muted); }
         <option value="slim">細身</option>
         <option value="athletic">引き締まった体</option>
         <option value="sturdy">がっしりした体</option>
+        <option value="curvy">グラマー</option>
       </select></label>
       <div class="row">
         <button type="button" class="btn" id="mMake">マネキンのプロンプトを作る</button>
@@ -242,6 +243,12 @@ details summary { cursor: pointer; font-size: 12px; color: var(--muted); }
     </div>
     <div class="card">
       <h2>冒険者の設定 <small>🎲 はランダム</small></h2>
+      <label class="field">作るもの<select id="pKind">
+        <option value="full">立ち絵（完成品）</option>
+        <option value="face">モンタージュ素材：顔と体（スキンヘッド）</option>
+        <option value="hair">モンタージュ素材：髪型（前髪・後髪を切り分ける）</option>
+      </select></label>
+      <p class="note" id="pKindNote"></p>
       <div class="pick"><label class="field">職業<select id="pJob"></select></label><button type="button" class="btn" data-dice="pJob" title="この項目だけ振り直す">🎲</button></div>
       <div class="pick"><label class="field">服装<select id="pOutfit"></select></label><button type="button" class="btn" id="pOutfitDice" title="この項目だけ振り直す（職業を選んでいるとき）">🎲</button></div>
       <div class="pick"><label class="field">髪型<select id="pStyle"></select></label><button type="button" class="btn" data-dice="pStyle" title="この項目だけ振り直す">🎲</button></div>
@@ -262,7 +269,7 @@ details summary { cursor: pointer; font-size: 12px; color: var(--muted); }
       <div class="two">
         <label class="field">縦横比<select id="pAr"><option value="1:1">1:1</option><option value="2:3">2:3</option><option value="3:4" selected>3:4</option></select></label>
         <label class="field">形式<select id="pFormat">
-          <option value="nl">物語帳と同じ（Copilot・Nano Banana 2）</option>
+          <option value="nl">物語帳と同じ（Nano Banana 2）</option>
           <option value="line">旧：タグを並べた1行</option>
           <option value="split">旧：ポジティブ／ネガティブ</option>
           <option value="mj">旧：Midjourney（--no）</option>
@@ -273,7 +280,7 @@ details summary { cursor: pointer; font-size: 12px; color: var(--muted); }
         <option value="mannequin">マネキン画像を添付する（ポーズと構図をそろえる）</option>
       </select></label>
       <label class="field">表情<select id="pExpr"></select></label>
-      <p class="note">「物語帳と同じ」は、ギルド物語帳の立ち絵のプロンプトと同じ文の組み立て・画風・構図・背景の指定で、Copilot 用と Nano Banana 2 用の2つを出す。物語帳の人物の立ち絵と並べても雰囲気がそろう。</p>
+      <p class="note">「物語帳と同じ」は、ギルド物語帳の立ち絵のプロンプトと同じ文の組み立て・画風・構図・背景の指定で、Nano Banana 2 用の文を出す。物語帳の人物の立ち絵と並べても雰囲気がそろう。</p>
       <div class="two">
         <label class="field">件数<input type="number" id="pCount" min="1" max="20" value="3"></label>
         <label class="field">画像Idの開始番号<input type="number" id="pStart" min="1" max="999" value="6"></label>
@@ -1629,7 +1636,7 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
   });
   fillOutfits();
 
-  // ---------- ギルド物語帳と同じ組み立て（Copilot 用・Nano Banana 2 用の自然文） ----------
+  // ---------- ギルド物語帳と同じ組み立て（Nano Banana 2 用の自然文） ----------
   // 物語帳（アーティファクト「ギルド物語帳」）の charPrompts と同じ文・画風・構図・背景・避けるもの。物語帳を変えたらここも合わせる。
   const STYLE_EN = "delicate refined art style, ultra-fine faint linework, soft watercolor-like cel shading, muted color palette";
   const EXPR = {
@@ -1642,16 +1649,14 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
   };
   const JOB_EXPR = "職業らしい表情";
   const BG_NL = {
-    magenta: { cop: "Background: a solid, flat, pure magenta (#FF00FF) chroma key background with no gradient, no shadow and no texture. Soft even front lighting, no rim light, no colored light reflected on the character, clean crisp silhouette edges.",
-      nano: "a solid, flat, pure magenta (#FF00FF) chroma key background with no gradient, no shadow and no background texture. Soft even front lighting, no rim light, no colored light reflected on the character, clean crisp silhouette edges",
+    magenta: { nano: "a solid, flat, pure magenta (#FF00FF) chroma key background with no gradient, no shadow and no background texture. Soft even front lighting, no rim light, no colored light reflected on the character, clean crisp silhouette edges",
       avoid: ["background gradient", "drop shadow", "magenta tint on the hair, skin or clothing"] },
-    green: { cop: "Background: a solid, flat, pure green (#00FF00) chroma key background with no gradient, no shadow and no texture. Soft even front lighting, no rim light, no colored light reflected on the character, clean crisp silhouette edges.",
-      nano: "a solid, flat, pure green (#00FF00) chroma key background with no gradient, no shadow and no background texture. Soft even front lighting, no rim light, no colored light reflected on the character, clean crisp silhouette edges",
+    green: { nano: "a solid, flat, pure green (#00FF00) chroma key background with no gradient, no shadow and no background texture. Soft even front lighting, no rim light, no colored light reflected on the character, clean crisp silhouette edges",
       avoid: ["background gradient", "drop shadow", "green tint on the hair, skin or clothing"] },
-    gray: { cop: "Background: a plain, soft light-grey background. Soft natural lighting.", nano: "a plain, soft light-grey background with soft natural lighting", avoid: [] },
+    gray: { nano: "a plain, soft light-grey background with soft natural lighting", avoid: [] },
   };
   const PORTRAIT_AVOID = ["hands", "holding items", "weapons (swords, greatswords, axes, shields, spears, lances)", "hips", "thighs", "legs", "boots", "full body", "cropping at the chest", "traditional watercolor paper texture", "rough pencil sketch", "thick black outlines", "heavy ink lines", "flat solid colors", "blurry"];
-  const AR_TEXT = { "1:1": ["Square 1:1 image", "1:1 (square)"], "2:3": ["Vertical 2:3 image", "2:3 (portrait)"], "3:4": ["Vertical 3:4 image", "3:4 (portrait)"] };
+  const AR_TEXT = { "1:1": "1:1 (square)", "2:3": "2:3 (portrait)", "3:4": "3:4 (portrait)" };
   // 物語帳の「見た目」と同じ並び（種族・年頃・顔立ち・瞳・髪・服）。服の「bottom edge」の指定は構図の文に任せて外す。
   const outfitOf = (outfit) => outfit.text.replace(/\s+touching bottom edge/g, "");
 
@@ -1661,17 +1666,16 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
     slim: "slender adult female proportions with narrow shoulders",
     athletic: "athletic adult female proportions with toned shoulders and arms",
     sturdy: "sturdy, broad-shouldered adult female proportions",
+    curvy: "curvy, glamorous adult female proportions with a full bust and a narrow waist",
   };
-  const REF_COP = "Use the attached reference image only as a pose and framing guide: match its body angle, head direction, shoulder line, head size and position, and the crop at the waist exactly. Draw the character described here in place of the mannequin; do not copy its grey color, smooth surface, blank face or background.";
   const REF_NANO = "Reference image: the attached image is a blank mannequin used only as a pose and framing guide. Match its body angle, head direction, shoulder line, head size and position, and the crop at the waist exactly. Replace the mannequin entirely with the character below; do not copy its grey color, smooth surface, blank face or background.";
   const REF_TAG = "match the pose, body angle, head size and framing of the attached mannequin reference image exactly";
   const REF_AVOID = ["grey mannequin skin", "blank featureless face", "copying the reference background"];
 
   function buildMannequin(build, ar) {
     const body = BUILDS[build] || BUILDS.slim;
-    const [arCop, arNano] = AR_TEXT[ar] || AR_TEXT["3:4"];
+    const arNano = AR_TEXT[ar] || AR_TEXT["3:4"];
     const avoid = ["hair", "clothing", "armor", "accessories", "facial features", "hands", "weapons", "held items", "text", "multiple figures", "background gradient", "drop shadow", "cropping at the chest"].join(", ");
-    const cop = `Create an image: a pose reference for a 2D game character portrait sprite: a smooth, featureless, matte off-white artist's mannequin with ${body}, a bald smooth head with no face, no hair and no clothing. Pose: medium close-up waist-up portrait, body turned about 15 degrees to the left, head turned to face the viewer squarely, shoulders relaxed and level, arms hanging naturally at the sides. Crop the frame cleanly at the waist (navel line) with the top of the head near the top edge; keep hands out of the frame. Clean 2D illustration with ultra-fine faint linework and soft cel shading. Background: a plain, flat, mid-grey (#808080) background with no gradient and no shadow. ${arCop}. Avoid ${avoid}.`;
     const nano = `A pose reference for a 2D game character portrait sprite.
 
 Subject: a smooth, featureless, matte off-white artist's mannequin with ${body}. Bald smooth head with no face, no hair and no clothing.
@@ -1684,7 +1688,7 @@ Style: clean 2D illustration with ultra-fine faint linework and soft cel shading
 Background: a plain, flat, mid-grey (#808080) background with no gradient and no shadow.
 
 Avoid: ${avoid}.`;
-    return { cop, nano };
+    return { nano };
   }
 
   function buildNL(sel, bg, ar, hairMode, exprKey, ref) {
@@ -1696,9 +1700,8 @@ Avoid: ${avoid}.`;
     const app = ["looks in her early 20s", `${job.face} facial features`, eyeText, hairText, `wearing ${outfitOf(sel.outfit)}`].join(", ");
     const ex = exprKey === JOB_EXPR ? job.expr : EXPR[exprKey] || EXPR["通常"];
     const b = BG_NL[bg] || BG_NL.magenta;
-    const [arCop, arNano] = AR_TEXT[ar] || AR_TEXT["2:3"];
+    const arNano = AR_TEXT[ar] || AR_TEXT["2:3"];
     const avoid = [...PORTRAIT_AVOID, ...b.avoid, ...(ref ? REF_AVOID : [])].join(", ");
-    const cop = `${ref ? REF_COP + " " : ""}Create an image: a 2D Korean anime (manhwa) style game character portrait sprite of a young human woman, ${who}, ${app}. She has ${ex}. Masterpiece quality, ultra-detailed, ${STYLE_EN}. Pose: medium close-up waist-up portrait, body turned about 15 degrees to the left, head turned to face the viewer, looking straight at the viewer with direct eye contact. Crop the frame cleanly at the waist with the top of the head near the top edge; keep hands, weapons and held items out of the frame. ${b.cop} ${arCop}. Avoid thick black outlines, heavy ink lines, rough pencil sketch lines, paper texture and flat solid colors.`;
     const nano = `A character portrait sprite for a 2D fantasy management game, drawn in a Korean anime (manhwa) style.
 ${ref ? `\n${REF_NANO}\n` : ""}
 Character: a young human woman, ${who}.
@@ -1713,8 +1716,76 @@ Aspect ratio ${arNano}.
 Background and lighting: ${b.nano}.
 
 Avoid: ${avoid}.`;
-    return { cop, nano };
+    return { nano };
   }
+
+  // ---------- モンタージュ素材 ----------
+  // 顔と体の素材と髪型の素材を、同じマネキン画像を参照して別々に描かせ、重ねて1人にする。
+  // 顔と体はスキンヘッド（髪が服や肩に掛からない）、髪型は顔と服を無地にして、前髪と後髪を切り分けやすくする。
+  const POSE_NANO = "Pose and framing: slight three-quarter body angle turned 15 degrees to the left, head turned to directly face the viewer, looking straight forward at the viewer with direct, focused eye contact. Medium close-up, waist-up portrait: the frame is cropped cleanly at the navel line, and the top of the head comfortably near the top edge.";
+  const REF_MONTAGE = "Reference image: the attached image is a blank mannequin used as the exact pose and framing template. Match its body angle, head direction, head size and position, shoulder line and the crop at the waist exactly, so that this image lines up pixel for pixel with other montage layers drawn from the same template.";
+  const HEADWEAR_AVOID = ["hair", "wig", "stubble", "hairline shading", "hat", "hood worn over the head", "veil", "bandana", "headband", "circlet", "tiara", "forehead chain", "hair accessories", "goggles on the head"];
+  const HAIR_AVOID = ["eyes", "eyebrows", "nose", "mouth", "makeup", "detailed clothing", "collars", "jewelry", "earrings", "hats", "headbands", "large hair accessories", "hands", "weapons", "thick black outlines", "heavy ink lines", "rough pencil sketch", "blurry"];
+
+  // 顔と体の素材では、服装の文から被り物（帽子・ヴェール・バンダナ・額飾り・ゴーグル）を除き、フードは下ろす。
+  const HEADWEAR_RE = /\b(hat|veil|wimple|bandana|circlet|forehead|goggles|domino mask)\b/i;
+  const faceOutfitOf = (outfit) => outfitOf(outfit)
+    .replace(/with the hood up framing the face/g, "with the hood lowered behind the shoulders")
+    .replace(/ with a white wimple and a black veil over the hair/g, "")
+    .split(/,\s*/).filter((c) => !HEADWEAR_RE.test(c)).join(", ");
+
+  function buildFace(sel, bg, ar, exprKey) {
+    const { job, eye } = sel;
+    const who = job.who.replace(/\byoung\s+/, "").replace(/\bfemale\s+/, "");
+    const ex = exprKey === JOB_EXPR ? job.expr : EXPR[exprKey] || EXPR["通常"];
+    const b = BG_NL[bg] || BG_NL.magenta;
+    const arNano = AR_TEXT[ar] || AR_TEXT["3:4"];
+    const avoid = [...HEADWEAR_AVOID, ...PORTRAIT_AVOID, ...b.avoid].join(", ");
+    const nano = `A montage base layer for a 2D fantasy management game character portrait, drawn in a Korean anime (manhwa) style. Hairstyles are drawn separately and layered on top later, so this character has no hair at all.
+
+${REF_MONTAGE}
+
+Character: a young human woman, ${who}.
+Head: a completely bald, smoothly shaved head with no hair, no stubble and no hairline shading; the natural skin-toned scalp and round skull shape are fully visible, and both ears are fully visible.
+Appearance: looks in her early 20s, ${job.face} facial features, ${eye.text} eyes with large clearly defined irises, a visible pupil and highlight, natural thin eyebrows, wearing ${faceOutfitOf(sel.outfit)}.
+Outfit rule: leave out any hat, hood worn up, veil, bandana, circlet, forehead jewelry or goggles from the outfit; a hood stays lowered behind the shoulders. Keep collars and capes low enough that the whole neck and scalp stay visible.
+Expression: ${ex}.
+
+Style: masterpiece, best quality, ultra-detailed. ${STYLE_EN[0].toUpperCase() + STYLE_EN.slice(1)}.
+
+${POSE_NANO}
+Aspect ratio ${arNano}.
+
+Background and lighting: ${b.nano}.
+
+Avoid: ${avoid}.`;
+    return { nano };
+  }
+
+  function buildHair(sel, bg, ar, hairMode) {
+    const hair = hairMode === "work" ? WORK_HAIR : sel.hair;
+    const b = BG_NL[bg] || BG_NL.magenta;
+    const arNano = AR_TEXT[ar] || AR_TEXT["3:4"];
+    const avoid = [...HAIR_AVOID, ...b.avoid].join(", ");
+    const nano = `A montage hair layer for a 2D fantasy management game character portrait, drawn in a Korean anime (manhwa) style. Only the hairstyle matters in this image; it will be cut out and layered onto a separately drawn face and body.
+
+${REF_MONTAGE}
+
+Hairstyle: ${hair.text} ${style_of(sel)}${hairMode === "work" ? ", evenly colored hair without streaks or dyed tips" : ""}, drawn in full detail on the mannequin from the reference image, sized and placed for a young woman's head.
+Head and body: keep the mannequin plain so the hair is easy to cut out. The face is a flat, uniform pale grey (#D0D0D0) surface with no eyes, eyebrows, nose or mouth. The body wears a plain, tight, flat mid-grey (#9A9A9A) sleeveless top with no collar, seams, folds or accessories.
+Front and back hair: draw the hair so the front hair and the back hair can be cut apart. Front hair is the bangs, side locks and any strands that fall in front of the face, ears, neck or shoulders. Back hair is the hair mass behind the head, neck and shoulders. Shade the back hair about one tone darker than the front hair, and keep a clean, visible edge where front strands overlap the back hair or the body.
+
+Style: masterpiece, best quality, ultra-detailed. ${STYLE_EN[0].toUpperCase() + STYLE_EN.slice(1)}.
+
+${POSE_NANO.replace(", looking straight forward at the viewer with direct, focused eye contact", "")}
+Aspect ratio ${arNano}.
+
+Background and lighting: ${b.nano}.
+
+Avoid: ${avoid}.`;
+    return { nano };
+  }
+  const style_of = (sel) => sel.style.text;
 
   // ---------- 組み立て ----------
   function chooseBackground(choice, parts) {
@@ -1765,20 +1836,25 @@ Avoid: ${avoid}.`;
       const sel = { job, outfit: resolveOutfit(job), style: resolve("pStyle"), hair: resolve("pHair"), eye: resolve("pEye") };
       const hairMode = $("pHairMode").value;
       const work = hairMode === "work";
-      // 加工用では生成される髪は赤銅なので、背景色との重なりは赤銅で判定する。
-      const parts = [sel.outfit, work ? WORK_HAIR : sel.hair, sel.eye];
+      const kind = $("pKind").value;
+      // 加工用では生成される髪は赤銅なので、背景色との重なりは赤銅で判定する。素材は描く部分だけで判定する。
+      const hairPart = work ? WORK_HAIR : sel.hair;
+      const parts = kind === "face" ? [sel.outfit, sel.eye] : kind === "hair" ? [hairPart] : [sel.outfit, hairPart, sel.eye];
       const bg = chooseBackground($("pBg").value, parts);
       const format = $("pFormat").value;
       const ref = $("pRef").value === "mannequin";
-      const out = format === "nl" ? buildNL(sel, bg, $("pAr").value, hairMode, $("pExpr").value, ref) : build(sel, bg, $("pAr").value, format, hairMode, ref);
-      const id = "adv_" + String(start + k).padStart(3, "0");
+      const ar = $("pAr").value;
+      const out = kind === "face" ? buildFace(sel, bg, ar, $("pExpr").value)
+        : kind === "hair" ? buildHair(sel, bg, ar, hairMode)
+        : format === "nl" ? buildNL(sel, bg, ar, hairMode, $("pExpr").value, ref) : build(sel, bg, ar, format, hairMode, ref);
+      const id = (kind === "face" ? "face_" : kind === "hair" ? "hair_" : "adv_") + String(start + k).padStart(3, "0");
       const bgLabel = bg === "gray" ? "灰背景" : bg === "magenta" ? "マゼンタ背景" : "緑背景";
       const note = work
         ? `${sel.job.name}・${sel.outfit.name}・${sel.style.name}（生成プロンプト・${bgLabel}・加工用の赤銅髪→${sel.hair.name}に変換予定）`
         : `${sel.job.name}・${sel.outfit.name}・${sel.style.name}（生成プロンプト・${bgLabel}）`;
-      const csv = [id, sel.job.jobs, work ? WORK_HAIR.name : sel.hair.name, sel.eye.name, note].join(",");
-      rows.push(csv);
-      host.append(card(id, sel, bg, out, csv, parts, work));
+      const csv = kind === "full" ? [id, sel.job.jobs, work ? WORK_HAIR.name : sel.hair.name, sel.eye.name, note].join(",") : "";
+      if (csv) rows.push(csv);
+      host.append(card(id, sel, bg, out, csv, parts, work, kind));
     }
     $("pStatus").textContent = `${count} 件作った。`;
   }
@@ -1795,19 +1871,20 @@ Avoid: ${avoid}.`;
     }
   }
 
-  function card(id, sel, bg, out, csv, parts, work) {
+  function card(id, sel, bg, out, csv, parts, work, kind) {
     const el = document.createElement("article"); el.className = "pcard";
     const head = document.createElement("div"); head.className = "pcard-head";
     const idEl = document.createElement("span"); idEl.className = "id"; idEl.textContent = id;
     const desc = document.createElement("span"); desc.className = "desc";
-    desc.textContent = work
-      ? `${sel.job.name}（${sel.outfit.name}）　赤銅の${sel.style.name}（→ ${sel.hair.name} に変換）　${sel.eye.name}の瞳`
-      : `${sel.job.name}（${sel.outfit.name}）　${sel.hair.name}の${sel.style.name}　${sel.eye.name}の瞳`;
+    const hairDesc = work ? `赤銅の${sel.style.name}（→ ${sel.hair.name} に変換）` : `${sel.hair.name}の${sel.style.name}`;
+    desc.textContent = kind === "face" ? `顔と体：${sel.job.name}（${sel.outfit.name}）　スキンヘッド　${sel.eye.name}の瞳`
+      : kind === "hair" ? `髪型：${hairDesc}`
+      : `${sel.job.name}（${sel.outfit.name}）　${hairDesc}　${sel.eye.name}の瞳`;
     const pill = document.createElement("span");
     pill.className = "pill" + (bg === "gray" ? "" : " key-" + bg);
     pill.textContent = bg === "magenta" ? "背景：マゼンタ" : bg === "green" ? "背景：緑" : "背景：灰";
     head.append(idEl, desc, pill);
-    if ($("pRef").value === "mannequin") { const r = document.createElement("span"); r.className = "pill"; r.textContent = "マネキンを添付"; head.append(r); }
+    if (kind !== "full" || $("pRef").value === "mannequin") { const r = document.createElement("span"); r.className = "pill"; r.textContent = "マネキンを添付"; head.append(r); }
     el.append(head);
 
     if (bg !== "gray" && parts.some((p) => (p.avoid || []).includes(bg))) {
@@ -1815,7 +1892,12 @@ Avoid: ${avoid}.`;
       w.textContent = "配色の一部が背景色に近い。クロマキーで一緒に抜ける恐れがあるので、加工タブで「消す」ブラシで残す。";
       el.append(w);
     }
-    const blocks = out.cop ? [["Copilot 用", out.cop], ["Nano Banana 2 用", out.nano]]
+    if (kind === "hair") {
+      const g = document.createElement("p"); g.className = "note";
+      g.textContent = "切り分け方：前髪＝顔・耳・首・肩の手前に掛かる髪（明るい側）、後髪＝頭と肩の後ろの髪（一段暗い側）。灰色の顔と服は捨てる。";
+      el.append(g);
+    }
+    const blocks = out.nano ? [["Nano Banana 2 用", out.nano]]
       : out.line ? [["プロンプト", out.line]] : [["ポジティブ", out.positive], ["ネガティブ", out.negative]];
     for (const [label, text] of blocks) {
       const l = document.createElement("div"); l.className = "lbl"; l.textContent = label;
@@ -1825,7 +1907,8 @@ Avoid: ${avoid}.`;
       const row = document.createElement("div"); row.className = "row"; row.append(b);
       el.append(l, ta, row);
     }
-    const c = document.createElement("div"); c.className = "csvline"; c.textContent = csv; c.title = "portraits.csv に貼る行";
+    const c = document.createElement("div"); c.className = "csvline";
+    c.textContent = csv || "モンタージュ素材（portraits.csv には入れない）"; c.title = csv ? "portraits.csv に貼る行" : "";
     el.append(c);
     return el;
   }
@@ -1833,10 +1916,25 @@ Avoid: ${avoid}.`;
   $("pMake").addEventListener("click", make);
   $("pCopyCsv").addEventListener("click", (e) => { if (rows.length) copyText(rows.join("\n"), e.currentTarget); });
   for (const key of [...Object.keys(EXPR), JOB_EXPR]) { const o = document.createElement("option"); o.value = o.textContent = key; $("pExpr").append(o); }
-  const syncFormat = () => { $("pExpr").disabled = $("pFormat").value !== "nl"; };
-  $("pFormat").addEventListener("change", syncFormat);
+  const KIND_NOTE = {
+    full: "完成した立ち絵を1枚で描かせる。",
+    face: "髪の無い顔と体を描かせる（帽子・フードを被った服装も被り物を外す）。マネキン画像を必ず添付する。髪型の素材と重ねて1人にする。",
+    hair: "髪型だけを描かせる。顔は無地の灰色、服は無地の灰色の袖なし。マネキン画像を必ず添付する。後髪は一段暗く塗らせるので、前髪と後髪を色で切り分けられる。",
+  };
+  const syncFormat = () => {
+    const kind = $("pKind").value, montage = kind !== "full";
+    $("pKindNote").textContent = KIND_NOTE[kind];
+    // 素材は Nano Banana 2 の文だけで、マネキンの添付が前提。描かない部分の設定は使わない。
+    $("pFormat").disabled = montage;
+    $("pRef").disabled = montage;
+    $("pExpr").disabled = kind === "hair" || (!montage && $("pFormat").value !== "nl");
+    for (const id of ["pJob", "pOutfit", "pEye"]) $(id).disabled = kind === "hair" || (id === "pOutfit" && $("pJob").value === "*");
+    for (const id of ["pStyle", "pHair", "pHairMode"]) $(id).disabled = kind === "face";
+    $("pCopyCsv").disabled = montage;
+  };
+  for (const id of ["pFormat", "pKind", "pJob"]) $(id).addEventListener("change", syncFormat);
   syncFormat();
-  for (const id of ["pBg", "pAr", "pFormat", "pExpr", "pRef"]) $(id).addEventListener("change", make);
+  for (const id of ["pBg", "pAr", "pFormat", "pExpr", "pRef", "pKind"]) $(id).addEventListener("change", make);
 
   // マネキンのプロンプト：冒険者のカードと同じ見た目で出す
   function makeMannequin() {
@@ -1846,7 +1944,7 @@ Avoid: ${avoid}.`;
     const desc = document.createElement("span"); desc.className = "desc";
     desc.textContent = `マネキン（${$("mBuild").selectedOptions[0].textContent}・${$("pAr").value}・灰背景）`;
     head.append(desc); el.append(head);
-    for (const [label, text] of [["Copilot 用", out.cop], ["Nano Banana 2 用", out.nano]]) {
+    for (const [label, text] of [["Nano Banana 2 用", out.nano]]) {
       const l = document.createElement("div"); l.className = "lbl"; l.textContent = label;
       const ta = document.createElement("textarea"); ta.readOnly = true; ta.value = text; ta.setAttribute("aria-label", `マネキンの${label}`);
       const b = document.createElement("button"); b.type = "button"; b.className = "btn"; b.textContent = `${label}をコピー`;
