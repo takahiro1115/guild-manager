@@ -229,6 +229,7 @@ details summary { cursor: pointer; font-size: 12px; color: var(--muted); }
     <div class="card">
       <h2>冒険者の設定 <small>🎲 はランダム</small></h2>
       <div class="pick"><label class="field">職業<select id="pJob"></select></label><button type="button" class="btn" data-dice="pJob" title="この項目だけ振り直す">🎲</button></div>
+      <div class="pick"><label class="field">服装<select id="pOutfit"></select></label><button type="button" class="btn" id="pOutfitDice" title="この項目だけ振り直す（職業を選んでいるとき）">🎲</button></div>
       <div class="pick"><label class="field">髪型<select id="pStyle"></select></label><button type="button" class="btn" data-dice="pStyle" title="この項目だけ振り直す">🎲</button></div>
       <div class="pick"><label class="field">髪色<select id="pHair"></select></label><button type="button" class="btn" data-dice="pHair" title="この項目だけ振り直す">🎲</button></div>
       <div class="pick"><label class="field">瞳色<select id="pEye"></select></label><button type="button" class="btn" data-dice="pEye" title="この項目だけ振り直す">🎲</button></div>
@@ -1464,29 +1465,71 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
   const POSE = (expr) => `slight three-quarter body angle turned 15 degrees to the left, head turned to directly face viewer, looking straight forward at viewer with direct focused eye contact, ${expr}, medium close-up waist-up portrait, frame cropped cleanly at the navel line, lower border precisely at the waist belt, top of head comfortably near top edge`;
   const NEGATIVE = ["hands", "holding items", "weapons", "swords", "greatswords", "axes", "shields", "spears", "lances", "hips", "thighs", "legs", "boots", "full body", "cropped at chest", "traditional watercolor paper texture", "rough pencil sketch", "thick black outlines", "heavy ink lines", "flat solid colors", "blurry"];
 
-  // 職業：Jobs は portraits.csv の似合う職業、avoid はクロマキーの背景色と重なる配色。
+  // 職業：Jobs は portraits.csv の似合う職業。outfits は服装の候補（先頭が元からの1着）、avoid はクロマキーの背景色と重なる配色。
   const JOBS = [
-    { key: "Warrior", name: "重戦士", jobs: "Warrior|Knight", avoid: [],
+    { key: "Warrior", name: "重戦士", jobs: "Warrior|Knight",
       who: "battle-hardened young female warrior", face: "strong determined", expr: "fierce confident expression",
-      outfit: "heavy scratched steel pauldrons over a dark riveted leather brigandine, fur-trimmed half cape over one shoulder, sturdy iron gorget, thick leather belt with worn iron buckle touching bottom edge" },
-    { key: "Knight", name: "騎士", jobs: "Knight|Warrior", avoid: [],
+      outfits: [
+        { key: "brigandine", name: "毛皮の外套と革鎧", text: "heavy scratched steel pauldrons over a dark riveted leather brigandine, fur-trimmed half cape over one shoulder, sturdy iron gorget, thick leather belt with worn iron buckle touching bottom edge" },
+        { key: "chain", name: "鎖帷子と赤い陣羽織", text: "long-sleeved iron chainmail hauberk under a faded crimson sleeveless tabard with a frayed hem, single dented steel pauldron on the left shoulder, leather neck guard, wide studded leather belt touching bottom edge" },
+        { key: "northern", name: "北方の毛皮鎧", text: "thick grey wolf-fur mantle over the shoulders, layered bronze scale vest over a quilted dark wool tunic, braided leather cords with bone charms at the collar, broad leather belt with a bronze clasp touching bottom edge" },
+        { key: "plate", name: "黒鉄の板金鎧", text: "massive blackened iron plate breastplate with deep battle scratches, layered heavy pauldrons with raised rims, short torn dark brown cloak hanging from the back, riveted iron gorget, thick leather belt with square iron buckle touching bottom edge" },
+        { key: "merc", name: "軽装の傭兵", text: "sleeveless dark leather cuirass with bronze rivets over a rolled-up ochre linen shirt, leather vambraces with laced straps, wrapped cloth scarf around the neck, single shoulder strap across the chest, worn leather belt with brass buckle touching bottom edge" },
+      ] },
+    { key: "Knight", name: "騎士", jobs: "Knight|Warrior",
       who: "noble young female knight", face: "refined dignified", expr: "dignified resolute expression",
-      outfit: "polished blackened-silver steel cuirass with subtle engraved silver filigree trim, sturdy articulated gorget protecting throat, deep royal navy mantle draped over shoulder with brass insignia brooch, dark padded arming doublet, wide structured leather fauld belt with engraved steel buckle touching bottom edge" },
-    { key: "Ranger", name: "斥候", jobs: "Ranger|Thief", avoid: ["green"],
+      outfits: [
+        { key: "navy", name: "黒銀の胸甲と紺の外套", text: "polished blackened-silver steel cuirass with subtle engraved silver filigree trim, sturdy articulated gorget protecting throat, deep royal navy mantle draped over shoulder with brass insignia brooch, dark padded arming doublet, wide structured leather fauld belt with engraved steel buckle touching bottom edge" },
+        { key: "white", name: "白銀の鎧と白い外套", text: "gleaming white-silver plate cuirass with gold-edged trim, rounded layered pauldrons, flowing ivory cape fastened with a gold lion-crest clasp, white padded gambeson collar, white leather belt with gold buckle touching bottom edge" },
+        { key: "crimson", name: "紋章入りの紅の陣羽織", text: "steel breastplate worn under a deep crimson surcoat embroidered with a golden heraldic emblem, polished steel pauldrons, chainmail collar at the throat, short burgundy shoulder cape, leather belt with brass buckle touching bottom edge" },
+        { key: "parade", name: "儀礼用の礼装", text: "high-collared dark blue military parade jacket with gold braided epaulettes and golden aiguillette cords, a single polished silver pauldron on one shoulder, row of brass buttons, sash across the chest, white leather belt with ornate brass buckle touching bottom edge" },
+        { key: "travel", name: "旅の騎士の軽鎧", text: "practical brushed-steel half-plate cuirass over a dark brown padded doublet, worn grey travelling cloak pinned at the shoulder with a simple iron brooch, mail coif lowered around the neck, plain leather belt with steel buckle touching bottom edge" },
+      ] },
+    { key: "Ranger", name: "斥候", jobs: "Ranger|Thief",
       who: "keen-eyed young female ranger", face: "sharp alert", expr: "calm watchful expression",
-      outfit: "hooded forest-green cloak pushed back over the shoulders, fitted dark brown leather jerkin with crossed straps and small pouches, quiver strap across the chest, simple leather bracers, brown leather belt touching bottom edge" },
-    { key: "Thief", name: "盗賊", jobs: "Thief|Ranger", avoid: [],
+      outfits: [
+        { key: "forest", name: "森色の外套", avoid: ["green"], text: "hooded forest-green cloak pushed back over the shoulders, fitted dark brown leather jerkin with crossed straps and small pouches, quiver strap across the chest, simple leather bracers, brown leather belt touching bottom edge" },
+        { key: "desert", name: "砂色の旅装", text: "loose sand-beige hooded mantle with a wrapped face scarf lowered around the neck, light tan linen tunic, brown leather chest harness with a quiver strap, leather bracers wrapped with cloth, rope-tied leather belt touching bottom edge" },
+        { key: "snow", name: "雪原の毛皮装束", text: "white fur-lined hooded parka with the hood lowered, pale grey quilted vest with toggle buttons, quiver strap across the chest, fur-trimmed leather bracers, brown leather belt touching bottom edge" },
+        { key: "autumn", name: "枯葉色の革装束", text: "rust-orange short hooded capelet over a fitted ochre leather jerkin with leaf-shaped stitching, crossed quiver and pouch straps, laced leather bracers, dark brown leather belt touching bottom edge" },
+        { key: "scout", name: "灰色の偵察装束", text: "charcoal-grey hooded cowl, fitted slate-grey padded gambeson with high collar, leather shoulder guard on the bow arm, quiver strap across the chest, small spyglass pouch, black leather belt touching bottom edge" },
+      ] },
+    { key: "Thief", name: "盗賊", jobs: "Thief|Ranger",
       who: "agile young female thief", face: "sharp playful", expr: "sly confident half-smile",
-      outfit: "fitted dark navy leather vest over a charcoal long-sleeve shirt, black scarf wrapped loosely around the neck, crossed harness straps with small tool pouches, fingerless gloves tucked into the belt, studded leather belt touching bottom edge" },
-    { key: "Mage", name: "魔導士", jobs: "Mage|Scholar", avoid: ["magenta"],
+      outfits: [
+        { key: "navy", name: "紺の革ベスト", text: "fitted dark navy leather vest over a charcoal long-sleeve shirt, black scarf wrapped loosely around the neck, crossed harness straps with small tool pouches, fingerless gloves tucked into the belt, studded leather belt touching bottom edge" },
+        { key: "hooded", name: "黒いフードの外套", text: "short black hooded cloak with the hood up framing the face, fitted dark grey leather bodice with many small buckles, leather choker, crossed belt straps with throwing-knife sheaths, black leather belt touching bottom edge" },
+        { key: "pirate", name: "海賊風の装い", text: "loose white puffy-sleeved blouse with laced open collar under a fitted burgundy brocade waistcoat, red bandana tied over the hair, gold hoop earrings, wide brown leather sash belt touching bottom edge" },
+        { key: "street", name: "街の身軽な装い", text: "cropped brown leather jacket with rolled-up sleeves over a mustard-yellow shirt, patched scarf around the neck, coin purse cords dangling, leather wrist wraps, worn leather belt with many small pouches touching bottom edge" },
+        { key: "masquerade", name: "夜会に紛れる礼装", text: "elegant fitted black velvet coat with silver embroidery and a high collar, lace cravat with a small ruby pin, thin black domino mask pushed up on the forehead, black leather belt with a silver buckle touching bottom edge" },
+      ] },
+    { key: "Mage", name: "魔導士", jobs: "Mage|Scholar",
       who: "young female mage", face: "elegant composed", expr: "calm composed expression",
-      outfit: "layered deep indigo hooded robe with silver runic embroidery, ornate high collar with a small crystal clasp, glowing crystal pendant, fine silver circlet, embroidered sash belt with tassels touching bottom edge" },
-    { key: "Cleric", name: "神官", jobs: "Cleric|Mage", avoid: [],
+      outfits: [
+        { key: "indigo", name: "藍のローブ", avoid: ["magenta"], text: "layered deep indigo hooded robe with silver runic embroidery, ornate high collar with a small crystal clasp, glowing crystal pendant, fine silver circlet, embroidered sash belt with tassels touching bottom edge" },
+        { key: "witch", name: "とんがり帽子の魔女", text: "wide-brimmed pointed black witch hat with a dark red ribbon band, black high-collared robe with a short layered capelet, star-shaped silver brooch, small potion vials on cords, black corset belt with silver buckles touching bottom edge" },
+        { key: "flame", name: "紅蓮の魔導衣", text: "deep crimson high-collared mage coat with gold flame-pattern embroidery, black inner vest, glowing orange gem set in a gold choker, long gold-trimmed sleeves, black sash belt with gold tassels touching bottom edge" },
+        { key: "frost", name: "氷の魔導衣", text: "pale ice-blue layered robe with white fur-trimmed collar and frost-pattern silver embroidery, translucent pale blue shoulder veil, snowflake crystal pendant, silver sash belt touching bottom edge" },
+        { key: "sage", name: "白い賢者の衣", text: "flowing white and cream long robe with wide sleeves and gold geometric embroidery, sheer shawl draped over the shoulders, amber gem forehead chain, layered beaded necklaces, wide cream cloth belt with gold clasp touching bottom edge" },
+      ] },
+    { key: "Cleric", name: "神官", jobs: "Cleric|Mage",
       who: "gentle young female cleric", face: "soft graceful", expr: "serene compassionate expression",
-      outfit: "white and pale gold priestly vestments with an embroidered stole, holy sun symbol pendant, soft hood lowered on the shoulders, light chainmail collar peeking under the robe, cloth sash belt with gold trim touching bottom edge" },
-    { key: "Scholar", name: "学者", jobs: "Scholar|Mage", avoid: [],
+      outfits: [
+        { key: "vestment", name: "白と金の祭服", text: "white and pale gold priestly vestments with an embroidered stole, holy sun symbol pendant, soft hood lowered on the shoulders, light chainmail collar peeking under the robe, cloth sash belt with gold trim touching bottom edge" },
+        { key: "nun", name: "修道女の衣", text: "black and white nun habit with a white wimple and a black veil over the hair, simple wooden rosary with a silver cross pendant, white collar, black cloth belt with a knotted cord touching bottom edge" },
+        { key: "battle", name: "戦う神官の鎧", text: "silver breastplate engraved with a holy sun emblem over a white surcoat with blue trim, chainmail sleeves, short white cape fastened with a gold clasp, prayer beads around the wrist, leather belt with silver buckle touching bottom edge" },
+        { key: "pilgrim", name: "青い巡礼服", text: "light sky-blue pilgrim robe with white trim and a wide hood resting on the shoulders, white embroidered stole with silver crescent motifs, small prayer book on a cord, simple rope belt with tassels touching bottom edge" },
+        { key: "shrine", name: "東方の巫女装束", text: "white kimono-style shrine maiden top with wide sleeves and red cord accents, red hakama waistband visible at the waist, small paper talisman tucked in the collar, red and white rope ornament with a small bell, red sash belt touching bottom edge" },
+      ] },
+    { key: "Scholar", name: "学者", jobs: "Scholar|Mage",
       who: "bookish young female scholar", face: "intelligent refined", expr: "thoughtful curious expression",
-      outfit: "tailored dark teal academic coat with brass buttons over a buttoned vest and white cravat, leather satchel strap across the chest, small notebook and quill pouch, leather belt with brass buckle touching bottom edge" },
+      outfits: [
+        { key: "teal", name: "深緑青の学者服", text: "tailored dark teal academic coat with brass buttons over a buttoned vest and white cravat, leather satchel strap across the chest, small notebook and quill pouch, leather belt with brass buckle touching bottom edge" },
+        { key: "gown", name: "学院の黒いガウン", text: "black academic gown with wide sleeves and burgundy-lined hood draped on the back, white collared blouse with a dark ribbon tie, round wire-rimmed glasses, leather book strap across the chest, black leather belt touching bottom edge" },
+        { key: "alchemist", name: "錬金術師の作業着", text: "rolled-up sleeves of a cream linen shirt under a scorched brown leather apron with many pockets of small vials, brass goggles resting on the forehead, leather tool belt with copper buckle touching bottom edge" },
+        { key: "explorer", name: "遺跡調査の探検服", text: "khaki field jacket with many pockets and rolled sleeves over a white shirt, brown leather map case strap across the chest, small brass compass on a chain, neck scarf, wide brown leather belt touching bottom edge" },
+        { key: "librarian", name: "司書の装い", text: "high-necked plum-brown blouse with a lace collar under a fitted grey wool cardigan-coat, half-moon reading glasses on a chain, a small ring of brass keys, quill tucked in the breast pocket, slim leather belt touching bottom edge" },
+      ] },
   ];
   const STYLES = [
     { key: "long", name: "ロングストレート", text: "straight hair neatly falling over shoulders with parted bangs" },
@@ -1541,8 +1584,31 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
   document.querySelectorAll("[data-dice]").forEach((b) => b.addEventListener("click", () => {
     const id = b.dataset.dice;
     $(id).value = pick(SOURCES[id]).key;
+    if (id === "pJob") fillOutfits();
     make();
   }));
+
+  // 服装：選んだ職業の候補を並べる。職業がランダムのときは服装もその職業の中からランダム。
+  function fillOutfits() {
+    const sel = $("pOutfit"), prev = sel.value;
+    const job = JOBS.find((j) => j.key === $("pJob").value);
+    sel.textContent = "";
+    const r = document.createElement("option"); r.value = "*"; r.textContent = "🎲 ランダム"; sel.append(r);
+    for (const it of job ? job.outfits : []) { const o = document.createElement("option"); o.value = it.key; o.textContent = it.name; sel.append(o); }
+    sel.value = job && job.outfits.some((o) => o.key === prev) ? prev : "*";
+    sel.disabled = !job;
+    $("pOutfitDice").disabled = !job;
+  }
+  const resolveOutfit = (job) => job.outfits.find((o) => o.key === $("pOutfit").value) || pick(job.outfits);
+  $("pJob").addEventListener("change", () => { fillOutfits(); make(); });
+  $("pOutfit").addEventListener("change", make);
+  $("pOutfitDice").addEventListener("click", () => {
+    const job = JOBS.find((j) => j.key === $("pJob").value);
+    if (!job) return;
+    $("pOutfit").value = pick(job.outfits).key;
+    make();
+  });
+  fillOutfits();
 
   // ---------- ギルド物語帳と同じ組み立て（Copilot 用・Nano Banana 2 用の自然文） ----------
   // 物語帳（アーティファクト「ギルド物語帳」）の charPrompts と同じ文・画風・構図・背景・避けるもの。物語帳を変えたらここも合わせる。
@@ -1568,7 +1634,7 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
   const PORTRAIT_AVOID = ["hands", "holding items", "weapons (swords, greatswords, axes, shields, spears, lances)", "hips", "thighs", "legs", "boots", "full body", "cropping at the chest", "traditional watercolor paper texture", "rough pencil sketch", "thick black outlines", "heavy ink lines", "flat solid colors", "blurry"];
   const AR_TEXT = { "1:1": ["Square 1:1 image", "1:1 (square)"], "2:3": ["Vertical 2:3 image", "2:3 (portrait)"], "3:4": ["Vertical 3:4 image", "3:4 (portrait)"] };
   // 物語帳の「見た目」と同じ並び（種族・年頃・顔立ち・瞳・髪・服）。服の「bottom edge」の指定は構図の文に任せて外す。
-  const outfitOf = (job) => job.outfit.replace(/\s+touching bottom edge/g, "");
+  const outfitOf = (outfit) => outfit.text.replace(/\s+touching bottom edge/g, "");
 
   function buildNL(sel, bg, ar, hairMode, exprKey) {
     const { job, style, eye } = sel;
@@ -1576,7 +1642,7 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
     const who = job.who.replace(/\byoung\s+/, "").replace(/\bfemale\s+/, ""); // 物語帳の「種族・呼び方」（human woman, heavy warrior）に合わせる
     const hairText = `${hair.text} ${style.text}${hairMode === "work" ? ", evenly colored hair without streaks or dyed tips" : ""}`;
     const eyeText = `${eye.text} eyes${hairMode === "work" ? " with large clearly defined irises, a visible pupil and highlight" : ""}`;
-    const app = ["looks in her early 20s", `${job.face} facial features`, eyeText, hairText, `wearing ${outfitOf(job)}`].join(", ");
+    const app = ["looks in her early 20s", `${job.face} facial features`, eyeText, hairText, `wearing ${outfitOf(sel.outfit)}`].join(", ");
     const ex = exprKey === JOB_EXPR ? job.expr : EXPR[exprKey] || EXPR["通常"];
     const b = BG_NL[bg] || BG_NL.magenta;
     const [arCop, arNano] = AR_TEXT[ar] || AR_TEXT["2:3"];
@@ -1621,7 +1687,7 @@ Avoid: ${avoid}.`;
       : "soft directional rim lighting";
     const positive = [
       STYLE, bgText, POSE(job.expr),
-      `${job.who} in her early 20s, ${job.face} facial features, ${eye.text} eyes with sharp focused gaze${eyeDetail}, ${hair.text} ${style.text}${hairMode === "work" ? ", evenly colored hair without streaks or dyed tips" : ""}, ${job.outfit}`,
+      `${job.who} in her early 20s, ${job.face} facial features, ${eye.text} eyes with sharp focused gaze${eyeDetail}, ${hair.text} ${style.text}${hairMode === "work" ? ", evenly colored hair without streaks or dyed tips" : ""}, ${sel.outfit.text}`,
       light, "8k resolution",
     ].join(", ");
     // クロマキー背景では「flat solid colors」を除く（背景の単色指定と打ち消し合うため）。
@@ -1643,19 +1709,20 @@ Avoid: ${avoid}.`;
     host.textContent = "";
     rows = [];
     for (let k = 0; k < count; k++) {
-      const sel = { job: resolve("pJob"), style: resolve("pStyle"), hair: resolve("pHair"), eye: resolve("pEye") };
+      const job = resolve("pJob");
+      const sel = { job, outfit: resolveOutfit(job), style: resolve("pStyle"), hair: resolve("pHair"), eye: resolve("pEye") };
       const hairMode = $("pHairMode").value;
       const work = hairMode === "work";
       // 加工用では生成される髪は赤銅なので、背景色との重なりは赤銅で判定する。
-      const parts = [sel.job, work ? WORK_HAIR : sel.hair, sel.eye];
+      const parts = [sel.outfit, work ? WORK_HAIR : sel.hair, sel.eye];
       const bg = chooseBackground($("pBg").value, parts);
       const format = $("pFormat").value;
       const out = format === "nl" ? buildNL(sel, bg, $("pAr").value, hairMode, $("pExpr").value) : build(sel, bg, $("pAr").value, format, hairMode);
       const id = "adv_" + String(start + k).padStart(3, "0");
       const bgLabel = bg === "gray" ? "灰背景" : bg === "magenta" ? "マゼンタ背景" : "緑背景";
       const note = work
-        ? `${sel.job.name}・${sel.style.name}（生成プロンプト・${bgLabel}・加工用の赤銅髪→${sel.hair.name}に変換予定）`
-        : `${sel.job.name}・${sel.style.name}（生成プロンプト・${bgLabel}）`;
+        ? `${sel.job.name}・${sel.outfit.name}・${sel.style.name}（生成プロンプト・${bgLabel}・加工用の赤銅髪→${sel.hair.name}に変換予定）`
+        : `${sel.job.name}・${sel.outfit.name}・${sel.style.name}（生成プロンプト・${bgLabel}）`;
       const csv = [id, sel.job.jobs, work ? WORK_HAIR.name : sel.hair.name, sel.eye.name, note].join(",");
       rows.push(csv);
       host.append(card(id, sel, bg, out, csv, parts, work));
@@ -1681,8 +1748,8 @@ Avoid: ${avoid}.`;
     const idEl = document.createElement("span"); idEl.className = "id"; idEl.textContent = id;
     const desc = document.createElement("span"); desc.className = "desc";
     desc.textContent = work
-      ? `${sel.job.name}　赤銅の${sel.style.name}（→ ${sel.hair.name} に変換）　${sel.eye.name}の瞳`
-      : `${sel.job.name}　${sel.hair.name}の${sel.style.name}　${sel.eye.name}の瞳`;
+      ? `${sel.job.name}（${sel.outfit.name}）　赤銅の${sel.style.name}（→ ${sel.hair.name} に変換）　${sel.eye.name}の瞳`
+      : `${sel.job.name}（${sel.outfit.name}）　${sel.hair.name}の${sel.style.name}　${sel.eye.name}の瞳`;
     const pill = document.createElement("span");
     pill.className = "pill" + (bg === "gray" ? "" : " key-" + bg);
     pill.textContent = bg === "magenta" ? "背景：マゼンタ" : bg === "green" ? "背景：緑" : "背景：灰";
