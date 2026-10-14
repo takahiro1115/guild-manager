@@ -38,7 +38,10 @@ namespace GuildManager.Core.Systems
         /// <summary>部隊長の顔（→ assets/portraits）。無ければ null。</summary>
         public string? PortraitId { get; set; }
         public SquadReportKind Kind { get; set; }
-        /// <summary>一言（台詞の型を埋めたもの。かぎかっこは付けない）。</summary>
+        /// <summary>
+        /// 報告（台詞の型を埋めたもの。かぎかっこは付けない）。「｜」で段に分かれ、〔…〕の段は地の文（→ <see cref="SquadReportSystem.Lines"/>）。
+        /// 段に分ける前（§0.124 より前）のセーブでは「｜」の無い一言。
+        /// </summary>
         public string Line { get; set; } = "";
     }
 
@@ -77,6 +80,7 @@ namespace GuildManager.Core.Systems
                 var resolutions = weeks.SelectMany(w => w.Settlement.DungeonMissionResolutions)
                     .Where(r => r.Party.Members.Any(m => party.MemberIds.Contains(m.Id))).ToList();
                 var (kind, values) = Classify(state, leader, members, resolutions, report);
+                values["{部隊長}"] = leader.Name;
                 list.Add(new SquadLeaderReport
                 {
                     SquadName = party.Name,
@@ -160,6 +164,28 @@ namespace GuildManager.Core.Systems
                     .Concat(leader.Personality is { } p ? SquadReportBalance.Get(k, $"drive:{p.Main}") : Array.Empty<string>()).ToList();
             if (candidates.Count == 0) candidates = SquadReportBalance.Get(k, "temper:normal");
             return candidates.Count == 0 ? "" : candidates[Math.Abs(turn) % candidates.Count];
+        }
+
+        /// <summary>段の区切り（report_lines.csv の Text）。</summary>
+        public const char SegmentSeparator = '｜';
+
+        /// <summary>
+        /// 報告を段に分ける（§0.124）：「｜」で区切り、〔…〕の段は地の文、ほかは部隊長の台詞（話す人は「名前（部隊名の部隊長）」）。
+        /// 空の段は飛ばす。「｜」の無い旧セーブの一言は台詞1段になる。
+        /// </summary>
+        public static List<StoryLine> Lines(SquadLeaderReport report)
+        {
+            string speaker = $"{report.LeaderName}（{report.SquadName}の部隊長）";
+            var lines = new List<StoryLine>();
+            foreach (var raw in report.Line.Split(SegmentSeparator))
+            {
+                string text = raw.Trim();
+                if (text.Length == 0) continue;
+                lines.Add(text.StartsWith('〔') && text.EndsWith('〕')
+                    ? new StoryLine(StoryLineKind.Narration, text[1..^1])
+                    : new StoryLine(StoryLineKind.Speech, text, speaker));
+            }
+            return lines;
         }
 
         private static string Fill(string line, Dictionary<string, string> values) =>

@@ -1208,13 +1208,15 @@ public partial class MainDashboard : Control
 			return;
 		}
 		const string background = "ギルドの広間";
-		var steps = report.LeaderReports.Select(r =>
+		var steps = report.LeaderReports.SelectMany(r =>
 		{
-			// 物語帳の人物（初期の3人・ルミナ）は物語の立ち絵、ほかの子は冒険者の顔
+			// 物語帳の人物（初期の3人・ルミナ）は物語の立ち絵、ほかの子は冒険者の顔。地の文の段は立ち絵を出さない（物語の小窓と同じ）
 			var leader = _state.FindAdventurer(r.LeaderId);
 			string portrait = leader != null && SquadReportSystem.CharacterKey(leader) != null ? StoryImageBalance.PortraitFile(r.LeaderName) : null;
 			portrait ??= r.PortraitId != null ? $"res://assets/portraits/{r.PortraitId}.png" : null;
-			return new StoryStep(new StoryLine(StoryLineKind.Speech, r.Line, $"{r.LeaderName}（{r.SquadName}の部隊長）"), background, StoryImageBalance.BackgroundFile(background), portrait);
+			// 段（地の文・台詞）ごとに1コマ（§0.124）
+			return SquadReportSystem.Lines(r).Select(line => new StoryStep(line, background, StoryImageBalance.BackgroundFile(background),
+				line.Kind == StoryLineKind.Speech ? portrait : null));
 		}).ToList();
 		void OnClosed()
 		{

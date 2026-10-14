@@ -115,9 +115,63 @@ namespace GuildManager.Core.Tests
             var all = speakers.Concat(Enum.GetNames<Drive>().Select(d => $"drive:{d}")).SelectMany(sp => SquadReportBalance.Get(kind.ToString(), sp));
             foreach (var line in all)
             {
-                string rest = placeholders.Aggregate(line, (t, p) => t.Replace(p, ""));
+                string rest = placeholders.Append("{部隊長}").Aggregate(line, (t, p) => t.Replace(p, ""));
                 Assert.DoesNotContain("{", rest);
             }
+        }
+
+        [Fact]
+        public void EveryLine_IsANarrationThenSpeech_AndRinaDoesNotDrawOutHerEndings()
+        {
+            // §0.124：1行は「〔地の文〕｜台詞｜台詞」。地の文で始まり、台詞が1段以上
+            var kinds = Enum.GetNames<SquadReportKind>();
+            var speakers = new[] { "temper:cautious", "temper:normal", "temper:bold", "char:claudia", "char:rina", "char:fiona" }
+                .Concat(Enum.GetNames<Drive>().Select(d => $"drive:{d}"));
+            var report = new SquadLeaderReport { LeaderName = "ミレイ", SquadName = "第1部隊" };
+            foreach (var kind in kinds)
+                foreach (var speaker in speakers)
+                    foreach (var line in SquadReportBalance.Get(kind, speaker))
+                    {
+                        report.Line = line;
+                        var lines = SquadReportSystem.Lines(report);
+                        Assert.Equal(StoryLineKind.Narration, lines[0].Kind);
+                        Assert.Contains(lines.Skip(1), l => l.Kind == StoryLineKind.Speech);
+                        if (speaker == "char:rina") // リナの語尾は伸ばさない（「だよぉ」ではなく「だよ」）
+                            foreach (var speech in lines.Where(l => l.Kind == StoryLineKind.Speech))
+                                Assert.DoesNotMatch("[ぁぃぅぇぉー]$", speech.Text.TrimEnd('！', '？', '…', '。', '　'));
+                    }
+        }
+
+        [Fact]
+        public void Lines_SplitsNarrationAndSpeech_AndAnOldOneLinerIsOneSpeech()
+        {
+            var report = new SquadLeaderReport { LeaderName = "ミレイ", SquadName = "第1部隊", Line = "〔ミレイは兜を脱いだ〕｜主を倒しました｜｜誰も怪我をしていません" };
+            var lines = SquadReportSystem.Lines(report);
+            Assert.Equal(3, lines.Count); // 空の段は飛ばす
+            Assert.Equal(new StoryLine(StoryLineKind.Narration, "ミレイは兜を脱いだ"), lines[0]);
+            Assert.Equal(new StoryLine(StoryLineKind.Speech, "主を倒しました", "ミレイ（第1部隊の部隊長）"), lines[1]);
+            Assert.Equal("誰も怪我をしていません", lines[2].Text);
+
+            report.Line = "主を倒してきたよ。みんな、よく踏ん張ってくれた"; // §0.124 より前のセーブ
+            var old = Assert.Single(SquadReportSystem.Lines(report));
+            Assert.Equal(StoryLineKind.Speech, old.Kind);
+            Assert.Equal(report.Line, old.Text);
+        }
+
+        [Fact]
+        public void TheLeaderName_FillsTheNarration()
+        {
+            var s = NewState();
+            var recruit = new Adventurer { Name = "ミレイ", PortraitId = "p_001", Personality = new Personality { Main = Drive.Dive, Temperament = 0 } };
+            s.Adventurers.Add(recruit);
+            s.SavedParties.Add(new SavedParty { Name = "第1部隊", MemberIds = { recruit.Id }, Order = SquadOrder.Dive });
+            var r = Assert.Single(MonthlyReport.Build(s, new List<AutoSkipWeek>(), 0).LeaderReports);
+            Assert.Equal(SquadReportKind.Idle, r.Kind);
+            Assert.DoesNotContain("{", r.Line);
+            var narration = SquadReportSystem.Lines(r)[0];
+            Assert.Equal(StoryLineKind.Narration, narration.Kind);
+            // 中庸の待機・潜行志向の待機のどちらの地の文も {部隊長} を使う
+            Assert.StartsWith("ミレイは", narration.Text);
         }
 
         [Fact]
