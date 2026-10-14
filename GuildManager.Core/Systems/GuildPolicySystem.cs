@@ -128,6 +128,9 @@ namespace GuildManager.Core.Systems
 
         // ==================== 個人特訓 ====================
 
+        /// <summary>同時に個人特訓をつけられる人数：基本＋一対一の稽古場（ヴェスペラとの決着の見返り、§0.128）。</summary>
+        public static int CoachingSlots(GameState state) => PolicyBalance.CoachingSlots + (RulerSystem.IsTrainingHallOpen(state) ? 1 : 0);
+
         public static CoachingContract? CoachingOf(GameState state, Guid adventurerId) => state.Coachings.FirstOrDefault(c => c.AdventurerId == adventurerId);
 
         /// <summary>個人特訓をつけられない理由（つけられるなら null）。</summary>
@@ -135,7 +138,7 @@ namespace GuildManager.Core.Systems
         {
             if (a.IsRetired || !state.Adventurers.Contains(a)) return "現役の冒険者だけ";
             if (CoachingOf(state, a.Id) != null) return "もう特訓中";
-            if (state.Coachings.Count >= PolicyBalance.CoachingSlots) return $"同時に特訓できるのは{PolicyBalance.CoachingSlots}人まで";
+            if (state.Coachings.Count >= CoachingSlots(state)) return $"同時に特訓できるのは{CoachingSlots(state)}人まで";
             if (state.Gold < PolicyBalance.CoachingCost) return $"お金が足りない（{PolicyBalance.CoachingCost}G）";
             return null;
         }

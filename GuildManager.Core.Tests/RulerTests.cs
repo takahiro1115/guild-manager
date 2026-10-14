@@ -323,6 +323,67 @@ namespace GuildManager.Core.Tests
             Assert.Equal(RulerBalance.CallNameMaxChance, RulerSystem.CallNameChance(s, a));
         }
 
+        // ---------------- 見返り（§0.128） ----------------
+
+        [Fact]
+        public void EachWin_LeavesAThorn_AndDrivingHerBack_GrantsHerBlades()
+        {
+            var aces = Enumerable.Range(0, 3).Select(i => Make($"エース{i}", 100)).ToArray();
+            var s = NewState(60, aces);
+            RulerSystem.TrySetRepresentatives(s, Vespera(s), aces.Select(a => a.Id));
+
+            var duel = RulerSystem.ResolveAuto(s, Vespera(s), new AlwaysMinRng(), useInterventions: false)!;
+
+            int wins = duel.Bouts.Count(b => b.Won);
+            Assert.True(wins > 0);
+            Assert.Equal(wins, duel.ThornsGained);
+            Assert.Equal(wins, s.Materials.GetValueOrDefault(RulerSystem.ThornMaterialId));
+            Assert.True(duel.Retreated);
+            Assert.NotNull(duel.LegendaryFound);
+            Assert.Equal("ヴェスペラの双剣", duel.LegendaryFound!.Name);
+            Assert.True(duel.LegendaryFound.CountersGimmick(BossGimmickType.Charm));
+            Assert.Contains(RulerSystem.DuelClosingLines(duel), l => l.Text.Contains("ヴェスペラの双剣"));
+        }
+
+        [Fact]
+        public void TheThorn_IsNeverGatheredOrAppraised()
+        {
+            Assert.DoesNotContain(MaterialBalance.GetEligibleMaterials("forest", 100), m => m.Id == RulerSystem.ThornMaterialId);
+            Assert.Equal("茨の欠片", MaterialBalance.GetName(RulerSystem.ThornMaterialId));
+        }
+
+        [Fact]
+        public void TheAmuletResearch_AddsInterventions()
+        {
+            var s = NewState(60);
+            Assert.Equal(RulerBalance.InterventionsBase, RulerSystem.InterventionsPerBattle(s));
+            s.CompletedResearchIds.Add("res_link_amulet_1");
+            Assert.Equal(RulerBalance.InterventionsBase + 1, RulerSystem.InterventionsPerBattle(s));
+            s.CompletedResearchIds.Add("res_link_amulet_2");
+            Assert.Equal(RulerBalance.InterventionsBase + 2, RulerSystem.InterventionsPerBattle(s));
+            var research = ResearchBalance.GetAll().First(r => r.Id == "res_link_amulet_1");
+            Assert.True(research.RequiredMaterials.ContainsKey(RulerSystem.ThornMaterialId));
+        }
+
+        [Fact]
+        public void DefeatingHerAtThe100F_OpensTheTrainingHall_TwoCoachingsAtOnce()
+        {
+            var s = NewState(90);
+            Assert.False(RulerSystem.IsTrainingHallOpen(s));
+            Assert.Equal(PolicyBalance.CoachingSlots, GuildPolicySystem.CoachingSlots(s));
+            Vespera(s).Hp = 5; // 最後のひと押し
+            var ace = Make("エース", 100);
+            s.Adventurers.Add(ace);
+            RulerSystem.TrySetRepresentatives(s, Vespera(s), new[] { ace.Id });
+
+            var duel = RulerSystem.ResolveAuto(s, Vespera(s), new AlwaysMinRng(), useInterventions: false)!;
+
+            Assert.True(duel.Defeated);
+            Assert.True(ForestBoss(s, 100).IsDefeated);
+            Assert.True(RulerSystem.IsTrainingHallOpen(s));
+            Assert.Equal(PolicyBalance.CoachingSlots + 1, GuildPolicySystem.CoachingSlots(s));
+        }
+
         // ---------------- 主の決戦では戦えない ----------------
 
         [Fact]

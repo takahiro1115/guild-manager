@@ -47,7 +47,7 @@ namespace GuildManager.Core.Tests
             foreach (var group in ResearchBalance.GetAll().GroupBy(r => r.Branch))
             {
                 Assert.Contains(group, r => r.Lane == 0);
-                Assert.All(group, r => Assert.InRange(r.Lane, 0, 1));
+                Assert.All(group, r => Assert.InRange(r.Lane, 0, 2)); // 迷宮の系統は3段（多頭通信術式の強化、§0.128）
             }
             Assert.Equal(System.Enum.GetValues<ResearchBranch>().Length, ResearchBalance.GetAll().Select(r => r.Branch).Distinct().Count());
         }

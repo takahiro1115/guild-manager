@@ -188,8 +188,20 @@ namespace GuildManager.Core.Systems
         /// <summary>決闘を待っている支配者（無ければ null）。</summary>
         public static RulerState? DueDuel(GameState state) => state.Rulers.FirstOrDefault(r => IsDuelDue(state, r));
 
-        /// <summary>この支配者戦で使える介入の回数（研究で増える。研究はまだ無い）。</summary>
-        public static int InterventionsPerBattle(GameState state) => RulerBalance.InterventionsBase;
+        /// <summary>この支配者戦で使える介入の回数：基本＋研究「多頭通信術式の強化」（§0.128）。</summary>
+        public static int InterventionsPerBattle(GameState state) =>
+            RulerBalance.InterventionsBase + (int)Math.Round(ResearchBalance.GetTotalEffectValue(state, ResearchEffectType.InterventionBonus));
+
+        // ==================== 見返り（§0.128） ====================
+
+        /// <summary>茨の欠片（ヴェスペラとの試合に勝つたびに1つ。研究「多頭通信術式の強化」の材料、→ materials.csv）。</summary>
+        public const string ThornMaterialId = "mat_ruler_thorn";
+
+        /// <summary>
+        /// 一対一の稽古場（ヴェスペラとの決着の見返り）：森の100Fを倒していれば開いている。個人特訓を同時に1人多くつけられる（→ GuildPolicySystem.CoachingSlots）。
+        /// </summary>
+        public static bool IsTrainingHallOpen(GameState state) =>
+            state.DungeonFields.FirstOrDefault(f => f.Id == ForestId)?.Bosses.FirstOrDefault(b => b.Floor == FinalFloor)?.EverDefeated == true;
 
         // ==================== ヴェスペラの見立て ====================
 
@@ -312,6 +324,8 @@ namespace GuildManager.Core.Systems
                 lines.Add(new(StoryLineKind.Narration, $"{b.Name}は致命傷を負った。……アルベールの秘薬で、一命を取り留めた（重傷）"));
             if (b.Fallen)
                 lines.Add(new(StoryLineKind.Narration, $"{b.Name}は致命傷を負った。命は助かったが、もう二度と剣は握れない（強制除籍）"));
+            if (b.Won)
+                lines.Add(new(StoryLineKind.Narration, $"折れた茨の棘が1つ残った（茨の欠片）"));
             return lines;
         }
 
@@ -350,7 +364,13 @@ namespace GuildManager.Core.Systems
                 lines.Add(new(StoryLineKind.Speech, "……見事だ", VesperaName));
                 lines.Add(new(StoryLineKind.Narration, "ヴェスペラの最後の刃が折れた。森の100階を制した"));
             }
-            else
+            if (duel.LegendaryFound is { } blades)
+                lines.Add(new(StoryLineKind.Narration, $"ヴェスペラが置いていった「{blades.Name}」を手に入れた（伝説級。持つ子が部隊にいれば、主の魅了を対策済みにする）"));
+            if (duel.Defeated)
+                lines.Add(new(StoryLineKind.Narration, "一対一の稽古場が開いた（個人特訓を同時に2人までつけられる）"));
+            if (duel.ThornsGained > 0)
+                lines.Add(new(StoryLineKind.Narration, $"茨の欠片を{duel.ThornsGained}つ持ち帰った（研究「多頭通信術式の強化」の材料。売ることもできる）"));
+            if (!duel.Retreated && !duel.Defeated)
             {
                 lines.Add(new(StoryLineKind.Speech, dealt > 0 ? "……悪くない。次は、もっと強い者を寄越せ" : "その程度か。出直せ", VesperaName));
                 lines.Add(new(StoryLineKind.Narration, $"決闘は終わった。ヴェスペラの体力 {duel.Ruler.Hp}/{RulerBalance.MaxHp}（この決闘で−{dealt}。毎月{RulerBalance.RegenPerMonth}ずつ回復する）"));
@@ -480,6 +500,10 @@ namespace GuildManager.Core.Systems
         public List<InjuryEvent> InjuryEvents { get; } = new();
         public List<TraitGrantEvent> TraitGrants { get; } = new();
         public int MoodApplied { get; internal set; }
+        /// <summary>この決闘で持ち帰った茨の欠片（勝った試合の数）。</summary>
+        public int ThornsGained { get; private set; }
+        /// <summary>前哨戦で退かせて手に入れた伝説級の装備（ヴェスペラの双剣。無ければ null）。</summary>
+        public EquipmentItem? LegendaryFound { get; private set; }
 
         internal RulerDuel(GameState state, RulerState ruler, FloorBoss boss, List<Adventurer> reps, IRng rng, int interventions)
         {
@@ -607,6 +631,11 @@ namespace GuildManager.Core.Systems
 
             ApplyHpLoss(a, bout, ruler, ours);
             Bouts.Add(bout);
+            if (bout.Won)
+            {
+                _state.AddMaterial(RulerSystem.ThornMaterialId, 1); // 茨の欠片（§0.128）
+                ThornsGained++;
+            }
             Ruler.WeaponIndex = (Ruler.WeaponIndex + 1) % RulerSystem.VesperaWeapons.Length;
 
             // 勝った代表は残る。負けた・倒れた代表は下がる
@@ -692,6 +721,9 @@ namespace GuildManager.Core.Systems
                 Boss.CurrentHp = 0;
                 Boss.IsDefeated = true;
                 DungeonExpeditionSystem.ApplyFieldProgression(_state, Boss);
+                // 見返り（§0.128）：前哨戦で退かせたらヴェスペラの双剣（uniques.csv の森70F）。決着の一対一の稽古場は100Fを倒したことで開く（→ IsTrainingHallOpen）
+                if (RulerSystem.FieldOf(_state, Ruler) is { } field)
+                    LegendaryFound = UniqueItemSystem.TryGrantBossDrop(_state, field, Boss);
                 RulerSystem.Refresh(_state, Ruler);
             }
         }

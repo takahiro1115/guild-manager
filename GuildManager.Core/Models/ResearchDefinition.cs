@@ -71,6 +71,9 @@ namespace GuildManager.Core.Models
 
         /// <summary>霊薬の調合の解禁（→ Systems.ElixirSystem、§0.61）。数値の効果は持たない（EffectValue は 0）。</summary>
         ElixirUnlock,
+
+        /// <summary>支配者戦で使える介入（部隊の護符の多頭通信術式）の回数に加算する値（回、→ Systems.RulerSystem.InterventionsPerBattle、§0.128）。</summary>
+        InterventionBonus,
     }
 
     /// <summary>
