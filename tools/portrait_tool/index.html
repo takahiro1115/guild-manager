@@ -223,6 +223,7 @@ details summary { cursor: pointer; font-size: 12px; color: var(--muted); }
   <div class="tabs" role="tablist">
     <button type="button" role="tab" id="tabPrompt" aria-controls="promptPane" aria-selected="true"><span class="num">1</span>プロンプト作成</button>
     <button type="button" role="tab" id="tabEdit" aria-controls="editPane" aria-selected="false"><span class="num">2</span>加工（背景・色違い）</button>
+    <button type="button" role="tab" id="tabMontage" aria-controls="montagePane" aria-selected="false"><span class="num">3</span>モンタージュ</button>
   </div>
 
   <section class="pp" id="promptPane" role="tabpanel" aria-labelledby="tabPrompt">
@@ -245,8 +246,10 @@ details summary { cursor: pointer; font-size: 12px; color: var(--muted); }
       <h2>冒険者の設定 <small>🎲 はランダム</small></h2>
       <label class="field">作るもの<select id="pKind">
         <option value="full">立ち絵（完成品）</option>
-        <option value="face">モンタージュ素材：顔と体（スキンヘッド）</option>
-        <option value="hair">モンタージュ素材：髪型（前髪・後髪を切り分ける）</option>
+        <option value="base">モンタージュ①：素体の土台（顔なし・スキンヘッド）</option>
+        <option value="face">モンタージュ②：顔（素体に目鼻口を描き足す）</option>
+        <option value="outfit">モンタージュ③：服装（素体に服を描き足す・首含む）</option>
+        <option value="hair">モンタージュ④：髪型（素体に髪を描き足す・前髪と後髪）</option>
       </select></label>
       <p class="note" id="pKindNote"></p>
       <div class="pick"><label class="field">職業<select id="pJob"></select></label><button type="button" class="btn" data-dice="pJob" title="この項目だけ振り直す">🎲</button></div>
@@ -424,6 +427,85 @@ details summary { cursor: pointer; font-size: 12px; color: var(--muted); }
     </details>
   </section>
   </div>
+
+  <section id="montagePane" role="tabpanel" aria-labelledby="tabMontage" hidden style="display:grid;gap:16px">
+    <div class="bench">
+      <section class="stage" aria-label="モンタージュの確認">
+        <div class="stage-bar">
+          <div class="seg" role="group" aria-label="表示" style="width: 200px">
+            <button type="button" data-mview="composite" aria-pressed="true">重ねた絵</button>
+            <button type="button" data-mview="material" aria-pressed="false">選んだ素材</button>
+          </div>
+          <span id="mInfo" class="grow">—</span>
+          <label class="check"><input type="checkbox" id="mShowLayers" checked> 色分けを重ねる</label>
+          <div class="seg" role="group" aria-label="下地" style="width: 150px">
+            <button type="button" data-mbg="checker" aria-pressed="true">市松</button>
+            <button type="button" data-mbg="dark" aria-pressed="false">黒</button>
+            <button type="button" data-mbg="white" aria-pressed="false">白</button>
+          </div>
+        </div>
+        <div class="viewport checker" id="mViewport">
+          <div class="canvas-holder" id="mHolder" style="position:relative">
+            <canvas id="mCanvas" style="display:block;width:100%;height:auto;touch-action:none"></canvas>
+          </div>
+        </div>
+        <div class="hint" id="mHint">まず素体の土台を読み込む。</div>
+      </section>
+
+      <aside class="panel">
+        <div class="card">
+          <h2>素材を読み込む <small>①で作った画像</small></h2>
+          <label class="field">①素体の土台（1枚）<input type="file" id="mFileBase" accept="image/png,image/jpeg,image/webp"></label>
+          <label class="field">②顔（何枚でも）<input type="file" id="mFileFace" accept="image/png,image/jpeg,image/webp" multiple disabled></label>
+          <label class="field">③服装（何枚でも）<input type="file" id="mFileOutfit" accept="image/png,image/jpeg,image/webp" multiple disabled></label>
+          <label class="field">④髪型（何枚でも）<input type="file" id="mFileHair" accept="image/png,image/jpeg,image/webp" multiple disabled></label>
+          <p class="note">背景（マゼンタ・緑）は自動で抜く。顔・服装・髪型は土台と同じ大きさにそろえ、土台との差分で切り出す。服装と髪は素体の輪郭の外を「奥」、内側を「手前」に自動で分ける。</p>
+          <div id="mLists" style="display:grid;gap:6px"></div>
+        </div>
+
+        <div class="card" id="mEditCard" hidden>
+          <h2 id="mEditTitle">切り出しの手直し</h2>
+          <label class="field">素材Id（ファイル名）<input type="text" id="mId" spellcheck="false"></label>
+          <div class="seg" role="group" aria-label="塗る層" id="mToolSeg"></div>
+          <div class="slider"><label for="mSize">ブラシ径</label><input type="range" id="mSize" min="4" max="120" value="24"><output id="mSizeOut">24</output></div>
+          <div class="slider"><label for="mThr">差分の強さ</label><input type="range" id="mThr" min="10" max="90" value="35"><output id="mThrOut">35</output></div>
+          <p class="note" id="mToolNote"></p>
+          <div class="row">
+            <button type="button" class="btn" id="mRecut" title="手直しは消える">自動で切り出し直す</button>
+            <button type="button" class="btn" id="mUndo">元に戻す <small>(Ctrl+Z)</small></button>
+            <button type="button" class="btn" id="mRemove">この素材を外す</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>重ねて確かめる <small>奥から：服装（奥）→ 後髪 → 素体（顔）→ 服装（手前）→ 前髪</small></h2>
+          <label class="field">顔<select id="mPickFace"></select></label>
+          <label class="field">服装<select id="mPickOutfit"></select></label>
+          <label class="field">髪型<select id="mPickHair"></select></label>
+          <div class="two">
+            <label class="field">髪色<select id="mHairColor"></select></label>
+            <label class="field">瞳色<select id="mEyeColor"></select></label>
+          </div>
+          <p class="note">髪色・瞳色はゲームのシェーダーで変える想定の試し替え。生成した赤銅の髪・琥珀の瞳の明るさの差（陰影）を保ったまま色を変える。</p>
+          <div class="row"><button type="button" class="btn" id="mRandom">🎲 組み合わせをランダムに</button></div>
+        </div>
+
+        <div class="card">
+          <h2>書き出す <small>層ごとの PNG（案B 用）</small></h2>
+          <label class="field">書き出す大きさ（長辺）<select id="mOutSize">
+            <option value="512" selected>512px（ゲーム用・おすすめ）</option>
+            <option value="768">768px</option>
+            <option value="1024">1024px</option>
+            <option value="0">読み込んだまま</option>
+          </select></label>
+          <label class="check"><input type="checkbox" id="mWithPreview" checked> 今の組み合わせを重ねた絵も入れる</label>
+          <div class="row"><button type="button" class="btn primary" id="mExport">素材を書き出す（zip）</button></div>
+          <span class="status" id="mExportStatus"></span>
+          <p class="note">顔は {Id}.png と瞳のマスク {Id}_eyes.png、服装と髪型は {Id}_back.png（奥）と {Id}_front.png（手前）。重ねる順と大きさは montage.json に書く。</p>
+        </div>
+      </aside>
+    </div>
+  </section>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -1469,22 +1551,602 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
 </script>
 
 <script>
+// ---------- ③ モンタージュ ----------
+// 素体の土台との差分で、顔（素体）・服装（奥／手前）・髪型（後髪／前髪）を切り出し、
+// 「服装（奥）→ 後髪 → 素体（顔）→ 服装（手前）→ 前髪」の順に重ねて確かめる。
+// 層ごとの PNG と瞳のマスクを書き出す（ゲームの中で重ねる案B の素材）。
+(() => {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const MAX_SIDE = 1024;
+  const KIND_NAME = { face: "顔", outfit: "服装", hair: "髪型" };
+  const THR_DEFAULT = { face: 35, outfit: 30, hair: 35 };
+  const TOOLS = {
+    face: [["eyeAdd", "瞳を足す"], ["eyeDel", "瞳を消す"]],
+    outfit: [["back", "奥"], ["front", "手前"], ["erase", "消す"]],
+    hair: [["front", "前髪"], ["back", "後髪"], ["erase", "消す"]],
+  };
+  const TOOL_NOTE = {
+    face: "瞳のマスク（赤）を塗って直す。瞳の色はこのマスクの中だけを変える。",
+    outfit: "奥（青）は後髪より奥に、手前（緑）は顔より手前に重なる。フードやマントは奥、肩当てのように髪より手前に来る物は手前に塗る。",
+    hair: "前髪（黄）は一番手前、後髪（青）は素体より奥に重なる。肩より前に垂れる房は前髪に塗る。",
+  };
+  const HAIR_COLORS = [["そのまま（赤銅）", ""], ["黒", "#1d1b21"], ["暗褐", "#3f2b23"], ["栗", "#71422a"], ["金", "#d6ae62"], ["プラチナ", "#e3d8bd"], ["銀", "#c8ccd4"], ["赤", "#8f2b2b"], ["青", "#34518f"], ["緑", "#3b6348"], ["桃", "#d98aa6"], ["紫", "#5f4087"]];
+  const EYE_COLORS = [["そのまま（琥珀）", ""], ["青", "#3f80d8"], ["空色", "#7fb6e6"], ["緑", "#3ea66b"], ["茶", "#7a4e2d"], ["金", "#e3ba3a"], ["赤", "#c43c3c"], ["灰", "#8e97a4"], ["紫", "#8466cc"]];
+  const OVERLAY = { back: [70, 110, 230, 120], front: [60, 170, 90, 120], hairFront: [240, 200, 60, 130], eyes: [235, 60, 60, 170] };
+
+  const T = { base: null, face: [], outfit: [], hair: [], sel: null, view: "composite", tool: "front", size: 24, undo: [], seq: 0 };
+  const canvas = $("mCanvas"), ctx = canvas.getContext("2d");
+  let downloads = null;
+
+  // ---------- 読み込みと背景抜き ----------
+  async function decode(file, w, h) {
+    const bmp = await createImageBitmap(file);
+    let W = w, H = h;
+    if (!W) { const s = Math.min(1, MAX_SIDE / Math.max(bmp.width, bmp.height)); W = Math.round(bmp.width * s); H = Math.round(bmp.height * s); }
+    const c = document.createElement("canvas"); c.width = W; c.height = H;
+    const x = c.getContext("2d"); x.imageSmoothingEnabled = true; x.imageSmoothingQuality = "high";
+    x.drawImage(bmp, 0, 0, W, H);
+    return { src: x.getImageData(0, 0, W, H).data, w: W, h: H, ratio: bmp.width / bmp.height };
+  }
+  // 外周で一番多い色（4bit ずつに丸めて数える）の中央値を背景色とする。
+  function borderColor(src, w, h) {
+    const bins = new Map();
+    const push = (x, y) => {
+      const i = (y * w + x) * 4, k = ((src[i] >> 4) << 8) | ((src[i + 1] >> 4) << 4) | (src[i + 2] >> 4);
+      let b = bins.get(k); if (!b) bins.set(k, b = []); b.push(i);
+    };
+    for (let x = 0; x < w; x += 2) { push(x, 0); push(x, h - 1); }
+    for (let y = 0; y < h; y += 2) { push(0, y); push(w - 1, y); }
+    let best = null;
+    for (const b of bins.values()) if (!best || b.length > best.length) best = b;
+    const med = (c) => best.map((i) => src[i + c]).sort((p, q) => p - q)[best.length >> 1];
+    return [med(0), med(1), med(2)];
+  }
+  // マゼンタ・緑はクロマキー（背景色らしさで不透明度を決め、半透明の縁から背景色を差し引く）。それ以外は背景色との距離で抜く。
+  function keyOut(src, w, h) {
+    const key = borderColor(src, w, h);
+    const hi = [0, 1, 2].filter((c) => key[c] >= 128), lo = [0, 1, 2].filter((c) => key[c] < 128);
+    const spill = (d, i) => { let mn = 255, mx = 0; for (const c of hi) mn = Math.min(mn, d[i + c]); for (const c of lo) mx = Math.max(mx, d[i + c]); return mn - mx; };
+    const n = w * h, alpha = new Uint8Array(n), rgba = new Uint8ClampedArray(src);
+    const chroma = hi.length > 0 && lo.length > 0 && spill(key, 0) >= 120;
+    if (chroma) {
+      const sK = spill(key, 0), a0 = sK * 0.35, a1 = sK * 0.85;
+      for (let p = 0; p < n; p++) {
+        const t = (spill(src, p * 4) - a0) / (a1 - a0);
+        alpha[p] = t <= 0 ? 255 : t >= 1 ? 0 : Math.round((1 - t) * 255);
+      }
+    } else {
+      for (let p = 0; p < n; p++) {
+        const i = p * 4, d = Math.max(Math.abs(src[i] - key[0]), Math.abs(src[i + 1] - key[1]), Math.abs(src[i + 2] - key[2]));
+        alpha[p] = d <= 24 ? 0 : d >= 60 ? 255 : Math.round(((d - 24) / 36) * 255);
+      }
+    }
+    for (let p = 0; p < n; p++) {
+      const i = p * 4, a = alpha[p];
+      rgba[i + 3] = a;
+      if (a === 0 || a === 255 || !chroma) continue;
+      const f = a / 255;
+      for (let c = 0; c < 3; c++) rgba[i + c] = (src[i + c] - (1 - f) * key[c]) / f;
+      const ex = spill(rgba, i);
+      if (ex > 0) for (const c of hi) rgba[i + c] = rgba[i + c] - ex;
+    }
+    const fg = new Uint8Array(n);
+    for (let p = 0; p < n; p++) fg[p] = alpha[p] >= 128 ? 1 : 0;
+    return { key, chroma, alpha, rgba, fg };
+  }
+
+  // ---------- 範囲の処理（0/1 の配列） ----------
+  function box(m, w, h, r, isMax) {
+    const tmp = new Uint8Array(w * h), out = new Uint8Array(w * h);
+    for (let y = 0; y < h; y++) {
+      const row = y * w;
+      for (let x = 0; x < w; x++) {
+        let v = isMax ? 0 : 1;
+        for (let dx = -r; dx <= r; dx++) {
+          const xx = x + dx < 0 ? 0 : x + dx >= w ? w - 1 : x + dx;
+          const q = m[row + xx];
+          if (isMax ? q : !q) { v = isMax ? 1 : 0; break; }
+        }
+        tmp[row + x] = v;
+      }
+    }
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        let v = isMax ? 0 : 1;
+        for (let dy = -r; dy <= r; dy++) {
+          const yy = y + dy < 0 ? 0 : y + dy >= h ? h - 1 : y + dy;
+          const q = tmp[yy * w + x];
+          if (isMax ? q : !q) { v = isMax ? 1 : 0; break; }
+        }
+        out[y * w + x] = v;
+      }
+    }
+    return out;
+  }
+  const opening = (m, w, h, r) => box(box(m, w, h, r, false), w, h, r, true);
+  const closing = (m, w, h, r) => box(box(m, w, h, r, true), w, h, r, false);
+  // 外周からつながらない空き（範囲に囲まれた穴）を埋める。
+  function fillHoles(m, w, h) {
+    const outside = new Uint8Array(w * h), st = new Int32Array(w * h);
+    let sp = 0;
+    const push = (p) => { if (!m[p] && !outside[p]) { outside[p] = 1; st[sp++] = p; } };
+    for (let x = 0; x < w; x++) { push(x); push((h - 1) * w + x); }
+    for (let y = 0; y < h; y++) { push(y * w); push(y * w + w - 1); }
+    while (sp > 0) {
+      const p = st[--sp], x = p % w;
+      if (x > 0) push(p - 1);
+      if (x < w - 1) push(p + 1);
+      if (p >= w) push(p - w);
+      if (p + w < w * h) push(p + w);
+    }
+    const out = new Uint8Array(w * h);
+    for (let p = 0; p < w * h; p++) out[p] = outside[p] ? 0 : 1;
+    return out;
+  }
+  // つながった塊のうち、丸に近い（縦÷横が 0.5 以上）・一定の大きさ以上のものだけを残す。
+  function roundBlobs(m, w, h, minArea) {
+    const out = new Uint8Array(w * h), seen = new Uint8Array(w * h), st = new Int32Array(w * h);
+    for (let s0 = 0; s0 < w * h; s0++) {
+      if (!m[s0] || seen[s0]) continue;
+      let sp = 0, cnt = 0, x0 = w, x1 = 0, y0 = h, y1 = 0;
+      const pts = [];
+      seen[s0] = 1; st[sp++] = s0;
+      while (sp > 0) {
+        const p = st[--sp], x = p % w, y = (p / w) | 0;
+        pts.push(p); cnt++;
+        if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+        for (const q of [x > 0 ? p - 1 : -1, x < w - 1 ? p + 1 : -1, y > 0 ? p - w : -1, y < h - 1 ? p + w : -1]) {
+          if (q >= 0 && m[q] && !seen[q]) { seen[q] = 1; st[sp++] = q; }
+        }
+      }
+      if (cnt >= minArea && (y1 - y0 + 1) >= 0.5 * (x1 - x0 + 1)) for (const p of pts) out[p] = 1;
+    }
+    return out;
+  }
+  // 土台との差分（RGB の差の最大値がしきい値を超え、素材の側が背景でない所）。
+  function diffMask(mat, thr) {
+    const b = T.base.src, s = mat.src, n = T.base.w * T.base.h, m = new Uint8Array(n);
+    for (let p = 0; p < n; p++) {
+      if (!mat.fg[p]) continue;
+      const i = p * 4;
+      const d = Math.max(Math.abs(s[i] - b[i]), Math.abs(s[i + 1] - b[i + 1]), Math.abs(s[i + 2] - b[i + 2]));
+      if (d > thr) m[p] = 1;
+    }
+    return m;
+  }
+
+  // ---------- 色 ----------
+  function rgbToHsl(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2;
+    if (max === min) return [0, 0, l];
+    const d = max - min, s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    let hh = max === r ? (g - b) / d + (g < b ? 6 : 0) : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    return [hh / 6, s, l];
+  }
+  function hue2rgb(p, q, t) {
+    if (t < 0) t += 1; if (t > 1) t -= 1;
+    if (t < 1 / 6) return p + (q - p) * 6 * t;
+    if (t < 1 / 2) return q;
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+    return p;
+  }
+  function hslToRgb(hh, s, l) {
+    if (s === 0) return [l * 255, l * 255, l * 255];
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+    return [hue2rgb(p, q, hh + 1 / 3) * 255, hue2rgb(p, q, hh) * 255, hue2rgb(p, q, hh - 1 / 3) * 255];
+  }
+  const hexToRgb = (hex) => { const v = parseInt(hex.slice(1), 16); return [(v >> 16) & 255, (v >> 8) & 255, v & 255]; };
+  const lightOf = (d, i) => (Math.max(d[i], d[i + 1], d[i + 2]) + Math.min(d[i], d[i + 1], d[i + 2])) / 510;
+  // 範囲の平均の明るさを目標色の明るさへずらし、平均との差（陰影）は保つ。シェーダーで同じ計算をする想定。
+  function meanLight(src, mask) {
+    let s = 0, c = 0;
+    for (let p = 0; p < mask.length; p++) if (mask[p]) { s += lightOf(src, p * 4); c++; }
+    return c ? s / c : 0.5;
+  }
+  function recolorPixel(d, i, lm, th, ts, tl) {
+    const l = Math.min(1, Math.max(0, tl + (lightOf(d, i) - lm)));
+    const [r, g, b] = hslToRgb(th, ts, l);
+    d[i] = r; d[i + 1] = g; d[i + 2] = b;
+  }
+
+  // ---------- 切り出し ----------
+  function autoCut(mat) {
+    const { w, h } = T.base, n = w * h, baseFg = T.base.fg;
+    const thr = mat.thr;
+    if (mat.kind === "face") {
+      // 目鼻口＝土台との差分。そのうち琥珀の色味（色相 15〜55°・彩度あり）の塊を瞳とする。
+      // 眉も同じ色味だが横に細長いので、丸に近い塊（縦÷横が 0.5 以上）で一定の大きさのものだけを残し、中の黒目と光も含める。
+      const d = diffMask(mat, thr), cand = new Uint8Array(n);
+      for (let p = 0; p < n; p++) {
+        if (!d[p] || !baseFg[p]) continue;
+        const i = p * 4, [hh, s, l] = rgbToHsl(mat.src[i], mat.src[i + 1], mat.src[i + 2]);
+        if (hh >= 0.04 && hh <= 0.155 && s >= 0.3 && l >= 0.15 && l <= 0.85) cand[p] = 1;
+      }
+      mat.eyes = fillHoles(roundBlobs(cand, w, h, n * 0.00015), w, h);
+    } else {
+      let m = diffMask(mat, thr);
+      if (mat.kind === "hair") {
+        // 髪は赤銅で生成するので、差分のうち赤銅の色味だけを残す（耳や首の影の小さな変化を拾わない）。赤銅でない髪なら差分のまま。
+        const cu = new Uint8Array(n);
+        let cnt = 0, all = 0;
+        for (let p = 0; p < n; p++) {
+          if (!m[p]) continue;
+          all++;
+          const i = p * 4;
+          if (mat.src[i] - mat.src[i + 2] > 45 && mat.src[i] > 110) { cu[p] = 1; cnt++; }
+        }
+        if (cnt > all * 0.3) m = cu;
+        m = opening(m, w, h, 1);
+      } else {
+        // 服は銀の縁取りなど土台と近い色もあるので、小さな点を消してから隙間と穴を埋める。
+        m = opening(m, w, h, 2);
+        m = fillHoles(closing(m, w, h, 4), w, h);
+        for (let p = 0; p < n; p++) m[p] = m[p] && mat.fg[p] ? 1 : 0;
+      }
+      // 素体の輪郭の外＝奥（1）、内側＝手前（2）。
+      const layer = new Uint8Array(n);
+      for (let p = 0; p < n; p++) if (m[p]) layer[p] = baseFg[p] ? 2 : 1;
+      mat.layer = layer;
+    }
+    mat.ver++;
+  }
+
+  // ---------- 層の絵 ----------
+  // which：face＝顔の層（素体そのもの）、1＝奥、2＝手前。髪と瞳は色を変える。
+  function layerData(mat, which, hex) {
+    const key = `${which}|${hex}|${mat.ver}`;
+    mat.cache = mat.cache || {};
+    if (mat.cache[key]) return mat.cache[key];
+    const { w, h } = T.base, n = w * h, s = mat.rgba;
+    const out = new ImageData(w, h), d = out.data;
+    for (let p = 0; p < n; p++) {
+      if (which !== "face" && mat.layer[p] !== which) continue;
+      const i = p * 4;
+      d[i] = s[i]; d[i + 1] = s[i + 1]; d[i + 2] = s[i + 2]; d[i + 3] = s[i + 3];
+    }
+    if (hex) {
+      const [th, ts, tl] = rgbToHsl(...hexToRgb(hex));
+      if (mat.kind === "hair") {
+        if (mat.lmVer !== mat.ver) { const all = new Uint8Array(n); for (let p = 0; p < n; p++) all[p] = mat.layer[p] ? 1 : 0; mat.lm = meanLight(s, all); mat.lmVer = mat.ver; }
+        for (let p = 0; p < n; p++) if (d[p * 4 + 3]) recolorPixel(d, p * 4, mat.lm, th, ts, tl);
+      } else if (mat.kind === "face") {
+        const lm = meanLight(s, mat.eyes);
+        for (let p = 0; p < n; p++) if (mat.eyes[p]) recolorPixel(d, p * 4, lm, th, ts, tl);
+      }
+    }
+    for (const k of Object.keys(mat.cache)) if (!k.endsWith(`|${mat.ver}`)) delete mat.cache[k];
+    return (mat.cache[key] = out);
+  }
+  function toCanvas(imageData) {
+    const c = document.createElement("canvas"); c.width = imageData.width; c.height = imageData.height;
+    c.getContext("2d").putImageData(imageData, 0, 0);
+    return c;
+  }
+  const pickOf = (kind) => { const v = $(`mPick${kind[0].toUpperCase() + kind.slice(1)}`).value; return T[kind].find((m) => m.uid === v) || null; };
+  // 重ねる順：服装（奥）→ 後髪 → 素体（顔）→ 服装（手前）→ 前髪
+  function compositeLayers() {
+    const f = pickOf("face"), o = pickOf("outfit"), hr = pickOf("hair");
+    const hairHex = $("mHairColor").value, eyeHex = $("mEyeColor").value;
+    const list = [];
+    if (o) list.push(layerData(o, 1, ""));
+    if (hr) list.push(layerData(hr, 1, hairHex));
+    if (f) list.push(layerData(f, "face", eyeHex));
+    else list.push(new ImageData(new Uint8ClampedArray(T.base.rgba), T.base.w, T.base.h));
+    if (o) list.push(layerData(o, 2, ""));
+    if (hr) list.push(layerData(hr, 2, hairHex));
+    return list;
+  }
+
+  // ---------- 表示 ----------
+  let raf = 0;
+  const requestDraw = () => { if (!raf) raf = setTimeout(() => { raf = 0; draw(); }, 16); };
+  function draw() {
+    if (!T.base) { canvas.width = 300; canvas.height = 400; ctx.clearRect(0, 0, 300, 400); return; }
+    const { w, h } = T.base;
+    if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+    ctx.clearRect(0, 0, w, h);
+    const mat = T.sel;
+    if (T.view === "material" && mat) {
+      ctx.drawImage(toCanvas(new ImageData(new Uint8ClampedArray(mat.rgba), w, h)), 0, 0);
+      if ($("mShowLayers").checked) ctx.drawImage(toCanvas(overlayOf(mat)), 0, 0);
+      $("mInfo").textContent = `${KIND_NAME[mat.kind]}：${mat.id}　${w}×${h}px`;
+    } else {
+      for (const l of compositeLayers()) ctx.drawImage(toCanvas(l), 0, 0);
+      const names = ["face", "outfit", "hair"].map((k) => (pickOf(k) || {}).id).filter(Boolean);
+      $("mInfo").textContent = names.length ? names.join(" ＋ ") : "土台だけ";
+    }
+  }
+  function overlayOf(mat) {
+    const { w, h } = T.base, n = w * h, out = new ImageData(w, h), d = out.data;
+    for (let p = 0; p < n; p++) {
+      let c = null;
+      if (mat.kind === "face") { if (mat.eyes[p]) c = OVERLAY.eyes; }
+      else if (mat.layer[p] === 1) c = OVERLAY.back;
+      else if (mat.layer[p] === 2) c = mat.kind === "hair" ? OVERLAY.hairFront : OVERLAY.front;
+      if (!c) continue;
+      const i = p * 4; d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2]; d[i + 3] = c[3];
+    }
+    return out;
+  }
+  function setHint(t) { $("mHint").textContent = t; }
+
+  // ---------- 一覧と選択 ----------
+  function renderLists() {
+    const host = $("mLists");
+    host.textContent = "";
+    for (const kind of ["face", "outfit", "hair"]) {
+      if (!T[kind].length) continue;
+      const row = document.createElement("div"); row.className = "palette-row";
+      const label = document.createElement("span"); label.textContent = KIND_NAME[kind];
+      const chips = document.createElement("div"); chips.className = "chips";
+      for (const mat of T[kind]) {
+        const b = document.createElement("button"); b.type = "button"; b.className = "chip";
+        b.textContent = mat.id; b.setAttribute("aria-pressed", String(T.sel === mat));
+        b.addEventListener("click", () => select(mat));
+        chips.append(b);
+      }
+      row.append(label, chips); host.append(row);
+    }
+    for (const kind of ["face", "outfit", "hair"]) {
+      const sel = $(`mPick${kind[0].toUpperCase() + kind.slice(1)}`), prev = sel.value;
+      sel.textContent = "";
+      const none = document.createElement("option"); none.value = ""; none.textContent = kind === "face" ? "（なし：土台のまま）" : "（なし）"; sel.append(none);
+      for (const mat of T[kind]) { const o = document.createElement("option"); o.value = mat.uid; o.textContent = mat.id; sel.append(o); }
+      sel.value = T[kind].some((m) => m.uid === prev) ? prev : T[kind].length ? T[kind][T[kind].length - 1].uid : "";
+    }
+  }
+  function select(mat) {
+    T.sel = mat;
+    $("mEditCard").hidden = !mat;
+    if (mat) {
+      $("mEditTitle").textContent = `切り出しの手直し：${KIND_NAME[mat.kind]}`;
+      $("mId").value = mat.id;
+      $("mThr").value = mat.thr; $("mThrOut").textContent = mat.thr;
+      const seg = $("mToolSeg"); seg.textContent = "";
+      const tools = TOOLS[mat.kind];
+      if (!tools.some(([k]) => k === T.tool)) T.tool = tools[0][0];
+      for (const [k, name] of tools) {
+        const b = document.createElement("button"); b.type = "button"; b.textContent = name; b.dataset.mtool = k;
+        b.setAttribute("aria-pressed", String(k === T.tool));
+        b.addEventListener("click", () => { T.tool = k; for (const x of seg.children) x.setAttribute("aria-pressed", String(x.dataset.mtool === k)); });
+        seg.append(b);
+      }
+      $("mToolNote").textContent = TOOL_NOTE[mat.kind];
+      setView("material");
+      // 選んだ素材は重ねた絵の組み合わせにも入れる
+      $(`mPick${mat.kind[0].toUpperCase() + mat.kind.slice(1)}`).value = mat.uid;
+    }
+    renderLists();
+    requestDraw();
+  }
+  function setView(v) {
+    T.view = v;
+    document.querySelectorAll("[data-mview]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mview === v)));
+    setHint(v === "material" && T.sel ? "素材の上をドラッグして、塗る層を直す。" : "右の「重ねて確かめる」で組み合わせと色を選ぶ。");
+    requestDraw();
+  }
+
+  // ---------- 読み込み ----------
+  async function loadBase(file) {
+    setHint("土台を読み込んでいる…");
+    const img = await decode(file);
+    const k = keyOut(img.src, img.w, img.h);
+    T.base = { ...img, ...k, id: stemOf(file, "base") };
+    for (const id of ["mFileFace", "mFileOutfit", "mFileHair"]) $(id).disabled = false;
+    // 土台を入れ替えたら、読み込み済みの素材を切り出し直す
+    for (const kind of ["face", "outfit", "hair"]) for (const mat of T[kind]) await refit(mat);
+    renderLists(); setView(T.sel ? T.view : "composite");
+    setHint(`土台 ${T.base.id}（${img.w}×${img.h}px）を読み込んだ。②〜④を読み込む。`);
+  }
+  async function refit(mat) {
+    const img = await decode(mat.file, T.base.w, T.base.h);
+    Object.assign(mat, img, keyOut(img.src, img.w, img.h));
+    autoCut(mat);
+  }
+  function stemOf(file, kind) {
+    const s = file.name.replace(/\.[^.]+$/, "");
+    return /^[A-Za-z0-9_-]+$/.test(s) ? s : kind === "base" ? "base" : `${kind}_${String(T[kind].length + 1).padStart(3, "0")}`;
+  }
+  async function loadMaterials(kind, files) {
+    const warn = [];
+    for (const file of files) {
+      if (!/^image\//.test(file.type)) continue;
+      setHint(`${file.name} を切り出している…`);
+      await new Promise((r) => setTimeout(r, 0));
+      const mat = { kind, file, uid: `m${++T.seq}`, id: stemOf(file, kind), thr: THR_DEFAULT[kind], ver: 0 };
+      await refit(mat);
+      if (Math.abs(mat.ratio - T.base.ratio) > 0.02) warn.push(file.name);
+      T[kind].push(mat);
+      select(mat);
+    }
+    setHint(warn.length ? `${warn.join("、")} は土台と縦横比が違う。土台の大きさに引き伸ばしたので、位置がずれていないか確かめる。` : "読み込んだ。色分けを見て、違う所はブラシで直す。");
+  }
+
+  // ---------- ブラシ ----------
+  function toImage(e) {
+    const r = canvas.getBoundingClientRect();
+    return [Math.floor(((e.clientX - r.left) / r.width) * canvas.width), Math.floor(((e.clientY - r.top) / r.height) * canvas.height)];
+  }
+  function dab(mat, cx, cy) {
+    const { w, h } = T.base, r = T.size, r2 = r * r;
+    for (let y = Math.max(0, cy - r); y <= Math.min(h - 1, cy + r); y++) {
+      for (let x = Math.max(0, cx - r); x <= Math.min(w - 1, cx + r); x++) {
+        if ((x - cx) ** 2 + (y - cy) ** 2 > r2) continue;
+        const p = y * w + x;
+        if (mat.kind === "face") {
+          if (T.tool === "eyeDel") mat.eyes[p] = 0; else if (mat.fg[p]) mat.eyes[p] = 1;
+        } else if (T.tool === "erase") mat.layer[p] = 0;
+        else if (mat.fg[p]) mat.layer[p] = T.tool === "back" ? 1 : 2;
+      }
+    }
+    mat.ver++;
+  }
+  let painting = false, last = null;
+  canvas.addEventListener("pointerdown", (e) => {
+    const mat = T.sel;
+    if (T.view !== "material" || !mat) return;
+    painting = true; canvas.setPointerCapture(e.pointerId);
+    T.undo.push({ mat, field: mat.kind === "face" ? "eyes" : "layer", data: (mat.kind === "face" ? mat.eyes : mat.layer).slice() });
+    if (T.undo.length > 30) T.undo.shift();
+    last = toImage(e); dab(mat, ...last); requestDraw();
+  });
+  canvas.addEventListener("pointermove", (e) => {
+    if (!painting) return;
+    const [x, y] = toImage(e), [lx, ly] = last;
+    const steps = Math.max(1, Math.ceil(Math.hypot(x - lx, y - ly) / Math.max(2, T.size / 3)));
+    for (let k = 1; k <= steps; k++) dab(T.sel, Math.round(lx + ((x - lx) * k) / steps), Math.round(ly + ((y - ly) * k) / steps));
+    last = [x, y]; requestDraw();
+  });
+  const endPaint = () => { painting = false; };
+  canvas.addEventListener("pointerup", endPaint);
+  canvas.addEventListener("pointercancel", endPaint);
+  function undo() {
+    const u = T.undo.pop(); if (!u) return;
+    u.mat[u.field] = u.data; u.mat.ver++;
+    if (T.sel !== u.mat) select(u.mat); else requestDraw();
+  }
+
+  // ---------- 書き出し ----------
+  function scaled(imageData) {
+    let c = toCanvas(imageData);
+    const max = +$("mOutSize").value, long = Math.max(c.width, c.height);
+    if (max > 0 && long > max) {
+      const s = max / long, tw = Math.round(c.width * s), th = Math.round(c.height * s);
+      const step = (src, w, h) => { const d = document.createElement("canvas"); d.width = w; d.height = h; const x = d.getContext("2d"); x.imageSmoothingEnabled = true; x.imageSmoothingQuality = "high"; x.drawImage(src, 0, 0, w, h); return d; };
+      while (c.width / 2 >= tw && c.height / 2 >= th) c = step(c, Math.round(c.width / 2), Math.round(c.height / 2));
+      if (c.width !== tw || c.height !== th) c = step(c, tw, th);
+    }
+    return c;
+  }
+  const pngOf = (imageData) => new Promise((res) => scaled(imageData).toBlob(res, "image/png"));
+  function maskData(mask, alphaSrc) {
+    const { w, h } = T.base, out = new ImageData(w, h), d = out.data;
+    for (let p = 0; p < w * h; p++) if (mask[p]) { const i = p * 4; d[i] = d[i + 1] = d[i + 2] = 255; d[i + 3] = alphaSrc ? alphaSrc[p] : 255; }
+    return out;
+  }
+  async function exportZip() {
+    const st = $("mExportStatus");
+    st.className = "status";
+    const all = [...T.face, ...T.outfit, ...T.hair];
+    if (!downloads) { st.className = "status warn"; st.textContent = "この表示では保存できない。claude.ai で開くと書き出せる。"; return; }
+    if (typeof JSZip === "undefined") { st.className = "status warn"; st.textContent = "zip の部品を読み込めなかった。ページを開き直す。"; return; }
+    if (!all.length) { st.className = "status warn"; st.textContent = "顔・服装・髪型を1つ以上読み込む。"; return; }
+    const bad = all.find((m) => !/^[A-Za-z0-9_-]+$/.test(m.id));
+    if (bad) { st.className = "status warn"; st.textContent = `素材Id「${bad.id}」は半角英数字・_・- だけにする。`; return; }
+    const ids = all.map((m) => m.id), dup = ids.find((id, i) => ids.indexOf(id) !== i);
+    if (dup) { st.className = "status warn"; st.textContent = `素材Id「${dup}」が重なっている。`; return; }
+    $("mExport").disabled = true;
+    try {
+      const zip = new JSZip();
+      const sample = scaled(new ImageData(T.base.w, T.base.h));
+      const manifest = {
+        canvas: [sample.width, sample.height],
+        order: ["outfit.back", "hair.back", "face", "outfit.front", "hair.front"],
+        workColors: { hair: "赤銅（copper-auburn）", eyes: "琥珀（amber）" },
+        base: T.base.id,
+        faces: [], outfits: [], hairs: [],
+      };
+      let k = 0;
+      for (const mat of all) {
+        st.textContent = `作成中… ${++k} / ${all.length}`;
+        await new Promise((r) => setTimeout(r, 0));
+        if (mat.kind === "face") {
+          zip.file(`${mat.id}.png`, await pngOf(layerData(mat, "face", "")));
+          zip.file(`${mat.id}_eyes.png`, await pngOf(maskData(mat.eyes, mat.alpha)));
+          manifest.faces.push({ id: mat.id, image: `${mat.id}.png`, eyes: `${mat.id}_eyes.png` });
+        } else {
+          zip.file(`${mat.id}_back.png`, await pngOf(layerData(mat, 1, "")));
+          zip.file(`${mat.id}_front.png`, await pngOf(layerData(mat, 2, "")));
+          manifest[mat.kind === "hair" ? "hairs" : "outfits"].push({ id: mat.id, back: `${mat.id}_back.png`, front: `${mat.id}_front.png` });
+        }
+      }
+      if ($("mWithPreview").checked) {
+        const c = document.createElement("canvas"); c.width = T.base.w; c.height = T.base.h;
+        const x = c.getContext("2d");
+        for (const l of compositeLayers()) x.drawImage(toCanvas(l), 0, 0);
+        zip.file("montage_preview.png", await pngOf(x.getImageData(0, 0, c.width, c.height)));
+      }
+      zip.file("montage.json", JSON.stringify(manifest, null, 2) + "\n");
+      const blob = await zip.generateAsync({ type: "blob" });
+      st.textContent = "保存の確認を待っている…";
+      await downloads.save({ filename: "montage_parts.zip", data: blob });
+      st.textContent = `montage_parts.zip を保存した（素材 ${all.length} 件）。`;
+    } catch (err) {
+      st.className = "status warn";
+      const code = err && err.code;
+      st.textContent = code === "declined" ? "保存を取りやめた。" : code === "rate_limited" ? "保存の確認が開いたまま。閉じてからもう一度。" :
+        code === "too_large" ? "ファイルが大きすぎる。書き出す大きさを小さくする。" : "保存できなかった" + (err && err.message ? `（${err.message}）` : "") + "。";
+    } finally {
+      $("mExport").disabled = false;
+    }
+  }
+
+  // ---------- 操作 ----------
+  $("mFileBase").addEventListener("change", async (e) => { const f = e.target.files[0]; if (f) { try { await loadBase(f); } catch (err) { setHint(`${f.name} を読み込めなかった。`); } } e.target.value = ""; });
+  for (const [id, kind] of [["mFileFace", "face"], ["mFileOutfit", "outfit"], ["mFileHair", "hair"]]) {
+    $(id).addEventListener("change", async (e) => { const files = [...e.target.files]; e.target.value = ""; if (T.base && files.length) await loadMaterials(kind, files); });
+  }
+  document.querySelectorAll("[data-mview]").forEach((b) => b.addEventListener("click", () => setView(b.dataset.mview)));
+  document.querySelectorAll("[data-mbg]").forEach((b) => b.addEventListener("click", () => {
+    document.querySelectorAll("[data-mbg]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+    $("mViewport").className = "viewport " + b.dataset.mbg;
+  }));
+  $("mShowLayers").addEventListener("change", requestDraw);
+  $("mSize").addEventListener("input", (e) => { T.size = +e.target.value; $("mSizeOut").textContent = T.size; });
+  $("mThr").addEventListener("input", (e) => { $("mThrOut").textContent = e.target.value; });
+  $("mThr").addEventListener("change", (e) => { if (!T.sel) return; T.sel.thr = +e.target.value; autoCut(T.sel); requestDraw(); });
+  $("mRecut").addEventListener("click", () => { if (!T.sel) return; autoCut(T.sel); requestDraw(); });
+  $("mUndo").addEventListener("click", undo);
+  $("mRemove").addEventListener("click", () => {
+    const mat = T.sel; if (!mat) return;
+    T[mat.kind] = T[mat.kind].filter((m) => m !== mat);
+    T.undo = T.undo.filter((u) => u.mat !== mat);
+    T.sel = null; $("mEditCard").hidden = true; renderLists(); setView("composite");
+  });
+  $("mId").addEventListener("input", (e) => { if (T.sel) { T.sel.id = e.target.value.trim(); renderLists(); } });
+  for (const id of ["mPickFace", "mPickOutfit", "mPickHair", "mHairColor", "mEyeColor"]) $(id).addEventListener("change", () => setView("composite"));
+  for (const [id, list] of [["mHairColor", HAIR_COLORS], ["mEyeColor", EYE_COLORS]]) {
+    for (const [name, hex] of list) { const o = document.createElement("option"); o.value = hex; o.textContent = name; $(id).append(o); }
+  }
+  $("mRandom").addEventListener("click", () => {
+    const pick = (a) => a[Math.floor(Math.random() * a.length)];
+    for (const kind of ["face", "outfit", "hair"]) if (T[kind].length) $(`mPick${kind[0].toUpperCase() + kind.slice(1)}`).value = pick(T[kind]).uid;
+    $("mHairColor").value = pick(HAIR_COLORS)[1];
+    $("mEyeColor").value = pick(EYE_COLORS)[1];
+    setView("composite");
+  });
+  $("mExport").addEventListener("click", exportZip);
+  document.addEventListener("keydown", (e) => {
+    if ($("montagePane").hidden) return;
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) { e.preventDefault(); undo(); }
+  });
+  draw();
+
+  (async () => {
+    try { downloads = window.claude && typeof window.claude.use === "function" ? await window.claude.use("downloads") : null; } catch (e) { downloads = null; }
+    if (!downloads) { $("mExportStatus").className = "status warn"; $("mExportStatus").textContent = "この表示では保存できない（claude.ai で開くと書き出せる）。"; }
+  })();
+})();
+</script>
+
+<script>
 (() => {
   "use strict";
   const $ = (id) => document.getElementById(id);
 
   // ---------- タブ ----------
+  const TABS = [["prompt", "tabPrompt", "promptPane"], ["edit", "tabEdit", "editPane"], ["montage", "tabMontage", "montagePane"]];
   function showTab(name) {
-    const edit = name === "edit";
-    $("tabPrompt").setAttribute("aria-selected", String(!edit));
-    $("tabEdit").setAttribute("aria-selected", String(edit));
-    $("promptPane").hidden = edit;
-    $("editPane").hidden = !edit;
+    for (const [key, tab, pane] of TABS) {
+      $(tab).setAttribute("aria-selected", String(key === name));
+      $(pane).hidden = key !== name;
+    }
     try { localStorage.setItem("portraitTab", name); } catch (e) {}
-    if (edit && window.__portraitRelayout) window.__portraitRelayout();
+    if (name === "edit" && window.__portraitRelayout) window.__portraitRelayout();
   }
-  $("tabPrompt").addEventListener("click", () => showTab("prompt"));
-  $("tabEdit").addEventListener("click", () => showTab("edit"));
+  for (const [key, tab] of TABS) $(tab).addEventListener("click", () => showTab(key));
 
   // ---------- 参考プロンプトから分けた部品 ----------
   const STYLE = "masterpiece, best quality, ultra-detailed, 2D korean anime game character portrait sprite, delicate refined art style, manhwa aesthetic, ultra-fine faint linework, soft watercolor-like cel shading, muted color palette";
@@ -1720,38 +2382,39 @@ Avoid: ${avoid}.`;
   }
 
   // ---------- モンタージュ素材 ----------
-  // 顔と体の素材と髪型の素材を、同じマネキン画像を参照して別々に描かせ、重ねて1人にする。
-  // 顔と体はスキンヘッド（髪が服や肩に掛からない）、髪型は顔と服を無地にして、前髪と後髪を切り分けやすくする。
-  const POSE_NANO = "Pose and framing: slight three-quarter body angle turned 15 degrees to the left, head turned to directly face the viewer, looking straight forward at the viewer with direct, focused eye contact. Medium close-up, waist-up portrait: the frame is cropped cleanly at the navel line, and the top of the head comfortably near the top edge.";
-  const REF_MONTAGE = "Reference image: the attached image is a blank mannequin used as the exact pose and framing template. Match its body angle, head direction, head size and position, shoulder line and the crop at the waist exactly, so that this image lines up pixel for pixel with other montage layers drawn from the same template.";
-  const HEADWEAR_AVOID = ["hair", "wig", "stubble", "hairline shading", "hat", "hood worn over the head", "veil", "bandana", "headband", "circlet", "tiara", "forehead chain", "hair accessories", "goggles on the head"];
-  const HAIR_AVOID = ["eyes", "eyebrows", "nose", "mouth", "makeup", "detailed clothing", "collars", "jewelry", "earrings", "hats", "headbands", "large hair accessories", "hands", "weapons", "thick black outlines", "heavy ink lines", "rough pencil sketch", "blurry"];
+  // 重ねる順：後髪 → 素体（顔） → 服装（首含む） → 前髪。
+  // まず体格ごとに「顔の無いスキンヘッドの素体の土台」を1枚作り、顔・服装・髪型はどれもその画像を編集して描き足させる。
+  // 土台との差分で切り出すので、頭の形・首・肩の線・肌の色がどの素材でも同じになる。
+  // 色はゲームのシェーダーで変えるので、髪は赤銅・瞳は琥珀の1色で描かせる。
+  const WORK_EYE = { key: "amber", name: "琥珀", text: "clear medium amber" };
+  const POSE_NANO = "Pose and framing: slight three-quarter body angle turned 15 degrees to the left, head turned to directly face the viewer. Medium close-up, waist-up portrait: the frame is cropped cleanly at the navel line, and the top of the head comfortably near the top edge.";
+  const REF_MANNEQUIN = "Reference image: the attached image is a blank mannequin used as the exact pose and framing template. Match its body angle, head direction, head size and position, shoulder line and the crop at the waist exactly.";
+  const REF_BASE = "Reference image: the attached image is the montage base figure. Edit that exact image. Keep the canvas, background, pose, head shape, ears, neck, body shape, skin tone, lighting, linework and position identical, pixel for pixel, and change only what is described below. Other parts are drawn as separate edits of the same base and stacked on top of each other, so nothing else may move or change.";
+  const MONTAGE_STYLE = `Style: 2D Korean anime (manhwa) style game character portrait, masterpiece, best quality, ultra-detailed. ${STYLE_EN[0].toUpperCase() + STYLE_EN.slice(1)}.`;
+  const EDIT_AVOID = ["moving or resizing the figure", "changing the head shape, ears, neck, body shape, skin tone or pose", "changing the background", "hands", "weapons", "held items", "thick black outlines", "heavy ink lines", "rough pencil sketch", "blurry"];
 
-  // 顔と体の素材では、服装の文から被り物（帽子・ヴェール・バンダナ・額飾り・ゴーグル）を除き、フードは下ろす。
+  // 服装の文から被り物（帽子・ヴェール・バンダナ・額飾り・ゴーグル・仮面）を除き、フードは下ろす。頭の形は素体のまま残す。
   const HEADWEAR_RE = /\b(hat|veil|wimple|bandana|circlet|forehead|goggles|domino mask)\b/i;
-  const faceOutfitOf = (outfit) => outfitOf(outfit)
+  const bareHeadOutfitOf = (outfit) => outfitOf(outfit)
     .replace(/with the hood up framing the face/g, "with the hood lowered behind the shoulders")
     .replace(/ with a white wimple and a black veil over the hair/g, "")
     .split(/,\s*/).filter((c) => !HEADWEAR_RE.test(c)).join(", ");
 
-  function buildFace(sel, bg, ar, exprKey) {
-    const { job, eye } = sel;
-    const who = job.who.replace(/\byoung\s+/, "").replace(/\bfemale\s+/, "");
-    const ex = exprKey === JOB_EXPR ? job.expr : EXPR[exprKey] || EXPR["通常"];
+  function buildBase(build, bg, ar) {
+    const body = BUILDS[build] || BUILDS.slim;
     const b = BG_NL[bg] || BG_NL.magenta;
     const arNano = AR_TEXT[ar] || AR_TEXT["3:4"];
-    const avoid = [...HEADWEAR_AVOID, ...PORTRAIT_AVOID, ...b.avoid].join(", ");
-    const nano = `A montage base layer for a 2D fantasy management game character portrait, drawn in a Korean anime (manhwa) style. Hairstyles are drawn separately and layered on top later, so this character has no hair at all.
+    const avoid = ["hair", "eyes", "eyebrows", "nose", "mouth", "makeup", "clothing other than the tube top", "jewelry", "accessories", "hands", "weapons", "held items", "thick black outlines", "heavy ink lines", "rough pencil sketch", "blurry", ...b.avoid].join(", ");
+    const nano = `A montage base figure for a 2D fantasy management game character portrait. Faces, outfits and hairstyles are drawn later as separate edits of this image, so this figure has no face, no hair and almost no clothing.
 
-${REF_MONTAGE}
+${REF_MANNEQUIN}
 
-Character: a young human woman, ${who}.
-Head: a completely bald, smoothly shaved head with no hair, no stubble and no hairline shading; the natural skin-toned scalp and round skull shape are fully visible, and both ears are fully visible.
-Appearance: looks in her early 20s, ${job.face} facial features, ${eye.text} eyes with large clearly defined irises, a visible pupil and highlight, natural thin eyebrows, wearing ${faceOutfitOf(sel.outfit)}.
-Outfit rule: leave out any hat, hood worn up, veil, bandana, circlet, forehead jewelry or goggles from the outfit; a hood stays lowered behind the shoulders. Keep collars and capes low enough that the whole neck and scalp stay visible.
-Expression: ${ex}.
+Figure: a young woman with ${body}, natural fair skin.
+Head: a completely bald, smoothly shaved head with no hair, no stubble and no hairline shading; the round skull shape is fully visible, and both ears are fully visible.
+Face: left blank. Smooth skin inside the face outline, with no eyes, eyebrows, nose or mouth.
+Clothing: only a plain, flat light-grey strapless tube top that covers the bust. The neck, shoulders, arms and midriff show bare skin.
 
-Style: masterpiece, best quality, ultra-detailed. ${STYLE_EN[0].toUpperCase() + STYLE_EN.slice(1)}.
+${MONTAGE_STYLE}
 
 ${POSE_NANO}
 Aspect ratio ${arNano}.
@@ -1762,30 +2425,54 @@ Avoid: ${avoid}.`;
     return { nano };
   }
 
-  function buildHair(sel, bg, ar, hairMode) {
-    const hair = hairMode === "work" ? WORK_HAIR : sel.hair;
-    const b = BG_NL[bg] || BG_NL.magenta;
-    const arNano = AR_TEXT[ar] || AR_TEXT["3:4"];
-    const avoid = [...HAIR_AVOID, ...b.avoid].join(", ");
-    const nano = `A montage hair layer for a 2D fantasy management game character portrait, drawn in a Korean anime (manhwa) style. Only the hairstyle matters in this image; it will be cut out and layered onto a separately drawn face and body.
+  function buildFace(sel, exprKey) {
+    const { job } = sel;
+    const ex = exprKey === JOB_EXPR ? job.expr : EXPR[exprKey] || EXPR["通常"];
+    const avoid = ["hair", "hats", "headwear", "earrings", "jewelry", "heavy makeup", "clothing changes", ...EDIT_AVOID].join(", ");
+    const nano = `A montage face layer for a 2D fantasy management game character portrait.
 
-${REF_MONTAGE}
+${REF_BASE}
 
-Hairstyle: ${hair.text} ${style_of(sel)}${hairMode === "work" ? ", evenly colored hair without streaks or dyed tips" : ""}, drawn in full detail on the mannequin from the reference image, sized and placed for a young woman's head.
-Head and body: keep the mannequin plain so the hair is easy to cut out. The face is a flat, uniform pale grey (#D0D0D0) surface with no eyes, eyebrows, nose or mouth. The body wears a plain, tight, flat mid-grey (#9A9A9A) sleeveless top with no collar, seams, folds or accessories.
-Front and back hair: draw the hair so the front hair and the back hair can be cut apart. Front hair is the bangs, side locks and any strands that fall in front of the face, ears, neck or shoulders. Back hair is the hair mass behind the head, neck and shoulders. Shade the back hair about one tone darker than the front hair, and keep a clean, visible edge where front strands overlap the back hair or the body.
+Change: draw only the facial features on the blank face of a young woman in her early 20s: ${job.face} facial features, ${WORK_EYE.text} eyes with large clearly defined irises, a visible pupil and highlight, natural thin eyebrows, a small nose and soft lips, looking straight at the viewer with direct eye contact.
+Expression: ${ex}.
+Keep unchanged: the bald head, ears, neck, body, the grey tube top and the background.
 
-Style: masterpiece, best quality, ultra-detailed. ${STYLE_EN[0].toUpperCase() + STYLE_EN.slice(1)}.
-
-${POSE_NANO.replace(", looking straight forward at the viewer with direct, focused eye contact", "")}
-Aspect ratio ${arNano}.
-
-Background and lighting: ${b.nano}.
+${MONTAGE_STYLE}
 
 Avoid: ${avoid}.`;
     return { nano };
   }
-  const style_of = (sel) => sel.style.text;
+
+  function buildOutfit(sel) {
+    const avoid = ["hair", "facial features", "hats", "hoods worn over the head", "veils", "headbands", "circlets", "goggles on the head", "masks", ...EDIT_AVOID].join(", ");
+    const nano = `A montage outfit layer for a 2D fantasy management game character portrait.
+
+${REF_BASE}
+
+Change: dress the figure in ${bareHeadOutfitOf(sel.outfit)}. The outfit fully covers the grey tube top. Collars and scarves may cover the neck. Leave out any headwear; a hood stays lowered behind the shoulders.
+Keep unchanged: the bald head and the blank face, the ears, and any bare skin the outfit does not cover.
+
+${MONTAGE_STYLE}
+
+Avoid: ${avoid}.`;
+    return { nano };
+  }
+
+  function buildHair(sel) {
+    const avoid = ["facial features", "clothing changes", "hats", "headbands", "large hair ornaments", "streaks or dyed tips", ...EDIT_AVOID].join(", ");
+    const nano = `A montage hair layer for a 2D fantasy management game character portrait.
+
+${REF_BASE}
+
+Change: add only a hairstyle fitted to the bald head: ${WORK_HAIR.text} ${sel.style.text}, evenly colored hair without streaks or dyed tips.
+Front and back hair: draw the hair so the front hair and the back hair can be cut apart. Front hair is the bangs, side locks and any strands that fall in front of the face, ears, neck or shoulders. Back hair is the hair mass behind the head, neck and shoulders. Shade the back hair about one tone darker than the front hair, and keep a clean, visible edge where front strands overlap the back hair or the body.
+Keep unchanged: the blank face, the body, the grey tube top and the background, except where hair covers them.
+
+${MONTAGE_STYLE}
+
+Avoid: ${avoid}.`;
+    return { nano };
+  }
 
   // ---------- 組み立て ----------
   function chooseBackground(choice, parts) {
@@ -1839,15 +2526,17 @@ Avoid: ${avoid}.`;
       const kind = $("pKind").value;
       // 加工用では生成される髪は赤銅なので、背景色との重なりは赤銅で判定する。素材は描く部分だけで判定する。
       const hairPart = work ? WORK_HAIR : sel.hair;
-      const parts = kind === "face" ? [sel.outfit, sel.eye] : kind === "hair" ? [hairPart] : [sel.outfit, hairPart, sel.eye];
+      const parts = kind === "full" ? [sel.outfit, hairPart, sel.eye] : [];
       const bg = chooseBackground($("pBg").value, parts);
       const format = $("pFormat").value;
       const ref = $("pRef").value === "mannequin";
       const ar = $("pAr").value;
-      const out = kind === "face" ? buildFace(sel, bg, ar, $("pExpr").value)
-        : kind === "hair" ? buildHair(sel, bg, ar, hairMode)
+      const out = kind === "base" ? buildBase($("mBuild").value, bg, ar)
+        : kind === "face" ? buildFace(sel, $("pExpr").value)
+        : kind === "outfit" ? buildOutfit(sel)
+        : kind === "hair" ? buildHair(sel)
         : format === "nl" ? buildNL(sel, bg, ar, hairMode, $("pExpr").value, ref) : build(sel, bg, ar, format, hairMode, ref);
-      const id = (kind === "face" ? "face_" : kind === "hair" ? "hair_" : "adv_") + String(start + k).padStart(3, "0");
+      const id = (kind === "full" ? "adv" : kind) + "_" + String(start + k).padStart(3, "0");
       const bgLabel = bg === "gray" ? "灰背景" : bg === "magenta" ? "マゼンタ背景" : "緑背景";
       const note = work
         ? `${sel.job.name}・${sel.outfit.name}・${sel.style.name}（生成プロンプト・${bgLabel}・加工用の赤銅髪→${sel.hair.name}に変換予定）`
@@ -1877,14 +2566,19 @@ Avoid: ${avoid}.`;
     const idEl = document.createElement("span"); idEl.className = "id"; idEl.textContent = id;
     const desc = document.createElement("span"); desc.className = "desc";
     const hairDesc = work ? `赤銅の${sel.style.name}（→ ${sel.hair.name} に変換）` : `${sel.hair.name}の${sel.style.name}`;
-    desc.textContent = kind === "face" ? `顔と体：${sel.job.name}（${sel.outfit.name}）　スキンヘッド　${sel.eye.name}の瞳`
-      : kind === "hair" ? `髪型：${hairDesc}`
+    desc.textContent = kind === "base" ? `素体の土台：${$("mBuild").selectedOptions[0].textContent}`
+      : kind === "face" ? `顔：${sel.job.name}らしい顔立ち　瞳は琥珀で生成（→ ${sel.eye.name} はシェーダーで）`
+      : kind === "outfit" ? `服装：${sel.job.name}（${sel.outfit.name}）`
+      : kind === "hair" ? `髪型：赤銅の${sel.style.name}（→ ${sel.hair.name} はシェーダーで）`
       : `${sel.job.name}（${sel.outfit.name}）　${hairDesc}　${sel.eye.name}の瞳`;
     const pill = document.createElement("span");
     pill.className = "pill" + (bg === "gray" ? "" : " key-" + bg);
     pill.textContent = bg === "magenta" ? "背景：マゼンタ" : bg === "green" ? "背景：緑" : "背景：灰";
+    const edit = kind === "face" || kind === "outfit" || kind === "hair";
+    if (edit) { pill.className = "pill"; pill.textContent = "背景：素体と同じ"; }
     head.append(idEl, desc, pill);
-    if (kind !== "full" || $("pRef").value === "mannequin") { const r = document.createElement("span"); r.className = "pill"; r.textContent = "マネキンを添付"; head.append(r); }
+    const attach = edit ? "素体の土台を添付" : kind === "base" || $("pRef").value === "mannequin" ? "マネキンを添付" : "";
+    if (attach) { const r = document.createElement("span"); r.className = "pill"; r.textContent = attach; head.append(r); }
     el.append(head);
 
     if (bg !== "gray" && parts.some((p) => (p.avoid || []).includes(bg))) {
@@ -1894,7 +2588,7 @@ Avoid: ${avoid}.`;
     }
     if (kind === "hair") {
       const g = document.createElement("p"); g.className = "note";
-      g.textContent = "切り分け方：前髪＝顔・耳・首・肩の手前に掛かる髪（明るい側）、後髪＝頭と肩の後ろの髪（一段暗い側）。灰色の顔と服は捨てる。";
+      g.textContent = "切り分け方：素体の土台との差分が髪。前髪＝顔・耳・首・肩の手前に掛かる髪（明るい側）、後髪＝頭と肩の後ろの髪（一段暗い側）。";
       el.append(g);
     }
     const blocks = out.nano ? [["Nano Banana 2 用", out.nano]]
@@ -1918,8 +2612,10 @@ Avoid: ${avoid}.`;
   for (const key of [...Object.keys(EXPR), JOB_EXPR]) { const o = document.createElement("option"); o.value = o.textContent = key; $("pExpr").append(o); }
   const KIND_NOTE = {
     full: "完成した立ち絵を1枚で描かせる。",
-    face: "髪の無い顔と体を描かせる（帽子・フードを被った服装も被り物を外す）。マネキン画像を必ず添付する。髪型の素材と重ねて1人にする。",
-    hair: "髪型だけを描かせる。顔は無地の灰色、服は無地の灰色の袖なし。マネキン画像を必ず添付する。後髪は一段暗く塗らせるので、前髪と後髪を色で切り分けられる。",
+    base: "体格ごとに1枚、顔の無いスキンヘッドの素体を描かせる（体格は上のマネキンの欄で選ぶ）。マネキン画像を添付する。できた画像を保存し、②〜④で毎回添付する。",
+    face: "素体の土台を添付して、目・眉・鼻・口だけを描き足させる。素体（顔）の層になる。瞳は琥珀で描かせ、色はシェーダーで変える。",
+    outfit: "素体の土台を添付して、服だけを描き足させる（被り物は外す・首元の襟も含む）。土台との差分が服装の層になり、肌は素体（顔）の層のものが見える。",
+    hair: "素体の土台を添付して、髪だけを描き足させる。髪は赤銅で描かせ、色はシェーダーで変える。後髪は一段暗く塗らせるので、前髪と後髪を切り分けられる。",
   };
   const syncFormat = () => {
     const kind = $("pKind").value, montage = kind !== "full";
@@ -1927,9 +2623,11 @@ Avoid: ${avoid}.`;
     // 素材は Nano Banana 2 の文だけで、マネキンの添付が前提。描かない部分の設定は使わない。
     $("pFormat").disabled = montage;
     $("pRef").disabled = montage;
-    $("pExpr").disabled = kind === "hair" || (!montage && $("pFormat").value !== "nl");
-    for (const id of ["pJob", "pOutfit", "pEye"]) $(id).disabled = kind === "hair" || (id === "pOutfit" && $("pJob").value === "*");
-    for (const id of ["pStyle", "pHair", "pHairMode"]) $(id).disabled = kind === "face";
+    const uses = { full: ["pJob", "pOutfit", "pEye", "pStyle", "pHair", "pHairMode", "pExpr", "pBg"], base: ["pBg"], face: ["pJob", "pEye", "pExpr"],
+      outfit: ["pJob", "pOutfit"], hair: ["pStyle", "pHair"] }[kind];
+    for (const id of ["pJob", "pOutfit", "pEye", "pStyle", "pHair", "pHairMode", "pExpr", "pBg"]) $(id).disabled = !uses.includes(id);
+    if ($("pJob").value === "*") $("pOutfit").disabled = true;
+    if (!montage && $("pFormat").value !== "nl") $("pExpr").disabled = true;
     $("pCopyCsv").disabled = montage;
   };
   for (const id of ["pFormat", "pKind", "pJob"]) $(id).addEventListener("change", syncFormat);
@@ -1955,7 +2653,7 @@ Avoid: ${avoid}.`;
     $("mResult").replaceChildren(el);
   }
   $("mMake").addEventListener("click", makeMannequin);
-  $("mBuild").addEventListener("change", () => { if ($("mResult").firstChild) makeMannequin(); });
+  $("mBuild").addEventListener("change", () => { if ($("mResult").firstChild) makeMannequin(); if ($("pKind").value === "base") make(); });
   $("pAr").addEventListener("change", () => { if ($("mResult").firstChild) makeMannequin(); });
   const syncHairMode = () => {
     const work = $("pHairMode").value === "work";
@@ -1968,6 +2666,6 @@ Avoid: ${avoid}.`;
   make();
   let saved = null;
   try { saved = localStorage.getItem("portraitTab"); } catch (e) {}
-  showTab(saved === "edit" ? "edit" : "prompt");
+  showTab(TABS.some(([key]) => key === saved) ? saved : "prompt");
 })();
 </script>
