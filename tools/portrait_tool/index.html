@@ -1812,7 +1812,16 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
         if (inner[p]) { soft[p] = 255; continue; }
         if (!baseFg[p]) { if (m[p]) soft[p] = 255; continue; }
         const i = p * 4, dd = Math.max(Math.abs(sr[i] - b[i]), Math.abs(sr[i + 1] - b[i + 1]), Math.abs(sr[i + 2] - b[i + 2]));
-        soft[p] = Math.round(Math.min(1, Math.max(0, (dd - 12) / 48)) * 255);
+        let a = Math.min(1, Math.max(0, (dd - 12) / 48));
+        if (mat.kind === "hair" && a > 0) {
+          // 髪の縁は、土台からの変わり方が赤銅に近づく向き（青と緑が赤より大きく下がる）か、大きく暗くなる（輪郭線とその縁）ときだけ髪とみなす。
+          // 髪が肌に落とす影は一様に少しだけ暗くなる（差が小さい）ので入れない。土台より明るくなる画素も入れない。
+          const lean = ((b[i + 2] - sr[i + 2]) - (b[i] - sr[i])) / Math.max(1, dd);
+          const hueK = Math.min(1, Math.max(0, (lean - 0.25) / 0.25));
+          const darkK = Math.min(1, Math.max(0, (dd - 45) / 30));
+          a *= lightOf(sr, i) > lightOf(b, i) ? 0 : Math.max(hueK, darkK);
+        }
+        soft[p] = Math.round(a * 255);
       }
       // 素体の輪郭の外＝奥（1）、内側＝手前（2）。
       const layer = new Uint8Array(n);
