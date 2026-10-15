@@ -678,7 +678,7 @@ namespace GuildManager.Core.Systems
         /// （→ DungeonResolver.IsCounteredと同じ考え方）。
         ///
         /// 順序：①撃破報酬の付与 → ②最高到達階層の更新 → ③次フィールドの開放判定
-        /// （10Fボス撃破→Order+1を開放。ただし開放先はOrder 2〜4に限る＝深淵はこの経路では開かない）
+        /// （前のフィールドの開放の階層の番人を撃破→Order+1を開放。ただし開放先はOrder 2〜4に限る＝深淵はこの経路では開かない）
         /// → ④深淵（Order 5）の開放判定（Order 1〜4すべてで20Fボスが撃破済みになった時点） →
         /// ⑤最終フィールド（Orderが最大＝深淵）の100Fボス撃破でクリア（IsGameCleared・ClearedAtWeek） →
         /// ⑥森（Order=1）の節目ボス撃破による出撃枠拡張（「古代エルフ通信技術の復元」）。
@@ -705,13 +705,13 @@ namespace GuildManager.Core.Systems
             // ②最高到達階層の更新（現在値と「撃破階層+1」の大きい方、上限MaxFloor）。
             field.ReachedFloor = Math.Min(DungeonField.MaxFloor, Math.Max(field.ReachedFloor, defeatedBoss.Floor + 1));
 
-            // ③通常開放：10Fボス撃破で次順（Order+1）のフィールドを開放する。
-            // 開放先はOrder 2〜4のみ（Order 4の10F撃破でOrder 5=深淵が開いてしまわないようガードする。
-            // 深淵は④の特別条件でのみ開放される）。
-            if (defeatedBoss.Floor == 10 && field.Order + 1 <= 4)
+            // ③通常開放：開放の階層（DungeonBalance.FieldUnlockFloor、§0.139）の番人を倒していれば次順（Order+1）のフィールドを開放する。
+            // 開放先はOrder 2〜4のみ（深淵は④の特別条件でのみ開放される）。
+            if (field.Order + 1 <= 4)
             {
                 var next = state.DungeonFields.FirstOrDefault(f => f.Order == field.Order + 1);
-                if (next != null)
+                int unlockFloor = DungeonBalance.FieldUnlockFloor(field.Order + 1);
+                if (next != null && field.Bosses.Any(b => b.Floor == unlockFloor && b.EverDefeated))
                     next.IsUnlocked = true;
             }
 

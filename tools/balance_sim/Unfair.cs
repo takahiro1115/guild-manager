@@ -13,7 +13,7 @@ using GuildManager.Core.Systems;
 partial class GameSim
 {
     // ==== 設定 ====
-    public static bool Spendthrift, Reckless, Overhire, NoLoan;
+    public static bool Spendthrift, Reckless, Overhire, NoLoan, NoMoodGather;
     public static int ShockWeek;
     public static string[] ShockKinds = Array.Empty<string>();
 
@@ -24,6 +24,7 @@ partial class GameSim
         NoLoan = naive || opts.Contains("noloan");
         Reckless = opts.Contains("reckless");
         Overhire = opts.Contains("overhire");
+        NoMoodGather = naive || opts.Contains("nomoodgather"); // 機嫌が下がっても調査の部隊を採取に回さない（§0.139）
         if (Reckless) AuditStance = DoorStance.Bold;
         var shock = opts.FirstOrDefault(o => o.StartsWith("shock="))?.Substring(6);
         if (shock != null)
@@ -41,6 +42,7 @@ partial class GameSim
         if (NoLoan) p.Add("借金を知らない");
         if (Reckless) p.Add("無理に挑む");
         if (Overhire) p.Add("雇いすぎ");
+        if (NoMoodGather && !(Spendthrift && NoLoan)) p.Add("機嫌を見ない");
         if (ShockWeek > 0) p.Add($"衝撃 {ShockWeek}週:{string.Join("+", ShockKinds)}");
         return p.Count == 0 ? "ふつう" : string.Join("・", p);
     }

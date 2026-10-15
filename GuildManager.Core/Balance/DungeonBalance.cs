@@ -30,6 +30,18 @@ namespace GuildManager.Core.Balance
                 .Select(order => BalanceData.GetDouble(FileName, $"FieldRequirementMultiplier_{order}"))
                 .ToArray();
 
+        // ---- フィールドの開放（§0.139） ----
+        // Order 2〜4 のフィールドは、1つ前のフィールドのこの階層の番人を倒すと開く（深淵は別の条件、→ DungeonExpeditionSystem.ApplyFieldProgression）。
+
+        private static readonly int[] FieldUnlockFloors =
+            Enumerable.Range(2, 3)
+                .Select(order => BalanceData.GetInt(FileName, $"FieldUnlockFloor_{order}"))
+                .ToArray();
+
+        /// <summary>Order 2〜4 のフィールドを開く、1つ前のフィールドの番人の階層。範囲外は近い端へ丸める。</summary>
+        public static int FieldUnlockFloor(int fieldOrder) =>
+            FieldUnlockFloors[System.Math.Clamp(fieldOrder, 2, 4) - 2];
+
         /// <summary>フィールド倍率（Order 1〜5）。範囲外は近い端へ丸める。</summary>
         public static double GetFieldRequirementMultiplier(int fieldOrder) =>
             FieldRequirementMultipliers[System.Math.Clamp(fieldOrder, 1, FieldRequirementMultipliers.Length) - 1];

@@ -60,26 +60,27 @@ namespace GuildManager.Core.Tests
             Assert.Equal("深淵の特異点", fields.Single(f => f.Order == 5).Name);
         }
 
+        /// <summary>§0.139：開放の階層（FieldUnlockFloor）より浅い番人を倒しても、次のフィールドは開かない。</summary>
         [Fact]
-        public void DungeonField_Defeating30FBoss_DoesNotUnlockNextField()
+        public void DungeonField_DefeatingBossBelowUnlockFloor_DoesNotUnlockNextField()
         {
-            // 10階刻みモデルでは10Fが森の最初のボス（かつ唯一の次フィールド開放トリガー）のため、
-            // 「開放しない」ことを確認する対象には中間の30Fを使う。
             var fields = SampleData.CreateDefaultFields();
             var state = new GameState { DungeonFields = fields };
             var forest = fields.Single(f => f.Order == 1);
-            var boss30F = forest.Bosses.Single(b => b.Floor == 30);
-            boss30F.IsDefeated = true;
+            int unlockFloor = DungeonBalance.FieldUnlockFloor(2);
+            Assert.True(unlockFloor > 10, "序盤は森に集中させる：洞窟は森の10Fでは開かない");
 
-            DungeonExpeditionSystem.ApplyFieldProgression(state, boss30F);
-
-            var cave = fields.Single(f => f.Order == 2);
-            Assert.False(cave.IsUnlocked);
-            Assert.Equal(31, forest.ReachedFloor);
+            foreach (var boss in forest.Bosses.Where(b => b.Floor < unlockFloor).OrderBy(b => b.Floor))
+            {
+                boss.IsDefeated = true;
+                DungeonExpeditionSystem.ApplyFieldProgression(state, boss);
+                Assert.False(fields.Single(f => f.Order == 2).IsUnlocked, $"森の{boss.Floor}Fではまだ開かないはず");
+            }
+            Assert.Equal(unlockFloor - 10 + 1, forest.ReachedFloor);
         }
 
         [Fact]
-        public void Defeating_Forest_10F_Boss_Unlocks_Slot2_And_NextField()
+        public void Defeating_Forest_10F_Boss_Unlocks_Slot2()
         {
             var fields = SampleData.CreateDefaultFields();
             var state = new GameState { DungeonFields = fields };
@@ -89,14 +90,44 @@ namespace GuildManager.Core.Tests
 
             DungeonExpeditionSystem.ApplyFieldProgression(state, boss10F);
 
-            var cave = fields.Single(f => f.Order == 2);
-            Assert.True(cave.IsUnlocked);
             Assert.Equal(11, forest.ReachedFloor);
-            // 深淵（第5）はこの経路では開放されない。
-            Assert.False(fields.Single(f => f.Order == 5).IsUnlocked);
-
             // 「古代エルフの多頭通信術式が復元」：同時出撃枠が1→2に拡張される。
             Assert.Equal(2, state.UnlockedSquadSlots);
+        }
+
+        /// <summary>§0.139：1つ前のフィールドの開放の階層の番人を倒すと、次のフィールドが開く（森→洞窟→廃墟→峡谷）。深淵はこの経路では開かない。</summary>
+        [Theory]
+        [InlineData(2)]
+        [InlineData(3)]
+        [InlineData(4)]
+        public void Defeating_UnlockFloorBoss_UnlocksNextField(int nextOrder)
+        {
+            var fields = SampleData.CreateDefaultFields();
+            var state = new GameState { DungeonFields = fields };
+            var previous = fields.Single(f => f.Order == nextOrder - 1);
+            var boss = previous.Bosses.Single(b => b.Floor == DungeonBalance.FieldUnlockFloor(nextOrder));
+            boss.IsDefeated = true;
+
+            DungeonExpeditionSystem.ApplyFieldProgression(state, boss);
+
+            Assert.True(fields.Single(f => f.Order == nextOrder).IsUnlocked);
+            Assert.False(fields.Single(f => f.Order == 5).IsUnlocked);
+        }
+
+        /// <summary>§0.139：開放の階層の番人をすでに倒していれば、そのフィールドの別の番人を倒した週にも開く（開放の階層を下げたときの旧セーブ）。</summary>
+        [Fact]
+        public void UnlockFloorBossDefeatedEarlier_UnlocksNextField_OnTheNextVictory()
+        {
+            var fields = SampleData.CreateDefaultFields();
+            var state = new GameState { DungeonFields = fields };
+            var forest = fields.Single(f => f.Order == 1);
+            forest.Bosses.Single(b => b.Floor == DungeonBalance.FieldUnlockFloor(2)).IsDefeated = true;
+            var next = forest.Bosses.Single(b => b.Floor == DungeonBalance.FieldUnlockFloor(2) + 10);
+            next.IsDefeated = true;
+
+            DungeonExpeditionSystem.ApplyFieldProgression(state, next);
+
+            Assert.True(fields.Single(f => f.Order == 2).IsUnlocked);
         }
 
         /// <summary>§0.120：森の20Fの撃破だけでは3枠にならない。現役が Slot3MinActive 人以上いれば、撃破と同時に3枠になる。</summary>

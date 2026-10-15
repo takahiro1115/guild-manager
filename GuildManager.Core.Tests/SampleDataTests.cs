@@ -111,5 +111,23 @@ namespace GuildManager.Core.Tests
             // 防具のHP加算・VIT補正が乗った後の最大HPで満タンになっていること。
             Assert.All(SampleData.CreateStarterAdventurers(), a => Assert.Equal(a.MaxHP, a.CurrentHP));
         }
+
+        /// <summary>
+        /// §0.139：初期の3人は若めに始め、イザベラの来訪（森の60F、4〜5年目）のころまで在籍する。
+        /// 年の順（クラウディア＞フィオナ＞リナ）は保ち、クラウディアは6年目の年末に満期を迎える。
+        /// </summary>
+        [Fact]
+        public void StarterAdventurers_StayUntilAroundIsabellasVisit()
+        {
+            var list = SampleData.CreateStarterAdventurers();
+            var claudia = list.Single(a => a.Name == "クラウディア");
+            var fiona = list.Single(a => a.Name == "フィオナ");
+            var rina = list.Single(a => a.Name == "リナ");
+
+            Assert.True(claudia.Age > fiona.Age && fiona.Age > rina.Age);
+            Assert.True(rina.Age >= GuildManager.Core.Balance.RecruitmentBalance.MinCandidateAge);
+            int claudiaYears = GuildManager.Core.Systems.AgingSystem.GetRemainingActiveWeeks(claudia, 1) / GameCalendar.WeeksPerYear;
+            Assert.Equal(6, claudiaYears);
+        }
     }
 }

@@ -419,6 +419,12 @@ partial class GameSim
                 }
                 else pick = pool.OrderByDescending(a => RandSquad ? Rnd.NextDouble() : StatSum(a)).Take(4).ToList();
             }
+            else if (i == 1 && !NoMoodGather && s.MasterMood < MasterMoodBalance.TierThresholdNormal && s.UnlockedSquadSlots < 3)
+            {
+                // 機嫌が平常より下で採取の部隊が無いうちは、2つ目の部隊を採取に回す（人なら危機の小窓を見てそうする。§0.139）
+                order = SquadOrder.Gather;
+                pick = pool.Where(hpOk).OrderByDescending(HpRatio).Take(3).ToList();
+            }
             else if (i == 1)
             {
                 order = SquadOrder.Survey;

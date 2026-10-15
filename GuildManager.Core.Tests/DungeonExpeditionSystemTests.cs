@@ -509,6 +509,8 @@ namespace GuildManager.Core.Tests
             // と同じ経路。ここではTryDispatch→ProcessWeeklyMissionsの実際の配線を確認する）。
             var boss = new FloorBoss { Name = "弱いボス", Floor = 10, MaxHp = 1, CurrentHp = 1, RewardGold = 300 };
             var field1 = new DungeonField { Id = "f1", Name = "第1フィールド", Order = 1, IsUnlocked = true, Bosses = { boss } };
+            // 次のフィールドを開く階層（§0.139）の番人は、先に倒してあることにする（開くのはこのフィールドで番人を倒した週）
+            field1.Bosses.Add(new FloorBoss { Name = "開放の番人", Floor = DungeonBalance.FieldUnlockFloor(2), MaxHp = 1, CurrentHp = 0, IsDefeated = true });
             var field2 = new DungeonField { Id = "f2", Name = "第2フィールド", Order = 2, IsUnlocked = false };
             var state = new GameState { Gold = 0, DungeonFields = { field1, field2 } };
             var strongParty = PartyOf(MakeAdventurer(JobClass.Warrior, 200), MakeAdventurer(JobClass.Cleric, 200));
@@ -521,7 +523,7 @@ namespace GuildManager.Core.Tests
             Assert.Equal(DungeonOutcome.Victory, resolution.DungeonResult!.Outcome);
             Assert.True(boss.IsDefeated);
             Assert.Equal(11, field1.ReachedFloor);
-            Assert.True(field2.IsUnlocked); // Floor==10撃破で次フィールドが自動的に開く
+            Assert.True(field2.IsUnlocked); // 開放の階層の番人を倒してあれば、このフィールドの番人を倒した週に次のフィールドが開く
             Assert.Equal(300, state.Gold);
             Assert.Equal(2, state.UnlockedSquadSlots);
             Assert.Equal(2, resolution.SquadSlotsExpandedTo);
@@ -761,6 +763,8 @@ namespace GuildManager.Core.Tests
                 RewardMaterialId = MaterialIds.ForestHerb, RewardMaterialCount = 3,
             };
             var field1 = new DungeonField { Id = "f1", Name = "第1フィールド", Order = 1, IsUnlocked = true, Bosses = { boss } };
+            // 次のフィールドを開く階層（§0.139）の番人は、先に倒してあることにする（開くのはこのフィールドで番人を倒した週）
+            field1.Bosses.Add(new FloorBoss { Name = "開放の番人", Floor = DungeonBalance.FieldUnlockFloor(2), MaxHp = 1, CurrentHp = 0, IsDefeated = true });
             var field2 = new DungeonField { Id = "f2", Name = "第2フィールド", Order = 2, IsUnlocked = false };
             var state = new GameState { Gold = 0, DungeonFields = { field1, field2 } };
             var strongParty = PartyOf(MakeAdventurer(JobClass.Warrior, 200), MakeAdventurer(JobClass.Cleric, 200));

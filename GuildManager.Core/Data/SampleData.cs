@@ -35,7 +35,8 @@ namespace GuildManager.Core.Data
             {
                 new Adventurer
                 {
-                    Name = "クラウディア", Age = 24, JobClass = JobClass.Warrior, Gender = Gender.Female,
+                    // 年齢は§0.139で24→20（6年目の年末に満期。イザベラの来訪のころまでいる）。リナ21→18・フィオナ23→19も年の順のまま下げた
+                    Name = "クラウディア", Age = 20, JobClass = JobClass.Warrior, Gender = Gender.Female,
                     // → 項目62。guild-manager.godot/assets/portraits/claudia.png（物語帳の立ち絵と同じ絵、§0.110）
                     PortraitId = "claudia",
                     STR = 60, AGI = 35, VIT = 55, MND = 10, DEX = 20, LDR = 40,
@@ -45,7 +46,7 @@ namespace GuildManager.Core.Data
                 },
                 new Adventurer
                 {
-                    Name = "リナ", Age = 21, JobClass = JobClass.Ranger, Gender = Gender.Female,
+                    Name = "リナ", Age = 18, JobClass = JobClass.Ranger, Gender = Gender.Female,
                     PortraitId = "rina", // → 項目62。guild-manager.godot/assets/portraits/rina.png
                     STR = 30, AGI = 60, VIT = 35, MND = 15, DEX = 55, LDR = 25,
                     INT = 20, PA_INT = 30, // v1.2改訂：INT活性化に伴う暫定値。斥候は中間程度
@@ -54,7 +55,7 @@ namespace GuildManager.Core.Data
                 },
                 new Adventurer
                 {
-                    Name = "フィオナ", Age = 23, JobClass = JobClass.Cleric, Gender = Gender.Female,
+                    Name = "フィオナ", Age = 19, JobClass = JobClass.Cleric, Gender = Gender.Female,
                     PortraitId = "fiona", // → 項目62。guild-manager.godot/assets/portraits/fiona.png
                     STR = 15, AGI = 20, VIT = 30, MND = 45, DEX = 15, LDR = 20,
                     INT = 25, PA_INT = 35, // v1.2改訂：INT活性化に伴う暫定値。神官は中間〜低め
