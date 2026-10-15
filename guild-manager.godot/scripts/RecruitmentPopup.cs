@@ -267,6 +267,8 @@ public partial class RecruitmentPopup : PopupPanel
 		headRow.AddChild(MakeLabel(AdventurerPanel.JobLabel(c.JobClass), 16, new Color(1f, 0.85f, 0.4f)));
 		headRow.AddChild(MakeLabel(c.Name, 18, null));
 		headRow.AddChild(MakeLabel($"{c.Age}歳", 16, null));
+		if (offer.IsNobleDaughter) // 古王の寝所の紹介（§0.130）
+			headRow.AddChild(MakeLabel("👑 名のある家の娘（古王の寝所の紹介）", 15, new Color(0.8f, 0.65f, 1f)));
 
 		// 2行目：契約金・初期装備・総合の見立て（§0.74）・週給
 		string cost = _draft != null ? "契約金: 0 G（無料）" : $"契約金: {offer.SigningBonus:N0} G";

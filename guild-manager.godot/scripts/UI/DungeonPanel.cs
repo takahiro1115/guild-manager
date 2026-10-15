@@ -218,6 +218,8 @@ public partial class DungeonPanel : ScrollContainer
 	private RichTextLabel _rulerLabel = null!;
 	private readonly List<Label> _rulerSlotLabels = new();
 	private readonly List<OptionButton> _rulerSlots = new();
+	/// <summary>枠ごとの行き先（オルテンシア。選択肢の Id は CorridorTarget）。</summary>
+	private readonly List<OptionButton> _rulerTargets = new();
 	/// <summary>枠ごとの選択肢（添字0は「空き」＝null）。ヴェスペラは冒険者の Id、メルジーネは部隊の Id。</summary>
 	private readonly List<List<Guid?>> _rulerSlotIds = new();
 	private bool _rulerRefreshing;
@@ -237,17 +239,28 @@ public partial class DungeonPanel : ScrollContainer
 		vbox.AddChild(_rulerLabel);
 		var grid = new GridContainer { Columns = 2 };
 		grid.AddThemeConstantOverride("h_separation", 6);
-		int slots = Math.Max(RulerBalance.VesperaMaxRepresentatives, RulerBalance.MelusineMaxSquads);
+		int slots = Math.Max(RulerBalance.VesperaMaxRepresentatives, Math.Max(RulerBalance.MelusineMaxSquads, RulerBalance.OrtensiaMaxSquads));
 		for (int i = 0; i < slots; i++)
 		{
 			var label = new Label();
 			grid.AddChild(label);
 			_rulerSlotLabels.Add(label);
+			var row = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+			row.AddThemeConstantOverride("separation", 4);
 			var slot = new OptionButton { SizeFlagsHorizontal = SizeFlags.ExpandFill, FitToLongestItem = false };
 			UiStyles.ApplyDropdownStyle(slot);
 			slot.ItemSelected += _ => OnRulerSlotChanged();
-			grid.AddChild(slot);
+			row.AddChild(slot);
+			// 行き先（オルテンシアのときだけ見せる、§0.130）
+			var target = new OptionButton { CustomMinimumSize = new Vector2(150, 0), FitToLongestItem = false, Visible = false };
+			UiStyles.ApplyDropdownStyle(target);
+			foreach (var t in Enum.GetValues<CorridorTarget>())
+				target.AddItem(OrtensiaBattle.TargetLabel(t), (int)t);
+			target.ItemSelected += _ => OnRulerSlotChanged();
+			row.AddChild(target);
+			grid.AddChild(row);
 			_rulerSlots.Add(slot);
+			_rulerTargets.Add(target);
 			_rulerSlotIds.Add(new List<Guid?>());
 		}
 		vbox.AddChild(grid);
@@ -273,17 +286,24 @@ public partial class DungeonPanel : ScrollContainer
 		double intel = RulerSystem.IntelOf(_state!, ruler);
 		bool squads = RulerSystem.UsesSquads(ruler);
 		var sb = new StringBuilder();
-		sb.Append($"[b]👑 支配者{RulerSystem.NameOf(ruler.RulerId)}[/b]　{(outpost ? "前哨戦（70F）" : "決着（100F）")}　[color=gray]{(squads ? "調べの読み合い" : "勝ち抜きの一騎打ち")}[/color]\n");
+		bool corridor = ruler.RulerId == RulerSystem.OrtensiaId;
+		bool heat = ruler.RulerId == RulerSystem.IgniaId;
+		bool heart = ruler.RulerId == RulerSystem.NepherisId;
+		string style = corridor ? "玉座への回廊" : heat ? "灼熱の消耗戦" : heart ? "心臓の間（4つの段）" : squads ? "調べの読み合い" : "勝ち抜きの一騎打ち";
+		sb.Append($"[b]👑 支配者{RulerSystem.NameOf(ruler.RulerId)}[/b]　{(outpost ? "前哨戦（70F）" : "決着（100F）")}　[color=gray]{style}[/color]\n");
 		int filled = (int)Math.Round(10.0 * ruler.Hp / RulerBalance.MaxHp);
 		sb.Append($"体力 [color=#f87171]{new string('■', filled)}[/color][color=#4b5563]{new string('□', 10 - filled)}[/color] {ruler.Hp}/{RulerBalance.MaxHp}" +
-			$"[color=gray]（{(outpost ? $"{RulerBalance.OutpostRetreatHp}を切ると退く・" : "")}毎月+{RulerBalance.RegenPerMonth}）[/color]\n");
+			$"[color=gray]（{(outpost ? $"{RulerBalance.OutpostRetreatHp}を切ると退く・" : "")}毎月+{RulerSystem.RegenOf(ruler)}）[/color]\n");
 		bool canChange = RulerSystem.CanChangeRepresentatives(_state!);
-		if (squads) AppendMelusineInfo(sb, ruler, outpost, intel, canChange);
+		if (corridor) AppendOrtensiaInfo(sb, ruler, outpost, intel, canChange);
+		else if (heat) AppendIgniaInfo(sb, outpost, canChange);
+		else if (heart) AppendNepherisInfo(sb, ruler, outpost, canChange);
+		else if (squads) AppendMelusineInfo(sb, ruler, outpost, intel, canChange);
 		else AppendVesperaInfo(sb, ruler, outpost, intel, canChange);
 		_rulerLabel.Clear();
 		_rulerLabel.AppendText(sb.ToString());
 
-		int slotCount = squads ? RulerBalance.MelusineMaxSquads : RulerBalance.VesperaMaxRepresentatives;
+		int slotCount = squads ? RulerSystem.MaxSquads(ruler) : RulerBalance.VesperaMaxRepresentatives;
 		var current = squads ? ruler.SquadIds : ruler.RepresentativeIds;
 		for (int i = 0; i < _rulerSlots.Count; i++)
 		{
@@ -291,8 +311,10 @@ public partial class DungeonPanel : ScrollContainer
 			bool visible = i < slotCount;
 			slot.Visible = visible;
 			_rulerSlotLabels[i].Visible = visible;
+			var targetBox = _rulerTargets[i];
+			targetBox.Visible = visible && corridor;
 			if (!visible) continue;
-			_rulerSlotLabels[i].Text = squads ? $"{i + 1}番目" : $"{i + 1}人目";
+			_rulerSlotLabels[i].Text = heat ? (i == 0 ? "先鋒" : i == 1 ? "本隊" : "後詰め") : squads ? $"{i + 1}番目" : $"{i + 1}人目";
 			var ids = _rulerSlotIds[i];
 			Guid? chosen = i < current.Count ? current[i] : null;
 			slot.Clear();
@@ -303,8 +325,19 @@ public partial class DungeonPanel : ScrollContainer
 			{
 				foreach (var p in _state!.SavedParties.Where(p => p.MemberIds.Count > 0))
 				{
-					slot.AddItem(SquadFitText(p, outpost));
+					slot.AddItem(corridor ? CorridorFitText(p, outpost) : heat ? HeatFitText(p, outpost) : heart ? HeartFitText(ruler, p, outpost) : SquadFitText(p, outpost));
 					ids.Add(p.Id);
+				}
+				if (corridor)
+				{
+					for (int t = 0; t < targetBox.ItemCount; t++)
+					{
+						var ct = (CorridorTarget)t;
+						bool open = ct == CorridorTarget.Throne ? OrtensiaBattle.ThroneOpen(ruler) : ruler.SealHp[t] > 0;
+						targetBox.SetItemText(t, OrtensiaBattle.TargetLabel(ct) + (ct == CorridorTarget.Throne ? (open ? "（開いている）" : "（閉じている）") : open ? "" : "（破れている）"));
+					}
+					targetBox.Select(chosen is Guid cid ? (int)RulerSystem.TargetOf(ruler, cid) : 0);
+					targetBox.Disabled = !canChange;
 				}
 			}
 			else
@@ -320,6 +353,8 @@ public partial class DungeonPanel : ScrollContainer
 			slot.Select(Math.Max(0, ids.IndexOf(chosen)));
 			slot.Disabled = !canChange;
 			slot.TooltipText = !canChange ? "変えられるのは月のはじめだけ。"
+				: corridor ? "出す部隊と、右で行き先を選ぶ。間へ向かう部隊が先に戦い、玉座へ向かう部隊はそのあと。"
+				: heat ? "先鋒から順に前に出る。前の部隊が崩れたら（戦える子が2人を切ったら）次の部隊が代わる。"
 				: squads ? "出す部隊を順番に選ぶ。調べの分からない曲は、この順番で前に出る。" : "代表を選ぶ。同じ子を2つの枠に入れたら、上の枠を残す。";
 		}
 		_rulerRefreshing = false;
@@ -359,6 +394,107 @@ public partial class DungeonPanel : ScrollContainer
 			(canChange ? "" : "[color=orange]部隊を変えられるのは月のはじめだけ。[/color]") + "[/color]");
 	}
 
+	/// <summary>オルテンシアの封印・張り直し・威圧（§0.130）と説明。</summary>
+	private void AppendOrtensiaInfo(StringBuilder sb, RulerState ruler, bool outpost, double intel, bool canChange)
+	{
+		var seals = Enumerable.Range(0, OrtensiaBattle.HallCount).Select(i =>
+		{
+			int hp = ruler.SealHp.Count > i ? ruler.SealHp[i] : RulerBalance.OrtensiaSealMax;
+			string label = OrtensiaBattle.TargetLabel((CorridorTarget)i);
+			return hp > 0 ? $"{label} {hp}" : $"[color=#86efac]{label} 破れている[/color]";
+		});
+		sb.Append("封印：" + string.Join("・", seals) + (OrtensiaBattle.ThroneOpen(ruler) ? "　[color=#fbbf24]玉座が開いている[/color]" : "") + "\n");
+		if (OrtensiaBattle.AnyBroken(ruler))
+			sb.Append(intel >= RulerBalance.OrtensiaIntelResealReveal
+				? (ruler.ResealPending ? "[color=orange]この月の戦いのはじめに、封印が1つ張り直される[/color]\n"
+					: $"張り直し：あと{OrtensiaBattle.MonthsUntilReseal(ruler)}か月で、破れた封印が1つ張り直される\n")
+				: $"張り直し：[color=gray]？？？（解析{RulerBalance.OrtensiaIntelResealReveal * 100:F0}%で分かる。{RulerBalance.OrtensiaResealMonths}か月ごと）[/color]\n");
+		int threshold = OrtensiaBattle.Threshold(outpost);
+		int awe = OrtensiaBattle.AweThreshold(_state!, outpost);
+		sb.Append($"閾値 {threshold}（合い具合{RulerBalance.OrtensiaBreakRate * 100:F0}%で削れる）。骸骨兵＝全員の STR・VIT の合計／騎士王＝いちばん強い1人の STR・LDR／幻惑＝INT・MND の平均（{threshold * RulerBalance.OrtensiaIllusionRate:F0}より低い子は惑う）\n");
+		sb.Append($"玉座の威圧：LDR が {awe * RulerBalance.OrtensiaAweRate:F0} より低い子は動けない（二つ名を持つ子は受けない。ギルドのG1の優勝 {OrtensiaBattle.GuildG1Wins(_state!)}回で −{threshold - awe}）\n");
+		sb.Append("[color=gray]部隊ごとに行き先を選ぶ。3つの封印を破ると玉座が開く（同じ月のうちに、玉座へ向かう部隊が入れる）。戦いは月を終えたあと。出す部隊はその月、ほかに出ない。" +
+			(canChange ? "" : "[color=orange]部隊を変えられるのは月のはじめだけ。[/color]") + "[/color]");
+	}
+
+	/// <summary>ネフェリスの4つの段・その月の調べと間・倒していない支配者の仕掛け（§0.132）と説明。</summary>
+	private void AppendNepherisInfo(StringBuilder sb, RulerState ruler, bool outpost, bool canChange)
+	{
+		string song = NepherisBattle.SongKnown(_state!, ruler)
+			? $"{MelusineBattle.ModeLabel(NepherisBattle.SongOf(ruler))}（{MelusineBattle.ModeStatLabel(NepherisBattle.SongOf(ruler))}）"
+			: NepherisBattle.Shadowed(_state!, NepherisStage.Song) ? "[color=gray]？？？（メルジーネを倒すまで分からない）[/color]"
+			: $"[color=gray]？？？（解析{RulerBalance.NepherisIntelSongReveal * 100:F0}%で分かる）[/color]";
+		sb.Append($"段：決闘 → 調べ {song} → 間 {OrtensiaBattle.TargetLabel(ruler.StageHall)} → 灼熱\n");
+		sb.Append($"閾値 {NepherisBattle.Threshold(outpost)}（合い具合{RulerBalance.NepherisBreakRate * 100:F0}%で削れる）。各段は、出した部隊のうちいちばん合う部隊が受け持つ\n");
+		var shadows = Enum.GetValues<NepherisStage>().Where(s => NepherisBattle.Shadowed(_state!, s)).Select(s => s switch
+		{
+			NepherisStage.Duel => "ヴェスペラ＝決闘で魅了（MND）",
+			NepherisStage.Song => "メルジーネ＝調べが分からない・甘い調べで魅了",
+			NepherisStage.Hall => "オルテンシア＝間で威圧（LDR）",
+			_ => "イグニア＝灼熱がすべての段に",
+		}).ToList();
+		sb.Append(shadows.Count > 0
+			? $"[color=#c084fc]倒していない支配者の影[/color]：{string.Join("／", shadows)}\n"
+			: "[color=#86efac]4人の支配者を倒した。影は無い[/color]\n");
+		if (NepherisBattle.CityVoiceReady(_state!))
+			sb.Append("[color=#a5f3fc]都の声：ルミナが心臓の姉の声を呼び、届かない段を1つ打ち消せる（1回の戦いで1回）[/color]\n");
+		sb.Append("[color=gray]部隊を選ぶ（調べが分からない段は、順番どおりの部隊が受け持つ）。戦いは月を終えたあと。出す部隊はその月、ほかに出ない。" +
+			(canChange ? "" : "[color=orange]部隊を変えられるのは月のはじめだけ。[/color]") + "[/color]");
+	}
+
+	/// <summary>部隊の選択肢の1行（ネフェリス）：部隊の名前と、4つの段への合い具合。</summary>
+	private string HeartFitText(RulerState ruler, SavedParty p, bool outpost)
+	{
+		var members = p.MemberIds.Select(id => _state!.FindAdventurer(id)).OfType<Adventurer>().Where(a => !a.IsRetired && IgniaBattle.CanStand(a)).ToList();
+		var fits = Enum.GetValues<NepherisStage>().Select(st =>
+		{
+			double fit = NepherisBattle.SquadFit(_state!, ruler, members, st, outpost);
+			string mark = fit >= 1.0 ? "✔" : fit >= RulerBalance.NepherisBreakRate ? "△" : "✖";
+			string label = NepherisBattle.StageLabel(st);
+			return $"{label.Split("（")[0]}{fit * 100:F0}%{mark}";
+		});
+		return $"{p.Name}（{members.Count}人）　{string.Join(" ", fits)}";
+	}
+
+	/// <summary>イグニアの3幕・灼熱・回復（§0.131）と説明。</summary>
+	private static void AppendIgniaInfo(StringBuilder sb, bool outpost, bool canChange)
+	{
+		int threshold = IgniaBattle.Threshold(outpost);
+		sb.Append("幕：" + string.Join(" → ", Enum.GetValues<IgniaAct>().Select(a => $"{IgniaBattle.ActLabel(a)}（{IgniaBattle.ActStatLabel(a)}）")) + "\n");
+		sb.Append($"閾値 {threshold}（合い具合{RulerBalance.IgniaBreakRate * 100:F0}%で削れる）。[color=#fb923c]灼熱[/color]：幕ごとに前の部隊の全員の HP が {RulerBalance.IgniaHeatPct}%×{threshold}÷VIT（{RulerBalance.IgniaHeatPctMin}〜{RulerBalance.IgniaHeatPctMax}%）削れる。HP が{RulerBalance.IgniaLeaveHpRate * 100:F0}%を切った子は戦線を離れる\n");
+		sb.Append($"[color=#fb923c]回復が速い[/color]：毎月+{RulerBalance.IgniaRegenPerMonth}（ほかの支配者は+{RulerBalance.RegenPerMonth}）。戦った子は HP が減ったまま翌月を迎える\n");
+		sb.Append("[color=gray]部隊を順番に選ぶ（先鋒・本隊・後詰め）。戦いは月を終えたあと。出す部隊はその月、ほかに出ない。" +
+			(canChange ? "" : "[color=orange]部隊を変えられるのは月のはじめだけ。[/color]") + "[/color]");
+	}
+
+	/// <summary>部隊の選択肢の1行（イグニア）：部隊の名前と、3幕への合い具合・灼熱のいちばん重い子の%・いま戦える子の数。</summary>
+	private string HeatFitText(SavedParty p, bool outpost)
+	{
+		var members = p.MemberIds.Select(id => _state!.FindAdventurer(id)).OfType<Adventurer>().Where(a => !a.IsRetired).ToList();
+		var standing = members.Where(IgniaBattle.CanStand).ToList();
+		var fits = Enum.GetValues<IgniaAct>().Select(a =>
+		{
+			double fit = IgniaBattle.SquadFit(standing, a, outpost);
+			string mark = fit >= 1.0 ? "✔" : fit >= RulerBalance.IgniaBreakRate ? "△" : "✖";
+			return $"{IgniaBattle.ActLabel(a).Replace("イグニア", "").Replace("炎の", "")}{fit * 100:F0}%{mark}";
+		});
+		int heat = members.Count == 0 ? 0 : members.Max(a => IgniaBattle.HeatPct(a, outpost));
+		return $"{p.Name}（戦える{standing.Count}/{members.Count}人）　{string.Join(" ", fits)}　灼熱{heat}%";
+	}
+
+	/// <summary>部隊の選択肢の1行（オルテンシア）：部隊の名前と、3つの間と玉座への合い具合。</summary>
+	private string CorridorFitText(SavedParty p, bool outpost)
+	{
+		var members = p.MemberIds.Select(id => _state!.FindAdventurer(id)).OfType<Adventurer>().Where(a => !a.IsRetired).ToList();
+		var fits = Enum.GetValues<CorridorTarget>().Select(t =>
+		{
+			double fit = OrtensiaBattle.SquadFit(_state!, members, t, outpost);
+			string mark = fit >= 1.0 ? "✔" : fit >= RulerBalance.OrtensiaBreakRate ? "△" : "✖";
+			return $"{OrtensiaBattle.TargetLabel(t).Replace("の間", "")}{fit * 100:F0}%{mark}";
+		});
+		return $"{p.Name}（{members.Count}人）　{string.Join(" ", fits)}";
+	}
+
 	/// <summary>部隊の選択肢の1行：部隊の名前と、4つの調べへの合い具合。</summary>
 	private string SquadFitText(SavedParty p, bool outpost)
 	{
@@ -392,7 +528,15 @@ public partial class DungeonPanel : ScrollContainer
 		if (ruler == null) return;
 		var ids = _rulerSlots.Select((slot, i) => slot.Visible && slot.Selected >= 0 && slot.Selected < _rulerSlotIds[i].Count ? _rulerSlotIds[i][slot.Selected] : null)
 			.OfType<Guid>().ToList();
-		if (RulerSystem.UsesSquads(ruler)) RulerSystem.TrySetSquads(_state, ruler, ids);
+		if (ruler.RulerId == RulerSystem.OrtensiaId)
+		{
+			// 空きの枠は飛ばすので、行き先も選んだ枠のものだけを拾う
+			var targets = _rulerSlots.Select((slot, i) => (slot, i))
+				.Where(x => x.slot.Visible && x.slot.Selected > 0 && x.slot.Selected < _rulerSlotIds[x.i].Count)
+				.Select(x => (CorridorTarget)Math.Max(0, _rulerTargets[x.i].Selected)).ToList();
+			RulerSystem.TrySetSquads(_state, ruler, ids, targets);
+		}
+		else if (RulerSystem.UsesSquads(ruler)) RulerSystem.TrySetSquads(_state, ruler, ids);
 		else RulerSystem.TrySetRepresentatives(_state, ruler, ids);
 		StateChanged.Invoke();
 		Refresh(_state);

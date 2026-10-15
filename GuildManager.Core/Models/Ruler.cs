@@ -45,6 +45,34 @@ namespace GuildManager.Core.Models
 
         /// <summary>メルジーネの4曲の調べの並び（月ごとに入れ替わる、§0.129）。旧セーブでは空（読み込みで補う）。</summary>
         public List<SongMode> SongOrder { get; set; } = new();
+
+        /// <summary>出す部隊の行き先（オルテンシア、§0.130。<see cref="SquadIds"/> と同じ並び）。旧セーブでは空（足りない分は骸骨兵の間）。</summary>
+        public List<CorridorTarget> SquadTargets { get; set; } = new();
+
+        /// <summary>3つの間の封印の強さ（オルテンシア。骸骨兵・騎士王・幻惑の順、0で破れている）。旧セーブでは空（読み込みで補う）。</summary>
+        public List<int> SealHp { get; set; } = new();
+
+        /// <summary>オルテンシアの封印の張り直しまでに数えた月（3で張り直す）。</summary>
+        public int ResealCounter { get; set; }
+
+        /// <summary>この月の戦いのはじめに、オルテンシアが封印を張り直す（介入「援軍」で防げる）。</summary>
+        public bool ResealPending { get; set; }
+
+        /// <summary>ネフェリスのその月の間（§0.132。月ごとに替わる。調べは <see cref="SongOrder"/> の先頭）。</summary>
+        public CorridorTarget StageHall { get; set; }
+    }
+
+    /// <summary>オルテンシアの回廊の行き先（§0.130）。</summary>
+    public enum CorridorTarget
+    {
+        /// <summary>骸骨兵の間（群れ。部隊全員の STR・VIT の合計）。</summary>
+        Skeleton,
+        /// <summary>騎士王の間（強い一騎。部隊でいちばん強い1人の STR・LDR）。</summary>
+        KnightKing,
+        /// <summary>幻惑の間（INT・MND の平均。足りない子は惑わされて外れる）。</summary>
+        Illusion,
+        /// <summary>玉座（3つの封印が破れると開く。威圧〈LDR〉）。</summary>
+        Throne,
     }
 
     /// <summary>メルジーネの調べ（§0.129）。</summary>

@@ -12,6 +12,9 @@ namespace GuildManager.Core.Models
         /// <summary>契約時の一時金。→ BAL: 採用/契約金。</summary>
         public int SigningBonus { get; }
 
+        /// <summary>古王の寝所（§0.130）から来た、名のある家の娘（有望新人）。</summary>
+        public bool IsNobleDaughter { get; init; }
+
         public RecruitmentOffer(Adventurer candidate, int signingBonus)
         {
             Candidate = candidate;

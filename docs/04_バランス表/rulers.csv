@@ -43,3 +43,54 @@ MelusineLossHpLossPctMax,50,%,同・上限（合い具合が線より0.35以上�
 MelusineIntelRevealOne,0.3,割合,解析がこれ以上なら、1曲目の調べが前もって分かる
 MelusineIntelRevealTwo,0.6,割合,解析がこれ以上なら、2曲目まで分かる
 MelusineIntelRevealAll,1.0,割合,解析がこれ以上なら、全曲分かる
+OrtensiaMaxSquads,3,部隊,オルテンシアの玉座への回廊（§0.130、設計書 §3-8）：出す部隊の上限（部隊ごとに行き先〈3つの間か玉座〉を決める）
+OrtensiaThresholdOutpost,60,pt,間と玉座の閾値（前哨戦）。合い具合＝間ごとの能力÷この値
+OrtensiaThresholdFinal,80,pt,間と玉座の閾値（決着）
+OrtensiaFullSquadSize,4,人,骸骨兵の間と玉座は、部隊の合計÷（閾値×この人数）で合い具合を見る（人数が要る）
+OrtensiaBreakRate,0.85,割合,合い具合がこの値以上なら封印を削る・玉座で体力を削る。それより下は押し返される
+OrtensiaIllusionRate,0.85,割合,幻惑の間：（INT+MND）÷2 が閾値×この値より下の子は惑わされて外れる
+OrtensiaSealMax,100,pt,封印の強さ。削った分は次の月に残り、0で破れる（3つとも破れると玉座が開く）
+OrtensiaSealDamageBase,60,pt,封印を削る量＝この値×合い具合（合い具合1.0でちょうど2か月、1.7で1か月）
+OrtensiaResealMonths,3,か月,オルテンシアはこの月数ごとに、破れた封印を1つ張り直す（戦いのはじめ。介入「援軍」で防げる）
+OrtensiaGuardRate,0.85,割合,援軍：守りに回した部隊の VIT の平均が閾値×この値以上なら、張り直しを防ぐ
+OrtensiaAweRate,0.85,割合,玉座の威圧：LDR が威圧の閾値×この値より下の子は動けない（二つ名〈誉以上の称号〉を持つ子は受けない）
+OrtensiaAweFamePerG1,1,pt,ギルドの G1 の優勝1回（引退した子を含む）につき、威圧の閾値がこの値だけ下がる
+OrtensiaAweFameMax,15,pt,同・下がる量の上限
+OrtensiaThroneDamageBase,25,pt,玉座で削る体力＝この値×合い具合（Min〜Max で止める）。玉座の合い具合＝動ける子の STR・DEX・INT のいちばん高いものの合計÷（閾値×4）
+OrtensiaThroneDamageMin,10,pt,同・下限
+OrtensiaThroneDamageMax,35,pt,同・上限
+OrtensiaWinHpLossPctMin,10,%,封印を削った・玉座で削った部隊のHPの減り（最大HPに対する%）の下限
+OrtensiaWinHpLossPctMax,20,%,同・上限
+OrtensiaLossHpLossPctMin,30,%,押し返された部隊のHPの減りの下限（合い具合が線に近いとき）
+OrtensiaLossHpLossPctMax,50,%,同・上限（合い具合が線より0.35以上低いとき・惑わされた子・動けなかった子）
+OrtensiaIntelResealReveal,0.5,割合,解析がこれ以上なら、張り直しまでの月数が見える
+NobleDaughterPaBonus,5,pt,古王の寝所（オルテンシアとの決着の見返り）：採用試験に毎回1人、名のある家の娘（有望新人。PA にこの値を足す）が加わる
+IgniaMaxSquads,3,部隊,イグニアの灼熱の底（§0.131、設計書 §3-9）：出す部隊の上限（順番つき＝先鋒・本隊・後詰め。前の部隊が崩れたら次が代わる）
+IgniaRegenPerMonth,20,pt,イグニアの体力が毎月のはじめに回復する量（ほかの支配者は RegenPerMonth）。続けて挑まないと削りきれない
+IgniaThresholdOutpost,65,pt,幕の閾値（前哨戦）。合い具合＝幕ごとの能力÷この値
+IgniaThresholdFinal,85,pt,幕の閾値（決着）
+IgniaFullSquadSize,4,人,炎の眷属と本体の幕は、部隊の合計÷（閾値×この人数）で合い具合を見る
+IgniaBreakRate,0.85,割合,合い具合がこの値以上なら、その幕で体力を削る
+IgniaDamageBase,12,pt,幕で削る体力＝この値×合い具合（Min〜Max で止める）。1回の戦いは3幕
+IgniaDamageMin,8,pt,同・下限
+IgniaDamageMax,20,pt,同・上限
+IgniaHeatPct,15,%,灼熱：幕ごとに、前に出ている部隊の全員の HP がこの%×閾値÷VIT（装備込み）だけ削れる（Min〜Max で止める）
+IgniaHeatPctMin,5,%,同・下限
+IgniaHeatPctMax,25,%,同・上限
+IgniaFailExtraPct,10,%,幕で押し返されたとき、灼熱に足す HP の減り
+IgniaLeaveHpRate,0.3,割合,HP が最大HPのこの割合を切った子は戦線を離れる。戦える子が IgniaMinFighters を切ると、次の部隊と入れ替わる
+IgniaMinFighters,2,人,部隊が崩れる線（戦える子がこの人数より少なくなると、次の部隊が前に出る）
+IgniaPushFitRate,1.3,倍,介入「押し切れ」：その幕の合い具合にこの倍率を掛ける
+IgniaPushHeatRate,1.5,倍,押し切れ：灼熱にこの倍率を掛ける
+IgniaPushFatalRate,2,倍,押し切れ：その幕で HP0 になったときの強制除籍の確率（combat.csv FatalChancePercent）にこの倍率を掛ける
+IgniaForgeScaleCost,3,個,イグニアの炉（イグニアとの決着の見返り）：武具1つのアフィックスを1段強くするのに使う焔の鱗の数
+IgniaForgeGoldCost,500,G,同・費用
+NepherisMaxSquads,3,部隊,ネフェリスの心臓の間（§0.132、設計書 §3-10）：出す部隊の上限（各段は、出した部隊のうちいちばん合う部隊が受け持つ。調べが分からない段は順番どおり）
+NepherisThresholdOutpost,75,pt,4つの段の閾値（前哨戦）
+NepherisThresholdFinal,95,pt,4つの段の閾値（決着）。限界突破（素質が100を超える能力）の子がいて届く高さ
+NepherisBreakRate,0.85,割合,合い具合がこの値以上なら、その段で体力を削る
+NepherisCharmRate,0.85,割合,倒していない支配者の仕掛け：決闘の魅了（MND）・甘い調べの魅了（INT）・幻惑の間（INT・MND）・威圧（LDR）は、閾値×この値より下の子を外す
+NepherisDamageBase,15,pt,段で削る体力＝この値×合い具合（Min〜Max で止める）。1回の戦いは4段
+NepherisDamageMin,8,pt,同・下限
+NepherisDamageMax,25,pt,同・上限
+NepherisIntelSongReveal,0.6,割合,解析がこれ以上なら、その月の調べが分かる（メルジーネを倒していないうちは分からない）

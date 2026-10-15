@@ -13,6 +13,9 @@ namespace GuildManager.Core.Systems
     /// 支配者とは支配者戦（支配者ごとに戦い方が違う、→ RulerBattle）で戦う。
     ///  - ヴェスペラ（森、§0.127）：代表を最大5人選ぶ勝ち抜きの一騎打ち（→ RulerDuel、設計書 §3-5）。
     ///  - メルジーネ（洞窟、§0.129）：部隊を最大3つ出す調べの読み合い（→ MelusineBattle、設計書 §3-7）。
+    ///  - オルテンシア（廃墟、§0.130）：部隊を最大3つ、行き先を決めて出す玉座への回廊（→ OrtensiaBattle、設計書 §3-8）。
+    ///  - イグニア（峡谷、§0.131）：部隊を最大3つ順番に出す3幕の消耗戦（→ IgniaBattle、設計書 §3-9）。
+    ///  - ネフェリス（深淵、§0.132）：部隊を最大3つ出す4つの段のまとめ。倒していない支配者の仕掛けが乗る（→ NepherisBattle、設計書 §3-10）。決着でクリア。
     /// 共通：60F（90F）の主を倒すと挑める。出る子・部隊は月のはじめに決め（翌月も残る）、その月はほかに出ない。
     /// 月を過ごし終えたら月報のあとに戦う。体力は月をまたいで残り、毎月回復する。前哨戦は体力50を切ると退き（70Fを倒したことになる）、
     /// 決着は0で撃破。介入は部隊の護符の多頭通信術式。HPが0になった子は、低い確率で強制除籍（§0.125 と同じ決まり）。
@@ -23,8 +26,17 @@ namespace GuildManager.Core.Systems
         public const string VesperaName = "ヴェスペラ";
         public const string MelusineId = "melusine";
         public const string MelusineName = "メルジーネ";
+        public const string OrtensiaId = "ortensia";
+        public const string OrtensiaName = "オルテンシア";
+        public const string IgniaId = "ignia";
+        public const string IgniaName = "イグニア";
+        public const string NepherisId = "nepheris";
+        public const string NepherisName = "ネフェリス";
         public const string ForestId = "forest";
         public const string CaveId = "cave";
+        public const string RuinsId = "ruins";
+        public const string CanyonId = "canyon";
+        public const string AbyssId = "abyss";
         public const int OutpostFloor = 70;
         public const int FinalFloor = 100;
 
@@ -33,6 +45,9 @@ namespace GuildManager.Core.Systems
         {
             (VesperaId, ForestId, VesperaName),
             (MelusineId, CaveId, MelusineName),
+            (OrtensiaId, RuinsId, OrtensiaName),
+            (IgniaId, CanyonId, IgniaName),
+            (NepherisId, AbyssId, NepherisName),
         };
 
         /// <summary>ヴェスペラの武器の並び（剣→魔→技）。</summary>
@@ -60,9 +75,14 @@ namespace GuildManager.Core.Systems
                 ruler.RepresentativeIds ??= new List<Guid>();
                 ruler.SquadIds ??= new List<Guid>();
                 ruler.SongOrder ??= new List<SongMode>();
+                ruler.SquadTargets ??= new List<CorridorTarget>();
+                ruler.SealHp ??= new List<int>();
+                if (ruler.RulerId == OrtensiaId) OrtensiaBattle.EnsureSeals(ruler);
                 Refresh(state, ruler);
                 if (ruler.RulerId == MelusineId && ruler.SongOrder.Count != MelusineBattle.SongCount)
                     ruler.SongOrder = MelusineBattle.ShuffleSongs(state.WeekNumber);
+                if (ruler.RulerId == NepherisId && ruler.SongOrder.Count != 1)
+                    NepherisBattle.Reroll(ruler, state.WeekNumber);
                 // 支配者の待つ主（まだ倒していない70F・100F）の名前を支配者の名前にする（深さの目盛り・目標・調査の表示がそろう）
                 if (FieldOf(state, ruler) is { } field)
                     foreach (var boss in field.Bosses.Where(b => (b.Floor == OutpostFloor || b.Floor == FinalFloor) && !b.IsDefeated))
@@ -80,7 +100,19 @@ namespace GuildManager.Core.Systems
         public static string NameOf(string rulerId) => Rulers.FirstOrDefault(r => r.RulerId == rulerId).Name ?? rulerId;
 
         /// <summary>出るのが部隊か（メルジーネ）。そうでなければ代表の子（ヴェスペラ）。</summary>
-        public static bool UsesSquads(RulerState ruler) => ruler.RulerId == MelusineId;
+        public static bool UsesSquads(RulerState ruler) => ruler.RulerId is MelusineId or OrtensiaId or IgniaId or NepherisId;
+
+        /// <summary>出す部隊の上限（メルジーネ・オルテンシア）。</summary>
+        public static int MaxSquads(RulerState ruler) => ruler.RulerId switch
+        {
+            OrtensiaId => RulerBalance.OrtensiaMaxSquads,
+            IgniaId => RulerBalance.IgniaMaxSquads,
+            NepherisId => RulerBalance.NepherisMaxSquads,
+            _ => RulerBalance.MelusineMaxSquads,
+        };
+
+        /// <summary>毎月の回復量（イグニアは速い、§0.131）。</summary>
+        public static int RegenOf(RulerState ruler) => ruler.RulerId == IgniaId ? RulerBalance.IgniaRegenPerMonth : RulerBalance.RegenPerMonth;
 
         /// <summary>その支配者が待っている主（まだ倒していない70F、なければ100F）。両方倒していれば null。</summary>
         public static FloorBoss? BossOf(GameState state, RulerState ruler)
@@ -127,6 +159,7 @@ namespace GuildManager.Core.Systems
             if (boss == null || ruler.HpFloor == boss.Floor) return;
             ruler.HpFloor = boss.Floor;
             ruler.Hp = RulerBalance.MaxHp;
+            if (ruler.RulerId == OrtensiaId) OrtensiaBattle.ResetSeals(ruler); // 決着の階では封印も張り直したて
         }
 
         /// <summary>
@@ -139,12 +172,37 @@ namespace GuildManager.Core.Systems
             if (!GameCalendar.IsFirstWeekOfMonth(state.WeekNumber)) return;
             foreach (var ruler in state.Rulers.Where(r => BossOf(state, r) != null))
             {
-                ruler.Hp = Math.Min(RulerBalance.MaxHp, ruler.Hp + RulerBalance.RegenPerMonth);
-                if (CanChallenge(state, ruler) && HasParticipants(state, ruler))
+                ruler.Hp = Math.Min(RulerBalance.MaxHp, ruler.Hp + RegenOf(ruler));
+                bool battle = CanChallenge(state, ruler) && HasParticipants(state, ruler);
+                if (ruler.RulerId == OrtensiaId && CanChallenge(state, ruler))
+                    CountReseal(ruler, battle);
+                if (battle)
                     ruler.PendingDuelWeek = state.WeekNumber;
                 else if (ruler.RulerId == MelusineId)
                     ruler.SongOrder = MelusineBattle.ShuffleSongs(state.WeekNumber); // 戦う月は、戦い終えてから入れ替える
+                else if (ruler.RulerId == NepherisId)
+                    NepherisBattle.Reroll(ruler, state.WeekNumber);
             }
+        }
+
+        /// <summary>
+        /// オルテンシアの張り直しを数える（挑める月のはじめ）。ResealMonths に届いたら、破れた封印があれば張り直す：
+        /// この月に戦うなら戦いのはじめ（援軍で防げる）、戦わないならすぐ。前の月に残った張り直しも、戦わないならここで済ませる。
+        /// </summary>
+        private static void CountReseal(RulerState ruler, bool battle)
+        {
+            OrtensiaBattle.EnsureSeals(ruler);
+            if (ruler.ResealPending && !battle) OrtensiaBattle.ApplyReseal(ruler);
+            if (!OrtensiaBattle.AnyBroken(ruler))
+            {
+                ruler.ResealCounter = 0; // 破れた封印が無いうちは数えない
+                return;
+            }
+            ruler.ResealCounter++;
+            if (ruler.ResealCounter < RulerBalance.OrtensiaResealMonths) return;
+            ruler.ResealCounter = 0;
+            if (battle) ruler.ResealPending = true;
+            else OrtensiaBattle.ApplyReseal(ruler);
         }
 
         // ==================== 出る子・部隊 ====================
@@ -192,18 +250,29 @@ namespace GuildManager.Core.Systems
         /// 出す部隊を決める（メルジーネ。順番つき、上限 MelusineMaxSquads。メンバーのいない部隊は外す）。月のはじめでなければ false。
         /// メンバーは訓練所から外す。
         /// </summary>
-        public static bool TrySetSquads(GameState state, RulerState ruler, IEnumerable<Guid> squadIds)
+        public static bool TrySetSquads(GameState state, RulerState ruler, IEnumerable<Guid> squadIds, IEnumerable<CorridorTarget>? targets = null)
         {
             if (!CanChangeRepresentatives(state)) return false;
-            var list = squadIds.Distinct()
-                .Where(id => state.SavedParties.FirstOrDefault(p => p.Id == id) is { MemberIds.Count: > 0 })
-                .Take(RulerBalance.MelusineMaxSquads)
+            var targetList = targets?.ToList() ?? new List<CorridorTarget>();
+            var pairs = squadIds.Select((id, i) => (Id: id, Target: i < targetList.Count ? targetList[i] : CorridorTarget.Skeleton))
+                .DistinctBy(x => x.Id)
+                .Where(x => state.SavedParties.FirstOrDefault(p => p.Id == x.Id) is { MemberIds.Count: > 0 })
+                .Take(MaxSquads(ruler))
                 .ToList();
+            var list = pairs.Select(x => x.Id).ToList();
             ruler.SquadIds = list;
+            ruler.SquadTargets = ruler.RulerId == OrtensiaId ? pairs.Select(x => x.Target).ToList() : new List<CorridorTarget>();
             foreach (var p in state.SavedParties.Where(p => list.Contains(p.Id)))
                 foreach (var id in p.MemberIds)
                     state.TrainingAssignments.Remove(id);
             return true;
+        }
+
+        /// <summary>出す部隊の行き先（オルテンシア。決めていなければ骸骨兵の間）。</summary>
+        public static CorridorTarget TargetOf(RulerState ruler, Guid squadId)
+        {
+            int i = ruler.SquadIds.IndexOf(squadId);
+            return i >= 0 && i < ruler.SquadTargets.Count ? ruler.SquadTargets[i] : CorridorTarget.Skeleton;
         }
 
         /// <summary>代表のうち、いま戦える子（順番どおり）。</summary>
@@ -249,6 +318,17 @@ namespace GuildManager.Core.Systems
             if (!CanChallenge(state, ruler) || !HasParticipants(state, ruler)) return null;
             var boss = BossOf(state, ruler)!;
             int interventions = InterventionsPerBattle(state);
+            if (ruler.RulerId == OrtensiaId)
+            {
+                // 戦える部隊だけに絞るので、行き先も同じ部隊のものを拾い直す
+                var squads = AvailableSquads(state, ruler);
+                var targets = squads.Select(s => TargetOf(ruler, s.Squad.Id)).ToList();
+                return new OrtensiaBattle(state, ruler, boss, squads, targets, rng, interventions);
+            }
+            if (ruler.RulerId == NepherisId)
+                return new NepherisBattle(state, ruler, boss, AvailableSquads(state, ruler), rng, interventions);
+            if (ruler.RulerId == IgniaId)
+                return new IgniaBattle(state, ruler, boss, AvailableSquads(state, ruler), rng, interventions);
             return UsesSquads(ruler)
                 ? new MelusineBattle(state, ruler, boss, AvailableSquads(state, ruler), rng, interventions)
                 : new RulerDuel(state, ruler, boss, AvailableRepresentatives(state, ruler), rng, interventions);
@@ -292,6 +372,30 @@ namespace GuildManager.Core.Systems
         /// 静寂の泉（メルジーネとの決着の見返り、§0.129）：洞窟の100Fを倒していれば開いている。待機中の過ごし方に「瞑想」が増える（→ IdleActivitySystem）。
         /// </summary>
         public static bool IsMeditationOpen(GameState state) => FinalDefeated(state, CaveId);
+
+        /// <summary>古王の封蝋（オルテンシアの封印を破るたび・玉座で削るたびに1つ、→ materials.csv）。</summary>
+        public const string SealMaterialId = "mat_ruler_seal";
+
+        /// <summary>
+        /// 古王の寝所（オルテンシアとの決着の見返り、§0.130）：廃墟の100Fを倒していれば開いている。採用試験に毎回1人、名のある家の娘が加わる
+        /// （→ RecruitmentSystem.GenerateCandidates）。
+        /// </summary>
+        public static bool IsNobleQuartersOpen(GameState state) => FinalDefeated(state, RuinsId);
+
+        /// <summary>焔の鱗（イグニアとの戦いで幕を破るたびに1つ。イグニアの炉の材料、→ materials.csv）。</summary>
+        public const string ScaleMaterialId = "mat_ruler_scale";
+
+        /// <summary>
+        /// イグニアの炉（イグニアとの決着の見返り、§0.131）：峡谷の100Fを倒していれば開いている。保管庫の武具のアフィックスを1段強くできる（→ ForgeSystem）。
+        /// </summary>
+        public static bool IsForgeOpen(GameState state) => FinalDefeated(state, CanyonId);
+
+        /// <summary>心臓のかけら（ネフェリスとの戦いで段を破るたびに1つ、→ materials.csv）。</summary>
+        public const string ShardMaterialId = "mat_ruler_shard";
+
+        /// <summary>その支配者を決着（100F）で倒したか。</summary>
+        public static bool IsRulerDefeated(GameState state, string rulerId) =>
+            Rulers.FirstOrDefault(r => r.RulerId == rulerId).FieldId is { } fieldId && FinalDefeated(state, fieldId);
 
         private static bool FinalDefeated(GameState state, string fieldId) =>
             state.DungeonFields.FirstOrDefault(f => f.Id == fieldId)?.Bosses.FirstOrDefault(b => b.Floor == FinalFloor)?.EverDefeated == true;
@@ -408,6 +512,18 @@ namespace GuildManager.Core.Systems
         LuminaListen,
         /// <summary>交代（メルジーネ）：前に出た部隊が調べに呑まれかけたとき、ほかの部隊と入れ替えるか。</summary>
         Swap,
+        /// <summary>転進（オルテンシア）：封印を破った・相手のいなかった部隊を、別の間や玉座へ回すか。</summary>
+        Redirect,
+        /// <summary>援軍（オルテンシア）：封印の張り直しのとき、部隊を守りに回して防ぐか。</summary>
+        Reinforce,
+        /// <summary>押し切れ（イグニア）：合い具合の足りない幕のはじめ、合い具合を上げて押し切るか（灼熱と強制除籍が重くなる）。</summary>
+        Push,
+        /// <summary>入れ替え（イグニア）：子が戦線を離れるとき、後の部隊の子と入れ替えるか。</summary>
+        Reserve,
+        /// <summary>退け（イグニア）：押し切っても届かない幕のはじめ、戦いを打ち切るか（残りの灼熱を受けない）。</summary>
+        Withdraw,
+        /// <summary>都の声（ネフェリス）：届かない段の前、ルミナが姉の声を呼んで打ち消すか（護符の回数とは別に1回）。</summary>
+        CityVoice,
     }
 
     /// <summary>介入の選択肢（入れ替える相手など）。</summary>
@@ -442,6 +558,8 @@ namespace GuildManager.Core.Systems
         public FloorBoss Boss { get; }
         public bool IsOutpost { get; }
         public int HpBefore { get; }
+        /// <summary>戦い終えたときの体力（前哨戦で退いたあとは決着の体力に戻るので、それより前の値）。</summary>
+        public int HpAfter { get; private set; }
         public int InterventionsLeft { get; protected set; }
         public DuelPromptKind Prompt { get; protected set; }
         public bool IsOver { get; protected set; }
@@ -490,9 +608,13 @@ namespace GuildManager.Core.Systems
         public void AutoAnswer(bool useInterventions)
         {
             var choices = PromptChoices();
-            Answer(useInterventions && (choices.Count > 0 || Prompt is DuelPromptKind.CallName or DuelPromptKind.LuminaListen),
-                choices.FirstOrDefault()?.Id);
+            bool needsChoice = Prompt is DuelPromptKind.Foresight or DuelPromptKind.Swap or DuelPromptKind.Redirect
+                or DuelPromptKind.Reinforce or DuelPromptKind.Reserve;
+            Answer(useInterventions && (!needsChoice || choices.Count > 0) && AutoWorthUsing(), choices.FirstOrDefault()?.Id);
         }
+
+        /// <summary>自動で答えるとき、いま聞いている介入を使う値打ちがあるか（既定は使う。イグニアの「退け」は残りの幕に望みが無いときだけ）。</summary>
+        protected virtual bool AutoWorthUsing() => true;
 
         /// <summary>介入の小窓の説明（BBCode）とボタンの文言。</summary>
         public abstract (string Text, string Ok, string Cancel) PromptDialog();
@@ -513,7 +635,7 @@ namespace GuildManager.Core.Systems
         /// 1人分の損耗（最大HPに対する pct %）。HP0 になりそうなら、居合わせた相棒のかばい合い・危機察知・強制除籍の判定（§0.125）を順に通す。
         /// 重傷の判定もする。
         /// </summary>
-        protected LossOutcome ApplyLoss(Adventurer a, int pct)
+        protected LossOutcome ApplyLoss(Adventurer a, int pct, int fatalMultiplier = 1)
         {
             var result = new LossOutcome();
             int loss = a.MaxHP * pct / 100;
@@ -535,7 +657,7 @@ namespace GuildManager.Core.Systems
             }
             if (newHp <= 0)
             {
-                if (Rng.NextInt(1, 100) <= CombatBalance.FatalChancePercent)
+                if (Rng.NextInt(1, 100) <= CombatBalance.FatalChancePercent * fatalMultiplier)
                 {
                     newHp = 0;
                     result.Fallen = true;
@@ -569,6 +691,7 @@ namespace GuildManager.Core.Systems
             Ruler.DuelCount++;
             Ruler.LastDuelWeek = State.WeekNumber;
             Ruler.PendingDuelWeek = null;
+            HpAfter = Ruler.Hp;
 
             RulerSystem.ApplyForcedRetirements(State, Present, FallenIds, Rng, this);
 

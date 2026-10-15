@@ -1324,7 +1324,7 @@ public partial class MainDashboard : Control
 						AskDuelIntervention(battle, Step);
 					else
 					{
-						AppendLog($"[color=gold][b]⚔ 支配者戦：{battle.RulerName}[/b][/color] 体力 {battle.HpBefore}→{battle.Ruler.Hp}" +
+						AppendLog($"[color=gold][b]⚔ 支配者戦：{battle.RulerName}[/b][/color] 体力 {battle.HpBefore}→{battle.HpAfter}" +
 							(battle.Retreated ? "（退いた）" : battle.Defeated ? "（倒した）" : ""));
 						RefreshAll();
 						then();
@@ -1366,6 +1366,7 @@ public partial class MainDashboard : Control
 			answered = true;
 			Guid? choice = pick != null && pick.Selected >= 0 && pick.Selected < choices.Count ? choices[pick.Selected].Id : null;
 			battle.Answer(use, choice);
+			dialog.Hide(); // 先に隠して排他を外す（次の段の小窓がすぐ開く）
 			dialog.QueueFree();
 			Callable.From(next).CallDeferred();
 		}

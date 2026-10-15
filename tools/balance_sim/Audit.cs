@@ -447,6 +447,9 @@ partial class GameSim
         string YearOfWeek(int? w) => w is int v ? $"{GameCalendar.YearOf(v)}" : "―";
         Console.WriteLine($"ヴェスペラ（§0.127）：退かせた年 {string.Join(", ", sims.Select(x => YearOfWeek(x.VesperaRetreatWeek)))}　倒した年 {string.Join(", ", sims.Select(x => YearOfWeek(x.VesperaDefeatWeek)))}　決闘 {sims.Sum(x => x.VesperaDuels)}回・強制除籍 {sims.Sum(x => x.VesperaFallen)}・一命を取り留めた {sims.Sum(x => x.VesperaNearDeath)}");
         Console.WriteLine($"メルジーネ（§0.129）：退かせた年 {string.Join(", ", sims.Select(x => YearOfWeek(x.MelusineRetreatWeek)))}　倒した年 {string.Join(", ", sims.Select(x => YearOfWeek(x.MelusineDefeatWeek)))}　戦い {sims.Sum(x => x.MelusineBattles)}回");
+        Console.WriteLine($"ネフェリス（§0.132）：退かせた年 {string.Join(", ", sims.Select(x => YearOfWeek(x.NepherisRetreatWeek)))}　倒した年 {string.Join(", ", sims.Select(x => YearOfWeek(x.NepherisDefeatWeek)))}　戦い {sims.Sum(x => x.NepherisBattles)}回");
+        Console.WriteLine($"イグニア（§0.131）：退かせた年 {string.Join(", ", sims.Select(x => YearOfWeek(x.IgniaRetreatWeek)))}　倒した年 {string.Join(", ", sims.Select(x => YearOfWeek(x.IgniaDefeatWeek)))}　戦い {sims.Sum(x => x.IgniaBattles)}回");
+        Console.WriteLine($"オルテンシア（§0.130）：退かせた年 {string.Join(", ", sims.Select(x => YearOfWeek(x.OrtensiaRetreatWeek)))}　倒した年 {string.Join(", ", sims.Select(x => YearOfWeek(x.OrtensiaDefeatWeek)))}　戦い {sims.Sum(x => x.OrtensiaBattles)}回");
         Console.WriteLine($"撃破（最終、50体中）：{string.Join(", ", sims.Select(x => x.s.DungeonFields.Sum(f => f.Bosses.Count(b => b.IsDefeated))))}");
         Console.WriteLine("撃破数の推移（各年のはじめ、中央値）：" + string.Join("・", Enumerable.Range(0, weeks / 48).Select(y =>
         {

@@ -661,6 +661,28 @@ public partial class InventoryPanel : VBoxContainer
 		return row;
 	}
 
+	/// <summary>イグニアの炉（§0.131）：アフィックスを1段強くするボタン。焔の鱗か金が足りなければ押せない。</summary>
+	private Control BuildForgeButton(EquipmentItem item, AffixDefinition from, int value, AffixDefinition to)
+	{
+		string? block = ForgeSystem.BlockReason(_state, item);
+		int next = ForgeSystem.UpgradedValue(value, to);
+		var button = new Button
+		{
+			Text = $"🔥 炉で鍛える（{from.ShortLabel}→{to.ShortLabel}）",
+			Disabled = block != null,
+			TooltipText = $"{from.DescribeValue(value)} → {to.DescribeValue(next)}。焔の鱗{RulerBalance.IgniaForgeScaleCost}枚と{RulerBalance.IgniaForgeGoldCost}G を使う。" +
+				(block != null ? $"\n（{block}）" : ""),
+		};
+		button.Pressed += () =>
+		{
+			string before = ItemColorHelper.GetColoredBBCode(item);
+			if (!ForgeSystem.TryForge(_state, item)) return;
+			LogRequested.Invoke($"[color=orange]🔥 イグニアの炉で「{before}」を鍛え、「{ItemColorHelper.GetColoredBBCode(item)}」にした（{from.DescribeValue(value)} → {to.DescribeValue(next)}）。[/color]");
+			StateChanged.Invoke();
+		};
+		return button;
+	}
+
 	/// <summary>特殊・希少武具1点の行。誤売却を防ぐため、1個売却ボタンのみを置く。</summary>
 	private Control BuildPreciousArmoryRow(EquipmentItem item)
 	{
@@ -669,6 +691,8 @@ public partial class InventoryPanel : VBoxContainer
 		var row = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
 		row.AddChild(BuildArmoryInfoLabel(new List<EquipmentItem> { item }, price));
 		row.AddChild(BuildEquipButton(item));
+		if (RulerSystem.IsForgeOpen(_state) && ForgeSystem.NextUpgrade(item) is { } up)
+			row.AddChild(BuildForgeButton(item, up.From, up.Value, up.To));
 
 		if (!EquipmentSystem.CanSell(item))
 		{

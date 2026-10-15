@@ -530,7 +530,7 @@ namespace GuildManager.Core.Models
                 TutorialEnabled = TutorialEnabled,
                 AutoNegotiationBonus = AutoNegotiationBonus,
                 HideSquadReports = HideSquadReports,
-                Rulers = Rulers.Select(r => new RulerState { RulerId = r.RulerId, Hp = r.Hp, HpFloor = r.HpFloor, WeaponIndex = r.WeaponIndex, RepresentativeIds = new List<Guid>(r.RepresentativeIds), DuelCount = r.DuelCount, LastDuelWeek = r.LastDuelWeek, PendingDuelWeek = r.PendingDuelWeek, SquadIds = new List<Guid>(r.SquadIds), SongOrder = new List<SongMode>(r.SongOrder) }).ToList(),
+                Rulers = Rulers.Select(r => new RulerState { RulerId = r.RulerId, Hp = r.Hp, HpFloor = r.HpFloor, WeaponIndex = r.WeaponIndex, RepresentativeIds = new List<Guid>(r.RepresentativeIds), DuelCount = r.DuelCount, LastDuelWeek = r.LastDuelWeek, PendingDuelWeek = r.PendingDuelWeek, SquadIds = new List<Guid>(r.SquadIds), SongOrder = new List<SongMode>(r.SongOrder), SquadTargets = new List<CorridorTarget>(r.SquadTargets), SealHp = new List<int>(r.SealHp), ResealCounter = r.ResealCounter, ResealPending = r.ResealPending, StageHall = r.StageHall }).ToList(),
                 FocusedAdventurerIds = new List<Guid>(FocusedAdventurerIds),
                 PoachOffers = new List<PoachOffer>(PoachOffers),
                 LastFeastSeason = LastFeastSeason,

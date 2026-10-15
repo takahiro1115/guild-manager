@@ -35,7 +35,7 @@ namespace GuildManager.Core.Tests.Balance
         public void UniquesCsv_LoadsFiveArtifactsAndFiveLegendaries()
         {
             Assert.Equal(5, UniqueBalance.All.Count(d => d.Grade == UniqueGrade.Artifact));
-            Assert.Equal(7, UniqueBalance.All.Count(d => d.Grade == UniqueGrade.Legendary)); // §0.128 でヴェスペラの双剣、§0.129 で歌姫の耳飾りを足した
+            Assert.Equal(10, UniqueBalance.All.Count(d => d.Grade == UniqueGrade.Legendary)); // §0.128 でヴェスペラの双剣、§0.129 で歌姫の耳飾り、§0.130 で女王の聖骸布、§0.131 で灼鱗の鎧、§0.132 でひび割れた双子冠を足した
             Assert.Equal(5, UniqueBalance.Artifacts.Count);
         }
 
@@ -62,6 +62,7 @@ namespace GuildManager.Core.Tests.Balance
         [InlineData("LegendCaveCleaver", "cave", 40, BossGimmickType.HeavyArmor)]
         [InlineData("LegendRuinsBow", "ruins", 40, BossGimmickType.Flying)]
         [InlineData("LegendCanyonCrown", "canyon", 40, BossGimmickType.InstantKill)]
+        [InlineData("LegendQueenShroud", "ruins", 70, BossGimmickType.Swarm)]
         public void UniquesCsv_LegendariesCoverEachGimmick(string id, string field, int floor, BossGimmickType gimmick)
         {
             var def = UniqueBalance.FindById(id)!;

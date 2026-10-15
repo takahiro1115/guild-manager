@@ -488,9 +488,10 @@ partial class GameSim
     /// campaign のメルジーネ用の部隊（§0.129）：ギルドの子で上位4人の合い具合がいちばん高い調べ2つに、それぞれ4人（重ならない）で
     /// 「メルジーネ戦」の部隊を組み直す（方針は無し）。ヴェスペラの代表は入れない。
     /// </summary>
-    void BuildMelusineSquads(bool outpost)
+    void BuildMelusineSquads(RulerState ruler, bool outpost)
     {
-        var pool = s.Adventurers.Where(a => RulerSystem.RepresentativeBlockReason(s, a) == null && !s.Rulers.Any(r => r.RepresentativeIds.Contains(a.Id))).ToList();
+        var busy = OtherRulerMembers(ruler);
+        var pool = s.Adventurers.Where(a => RulerSystem.RepresentativeBlockReason(s, a) == null && !busy.Contains(a.Id)).ToList();
         var used = new HashSet<Guid>();
         var modes = Enum.GetValues<SongMode>()
             .OrderByDescending(m => pool.OrderByDescending(a => MelusineBattle.MemberFit(a, m)).Take(4).Select(a => MelusineBattle.MemberFit(a, m)).DefaultIfEmpty(0).Average())
@@ -507,6 +508,138 @@ partial class GameSim
     }
     public int? MelusineRetreatWeek, MelusineDefeatWeek;
     public int MelusineBattles;
+
+    /// <summary>
+    /// campaign のオルテンシア用の部隊（§0.130）：玉座が開いていれば玉座向きの4人、閉じていれば残っている間ごとに
+    /// 骸骨兵＝STR・VIT の上位4人／騎士王＝STR・LDR のいちばん強い1人／幻惑＝INT・MND が届く子を4人まで、で組み直す。
+    /// ヴェスペラの代表・メルジーネに出す部隊の子は入れない。
+    /// </summary>
+    void BuildOrtensiaSquads(RulerState ruler, bool outpost)
+    {
+        var busy = OtherRulerMembers(ruler);
+        var pool = s.Adventurers.Where(a => RulerSystem.RepresentativeBlockReason(s, a) == null && !busy.Contains(a.Id)).ToList();
+        var used = new HashSet<Guid>();
+        var targets = OrtensiaBattle.ThroneOpen(ruler)
+            ? new List<CorridorTarget> { CorridorTarget.Throne }
+            : Enumerable.Range(0, OrtensiaBattle.HallCount).Where(i => ruler.SealHp[i] > 0).Select(i => (CorridorTarget)i).ToList();
+        for (int i = 0; i < OrtensiaBattle.HallCount; i++)
+        {
+            string name = $"オルテンシア戦{i + 1}";
+            var squad = s.SavedParties.FirstOrDefault(p => p.Name == name);
+            if (squad == null) { squad = new SavedParty { Name = name }; s.SavedParties.Add(squad); }
+            squad.MemberIds = new List<Guid>();
+            if (i >= targets.Count) continue;
+            var t = targets[i];
+            var ranked = pool.Where(a => !used.Contains(a.Id) && !OrtensiaBattle.IsExcluded(s, a, t, outpost))
+                .OrderByDescending(a => OrtensiaBattle.MemberValue(a, t)).ToList();
+            var members = ranked.Take(t == CorridorTarget.KnightKing ? 1 : 4).ToList();
+            squad.MemberIds = members.Select(a => a.Id).ToList();
+            foreach (var a in members) used.Add(a.Id);
+        }
+    }
+
+    /// <summary>ほかの支配者戦に出る子（ヴェスペラの代表・メルジーネの部隊の子）。</summary>
+    HashSet<Guid> OtherRulerMembers(RulerState ruler) =>
+        s.Rulers.Where(r => r != ruler && RulerSystem.CanChallenge(s, r))
+            .SelectMany(r => r.RepresentativeIds.Concat(r.SquadIds.SelectMany(id => s.SavedParties.FirstOrDefault(p => p.Id == id)?.MemberIds ?? new List<Guid>())))
+            .ToHashSet();
+
+    /// <summary>
+    /// オルテンシアの行き先の割り振り（§0.130）：玉座が開いていれば合い具合の届く部隊を玉座へ、閉じていれば残りの少ない封印から順に、
+    /// いちばん合う部隊を1つずつ（合い具合が届く部隊だけ）。上限 max。
+    /// </summary>
+    List<(Guid Id, CorridorTarget Target)> PlanCorridor(RulerState ruler, bool outpost, int max)
+    {
+        var busy = OtherRulerMembers(ruler);
+        var candidates = s.SavedParties.Where(p => p.MemberIds.Count > 0 && !p.MemberIds.Any(busy.Contains))
+            .Select(p => (p.Id, Members: p.MemberIds.Select(s.FindAdventurer).OfType<Adventurer>().ToList())).ToList();
+        var targets = OrtensiaBattle.ThroneOpen(ruler)
+            ? Enumerable.Repeat(CorridorTarget.Throne, max).ToList()
+            : Enumerable.Range(0, OrtensiaBattle.HallCount).Where(i => ruler.SealHp[i] > 0).OrderBy(i => ruler.SealHp[i]).Select(i => (CorridorTarget)i).ToList();
+        var plan = new List<(Guid, CorridorTarget)>();
+        foreach (var t in targets)
+        {
+            if (plan.Count >= max) break;
+            var best = candidates.Where(c => plan.All(x => x.Item1 != c.Id))
+                .Select(c => (c.Id, Fit: OrtensiaBattle.SquadFit(s, c.Members, t, outpost)))
+                .Where(x => x.Fit >= RulerBalance.OrtensiaBreakRate)
+                .OrderByDescending(x => x.Fit).FirstOrDefault();
+            if (best.Id != Guid.Empty) plan.Add((best.Id, t));
+        }
+        // 玉座が閉じているうちは、残りの間をすべて同じ月に攻められるまで挑まない（張り直しに追いつかれない）
+        // 玉座で削れる部隊がまだいないうちも挑まない（封印を破っても玉座で押し返される）
+        if (!OrtensiaBattle.ThroneOpen(ruler) && (plan.Count < targets.Count
+            || !candidates.Any(c => OrtensiaBattle.SquadFit(s, c.Members, CorridorTarget.Throne, outpost) >= RulerBalance.OrtensiaBreakRate)))
+            plan.Clear();
+        return plan;
+    }
+    /// <summary>イグニアの3幕の合い具合の平均（いま戦える子で）。</summary>
+    double IgniaFit(SavedParty p, bool outpost)
+    {
+        var standing = p.MemberIds.Select(s.FindAdventurer).OfType<Adventurer>().Where(IgniaBattle.CanStand).ToList();
+        return Enum.GetValues<IgniaAct>().Average(a => IgniaBattle.SquadFit(standing, a, outpost));
+    }
+
+    /// <summary>campaign のイグニア用の部隊（§0.131）：いま戦える子から、3幕の能力の平均の上位4人ずつで2つ組み直す（ほかの支配者に出す子は入れない）。</summary>
+    void BuildIgniaSquads(RulerState ruler, bool outpost)
+    {
+        var busy = OtherRulerMembers(ruler);
+        var pool = s.Adventurers.Where(a => RulerSystem.RepresentativeBlockReason(s, a) == null && !busy.Contains(a.Id) && IgniaBattle.CanStand(a))
+            .OrderByDescending(a => Enum.GetValues<IgniaAct>().Average(act => IgniaBattle.MemberValue(a, act))).ToList();
+        for (int i = 0; i < 2; i++)
+        {
+            string name = $"イグニア戦{i + 1}";
+            var squad = s.SavedParties.FirstOrDefault(p => p.Name == name);
+            if (squad == null) { squad = new SavedParty { Name = name }; s.SavedParties.Add(squad); }
+            squad.MemberIds = pool.Skip(i * 4).Take(4).Select(a => a.Id).ToList();
+        }
+    }
+    /// <summary>ネフェリスの4つの段の合い具合の平均（いま戦える子で）。</summary>
+    double NepherisFit(RulerState ruler, SavedParty p, bool outpost)
+    {
+        var standing = p.MemberIds.Select(s.FindAdventurer).OfType<Adventurer>().Where(IgniaBattle.CanStand).ToList();
+        return Enum.GetValues<NepherisStage>().Average(st => NepherisBattle.SquadFit(s, ruler, standing, st, outpost));
+    }
+
+    /// <summary>campaign のネフェリス用の部隊（§0.132）：いま戦える子から、能力の平均の上位4人ずつで3つ組み直す（ほかの支配者に出す子は入れない）。</summary>
+    void BuildNepherisSquads(RulerState ruler)
+    {
+        var busy = OtherRulerMembers(ruler);
+        var pool = s.Adventurers.Where(a => RulerSystem.RepresentativeBlockReason(s, a) == null && !busy.Contains(a.Id) && IgniaBattle.CanStand(a))
+            .OrderByDescending(a => new[] { "STR", "VIT", "AGI", "DEX", "INT", "MND", "LDR" }.Average(st => a.GetEffectiveStat(st))).ToList();
+        for (int i = 0; i < RulerBalance.NepherisMaxSquads; i++)
+        {
+            string name = $"ネフェリス戦{i + 1}";
+            var squad = s.SavedParties.FirstOrDefault(p => p.Name == name);
+            if (squad == null) { squad = new SavedParty { Name = name }; s.SavedParties.Add(squad); }
+            squad.MemberIds = pool.Skip(i * 4).Take(4).Select(a => a.Id).ToList();
+        }
+    }
+    public int? NepherisRetreatWeek, NepherisDefeatWeek;
+    /// <summary>ネフェリスを倒した部隊の世代（出した部隊の子の世代の中央値。設計書 §6「3〜4世代目でクリア」）。</summary>
+    public double? NepherisClearGen;
+
+    /// <summary>世代：初めからいる子と採用した子は1、秘薬・融和の娘は親の大きいほう＋1（設計書 §1）。</summary>
+    int Generation(Adventurer a, int depth = 0)
+    {
+        if (a.ParentIds.Count == 0 || depth > 20) return 1;
+        var all = s.Adventurers.Concat(s.RetiredAdventurers).Concat(s.FallenAdventurers);
+        return 1 + a.ParentIds.Select(id => all.FirstOrDefault(x => x.Id == id)).OfType<Adventurer>().Select(p => Generation(p, depth + 1)).DefaultIfEmpty(1).Max();
+    }
+
+    double SquadGeneration(RulerState ruler)
+    {
+        var gens = ruler.SquadIds.SelectMany(id => s.SavedParties.FirstOrDefault(p => p.Id == id)?.MemberIds ?? new List<Guid>())
+            .Select(s.FindAdventurer).OfType<Adventurer>().Select(a => (double)Generation(a)).OrderBy(g => g).ToList();
+        if (gens.Count == 0) return 0;
+        return gens.Count % 2 == 1 ? gens[gens.Count / 2] : (gens[gens.Count / 2 - 1] + gens[gens.Count / 2]) / 2;
+    }
+    public int NepherisBattles;
+    public int? IgniaRetreatWeek, IgniaDefeatWeek;
+    public int IgniaBattles;
+    public int? OrtensiaRetreatWeek, OrtensiaDefeatWeek;
+    public int OrtensiaBattles;
+    public readonly Dictionary<string, int> OrtensiaStats = new();
     /// <summary>支配者戦のプレイヤー役：決闘で削れた量が月の回復の1.5倍に届かなければ1季節休む。所持金がこの値未満なら挑まない。</summary>
     const int RulerMinGold = 3000;
 
@@ -521,25 +654,84 @@ partial class GameSim
         foreach (var ruler in s.Rulers)
         {
             bool vespera = ruler.RulerId == RulerSystem.VesperaId;
+            bool ortensia = ruler.RulerId == RulerSystem.OrtensiaId;
+            bool ignia = ruler.RulerId == RulerSystem.IgniaId;
+            bool nepheris = ruler.RulerId == RulerSystem.NepherisId;
             if (RulerSystem.IsDuelDue(s, ruler) && RulerSystem.ResolveAuto(s, ruler, rulerRng, useInterventions: true) is { } duel)
             {
-                if (vespera) VesperaDuels++; else MelusineBattles++;
+                if (vespera) VesperaDuels++; else if (ortensia) OrtensiaBattles++; else if (ignia) IgniaBattles++; else if (nepheris) NepherisBattles++; else MelusineBattles++;
+                if (duel is OrtensiaBattle ob)
+                {
+                    foreach (var a in ob.Assaults)
+                    {
+                        string k = a.Idle ? "idle" : $"{a.Target}{(a.Won ? "+" : "-")}";
+                        OrtensiaStats[k] = OrtensiaStats.GetValueOrDefault(k) + 1;
+                    }
+                    if (ob.Resealed != null) OrtensiaStats["resealed"] = OrtensiaStats.GetValueOrDefault("resealed") + 1;
+                    if (ob.GuardSquadName != null) OrtensiaStats["guarded"] = OrtensiaStats.GetValueOrDefault("guarded") + 1;
+                }
                 VesperaFallen += duel.FallenIds.Count;
                 VesperaNearDeath += duel.NearDeathIds.Count;
-                if (duel.Retreated) { if (vespera) VesperaRetreatWeek ??= s.WeekNumber; else MelusineRetreatWeek ??= s.WeekNumber; }
-                if (duel.Defeated) { if (vespera) VesperaDefeatWeek ??= s.WeekNumber; else MelusineDefeatWeek ??= s.WeekNumber; }
+                if (duel.Retreated) { if (vespera) VesperaRetreatWeek ??= s.WeekNumber; else if (ortensia) OrtensiaRetreatWeek ??= s.WeekNumber; else if (ignia) IgniaRetreatWeek ??= s.WeekNumber; else if (nepheris) NepherisRetreatWeek ??= s.WeekNumber; else MelusineRetreatWeek ??= s.WeekNumber; }
+                if (duel.Defeated) { if (vespera) VesperaDefeatWeek ??= s.WeekNumber; else if (ortensia) OrtensiaDefeatWeek ??= s.WeekNumber; else if (ignia) IgniaDefeatWeek ??= s.WeekNumber; else if (nepheris) { NepherisDefeatWeek ??= s.WeekNumber; NepherisClearGen ??= SquadGeneration(ruler); } else MelusineDefeatWeek ??= s.WeekNumber; }
                 if (duel.Retreated || duel.Defeated) FieldKills.Add((RulerSystem.FieldOf(s, ruler)!.Order, duel.Boss.Floor, s.WeekNumber)); // 節目の表（100F）に決着を数える
-                else if (duel.HpBefore - duel.Ruler.Hp < RulerBalance.RegenPerMonth * 3 / 2) rulerRestUntilWeek[ruler.RulerId] = s.WeekNumber + GameCalendar.WeeksPerSeason;
+                else if (!ortensia && duel.HpBefore - duel.Ruler.Hp < RulerSystem.RegenOf(ruler) * 3 / 2) rulerRestUntilWeek[ruler.RulerId] = s.WeekNumber + GameCalendar.WeeksPerSeason;
             }
             if (!RulerSystem.CanChallenge(s, ruler)) continue;
             bool outpost = RulerSystem.IsOutpost(s, ruler);
             bool rest = s.WeekNumber < rulerRestUntilWeek.GetValueOrDefault(ruler.RulerId) || s.Gold < RulerMinGold;
+            if (nepheris)
+            {
+                // ネフェリス：4つの段の合い具合の平均が届く部隊を、合う順に3つまで（ほかの支配者に出している部隊と、稼ぐ部隊1つを残す）
+                if (!AuditMode && !rest) BuildNepherisSquads(ruler);
+                int otherN = s.Rulers.Where(r => r != ruler && RulerSystem.CanChallenge(s, r)).Sum(r => r.SquadIds.Count);
+                int maxN = AuditMode ? Math.Min(RulerBalance.NepherisMaxSquads, Math.Max(0, s.SavedParties.Count(p => p.MemberIds.Count > 0) - 1 - otherN)) : RulerBalance.NepherisMaxSquads;
+                var busyN = OtherRulerMembers(ruler);
+                var squadsN = rest ? new List<Guid>() : s.SavedParties
+                    .Where(p => p.MemberIds.Count > 0 && !p.MemberIds.Any(busyN.Contains))
+                    .Select(p => (p.Id, Fit: NepherisFit(ruler, p, outpost)))
+                    .Where(x => x.Fit >= RulerBalance.NepherisBreakRate)
+                    .OrderByDescending(x => x.Fit)
+                    .Take(maxN)
+                    .Select(x => x.Id).ToList();
+                RulerSystem.TrySetSquads(s, ruler, squadsN);
+                continue;
+            }
+            if (ignia)
+            {
+                // イグニア：3幕の合い具合の平均が届く部隊を、合う順に2つまで（先鋒・本隊）。ほかの支配者に出している部隊と、稼ぐ部隊1つを残す
+                if (!AuditMode && !rest) BuildIgniaSquads(ruler, outpost);
+                int otherSquads = s.Rulers.Where(r => r != ruler && RulerSystem.CanChallenge(s, r)).Sum(r => r.SquadIds.Count);
+                int max = AuditMode ? Math.Min(2, Math.Max(0, s.SavedParties.Count(p => p.MemberIds.Count > 0) - 1 - otherSquads)) : 2;
+                var busy = OtherRulerMembers(ruler);
+                var squads = rest ? new List<Guid>() : s.SavedParties
+                    .Where(p => p.MemberIds.Count > 0 && !p.MemberIds.Any(busy.Contains))
+                    .Select(p => (p.Id, Fit: IgniaFit(p, outpost)))
+                    .Where(x => x.Fit >= RulerBalance.IgniaBreakRate)
+                    .OrderByDescending(x => x.Fit)
+                    .Take(max)
+                    .Select(x => x.Id).ToList();
+                RulerSystem.TrySetSquads(s, ruler, squads);
+                continue;
+            }
+            if (ortensia)
+            {
+                // オルテンシア：封印を削れる部隊を、残りの少ない封印から1つずつ（玉座が開いていれば玉座へ）。稼ぐ部隊を1つは残す
+                if (!AuditMode && !rest) BuildOrtensiaSquads(ruler, outpost);
+                // audit：ほかの支配者に出している部隊と、稼ぐ部隊1つを残す
+                int otherSquads = s.Rulers.Where(r => r != ruler && RulerSystem.CanChallenge(s, r)).Sum(r => r.SquadIds.Count);
+                int max = AuditMode ? Math.Min(RulerBalance.OrtensiaMaxSquads, Math.Max(0, s.SavedParties.Count(p => p.MemberIds.Count > 0) - 1 - otherSquads)) : RulerBalance.OrtensiaMaxSquads;
+                var plan = rest ? new List<(Guid Id, CorridorTarget Target)>() : PlanCorridor(ruler, outpost, max);
+                RulerSystem.TrySetSquads(s, ruler, plan.Select(x => x.Id), plan.Select(x => x.Target));
+                continue;
+            }
             if (RulerSystem.UsesSquads(ruler))
             {
-                if (!AuditMode && !rest) BuildMelusineSquads(outpost); // campaign：保存した部隊を使わないので、その場で組む
+                if (!AuditMode && !rest) BuildMelusineSquads(ruler, outpost); // campaign：保存した部隊を使わないので、その場で組む
                 // メルジーネ：どれかの調べで合い具合が届く部隊を、合う順に2つまで（稼ぐ部隊を1つは残す）
+                var busy = OtherRulerMembers(ruler);
                 var squads = rest ? new List<Guid>() : s.SavedParties
-                    .Where(p => p.MemberIds.Count > 0)
+                    .Where(p => p.MemberIds.Count > 0 && !p.MemberIds.Any(busy.Contains)) // オルテンシアに出す部隊とは重ねない
                     .Select(p => (p.Id, Best: Enum.GetValues<SongMode>().Max(m => MelusineBattle.SquadFit(p.MemberIds.Select(s.FindAdventurer).OfType<Adventurer>().ToList(), m, outpost))))
                     .Where(x => x.Best >= 1.0)
                     .OrderByDescending(x => x.Best)
@@ -1069,6 +1261,10 @@ partial class GameSim
         Console.WriteLine($"交流戦（行った／勝った）：{string.Join(", ", sims.Select(x => $"{x.ExchangePlayed}/{x.ExchangeWon}"))}");
         Console.WriteLine($"ヴェスペラ（§0.127）：前哨戦で退かせた {WeekStat(x => x.VesperaRetreatWeek)}　決着 {WeekStat(x => x.VesperaDefeatWeek)}　決闘の回数 {string.Join(", ", sims.Select(x => x.VesperaDuels))}　強制除籍 {sims.Sum(x => x.VesperaFallen)}・一命を取り留めた {sims.Sum(x => x.VesperaNearDeath)}");
         Console.WriteLine($"メルジーネ（§0.129）：前哨戦で退かせた {WeekStat(x => x.MelusineRetreatWeek)}　決着 {WeekStat(x => x.MelusineDefeatWeek)}　戦いの回数 {string.Join(", ", sims.Select(x => x.MelusineBattles))}");
+        Console.WriteLine("オルテンシアの攻め：" + string.Join("　", sims.SelectMany(x => x.OrtensiaStats).GroupBy(kv => kv.Key).OrderBy(g => g.Key).Select(g => $"{g.Key} {g.Sum(kv => kv.Value)}")));
+        Console.WriteLine($"ネフェリス（§0.132）：前哨戦で退かせた {WeekStat(x => x.NepherisRetreatWeek)}　決着 {WeekStat(x => x.NepherisDefeatWeek)}　倒した部隊の世代 {string.Join(", ", sims.Select(x => x.NepherisClearGen?.ToString("0.#") ?? "―"))}　戦いの回数 {string.Join(", ", sims.Select(x => x.NepherisBattles))}");
+        Console.WriteLine($"イグニア（§0.131）：前哨戦で退かせた {WeekStat(x => x.IgniaRetreatWeek)}　決着 {WeekStat(x => x.IgniaDefeatWeek)}　戦いの回数 {string.Join(", ", sims.Select(x => x.IgniaBattles))}");
+        Console.WriteLine($"オルテンシア（§0.130）：前哨戦で退かせた {WeekStat(x => x.OrtensiaRetreatWeek)}　決着 {WeekStat(x => x.OrtensiaDefeatWeek)}　戦いの回数 {string.Join(", ", sims.Select(x => x.OrtensiaBattles))}");
         Console.WriteLine($"森の主を初めて倒した週：{string.Join("・", new[] { 30, 40, 50, 60, 70, 80, 90, 100 }.Select(f => $"{f}F {WeekStat(x => x.ForestKillWeek.TryGetValue(f, out int w) ? w : null)}"))}");
         Console.WriteLine($"交流戦の勝率（来訪からの年数ごと、全回の合計）：{string.Join("・", sims.SelectMany(x => x.ExchangeLog).GroupBy(e => Math.Min(e.Year, 5)).OrderBy(g => g.Key).Select(g => $"{(g.Key == 5 ? "6年目〜" : $"{g.Key + 1}年目")} {g.Count(e => e.Won)}/{g.Count()}"))}　初戦：{sims.Count(x => x.ExchangeLog.Count > 0 && x.ExchangeLog[0].Won)}/{sims.Count(x => x.ExchangeLog.Count > 0)}勝（見込みの中央値 {(sims.Any(x => x.FirstExchangeChance != null) ? Median(sims.Select(x => x.FirstExchangeChance).OfType<double>().ToList()) : 0):P0}）");
         Console.WriteLine();

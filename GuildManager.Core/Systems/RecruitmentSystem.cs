@@ -244,6 +244,13 @@ namespace GuildManager.Core.Systems
                 AssignPortrait(offer.Candidate, usedPortraits);
                 offers.Add(offer);
             }
+            // 古王の寝所（オルテンシアとの決着の見返り、§0.130）：名のある家の娘が1人加わる（有望新人。乱数はほかの候補のあとで引く）
+            if (RulerSystem.IsNobleQuartersOpen(state))
+            {
+                var noble = GenerateOne(state, count, 1.0, existingNames, paBonus: paBonus + RulerBalance.NobleDaughterPaBonus);
+                AssignPortrait(noble.Candidate, usedPortraits);
+                offers.Add(new RecruitmentOffer(noble.Candidate, noble.SigningBonus) { IsNobleDaughter = true });
+            }
             return offers;
         }
 
