@@ -553,8 +553,8 @@ public partial class AdventurerPanel : VBoxContainer
 		// 魂魄融和で生まれた娘なら両親を出す（→ 03 §5.4・§0.58）。秘薬の親になった者には印を付ける。
 		if (a.ParentIds.Count == 2)
 		{
-			string parentA = _state.FindAdventurer(a.ParentIds[0])?.Name ?? "？";
-			string parentB = _state.FindAdventurer(a.ParentIds[1])?.Name ?? "？";
+			string parentA = SoulFusionSystem.ParentName(_state, a, 0); // 退団した親は生まれたときの名前で
+			string parentB = SoulFusionSystem.ParentName(_state, a, 1);
 			_statusLabel.AppendText($"　[color=violet]🧪 {parentA}と{parentB}の娘[/color]");
 		}
 		// 出来事の名残り（§0.102）：ふさぎ込み・焦り・張り切り・引き抜きの話
@@ -744,7 +744,7 @@ public partial class AdventurerPanel : VBoxContainer
 		_focusButton.Disabled = block != null;
 		_focusButton.TooltipText = (block != null ? block + "\n" : "") +
 			$"注目している子は、志向・気質のきっかけを見た回数が{PersonalityBalance.FocusExposureMultiplier}倍で数えられ、月の終わりに副官がまだ確かでない志向・気質を1つ見立てる。" +
-			$"\n注目を付ける・外すのは月のはじめだけ（{PersonalitySystem.FocusSlots(state)}人まで。倒した主が{PersonalityBalance.FocusExtraBosses}体を超えると{PersonalityBalance.FocusSlots + PersonalityBalance.FocusSlotsExtra}人）。";
+			$"\n注目を付ける・外すのは月のはじめだけ（{PersonalitySystem.FocusSlots(state)}人まで。倒した番人が{PersonalityBalance.FocusExtraBosses}体を超えると{PersonalityBalance.FocusSlots + PersonalityBalance.FocusSlotsExtra}人）。";
 		var known = new System.Collections.Generic.List<string>();
 		var neutral = new System.Collections.Generic.List<string>();
 		foreach (var drive in PersonalitySystem.AllDrives)

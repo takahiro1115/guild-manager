@@ -134,11 +134,6 @@ namespace GuildManager.Core.Models
             (GetDefinition()?.MaxHpBonus ?? 0) + AffixHpBonus + (GetUniqueDefinition()?.HpBonus ?? 0);
 
         /// <summary>
-        /// 装備者がいる部隊で、指定のボスギミックを対策済みにするか（伝説級の固有効果、→ DungeonResolver.IsCountered）。
-        /// </summary>
-        public bool CountersGimmick(BossGimmickType type) => GetUniqueDefinition()?.CounterGimmick == type;
-
-        /// <summary>
         /// アフィックスを1つ付ける（鑑定の抽選 → AppraisalSystem）。位置（接頭辞／接尾辞）の Id と値を記録し、
         /// 補正を AffixStatBonuses／AffixHpBonus へ加算する。同じ位置に既に付いていれば例外（上書きで合計が狂うのを防ぐ）。
         /// </summary>
@@ -179,13 +174,9 @@ namespace GuildManager.Core.Models
             {
                 string bonuses = unique.DescribeBonuses();
                 if (bonuses.Length > 0) text += $" [固有: {bonuses}]";
-                if (unique.CounterGimmick.HasValue) text += $" [{GimmickLabel(unique.CounterGimmick.Value)}対策]";
             }
             return text;
         }
-
-        /// <summary>ボスギミックの表示名（→ 03 §4.5.4）。</summary>
-        public static string GimmickLabel(BossGimmickType type) => BossGimmickInfo.Label(type);
 
         private static string DescribeAffix(string? id, int value)
         {

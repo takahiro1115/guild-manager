@@ -204,5 +204,31 @@ namespace GuildManager.Core.Tests
             var again = GameState.FromSaveData(System.Text.Json.JsonSerializer.Deserialize<SaveData>(json)!).Adventurers.First(x => x.Name == "旧セーブ");
             Assert.All(AllStats, s => Assert.Equal(SoulFusionSystem.PaCapOffsetOf(filled, s), SoulFusionSystem.PaCapOffsetOf(again, s)));
         }
+
+        // ---------------- 親の名前（退団した親） ----------------
+
+        [Fact]
+        public void ParentNames_AreKept_WhenAParentLeavesTheGuild()
+        {
+            var a = Make("母A", 50);
+            var b = Make("母B", 50);
+            var state = StateOf(a, b);
+            var child = new SoulFusionSystem(new AlwaysMaxRng()).CreateChild(state, a, b, JobClass.Warrior, null).Child;
+            Assert.Equal(new[] { "母A", "母B" }, child.ParentNames);
+            state.Adventurers.Add(child);
+
+            state.Adventurers.Remove(b); // 退団（記録から消える）
+            Assert.Equal("母A", SoulFusionSystem.ParentName(state, child, 0));
+            Assert.Equal("母B", SoulFusionSystem.ParentName(state, child, 1)); // 生まれたときの名前で
+            a.Name = "改名した母A";
+            Assert.Equal("改名した母A", SoulFusionSystem.ParentName(state, child, 0)); // いる親はいまの名前
+
+            // 旧セーブ（親の名前なし）：見つかる親だけ補い、見つからない親は「？」
+            child.ParentNames.Clear();
+            var loaded = GameState.FromSaveData(state.ToSaveData());
+            var lc = loaded.Adventurers.First(x => x.Id == child.Id);
+            Assert.Equal("改名した母A", lc.ParentNames[0]);
+            Assert.Equal("？", SoulFusionSystem.ParentName(loaded, lc, 1));
+        }
     }
 }

@@ -64,6 +64,11 @@ namespace GuildManager.Core.Systems
             result.ResearchYield = ResearchYield(state);
             materialCount += result.ResearchYield;
 
+            // 解析（§0.138）：採取する区間（次の番人まで）の解析が進んでいるほど、持ち帰れる素材が増える（四捨五入）。
+            result.IntelYieldBonus = IntelYieldBonus(field);
+            if (result.IntelYieldBonus > 0)
+                materialCount = (int)Math.Round(materialCount * (1 + result.IntelYieldBonus), MidpointRounding.AwayFromZero);
+
             // 護衛が薄いほど持ち帰れる量が減る（余裕なら少し増える）。1個未満にはならない。
             materialCount = Math.Max(1, (int)Math.Round(materialCount * GuardYieldMultiplier(result.GuardTier), MidpointRounding.AwayFromZero));
 
@@ -192,6 +197,21 @@ namespace GuildManager.Core.Systems
 
         /// <summary>獲得数のうち到達階層由来の枠＝到達階層÷ReachedFloorDivisor（切り捨て）。</summary>
         public static int FloorYield(DungeonField field) => field.ReachedFloor / GatheringBalance.ReachedFloorDivisor;
+
+        /// <summary>
+        /// 解析による採取の上乗せ（§0.138）：採取する区間（そのフィールドの次の番人まで）の解析の段階で決まる。
+        /// 解析率50%で IntelYieldBonusHazards、75%で IntelYieldBonusCountermeasures、完全解析で IntelYieldBonusComplete。
+        /// 番人をすべて倒したフィールドは完全解析と同じ。番人を倒すと次の区間は0%から。
+        /// </summary>
+        public static double IntelYieldBonus(DungeonField field) =>
+            field.GetNextActiveBoss() is not { } boss ? GatheringBalance.IntelYieldBonusComplete
+            : ScoutingResolver.GetTier(boss.IntelRate) switch
+            {
+                IntelTier.Complete => GatheringBalance.IntelYieldBonusComplete,
+                IntelTier.Countermeasures => GatheringBalance.IntelYieldBonusCountermeasures,
+                IntelTier.Hazards => GatheringBalance.IntelYieldBonusHazards,
+                _ => 0,
+            };
 
         /// <summary>獲得数のうち研究（GatheringYieldBonus）由来の枠。stateがnullなら0。</summary>
         public static int ResearchYield(GameState? state) =>

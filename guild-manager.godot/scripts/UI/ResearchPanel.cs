@@ -643,8 +643,8 @@ public partial class ResearchPanel : ScrollContainer
 
 		foreach (var d in daughters)
 		{
-			string parentA = _state.FindAdventurer(d.ParentIds[0])?.Name ?? "？";
-			string parentB = _state.FindAdventurer(d.ParentIds[1])?.Name ?? "？";
+			string parentA = SoulFusionSystem.ParentName(_state, d, 0); // 退団した親は生まれたときの名前で
+			string parentB = SoulFusionSystem.ParentName(_state, d, 1);
 			string catalyst = d.FusionCatalystId == null ? "なし" : MaterialBalance.GetName(d.FusionCatalystId);
 			string breakthrough = d.FusionBreakthroughStats.Count == 0 ? "" : $"　[color=gold]✨ 能力限界突破：{string.Join("・", d.FusionBreakthroughStats)}[/color]";
 			string state = d.IsRetired ? "[color=gray]（引退）[/color]" : "";

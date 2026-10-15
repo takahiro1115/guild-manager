@@ -83,7 +83,7 @@ namespace GuildManager.Core.Systems
             if (a.Journal.Count > 0) return;
             if (string.IsNullOrEmpty(a.JoinEstimate))
                 a.JoinEstimate = PotentialEstimateSystem.TotalRankLabel(state, a);
-            var mothers = a.ParentIds.Select(id => state.FindAdventurer(id)?.Name).OfType<string>().ToList();
+            var mothers = Enumerable.Range(0, a.ParentIds.Count).Select(i => SoulFusionSystem.ParentName(state, a, i)).Where(n => n != "？").ToList(); // 退団した親は生まれたときの名前で
             string text = a.ParentIds.Count > 0
                 ? $"魂魄融和の秘薬で{(mothers.Count > 0 ? string.Join("と", mothers) + "の" : "")}娘として生まれ、ギルドに加わった（副官の見立て {a.JoinEstimate}）"
                 : $"{a.Age}歳でギルドに加わった（副官の見立て {a.JoinEstimate}）";

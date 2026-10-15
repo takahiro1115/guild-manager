@@ -44,7 +44,7 @@
 | `training.csv` | 03 §3.1〜3.4・§3.5改・§7.1 | TrainingBalance（勤勉 `DiligentGrowthRateBonus`、→ 03 §0.32。教官からの特性伝授 `TraitInheritanceBaseChance`・師匠肌ボーナス `MentorTraitInheritanceBonus`、→ 03 §0.34。教官の在任ボーナス `TrainerTenureBonusStepWeeks`・`TrainerTenureBonusPerStep`・`TrainerTenureBonusMax`、→ 03 §0.54。待機中の過ごし方 `IdleActivityHpRatio`・`SelfTrainingGrowthMultiplier`・`SelfTrainingHpCost`・研究の手伝い `ResearchCreditMax`・`ResearchCreditPerWeek`・`ResearchMaxShortenRate`、→ 03 §0.73・§0.114） |
 | `trait.csv` | 03 §4.3・§5.3.2・§4.2.3 | TraitBalance（→ TraitCatalog。豪胆 `BraveSurvivalThresholdBonus`＝ボス戦の損耗−pt・注意深い `AttentiveScoutingBonus`＝隠密の寄与×(1＋値)・知識人 `ScholarAnalysisBonus`＝解析の寄与×(1＋値)、→ 03 §0.53。ペアシナジーの緩和係数は§0.53で削除）。全特性の表示名・説明・障害フラグ（`{Id}_DisplayName`・`{Id}_Description`・`{Id}_IsCurseOrInjury`、§0.31）。旧 `TraitTransmission*` 3キーは §0.34 で削除（→ training.csv）。§0.55で足した10種の効果量（`HawkEyeFlyingDamageReductionRate`・`SixthSenseInstantKillHpLossPct`・`GuardianGuardBonus`・`PathfinderTraversalBonus`・`SturdyMaxHpBonus`・`QuickHealerInjuryRecoveryBonus`・`QuickHealerRestRecoveryBonus`・`CheerfulSatisfactionBonus`・`HardworkerIdleHelpCreditMultiplier`（§0.73で `HardworkerIdleHelpGoldMultiplier` から改名）・`FireMageIntBonus`・`SwordMasterStatBonus`、すべて仮の値、→ 03 §5.3.2）。§0.56のマイナスの特性（地図読み `MapReaderTraversalBonus`、欠点の `Coward*`・`Reckless*`・`ClumsyStealthPenalty`・`PoorDirectionTraversalPenalty`・`SicklyMaxHpPenalty`・`FickleGrowthRatePenalty`・`MoodySatisfactionPenalty`・`SpendthriftWageMultiplier`、障害の `PoisonAftereffect*`・`LegWoundAgiReduction`・`ArmWoundStatReduction`・`Dread*`・`Burnout*`。すべて仮の値）。§0.57のレア特性（`GeniusStatBonus`＝0.15・`RareSingleStatBonus`＝0.30、仮の値） |
 | `equipment.csv` | 03 §4.2.2 | EquipmentBalance（→ ItemCatalog）。**テーブル形式**（`Id,Price,HpBonus,BonusStr〜BonusLdr,note`、2026年9月に key,value 形式から移行）。`HpBonus`＝最大HP加算（武器は0）。§0.37で旧 `EffectValue`（個人CP／最大HPの二義）を個人CPの撤廃に伴い `HpBonus` へ改名 |
-| `boss_gimmicks.csv` | 03 §4.5.4 | BossGimmickBalance（ボスのギミック7種への備えと罰、毒状態、ギミックの数。2026年10月・§0.68。旧 `consumables.csv` は撤去） |
+| ~~`boss_gimmicks.csv`~~ （§0.138 で削除） | 03 §4.5.4 | BossGimmickBalance（ボスのギミック7種への備えと罰、毒状態、ギミックの数。2026年10月・§0.68。旧 `consumables.csv` は撤去） |
 | `boss_power_weights.csv` | 03 §4.5.4・§2.1 | DungeonBalance.GetBossPowerWeights（職業ごとの討伐火力の重み、2026年10月・§0.72。どの職業も合計4.2。dungeon.csv の `BossPowerWeight_*` は職業を決めない試算用の共通の重み）。ほかに §0.72 で combat.csv `ClericBlessingLossPctPerMnd`（0.08）・`ClericBlessingSevereThresholdRate`（0.8）＝神官の加護、recruitment.csv `JobAptitudePaBonus`（10）・`JobInaptitudePaPenalty`（10）＝採用の能力を職業に寄せる、dungeon.csv `GrowthJobWeightFloor`（1）＝出撃成長の能力の選び方を足した |
 | `potential_estimate.csv` | 03 §0.74・§2.4・§5.1 | PotentialEstimateBalance（副官の見立て〈PAを隠して段階S〜Dで見せる〉の幅・目利き〈スカウトの顧問・段階研究・在籍の学者〉・在籍の月日で狭まる割合・魂魄融和の娘の倍率・確かとする幅・段階の境目、2026年10月・§0.74） |
 | `personality.csv` | 03 §0.100〜§0.102 | PersonalityBalance（志向・気質・相性の素地の決め方、志向と気質による満足度の増減、見立ての回数、採用の一言。満足度と相性の段階・志向の力と成長・さぼり・かばい合い・素地の帯〈§0.101〉。出来事・引き抜き・事故・⚠の表示〈§0.102〉。key,value 形式） |
@@ -932,3 +932,23 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 | `RequiredCompatibility` | 80 → 60 | 秘薬を処方できる相性。娘が早く加わる |
 
 シミュレーター：撃破数（各年のはじめ）3年目14→4年目15→5年目16 が 16→20→21 に。`audit 30 1440 L3 simple` 30・29・30/30、`campaign 20 1440` 20/20・13年目、ネフェリスを倒した部隊の世代 平均3.2。
+
+## 番人のギミックを無くした改訂で変えたキー（2026年10月、→ 03 §0.138）
+
+- **boss_gimmicks.csv を削除**（番人のギミック・備え・毒状態の値）。
+- **dungeon.csv**：`UncounteredDamageMultiplierPerDangerLevel`・`InstantKillUncounteredHpLossPct` を削除。
+- **squad_orders.csv**：`CautiousMinReadiness`・`CautiousMinInstantKillReadiness`・`Standard…`・`Bold…` を削除（構えは勝率と体力だけで決める）。
+- **uniques.csv**：`CounterGimmick` 列を削除。打ち消しを持っていた7つの伝説級は能力の上乗せを増やした。
+
+| ファイル | キー | 値（前→今） | 意味 |
+|---|---|---|---|
+| trait.csv | `HawkEyeSurveyIntelBonusRate`（`HawkEyeFlyingDamageReductionRate` を置き換え） | 0.50 → 0.20 | 鷹の目：部隊に1人いれば、迷宮調査で進む解析率に上乗せ |
+| trait.csv | `SixthSenseFatalChanceRate`（`SixthSenseInstantKillHpLossPct` を置き換え） | 60% → 0.5倍 | 危機察知：HP0での強制除籍の確率に掛ける倍率 |
+| trait.csv | `PoisonAftereffectHpThresholdPct`・`PoisonAftereffectChance` | 削除 | 毒の後遺症は新しく付かない |
+| trait.csv | `DreadChance` | 0.30（説明だけ変更） | 戦慄：番人との決戦でHP0から一命を取り留めた子に付く確率 |
+| combat.csv | `ResistPoisonTraversalLossReductionRate`（`ResistPoisonDamageReductionRate` を置き換え） | 0.20 | 耐毒体質：道中の本人の体力の減りを減らす率 |
+| combat.csv | `GiantHunterDamageBonusRate` | 0.15 → 0.10 | 巨獣狩り：どの番人との決戦でも本人の火力に上乗せ |
+| combat.csv | `GiantHunterAwakeningChance` | 0.20 → 0.05 | 巨獣狩りの後天開眼：どの番人の撃破でも |
+| gathering.csv | `IntelYieldBonus_Hazards`・`_Countermeasures`・`_Complete`（新設） | 0.10・0.20・0.30 | 解析による採取の上乗せ（次の番人の区間の解析率 50%・75%・完全解析） |
+
+シミュレーター：`audit 30 1440 L3 simple` 30・30・30/30（13〜14年目）、負け0。`campaign 20 1440` 20/20、ネフェリスを倒した部隊の世代 平均3.2〜3.3。

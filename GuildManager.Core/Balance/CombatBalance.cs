@@ -32,13 +32,13 @@ namespace GuildManager.Core.Balance
         public static readonly double LightInjuryStatPenaltyRate = BalanceData.GetDouble(FileName, "LightInjuryStatPenaltyRate");
 
         /// <summary>
-        /// 耐毒体質（→ TraitCatalog.ResistPoison、03 §5.3.2）：未対策の「猛毒」ギミックが被ダメージ倍率に足す分
-        /// （危険度×UncounteredDamageMultiplierPerDangerLevel）を、部隊に保有者がいればこの率だけ減らす（→ DungeonResolver）。
+        /// 耐毒体質（→ TraitCatalog.ResistPoison、03 §5.3.2）：道中の本人の体力の減りをこの率だけ減らす
+        /// （→ DungeonTraversalResolver。§0.138 で猛毒の番人を無くしたので、毒への強さを道中の強さに置き換えた）。
         /// </summary>
-        public static readonly double ResistPoisonDamageReductionRate = BalanceData.GetDouble(FileName, "ResistPoisonDamageReductionRate");
+        public static readonly double ResistPoisonTraversalLossReductionRate = BalanceData.GetDouble(FileName, "ResistPoisonTraversalLossReductionRate");
 
         /// <summary>
-        /// 巨獣狩り（→ TraitCatalog.GiantHunter）：ボスが「重装甲」ギミックを持つとき、保有者本人の討伐火力に
+        /// 巨獣狩り（→ TraitCatalog.GiantHunter）：番人との決戦で（§0.138 でどの番人にも）、保有者本人の討伐火力に
         /// 上乗せする率（→ DungeonPowerCalculator.MemberPower）。
         /// </summary>
         public static readonly double GiantHunterDamageBonusRate = BalanceData.GetDouble(FileName, "GiantHunterDamageBonusRate");
@@ -63,8 +63,8 @@ namespace GuildManager.Core.Balance
         public static readonly double OldWoundRetreatHpThresholdPct = BalanceData.GetDouble(FileName, "OldWoundRetreatHpThresholdPct");
 
         /// <summary>
-        /// 巨獣狩りの後天開眼（→ DungeonResolver、03 §4.5.4・§5.3.2、2026年9月・§0.35）：「重装甲」ギミックを持つ
-        /// 階層ボスを撃破したとき、生存した隊員ごとに巨獣狩りを得る確率（0〜1）。
+        /// 巨獣狩りの後天開眼（→ DungeonResolver、03 §4.5.4・§5.3.2、2026年9月・§0.35）：番人を撃破したとき
+        /// （§0.138 でどの番人でも）、生存した隊員ごとに巨獣狩りを得る確率（0〜1）。
         /// </summary>
         public static readonly double GiantHunterAwakeningChance = BalanceData.GetDouble(FileName, "GiantHunterAwakeningChance");
 

@@ -11,12 +11,10 @@ BossWinCenterRatio,0.95,倍,"決戦の勝率（§0.98）：討伐火力÷要求�
 BossWinSteepness,14,,決戦の勝率の曲線の傾き（大きいほど比の差で勝率が大きく変わる。14で比0.85≒2割・1.0≒7割・1.1≒9割）
 BossWinSureRatio,1.3,倍,比がこの値以上なら必ず勝つ（勝率100%）
 BossWinHopelessRatio,0.7,倍,比がこの値未満なら必ず負ける（勝率0%）
-UncounteredDamageMultiplierPerDangerLevel,0.75,倍,未対策ギミック1件につき被ダメージへ加算される倍率（危険度1あたり）
 BaseHpLossPctMin,12,%,対策済みで討伐した場合のHP消費率の下限
 BaseHpLossPctMax,28,%,対策済みで討伐した場合のHP消費率の上限
 RetreatHpLossPctMin,20,%,火力不足で撤退した場合のHP消費率の下限
 RetreatHpLossPctMax,40,%,火力不足で撤退した場合のHP消費率の上限
-InstantKillUncounteredHpLossPct,100,%,即死級ギミックが未対策の場合に適用されるHP消費率（対策の有無が生死を分ける）
 BossIntervalFloors,10,階,階層ボスの配置間隔（10階ごと・1フィールド計10体）
 BossBaseHp,250,pt,10Fボス（森）の基準HP
 BossHpFloorMultiplier,1.25,倍,段（10階進む、またはフィールド1段深くなる）ごとのHP乗算係数

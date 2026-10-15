@@ -15,13 +15,11 @@ namespace GuildManager.Core.Balance
 
         /// <summary>扉前の構え1つ分の、挑む条件（→ SquadOrderSystem.JudgeEngage）。</summary>
         /// <summary>MinWinChance は決戦の勝率の下限（§0.98で火力の倍率から置き換えた、→ DungeonResolver.WinChance）。</summary>
-        public sealed record StanceRule(double MinWinChance, int MinHpPercent, double MinReadiness, double MinInstantKillReadiness);
+        public sealed record StanceRule(double MinWinChance, int MinHpPercent); // §0.138 で備え（ギミック）の条件を外した
 
         private static StanceRule Load(string prefix) => new(
             BalanceData.GetDouble(FileName, $"{prefix}MinWinChance"),
-            BalanceData.GetInt(FileName, $"{prefix}MinHpPercent"),
-            BalanceData.GetDouble(FileName, $"{prefix}MinReadiness"),
-            BalanceData.GetDouble(FileName, $"{prefix}MinInstantKillReadiness"));
+            BalanceData.GetInt(FileName, $"{prefix}MinHpPercent"));
 
         public static readonly StanceRule Cautious = Load("Cautious");
         public static readonly StanceRule Standard = Load("Standard");

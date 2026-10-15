@@ -450,7 +450,7 @@ namespace GuildManager.Core.Systems
                 lines.Add(new(StoryLineKind.Narration, "折れた王冠が床に転がった。廃墟の100階を制した"));
             }
             if (LegendaryFound is { } shroud)
-                lines.Add(new(StoryLineKind.Narration, $"玉座に残された「{shroud.Name}」を手に入れた（伝説級。持つ子が部隊にいれば、主の群れを対策済みにする）"));
+                lines.Add(new(StoryLineKind.Narration, $"玉座に残された「{shroud.Name}」を手に入れた（伝説級の固有武具）"));
             if (Defeated)
                 lines.Add(new(StoryLineKind.Narration, "古王の寝所が開いた（採用試験に毎回1人、名のある家の娘が加わる）"));
             if (SealsGained > 0)

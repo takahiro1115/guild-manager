@@ -72,8 +72,8 @@ namespace GuildManager.Core.Systems
         public static int DismissalDeadline(int week) =>
             ((week - 1) / GameCalendar.WeeksPerMonth + 1 + MasterMoodBalance.DismissalGraceMonths) * GameCalendar.WeeksPerMonth;
 
-        /// <summary>破産まであと何週か（所持金がマイナスのときだけ。プラスなら null）。</summary>
+        /// <summary>破産まであと何週か（所持金がマイナスのときだけ。プラスか、もうゲームオーバーなら null）。</summary>
         public static int? WeeksUntilBankruptcy(GameState state) =>
-            state.Gold >= 0 ? null : Math.Max(0, EconomyBalance.BankruptcyConsecutiveWeeksThreshold - state.ConsecutiveNegativeGoldWeeks);
+            state.Gold >= 0 || state.DefeatReason != null ? null :Math.Max(0, EconomyBalance.BankruptcyConsecutiveWeeksThreshold - state.ConsecutiveNegativeGoldWeeks);
     }
 }

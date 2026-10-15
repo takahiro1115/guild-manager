@@ -46,5 +46,10 @@ namespace GuildManager.Core.Balance
         public static readonly double GuardHpLossMultiplierSufficient = BalanceData.GetDouble(FileName, "GuardEffect_HpLossMultiplier_Sufficient");
         public static readonly double GuardHpLossMultiplierMarginal = BalanceData.GetDouble(FileName, "GuardEffect_HpLossMultiplier_Marginal");
         public static readonly double GuardHpLossMultiplierDeficient = BalanceData.GetDouble(FileName, "GuardEffect_HpLossMultiplier_Deficient");
+
+        /// <summary>解析による採取の上乗せ（§0.138、→ GatheringResolver.IntelYieldBonus）：解析率50%・75%・完全解析のときの率。</summary>
+        public static readonly double IntelYieldBonusHazards = BalanceData.GetDouble(FileName, "IntelYieldBonus_Hazards");
+        public static readonly double IntelYieldBonusCountermeasures = BalanceData.GetDouble(FileName, "IntelYieldBonus_Countermeasures");
+        public static readonly double IntelYieldBonusComplete = BalanceData.GetDouble(FileName, "IntelYieldBonus_Complete");
     }
 }

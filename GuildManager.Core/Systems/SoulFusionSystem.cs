@@ -150,6 +150,29 @@ namespace GuildManager.Core.Systems
             }
         }
 
+        /// <summary>
+        /// 親の名前（その順の親が見つかればいまの名前、見つからなければ生まれたときに写した名前、どちらも無ければ「？」）。
+        /// 退団・移籍した親は記録から消えるため、生まれたときの名前で出す。
+        /// </summary>
+        public static string ParentName(GameState state, Adventurer child, int index)
+        {
+            if (index >= child.ParentIds.Count) return "？";
+            if (state.FindAdventurer(child.ParentIds[index]) is { } parent) return parent.Name;
+            return index < child.ParentNames.Count && !string.IsNullOrEmpty(child.ParentNames[index]) ? child.ParentNames[index] : "？";
+        }
+
+        /// <summary>親の名前を持たない秘薬の娘（旧セーブ）に、見つかる親の名前を補う（見つからない親は空のまま）。</summary>
+        public static void EnsureParentNames(GameState state)
+        {
+            foreach (var a in state.Adventurers.Concat(state.RetiredAdventurers).Concat(state.FallenAdventurers)
+                .Concat(state.SoulFusionCultures.Select(c => c.Child)))
+            {
+                a.ParentNames ??= new List<string>();
+                if (a.ParentIds.Count == 0 || a.ParentNames.Count == a.ParentIds.Count) continue;
+                a.ParentNames = a.ParentIds.Select(id => state.FindAdventurer(id)?.Name ?? "").ToList();
+            }
+        }
+
         /// <summary>上限のずれを持たない子（旧セーブ）に、Id から決めたずれを補う（§0.135）。</summary>
         public static void EnsurePaCapOffsets(GameState state)
         {
@@ -351,6 +374,7 @@ namespace GuildManager.Core.Systems
                 JobClass = childJob,
                 Placement = PlacementRules.GetDefault(childJob),
                 ParentIds = new List<Guid> { a.Id, b.Id },
+                ParentNames = new List<string> { a.Name, b.Name }, // 親が退団しても名前を出せるように
                 Generation = ChildGeneration(a, b), // 世代（§0.133）
             };
             AssignPaCapOffsets(child, _rng); // 素質の上限のずれ（§0.135）

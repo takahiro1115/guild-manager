@@ -383,5 +383,47 @@ namespace GuildManager.Core.Tests
             Assert.True(state.Materials.ContainsKey(gathering.MaterialId));
             Assert.Equal(gathering.MaterialCount, state.Materials[gathering.MaterialId]);
         }
+
+        // ---------------- 解析による採取の上乗せ（§0.138） ----------------
+
+        [Fact]
+        public void IntelYieldBonus_FollowsTheNextBossesIntelTier()
+        {
+            var next = new FloorBoss { Name = "次の番人", Floor = 10, MaxHp = 100, CurrentHp = 100 };
+            var field = MakeField(reachedFloor: 5);
+            field.Bosses.Add(next);
+
+            Assert.Equal(0, GatheringResolver.IntelYieldBonus(field));
+            next.IntelRate = ScoutingBalance.IntelTierHazards;
+            Assert.Equal(GatheringBalance.IntelYieldBonusHazards, GatheringResolver.IntelYieldBonus(field), precision: 6);
+            next.IntelRate = ScoutingBalance.IntelTierCountermeasures;
+            Assert.Equal(GatheringBalance.IntelYieldBonusCountermeasures, GatheringResolver.IntelYieldBonus(field), precision: 6);
+            next.IntelRate = ScoutingBalance.IntelTierComplete;
+            Assert.Equal(GatheringBalance.IntelYieldBonusComplete, GatheringResolver.IntelYieldBonus(field), precision: 6);
+
+            // 番人を倒すと次の区間（次の番人）の解析で決まる。番人がもういなければ完全解析と同じ
+            next.IsDefeated = true;
+            Assert.Equal(GatheringBalance.IntelYieldBonusComplete, GatheringResolver.IntelYieldBonus(field), precision: 6);
+            var deeper = new FloorBoss { Name = "その次の番人", Floor = 20, MaxHp = 100, CurrentHp = 100 };
+            field.Bosses.Add(deeper);
+            Assert.Equal(0, GatheringResolver.IntelYieldBonus(field));
+        }
+
+        [Fact]
+        public void Gathering_YieldsMore_WhenTheSectionIsAnalyzed()
+        {
+            var party = PartyOf(MakeAdventurer(agiDex: 200, ldr: 100));
+            var plainField = MakeField(reachedFloor: 5);
+            plainField.Bosses.Add(new FloorBoss { Name = "次の番人", Floor = 10, MaxHp = 100, CurrentHp = 100 });
+            var analyzedField = MakeField(reachedFloor: 5);
+            analyzedField.Bosses.Add(new FloorBoss { Name = "次の番人", Floor = 10, MaxHp = 100, CurrentHp = 100, IntelRate = 1.0 });
+
+            var plain = new GatheringResolver(new AlwaysMinRng()).Resolve(party, plainField);
+            var analyzed = new GatheringResolver(new AlwaysMinRng()).Resolve(party, analyzedField);
+
+            Assert.Equal(0, plain.IntelYieldBonus);
+            Assert.Equal(GatheringBalance.IntelYieldBonusComplete, analyzed.IntelYieldBonus, precision: 6);
+            Assert.True(analyzed.MaterialCount > plain.MaterialCount);
+        }
     }
 }

@@ -1,8 +1,8 @@
 key,value,unit,note
-MaxHp,100,pt,支配者の体力（§0.127、→ docs/検討中_大迷宮の支配者.md §3）。月をまたいで残る。前哨戦（70F）で退いたあと、決着（100F）では癒えて満タンから
-RegenPerMonth,10,pt,支配者の体力が毎月のはじめに回復する量（最大まで）
-OutpostRetreatHp,50,pt,前哨戦（70F）で、体力がこの値を切ると支配者は退く（70Fの主を倒したことになる）
-InterventionsBase,1,回,1回の支配者戦で使える介入（部隊の護符の多頭通信術式）の回数。研究で増える（研究はまだ無い）
+MaxHp,100,pt,迷宮の主の体力（§0.127、→ docs/検討中_大迷宮の迷宮の主.md §3）。月をまたいで残る。前哨戦（70F）で退いたあと、決着（100F）では癒えて満タンから
+RegenPerMonth,10,pt,迷宮の主の体力が毎月のはじめに回復する量（最大まで）
+OutpostRetreatHp,50,pt,前哨戦（70F）で、体力がこの値を切ると迷宮の主は退く（70Fの番人を倒したことになる）
+InterventionsBase,1,回,1回の迷宮の主との戦いで使える介入（部隊の護符の多頭通信術式）の回数。研究で増える（研究はまだ無い）
 VesperaMaxRepresentatives,5,人,ヴェスペラの一騎打ち（§3-5）：代表の上限（順番つき）
 VesperaMaxBouts,5,試合,1回の決闘の試合の上限（勝った代表は残って次の試合へ）
 VesperaStrengthOutpost,130,pt,前哨戦（70F）のヴェスペラの強さ（試合の強さ〈TournamentSystem.MatchStrength〉と比べる。能力65前後の子で130前後）。魔の部門は大会と同じ DisciplineFactor（0.75）を掛ける
@@ -66,7 +66,7 @@ OrtensiaLossHpLossPctMax,50,%,同・上限（合い具合が線より0.35以上�
 OrtensiaIntelResealReveal,0.5,割合,解析がこれ以上なら、張り直しまでの月数が見える
 NobleDaughterPaBonus,5,pt,古王の寝所（オルテンシアとの決着の見返り）：採用試験に毎回1人、名のある家の娘（有望新人。PA にこの値を足す）が加わる
 IgniaMaxSquads,3,部隊,イグニアの灼熱の底（§0.131、設計書 §3-9）：出す部隊の上限（順番つき＝先鋒・本隊・後詰め。前の部隊が崩れたら次が代わる）
-IgniaRegenPerMonth,20,pt,イグニアの体力が毎月のはじめに回復する量（ほかの支配者は RegenPerMonth）。続けて挑まないと削りきれない
+IgniaRegenPerMonth,20,pt,イグニアの体力が毎月のはじめに回復する量（ほかの迷宮の主は RegenPerMonth）。続けて挑まないと削りきれない
 IgniaThresholdOutpost,65,pt,幕の閾値（前哨戦）。合い具合＝幕ごとの能力÷この値
 IgniaThresholdFinal,85,pt,幕の閾値（決着）
 IgniaFullSquadSize,4,人,炎の眷属と本体の幕は、部隊の合計÷（閾値×この人数）で合い具合を見る
@@ -89,7 +89,7 @@ NepherisMaxSquads,3,部隊,ネフェリスの心臓の間（§0.132、設計書 
 NepherisThresholdOutpost,75,pt,4つの段の閾値（前哨戦）
 NepherisThresholdFinal,95,pt,4つの段の閾値（決着）。限界突破（素質が100を超える能力）の子がいて届く高さ
 NepherisBreakRate,0.85,割合,合い具合がこの値以上なら、その段で体力を削る
-NepherisCharmRate,0.85,割合,倒していない支配者の仕掛け：決闘の魅了（MND）・甘い調べの魅了（INT）・幻惑の間（INT・MND）・威圧（LDR）は、閾値×この値より下の子を外す
+NepherisCharmRate,0.85,割合,倒していない迷宮の主の仕掛け：決闘の魅了（MND）・甘い調べの魅了（INT）・幻惑の間（INT・MND）・威圧（LDR）は、閾値×この値より下の子を外す
 NepherisDamageBase,15,pt,段で削る体力＝この値×合い具合（Min〜Max で止める）。1回の戦いは4段
 NepherisDamageMin,8,pt,同・下限
 NepherisDamageMax,25,pt,同・上限

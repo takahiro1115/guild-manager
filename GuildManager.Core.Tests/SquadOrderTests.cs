@@ -37,10 +37,9 @@ namespace GuildManager.Core.Tests
         }
 
         /// <summary>森（ボス1体）と、方針つきの2人部隊。</summary>
-        private static (GameState State, SavedParty Saved, FloorBoss Boss) Setup(SquadOrder order, int stat = 40, DoorStance stance = DoorStance.Standard, params BossGimmick[] gimmicks)
+        private static (GameState State, SavedParty Saved, FloorBoss Boss) Setup(SquadOrder order, int stat = 40, DoorStance stance = DoorStance.Standard)
         {
             var boss = new FloorBoss { Name = "森の主", Floor = 10, MaxHp = 100, CurrentHp = 100 };
-            boss.Gimmicks.AddRange(gimmicks);
             var forest = new DungeonField { Id = "forest", Name = "森", Order = 1, IsUnlocked = true, ReachedFloor = 10, Bosses = { boss } };
             var a = Make("アリス", stat);
             var b = Make("セリア", stat);
@@ -54,9 +53,9 @@ namespace GuildManager.Core.Tests
         {
             Assert.Equal(70, SquadOrderBalance.AutoDispatchMinHpPercent);
             // §0.98：火力の倍率から勝率の下限に置き換えた
-            Assert.Equal(new SquadOrderBalance.StanceRule(0.9, 80, 1.0, 1.0), SquadOrderBalance.Cautious);
-            Assert.Equal(new SquadOrderBalance.StanceRule(0.6, 60, 0, 0.5), SquadOrderBalance.Standard);
-            Assert.Equal(new SquadOrderBalance.StanceRule(0.3, 40, 0, 0), SquadOrderBalance.Bold);
+            Assert.Equal(new SquadOrderBalance.StanceRule(0.9, 80), SquadOrderBalance.Cautious);
+            Assert.Equal(new SquadOrderBalance.StanceRule(0.6, 60), SquadOrderBalance.Standard);
+            Assert.Equal(new SquadOrderBalance.StanceRule(0.3, 40), SquadOrderBalance.Bold);
             Assert.Same(SquadOrderBalance.Cautious, SquadOrderBalance.For(DoorStance.Cautious));
             Assert.Same(SquadOrderBalance.Bold, SquadOrderBalance.For(DoorStance.Bold));
         }
@@ -265,9 +264,8 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void OrderedDive_FightsAtDoorTheSameWeek_WithoutCost()
         {
-            // MND合計400÷100 → 備え万全。火力も十分なので、扉前に着いた週のうちに決戦して撃破する。
-            var poison = new BossGimmick { Type = BossGimmickType.Poison, RequiredCounterStat = "MND", RequiredCounterStatThreshold = 100, DangerLevel = 2 };
-            var (state, _, boss) = Setup(SquadOrder.Dive, stat: 200, stance: DoorStance.Standard, poison);
+            // 火力が十分なので、扉前に着いた週のうちに決戦して撃破する。
+            var (state, _, boss) = Setup(SquadOrder.Dive, stat: 200, stance: DoorStance.Standard);
             var expedition = Expedition();
 
             var results = DiveToDoor(state, expedition);
@@ -276,35 +274,6 @@ namespace GuildManager.Core.Tests
             Assert.Null(results[0].DoorRetreatReason);
             Assert.Equal(DungeonOutcome.Victory, results[1].DungeonResult!.Outcome);
             Assert.True(boss.IsDefeated);
-        }
-
-        [Theory]
-        [InlineData(DoorStance.Cautious, false)] // 慎重：すべて万全でないと挑まない
-        [InlineData(DoorStance.Standard, true)]  // 標準：即死級以外は備えを問わない
-        [InlineData(DoorStance.Bold, true)]
-        public void Stance_DecidesOnPartialReadiness(DoorStance stance, bool expectedGo)
-        {
-            // 飛行・DEX合計400÷1000 → 備え0.4（一部）。火力は十分。
-            var flying = new BossGimmick { Type = BossGimmickType.Flying, RequiredCounterStat = "DEX", RequiredCounterStatThreshold = 1000, DangerLevel = 1 };
-            var (state, saved, boss) = Setup(SquadOrder.Dive, stat: 200, stance: stance, flying);
-            var mission = AtDoor(state, saved, boss);
-
-            var judge = SquadOrderSystem.JudgeEngage(state, mission, stance);
-
-            Assert.Equal(expectedGo, judge.Go);
-            if (!expectedGo) Assert.Contains("飛行", judge.Reason);
-        }
-
-        [Theory]
-        [InlineData(DoorStance.Standard, false)] // 標準：即死級の備えが半分未満なら撤退（戦死を避ける）
-        [InlineData(DoorStance.Bold, true)]      // 強気：それでも挑む
-        public void Stance_InstantKillThreshold(DoorStance stance, bool expectedGo)
-        {
-            var instantKill = new BossGimmick { Type = BossGimmickType.InstantKill, RequiredCounterStat = "LDR", RequiredCounterStatThreshold = 1000, DangerLevel = 5 };
-            var (state, saved, boss) = Setup(SquadOrder.Dive, stat: 200, stance: stance, instantKill);
-            var mission = AtDoor(state, saved, boss);
-
-            Assert.Equal(expectedGo, SquadOrderSystem.JudgeEngage(state, mission, stance).Go);
         }
 
         [Theory]
@@ -360,18 +329,6 @@ namespace GuildManager.Core.Tests
             var events = new SquadOrderSystem(expedition).Execute(state);
             Assert.Single(events, e => e.Action == SquadOrderAction.Dispatched);
             Assert.Equal(1, Assert.Single(state.ActiveDungeonMissions).CurrentFloor);
-        }
-
-        [Fact]
-        public void Judge_Retreats_WhenGimmickCannotBeCountered()
-        {
-            var noCounter = new BossGimmick { Type = BossGimmickType.InstantKill, DangerLevel = 5 }; // 対策口が無い
-            var (state, saved, boss) = Setup(SquadOrder.Dive, stat: 200, stance: DoorStance.Standard, noCounter);
-            var mission = AtDoor(state, saved, boss);
-
-            var judge = SquadOrderSystem.JudgeEngage(state, mission, DoorStance.Standard);
-            Assert.False(judge.Go);
-            Assert.Contains("即死級", judge.Reason);
         }
 
         [Fact]

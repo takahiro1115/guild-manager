@@ -105,7 +105,7 @@ namespace GuildManager.Core.Tests
             Assert.Equal(DungeonResolver.WinChance(stall.Power, stall.RequiredPower), stall.WinChance);
 
             var report = MonthlyReport.Build(state, weeks, state.Gold);
-            Assert.Contains("潜行の部隊が主に勝てずに戻った", report.StopReasons);
+            Assert.Contains("潜行の部隊が番人に勝てずに戻った", report.StopReasons);
             var plan = Assert.Single(report.Plans);
             Assert.False(plan.Repeated);
             Assert.Equal("主力", plan.PartyName);

@@ -68,7 +68,7 @@ namespace GuildManager.Core.Tests
             var ig = Ignia(s);
             Assert.True(RulerSystem.CanChallenge(s, ig));
             Assert.True(RulerSystem.UsesSquads(ig));
-            Assert.Equal("支配者イグニア", s.DungeonFields.First(f => f.Id == "canyon").Bosses.First(b => b.Floor == 70).Name);
+            Assert.Equal("迷宮の主イグニア", s.DungeonFields.First(f => f.Id == "canyon").Bosses.First(b => b.Floor == 70).Name);
             ig.Hp = 50;
             RulerSystem.ProcessNewWeek(s);
             Assert.Equal(50 + RulerBalance.IgniaRegenPerMonth, ig.Hp);

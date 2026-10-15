@@ -223,7 +223,7 @@ namespace GuildManager.Core.Systems
             if (a.Injury != InjurySeverity.None) return "負傷している";
             if (a.IsPoisoned) return "毒状態";
             if (TournamentSystem.EntryOf(state, a.Id) is { } other && other.EventId != ev.Id) return "今月はほかの大会に出る（1人1か月1大会）";
-            if (RulerSystem.IsRepresentative(state, a.Id)) return "支配者戦の代表になっている";
+            if (RulerSystem.IsRepresentative(state, a.Id)) return "迷宮の主との戦いの代表になっている";
             return null;
         }
 

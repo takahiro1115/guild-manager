@@ -201,13 +201,11 @@ public partial class DungeonDepthBar : Control
 		{
 			var tier = ScoutingResolver.GetTier(boss.IntelRate);
 			bool known = boss.IsDefeated || boss.Id == _targetBossId || boss.IntelRate > 0;
-			lines.Add($"区間の主：第{boss.Floor}層「{(known ? boss.Name : "？？？")}」{(boss.IsDefeated ? "（撃破済み）" : boss.Id == _targetBossId ? "（現在の目標）" : "")}");
+			lines.Add($"区間の番人：第{boss.Floor}層「{(known ? boss.Name : "？？？")}」{(boss.IsDefeated ? "（撃破済み）" : boss.Id == _targetBossId ? "（現在の目標）" : "")}");
 			lines.Add($"解析率 {boss.IntelRate * 100:F0}%（{DungeonPanel.TierLabel(tier)}）");
-			// 特殊能力の名前（解析率50%から。§0.97でボスの欄を縮めたので、区間ごとにここでも見られるようにした）
-			if (!boss.IsDefeated)
-				lines.Add(tier < IntelTier.Hazards ? "特殊能力：？？？（解析率50%で判明）"
-					: boss.Gimmicks.Count == 0 ? "特殊能力なし"
-					: $"特殊能力：{string.Join("・", boss.Gimmicks.Select(g => DungeonPanel.GimmickLabel(g.Type)))}");
+			// 解析による採取の上乗せ（§0.138。次の番人の区間だけ。もとは特殊能力の名前）
+			if (!boss.IsDefeated && _field.GetNextActiveBoss()?.Id == boss.Id && GatheringResolver.IntelYieldBonus(_field) is > 0 and var yield)
+				lines.Add($"この区間の採取 +{yield * 100:F0}%（解析）");
 			lines.Add($"進軍速度 ×{DungeonTraversalResolver.IntelSpeedMultiplier(boss):0.0#}（1.0＋解析率×{DungeonTraversalBalance.IntelSpeedBonusPerIntel:0.#}）");
 		}
 		foreach (var (pinFloor, label) in _pins.Where(p => Math.Abs(p.Floor - floor) <= 1))

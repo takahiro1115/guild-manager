@@ -30,20 +30,20 @@ Scholar_IsCurseOrInjury,false,真偽,障害・呪い特性か
 Mentor_DisplayName,師匠肌,名称,特性の表示名
 Mentor_Description,教官として訓練施設に配置されると、特性伝授の確率が上がる,説明,特性の説明文
 Mentor_IsCurseOrInjury,false,真偽,障害・呪い特性か
-ResistPoison_DisplayName,耐毒体質,名称,特性の表示名（2026年9月新設・大迷宮ギミック対策系。効果の数値接続は次段）
-ResistPoison_Description,猛毒・瘴気フロアでの被弾損耗を大幅に軽減する,説明,特性の説明文
+ResistPoison_DisplayName,耐毒体質,名称,特性の表示名（2026年9月新設。§0.138 で道中の体力の減りを軽くする効き目に）
+ResistPoison_Description,毒にも瘴気にも負けない頑丈な体。道中で体力が減りにくい,説明,特性の説明文
 ResistPoison_IsCurseOrInjury,false,真偽,障害・呪い特性か
 NightVision_DisplayName,夜目,名称,特性の表示名（2026年9月新設・大迷宮ギミック対策系。効果の数値接続は次段）
 NightVision_Description,暗黒・濃霧フロアの踏破時、未踏破区間の進行損耗を抑制する,説明,特性の説明文
 NightVision_IsCurseOrInjury,false,真偽,障害・呪い特性か
-GiantHunter_DisplayName,巨獣狩り,名称,特性の表示名（2026年9月新設・大迷宮ギミック対策系。効果の数値接続は次段）
-GiantHunter_Description,大型ボスに対する討伐能力を高める,説明,特性の説明文
+GiantHunter_DisplayName,巨獣狩り,名称,特性の表示名（2026年9月新設。§0.138 でどの番人にも効く）
+GiantHunter_Description,大物を仕留める勘どころを知っている。番人との決戦で本人の討伐火力が上がる,説明,特性の説明文
 GiantHunter_IsCurseOrInjury,false,真偽,障害・呪い特性か
 Diligent_DisplayName,勤勉,名称,特性の表示名（2026年9月新設・訓練系。効果の数値接続は次段）
 Diligent_Description,訓練場に配置された際の能力成長判定確率が上昇する,説明,特性の説明文
 Diligent_IsCurseOrInjury,false,真偽,障害・呪い特性か
-HawkEyeFlyingDamageReductionRate,0.50,倍,鷹の目：階層ボスの「飛行」ギミックが未対策のとき、部隊に保有者が1人でもいれば飛行による被ダメージ倍率の加算分をこの率だけ減らす（耐毒体質の飛行版。→ 03 §0.55・§5.3.2・DungeonResolver）
-SixthSenseInstantKillHpLossPct,60,%,危機察知：「即死級」ギミックが未対策のとき、保有者本人のHP消費率を全損（combat.csv InstantKillUncounteredHpLossPct）ではなくこの値にする（豪胆・研究の生存ボーナスはこの後に差し引く）
+HawkEyeSurveyIntelBonusRate,0.20,倍,鷹の目：部隊に保有者が1人でもいれば、迷宮調査で進む解析率にこの率を上乗せする（§0.138。飛行の番人を無くしたので置き換えた）
+SixthSenseFatalChanceRate,0.5,倍,危機察知：HP0になったときの強制除籍の確率（combat.csv FatalChancePercent）にこの倍率を掛ける（§0.138。即死級を無くしたので置き換えた。迷宮の主との戦いでは今までどおり倒れる前に下がる）
 GuardianGuardBonus,0.20,倍,守り手：護衛への本人の護衛値（max(STR・VIT・INT)）に掛ける補正率（0.20で×1.20。→ ScoutingResolver.GetGuardValue）
 PathfinderTraversalBonus,0.15,倍,健脚：走破への本人の寄与（VIT×係数＋MND×係数）に掛ける補正率（0.15で×1.15。→ DungeonTraversalResolver.GetMemberTraversalValue）
 SturdyMaxHpBonus,0.10,倍,頑強：最大HPの基礎部分（実効VIT×係数＋基礎値）に掛ける補正率（0.10で×1.10。装備の最大HP加算には掛けない）
@@ -54,10 +54,10 @@ HardworkerIdleHelpCreditMultiplier,1.5,倍,働き者：研究の手伝い（→ 
 FireMageIntBonus,0.10,倍,火の魔術師：INTの実効値の素の値部分に掛ける補正率（0.10で×1.10、古傷などの割合減と合算）。火炎特攻（火に弱いボスへの上乗せ）は大迷宮のボスに弱点を足すときに接続する
 SwordMasterStatBonus,0.10,倍,ソードマスター：剣（鉄の剣・大剣）を装備しているとき、STRとAGIの実効値の素の値部分に掛ける補正率（0.10で×1.10）
 HawkEye_DisplayName,鷹の目,名称,特性の表示名（2026年10月・§0.55で新設）
-HawkEye_Description,空を舞う敵の動きを見切る。対策していない「飛行」のボス戦で、部隊の被害の上乗せを抑える,説明,特性の説明文
+HawkEye_Description,遠くの動きまで見通す。迷宮調査の部隊にいれば解析が早く進む,説明,特性の説明文
 HawkEye_IsCurseOrInjury,false,真偽,障害・呪い特性か
 SixthSense_DisplayName,危機察知,名称,特性の表示名（2026年10月・§0.55で新設）
-SixthSense_Description,致命の一撃を寸前で察する。対策していない「即死級」を受けても、本人は全損を免れる,説明,特性の説明文
+SixthSense_Description,致命の一撃を寸前で察する。倒れても強制除籍になりにくい,説明,特性の説明文
 SixthSense_IsCurseOrInjury,false,真偽,障害・呪い特性か
 Guardian_DisplayName,守り手,名称,特性の表示名（2026年10月・§0.55で新設）
 Guardian_Description,仲間を守る立ち回りに長け、迷宮調査の護衛への寄与が高まる,説明,特性の説明文
@@ -94,11 +94,9 @@ FickleGrowthRatePenalty,-0.05,確率,飽きっぽい（生まれつきの欠点�
 MoodySatisfactionPenalty,-1,pt,気難しい（生まれつきの欠点）：本人の満足度の週次変動に足す値（快活の逆。快活を得ると克服）
 SpendthriftWageMultiplier,1.25,倍,浪費家（生まれつきの欠点・克服できない）：採用時の週給と、満足度の賃金判定に使う適正週給に掛ける倍率
 PoisonAftereffectVitReduction,-0.10,倍,毒の後遺症（後天の障害）：VITの素の値部分に掛ける減少率
-PoisonAftereffectHpThresholdPct,0.25,倍,毒の後遺症：対策していない猛毒の階層ボス戦で、生還時のHPが最大HP×この比率未満の隊員がロールの対象
-PoisonAftereffectChance,0.10,確率,毒の後遺症：上の対象になった隊員ごとの付与確率
 LegWoundAgiReduction,-0.25,倍,足の古傷（後天の障害）：AGIの素の値部分に掛ける減少率。古傷の判定に当たったとき古傷・足の古傷・腕の古傷から等確率で決まる
 ArmWoundStatReduction,-0.20,倍,腕の古傷（後天の障害）：STRとDEXの素の値部分に掛ける減少率
-DreadChance,0.30,確率,戦慄（後天の障害）：対策していない即死級の階層ボス戦で生き残った隊員ごとの付与確率
+DreadChance,0.30,確率,戦慄（後天の障害）：番人との決戦でHP0になり一命を取り留めた隊員ごとの付与確率（§0.138。即死級を無くしたので付く元を置き換えた）
 DreadPowerPenalty,-0.10,倍,戦慄：本人の討伐火力に掛ける補正率（-0.10で×0.90）
 BurnoutConsecutiveWeeks,12,週,燃え尽き（後天の障害）：休まず続けて出撃した週数がこの値以上になると、毎週ロールの対象になる
 BurnoutChance,0.05,確率,燃え尽き：上の対象になった冒険者ごとの毎週の付与確率
@@ -143,7 +141,7 @@ ArmWound_DisplayName,腕の古傷,名称,特性の表示名（後天の障害、
 ArmWound_Description,腕に残った深い傷。STRとDEXが恒久的に低下する。忘却・上書きできない,説明,特性の説明文
 ArmWound_IsCurseOrInjury,true,真偽,障害・呪い特性か
 Dread_DisplayName,戦慄,名称,特性の表示名（後天の障害、§0.56）
-Dread_Description,致命の一撃を浴びた恐怖が消えない。足がすくみ、討伐火力が下がる。忘却・上書きできない,説明,特性の説明文
+Dread_Description,倒れたときの恐怖が消えない。足がすくみ、討伐火力が下がる。忘却・上書きできない,説明,特性の説明文
 Dread_IsCurseOrInjury,true,真偽,障害・呪い特性か
 Burnout_DisplayName,燃え尽き,名称,特性の表示名（後天の障害、§0.56）
 Burnout_Description,休みなく戦い続けて心が擦り切れた。満足度が毎週少しずつ下がる。忘却・上書きできない,説明,特性の説明文

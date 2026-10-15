@@ -48,19 +48,6 @@ namespace GuildManager.Core.Tests
             return party;
         }
 
-        private static FloorBoss MakeBoss(params BossGimmick[] gimmicks)
-        {
-            var boss = new FloorBoss { Name = "階層の主", Floor = 1, MaxHp = 500, CurrentHp = 500 };
-            boss.Gimmicks.AddRange(gimmicks);
-            return boss;
-        }
-
-        // 対策役（Cleric）がいない部隊では対策できないギミック。
-        private static BossGimmick Uncounterable(BossGimmickType type, int danger = 2) => new()
-        {
-            Type = type, DangerLevel = danger, CounterRoles = { JobClass.Cleric },
-        };
-
         // ==================== 定義・CSV ====================
 
         [Fact]
@@ -88,8 +75,8 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void CsvValues_AreLoaded()
         {
-            Assert.Equal(0.50, TraitBalance.HawkEyeFlyingDamageReductionRate, precision: 6);
-            Assert.Equal(60, TraitBalance.SixthSenseInstantKillHpLossPct);
+            Assert.Equal(0.20, TraitBalance.HawkEyeSurveyIntelBonusRate, precision: 6);
+            Assert.Equal(0.5, TraitBalance.SixthSenseFatalChanceRate, precision: 6);
             Assert.Equal(0.20, TraitBalance.GuardianGuardBonus, precision: 6);
             Assert.Equal(0.15, TraitBalance.PathfinderTraversalBonus, precision: 6);
             Assert.Equal(0.10, TraitBalance.SturdyMaxHpBonus, precision: 6);
@@ -112,62 +99,26 @@ namespace GuildManager.Core.Tests
             Assert.Equal(3, RecruitmentBalance.InnateTraitChancePercent);
         }
 
-        // ==================== 鷹の目 ====================
+        // ==================== 鷹の目（§0.138：迷宮調査の解析が早く進む） ====================
 
         [Fact]
-        public void HawkEye_HalvesUncounteredFlyingTerm()
+        public void HawkEye_SpeedsUpSurveyIntel()
         {
-            double term = 2 * DungeonBalance.UncounteredDamageMultiplierPerDangerLevel;
-
-            var plain = new DungeonResolver(new AlwaysMaxRng()).Resolve(PartyOf(Make()), MakeBoss(Uncounterable(BossGimmickType.Flying)));
-            var eye = Make(50, TraitCatalog.HawkEyeId);
-            var helped = new DungeonResolver(new AlwaysMaxRng()).Resolve(PartyOf(eye, Make()), MakeBoss(Uncounterable(BossGimmickType.Flying)));
-
-            Assert.Equal(1.0 + term, plain.DamageMultiplier, precision: 6);
-            Assert.False(plain.HawkEyeApplied);
-            Assert.Equal(1.0 + term * 0.5, helped.DamageMultiplier, precision: 6);
-            Assert.True(helped.HawkEyeApplied);
+            var boss = new FloorBoss { Name = "階層の番人", Floor = 1, MaxHp = 500, CurrentHp = 500 };
+            var boss2 = new FloorBoss { Name = "階層の番人", Floor = 1, MaxHp = 500, CurrentHp = 500 };
+            var plain = new ScoutingResolver(new AlwaysMaxRng()).Resolve(PartyOf(Make(60), Make(60)), boss);
+            var helped = new ScoutingResolver(new AlwaysMaxRng()).Resolve(PartyOf(Make(60, TraitCatalog.HawkEyeId), Make(60)), boss2);
+            Assert.True(plain.IntelGained > 0);
+            Assert.Equal(Math.Min(1.0, plain.IntelGained * (1 + TraitBalance.HawkEyeSurveyIntelBonusRate)), helped.IntelGained, precision: 6);
         }
 
-        [Fact]
-        public void HawkEye_DoesNotAffectOtherGimmicks()
-        {
-            var result = new DungeonResolver(new AlwaysMaxRng())
-                .Resolve(PartyOf(Make(50, TraitCatalog.HawkEyeId)), MakeBoss(Uncounterable(BossGimmickType.Poison)));
-
-            Assert.False(result.HawkEyeApplied);
-            Assert.Equal(1.0 + 2 * DungeonBalance.UncounteredDamageMultiplierPerDangerLevel, result.DamageMultiplier, precision: 6);
-        }
-
-        // ==================== 危機察知 ====================
+        // ==================== 危機察知（§0.138：HP0での強制除籍の確率が半分） ====================
 
         [Fact]
-        public void SixthSense_StopsInstantKillAtSixtyPercent_ForHolderOnly()
+        public void SixthSense_HalvesTheFatalChance_ForHolderOnly()
         {
-            var sensor = Make(50, TraitCatalog.SixthSenseId);
-            var other = Make();
-            int sensorMax = sensor.MaxHP;
-
-            // 強制除籍の判定はいつも当たる（§0.125 より前と同じく HP0＝強制除籍で確かめる）
-            var result = new DungeonResolver(new AlwaysMaxRng(), fatalRng: new AlwaysMinRng()).Resolve(PartyOf(sensor, other), MakeBoss(Uncounterable(BossGimmickType.InstantKill)));
-
-            Assert.Contains(BossGimmickType.InstantKill, result.UncounteredGimmicks);
-            Assert.Equal(sensorMax * 60 / 100, result.HpLostByAdventurer[sensor.Id]);
-            Assert.True(sensor.CurrentHP > 0);
-            Assert.Equal(0, other.CurrentHP); // 保有していない隊員は従来どおり全損
-            Assert.Equal(new[] { sensor.Id }, result.SixthSenseAdventurerIds);
-        }
-
-        [Fact]
-        public void SixthSense_NotRecorded_WhenInstantKillIsCountered()
-        {
-            var sensor = Make(50, TraitCatalog.SixthSenseId);
-            var cleric = Make();
-            cleric.JobClass = JobClass.Cleric;
-
-            var result = new DungeonResolver(new AlwaysMaxRng()).Resolve(PartyOf(sensor, cleric), MakeBoss(Uncounterable(BossGimmickType.InstantKill)));
-
-            Assert.Empty(result.SixthSenseAdventurerIds);
+            Assert.Equal((int)Math.Round(CombatBalance.FatalChancePercent * TraitBalance.SixthSenseFatalChanceRate), DungeonResolver.FatalChanceFor(Make(50, TraitCatalog.SixthSenseId)));
+            Assert.Equal(CombatBalance.FatalChancePercent, DungeonResolver.FatalChanceFor(Make(50)));
         }
 
         // ==================== 守り手・健脚 ====================

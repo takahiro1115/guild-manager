@@ -101,6 +101,9 @@ namespace GuildManager.Core.Systems
                 // 迷宮の異変「霧が晴れる」（→ DungeonAnomalySystem、§0.64）：上がり幅に倍率を掛ける。
                 gain *= DungeonAnomalySystem.IntelMultiplier(state, boss);
             }
+            // 鷹の目（§0.138）：部隊に1人いれば解析が早く進む
+            if (party.Members.Any(m => m.HasTrait(TraitCatalog.HawkEyeId)))
+                gain *= 1 + TraitBalance.HawkEyeSurveyIntelBonusRate;
 
             // ---- 判定3：護衛（段階ごとに解析成果へ倍率。不足なら成果0＝調査隊が潰走） ----
             double guardRequirement = RequiredGuardPower(boss);

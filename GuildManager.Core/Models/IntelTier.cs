@@ -17,13 +17,13 @@ namespace GuildManager.Core.Models
         /// <summary>基本情報：おおよその規模（HP）と属性が分かる。</summary>
         Basic,
 
-        /// <summary>危険情報：どの危険ギミックを持つか（猛毒・重装甲など）が判明。</summary>
+        /// <summary>解析率50%：その区間の採取が増える（§0.138。もとは危険ギミックが判明する段階。名前は旧セーブとの互換のため残す）。</summary>
         Hazards,
 
-        /// <summary>対策情報：各ギミックへの対策ロール・必要アイテムまで判明。</summary>
+        /// <summary>解析率75%：その区間の採取がさらに増える（§0.138。もとは対策ロールが判明する段階）。</summary>
         Countermeasures,
 
-        /// <summary>完全解析：弱点を突けるようになり、討伐時の与ダメージにボーナスが付く。</summary>
+        /// <summary>完全解析：弱点を突けるようになり、討伐時の与ダメージにボーナスが付く。採取も最も増える（§0.138）。</summary>
         Complete,
     }
 }

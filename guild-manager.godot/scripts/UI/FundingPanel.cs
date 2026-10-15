@@ -63,7 +63,7 @@ public partial class FundingPanel : MarginContainer
 			$"差し引き：{net} / 月";
 		if (FundingSystem.MonthsOfRunway(_state, o) is int months)
 			text += $"　[color=orange]このままだと約 {months} か月で底をつく[/color]";
-		text += "\n[color=gray]依頼・主の撃破の報酬、大会の賞金、遺物・素材の売却は入れていない。[/color]";
+		text += "\n[color=gray]依頼・番人の撃破の報酬、大会の賞金、遺物・素材の売却は入れていない。[/color]";
 		if (o.Severance > 0)
 			text += $"\n[color=khaki]年度末（冬の終わり）に満期の子の退職金：約 {o.Severance} G[/color]";
 		return Rich(text);

@@ -418,7 +418,7 @@ namespace GuildManager.Core.Systems
                     {
                         go = true;
                         resolution.Incident = new IncidentEvent(IncidentKind.Charge,
-                            $"⚔ {disobey.Who.Name}が構えに従わず主へ突っ込み、部隊も決戦になった（勝率{chanceNow * 100:F0}%）", false);
+                            $"⚔ {disobey.Who.Name}が構えに従わず番人へ突っ込み、部隊も決戦になった（勝率{chanceNow * 100:F0}%）", false);
                     }
                     else
                     {

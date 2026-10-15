@@ -28,7 +28,6 @@ namespace GuildManager.Core.Models
         public int MaxHp { get; set; }
         public int CurrentHp { get; set; }
 
-        public List<BossGimmick> Gimmicks { get; set; } = new();
 
         /// <summary>
         /// 調査による情報解析率（0.0〜1.0）。調査任務の成果で上昇し、段階的に情報が開示される

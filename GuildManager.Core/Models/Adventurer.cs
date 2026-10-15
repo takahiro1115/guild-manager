@@ -378,6 +378,12 @@ namespace GuildManager.Core.Models
         public List<Guid> ParentIds { get; set; } = new();
 
         /// <summary>
+        /// 両親の名前（ParentIds と同じ順。生まれたときに写す）。親が退団・移籍して記録から消えても名前を出せるように持つ。
+        /// 旧セーブは読み込みで、見つかる親の名前だけ補う（→ SoulFusionSystem.EnsureParentNames）。
+        /// </summary>
+        public List<string> ParentNames { get; set; } = new();
+
+        /// <summary>
         /// 秘薬の親になったことがあるか（1人が親になれるのは生涯1回まで）。処方した時点で true になる。旧セーブには無く false で読まれる。
         /// </summary>
         public bool HasUsedSoulFusion { get; set; } = false;
@@ -577,12 +583,6 @@ namespace GuildManager.Core.Models
             return total;
         }
 
-        /// <summary>
-        /// 装備中のいずれかの個体が、指定のボスギミックを対策する伝説級か（→ EquipmentItem.CountersGimmick、03 §4.7.5）。
-        /// DungeonResolver.IsCountered の第4の対策口（装備）が使う。
-        /// </summary>
-        public bool CountersGimmickByEquipment(BossGimmickType type) =>
-            AllSlots.Any(slot => GetEquipped(slot)?.CountersGimmick(type) == true);
         public int CurrentHP { get; set; }
         public int Satisfaction { get; set; } = 70;
 
@@ -650,7 +650,7 @@ namespace GuildManager.Core.Models
         /// </summary>
         public int PoisonWeeksRemaining { get; set; } = 0;
 
-        /// <summary>毒状態の全能力の低下率（0〜1。→ BossGimmickBalance.PoisonStatusStatPenalty×備えの不足）。毒が抜けると0に戻る。</summary>
+        /// <summary>毒状態の全能力の低下率（0〜1）。毒が抜けると0に戻る。§0.138 で猛毒の番人を無くしたので新しく毒にはならない（旧セーブの毒は抜けるまで残る）。</summary>
         public double PoisonStatPenalty { get; set; } = 0;
 
         /// <summary>毒状態か（→ PoisonWeeksRemaining）。</summary>

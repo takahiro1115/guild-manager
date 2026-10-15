@@ -7,11 +7,11 @@ SevereInjuryHpThresholdPct,0.25,倍,階層ボス戦の後に生き残った隊�
 LightInjuryWeeksMin,1,週,軽傷の全治週数の下限（道中・迷宮調査・採取でHPが1まで落ちたとき）。§0.53
 LightInjuryWeeksMax,2,週,軽傷の全治週数の上限
 LightInjuryStatPenaltyRate,0.10,倍,軽傷の間の実効能力値の低下率（素の値の部分に掛かる。装備の補正と最大HPは下げない）。§0.53
-ResistPoisonDamageReductionRate,0.20,倍,耐毒体質：階層ボスの「猛毒」ギミックが未対策のとき、部隊に保有者が1人でもいれば猛毒分の被ダメージ倍率（危険度×UncounteredDamageMultiplierPerDangerLevel）をこの率だけ減らす（→ 03 §4.5.4・§5.3.2）
-GiantHunterDamageBonusRate,0.15,倍,巨獣狩り：階層ボスが「重装甲」ギミックを持つとき、保有者本人の個人CP（討伐火力）にこの率を上乗せする（→ 03 §4.5.4・§5.3.2）
+ResistPoisonTraversalLossReductionRate,0.20,倍,耐毒体質：道中での本人の体力の減りをこの率だけ減らす（§0.138。猛毒の番人を無くしたので、毒への強さを道中の強さに置き換えた）
+GiantHunterDamageBonusRate,0.10,倍,巨獣狩り：番人との決戦で、保有者本人の討伐火力にこの率を上乗せする（§0.138 で重装甲の番人だけからどの番人にも。0.15→0.10）
 OldWoundCriticalChance,0.10,確率,重傷生還時の古傷：道中進軍でHPが下限1まで落ちた隊員、または階層ボス討伐の撤退でHP1で生還した隊員が「古傷」を負う確率（既に古傷持ちならロールしない。→ 03 §4.3・§5.3.2）
 OldWoundRetreatHpThresholdPct,0.10,倍,階層ボス討伐の撤退で古傷ロールの対象になるHPの上限＝floor(最大HP×この値)（最低でもHP1は含む。道中進軍は従来どおりHP下限1まで落ちた時のみ。→ 03 §4.3.2）
-GiantHunterAwakeningChance,0.20,確率,巨獣狩りの後天開眼：「重装甲」ギミックを持つ階層ボスを撃破したとき、生存した隊員ごとに巨獣狩りを得る確率（既に所持・特性5枠満杯ならロールしない＝侵食しない。→ 03 §4.5.4・§5.3.2）
+GiantHunterAwakeningChance,0.05,確率,巨獣狩りの後天開眼：番人を撃破したとき、生存した隊員ごとに巨獣狩りを得る確率（§0.138 で重装甲の番人だけからどの番人でも。0.20→0.05）
 ClericBlessingLossPctPerMnd,0.08,%/MND,神官の加護（§0.72）：部隊に神官がいれば、ボス戦と道中の損耗率を「部隊の神官のMND（実効値）の最大×この値」%ポイント下げる（MND100で−8）
 ClericBlessingSevereThresholdRate,0.8,倍,神官の加護（§0.72）：部隊に神官がいれば、ボス戦の後に重傷になる基準（SevereInjuryHpThresholdPct）にこの倍率を掛ける（重傷になりにくい）
 FatalChancePercent,10,%,階層ボス戦でHPが0になった隊員が強制除籍される確率（§0.125。命は秘薬で助かるが二度と戦えずギルドを去る）。外れれば HP1 で一命を取り留め、重傷になる（古傷のロールもある）。§0.125 より前は HP0 で必ず強制除籍だった。支配者戦も同じ決まり（docs/検討中_大迷宮の支配者.md §3-2）

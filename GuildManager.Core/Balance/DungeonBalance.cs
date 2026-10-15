@@ -54,18 +54,12 @@ namespace GuildManager.Core.Balance
         /// <summary>比がこの値未満なら必ず負ける。</summary>
         public static readonly double BossWinHopelessRatio = BalanceData.GetDouble(FileName, "BossWinHopelessRatio");
 
-        /// <summary>未対策ギミック1件（危険度1あたり）につき被ダメージへ加算される倍率。</summary>
-        public static readonly double UncounteredDamageMultiplierPerDangerLevel =
-            BalanceData.GetDouble(FileName, "UncounteredDamageMultiplierPerDangerLevel");
-
         public static readonly int BaseHpLossPctMin = BalanceData.GetInt(FileName, "BaseHpLossPctMin");
         public static readonly int BaseHpLossPctMax = BalanceData.GetInt(FileName, "BaseHpLossPctMax");
 
         public static readonly int RetreatHpLossPctMin = BalanceData.GetInt(FileName, "RetreatHpLossPctMin");
         public static readonly int RetreatHpLossPctMax = BalanceData.GetInt(FileName, "RetreatHpLossPctMax");
 
-        /// <summary>即死級ギミックを未対策で踏んだ場合のHP消費率（対策の有無が生死を分ける）。</summary>
-        public static readonly int InstantKillUncounteredHpLossPct = BalanceData.GetInt(FileName, "InstantKillUncounteredHpLossPct");
 
         // ---- 階層ボスの配置間隔・難易度スケーリング（→ Data.SampleData.CreateFieldBosses） ----
 

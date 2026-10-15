@@ -57,12 +57,8 @@ namespace GuildManager.Core.Tests
             return party;
         }
 
-        private static FloorBoss MakeBoss(int floor = 1, double intelRate = 0.0, params BossGimmick[] gimmicks)
-        {
-            var boss = new FloorBoss { Name = "階層の主", Floor = floor, MaxHp = 500, CurrentHp = 500, IntelRate = intelRate };
-            boss.Gimmicks.AddRange(gimmicks);
-            return boss;
-        }
+        private static FloorBoss MakeBoss(int floor = 1, double intelRate = 0.0) =>
+            new FloorBoss { Name = "階層の主", Floor = floor, MaxHp = 500, CurrentHp = 500, IntelRate = intelRate };
 
         // ---------------- 討伐の見立て用ヘルパー（→ 03 §0.43、大迷宮画面の出撃前の表示と共通） ----------------
 
@@ -96,66 +92,6 @@ namespace GuildManager.Core.Tests
             var result = new DungeonResolver(new AlwaysMinRng()).Resolve(party, MakeBoss(floor: 1, intelRate: 1.0));
             Assert.Equal(withBonus, result.PartyPower, precision: 6);
             Assert.Equal(DungeonResolver.RequiredPower(analyzed), result.RequiredPower, precision: 6);
-        }
-
-        // ---------------- ギミックへの備え（§0.68：職業0.5＋能力の合計÷基準、上限1） ----------------
-
-        private static BossGimmick Gimmick(BossGimmickType type, int danger = 2, double threshold = 1000, params JobClass[] roles) => new()
-        {
-            Type = type, DangerLevel = danger, CounterRoles = roles.ToList(),
-            RequiredCounterStat = BossGimmickInfo.CounterStat(type), RequiredCounterStatThreshold = threshold,
-        };
-
-        [Fact]
-        public void Readiness_ByRole_IsHalf()
-        {
-            var gimmick = Gimmick(BossGimmickType.Poison, roles: JobClass.Cleric);
-
-            // 能力の合計は基準1000に比べてごくわずか（50＋50）なので、職業の0.5＋0.1
-            Assert.Equal(BossGimmickBalance.GimmickRoleReadiness + 100.0 / 1000, DungeonResolver.Readiness(gimmick, PartyOf(MakeRanger(), MakeCleric()).Members), precision: 6);
-            Assert.Equal(100.0 / 1000, DungeonResolver.Readiness(gimmick, PartyOf(MakeRanger(), MakeRanger()).Members), precision: 6);
-        }
-
-        [Fact]
-        public void Readiness_ByStat_IsSumOverThreshold_CappedAtOne()
-        {
-            var gimmick = Gimmick(BossGimmickType.Poison, threshold: 100);
-
-            Assert.Equal(0.4, DungeonResolver.Readiness(gimmick, PartyOf(MakeRanger(40)).Members), precision: 6);       // 合計40
-            Assert.Equal(1.0, DungeonResolver.Readiness(gimmick, PartyOf(MakeRanger(60), MakeRanger(60)).Members), precision: 6); // 合計120
-        }
-
-        [Fact]
-        public void Readiness_RoleAndStat_AddUpToFull()
-        {
-            var gimmick = Gimmick(BossGimmickType.Poison, threshold: 100, roles: JobClass.Cleric);
-
-            // 職業0.5＋合計50÷100＝1.0（万全）
-            Assert.Equal(1.0, DungeonResolver.Readiness(gimmick, PartyOf(MakeCleric(50)).Members), precision: 6);
-            Assert.Equal(ReadinessTier.Full, DungeonResolver.GetReadinessTier(1.0));
-            Assert.Equal(ReadinessTier.Partial, DungeonResolver.GetReadinessTier(0.5));
-            Assert.Equal(ReadinessTier.None, DungeonResolver.GetReadinessTier(0));
-        }
-
-        [Fact]
-        public void Readiness_OnlyRolesListedForThisBossCount()
-        {
-            // 猛毒の候補は神官・学者だが、このボスで効くのは学者だけ（→ BossGimmick.CounterRoles）
-            var gimmick = Gimmick(BossGimmickType.Poison, roles: JobClass.Scholar);
-            var scholar = MakeRanger(0);
-            scholar.JobClass = JobClass.Scholar;
-
-            Assert.Equal(0, DungeonResolver.Readiness(gimmick, PartyOf(MakeCleric(0)).Members), precision: 6);
-            Assert.Equal(BossGimmickBalance.GimmickRoleReadiness, DungeonResolver.Readiness(gimmick, PartyOf(scholar).Members), precision: 6);
-        }
-
-        [Fact]
-        public void Readiness_IsZero_WhenGimmickHasNoCounterPortDefined()
-        {
-            // 対策口が1つも設定されていないギミックは備え0（ボス定義側の設定漏れを黙って握り潰さないため）。
-            var malformed = new BossGimmick { Type = BossGimmickType.Flying, DangerLevel = 1 };
-
-            Assert.Equal(0, DungeonResolver.Readiness(malformed, PartyOf(MakeRanger(90), MakeCleric(90)).Members), precision: 6);
         }
 
         // ---------------- 火力判定（撃破／撤退） ----------------
@@ -260,116 +196,6 @@ namespace GuildManager.Core.Tests
             Assert.False(result.FullIntelBonusApplied);
         }
 
-        // ---------------- 損耗が増える型（猛毒・飛行・群れ） ----------------
-
-        [Fact]
-        public void Resolve_Shortfall_ScalesDamageMultiplier()
-        {
-            // 飛行・危険度2・備え0.4（DEX合計40÷100）→ 1.0＋2×0.75×0.6
-            var boss = MakeBoss(floor: 1, intelRate: 0.0, Gimmick(BossGimmickType.Flying, danger: 2, threshold: 100));
-
-            var result = new DungeonResolver(new AlwaysMinRng()).Resolve(PartyOf(MakeRanger(40)), boss);
-
-            Assert.Contains(BossGimmickType.Flying, result.UncounteredGimmicks);
-            Assert.Equal(0.4, result.Readiness[BossGimmickType.Flying], precision: 6);
-            Assert.Equal(1.0 + 2 * DungeonBalance.UncounteredDamageMultiplierPerDangerLevel * 0.6, result.DamageMultiplier, precision: 10);
-        }
-
-        [Fact]
-        public void Resolve_FullReadiness_KeepsDamageMultiplierAtOne()
-        {
-            var boss = MakeBoss(floor: 1, intelRate: 0.0, Gimmick(BossGimmickType.Poison, danger: 3, threshold: 100, roles: JobClass.Cleric));
-
-            var result = new DungeonResolver(new AlwaysMinRng()).Resolve(PartyOf(MakeRanger(), MakeCleric()), boss);
-
-            Assert.Contains(BossGimmickType.Poison, result.CounteredGimmicks);
-            Assert.Empty(result.UncounteredGimmicks);
-            Assert.Equal(1.0, result.DamageMultiplier, precision: 10);
-            Assert.Empty(result.PoisonWeeksByAdventurer);
-        }
-
-        [Fact]
-        public void Resolve_Swarm_AddsHalfDamage_AndCutsRearPower()
-        {
-            var boss = MakeBoss(floor: 1, intelRate: 0.0, Gimmick(BossGimmickType.Swarm, danger: 2, threshold: 1_000_000));
-            var party = PartyOf(MakeRanger(), MakeCleric());
-            double front = DungeonPowerCalculator.MemberPower(party.Members[0], boss);
-            double rear = DungeonPowerCalculator.MemberPower(party.Members[1], boss);
-
-            var result = new DungeonResolver(new AlwaysMinRng()).Resolve(party, MakeBossCopy(boss));
-
-            double shortfall = 1.0 - result.Readiness[BossGimmickType.Swarm];
-            Assert.Equal(1.0 + 2 * DungeonBalance.UncounteredDamageMultiplierPerDangerLevel * shortfall * BossGimmickBalance.SwarmDamageFactor,
-                result.DamageMultiplier, precision: 10);
-            Assert.Equal(front + rear * (1.0 - BossGimmickBalance.SwarmRearPowerPenalty * shortfall), result.PartyPower, precision: 6);
-        }
-
-        // ---------------- 火力・要求火力で効く型（重装甲・魅了・再生） ----------------
-
-        [Fact]
-        public void HeavyArmor_LowersPower_ByShortfall_WithoutExtraDamage()
-        {
-            var party = PartyOf(MakeRanger());
-            var plain = MakeBoss(floor: 1);
-            var armored = MakeBoss(floor: 1, intelRate: 0.0, Gimmick(BossGimmickType.HeavyArmor, threshold: 1_000_000));
-
-            double shortfall = 1.0 - DungeonResolver.Readiness(armored.Gimmicks[0], party.Members);
-            Assert.Equal(DungeonResolver.CalculateBossPower(party, plain) * (1.0 - BossGimmickBalance.HeavyArmorPowerPenalty * shortfall),
-                DungeonResolver.CalculateBossPower(party, armored), precision: 6);
-
-            var result = new DungeonResolver(new AlwaysMinRng()).Resolve(party, armored);
-            Assert.Equal(1.0, result.DamageMultiplier, precision: 10);
-        }
-
-        [Fact]
-        public void Charm_TakesStrongestMemberOutOfFight_AndHurtsThemMore()
-        {
-            var strong = MakeRanger(80);
-            var weak = MakeRanger(20);
-            var party = PartyOf(weak, strong);
-            var boss = MakeBoss(floor: 1, intelRate: 0.0, Gimmick(BossGimmickType.Charm, threshold: 1_000_000)); // 備えはほぼ0
-
-            double readiness = DungeonResolver.Readiness(boss.Gimmicks[0], party.Members);
-            Assert.Same(strong, DungeonResolver.CharmTarget(party.Members, boss));
-            Assert.Equal(DungeonPowerCalculator.MemberPower(weak) + DungeonPowerCalculator.MemberPower(strong) * readiness,
-                DungeonResolver.CalculateBossPower(party, boss), precision: 6);
-
-            var result = new DungeonResolver(new AlwaysMinRng()).Resolve(party, boss);
-            Assert.Equal(strong.Id, result.CharmedAdventurerId);
-            int baseLoss = weak.MaxHP * DungeonBalance.RetreatHpLossPctMin / 100;
-            Assert.Equal(baseLoss, result.HpLostByAdventurer[weak.Id]);
-            Assert.True(result.HpLostByAdventurer[strong.Id] > strong.MaxHP * DungeonBalance.RetreatHpLossPctMin / 100,
-                "操られた隊員は損耗が大きい");
-        }
-
-        [Fact]
-        public void Regeneration_RaisesRequirement_ByShortfall()
-        {
-            var party = PartyOf(MakeRanger());
-            var boss = MakeBoss(floor: 1, intelRate: 0.0, Gimmick(BossGimmickType.Regeneration, threshold: 100)); // AGI 50 → 備え0.5
-
-            Assert.Equal(DungeonResolver.RequiredPower(boss) * (1.0 + BossGimmickBalance.RegenerationRequirementBonus * 0.5),
-                DungeonResolver.RequiredPower(boss, null, party), precision: 6);
-            var result = new DungeonResolver(new AlwaysMinRng()).Resolve(party, boss);
-            Assert.Equal(DungeonResolver.RequiredPower(boss, null, party), result.RequiredPower, precision: 6);
-        }
-
-        // ---------------- 即死級（損耗の下限、備え0なら全損） ----------------
-
-        [Fact]
-        public void InstantKill_WithNoReadiness_ForceRetiresEveryone()
-        {
-            var doomed = MakeRanger(0);
-            var boss = MakeBoss(floor: 1, intelRate: 0.0, Gimmick(BossGimmickType.InstantKill, danger: 5, roles: JobClass.Knight));
-
-            // 強制除籍の判定はいつも当たる（§0.125 より前と同じく HP0＝強制除籍で確かめる）
-            var result = new DungeonResolver(new AlwaysMinRng(), fatalRng: new AlwaysMinRng()).Resolve(PartyOf(doomed), boss);
-
-            Assert.Contains(BossGimmickType.InstantKill, result.UncounteredGimmicks);
-            Assert.Equal(0, doomed.CurrentHP);
-            Assert.Contains(doomed.Id, result.ForceRetiredAdventurerIds);
-        }
-
         private sealed class FixedFatalRng : IRng
         {
             private readonly int _value;
@@ -386,7 +212,8 @@ namespace GuildManager.Core.Tests
         {
             Assert.Equal(10, CombatBalance.FatalChancePercent);
             var doomed = MakeRanger(0);
-            var boss = MakeBoss(floor: 1, intelRate: 0.0, Gimmick(BossGimmickType.InstantKill, danger: 5, roles: JobClass.Knight));
+            doomed.CurrentHP = 1; // どの損耗でもHP0になる（§0.138 で即死級は無くした）
+            var boss = MakeBoss(floor: 1, intelRate: 0.0);
 
             var result = new DungeonResolver(new AlwaysMinRng(), fatalRng: new FixedFatalRng(fatalRoll)).Resolve(PartyOf(doomed), boss);
 
@@ -404,7 +231,7 @@ namespace GuildManager.Core.Tests
                 Assert.Contains(doomed.Id, result.NearDeathSurvivorIds);
                 Assert.Equal(InjurySeverity.Severe, doomed.Injury);
                 Assert.Contains(result.InjuryEvents, e => e.AdventurerId == doomed.Id && e.Severity == InjurySeverity.Severe);
-                Assert.Equal(doomed.MaxHP - 1, result.HpLostByAdventurer[doomed.Id]);
+                Assert.Equal(0, result.HpLostByAdventurer[doomed.Id]); // HP1で挑み、HP1で一命を取り留めた
             }
         }
 
@@ -413,60 +240,15 @@ namespace GuildManager.Core.Tests
         {
             // 撃破でも、HP0から一命を取り留めた隊員は古傷のロールを受ける（§0.125。AlwaysMinRng の 1 は古傷の確率10%に当たる）
             var strong = MakeRanger(90);
-            strong.LDR = 0; // 即死級の備え（LDR）を0にして、撃破しても全損させる
-            var boss = MakeBoss(floor: 1, intelRate: 1.0, Gimmick(BossGimmickType.InstantKill, danger: 5, roles: JobClass.Knight));
+            var weak = MakeRanger(90);
+            weak.CurrentHP = 1; // 撃破の損耗でもHP0になる（強い仲間が倒してくれる）
+            var boss = MakeBoss(floor: 1, intelRate: 1.0);
 
-            var result = new DungeonResolver(new AlwaysMinRng(), new AlwaysMinRng(), fatalRng: new FixedFatalRng(100)).Resolve(PartyOf(strong), boss);
+            var result = new DungeonResolver(new AlwaysMinRng(), new AlwaysMinRng(), fatalRng: new FixedFatalRng(100)).Resolve(PartyOf(strong, weak), boss);
 
             Assert.Equal(DungeonOutcome.Victory, result.Outcome);
-            Assert.Contains(strong.Id, result.NearDeathSurvivorIds);
-            Assert.Contains(result.TraitGrantEvents, g => g.AdventurerId == strong.Id && TraitCatalog.OldWoundVariantIds.Contains(g.TraitId));
-        }
-
-        [Fact]
-        public void InstantKill_WithHalfReadiness_LosesAboutHalf_AndSurvives()
-        {
-            var knight = MakeRanger(0);
-            knight.JobClass = JobClass.Knight;
-            var boss = MakeBoss(floor: 1, intelRate: 0.0, Gimmick(BossGimmickType.InstantKill, danger: 5, roles: JobClass.Knight));
-
-            var result = new DungeonResolver(new AlwaysMinRng()).Resolve(PartyOf(knight), boss);
-
-            Assert.True(knight.CurrentHP > 0);
-            Assert.Empty(result.ForceRetiredAdventurerIds);
-            int floorPct = (int)Math.Round(DungeonBalance.InstantKillUncounteredHpLossPct * (1.0 - BossGimmickBalance.GimmickRoleReadiness));
-            Assert.Equal(knight.MaxHP * floorPct / 100, result.HpLostByAdventurer[knight.Id]);
-        }
-
-        // ---------------- 猛毒の毒状態 ----------------
-
-        [Fact]
-        public void Poison_Shortfall_LeavesPoisonStatus_ThatLowersStats()
-        {
-            var victim = MakeRanger(50);
-            var boss = MakeBoss(floor: 1, intelRate: 0.0, Gimmick(BossGimmickType.Poison, threshold: 100)); // MND 50 → 備え0.5
-            double strBefore = victim.GetEffectiveStat("STR");
-
-            var result = new DungeonResolver(new AlwaysMinRng()).Resolve(PartyOf(victim), boss);
-
-            double penalty = BossGimmickBalance.PoisonStatusStatPenalty * 0.5;
-            Assert.Equal(BossGimmickBalance.PoisonStatusWeeks, victim.PoisonWeeksRemaining);
-            Assert.Equal(penalty, victim.PoisonStatPenalty, precision: 6);
-            Assert.True(victim.IsPoisoned);
-            Assert.Equal(BossGimmickBalance.PoisonStatusWeeks, result.PoisonWeeksByAdventurer[victim.Id]);
-            Assert.Equal(strBefore * (1.0 - penalty), victim.GetEffectiveStat("STR"), precision: 6);
-        }
-
-        [Fact]
-        public void Poison_ResistPoison_HalvesStatusWeeks()
-        {
-            var victim = MakeRanger(50);
-            victim.TryAddTrait(TraitCatalog.ResistPoisonId);
-            var boss = MakeBoss(floor: 1, intelRate: 0.0, Gimmick(BossGimmickType.Poison, threshold: 100));
-
-            new DungeonResolver(new AlwaysMinRng()).Resolve(PartyOf(victim), boss);
-
-            Assert.Equal((int)Math.Ceiling(BossGimmickBalance.PoisonStatusWeeks * BossGimmickBalance.ResistPoisonStatusWeeksRate), victim.PoisonWeeksRemaining);
+            Assert.Contains(weak.Id, result.NearDeathSurvivorIds);
+            Assert.Contains(result.TraitGrantEvents, g => g.AdventurerId == weak.Id && TraitCatalog.OldWoundVariantIds.Contains(g.TraitId));
         }
 
         [Fact]
@@ -486,11 +268,49 @@ namespace GuildManager.Core.Tests
             Assert.Equal(0, victim.PoisonStatPenalty);
         }
 
-        private static FloorBoss MakeBossCopy(FloorBoss boss)
+        // ---------------- 特性（§0.138：番人のギミックを無くして置き換えた効き目） ----------------
+
+        [Fact]
+        public void SixthSense_HalvesTheFatalChance_AtHpZero()
         {
-            var copy = MakeBoss(boss.Floor, boss.IntelRate);
-            copy.Gimmicks.AddRange(boss.Gimmicks);
-            return copy;
+            var plain = MakeRanger(0);
+            var sensed = MakeRanger(0);
+            sensed.TryAddTrait(TraitCatalog.SixthSenseId);
+            Assert.Equal(CombatBalance.FatalChancePercent, DungeonResolver.FatalChanceFor(plain));
+            Assert.Equal((int)Math.Round(CombatBalance.FatalChancePercent * TraitBalance.SixthSenseFatalChanceRate), DungeonResolver.FatalChanceFor(sensed));
+
+            // 判定の乱数が普通なら除籍になる値（10）でも、危機察知は一命を取り留める
+            sensed.CurrentHP = 1;
+            var result = new DungeonResolver(new AlwaysMinRng(), fatalRng: new FixedFatalRng(CombatBalance.FatalChancePercent)).Resolve(PartyOf(sensed), MakeBoss());
+            Assert.Equal(1, sensed.CurrentHP);
+            Assert.Contains(sensed.Id, result.SixthSenseAdventurerIds);
+        }
+
+        [Fact]
+        public void Dread_IsRolled_ForNearDeathSurvivors()
+        {
+            var survivor = MakeRanger(0);
+            survivor.CurrentHP = 1;
+            // AlwaysMinRng の 1 は戦慄の確率（DreadChance）に当たる
+            var result = new DungeonResolver(new AlwaysMinRng(), fatalRng: new FixedFatalRng(100)).Resolve(PartyOf(survivor), MakeBoss());
+            Assert.Contains(survivor.Id, result.NearDeathSurvivorIds);
+            Assert.Contains(TraitCatalog.DreadId, survivor.TraitIds);
+
+            // HP0にならなければ戦慄は付かない
+            var safe = MakeRanger(0);
+            new DungeonResolver(new AlwaysMinRng()).Resolve(PartyOf(safe), MakeBoss());
+            Assert.DoesNotContain(TraitCatalog.DreadId, safe.TraitIds);
+        }
+
+        [Fact]
+        public void GiantHunter_Applies_ToEveryBoss()
+        {
+            var hunter = MakeRanger(50);
+            hunter.TryAddTrait(TraitCatalog.GiantHunterId);
+            var boss = MakeBoss();
+            Assert.True(DungeonPowerCalculator.GiantHunterApplies(hunter, boss));
+            Assert.False(DungeonPowerCalculator.GiantHunterApplies(hunter, null));
+            Assert.Equal(DungeonPowerCalculator.MemberPower(MakeRanger(50)) * (1 + CombatBalance.GiantHunterDamageBonusRate), DungeonPowerCalculator.MemberPower(hunter, boss), precision: 6);
         }
 
         [Fact]

@@ -68,14 +68,12 @@ namespace GuildManager.Core.Tests.Systems
         }
 
         [Fact]
-        public void Legendary_DescribesGimmickCounter()
+        public void Legendary_DescribesItsBonuses()
         {
             var cleaver = EquipmentItem.FromUnique(Def("LegendCaveCleaver"));
 
             Assert.Equal("穿岩の大剣", cleaver.DisplayName);
-            Assert.EndsWith("[固有: STR+8・VIT+3] [重装甲対策]", cleaver.DescribeEffects());
-            Assert.True(cleaver.CountersGimmick(BossGimmickType.HeavyArmor));
-            Assert.False(cleaver.CountersGimmick(BossGimmickType.Poison));
+            Assert.EndsWith("[固有: STR+12・VIT+5]", cleaver.DescribeEffects()); // §0.138：重装甲の打ち消しは能力に置き換えた
         }
 
         [Fact]
@@ -89,10 +87,9 @@ namespace GuildManager.Core.Tests.Systems
 
             Assert.True(new EquipmentSystem().TryEquip(state, cleric, EquipmentSlot.Accessory2, sigil));
 
-            // 守りのお守り（最大HP+15）＋固有（最大HP+20・MND+5）
-            Assert.Equal(mndBefore + 5, cleric.GetEffectiveStat("MND"));
-            Assert.True(cleric.MaxHP >= hpBefore + 35);
-            Assert.True(cleric.CountersGimmickByEquipment(BossGimmickType.Poison));
+            // 守りのお守り（最大HP+15）＋固有（最大HP+35・VIT+3・MND+8、§0.138）
+            Assert.Equal(mndBefore + 8, cleric.GetEffectiveStat("MND"));
+            Assert.True(cleric.MaxHP >= hpBefore + 50);
         }
 
         [Fact]
@@ -107,29 +104,6 @@ namespace GuildManager.Core.Tests.Systems
             Assert.Equal(2, orphan.GetTotalStatBonus("STR"));
             Assert.True(EquipmentSystem.CanSell(orphan));
             Assert.Equal(ItemCatalog.IronSword.Price / 2, EquipmentSystem.GetSellPrice(orphan));
-        }
-
-        // ---------------- ギミック対策（第4の対策口） ----------------
-
-        [Fact]
-        public void Readiness_IsFullWhenAMemberEquipsMatchingLegendary()
-        {
-            // 対策口の無い即死級（備えは常に0）。
-            var gimmick = new BossGimmick { Type = BossGimmickType.InstantKill, DangerLevel = 5 };
-            var knight = MakeAdventurer(JobClass.Knight);
-            var state = new GameState { Adventurers = { knight } };
-            var party = new Party();
-            party.TryAdd(knight);
-
-            Assert.Equal(0, DungeonResolver.Readiness(gimmick, party.Members));
-
-            var crown = UniqueItemSystem.Grant(state, Def("LegendCanyonCrown"), "テスト")!;
-            Assert.True(new EquipmentSystem().TryEquip(state, knight, EquipmentSlot.Accessory1, crown));
-            Assert.Equal(1.0, DungeonResolver.Readiness(gimmick, party.Members));
-
-            // 別のギミックには効かない
-            var poison = new BossGimmick { Type = BossGimmickType.Poison, RequiredCounterStat = "MND", RequiredCounterStatThreshold = 9999 };
-            Assert.True(DungeonResolver.Readiness(poison, party.Members) < 1.0);
         }
 
         // ---------------- 入手：1セーブ1本 ----------------
@@ -252,7 +226,7 @@ namespace GuildManager.Core.Tests.Systems
             Assert.Contains(legendary, state.Armory);
             Assert.Null(legendary.Rarity);
             Assert.Equal(40, legendary.AcquiredAtWeek);
-            Assert.Contains("第40層の主「弱いボス」を撃破", legendary.AcquiredFrom);
+            Assert.Contains("第40層の番人「弱いボス」を撃破", legendary.AcquiredFrom);
             Assert.Contains("LegendForestSigil", state.ObtainedUniqueIds);
 
             // 同じボスの割り当ては2度目は出ない

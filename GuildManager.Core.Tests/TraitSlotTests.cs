@@ -141,9 +141,9 @@ namespace GuildManager.Core.Tests
         // ---------------- trait.csv 由来の定義 ----------------
 
         [Theory]
-        [InlineData(TraitCatalog.ResistPoisonId, "耐毒体質", "猛毒・瘴気フロアでの被弾損耗を大幅に軽減する")]
+        [InlineData(TraitCatalog.ResistPoisonId, "耐毒体質", "毒にも瘴気にも負けない頑丈な体。道中で体力が減りにくい")]
         [InlineData(TraitCatalog.NightVisionId, "夜目", "暗黒・濃霧フロアの踏破時、未踏破区間の進行損耗を抑制する")]
-        [InlineData(TraitCatalog.GiantHunterId, "巨獣狩り", "大型ボスに対する討伐能力を高める")]
+        [InlineData(TraitCatalog.GiantHunterId, "巨獣狩り", "大物を仕留める勘どころを知っている。番人との決戦で本人の討伐火力が上がる")]
         [InlineData(TraitCatalog.DiligentId, "勤勉", "訓練場に配置された際の能力成長判定確率が上昇する")]
         public void NewTraits_AreLoadedFromTraitCsv(string id, string displayName, string description)
         {

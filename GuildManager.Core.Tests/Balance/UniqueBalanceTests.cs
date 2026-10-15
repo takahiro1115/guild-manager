@@ -18,14 +18,14 @@ namespace GuildManager.Core.Tests.Balance
         {
             "Id", "Grade", "Name", "BaseItemId", "HpBonus",
             "BonusStr", "BonusVit", "BonusAgi", "BonusDex", "BonusInt", "BonusMnd", "BonusLdr",
-            "CounterGimmick", "DropFieldId", "DropFloor", "SellPrice",
+            "DropFieldId", "DropFloor", "SellPrice",
         };
 
         private static string[] ArtifactRow(string id = "A1") =>
-            new[] { id, "Artifact", "試しの剣", "IronSword", "0", "3", "0", "0", "0", "0", "0", "0", "", "", "0", "1000" };
+            new[] { id, "Artifact", "試しの剣", "IronSword", "0", "3", "0", "0", "0", "0", "0", "0", "", "0", "1000" };
 
         private static string[] LegendRow(string id = "L1", string field = "forest", string floor = "40") =>
-            new[] { id, "Legendary", "試しの護符", "GuardCharm", "10", "0", "0", "0", "0", "0", "2", "0", "Poison", field, floor, "0" };
+            new[] { id, "Legendary", "試しの護符", "GuardCharm", "10", "0", "0", "0", "0", "0", "2", "0", field, floor, "0" };
 
         private static IReadOnlyList<UniqueDefinition> Parse(params string[][] rows) => UniqueBalance.Parse(Header, rows);
 
@@ -51,24 +51,23 @@ namespace GuildManager.Core.Tests.Balance
             Assert.Equal(2, def.GetStatBonus("AGI"));
             Assert.Equal(5, def.GetStatBonus("DEX"));
             Assert.Equal(0, def.GetStatBonus("INT"));
-            Assert.Null(def.CounterGimmick);
             Assert.Null(def.DropFieldId);
             Assert.Equal(1500, def.SellPrice);
             Assert.Equal("STR+5・AGI+2・DEX+5", def.DescribeBonuses());
         }
 
         [Theory]
-        [InlineData("LegendForestSigil", "forest", 40, BossGimmickType.Poison)]
-        [InlineData("LegendCaveCleaver", "cave", 40, BossGimmickType.HeavyArmor)]
-        [InlineData("LegendRuinsBow", "ruins", 40, BossGimmickType.Flying)]
-        [InlineData("LegendCanyonCrown", "canyon", 40, BossGimmickType.InstantKill)]
-        [InlineData("LegendQueenShroud", "ruins", 70, BossGimmickType.Swarm)]
-        public void UniquesCsv_LegendariesCoverEachGimmick(string id, string field, int floor, BossGimmickType gimmick)
+        [InlineData("LegendForestSigil", "forest", 40)]
+        [InlineData("LegendCaveCleaver", "cave", 40)]
+        [InlineData("LegendRuinsBow", "ruins", 40)]
+        [InlineData("LegendCanyonCrown", "canyon", 40)]
+        [InlineData("LegendQueenShroud", "ruins", 70)]
+        public void UniquesCsv_Legendaries_DropFromTheirBoss_AndCannotBeSold(string id, string field, int floor)
         {
             var def = UniqueBalance.FindById(id)!;
 
             Assert.Equal(UniqueGrade.Legendary, def.Grade);
-            Assert.Equal(gimmick, def.CounterGimmick);
+            Assert.True(def.HpBonus + def.StatBonuses.Values.Sum() > 0); // §0.138：打ち消しの効き目は能力の上乗せに置き換えた
             Assert.Same(def, UniqueBalance.FindBossDrop(field, floor));
             Assert.Equal(0, def.SellPrice);
         }
@@ -109,7 +108,6 @@ namespace GuildManager.Core.Tests.Balance
         {
             var defs = Parse(ArtifactRow(), LegendRow());
             Assert.Equal(2, defs.Count);
-            Assert.Equal(BossGimmickType.Poison, defs[1].CounterGimmick);
             Assert.Equal(10, defs[1].HpBonus);
         }
 
@@ -123,14 +121,13 @@ namespace GuildManager.Core.Tests.Balance
             yield return new object[] { new[] { With(ArtifactRow(), 2, "") } };                           // Name空
             yield return new object[] { new[] { With(ArtifactRow(), 3, "NoSuchItem") } };                 // BaseItemIdがカタログに無い
             yield return new object[] { new[] { With(ArtifactRow(), 5, "abc") } };                        // 数値パース失敗
-            yield return new object[] { new[] { With(LegendRow(), 12, "Fire") } };                        // CounterGimmick不正
-            yield return new object[] { new[] { With(LegendRow(), 13, "") } };                            // 伝説級に入手元が無い
+            yield return new object[] { new[] { With(LegendRow(), 12, "") } };                            // 伝説級に入手元が無い
             yield return new object[] { new[] { LegendRow(floor: "45") } };                               // ボス階層でない
             yield return new object[] { new[] { LegendRow(floor: "110") } };                              // 範囲外
             yield return new object[] { new[] { LegendRow("L1"), LegendRow("L2") } };                     // 同じボスに2本
-            yield return new object[] { new[] { With(LegendRow(), 15, "500") } };                         // 伝説級は売却不可
-            yield return new object[] { new[] { With(ArtifactRow(), 13, "forest") } };                    // アーティファクトに入手元
-            yield return new object[] { new[] { With(ArtifactRow(), 15, "0") } };                         // アーティファクトの売値が0
+            yield return new object[] { new[] { With(LegendRow(), 14, "500") } };                         // 伝説級は売却不可
+            yield return new object[] { new[] { With(ArtifactRow(), 12, "forest") } };                    // アーティファクトに入手元
+            yield return new object[] { new[] { With(ArtifactRow(), 14, "0") } };                         // アーティファクトの売値が0
             yield return new object[] { new[] { ArtifactRow().Take(10).ToArray() } };                     // 列数不一致
         }
 

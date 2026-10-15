@@ -57,7 +57,7 @@ namespace GuildManager.Core.Tests
             var o = Ortensia(s);
             Assert.True(RulerSystem.CanChallenge(s, o));
             Assert.True(RulerSystem.UsesSquads(o));
-            Assert.Equal("支配者オルテンシア", RuinsBoss(s, 70).Name);
+            Assert.Equal("迷宮の主オルテンシア", RuinsBoss(s, 70).Name);
             Assert.Equal(Enumerable.Repeat(RulerBalance.OrtensiaSealMax, 3), o.SealHp);
             Assert.False(OrtensiaBattle.ThroneOpen(o));
         }
@@ -216,7 +216,6 @@ namespace GuildManager.Core.Tests
 
             Assert.True(battle.Retreated);
             Assert.Equal("女王の聖骸布", battle.LegendaryFound?.Name);
-            Assert.True(battle.LegendaryFound!.CountersGimmick(BossGimmickType.Swarm));
             Assert.Equal(Enumerable.Repeat(RulerBalance.OrtensiaSealMax, 3), o.SealHp); // 決着の階は封印を張り直したて
         }
 

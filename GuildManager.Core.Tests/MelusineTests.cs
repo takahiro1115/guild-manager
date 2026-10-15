@@ -65,7 +65,7 @@ namespace GuildManager.Core.Tests
             var s = NewState(60);
             Assert.True(RulerSystem.CanChallenge(s, Melusine(s)));
             Assert.True(RulerSystem.UsesSquads(Melusine(s)));
-            Assert.Equal("支配者メルジーネ", CaveBoss(s, 70).Name);
+            Assert.Equal("迷宮の主メルジーネ", CaveBoss(s, 70).Name);
             Assert.Equal(MelusineBattle.SongCount, Melusine(s).SongOrder.Count);
             Assert.Equal(Enum.GetValues<SongMode>().OrderBy(m => m), Melusine(s).SongOrder.OrderBy(m => m)); // 4つの調べが1回ずつ
         }
@@ -187,7 +187,6 @@ namespace GuildManager.Core.Tests
 
             Assert.True(battle.Retreated);
             Assert.Equal("歌姫の耳飾り", battle.LegendaryFound?.Name);
-            Assert.True(battle.LegendaryFound!.CountersGimmick(BossGimmickType.Regeneration));
             Assert.True(CaveBoss(s, 70).IsDefeated);
             Assert.Equal(MelusineBattle.SongCount, m.SongOrder.Count);
         }

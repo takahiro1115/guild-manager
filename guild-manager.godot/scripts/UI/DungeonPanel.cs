@@ -290,7 +290,7 @@ public partial class DungeonPanel : ScrollContainer
 		bool heat = ruler.RulerId == RulerSystem.IgniaId;
 		bool heart = ruler.RulerId == RulerSystem.NepherisId;
 		string style = corridor ? "玉座への回廊" : heat ? "灼熱の消耗戦" : heart ? "心臓の間（4つの段）" : squads ? "調べの読み合い" : "勝ち抜きの一騎打ち";
-		sb.Append($"[b]👑 支配者{RulerSystem.NameOf(ruler.RulerId)}[/b]　{(outpost ? "前哨戦（70F）" : "決着（100F）")}　[color=gray]{style}[/color]\n");
+		sb.Append($"[b]👑 迷宮の主{RulerSystem.NameOf(ruler.RulerId)}[/b]　{(outpost ? "前哨戦（70F）" : "決着（100F）")}　[color=gray]{style}[/color]\n");
 		int filled = (int)Math.Round(10.0 * ruler.Hp / RulerBalance.MaxHp);
 		sb.Append($"体力 [color=#f87171]{new string('■', filled)}[/color][color=#4b5563]{new string('□', 10 - filled)}[/color] {ruler.Hp}/{RulerBalance.MaxHp}" +
 			$"[color=gray]（{(outpost ? $"{RulerBalance.OutpostRetreatHp}を切ると退く・" : "")}毎月+{RulerSystem.RegenOf(ruler)}）[/color]\n");
@@ -434,8 +434,8 @@ public partial class DungeonPanel : ScrollContainer
 			_ => "イグニア＝灼熱がすべての段に",
 		}).ToList();
 		sb.Append(shadows.Count > 0
-			? $"[color=#c084fc]倒していない支配者の影[/color]：{string.Join("／", shadows)}\n"
-			: "[color=#86efac]4人の支配者を倒した。影は無い[/color]\n");
+			? $"[color=#c084fc]倒していない迷宮の主の影[/color]：{string.Join("／", shadows)}\n"
+			: "[color=#86efac]4人の迷宮の主を倒した。影は無い[/color]\n");
 		if (NepherisBattle.CityVoiceReady(_state!))
 			sb.Append("[color=#a5f3fc]都の声：ルミナが心臓の姉の声を呼び、届かない段を1つ打ち消せる（1回の戦いで1回）[/color]\n");
 		sb.Append("[color=gray]部隊を選ぶ（調べが分からない段は、順番どおりの部隊が受け持つ）。戦いは月を終えたあと。出す部隊はその月、ほかに出ない。" +
@@ -462,7 +462,7 @@ public partial class DungeonPanel : ScrollContainer
 		int threshold = IgniaBattle.Threshold(outpost);
 		sb.Append("幕：" + string.Join(" → ", Enum.GetValues<IgniaAct>().Select(a => $"{IgniaBattle.ActLabel(a)}（{IgniaBattle.ActStatLabel(a)}）")) + "\n");
 		sb.Append($"閾値 {threshold}（合い具合{RulerBalance.IgniaBreakRate * 100:F0}%で削れる）。[color=#fb923c]灼熱[/color]：幕ごとに前の部隊の全員の HP が {RulerBalance.IgniaHeatPct}%×{threshold}÷VIT（{RulerBalance.IgniaHeatPctMin}〜{RulerBalance.IgniaHeatPctMax}%）削れる。HP が{RulerBalance.IgniaLeaveHpRate * 100:F0}%を切った子は戦線を離れる\n");
-		sb.Append($"[color=#fb923c]回復が速い[/color]：毎月+{RulerBalance.IgniaRegenPerMonth}（ほかの支配者は+{RulerBalance.RegenPerMonth}）。戦った子は HP が減ったまま翌月を迎える\n");
+		sb.Append($"[color=#fb923c]回復が速い[/color]：毎月+{RulerBalance.IgniaRegenPerMonth}（ほかの迷宮の主は+{RulerBalance.RegenPerMonth}）。戦った子は HP が減ったまま翌月を迎える\n");
 		sb.Append("[color=gray]部隊を順番に選ぶ（先鋒・本隊・後詰め）。戦いは月を終えたあと。出す部隊はその月、ほかに出ない。" +
 			(canChange ? "" : "[color=orange]部隊を変えられるのは月のはじめだけ。[/color]") + "[/color]");
 	}
@@ -887,7 +887,7 @@ public partial class DungeonPanel : ScrollContainer
 		_floorDisplay.TooltipText = segmentBoss == null
 			? "区間担当ボスなし"
 			: $"進軍速度＝1.0＋区間担当ボスの解析率×{DungeonTraversalBalance.IntelSpeedBonusPerIntel:0.#}\n" +
-			  $"{speedFloor}F→{segmentBoss.Floor}F区間の主「{segmentBoss.Name}」解析{segmentBoss.IntelRate * 100:F0}% → ×{speed:0.0#}\n" +
+			  $"{speedFloor}F→{segmentBoss.Floor}F区間の番人「{segmentBoss.Name}」解析{segmentBoss.IntelRate * 100:F0}% → ×{speed:0.0#}\n" +
 			  "縦バーで青い（解析済みの）区間ほど速く進める。";
 	}
 
@@ -955,7 +955,7 @@ public partial class DungeonPanel : ScrollContainer
 	/// </summary>
 	private void RefreshBossInfo(FloorBoss? boss, FloorBoss? target)
 	{
-		ClearGimmickCards();
+		ClearIntelCards();
 		_bossHeaderLabel.Clear();
 		_intelTierLabel.Clear();
 		_completeBadgeLabel.Clear();
@@ -976,7 +976,7 @@ public partial class DungeonPanel : ScrollContainer
 			_bossHpRow.Visible = false;
 			_intelPercentLabel.Text = "-";
 			_completeBadgeLabel.Visible = false;
-			PopulateGimmickCards(null, IntelTier.Unknown, previewParty);
+			PopulateIntelCards(null, IntelTier.Unknown);
 			return;
 		}
 
@@ -985,26 +985,26 @@ public partial class DungeonPanel : ScrollContainer
 		// 支配者（§0.127）が待つ階：主の名前・特殊能力の代わりに、支配者戦で挑むことを出す（くわしくは下の支配者の欄）
 		if (RulerSystem.RulerAt(_state, boss) is { } ruler)
 		{
-			_bossHeaderLabel.AppendText($"[font_size=18][b]第{boss.Floor}層　👑 支配者{RulerSystem.NameOf(ruler.RulerId)}[/b][/font_size]\n" +
+			_bossHeaderLabel.AppendText($"[font_size=18][b]第{boss.Floor}層　👑 迷宮の主{RulerSystem.NameOf(ruler.RulerId)}[/b][/font_size]\n" +
 				(viewingOther ? "[color=#fbbf24]（閲覧中）[/color]" : "[color=#fb923c]⚔ 現在の目標[/color]") +
 				$"　解析 [color={TierColor(tier)}]{boss.IntelRate * 100:F0}%[/color]\n" +
-				"[color=#fbbf24]主の決戦では戦えない（部隊は扉前で引き返す）。支配者戦で挑む。迷宮調査で解析を進めると、手の内が分かる。[/color]");
+				"[color=#fbbf24]番人との決戦はできない（部隊は扉前で引き返す）。迷宮の主との戦いで挑む。迷宮調査で解析を進めると、手の内が分かる。[/color]");
 			_bossHeaderLabel.TooltipText = "";
 			_bossHpRow.Visible = false;
 			_completeBadgeLabel.Visible = false;
-			PopulateGimmickCards(null, tier, previewParty);
+			PopulateIntelCards(null, tier);
 			return;
 		}
 
 		string state = boss.IsDefeated ? "　[color=#4ade80]✔ 撃破済み[/color]"
 			: viewingOther ? "　[color=#fbbf24]（閲覧中）[/color]"
 			: "　[color=#fb923c]⚔ 現在の目標[/color]";
-		_bossHeaderLabel.AppendText($"[font_size=18][b]第{boss.Floor}層の主「{boss.Name}」[/b][/font_size]\n{state.Trim('　')}");
+		_bossHeaderLabel.AppendText($"[font_size=18][b]第{boss.Floor}層の番人「{boss.Name}」[/b][/font_size]\n{state.Trim('　')}");
 		// ボスの欄は3行（§0.97 で縮め、テストプレイの手直しで見やすく改行）：1行目＝第N層の主と名前、2行目＝現在の目標・解析率・HP・完全解析、3行目＝特殊能力と選んだ部隊の備え。詳しい説明・対策はツールチップと深さの目盛りのツールチップへ
 		string hpText = tier < IntelTier.Basic ? "HP ？？？" : $"HP {boss.CurrentHp}/{boss.MaxHp}";
 		string complete = tier == IntelTier.Complete ? $"　[color=gold]◆ 完全解析（与ダメージ+{DungeonBalance.FullIntelDamageBonus * 100:F0}%）[/color]" : "";
 		_bossHeaderLabel.AppendText($"　解析 [color={TierColor(tier)}]{boss.IntelRate * 100:F0}%（{TierLabel(tier)}）[/color]　{hpText}{complete}");
-		_bossHeaderLabel.AppendText($"\n{GimmickSummary(boss, tier, previewParty)}");
+		_bossHeaderLabel.AppendText($"\n{IntelSummary(boss, tier)}");
 		// 選んだ部隊で挑んだときの火力・要求・勝率（§0.98、報告 UI-01）
 		if (saved != null && !previewParty.IsEmpty && !boss.IsDefeated)
 		{
@@ -1012,7 +1012,7 @@ public partial class DungeonPanel : ScrollContainer
 			double required = DungeonResolver.RequiredPower(boss, _state, previewParty);
 			_bossHeaderLabel.AppendText($"　｜　「{saved.Name}」火力 {power:F0}／要求 {required:F0} → {WinChanceText(DungeonResolver.WinChance(power, required))}");
 		}
-		_bossHeaderLabel.TooltipText = GimmickTooltip(boss, tier, previewParty);
+		_bossHeaderLabel.TooltipText = IntelTooltip();
 
 		_bossHpRow.Visible = true;
 		if (tier < IntelTier.Basic)
@@ -1039,118 +1039,69 @@ public partial class DungeonPanel : ScrollContainer
 				$"[bgcolor=#5a4500][color=gold][b] ◆ 完全解析済み：弱点看破により討伐時の与ダメージ+{DungeonBalance.FullIntelDamageBonus * 100:F0}% ボーナス中 [/b][/color][/bgcolor]");
 		}
 
-		PopulateGimmickCards(boss, tier, previewParty);
+		PopulateIntelCards(boss, tier);
 	}
 
 	/// <summary>
-	/// 特殊能力のカード（§0.43：判明したものだけ）。解析段階「危険情報」（50%）未満は能力の数も伏せて「？？？」の1枚、
-	/// それ以降はボスが持つ能力ごとに1枚（危険度・75%で対策内容・選択中の部隊の備え〈万全／一部／無策、§0.68〉）。能力が無ければ「特殊能力なし」の1枚。
-	/// 旧来は4大能力を常に4枚並べ、持っていない能力も「安全」と表示していた（能力を増やすと並べきれない）。
+	/// 番人の欄の2行目：解析の効き目（§0.138）。番人のギミックを無くし、解析はその区間の採取と、完全解析の決戦に効く。
+	/// 採取の上乗せは、このフィールドの次の番人までの区間で効く（→ GatheringResolver.IntelYieldBonus）。
 	/// </summary>
-	/// <summary>ボスの欄の2行目：特殊能力の名前と、選んだ部隊の備え（✔ 万全／△ 一部／✖ 無策）。</summary>
-	private static string GimmickSummary(FloorBoss boss, IntelTier tier, Party party)
+	private string IntelSummary(FloorBoss boss, IntelTier tier)
 	{
-		if (tier < IntelTier.Hazards)
-			return "[color=yellow]特殊能力：？？？？（解析率50%で判明）[/color]";
-		if (boss.Gimmicks.Count == 0)
-			return "[color=lime]特殊能力なし[/color]";
-		var parts = boss.Gimmicks.Select(g =>
-		{
-			string name = $"{GimmickLabel(g.Type)}{DangerStars(g.DangerLevel)}";
-			if (party.IsEmpty) return name;
-			return DungeonResolver.GetReadinessTier(DungeonResolver.Readiness(g, party.Members)) switch
-			{
-				ReadinessTier.Full => $"{name} [color=#4ade80]✔万全[/color]",
-				ReadinessTier.Partial => $"{name} [color=#fbbf24]△一部[/color]",
-				_ => $"{name} [color=#f87171]✖無策[/color]",
-			};
-		});
-		return $"特殊能力：{string.Join("　", parts)}" + (party.IsEmpty ? "　[color=gray]（部隊を選ぶと備えを表示）[/color]" : "") +
-			"　[color=gray]（詳しくはマウスを重ねる）[/color]";
+		double yield = IsNextBossOfField(boss) ? GatheringResolver.IntelYieldBonus(_selectedField!) : 0;
+		string gather = IsNextBossOfField(boss)
+			? (yield > 0 ? $"この区間の採取 [color=lime]+{yield * 100:F0}%[/color]" : "この区間の採取 +0%")
+			: "[color=gray]採取の上乗せは、次の番人の区間で効く[/color]";
+		string next = NextTierHint(tier) is { } hint ? $"　[color=gray]（{hint}）[/color]" : "";
+		return $"解析の効き目：{gather}{next}";
 	}
 
-	/// <summary>ボスの欄のツールチップ：特殊能力ごとの説明・対策・備え（縮める前のカードの中身）。</summary>
-	private string GimmickTooltip(FloorBoss boss, IntelTier tier, Party party)
+	/// <summary>番人の欄のツールチップ：解析の段階ごとの効き目（§0.138）。</summary>
+	private static string IntelTooltip() =>
+		"解析（迷宮調査で進める）の効き目：\n" +
+		$"・解析率{ScoutingBalance.IntelTierBasic * 100:F0}%：番人のHPが分かる\n" +
+		$"・解析率{ScoutingBalance.IntelTierHazards * 100:F0}%：この区間の採取 +{GatheringBalance.IntelYieldBonusHazards * 100:F0}%\n" +
+		$"・解析率{ScoutingBalance.IntelTierCountermeasures * 100:F0}%：この区間の採取 +{GatheringBalance.IntelYieldBonusCountermeasures * 100:F0}%\n" +
+		$"・完全解析：決戦の与ダメージ +{DungeonBalance.FullIntelDamageBonus * 100:F0}%、道中の被ダメージが軽くなる、この区間の採取 +{GatheringBalance.IntelYieldBonusComplete * 100:F0}%\n" +
+		"採取の上乗せは、そのフィールドの次の番人までの区間で効く（番人を倒すと、次の区間は解析0%から）。";
+
+	/// <summary>この番人が、選んでいるフィールドの次の番人（採取の区間の番人）か。</summary>
+	private bool IsNextBossOfField(FloorBoss boss) => _selectedField?.GetNextActiveBoss()?.Id == boss.Id;
+
+	/// <summary>解析のカード（§0.138。もとはギミックのカード）：今の解析の段階で効いていることと、次の段階。</summary>
+	private void PopulateIntelCards(FloorBoss? boss, IntelTier tier)
 	{
-		if (tier < IntelTier.Hazards)
-			return $"特殊能力は未判明（解析率50%で判明）。\n{NextTierHint(tier) ?? ""}";
-		if (boss.Gimmicks.Count == 0)
-			return "特殊能力なし";
-		var sb = new StringBuilder();
-		foreach (var g in boss.Gimmicks)
-		{
-			sb.AppendLine($"【{GimmickLabel(g.Type)}】危険度 {DangerStars(g.DangerLevel)}");
-			sb.AppendLine($"  {GimmickDescription(g.Type)}");
-			sb.AppendLine(tier >= IntelTier.Countermeasures
-				? $"  対策：{(CounterRoutes(g) is { Count: > 0 } r ? string.Join("／", r) : "有効な対策なし")}"
-				: "  対策：？？？（解析率75%で開示）");
-			if (!party.IsEmpty)
-				sb.AppendLine($"  備え：{StripBbcode(ReadinessText(g.Type, DungeonResolver.GetReadinessTier(DungeonResolver.Readiness(g, party.Members))))}");
-		}
-		return sb.ToString().TrimEnd();
-	}
-
-	private static string StripBbcode(string text) => System.Text.RegularExpressions.Regex.Replace(text, @"\[/?[^\]]+\]", "");
-
-	private void PopulateGimmickCards(FloorBoss? boss, IntelTier tier, Party previewParty)
-	{
-		ClearGimmickCards();
-
+		ClearIntelCards();
 		if (boss == null)
 		{
-			AddGimmickCard("[color=gray]対象のボスなし[/color]");
+			AddIntelCard("[color=gray]対象の番人なし[/color]");
 			return;
 		}
-
-		if (tier < IntelTier.Hazards)
+		var sb = new StringBuilder();
+		sb.Append($"[b]解析 {boss.IntelRate * 100:F0}%（{TierLabel(tier)}）[/b]\n");
+		if (IsNextBossOfField(boss))
 		{
-			AddGimmickCard("[b]？？？[/b]\n[color=yellow]特殊能力は未判明（解析率50%で判明）[/color]");
-			return;
+			double yield = GatheringResolver.IntelYieldBonus(_selectedField!);
+			sb.Append(yield > 0 ? $"[color=lime]この区間の採取 +{yield * 100:F0}%[/color]\n" : "[color=gray]この区間の採取の上乗せはまだない[/color]\n");
 		}
-
-		if (boss.Gimmicks.Count == 0)
-		{
-			AddGimmickCard("[color=lime][b]特殊能力なし[/b][/color]");
-			return;
-		}
-
-		foreach (var gimmick in boss.Gimmicks)
-		{
-			var sb = new StringBuilder();
-			sb.Append($"[b]【{GimmickLabel(gimmick.Type)}】[/b] 危険度 [color=orange]{DangerStars(gimmick.DangerLevel)}[/color]\n");
-			sb.Append($"[color=gray]{GimmickDescription(gimmick.Type)}[/color]\n");
-
-			if (tier >= IntelTier.Countermeasures)
-			{
-				var routes = CounterRoutes(gimmick);
-				string routeStr = routes.Count > 0 ? string.Join("／", routes) : "有効な対策なし";
-				sb.Append($"[color=cyan]対策：{routeStr}[/color]\n");
-			}
-			else
-			{
-				sb.Append("[color=gray]対策：？？？（解析率75%で開示）[/color]\n");
-			}
-
-			if (previewParty.IsEmpty)
-				sb.Append("[color=gray]備え：部隊を選ぶと表示[/color]");
-			else
-				sb.Append(ReadinessText(gimmick.Type, DungeonResolver.GetReadinessTier(DungeonResolver.Readiness(gimmick, previewParty.Members))));
-
-			AddGimmickCard(sb.ToString());
-		}
+		if (tier == IntelTier.Complete)
+			sb.Append($"[color=gold]完全解析：決戦の与ダメージ +{DungeonBalance.FullIntelDamageBonus * 100:F0}%・道中の被ダメージが軽い[/color]\n");
+		if (NextTierHint(tier) is { } hint)
+			sb.Append($"[color=gray]次：{hint}[/color]");
+		AddIntelCard(sb.ToString());
 	}
 
 	/// <summary>
-	/// 特殊能力のカードを1枚追加する。FitContent は使わない（2026年9月のレイアウト適正化、→ 03 §9）：
+	/// 解析のカードを1枚追加する。FitContent は使わない（2026年9月のレイアウト適正化、→ 03 §9）：
 	/// RichTextLabel の最小幅は0のため、FitContent=true だと「幅ほぼ0で折り返した場合の高さ」が最小高さとして報告され、
-	/// Zone B が縦に膨らんで出撃欄を画面外へ押し出していた。カードは固定高さ（文字サイズ16で説明・対策・判定の5行が収まる高さ）とする。
+	/// Zone B が縦に膨らんで出撃欄を画面外へ押し出していた。カードは固定高さとする。
 	/// </summary>
-	private void AddGimmickCard(string bbcode)
+	private void AddIntelCard(string bbcode)
 	{
 		var card = new PanelContainer
 		{
 			SizeFlagsHorizontal = SizeFlags.ExpandFill,
-			CustomMinimumSize = new Vector2(150, 144),
+			CustomMinimumSize = new Vector2(150, 96),
 		};
 		var margin = new MarginContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
 		margin.AddThemeConstantOverride("margin_left", 8);
@@ -1173,20 +1124,7 @@ public partial class DungeonPanel : ScrollContainer
 		_gimmickContainer.AddChild(card);
 	}
 
-	private List<string> CounterRoutes(BossGimmick gimmick)
-	{
-		var routes = new List<string>();
-		if (gimmick.CounterRoles.Count > 0)
-			routes.Add($"{string.Join("か", gimmick.CounterRoles.Select(JobLabel))}の同行");
-		if (!string.IsNullOrEmpty(gimmick.RequiredCounterStat))
-			routes.Add($"部隊全体の{gimmick.RequiredCounterStat}");
-		// 伝説級の固有武具（→ 03 §4.7.5、§0.45）：入手済みのものだけ名前を出す（未入手の伝説はネタばらししない）。
-		foreach (var unique in UniqueBalance.All.Where(u => u.CounterGimmick == gimmick.Type && _state.ObtainedUniqueIds.Contains(u.Id)))
-			routes.Add($"伝説級「{unique.Name}」の装備");
-		return routes;
-	}
-
-	private void ClearGimmickCards()
+	private void ClearIntelCards()
 	{
 		foreach (var child in _gimmickContainer.GetChildren())
 		{
@@ -1200,8 +1138,8 @@ public partial class DungeonPanel : ScrollContainer
 	/// <summary>未開放の部隊の枠が開く条件（§0.120：3つ目は森の20Fの撃破と現役の人数）。</summary>
 	internal static string SlotUnlockHint(int index) => index switch
 	{
-		1 => "出撃枠が未開放の部隊（森の10Fの主を倒すと開く）",
-		2 => $"出撃枠が未開放の部隊（森の20Fの主を倒し、現役が{GuildManager.Core.Balance.ProgressionBalance.Slot3MinActive}人以上になると開く）",
+		1 => "出撃枠が未開放の部隊（森の10Fの番人を倒すと開く）",
+		2 => $"出撃枠が未開放の部隊（森の20Fの番人を倒し、現役が{GuildManager.Core.Balance.ProgressionBalance.Slot3MinActive}人以上になると開く）",
 		_ => "出撃枠が未開放の部隊（今は開かない）",
 	};
 
@@ -1875,10 +1813,7 @@ public partial class DungeonPanel : ScrollContainer
 	private static string StanceRuleText(DoorStance stance)
 	{
 		var rule = SquadOrderBalance.For(stance);
-		string readiness = rule.MinReadiness >= 1.0 ? "すべてのギミックに万全の備え"
-			: rule.MinInstantKillReadiness > 0 ? $"即死級に{rule.MinInstantKillReadiness * 100:F0}%以上の備え"
-			: "備えは問わない";
-		return $"{SquadOrderSystem.StanceLabel(stance)}：勝率{rule.MinWinChance * 100:F0}%以上・{readiness}・全員のHP{rule.MinHpPercent}%以上";
+		return $"{SquadOrderSystem.StanceLabel(stance)}：勝率{rule.MinWinChance * 100:F0}%以上・全員のHP{rule.MinHpPercent}%以上";
 	}
 
 	/// <summary>🔍 迷宮調査：護衛 ／ 要求 → 護衛評価、隠密 ／ 要求、解析 ／ 要求 → 成果。</summary>
@@ -2126,7 +2061,7 @@ public partial class DungeonPanel : ScrollContainer
 			var saved = SquadOrderSystem.FindOrderedParty(_state, mission);
 			string stance = SquadOrderSystem.StanceLabel(saved?.Stance ?? DoorStance.Standard);
 			sb.AppendLine($"[color=cyan]第{boss.Floor}層の扉前に着いたら、その週のうちに構え「{stance}」で挑むか撤退するかを決める。[/color]");
-			sb.Append(BuildReadinessSummary(boss, mission.Party));
+			sb.Append($"見込み：{WinChanceText(DungeonResolver.WinChance(mission.Party, boss, _state))}（今の体力で）");
 		}
 		else
 		{
@@ -2147,40 +2082,6 @@ public partial class DungeonPanel : ScrollContainer
 		var parts = new List<string> { $"{mission.CarriedGold}G" };
 		parts.AddRange(mission.CarriedMaterials.Select(kv => $"{MaterialBalance.GetName(kv.Key)}×{kv.Value}"));
 		return string.Join("、", parts);
-	}
-
-	/// <summary>潜行中の部隊の、目標のボスのギミックへの備え（§0.68：万全／一部／無策。数字は出さない）。</summary>
-	private static string BuildReadinessSummary(FloorBoss boss, Party party)
-	{
-		var tier = ScoutingResolver.GetTier(boss.IntelRate);
-		if (tier < IntelTier.Hazards)
-			return "[color=orange]目標のボスのギミックは未解析（解析率50%で判明）。[/color]";
-		if (boss.Gimmicks.Count == 0)
-			return "[color=lime]目標のボスに備えが必要な能力は無い。[/color]";
-		return string.Join("\n", boss.Gimmicks.Select(g =>
-			ReadinessText(g.Type, DungeonResolver.GetReadinessTier(DungeonResolver.Readiness(g, party.Members)))));
-	}
-
-	/// <summary>ギミック1件の備えの段階と、足りないときに何が起きるか（§0.68）。</summary>
-	private static string ReadinessText(BossGimmickType type, ReadinessTier tier)
-	{
-		string label = GimmickLabel(type);
-		if (tier == ReadinessTier.Full)
-			return $"[color=lime][b]✔ {label}：備え万全[/b][/color]";
-		string effect = type switch
-		{
-			BossGimmickType.Poison => "損耗が増え、戦闘後に毒状態が残る",
-			BossGimmickType.HeavyArmor => "攻撃が通りにくく火力が落ちる",
-			BossGimmickType.Flying => "損耗が増える",
-			BossGimmickType.InstantKill => tier == ReadinessTier.None ? "壊滅の恐れ" : "大きな損耗を受ける",
-			BossGimmickType.Regeneration => "傷が塞がり倒しきりにくい",
-			BossGimmickType.Swarm => "後衛が襲われ火力が落ちる",
-			BossGimmickType.Charm => "一番の使い手が操られる",
-			_ => "被害が増える",
-		};
-		return tier == ReadinessTier.Partial
-			? $"[color=orange][b]△ {label}：備え一部（{effect}）[/b][/color]"
-			: $"[color=red][b]{(type == BossGimmickType.InstantKill ? "☠" : "✖")} {label}：無策（{effect}）[/b][/color]";
 	}
 
 	/// <summary>【呼び戻す】（§0.69）：選んだ部隊の出撃をやめさせる（出発前は取り消し、潜行中は即時撤退）。方針があれば次の週送りでまた出撃する。</summary>
@@ -2209,32 +2110,12 @@ public partial class DungeonPanel : ScrollContainer
 
 	// ==================== 表示文言・ヘルパー ====================
 
-	public static string GimmickLabel(BossGimmickType type) => BossGimmickInfo.Label(type);
-
-	private static string GimmickDescription(BossGimmickType type) => type switch
-	{
-		BossGimmickType.Poison => "体力を蝕む毒を撒き散らす。生き延びても毒がしばらく抜けない。",
-		BossGimmickType.HeavyArmor => "分厚い装甲に覆われ、生半可な攻撃は通らない。",
-		BossGimmickType.Flying => "空を舞い、地上からの攻撃がなかなか届かない。",
-		BossGimmickType.InstantKill => "備えなく受ければ、一撃で戦闘不能域まで追い込まれる。",
-		BossGimmickType.Regeneration => "削った端から傷が塞がっていく。素早く削り切らねばならない。",
-		BossGimmickType.Swarm => "取り巻きを従え、前衛を抜けて後衛に襲いかかる。",
-		BossGimmickType.Charm => "妖しい力で隊員を惑わし、一番の使い手を操ろうとする。",
-		_ => "",
-	};
-
-	private static string DangerStars(int dangerLevel)
-	{
-		int filled = Math.Clamp(dangerLevel, 0, 5);
-		return new string('★', filled) + new string('☆', 5 - filled);
-	}
-
 	public static string TierLabel(IntelTier tier) => tier switch
 	{
 		IntelTier.Unknown => "未調査",
 		IntelTier.Basic => "基本情報",
-		IntelTier.Hazards => "危険情報",
-		IntelTier.Countermeasures => "対策情報",
+		IntelTier.Hazards => $"採取+{GatheringBalance.IntelYieldBonusHazards * 100:F0}%",
+		IntelTier.Countermeasures => $"採取+{GatheringBalance.IntelYieldBonusCountermeasures * 100:F0}%",
 		IntelTier.Complete => "完全解析",
 		_ => tier.ToString(),
 	};
@@ -2252,9 +2133,9 @@ public partial class DungeonPanel : ScrollContainer
 	private static string? NextTierHint(IntelTier tier) => tier switch
 	{
 		IntelTier.Unknown => $"解析率{ScoutingBalance.IntelTierBasic * 100:F0}%で規模が判明",
-		IntelTier.Basic => $"解析率{ScoutingBalance.IntelTierHazards * 100:F0}%で危険ギミックが判明",
-		IntelTier.Hazards => $"解析率{ScoutingBalance.IntelTierCountermeasures * 100:F0}%で対策が判明",
-		IntelTier.Countermeasures => $"解析率{ScoutingBalance.IntelTierComplete * 100:F0}%で弱点を看破",
+		IntelTier.Basic => $"解析率{ScoutingBalance.IntelTierHazards * 100:F0}%で採取 +{GatheringBalance.IntelYieldBonusHazards * 100:F0}%",
+		IntelTier.Hazards => $"解析率{ScoutingBalance.IntelTierCountermeasures * 100:F0}%で採取 +{GatheringBalance.IntelYieldBonusCountermeasures * 100:F0}%",
+		IntelTier.Countermeasures => $"完全解析で弱点を看破（与ダメージ +{DungeonBalance.FullIntelDamageBonus * 100:F0}%・採取 +{GatheringBalance.IntelYieldBonusComplete * 100:F0}%）",
 		_ => null,
 	};
 

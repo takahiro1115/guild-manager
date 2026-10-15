@@ -757,7 +757,7 @@ public partial class MainDashboard : Control
 	/// </summary>
 	private void OnNextMonthPressed()
 	{
-		if (_noDungeonDispatchDialog.Visible)
+		if (_noDungeonDispatchDialog.Visible || _state.DefeatReason != null) // ゲームオーバーのあとは進めない
 			return;
 
 		if (_state.ActiveDungeonMissions.Count == 0 && !_state.SavedParties.Any(p => p.Order != SquadOrder.None))
@@ -1013,8 +1013,8 @@ public partial class MainDashboard : Control
 				(settlement.GuestTrainer.AssignedTo is FacilityType t ? $"・{FacilityLabel(t)}の教官" : "・顧問の任命で教官に置ける") + "）[/color]");
 		if (settlement.GuestTrainer.Left is { } left)
 			AppendLog($"[color=gray]✉ 派遣の教官{left.Name}が白百合の杖へ帰った。[/color]");
-		if (settlement.RevivedBosses.Count > 0) // エンディングのあと、記憶から主が蘇った（§0.90）
-			AppendLog("[color=plum][b]🌀 記憶から主が蘇った：[/b]" + string.Join("・", settlement.RevivedBosses.Select(b => $"{_state.DungeonFields.FirstOrDefault(f => f.Bosses.Contains(b))?.Name} {b.Floor}F「{b.Name}」")) + "[/color]");
+		if (settlement.RevivedBosses.Count > 0) // エンディングのあと、記憶から番人が蘇った（§0.90）
+			AppendLog("[color=plum][b]🌀 記憶から番人が蘇った：[/b]" + string.Join("・", settlement.RevivedBosses.Select(b => $"{_state.DungeonFields.FirstOrDefault(f => f.Bosses.Contains(b))?.Name} {b.Floor}F「{b.Name}」")) + "[/color]");
 		foreach (var back in settlement.LoanReturns) // 依頼の派遣から帰ってきた（§0.85）
 			AppendLog($"[color=plum][b]🏠 {back.Adventurer.Name}が{back.ClientName}から帰ってきた。[/b]" +
 				(back.Growth.Count > 0 ? "　" + string.Join("・", back.Growth.GroupBy(g => g.Stat).Select(g => $"{g.Key}+{g.Sum(e => e.After - e.Before)}")) : "") +
@@ -1121,6 +1121,7 @@ public partial class MainDashboard : Control
 
 	private void AdvanceMonth()
 	{
+		if (_state.DefeatReason != null) return; // ゲームオーバーのあとは進めない（確認の小窓が残っていたときも）
 		DisableWeekAdvancement();
 
 		int startWeek = _state.WeekNumber;
@@ -1337,7 +1338,7 @@ public partial class MainDashboard : Control
 						AskDuelIntervention(battle, Step);
 					else
 					{
-						AppendLog($"[color=gold][b]⚔ 支配者戦：{battle.RulerName}[/b][/color] 体力 {battle.HpBefore}→{battle.HpAfter}" +
+						AppendLog($"[color=gold][b]⚔ 迷宮の主との戦い：{battle.RulerName}[/b][/color] 体力 {battle.HpBefore}→{battle.HpAfter}" +
 							(battle.Retreated ? "（退いた）" : battle.Defeated ? "（倒した）" : ""));
 						RefreshAll();
 						then();
@@ -1345,7 +1346,7 @@ public partial class MainDashboard : Control
 				}).CallDeferred(); // 別の排他ウィンドウは閉じ切ってから開く
 			}
 			_storyPopup.Closed += OnClosed;
-			_storyPopup.ShowSteps(_state, $"⚔ 支配者戦　{battle.RulerName}", steps, prompt ? "護符を使うか決める ▶" : "閉じる");
+			_storyPopup.ShowSteps(_state, $"⚔ 迷宮の主との戦い　{battle.RulerName}", steps, prompt ? "護符を使うか決める ▶" : "閉じる");
 		}
 		Step();
 	}
@@ -1647,40 +1648,17 @@ public partial class MainDashboard : Control
 			return;
 
 		sb.AppendLine($"[color=gold][b]⚔ {GameCalendar.Format(weekNumber)}：大迷宮 第{boss.Floor}層「{boss.Name}」討伐戦[/b][/color]");
-		foreach (var type in assault.CounteredGimmicks)
-			sb.AppendLine($"[color=lime]✔ {DungeonPanel.GimmickLabel(type)}への備えが機能した。[/color]");
-		// 備えが一部（橙）・無策（赤）のギミック（§0.68）。足りない分だけ罰が効いた。
-		foreach (var type in assault.UncounteredGimmicks)
-		{
-			bool none = assault.ShortfallOf(type) >= 1.0;
-			sb.AppendLine(none
-				? $"[color=red]✖ {DungeonPanel.GimmickLabel(type)}に備えが無く、{GimmickPenaltyText(type)}。[/color]"
-				: $"[color=orange]△ {DungeonPanel.GimmickLabel(type)}への備えが足りず、{GimmickPenaltyText(type)}。[/color]");
-		}
-		if (assault.CharmedAdventurerId is { } charmedId && _state.Adventurers.FirstOrDefault(a => a.Id == charmedId) is { } charmed)
-			sb.AppendLine($"[color=orange]💫 {charmed.Name}が魅了に囚われ、仲間に刃を向けかけた。[/color]");
-		foreach (var (poisonedId, weeks) in assault.PoisonWeeksByAdventurer)
-		{
-			var poisoned = _state.Adventurers.FirstOrDefault(a => a.Id == poisonedId);
-			if (poisoned != null)
-				sb.AppendLine($"[color=orange]🟣 {poisoned.Name}は毒に冒された（{weeks}週ほど全能力が{assault.PoisonStatPenalty * 100:0}%下がる）。[/color]");
-		}
 		if (assault.FullIntelBonusApplied)
 			sb.AppendLine("[color=gold]◆ 完全解析の成果：弱点を正確に突いた。[/color]");
 		// 神官の加護（§0.72）
 		if (assault.ClericBlessingPct > 0)
 			sb.AppendLine($"[color=cyan]✝ 神官の加護が隊を守り、損耗を{assault.ClericBlessingPct:0.#}%ポイント軽くし、重傷を遠ざけた。[/color]");
-		// 耐毒体質・巨獣狩り（→ 03 §4.5.4・§5.3.2）：効いた戦闘のみ開示する。
-		if (assault.ResistPoisonApplied)
-			sb.AppendLine($"[color=cyan]🧪 耐毒体質の隊員が毒に耐え、猛毒による被害の上乗せを{CombatBalance.ResistPoisonDamageReductionRate * 100:0}%抑えた。[/color]");
-		// 鷹の目・危機察知（→ 03 §0.55・§5.3.2）
-		if (assault.HawkEyeApplied)
-			sb.AppendLine($"[color=cyan]🦅 鷹の目の隊員が空の敵の動きを見切り、飛行による被害の上乗せを{TraitBalance.HawkEyeFlyingDamageReductionRate * 100:0}%抑えた。[/color]");
+		// 危機察知（→ 03 §0.55・§5.3.2、§0.138）：HP0から一命を取り留めた子
 		foreach (var senseId in assault.SixthSenseAdventurerIds)
 		{
 			var sensor = _state.Adventurers.FirstOrDefault(a => a.Id == senseId);
 			if (sensor != null)
-				sb.AppendLine($"[color=cyan]⚡ {sensor.Name}は危機察知で致命の一撃を寸前でかわした（損耗{TraitBalance.SixthSenseInstantKillHpLossPct}%で止まった）。[/color]");
+				sb.AppendLine($"[color=cyan]⚡ {sensor.Name}は危機察知で、倒れる寸前に身をかわした。[/color]");
 		}
 		// HP0から強制除籍を免れた隊員（§0.125）
 		foreach (var survivorId in assault.NearDeathSurvivorIds)
@@ -1693,7 +1671,7 @@ public partial class MainDashboard : Control
 		{
 			var hunter = _state.Adventurers.FirstOrDefault(a => a.Id == hunterId);
 			if (hunter != null)
-				sb.AppendLine($"[color=cyan]🗡 {hunter.Name}の巨獣狩りの技が重装甲を穿った（火力 +{CombatBalance.GiantHunterDamageBonusRate * 100:0}%）。[/color]");
+				sb.AppendLine($"[color=cyan]🗡 {hunter.Name}の巨獣狩りの技が番人の急所を穿った（火力 +{CombatBalance.GiantHunterDamageBonusRate * 100:0}%）。[/color]");
 		}
 
 		sb.AppendLine(assault.Outcome == DungeonOutcome.Victory
@@ -1789,19 +1767,6 @@ public partial class MainDashboard : Control
 		if (resolution.DepositedGold > 0 || resolution.DepositedMaterials.Count > 0)
 			sb.AppendLine($"[color=lime]📦 道中の拾得物を格納：{LootText(resolution.DepositedGold, resolution.DepositedMaterials)}[/color]");
 	}
-
-	/// <summary>ギミックに備えが足りなかったときに起きたこと（週報の決戦の行、§0.68）。</summary>
-	private static string GimmickPenaltyText(BossGimmickType type) => type switch
-	{
-		BossGimmickType.Poison => "毒で部隊が削られた",
-		BossGimmickType.HeavyArmor => "攻撃が装甲に阻まれた",
-		BossGimmickType.Flying => "空からの攻撃に部隊が削られた",
-		BossGimmickType.InstantKill => "致命の一撃を受けた",
-		BossGimmickType.Regeneration => "削った傷が塞がっていった",
-		BossGimmickType.Swarm => "取り巻きに後衛を襲われた",
-		BossGimmickType.Charm => "一番の使い手が惑わされた",
-		_ => "部隊が損害を受けた",
-	};
 
 	private static string LootText(int gold, Dictionary<string, int> materials)
 	{

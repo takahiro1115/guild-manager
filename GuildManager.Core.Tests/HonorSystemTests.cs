@@ -301,7 +301,7 @@ namespace GuildManager.Core.Tests
             var state = NewGame(a);
             for (int i = 0; i < HonorBalance.Title("veteran").Param; i++)
                 a.BossKills.Add(new BossKillRecord { BossId = Guid.NewGuid(), FieldId = "forest", Floor = 10, IsMvp = i < HonorBalance.Title("boss_mvp").Param });
-            Assert.Contains("主討ち", Names(state, a));
+            Assert.Contains("番人討ち", Names(state, a));
             Assert.Contains("古強者", Names(state, a));
             Assert.DoesNotContain("深淵を討つ者", Names(state, a));
 

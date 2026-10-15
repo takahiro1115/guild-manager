@@ -9,7 +9,7 @@ party_win,迷宮の踏破者,Name,0,迷宮踏破杯で優勝
 indomitable,不屈,Name,48,重傷が治ってからこの週数（12か月）以内にG1で優勝
 abyss_slayer,深淵を討つ者,Name,0,深淵100Fのボスの撃破に加わる
 g1_winner,{G1}の覇者,Honor,0,定例のG1（迷宮踏破杯を除く）で優勝。名前は最後に勝ったG1
-boss_mvp,主討ち,Honor,10,ボス撃破の主役（部隊で討伐火力が最も高い者）をこの回数
+boss_mvp,番人討ち,Honor,10,ボス撃破の主役（部隊で討伐火力が最も高い者）をこの回数
 rookie_king,新人王,Honor,0,新人戦で優勝
 late_bloomer,叩き上げ,Honor,0,加入時の見立てがDかCで、ピークの能力の平均が見立ての段階A以上
 veteran,古強者,Plain,20,ボス撃破にこの回数加わる

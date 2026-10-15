@@ -49,12 +49,11 @@ namespace GuildManager.Core.Tests
             return party;
         }
 
-        /// <summary>即死級（対策口が無く、備えは常に0）を持つボス。突撃すると全員が強制除籍になる。</summary>
-        private static FloorBoss MakeDeadlyBoss() => new()
-        {
-            Name = "試験用の番人", Floor = 1, MaxHp = 500, CurrentHp = 500,
-            Gimmicks = { new BossGimmick { Type = BossGimmickType.InstantKill, DangerLevel = 5 } },
-        };
+        /// <summary>
+        /// 突撃すると全員がHP0になる番人（§0.138 で即死級は無くしたので、MakeState が隊員を瀕死〈HP1〉にして挑ませる）。
+        /// </summary>
+        private const string DeadlyBossName = "試験用の番人（瀕死で挑む）";
+        private static FloorBoss MakeDeadlyBoss() => new() { Name = DeadlyBossName, Floor = 1, MaxHp = 500, CurrentHp = 500 };
 
         /// <summary>単体テスト用の使い捨てフィールド（→ DungeonField）に、指定した1体だけを収める。</summary>
         private static (GameState State, Adventurer A, Adventurer B, FloorBoss Boss) MakeState(FloorBoss? boss = null)
@@ -62,6 +61,7 @@ namespace GuildManager.Core.Tests
             var a = MakeAdventurer(JobClass.Ranger, 40);
             var b = MakeAdventurer(JobClass.Scholar, 40);
             boss ??= new FloorBoss { Name = "階層の主", Floor = 1, MaxHp = 500, CurrentHp = 500 };
+            if (boss.Name == DeadlyBossName) { a.CurrentHP = 1; b.CurrentHP = 1; } // どの損耗でもHP0
             var field = new DungeonField { Id = "test", Name = "テスト用フィールド", Order = 1, IsUnlocked = true, Bosses = { boss } };
             var state = new GameState { Adventurers = { a, b }, DungeonFields = { field } };
             return (state, a, b, boss);
@@ -1372,18 +1372,12 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
-        public void DefaultFields_EveryGimmickHasRoleAndStatCounter()
+        public void DefaultFields_HaveFiftyBosses_AtFullHp()
         {
-            // どのギミックにも職業と能力の両方の対策口がある（§0.68。携行アイテムの対策口は撤去）。
             var bosses = SampleData.CreateDefaultFields().SelectMany(f => f.Bosses).ToList();
 
             Assert.Equal(50, bosses.Count); // 5フィールド × 10体（→ BAL: dungeon.csv BossIntervalFloors）
-            Assert.All(bosses.SelectMany(b => b.Gimmicks), g =>
-            {
-                Assert.NotEmpty(g.CounterRoles);
-                Assert.All(g.CounterRoles, r => Assert.Contains(r, BossGimmickInfo.RoleCandidates(g.Type)));
-                Assert.Equal(BossGimmickInfo.CounterStat(g.Type), g.RequiredCounterStat);
-            });
+            Assert.All(bosses, b => Assert.False(string.IsNullOrEmpty(b.Name))); // §0.138：番人はギミックを持たない（名前の決め方は変えない）
             Assert.All(bosses, b => Assert.Equal(b.MaxHp, b.CurrentHp));
         }
 
@@ -1404,7 +1398,6 @@ namespace GuildManager.Core.Tests
             Assert.Equal(2, restoredBosses.Count);
             var restoredBoss = restoredBosses.Single(x => x.Id == boss.Id);
             Assert.Equal(0.75, restoredBoss.IntelRate);
-            Assert.Equal(BossGimmickType.InstantKill, restoredBoss.Gimmicks.Single().Type);
             Assert.True(restoredBosses.Single(x => x.Id == cleared.Id).IsDefeated);
 
             var mission = Assert.Single(restored.ActiveDungeonMissions);

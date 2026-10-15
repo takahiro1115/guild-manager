@@ -926,5 +926,18 @@ namespace GuildManager.Core.Tests
             }
             finally { Directory.Delete(dir, recursive: true); }
         }
+
+        [Fact]
+        public void OldSave_WithBossGimmicks_LoadsAndIgnoresThem()
+        {
+            // §0.138 で番人のギミック（FloorBoss.Gimmicks）を無くした。旧セーブに残っている項目は読み込みで無視される
+            var state = new GameState { DungeonFields = SampleData.CreateDefaultFields() };
+            string json = JsonSerializer.Serialize(state.ToSaveData());
+            string oldJson = json.Replace("\"IntelRate\":", "\"Gimmicks\":[{\"Type\":0,\"DangerLevel\":2,\"CounterRoles\":[2],\"RequiredCounterStat\":\"MND\",\"RequiredCounterStatThreshold\":55}],\"IntelRate\":");
+            Assert.NotEqual(json, oldJson);
+
+            var loaded = GameState.FromSaveData(JsonSerializer.Deserialize<SaveData>(oldJson)!);
+            Assert.Equal(50, loaded.DungeonFields.Sum(f => f.Bosses.Count));
+        }
     }
 }

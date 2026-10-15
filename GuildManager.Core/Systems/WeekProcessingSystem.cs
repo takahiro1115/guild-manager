@@ -179,9 +179,8 @@ namespace GuildManager.Core.Systems
             _trainingSystem.ProcessWeeklyTraining(state, dispatchedIds); // → 03 §3.1〜3.4・§3.5改：訓練場の週次費用・HP微減
             result.TraitTransmissionEvents.AddRange(_trainingSystem.ProcessWeeklyTraitTransmission(state)); // → 特性伝授刷新仕様：教官からの週次伝授ロール
             _trainingSystem.ProcessWeeklyTrainerTenure(state); // → 03 §7.1：教官の在任週数（伝授ロールの後に数える）
-            // 今週の任務で負傷した・毒状態になった隊員は、今週の回復を進めない（→ InjuryRecoverySystem、§0.53・§0.68）。
+            // 今週の任務で負傷した隊員は、今週の回復を進めない（→ InjuryRecoverySystem、§0.53・§0.68）。
             var justInjured = result.DungeonMissionResolutions.SelectMany(r => r.InjuryEvents).Select(e => e.AdventurerId)
-                .Concat(result.DungeonMissionResolutions.SelectMany(r => r.DungeonResult?.PoisonWeeksByAdventurer.Keys ?? Enumerable.Empty<Guid>()))
                 .ToHashSet();
             _injuryRecoverySystem.ProcessWeeklyRecovery(state, justInjured);
             _restRecoverySystem.ProcessWeeklyRest(state, dispatchedIds); // → 03 §3.5改：静養・HP自然回復（訓練場配置中は対象外。研究の手伝い・自主練も回復する）

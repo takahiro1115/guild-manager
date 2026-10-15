@@ -242,6 +242,15 @@ namespace GuildManager.Core.Systems
                 foreach (var ev in w.Settlement.Incidents)
                     Add(ev.Text, ev.Good ? MonthlyTone.Good : ev.Kind == IncidentKind.PoachLeft ? MonthlyTone.Bad : MonthlyTone.Warning);
             }
+            // 危機（§0.136）：最後通告・機嫌の危機・所持金のマイナスを、起きた月の出来事にも残す
+            if (weeks.Any(w => w.Settlement.Flags.DismissalWarningIssued))
+                Add("⚠ マスターの機嫌が0になり、アルベールから最後通告を受けた", MonthlyTone.Bad);
+            else if (weeks.Any(w => w.Settlement.Flags.MoodEnteredCrisis))
+                Add("⚠ マスターの機嫌が危機（20未満）に入った", MonthlyTone.Warning);
+            if (weeks.Any(w => w.Settlement.Flags.GoldTurnedNegative))
+                Add("⚠ 所持金がマイナスになった", MonthlyTone.Bad);
+            if (weeks.Any(w => w.Settlement.Flags.BankruptcyImminent))
+                Add("⚠ 所持金のマイナスが続き、あと1週で破産する", MonthlyTone.Bad);
             if (weeks.Any(w => w.Settlement.ContractAutoFrozen))
                 Add("契約更改に答えないまま月が終わったので、給与を据え置いた（みんな少し不満）", MonthlyTone.Warning); // §0.103
             // ギルドの方針・進路（§0.105）
@@ -335,7 +344,7 @@ namespace GuildManager.Core.Systems
                 if (s.GuestTrainer.Left is { } guestLeft)
                     Add($"派遣の教官{guestLeft.Name}が白百合の杖へ帰った", MonthlyTone.Normal);
                 if (s.RevivedBosses.Count > 0)
-                    Add($"記憶から主が蘇った：" + string.Join("・", s.RevivedBosses.Select(b => $"{state.DungeonFields.FirstOrDefault(f => f.Bosses.Contains(b))?.Name} {b.Floor}F「{b.Name}」")), MonthlyTone.Normal);
+                    Add($"記憶から番人が蘇った：" + string.Join("・", s.RevivedBosses.Select(b => $"{state.DungeonFields.FirstOrDefault(f => f.Bosses.Contains(b))?.Name} {b.Floor}F「{b.Name}」")), MonthlyTone.Normal);
                 if (s.CommissionsUnlocked && state.CommissionsFromWeek is int from)
                     Add($"初めての入賞で王都に名が知られた。{GameCalendar.FormatMonth(from)}から依頼が届く", MonthlyTone.Good);
                 foreach (var invite in s.TournamentInvitations)
@@ -521,7 +530,7 @@ namespace GuildManager.Core.Systems
             WeekActivity.SelfTraining => a.SelfTrainingStat != null ? $"自主練（{a.SelfTrainingStat}）" : "自主練",
             WeekActivity.Help => "研究の手伝い",
             WeekActivity.Tournament => TournamentSystem.EntryOf(state, a.Id)?.Prep == TournamentPrep.Push ? "大会（追い込み）" : "大会（休養）",
-            WeekActivity.RulerDuel => "支配者戦の準備",
+            WeekActivity.RulerDuel => "迷宮の主との戦いの準備",
             WeekActivity.Meditation => "瞑想（MND）",
             _ => "静養",
         };
@@ -550,6 +559,9 @@ namespace GuildManager.Core.Systems
             }
         }
 
+        /// <summary>止まった理由のうち、ゲームオーバー（月報で「残りを進める」と案内しない）。</summary>
+        public const string GameOverStopReason = "ゲームオーバー";
+
         /// <summary>月の途中で止まった理由（→ WeekResult.ShouldStopMonth の各条件）。</summary>
         public static List<string> StopReasonsOf(WeekResult flags)
         {
@@ -561,7 +573,7 @@ namespace GuildManager.Core.Systems
             if (flags.CommissionDeadlineNear) reasons.Add("依頼の期限が近い");
             if (flags.SatisfactionWarningOccurred) reasons.Add("契約交渉の申し出");
             if (flags.CommissionsOffered) reasons.Add("依頼が届いた");
-            if (flags.SquadStalledAtBoss) reasons.Add("潜行の部隊が主に勝てずに戻った");
+            if (flags.SquadStalledAtBoss) reasons.Add("潜行の部隊が番人に勝てずに戻った");
             if (flags.PoachOffered) reasons.Add("引き抜きの話");
             if (flags.ContractReviewDue) reasons.Add("年のはじめの契約更改");
             if (flags.SponsorOffered) reasons.Add("スポンサー契約の話");
@@ -570,7 +582,7 @@ namespace GuildManager.Core.Systems
             if (flags.GoldTurnedNegative) reasons.Add("所持金がマイナスになった");
             if (flags.BankruptcyImminent) reasons.Add("あと1週で破産");
             if (flags.GameCleared) reasons.Add("深淵100Fを制覇した");
-            if (flags.DefeatOccurred) reasons.Add("ゲームオーバー");
+            if (flags.DefeatOccurred) reasons.Add(GameOverStopReason);
             return reasons;
         }
 
@@ -607,6 +619,7 @@ namespace GuildManager.Core.Systems
         public static List<string> CrisisNotes(GameState state)
         {
             var notes = new List<string>();
+            if (state.DefeatReason != null) return notes; // ゲームオーバーのあとは出さない
             if (state.DismissalWarningUntilWeek is int until)
                 notes.Add($"⚠ アルベールの最後通告：{GameCalendar.FormatMonth(until)}の終わりまでに機嫌を{MasterMoodBalance.DismissalRecoverMood}まで戻さないと解雇される（いま{state.MasterMood}。ボスの撃破・新しい階層・調査・採取・研究の手伝いで上がる）");
             else if (state.MasterMood < MasterMoodBalance.TierThresholdGrumpy)

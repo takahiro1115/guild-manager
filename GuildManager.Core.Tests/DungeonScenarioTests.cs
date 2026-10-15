@@ -43,30 +43,13 @@ namespace GuildManager.Core.Tests
         }
 
 
-        /// <summary>猛毒（神官＋MND）と即死級（騎士＋LDR）を持つ階層ボス（§0.68：備えは職業0.5＋能力の合計÷300）。</summary>
+        /// <summary>階層の番人（§0.138 でギミックは無くした）。</summary>
         private static FloorBoss MakeGuardian(int floor = 2) => new FloorBoss
         {
             Name = "階層の守護者",
             Floor = floor,
             MaxHp = 800,
             CurrentHp = 800,
-            Gimmicks =
-            {
-                new BossGimmick
-                {
-                    Type = BossGimmickType.Poison,
-                    CounterRoles = { JobClass.Cleric },
-                    RequiredCounterStat = "MND", RequiredCounterStatThreshold = 300,
-                    DangerLevel = 2,
-                },
-                new BossGimmick
-                {
-                    Type = BossGimmickType.InstantKill,
-                    CounterRoles = { JobClass.Knight },
-                    RequiredCounterStat = "LDR", RequiredCounterStatThreshold = 300,
-                    DangerLevel = 5,
-                },
-            },
         };
 
         [Fact]
@@ -90,8 +73,7 @@ namespace GuildManager.Core.Tests
             Assert.Equal(IntelTier.Complete, ScoutingResolver.GetTier(boss.IntelRate));
             Assert.Equal(1.0, boss.IntelRate, precision: 10);
 
-            // ---- 第2段階：判明したギミックに備える部隊を編成する ----
-            // 猛毒 → 神官（0.5）＋MND合計180÷300（0.6）／即死級 → 騎士（0.5）＋LDR合計180÷300（0.6）。どちらも万全。
+            // ---- 第2段階：討伐の部隊を編成する ----
             var strikeParty = PartyOf(
                 MakeAdventurer(JobClass.Knight, 60),
                 MakeAdventurer(JobClass.Ranger, 60),
@@ -99,13 +81,10 @@ namespace GuildManager.Core.Tests
 
             var result = dungeon.Resolve(strikeParty, boss);
 
-            // ---- 検証：備えが揃っていれば撃破でき、全員が生還する ----
+            // ---- 検証：完全解析の部隊は撃破でき、全員が生還する ----
             Assert.Equal(DungeonOutcome.Victory, result.Outcome);
             Assert.True(boss.IsDefeated);
 
-            Assert.Contains(BossGimmickType.Poison, result.CounteredGimmicks);
-            Assert.Contains(BossGimmickType.InstantKill, result.CounteredGimmicks);
-            Assert.Empty(result.UncounteredGimmicks);
             Assert.Equal(1.0, result.DamageMultiplier, precision: 10);
 
             Assert.True(result.FullIntelBonusApplied, "完全解析の与ダメージ補正が乗るはず");
@@ -115,24 +94,22 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
-        public void Scenario_RecklessAssaultWithoutAnyReadiness_WipesOutTheParty()
+        public void Scenario_RecklessAssaultAtNearDeath_WipesOutTheParty()
         {
-            // 同じボスへ、騎士も指揮（LDR）も無い部隊で突撃した場合。即死級への備えが0になる。
+            // 同じボスへ、瀕死（HP1）の部隊で突撃した場合（§0.138 で即死級は無くした）。
             // 強制除籍の判定はいつも当たる（§0.125 より前と同じく HP0＝強制除籍で確かめる）
             var dungeon = new DungeonResolver(new AlwaysMinRng(), fatalRng: new AlwaysMinRng());
             var boss = MakeGuardian(floor: 2);
 
             var warrior = MakeAdventurer(JobClass.Warrior, 60);
             var ranger = MakeAdventurer(JobClass.Ranger, 60);
-            warrior.LDR = 0;
-            ranger.LDR = 0;
+            warrior.CurrentHP = 1;
+            ranger.CurrentHP = 1;
             var recklessParty = PartyOf(warrior, ranger);
 
             var result = dungeon.Resolve(recklessParty, boss);
 
-            // 備えの無い即死級を踏んで全滅し、全員が強制除籍（恒久ロスト）になる。
-            Assert.Contains(BossGimmickType.InstantKill, result.UncounteredGimmicks);
-            Assert.Contains(BossGimmickType.Poison, result.UncounteredGimmicks);
+            // 全滅し、全員が強制除籍（恒久ロスト）になる。
             Assert.Equal(recklessParty.Members.Count, result.ForceRetiredAdventurerIds.Count);
             Assert.All(recklessParty.Members, m => Assert.Equal(0, m.CurrentHP));
         }

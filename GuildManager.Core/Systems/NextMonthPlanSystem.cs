@@ -169,7 +169,7 @@ namespace GuildManager.Core.Systems
                     plan.Options.Add(new PlanOption
                     {
                         Choice = PlanChoice.OtherBoss,
-                        Label = "別の主を狙う（おまかせ）",
+                        Label = "別の番人を狙う（おまかせ）",
                         WinChance = chance,
                         Detail = $"今なら{other.Field.Name} 第{other.Boss.Floor}層「{other.Boss.Name}」・勝率{Pct(chance)}の見込み",
                     });

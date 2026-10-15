@@ -71,11 +71,11 @@ namespace GuildManager.Core.Balance
 
         // ---- 2026年10月・§0.55で新設した10種（→ 03 §5.3.2） ----
 
-        /// <summary>鷹の目：未対策の「飛行」による被ダメージ倍率の加算分を減らす率（部隊に1人いれば効く。→ DungeonResolver）。</summary>
-        public static readonly double HawkEyeFlyingDamageReductionRate = BalanceData.GetDouble(FileName, "HawkEyeFlyingDamageReductionRate");
+        /// <summary>鷹の目：部隊に1人いれば、迷宮調査で進む解析率にこの率を上乗せする（→ ScoutingResolver。§0.138 で飛行の番人を無くしたので置き換えた）。</summary>
+        public static readonly double HawkEyeSurveyIntelBonusRate = BalanceData.GetDouble(FileName, "HawkEyeSurveyIntelBonusRate");
 
-        /// <summary>危機察知：未対策の「即死級」で本人に適用するHP消費率（%。全損の代わり。→ DungeonResolver）。</summary>
-        public static readonly int SixthSenseInstantKillHpLossPct = BalanceData.GetInt(FileName, "SixthSenseInstantKillHpLossPct");
+        /// <summary>危機察知：HP0になったときの強制除籍の確率に掛ける倍率（0.5で半分。→ DungeonResolver.FatalChanceFor。§0.138 で即死級を無くしたので置き換えた）。</summary>
+        public static readonly double SixthSenseFatalChanceRate = BalanceData.GetDouble(FileName, "SixthSenseFatalChanceRate");
 
         /// <summary>守り手：本人の護衛値に掛ける補正率（0.20で×1.20。→ ScoutingResolver.GetGuardValue）。</summary>
         public static readonly double GuardianGuardBonus = BalanceData.GetDouble(FileName, "GuardianGuardBonus");
@@ -138,12 +138,6 @@ namespace GuildManager.Core.Balance
 
         /// <summary>毒の後遺症：VITの減少率（負）。</summary>
         public static readonly double PoisonAftereffectVitReduction = BalanceData.GetDouble(FileName, "PoisonAftereffectVitReduction");
-
-        /// <summary>毒の後遺症：ロールの対象になる生還時HPの上限（最大HP比）。</summary>
-        public static readonly double PoisonAftereffectHpThresholdPct = BalanceData.GetDouble(FileName, "PoisonAftereffectHpThresholdPct");
-
-        /// <summary>毒の後遺症：付与確率（0〜1）。</summary>
-        public static readonly double PoisonAftereffectChance = BalanceData.GetDouble(FileName, "PoisonAftereffectChance");
 
         /// <summary>足の古傷：AGIの減少率（負）。</summary>
         public static readonly double LegWoundAgiReduction = BalanceData.GetDouble(FileName, "LegWoundAgiReduction");

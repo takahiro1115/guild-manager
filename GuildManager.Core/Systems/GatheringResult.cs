@@ -49,6 +49,9 @@ namespace GuildManager.Core.Systems
         /// <summary>獲得数の内訳：到達階層÷ReachedFloorDivisor（切り捨て）。</summary>
         public int FloorYield { get; set; }
 
+        /// <summary>解析による獲得数の上乗せ率（§0.138。0＝なし、0.3＝+30%）。</summary>
+        public double IntelYieldBonus { get; set; }
+
         /// <summary>獲得数の内訳：研究（GatheringYieldBonus）による加算。</summary>
         public int ResearchYield { get; set; }
 

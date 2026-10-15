@@ -10,6 +10,7 @@ partial class GameSim
     // ==== 設定 ====
     public static int Level = 3;
     public static int SquadMode = 2;         // 0＝最初に1回だけ組む、1＝上位から順に組み直す、2＝狙うボスに合わせて組む
+    public static string? MixMain, MixSurvey, MixGather; public static bool MixHp; // 体力7割未満を部隊から外すか（既定は外さない：方針の自動出撃が静養で待つ。外すと控えで組んで弱くなる）
     public static bool UseTrainers = true, UseResearch = true, UseFacilities = true, UseTraining = true, UseRecruit = true, UseNegotiation = true;
     public static DoorStance AuditStance = DoorStance.Standard;
     public static bool RandHire, RandTourney, RandComm, RandEquip, RandBuild, RandTrain, RandSquad;
@@ -51,6 +52,8 @@ partial class GameSim
         if (opts.Contains("train")) UseTraining = true;
         if (opts.Contains("noresearch")) UseResearch = false;
         if (opts.Contains("simple")) SquadMode = 1;
+        // 編成の切り分け（ギミックに合わせた組み方の損得を見る）：mix=主力・調査・採取・HP（例 mix=boss,top,top,hp）。主力 boss|top、調査 scout|top、採取 hp|top、体力7割未満を外す hp|nohp
+        if (opts.FirstOrDefault(o => o.StartsWith("mix=")) is { } mix) { var m = mix.Substring(4).Split(','); MixMain = m[0]; MixSurvey = m[1]; MixGather = m[2]; MixHp = m[3] == "hp"; SquadMode = 2; }
         Trace = opts.Contains("trace");
         if (opts.Contains("bold")) AuditStance = DoorStance.Bold;
         if (opts.Contains("cautious")) AuditStance = DoorStance.Cautious;
@@ -398,13 +401,20 @@ partial class GameSim
             List<Adventurer> pick;
             SquadOrder order;
             string field = SavedParty.AutoFieldId;
+            bool hpOk(Adventurer a) => !MixHp || HpRatio(a) >= 0.7; // mix=…,nohp なら体力で外さない（切り分け用）
             if (i == 0)
             {
                 order = SquadOrder.Dive;
-                if (SquadMode >= 2 && target != null)
+                if (SquadMode >= 2 && target != null && MixMain != "top")
                 {
-                    var healthy = pool.Where(a => HpRatio(a) >= 0.7).ToList();
+                    var healthy = pool.Where(hpOk).ToList();
                     pick = healthy.Count >= 3 ? PickForBoss(target.Value.Boss, healthy) : pool.OrderByDescending(StatSum).Take(4).ToList();
+                    field = target.Value.Field.Id;
+                }
+                else if (SquadMode >= 2 && target != null)
+                {
+                    pick = pool.Where(hpOk).OrderByDescending(StatSum).Take(4).ToList();
+                    if (pick.Count < 3) pick = pool.OrderByDescending(StatSum).Take(4).ToList();
                     field = target.Value.Field.Id;
                 }
                 else pick = pool.OrderByDescending(a => RandSquad ? Rnd.NextDouble() : StatSum(a)).Take(4).ToList();
@@ -412,9 +422,11 @@ partial class GameSim
             else if (i == 1)
             {
                 order = SquadOrder.Survey;
-                if (SquadMode >= 2)
+                if (SquadMode >= 2 && MixSurvey == "top")
+                    pick = pool.Where(hpOk).OrderByDescending(StatSum).Take(3).ToList();
+                else if (SquadMode >= 2)
                 {
-                    pick = pool.Where(a => HpRatio(a) >= 0.7).OrderByDescending(a => ScoutingResolver.GetAnalysisValue(a) + ScoutingResolver.GetGuardValue(a) + ScoutingResolver.GetStealthValue(a)).Take(3).ToList();
+                    pick = pool.Where(hpOk).OrderByDescending(a => ScoutingResolver.GetAnalysisValue(a) + ScoutingResolver.GetGuardValue(a) + ScoutingResolver.GetStealthValue(a)).Take(3).ToList();
                     var surveyBoss = SurveyableOf(CommissionSurveyTarget()) ?? (target != null ? SurveyableOf(target.Value.Boss) : null);
                     var surveyField = surveyBoss == null ? null : s.DungeonFields.FirstOrDefault(f => f.Bosses.Contains(surveyBoss));
                     if (surveyField != null) field = surveyField.Id;
@@ -424,7 +436,7 @@ partial class GameSim
             else
             {
                 order = SquadOrder.Gather;
-                pick = SquadMode >= 2 ? pool.Where(a => HpRatio(a) >= 0.7).OrderByDescending(HpRatio).Take(3).ToList() : pool.OrderByDescending(StatSum).Take(3).ToList();
+                pick = SquadMode >= 2 && MixGather != "top" ? pool.Where(hpOk).OrderByDescending(HpRatio).Take(3).ToList() : pool.Where(a => SquadMode < 2 || hpOk(a)).OrderByDescending(StatSum).Take(3).ToList();
             }
             if (pick.Count == 0) continue;
             if (i == 0)

@@ -330,7 +330,7 @@ namespace GuildManager.Core.Systems
                 lines.Add(new(StoryLineKind.Narration, "最後の調べが途切れた。洞窟の100階を制した"));
             }
             if (LegendaryFound is { } earring)
-                lines.Add(new(StoryLineKind.Narration, $"湖のほとりに残された「{earring.Name}」を手に入れた（伝説級。持つ子が部隊にいれば、主の再生を対策済みにする）"));
+                lines.Add(new(StoryLineKind.Narration, $"湖のほとりに残された「{earring.Name}」を手に入れた（伝説級の固有武具）"));
             if (Defeated)
                 lines.Add(new(StoryLineKind.Narration, "静寂の泉が湧いた（待機中の過ごし方に「瞑想」が増える。MND を伸ばす）"));
             if (PearlsGained > 0)

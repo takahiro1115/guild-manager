@@ -24,5 +24,5 @@ res_elixir_purity_3,秘薬の純度向上 III,深淵の結晶で魂の欠けを�
 res_culture_tank_2,第二培養槽,霊樹の枝と黒鉱石で二基目の培養槽を組む（同時に培養できる数+1）,mat_forest_wood:10;mat_cave_ore:8,6000,CultureTankBonus,1,res_soul_fusion,SoulFusion,1,8
 res_culture_tank_3,第三培養槽,紅玉鉱石の熱で保温する三基目の培養槽（同時に培養できる数+1）,mat_canyon_gem:6;mat_ruins_scrap:10,20000,CultureTankBonus,1,res_culture_tank_2,SoulFusion,1,12
 res_elixir_brewing,霊薬の調合法,アルベールが秘薬の研究の副産物として編み出した調合法。冒険者の伸びしろそのものを押し広げる霊薬が作れるようになる,mat_cave_ore:5;mat_ruins_rune:3,5000,ElixirUnlock,0,res_training_method_1,Growth,1,12
-res_link_amulet_1,多頭通信術式の強化 I,茨の欠片に宿るヴェスペラの魔力で、部隊の護符の術式を磨く。支配者戦で声が届く回数が1回増える。,mat_ruler_thorn:5,1500,InterventionBonus,1,,Dungeon,2,6
-res_link_amulet_2,多頭通信術式の強化 II,術式をさらに磨き、支配者の戦場の奥まで声を通す。支配者戦で声が届く回数がもう1回増える。,mat_ruler_thorn:10;mat_ruins_rune:4,3000,InterventionBonus,1,res_link_amulet_1,Dungeon,2,10
+res_link_amulet_1,多頭通信術式の強化 I,茨の欠片に宿るヴェスペラの魔力で、部隊の護符の術式を磨く。迷宮の主との戦いで声が届く回数が1回増える。,mat_ruler_thorn:5,1500,InterventionBonus,1,,Dungeon,2,6
+res_link_amulet_2,多頭通信術式の強化 II,術式をさらに磨き、迷宮の主の戦場の奥まで声を通す。迷宮の主との戦いで声が届く回数がもう1回増える。,mat_ruler_thorn:10;mat_ruins_rune:4,3000,InterventionBonus,1,res_link_amulet_1,Dungeon,2,10

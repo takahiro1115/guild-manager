@@ -571,7 +571,9 @@ public partial class MonthlyReportPopup : Window
 			? $"{GameCalendar.FormatMonth(report.LastWeek)}の月報"
 			: $"{GameCalendar.FormatMonth(report.LastWeek)}の途中経過（第{GameCalendar.WeekOfMonth(report.LastWeek)}週まで）";
 		sb.AppendLine($"[font_size=20][b]{title}[/b][/font_size]");
-		if (report.StopReasons.Count > 0)
+		if (report.StopReasons.Contains(MonthlyReport.GameOverStopReason))
+			sb.AppendLine("[color=red][b]ゲームオーバー。これ以上、月は進められない。[/b][/color]"); // 「残りを進める」とは案内しない
+		else if (report.StopReasons.Count > 0)
 			sb.AppendLine($"[color=orange][b]月の途中で止まった：{string.Join("・", report.StopReasons)}。[/b]「次の月へ」で、この月の残りを進める。[/color]");
 
 		int goldDelta = report.GoldAfter - report.GoldBefore;

@@ -60,8 +60,8 @@ namespace GuildManager.Core.Tests
             Assert.Equal(RulerBalance.MaxHp, Vespera(early).Hp);
             Assert.False(RulerSystem.CanChallenge(early, Vespera(early)));
             Assert.Same(Vespera(early), RulerSystem.RulerAt(early, ForestBoss(early, 70))); // 主の決戦では倒せない
-            Assert.Equal("支配者ヴェスペラ", ForestBoss(early, 70).Name); // 目盛りや目標の表示も支配者の名前
-            Assert.Equal("支配者ヴェスペラ", ForestBoss(early, 100).Name);
+            Assert.Equal("迷宮の主ヴェスペラ", ForestBoss(early, 70).Name); // 目盛りや目標の表示も支配者の名前
+            Assert.Equal("迷宮の主ヴェスペラ", ForestBoss(early, 100).Name);
             Assert.Null(RulerSystem.RulerAt(early, ForestBoss(early, 60)));
 
             var ready = NewState(60);
@@ -169,6 +169,9 @@ namespace GuildManager.Core.Tests
             s.WeekNumber = 9;
             RulerSystem.ProcessNewWeek(s); // 代表が月を過ごし終えた
             Assert.True(RulerSystem.IsDuelDue(s, Vespera(s)));
+            s.DefeatReason = DefeatReason.Bankruptcy;
+            Assert.False(RulerSystem.IsDuelDue(s, Vespera(s))); // ゲームオーバーのあとは決闘しない
+            s.DefeatReason = null;
 
             var duel = (RulerDuel)RulerSystem.ResolveAuto(s, Vespera(s), new AlwaysMinRng(), useInterventions: false)!;
 
@@ -341,7 +344,6 @@ namespace GuildManager.Core.Tests
             Assert.True(duel.Retreated);
             Assert.NotNull(duel.LegendaryFound);
             Assert.Equal("ヴェスペラの双剣", duel.LegendaryFound!.Name);
-            Assert.True(duel.LegendaryFound.CountersGimmick(BossGimmickType.Charm));
             Assert.Contains(RulerSystem.DuelClosingLines(duel), l => l.Text.Contains("ヴェスペラの双剣"));
         }
 

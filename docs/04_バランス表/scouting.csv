@@ -19,9 +19,9 @@ IntelGainPartial,0.10,率,成功に届かなくても持ち帰れる断片情報
 RatioThreshold_GreatSuccess,1.5,倍,解析が大成功となるRatioの下限
 RatioThreshold_Success,1.0,倍,解析が成功となるRatioの下限
 IntelTier_Basic,0.25,率,基本情報（規模・属性）が開示される解析率
-IntelTier_Hazards,0.50,率,危険ギミックが判明する解析率
-IntelTier_Countermeasures,0.75,率,対策ロール・必要アイテムが判明する解析率
-IntelTier_Complete,1.00,率,完全解析（討伐時の与ダメージ補正が付く）
+IntelTier_Hazards,0.50,率,解析率がこの値以上なら、その区間の採取が増える（gathering.csv IntelYieldBonus_Hazards。§0.138 で「危険ギミックが判明」から置き換えた）
+IntelTier_Countermeasures,0.75,率,解析率がこの値以上なら、その区間の採取がさらに増える（IntelYieldBonus_Countermeasures。§0.138 で「対策ロールが判明」から置き換えた）
+IntelTier_Complete,1.00,率,完全解析（討伐時の与ダメージ補正・道中の被ダメージ軽減・採取の上乗せ IntelYieldBonus_Complete）
 GuardRatio_Abundant,1.4,倍,護衛比率（部隊護衛力÷要求護衛値）がこれ以上なら「余裕」
 GuardRatio_Sufficient,1.0,倍,護衛比率がこれ以上なら「十分」
 GuardRatio_Marginal,0.7,倍,護衛比率がこれ以上なら「充足」（これ未満は「不足」）

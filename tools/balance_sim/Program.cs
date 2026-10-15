@@ -241,8 +241,8 @@ partial class GameSim
     static double HpRatio(Adventurer a) => (double)a.CurrentHP / a.MaxHP;
 
     /// <summary>
-    /// 狙うボスに合わせて主力4名を選ぶ（§0.68：ギミックへの備えは編成で決まる）。火力上位8名から4名の組を総当たりし、
-    /// 討伐火力÷要求火力（ギミック込み）が最も高い組を選ぶ。即死級の備えが半分未満の組は避け、備えの平均を少しだけ加点する。
+    /// 狙うボスに合わせて主力4名を選ぶ（巨獣狩り・相棒・鼓舞などの組み合わせ込み）。火力上位8名から4名の組を総当たりし、
+    /// 討伐火力÷要求火力が最も高い組を選ぶ（§0.138 で番人のギミックは無くした）。
     /// </summary>
     List<Adventurer> PickForBoss(FloorBoss boss, List<Adventurer> pool)
     {
@@ -255,8 +255,6 @@ partial class GameSim
             var party = new Party();
             foreach (var a in combo) party.TryAdd(a);
             double score = DungeonResolver.CalculateBossPower(party, boss) / DungeonResolver.RequiredPower(boss, s, party);
-            if (boss.Gimmicks.Any(g => g.Type == BossGimmickType.InstantKill && DungeonResolver.Readiness(g, combo) < 0.5)) score -= 10;
-            if (boss.Gimmicks.Count > 0) score += 0.05 * boss.Gimmicks.Average(g => DungeonResolver.Readiness(g, combo));
             if (score > bestScore) { bestScore = score; best = combo; }
         }
         return best;
@@ -1382,8 +1380,8 @@ partial class GameSim
             if (boss == null) { Console.WriteLine($"- {FieldShort(f.Order)}：制覇"); continue; }
             double power = DungeonResolver.CalculateBossPower(party, boss);
             double req = DungeonResolver.RequiredPower(boss, s, party);
-            string gimmicks = string.Join("・", boss.Gimmicks.Select(g => $"{g.Type}(備え{DungeonResolver.Readiness(g, party.Members):F1}・{string.Join("/", g.CounterRoles)})"));
-            Console.WriteLine($"- {FieldShort(f.Order)} {boss.Floor}F：要求火力 {req:F0}／上位4名の火力 {power:F0}（解析{boss.IntelRate:P0}）・ギミック {gimmicks}・" +
+
+            Console.WriteLine($"- {FieldShort(f.Order)} {boss.Floor}F：要求火力 {req:F0}／上位4名の火力 {power:F0}（解析{boss.IntelRate:P0}）・" +
                 $"走破力 {trav:F0}／{boss.Floor}Fの走破要求 {DungeonTraversalResolver.FloorRequirement(f, boss.Floor):F1}・最高到達 {f.ReachedFloor}F");
         }
         Console.WriteLine($"  上位4名：{string.Join("／", top.Select(a => $"{a.JobClass}{a.Age}歳 加重{StatSum(a) / WeightSum:F0} 霊薬{a.ElixirsTaken} 装備[{a.EquippedWeapon?.ItemId}/{a.EquippedArmor?.ItemId}/{a.EquippedAccessory1?.ItemId}/{a.EquippedAccessory2?.ItemId}]"))}");

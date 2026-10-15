@@ -41,28 +41,22 @@ namespace GuildManager.Core.Tests
             return party;
         }
 
-        /// <summary>1Fのボス（Strong 1人で撃破できる）。heavyArmor なら「重装甲」ギミック（戦士で対策成立）を持たせる。</summary>
-        private static FloorBoss Boss(bool heavyArmor, int floor = 1)
-        {
-            var boss = new FloorBoss { Name = "甲殻の大猪", Floor = floor, MaxHp = 500, CurrentHp = 500 };
-            if (heavyArmor)
-                boss.Gimmicks.Add(new BossGimmick { Type = BossGimmickType.HeavyArmor, DangerLevel = 1, CounterRoles = { JobClass.Warrior } });
-            return boss;
-        }
+        /// <summary>1Fの番人（Strong 1人で撃破できる）。§0.138 でギミックは無くし、どの番人でも開眼する。</summary>
+        private static FloorBoss Boss(int floor = 1) => new FloorBoss { Name = "甲殻の大猪", Floor = floor, MaxHp = 500, CurrentHp = 500 };
 
         [Fact]
         public void CsvValue_IsLoaded()
         {
-            Assert.Equal(0.20, CombatBalance.GiantHunterAwakeningChance, precision: 6);
+            Assert.Equal(0.05, CombatBalance.GiantHunterAwakeningChance, precision: 6);
         }
 
         [Fact]
-        public void HeavyArmorVictory_AwakensSurvivors()
+        public void BossVictory_AwakensSurvivors()
         {
             var a = Strong("クラウディア");
             var b = Strong("ミレイ");
 
-            var result = new DungeonResolver(new AlwaysMinRng()).Resolve(PartyOf(a, b), Boss(heavyArmor: true));
+            var result = new DungeonResolver(new AlwaysMinRng()).Resolve(PartyOf(a, b), Boss());
 
             Assert.Equal(DungeonOutcome.Victory, result.Outcome);
             Assert.True(a.HasTrait(TraitCatalog.GiantHunterId));
@@ -72,28 +66,16 @@ namespace GuildManager.Core.Tests
         }
 
         [Theory]
-        [InlineData(20, true)] // 20%：閾値20
-        [InlineData(21, false)]
-        public void AwakeningChance_IsTwentyPercent(int roll, bool expectAwaken)
+        [InlineData(5, true)] // 5%：閾値5（§0.138 で20%→5%）
+        [InlineData(6, false)]
+        public void AwakeningChance_IsFivePercent(int roll, bool expectAwaken)
         {
             var a = Strong("クラウディア");
 
-            var result = new DungeonResolver(new FixedRng(roll)).Resolve(PartyOf(a), Boss(heavyArmor: true));
+            var result = new DungeonResolver(new FixedRng(roll)).Resolve(PartyOf(a), Boss());
 
             Assert.Equal(DungeonOutcome.Victory, result.Outcome);
             Assert.Equal(expectAwaken, a.HasTrait(TraitCatalog.GiantHunterId));
-        }
-
-        [Fact]
-        public void NoAwakening_AgainstBossWithoutHeavyArmor()
-        {
-            var a = Strong("クラウディア");
-
-            var result = new DungeonResolver(new AlwaysMinRng()).Resolve(PartyOf(a), Boss(heavyArmor: false));
-
-            Assert.Equal(DungeonOutcome.Victory, result.Outcome);
-            Assert.False(a.HasTrait(TraitCatalog.GiantHunterId));
-            Assert.Empty(result.TraitGrantEvents);
         }
 
         [Fact]
@@ -101,7 +83,7 @@ namespace GuildManager.Core.Tests
         {
             var a = Strong("クラウディア");
 
-            var result = new DungeonResolver(new AlwaysMinRng()).Resolve(PartyOf(a), Boss(heavyArmor: true, floor: 100));
+            var result = new DungeonResolver(new AlwaysMinRng()).Resolve(PartyOf(a), Boss(floor: 100));
 
             Assert.Equal(DungeonOutcome.Retreat, result.Outcome);
             Assert.False(a.HasTrait(TraitCatalog.GiantHunterId));
@@ -114,7 +96,7 @@ namespace GuildManager.Core.Tests
             var a = Strong("クラウディア");
             a.TryAddTrait(TraitCatalog.GiantHunterId);
 
-            var result = new DungeonResolver(new AlwaysMinRng()).Resolve(PartyOf(a), Boss(heavyArmor: true));
+            var result = new DungeonResolver(new AlwaysMinRng()).Resolve(PartyOf(a), Boss());
 
             Assert.Single(a.TraitIds, TraitCatalog.GiantHunterId);
             Assert.Empty(result.TraitGrantEvents);
@@ -129,7 +111,7 @@ namespace GuildManager.Core.Tests
                 a.TryAddTrait(id);
             var before = a.TraitIds.ToList();
 
-            var result = new DungeonResolver(new AlwaysMinRng()).Resolve(PartyOf(a), Boss(heavyArmor: true));
+            var result = new DungeonResolver(new AlwaysMinRng()).Resolve(PartyOf(a), Boss());
 
             Assert.Equal(DungeonOutcome.Victory, result.Outcome);
             Assert.Equal(before, a.TraitIds);
@@ -144,7 +126,7 @@ namespace GuildManager.Core.Tests
             doomed.CurrentHP = 1; // 撃破時の損耗（12%〜）でHP0＝強制除籍
 
             // 強制除籍の判定はいつも当たる（§0.125 より前と同じく HP0＝強制除籍で確かめる）
-            var result = new DungeonResolver(new AlwaysMinRng(), fatalRng: new AlwaysMinRng()).Resolve(PartyOf(survivor, doomed), Boss(heavyArmor: true));
+            var result = new DungeonResolver(new AlwaysMinRng(), fatalRng: new AlwaysMinRng()).Resolve(PartyOf(survivor, doomed), Boss());
 
             Assert.Equal(DungeonOutcome.Victory, result.Outcome);
             Assert.Contains(doomed.Id, result.ForceRetiredAdventurerIds);

@@ -463,6 +463,7 @@ namespace GuildManager.Core.Systems
                     : steps.Sum(s => (s.Unexplored ? unexploredPct : rankPct) * s.Damage) / steps.Count;
                 effectivePct = Math.Max(0, effectivePct - blessing);
                 effectivePct *= MoraleSystem.TraversalHpLossMultiplier(state, member, party.Members); // 不満・限界、険悪な相手と一緒（§0.101）
+                if (member.HasTrait(TraitCatalog.ResistPoisonId)) effectivePct *= 1.0 - CombatBalance.ResistPoisonTraversalLossReductionRate; // 耐毒体質（§0.138）
 
                 int hpLoss = (int)Math.Floor(member.MaxHP * effectivePct / 100.0 + LossEpsilon);
                 int newHp = Math.Max(MinHp, member.CurrentHP - hpLoss);

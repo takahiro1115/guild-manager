@@ -200,7 +200,7 @@ namespace GuildManager.Core.Models
         /// <summary>
         /// 大迷宮の全フィールド一覧（→ GameState.DungeonFields、大迷宮5フィールド拡張仕様）。
         /// 各フィールドの開放状態・最高到達階層・ボス一覧（解析率・撃破状態を含む）をそのまま保存する
-        /// （DungeonField・FloorBoss・BossGimmickはプリミティブ・列挙・一覧のみで構成され
+        /// （DungeonField・FloorBoss はプリミティブ・列挙・一覧のみで構成され（§0.138 で番人のギミック〈Gimmicks〉は無くした。旧セーブの項目は読み込みで無視される）
         /// 直接JSON化できる）。
         /// </summary>
         public List<DungeonField> DungeonFields { get; set; } = new();

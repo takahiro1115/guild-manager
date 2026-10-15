@@ -373,7 +373,7 @@ namespace GuildManager.Core.Systems
         /// <summary>採用の一言（志願者の言葉。主志向とは限らない）。</summary>
         public static string HintText(Drive d) => d switch
         {
-            Drive.Dive => "「強い主と戦ってみたいんです。迷宮の奥まで行かせてください」",
+            Drive.Dive => "「強い番人と戦ってみたいんです。迷宮の奥まで行かせてください」",
             Drive.Survey => "「迷宮の謎を解き明かしたくて。調べ物なら任せてください」",
             Drive.Gather => "「野に咲く薬草に目がありません。採るのは得意なんです」",
             Drive.Tournament => "「いつか王都の大会で優勝するのが夢です」",

@@ -125,8 +125,8 @@ namespace GuildManager.Core.Systems
                     if (RulerSystem.RulerAt(state, boss) is { } waiting)
                         return _expedition.TryDispatchGathering(state, party, field)
                             ? (true, saved.OrderFieldId == SavedParty.AutoFieldId
-                                ? $"潜れるダンジョンの次はどこも支配者のため、{field.Name}で採取する"
-                                : $"{field.Name}の次は支配者{RulerSystem.NameOf(waiting.RulerId)}のため、採取する（支配者は支配者戦で挑む）")
+                                ? $"潜れるダンジョンの次はどこも迷宮の主のため、{field.Name}で採取する"
+                                : $"{field.Name}の次は迷宮の主{RulerSystem.NameOf(waiting.RulerId)}のため、採取する（迷宮の主には、迷宮の主との戦いで挑む）")
                             : (false, "出撃できなかった");
                     return _expedition.TryDispatch(state, party, boss, DungeonMissionType.Scouting)
                         ? (true, $"{field.Name}の第1層から潜行を始める（目標：第{boss.Floor}層の扉前）")
@@ -235,7 +235,7 @@ namespace GuildManager.Core.Systems
             if (members.Count == 0) return "部隊にメンバーがいない";
             // 訓練中の冒険者はその月は出撃せず、ほかの隊員だけで出る（§0.70）。全員が訓練中なら待機。
             members = members.Where(m => !TrainingSystem.IsTraining(state, m.Id) && !TournamentSystem.IsEntered(state, m.Id) && !RulerSystem.IsRepresentative(state, m.Id) && m.GloomWeeksRemaining <= 0).ToList(); // 大会に出る者（§0.82）・ふさぎ込みの子（§0.102）も
-            if (members.Count == 0) return "全員が訓練か大会か支配者戦の代表（今月は出撃しない）";
+            if (members.Count == 0) return "全員が訓練か大会か迷宮の主との戦いの代表（今月は出撃しない）";
             var severe = members.FirstOrDefault(m => m.Injury == InjurySeverity.Severe);
             if (severe != null) return $"{severe.Name}が重傷のため待機";
             var poisoned = members.Where(m => m.IsPoisoned).ToList();
@@ -253,8 +253,7 @@ namespace GuildManager.Core.Systems
         /// <summary>
         /// 扉前で挑むかの見込み（→ 大迷宮画面の見立てと同じ考え方、§0.68）。構えの条件（→ SquadOrderBalance.For）を
         /// 次の順に確かめ、すべて満たせば挑む：
-        ///  - すべてのギミックの備え（→ DungeonResolver.Readiness）が MinReadiness 以上、即死級は MinInstantKillReadiness 以上
-        ///  - 決戦の勝率（ギミック・再生・異変込み、→ DungeonResolver.WinChance、§0.98）が MinWinChance 以上
+        ///  - 決戦の勝率（迷宮の異変込み、→ DungeonResolver.WinChance、§0.98）が MinWinChance 以上
         ///  - 全員のHPが MinHpPercent 以上
         /// 見込みがあれば Go、無ければ撤退の理由を返す。扉前に着いた週の決算で DungeonExpeditionSystem が呼ぶ（§0.69）。
         /// </summary>
@@ -264,20 +263,10 @@ namespace GuildManager.Core.Systems
             if (boss == null || boss.IsDefeated) return (false, "挑むボスがいない");
             // 支配者（§0.127）は主の決戦では倒せない。支配者戦で戦う
             if (RulerSystem.RulerAt(state, boss) is { } ruler)
-                return (false, $"{RulerSystem.NameOf(ruler.RulerId)}は支配者戦でしか戦えないため撤退（大迷宮の画面で代表を選ぶ）");
+                return (false, $"{RulerSystem.NameOf(ruler.RulerId)}は迷宮の主との戦いでしか戦えないため撤退（大迷宮の画面で代表を選ぶ）");
             var rule = SquadOrderBalance.For(stance);
 
             var party = mission.Party;
-            foreach (var gimmick in boss.Gimmicks)
-            {
-                double readiness = DungeonResolver.Readiness(gimmick, party.Members);
-                double needed = gimmick.Type == BossGimmickType.InstantKill
-                    ? Math.Max(rule.MinReadiness, rule.MinInstantKillReadiness)
-                    : rule.MinReadiness;
-                if (readiness < needed)
-                    return (false, $"{BossGimmickInfo.Label(gimmick.Type)}への備えが足りないため撤退");
-            }
-
             // 勝率（§0.98。再生・迷宮の異変〈主の衰え・猛り、§0.64〉込み）が構えの下限に届かなければ撤退
             double chance = DungeonResolver.WinChance(party, boss, state);
             if (chance < rule.MinWinChance)

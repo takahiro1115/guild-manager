@@ -311,6 +311,19 @@ namespace GuildManager.Core.Tests
             Assert.Contains(MonthlyReport.CrisisNotes(moody), n => n.Contains("危機"));
             var m2 = week.ProcessWeek(moody);
             Assert.False(m2.Flags.MoodEnteredCrisis);
+
+            // ゲームオーバーのあとは危機の注意も破産までの週も出さない
+            var over = new GameState { MasterMood = 3, Gold = -100, ConsecutiveNegativeGoldWeeks = 4, DefeatReason = DefeatReason.Bankruptcy };
+            Assert.Empty(MonthlyReport.CrisisNotes(over));
+            Assert.Null(DefeatSystem.WeeksUntilBankruptcy(over));
+
+            // 起きた月の「主な出来事」にも残す
+            var warned = new WeeklySettlementResult();
+            warned.Flags.DismissalWarningIssued = true;
+            warned.Flags.GoldTurnedNegative = true;
+            var rep = MonthlyReport.Build(new GameState(), new[] { new AutoSkipWeek(new List<SquadOrderEvent>(), warned) }, 0);
+            Assert.Contains(rep.Highlights, h => h.Text.Contains("最後通告"));
+            Assert.Contains(rep.Highlights, h => h.Text.Contains("所持金がマイナス"));
         }
 
         [Fact]

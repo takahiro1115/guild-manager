@@ -35,7 +35,6 @@ namespace GuildManager.Core.Balance
         string BaseItemId,
         int HpBonus,
         IReadOnlyDictionary<string, int> StatBonuses,
-        BossGimmickType? CounterGimmick,
         string? DropFieldId,
         int DropFloor,
         int SellPrice,
@@ -64,11 +63,11 @@ namespace GuildManager.Core.Balance
     /// 固有武具（固定アーティファクト・伝説級）のバランス値（→ 03 §4.7.5、2026年9月・§0.45、ハクスラ Step 3）。
     ///
     ///  - 一覧：docs/04_バランス表/uniques.csv（テーブル形式、列 `Id,Grade,Name,BaseItemId,HpBonus,BonusStr〜BonusLdr,
-    ///    CounterGimmick,DropFieldId,DropFloor,SellPrice`）
+    ///    DropFieldId,DropFloor,SellPrice`）
     ///  - 鑑定で固定アーティファクトへ化ける確率：relic.csv の `ArtifactRate*`（→ RelicBalance.RarityProfile.ArtifactRate）
     ///
     /// 読み込み時に以下を検出し、BalanceDataException で起動失敗にする（フォールバックしない）：
-    /// 必須列の欠損・Idの重複・Grade／CounterGimmick の不正値・カタログに無い BaseItemId・数値のパース失敗・
+    /// 必須列の欠損・Idの重複・Grade の不正値・カタログに無い BaseItemId・数値のパース失敗・
     /// 伝説級なのに入手元（DropFieldId・DropFloor）が無い／階層がボス階層（10刻み・10〜100）でない／
     /// 同じボスに2本割り当てている・固定アーティファクトなのに入手元がある・
     /// 伝説級の SellPrice が0でない（売却不可）・固定アーティファクトの SellPrice が1未満。
@@ -87,7 +86,7 @@ namespace GuildManager.Core.Balance
         {
             "Id", "Grade", "Name", "BaseItemId", "HpBonus",
             "BonusStr", "BonusVit", "BonusAgi", "BonusDex", "BonusInt", "BonusMnd", "BonusLdr",
-            "CounterGimmick", "DropFieldId", "DropFloor", "SellPrice",
+            "DropFieldId", "DropFloor", "SellPrice",
         };
 
         private static readonly Lazy<IReadOnlyList<UniqueDefinition>> AllDefinitions =
@@ -160,16 +159,6 @@ namespace GuildManager.Core.Balance
                     if (v != 0) stats[stat] = v;
                 }
 
-                BossGimmickType? counter = null;
-                string rawCounter = row[col["CounterGimmick"]].Trim();
-                if (rawCounter.Length > 0)
-                {
-                    if (!Enum.TryParse<BossGimmickType>(rawCounter, ignoreCase: false, out var g) || !Enum.IsDefined(g))
-                        throw new BalanceDataException(
-                            $"{FileName} の{line}行目の CounterGimmick「{rawCounter}」は空欄または {string.Join(" / ", Enum.GetNames<BossGimmickType>())} にしてください。");
-                    counter = g;
-                }
-
                 string fieldId = row[col["DropFieldId"]].Trim();
                 int floor = ParseInt(row[col["DropFloor"]], line, "DropFloor");
                 int sellPrice = ParseInt(row[col["SellPrice"]], line, "SellPrice");
@@ -210,7 +199,7 @@ namespace GuildManager.Core.Balance
                 }
 
                 result.Add(new UniqueDefinition(
-                    id, grade, name, baseItemId, hp, stats, counter,
+                    id, grade, name, baseItemId, hp, stats,
                     fieldId.Length == 0 ? null : fieldId, floor, sellPrice,
                     patronId.Length == 0 ? null : patronId));
             }

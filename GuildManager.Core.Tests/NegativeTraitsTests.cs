@@ -67,17 +67,7 @@ namespace GuildManager.Core.Tests
             return party;
         }
 
-        private static FloorBoss MakeBoss(params BossGimmick[] gimmicks)
-        {
-            var boss = new FloorBoss { Name = "階層の主", Floor = 1, MaxHp = 1, CurrentHp = 1 };
-            boss.Gimmicks.AddRange(gimmicks);
-            return boss;
-        }
-
-        private static BossGimmick Uncounterable(BossGimmickType type, int danger = 2) => new()
-        {
-            Type = type, DangerLevel = danger, CounterRoles = { JobClass.Cleric },
-        };
+        private static FloorBoss MakeBoss() => new FloorBoss { Name = "階層の番人", Floor = 1, MaxHp = 1, CurrentHp = 1 };
 
         // ==================== 定義 ====================
 
@@ -360,36 +350,6 @@ namespace GuildManager.Core.Tests
         // ==================== 後天の障害の付き方 ====================
 
         [Fact]
-        public void PoisonAftereffect_GrantedToLowHpSurvivor_OfUncounteredPoison()
-        {
-            // 同じ乱数・同じ能力の隊員で損耗量を測ってから、生還時にHPが最大HPの25%未満で残るよう現在HPを合わせる。
-            var probe = Make();
-            var probeResult = new DungeonResolver(new AlwaysMinRng()).Resolve(PartyOf(probe), MakeBoss(Uncounterable(BossGimmickType.Poison)));
-            int loss = probeResult.HpLostByAdventurer[probe.Id];
-
-            var member = Make();
-            member.CurrentHP = loss + member.MaxHP / 10;
-            var result = new DungeonResolver(new AlwaysMinRng()).Resolve(PartyOf(member), MakeBoss(Uncounterable(BossGimmickType.Poison)));
-
-            Assert.True(member.CurrentHP > 0);
-            Assert.True(member.CurrentHP < member.MaxHP * 0.25);
-            Assert.True(member.HasTrait(TraitCatalog.PoisonAftereffectId));
-            var grant = Assert.Single(result.TraitGrantEvents, g => g.TraitId == TraitCatalog.PoisonAftereffectId);
-            Assert.Equal(TraitGrantCause.PoisonAftereffect, grant.Cause);
-            Assert.Equal("【不可逆障害】リナ は猛毒に深く侵され『毒の後遺症』が残った", grant.ToLogText());
-        }
-
-        [Fact]
-        public void PoisonAftereffect_NotGranted_ToHealthySurvivor()
-        {
-            var member = Make();
-            new DungeonResolver(new AlwaysMinRng()).Resolve(PartyOf(member), MakeBoss(Uncounterable(BossGimmickType.Poison)));
-
-            Assert.True(member.CurrentHP >= member.MaxHP * 0.25);
-            Assert.False(member.HasTrait(TraitCatalog.PoisonAftereffectId));
-        }
-
-        [Fact]
         public void PoisonAftereffect_LowersVit()
         {
             var a = Make(40);
@@ -410,25 +370,6 @@ namespace GuildManager.Core.Tests
             Assert.Equal(32, arm.GetEffectiveStat("STR"), precision: 6);
             Assert.Equal(32, arm.GetEffectiveStat("DEX"), precision: 6);
             Assert.Equal(40, arm.GetEffectiveStat("AGI"), precision: 6);
-        }
-
-        [Fact]
-        public void Dread_GrantedToSurvivor_OfUncounteredInstantKill()
-        {
-            var sensor = Make(50, TraitCatalog.SixthSenseId); // 危機察知で生き残る
-            var result = new DungeonResolver(new AlwaysMinRng()).Resolve(PartyOf(sensor), MakeBoss(Uncounterable(BossGimmickType.InstantKill)));
-
-            Assert.True(sensor.CurrentHP > 0);
-            Assert.True(sensor.HasTrait(TraitCatalog.DreadId));
-            Assert.Contains(result.TraitGrantEvents, g => g.TraitId == TraitCatalog.DreadId && g.Cause == TraitGrantCause.Dread);
-        }
-
-        [Fact]
-        public void Dread_RollUsesThirtyPercent()
-        {
-            var sensor = Make(50, TraitCatalog.SixthSenseId);
-            new DungeonResolver(new FixedRng(31)).Resolve(PartyOf(sensor), MakeBoss(Uncounterable(BossGimmickType.InstantKill)));
-            Assert.False(sensor.HasTrait(TraitCatalog.DreadId));
         }
 
         [Fact]

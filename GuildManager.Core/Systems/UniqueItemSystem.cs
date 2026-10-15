@@ -41,7 +41,7 @@ namespace GuildManager.Core.Systems
         public static EquipmentItem? TryGrantBossDrop(GameState state, DungeonField field, FloorBoss boss)
         {
             var unique = UniqueBalance.FindBossDrop(field.Id, boss.Floor);
-            return unique == null ? null : Grant(state, unique, $"{field.Name} 第{boss.Floor}層の主「{boss.Name}」を撃破");
+            return unique == null ? null : Grant(state, unique, $"{field.Name} 第{boss.Floor}層の番人「{boss.Name}」を撃破");
         }
     }
 }

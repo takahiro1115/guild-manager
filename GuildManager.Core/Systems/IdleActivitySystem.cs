@@ -149,7 +149,7 @@ namespace GuildManager.Core.Systems
             WeekActivity.SelfTraining => "自主練",
             WeekActivity.Tournament => "大会の準備",
             WeekActivity.OnLoan => "派遣中",
-            WeekActivity.RulerDuel => "支配者戦の準備",
+            WeekActivity.RulerDuel => "迷宮の主との戦いの準備",
             WeekActivity.Meditation => "瞑想",
             _ => "研究を手伝う",
         };

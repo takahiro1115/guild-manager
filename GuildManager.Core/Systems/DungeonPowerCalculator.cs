@@ -50,11 +50,9 @@ namespace GuildManager.Core.Systems
             + (a.HasTrait(TraitCatalog.DreadId) ? TraitBalance.DreadPowerPenalty : 0)
             + (a.HasTrait(TraitCatalog.VeteranId) ? TraitBalance.VeteranPowerBonus : 0);
 
-        /// <summary>巨獣狩りの上乗せが効くか：本人が保有し、かつボスが「重装甲」ギミックを持つ。</summary>
+        /// <summary>巨獣狩りの上乗せが効くか：本人が保有し、番人との決戦である（§0.138 でどの番人にも）。</summary>
         public static bool GiantHunterApplies(Adventurer a, FloorBoss? boss) =>
-            boss != null
-            && a.HasTrait(TraitCatalog.GiantHunterId)
-            && boss.Gimmicks.Any(g => g.Type == BossGimmickType.HeavyArmor);
+            boss != null && a.HasTrait(TraitCatalog.GiantHunterId);
 
         /// <summary>
         /// 部隊全員分の火力合計（完全解析ボーナスは含まない。→ DungeonResolver が上乗せする）。

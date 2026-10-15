@@ -17,3 +17,6 @@ GuardEffect_HpLossMultiplier_Abundant,0.5,倍,護衛「余裕」時のHP消費�
 GuardEffect_HpLossMultiplier_Sufficient,1.0,倍,護衛「十分」時のHP消費率への倍率
 GuardEffect_HpLossMultiplier_Marginal,1.5,倍,護衛「充足」時のHP消費率への倍率
 GuardEffect_HpLossMultiplier_Deficient,2.5,倍,護衛「不足」時のHP消費率への倍率（HP下限1、致死・除籍には接続しない）
+IntelYieldBonus_Hazards,0.10,倍,解析による採取の上乗せ（§0.138）：採取する区間（次の番人まで）の解析率が50%以上なら、持ち帰る素材の数に（1＋この値）を掛ける（四捨五入）
+IntelYieldBonus_Countermeasures,0.20,倍,同・解析率75%以上
+IntelYieldBonus_Complete,0.30,倍,同・完全解析（解析率100%）。番人をすべて倒したフィールドもこの値

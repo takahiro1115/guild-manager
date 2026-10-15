@@ -94,10 +94,10 @@ namespace GuildManager.Core.Data
         }
 
         /// <summary>
-        /// フィールド1つ分の定義（→ CreateDefaultFields）。Idは英語スラッグ、MonsterByGimmick はボス名の
-        /// 生成に使う怪物名（一番の特徴のギミック種別ごと7種、BossGimmickType の並び順。§0.68で4種→7種）。
+        /// フィールド1つ分の定義（→ CreateDefaultFields）。Idは英語スラッグ、Monsters は番人の名前の
+        /// 生成に使う怪物名7種（§0.68 でギミックの種類ごとに作った名前。§0.138 でギミックは無くしたが、名前はそのまま巡る）。
         /// </summary>
-        private readonly record struct FieldDefinition(string Id, string Name, int Order, string[] MonsterByGimmick);
+        private readonly record struct FieldDefinition(string Id, string Name, int Order, string[] Monsters);
 
         private static readonly FieldDefinition[] FieldDefinitions =
         {
@@ -105,19 +105,12 @@ namespace GuildManager.Core.Data
             new("cave", "嘆きの鍾乳洞", 2, new[] { "瘴気の蝙蝠", "岩肌の巨蟹", "鍾乳洞の翼竜", "洞窟の古竜", "分裂する粘体", "洞窟小鬼の首領", "歌う水妖" }),
             new("ruins", "忘却の古代廃墟", 3, new[] { "腐敗した番人", "古代の鋼鉄兵", "廃墟の石像鬼", "忘却の守護者", "不死の騎士王", "骸骨兵の軍団長", "廃墟の幻惑師" }),
             new("canyon", "焦熱の峡谷", 4, new[] { "灼熱の毒蠍", "溶岩鎧の巨人", "峡谷の火竜", "焦熱の魔王", "不滅の火喰い鳥", "火蜥蜴の群れ主", "陽炎の踊り手" }),
-            new("abyss", "深淵の特異点", 5, new[] { "深淵の腐蝕体", "漆黒の重装兵", "深淵の堕天使", "特異点の支配者", "果てなき肉塊", "眷属を統べる者", "深淵の誘惑者" }),
+            new("abyss", "深淵の特異点", 5, new[] { "深淵の腐蝕体", "漆黒の重装兵", "深淵の堕天使", "特異点の覇王", "果てなき肉塊", "眷属を統べる者", "深淵の誘惑者" }),
         };
 
         /// <summary>フィールドの順（森1〜深淵5）。知らない Id は1（遺物の深さの段に使う、→ RelicBalance.DepthStep、§0.126）。</summary>
         public static int FieldOrderOf(string? fieldId) =>
             FieldDefinitions.FirstOrDefault(d => d.Id == fieldId) is { Id: not null } def ? def.Order : 1;
-
-        /// <summary>ギミック7種の並び（一番の特徴のギミックはフィールドごとにずらしてこの順に巡る。→ PrimaryGimmick）。</summary>
-        private static readonly BossGimmickType[] GimmickCycle =
-        {
-            BossGimmickType.Poison, BossGimmickType.HeavyArmor, BossGimmickType.Flying, BossGimmickType.InstantKill,
-            BossGimmickType.Regeneration, BossGimmickType.Swarm, BossGimmickType.Charm,
-        };
 
         /// <summary>
         /// 大迷宮の全5フィールド（→ DungeonField・大迷宮5フィールド拡張仕様）。新規ゲーム開始時に
@@ -126,9 +119,7 @@ namespace GuildManager.Core.Data
         /// 第1フィールド（森）のみ（→ DungeonField.IsUnlocked、
         /// DungeonExpeditionSystem.ApplyFieldProgressionが順次開放する）。
         ///
-        /// 設計方針：どのギミックにも「職業」と「能力の合計」の両方の対策口を持たせる（→ CreateBossGimmicks）。
-        /// 第1フィールドの10階層目は初期メンバーの神官（フィオナ）で猛毒に備えられる＝
-        /// 「調べて、備えが揃っていれば勝てる」という導線を最初に体験させる難度にしてある。
+        /// 番人はギミックを持たない（§0.138。§0.68〜§0.137 の猛毒・重装甲などは削除した）。
         /// </summary>
         public static List<DungeonField> CreateDefaultFields()
         {
@@ -200,67 +191,18 @@ namespace GuildManager.Core.Data
                     RewardGold = rewardGold,
                     RewardMaterialId = rewardMaterialId,
                     RewardMaterialCount = rewardMaterialCount,
-                    Gimmicks = CreateBossGimmicks(def.Order, index, floor),
                 });
             }
 
             return bosses;
         }
 
-        /// <summary>ボス名＝強さの形容（2体ごと）＋一番の特徴のギミックに対応する怪物名。</summary>
+        /// <summary>番人の名前＝強さの形容（2体ごと）＋怪物名（フィールドごとに1つずらして7種を巡る。森の10Fは毒蜘蛛）。</summary>
         private static string BossName(FieldDefinition def, int index) =>
-            GimmickTierPrefix(index / 2) + def.MonsterByGimmick[Array.IndexOf(GimmickCycle, PrimaryGimmick(def.Order, index))];
-
-        /// <summary>一番の特徴のギミック：フィールドごとに1つずらして7種を巡る（森の10Fは猛毒）。</summary>
-        private static BossGimmickType PrimaryGimmick(int fieldOrder, int index) =>
-            GimmickCycle[(index + fieldOrder - 1) % GimmickCycle.Length];
-
-        /// <summary>
-        /// ギミックの数（§0.68）＝1＋(index＋(フィールド順−1)×2)÷GimmickCountStep、上限 GimmickCountMax。
-        /// 森は前半1個・後半2個、洞窟・廃墟は1〜3個、峡谷・深淵は2〜3個。
-        /// </summary>
-        public static int GimmickCount(int fieldOrder, int index) =>
-            Math.Clamp(1 + (index + (fieldOrder - 1) * 2) / BossGimmickBalance.GimmickCountStep, 1, BossGimmickBalance.GimmickCountMax);
-
-        /// <summary>
-        /// 1体のボスのギミック一覧（§0.68）。1つ目が一番の特徴（名前の怪物に対応）、2つ目以降は7種の並びで
-        /// 3つずつ先の種類（7と互いに素なので重ならない）を足し、危険度を ExtraGimmickDangerReduction だけ下げる。
-        /// 効く職業は候補2つ（→ BossGimmickInfo.RoleCandidates）から (index＋何個目か＋フィールド順−1)÷3 の余りで
-        /// 「1つ目だけ／2つ目だけ／両方」を決める（森の10Fの猛毒は神官）。
-        /// 能力の基準値・危険度の式は§0.68以前と同じ。
-        /// </summary>
-        public static List<BossGimmick> CreateBossGimmicks(int fieldOrder, int index, int floor)
-        {
-            int fieldEscalation = fieldOrder - 1;
-            int dangerLevel = Math.Clamp(1 + index / 2 + fieldEscalation, 1, 5);
-            double counterThreshold = 40 + floor * 1.5 + fieldEscalation * 30;
-
-            int primaryIndex = Array.IndexOf(GimmickCycle, PrimaryGimmick(fieldOrder, index));
-            var list = new List<BossGimmick>();
-            for (int slot = 0; slot < GimmickCount(fieldOrder, index); slot++)
-            {
-                var type = GimmickCycle[(primaryIndex + slot * 3) % GimmickCycle.Length];
-                var candidates = BossGimmickInfo.RoleCandidates(type);
-                var roles = ((index + slot + fieldEscalation) % 3) switch
-                {
-                    0 => new List<JobClass> { candidates[0] },
-                    1 => new List<JobClass> { candidates[1] },
-                    _ => new List<JobClass>(candidates),
-                };
-                list.Add(new BossGimmick
-                {
-                    Type = type,
-                    DangerLevel = slot == 0 ? dangerLevel : Math.Max(1, dangerLevel - BossGimmickBalance.ExtraGimmickDangerReduction),
-                    CounterRoles = roles,
-                    RequiredCounterStat = BossGimmickInfo.CounterStat(type),
-                    RequiredCounterStatThreshold = counterThreshold,
-                });
-            }
-            return list;
-        }
+            TierPrefix(index / 2) + def.Monsters[(index + def.Order - 1) % def.Monsters.Length];
 
         /// <summary>同じ怪物名が続けて出ないよう、強さの形容で変化を付ける（tier 0〜4、2体ごと）。</summary>
-        private static string GimmickTierPrefix(int tier) => tier switch
+        private static string TierPrefix(int tier) => tier switch
         {
             0 => "若き",
             1 => "手練れの",

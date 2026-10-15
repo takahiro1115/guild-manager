@@ -770,6 +770,7 @@ namespace GuildManager.Core.Models
             Systems.SoulFusionSystem.RecomputeGenerations(state);
             // 素質の上限のずれ（§0.135）。旧セーブには無いので、Id から決めて補う（読み直しても同じずれになる）
             Systems.SoulFusionSystem.EnsurePaCapOffsets(state);
+            Systems.SoulFusionSystem.EnsureParentNames(state); // 親の名前（旧セーブは見つかる親だけ）
 
             // 待機中の過ごし方（§0.73）。知らない過ごし方・能力名が書かれていたら既定（研究を手伝う・職業の伸び方）に戻す。
             foreach (var a in state.Adventurers.Concat(state.RetiredAdventurers).Concat(state.FallenAdventurers))

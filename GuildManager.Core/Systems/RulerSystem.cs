@@ -87,11 +87,15 @@ namespace GuildManager.Core.Systems
                 if (FieldOf(state, ruler) is { } field)
                     foreach (var boss in field.Bosses.Where(b => (b.Floor == OutpostFloor || b.Floor == FinalFloor) && !b.IsDefeated))
                         boss.Name = DisplayName(ruler.RulerId);
+                // 呼び方の変更（§0.138）：旧セーブの倒した階の名前「支配者○○」を「迷宮の主○○」に
+                if (FieldOf(state, ruler) is { } done)
+                    foreach (var boss in done.Bosses.Where(b => b.IsDefeated && b.Name.StartsWith("支配者")))
+                        boss.Name = "迷宮の主" + boss.Name.Substring("支配者".Length);
             }
         }
 
         /// <summary>支配者の待つ主の名前（「支配者ヴェスペラ」）。</summary>
-        public static string DisplayName(string rulerId) => $"支配者{NameOf(rulerId)}";
+        public static string DisplayName(string rulerId) => $"迷宮の主{NameOf(rulerId)}";
 
         /// <summary>その支配者の状態（無ければ null）。</summary>
         public static RulerState? Find(GameState state, string rulerId) => state.Rulers.FirstOrDefault(r => r.RulerId == rulerId);
@@ -302,7 +306,8 @@ namespace GuildManager.Core.Systems
         /// （1か月に1回。月を進めた直後〈新しい月の第1週〉に画面が決闘を始める。月のはじめに選んだだけでは決闘にならない）。
         /// </summary>
         public static bool IsDuelDue(GameState state, RulerState ruler) =>
-            ruler.PendingDuelWeek == state.WeekNumber && CanChallenge(state, ruler) && HasParticipants(state, ruler);
+            state.DefeatReason == null // ゲームオーバーのあとは戦わない
+            && ruler.PendingDuelWeek == state.WeekNumber && CanChallenge(state, ruler) && HasParticipants(state, ruler);
 
         /// <summary>決闘を待っている支配者（無ければ null）。</summary>
         public static RulerState? DueDuel(GameState state) => state.Rulers.FirstOrDefault(r => IsDuelDue(state, r));
@@ -1025,7 +1030,7 @@ namespace GuildManager.Core.Systems
                 lines.Add(new(StoryLineKind.Narration, "ヴェスペラの最後の刃が折れた。森の100階を制した"));
             }
             if (LegendaryFound is { } blades)
-                lines.Add(new(StoryLineKind.Narration, $"ヴェスペラが置いていった「{blades.Name}」を手に入れた（伝説級。持つ子が部隊にいれば、主の魅了を対策済みにする）"));
+                lines.Add(new(StoryLineKind.Narration, $"ヴェスペラが置いていった「{blades.Name}」を手に入れた（伝説級の固有武具）"));
             if (Defeated)
                 lines.Add(new(StoryLineKind.Narration, "一対一の稽古場が開いた（個人特訓を同時に2人までつけられる）"));
             if (ThornsGained > 0)
