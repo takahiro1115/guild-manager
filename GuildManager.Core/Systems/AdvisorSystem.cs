@@ -111,7 +111,7 @@ namespace GuildManager.Core.Systems
         /// 指定した候補者を、教官（全施設）・参謀・スカウトの全ポストから外す（重複兼任防止）。
         /// いずれかのポストへ新たに任命する直前に必ず呼ぶ。
         /// </summary>
-        private static void UnassignFromAllPosts(GameState state, Guid candidateId)
+        public static void UnassignFromAllPosts(GameState state, Guid candidateId)
         {
             foreach (var facility in state.AssignedTrainers
                          .Where(kv => kv.Value == candidateId)
@@ -124,6 +124,7 @@ namespace GuildManager.Core.Systems
 
             if (state.AssignedAdvisor == candidateId) state.AssignedAdvisor = null;
             if (state.AssignedScoutMaster == candidateId) state.AssignedScoutMaster = null;
+            GuildShopSystem.Unassign(state, candidateId); // ギルドの店（§0.134）
         }
 
         // ---------------- ボーナス算出（連続比例。一致判定なし） ----------------

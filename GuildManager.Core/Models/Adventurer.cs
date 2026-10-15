@@ -383,6 +383,12 @@ namespace GuildManager.Core.Models
         public bool HasUsedSoulFusion { get; set; } = false;
 
         /// <summary>
+        /// 世代（§0.133）：初めからいる子と採用した子は1、秘薬の娘は親の大きいほう＋1。血の蓄え（素質の上限）に効く。
+        /// 旧セーブには無く1で読まれるので、読み込みで親から数え直す（→ SoulFusionSystem.RecomputeGenerations）。
+        /// </summary>
+        public int Generation { get; set; } = 1;
+
+        /// <summary>
         /// 魂魄融和で生まれた子の、生まれの記録（研究室の培養槽画面の「生まれた娘」の履歴に出す）：投入した触媒の素材Id（null＝触媒なし）。
         /// 旧セーブの娘と採用・初期メンバーでは null のまま（記録なし）。
         /// </summary>
@@ -629,6 +635,9 @@ namespace GuildManager.Core.Models
 
         /// <summary>交渉警告が立ってから経過した週数。2週を超えて未対応だと契約解除される。</summary>
         public int NegotiationWeeksElapsed { get; set; } = 0;
+
+        /// <summary>契約交渉に応じたあと、次の交渉にならない残りの週数（§0.134）。旧セーブでは0。</summary>
+        public int NegotiationCooldownWeeks { get; set; } = 0;
 
         /// <summary>負傷が治るまでの残り週数。0ならNoneに戻る（→ 03 §3.6 負傷回復処理）。</summary>
         public int InjuryWeeksRemaining { get; set; } = 0;

@@ -69,6 +69,9 @@ namespace GuildManager.Core.Systems
         /// <summary>アルベールの市販薬・内職売上（4週に1回のみ値が入る。→ EconomySystem.ProcessWeeklySideJobIncome）。</summary>
         public SideJobIncome? SideJobIncome { get; set; }
 
+        /// <summary>ギルドの店の売上（4週に1回だけ入る。→ GuildShopSystem.ProcessMonthlySales、§0.134）。</summary>
+        public List<ShopSale> ShopSales { get; } = new();
+
         /// <summary>今週のマスターの機嫌の変動（→ MasterMoodSystem.ProcessWeeklyMood）。</summary>
         public MasterMoodReport MoodReport { get; set; } = new();
 

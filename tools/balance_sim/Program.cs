@@ -60,6 +60,9 @@ if (mode is "campaign")
     GameSim.UseRivalry = opts.Contains("rivalry");
     // 大会（§0.82）：nomain＝主力4名は個人の大会に出さない、notourney＝大会に出ない
     GameSim.TourneyMode = opts.Contains("notourney") ? "off" : opts.Contains("nomain") ? "nomain" : "all";
+    GameSim.NoRulerFights = opts.Contains("norulers");
+    GameSim.UseShops = !opts.Contains("noshop");
+    GameSim.PrudentRulers = opts.Contains("prudent");
     // 依頼（§0.64）：nocomm＝依頼を受けない、old＝依頼も迷宮の異変も無し（§0.63までと同じ条件で比べる）
     GameSim.UseCommissions = !opts.Contains("nocomm") && !opts.Contains("old");
     GameSim.NoAnomaly = opts.Contains("old");
@@ -618,6 +621,11 @@ partial class GameSim
     public int? NepherisRetreatWeek, NepherisDefeatWeek;
     /// <summary>ネフェリスを倒した部隊の世代（出した部隊の子の世代の中央値。設計書 §6「3〜4世代目でクリア」）。</summary>
     public double? NepherisClearGen;
+    /// <summary>ネフェリスを倒したときの名簿：世代ごとの人数と、その世代の能力の平均（例「1世代:14人58 2世代:5人49」）。</summary>
+    public string? NepherisRosterGen;
+
+    string RosterGenerations() => string.Join(" ", Active.GroupBy(a => Generation(a)).OrderBy(g => g.Key)
+        .Select(g => $"{g.Key}世代:{g.Count()}人{g.Average(a => new[] { "STR", "VIT", "AGI", "DEX", "INT", "MND", "LDR" }.Average(st => a.GetEffectiveStat(st))):F0}"));
 
     /// <summary>世代：初めからいる子と採用した子は1、秘薬・融和の娘は親の大きいほう＋1（設計書 §1）。</summary>
     int Generation(Adventurer a, int depth = 0)
@@ -641,7 +649,9 @@ partial class GameSim
     public int OrtensiaBattles;
     public readonly Dictionary<string, int> OrtensiaStats = new();
     /// <summary>支配者戦のプレイヤー役：決闘で削れた量が月の回復の1.5倍に届かなければ1季節休む。所持金がこの値未満なら挑まない。</summary>
-    const int RulerMinGold = 3000;
+    static int RulerMinGold = 3000;
+    /// <summary>prudent：支配者戦は所持金 8000G 以上のときだけ、一度に1人の支配者まで（ほかの支配者に出していれば休む）。</summary>
+    public static bool PrudentRulers;
 
     /// <summary>
     /// 月のはじめの支配者戦：月を終えた決闘を行い（介入は「もっと強い代表がいれば入れ替える・名はいつも呼ぶ」）、今月の代表を選び直す。
@@ -649,7 +659,7 @@ partial class GameSim
     /// </summary>
     void RulerTurn()
     {
-        if (!GameCalendar.IsFirstWeekOfMonth(s.WeekNumber)) return;
+        if (NoRulerFights || !GameCalendar.IsFirstWeekOfMonth(s.WeekNumber)) return;
         RulerSystem.EnsureRulers(s);
         foreach (var ruler in s.Rulers)
         {
@@ -673,13 +683,14 @@ partial class GameSim
                 VesperaFallen += duel.FallenIds.Count;
                 VesperaNearDeath += duel.NearDeathIds.Count;
                 if (duel.Retreated) { if (vespera) VesperaRetreatWeek ??= s.WeekNumber; else if (ortensia) OrtensiaRetreatWeek ??= s.WeekNumber; else if (ignia) IgniaRetreatWeek ??= s.WeekNumber; else if (nepheris) NepherisRetreatWeek ??= s.WeekNumber; else MelusineRetreatWeek ??= s.WeekNumber; }
-                if (duel.Defeated) { if (vespera) VesperaDefeatWeek ??= s.WeekNumber; else if (ortensia) OrtensiaDefeatWeek ??= s.WeekNumber; else if (ignia) IgniaDefeatWeek ??= s.WeekNumber; else if (nepheris) { NepherisDefeatWeek ??= s.WeekNumber; NepherisClearGen ??= SquadGeneration(ruler); } else MelusineDefeatWeek ??= s.WeekNumber; }
+                if (duel.Defeated) { if (vespera) VesperaDefeatWeek ??= s.WeekNumber; else if (ortensia) OrtensiaDefeatWeek ??= s.WeekNumber; else if (ignia) IgniaDefeatWeek ??= s.WeekNumber; else if (nepheris) { NepherisDefeatWeek ??= s.WeekNumber; NepherisClearGen ??= SquadGeneration(ruler); NepherisRosterGen ??= RosterGenerations(); } else MelusineDefeatWeek ??= s.WeekNumber; }
                 if (duel.Retreated || duel.Defeated) FieldKills.Add((RulerSystem.FieldOf(s, ruler)!.Order, duel.Boss.Floor, s.WeekNumber)); // 節目の表（100F）に決着を数える
                 else if (!ortensia && duel.HpBefore - duel.Ruler.Hp < RulerSystem.RegenOf(ruler) * 3 / 2) rulerRestUntilWeek[ruler.RulerId] = s.WeekNumber + GameCalendar.WeeksPerSeason;
             }
             if (!RulerSystem.CanChallenge(s, ruler)) continue;
             bool outpost = RulerSystem.IsOutpost(s, ruler);
-            bool rest = s.WeekNumber < rulerRestUntilWeek.GetValueOrDefault(ruler.RulerId) || s.Gold < RulerMinGold;
+            bool rest = s.WeekNumber < rulerRestUntilWeek.GetValueOrDefault(ruler.RulerId) || s.Gold < (PrudentRulers ? 8000 : RulerMinGold)
+                || (PrudentRulers && s.Rulers.Any(r => r != ruler && RulerSystem.CanChallenge(s, r) && RulerSystem.HasParticipants(s, r)));
             if (nepheris)
             {
                 // ネフェリス：4つの段の合い具合の平均が届く部隊を、合う順に3つまで（ほかの支配者に出している部隊と、稼ぐ部隊1つを残す）
@@ -755,6 +766,10 @@ partial class GameSim
     public readonly Dictionary<TournamentDiscipline, int> FirstG1Week = new();
     public int TournamentEntries, TournamentWins;
     public static string TourneyMode = "all";
+    /// <summary>norulers：支配者戦をしない（支配者は70F・100Fで待ったまま。経済の重さを分けて測る）。</summary>
+    public static bool NoRulerFights;
+    /// <summary>noshop：ギルドの店（§0.134）に働き手を置かない（比べるため）。</summary>
+    public static bool UseShops = true;
 
     ActiveDungeonMission? lastMain;
     readonly HashSet<Guid> mainIds = new();
@@ -1063,6 +1078,15 @@ partial class GameSim
     /// campaign の毎週の手入れ：引退者を空いた訓練施設の教官に就ける、余裕があれば研究を済ませる、
     /// 秘薬を処方する（相性100のペアのうち両親の総合PAの合計が最大の組。娘の職業は強い方の親、紅玉鉱石があれば触媒に）。
     /// </summary>
+    double ExpectedChildPa(Adventurer a, Adventurer b)
+    {
+        int penalty = SoulFusionSystem.InbreedPenalty(SoulFusionSystem.KinshipOf(s, a, b));
+        int cap = SoulFusionSystem.PaCapOf(SoulFusionSystem.ChildGeneration(a, b), breakthrough: false);
+        double mean = (SoulFusionBalance.PaVarianceMin + SoulFusionBalance.PaVarianceMax) / 2.0;
+        return new[] { "STR", "VIT", "AGI", "DEX", "INT", "MND", "LDR" }
+            .Sum(st => Math.Min(cap, SoulFusionSystem.BasePa(Acc.Pa(a, st), Acc.Pa(b, st)) + mean - penalty));
+    }
+
     void CampaignUpkeep()
     {
         foreach (var a in Active)
@@ -1077,6 +1101,18 @@ partial class GameSim
             if (UseTrainers && best != null && advisors.TryAssignTrainer(s, f, best.Id))
             { posted.Add(best.Id); Count("教官の任命"); }
         }
+
+        // ギルドの店（§0.134）：教官にしなかった引退者を、売上のいちばん上がる店の空き枠へ
+        if (UseShops)
+            foreach (var kind in Enum.GetValues<ShopKind>())
+                while (GuildShopSystem.Workers(s, kind).Count < GuildShopSystem.Slots(s, kind))
+                {
+                    var appointed = GuildPolicySystem.AppointedIds(s);
+                    var pick = s.RetiredAdventurers.Where(r => !r.IsGuest && !r.LeftGuild && !appointed.Contains(r.Id))
+                        .OrderByDescending(r => GuildShopSystem.SalesOf(s, r, kind)).FirstOrDefault();
+                    if (pick == null || !GuildShopSystem.TryAssign(s, kind, pick.Id)) break;
+                    Count("店の働き手");
+                }
 
         // 研究（§0.114）：研究室で進められるのは1つずつ。研究していなければ、済んでいない研究を、商い（内職の売上）を先に、あとは CSV の順に始める
         if (UseResearch && s.ResearchInProgress == null)
@@ -1102,7 +1138,8 @@ partial class GameSim
         if (!UseSoulFusion || !SoulFusionSystem.IsUnlocked(s) || !SoulFusionSystem.HasFreeTank(s)
             || s.Gold < SoulFusionBalance.PrescriptionGold + Reserve)
             return;
-        var pair = SoulFusionSystem.GetEligiblePairs(s).OrderByDescending(p => p.A.TotalPA + p.B.TotalPA).FirstOrDefault();
+        // 生まれる娘の素質の見込み（両親の高いほうへ寄せた基準＋ばらつきの平均−近い血、世代の上限で止める、§0.133）がいちばん高いペア
+        var pair = SoulFusionSystem.GetEligiblePairs(s).OrderByDescending(p => ExpectedChildPa(p.A, p.B)).FirstOrDefault();
         if (pair.A == null) return;
         var job = (StatSum(pair.A) >= StatSum(pair.B) ? pair.A : pair.B).JobClass;
         string? catalyst = s.Materials.GetValueOrDefault("mat_canyon_gem") >= 3 ? "mat_canyon_gem" : null;
@@ -1118,6 +1155,9 @@ partial class GameSim
     public static bool UseShop = true;
 
     /// <summary>所持金に余裕があれば、主力候補（上位4名）の装備を店で良いものへ買い替える（1週1点）。</summary>
+    /// <summary>audit の買い物で手元に残す額：800G＋維持費2か月分＋週給3か月分（§0.134：高い装備を買い続けて破産しないように）。</summary>
+    int AuditShopReserve() => 800 + GuildFinanceSystem.MonthlyUpkeep(s) * 2 + Active.Sum(a => a.WeeklyWage) * GameCalendar.WeeksPerMonth * 3;
+
     void Shop()
     {
         if (Frugal) return;
@@ -1126,7 +1166,7 @@ partial class GameSim
         foreach (var a in Active.Where(a => !a.IsDispatched).OrderByDescending(StatSum).Take(Campaign ? 6 : 4))
             foreach (var item in ItemCatalog.GetAll().Where(i => i.IsAllowedFor(a.JobClass) && EquipmentSystem.IsInShop(s, i)))
             {
-                if (s.Gold - item.Price < (Campaign ? Reserve : 800 + GuildFinanceSystem.MonthlyUpkeep(s) * 2)) continue;
+                if (s.Gold - item.Price < (AuditMode ? Math.Max(Reserve, AuditShopReserve()) : Campaign ? Reserve : 800 + GuildFinanceSystem.MonthlyUpkeep(s) * 2)) continue;
                 double gain = ItemWorth(item) - Worth(a.GetEquipped(item.Slot));
                 if (gain <= 0.5) continue;
                 // campaign ではお金が余るので、1G あたりではなく伸びの大きさで選ぶ（上位装備を買い進める）
@@ -1262,7 +1302,7 @@ partial class GameSim
         Console.WriteLine($"ヴェスペラ（§0.127）：前哨戦で退かせた {WeekStat(x => x.VesperaRetreatWeek)}　決着 {WeekStat(x => x.VesperaDefeatWeek)}　決闘の回数 {string.Join(", ", sims.Select(x => x.VesperaDuels))}　強制除籍 {sims.Sum(x => x.VesperaFallen)}・一命を取り留めた {sims.Sum(x => x.VesperaNearDeath)}");
         Console.WriteLine($"メルジーネ（§0.129）：前哨戦で退かせた {WeekStat(x => x.MelusineRetreatWeek)}　決着 {WeekStat(x => x.MelusineDefeatWeek)}　戦いの回数 {string.Join(", ", sims.Select(x => x.MelusineBattles))}");
         Console.WriteLine("オルテンシアの攻め：" + string.Join("　", sims.SelectMany(x => x.OrtensiaStats).GroupBy(kv => kv.Key).OrderBy(g => g.Key).Select(g => $"{g.Key} {g.Sum(kv => kv.Value)}")));
-        Console.WriteLine($"ネフェリス（§0.132）：前哨戦で退かせた {WeekStat(x => x.NepherisRetreatWeek)}　決着 {WeekStat(x => x.NepherisDefeatWeek)}　倒した部隊の世代 {string.Join(", ", sims.Select(x => x.NepherisClearGen?.ToString("0.#") ?? "―"))}　戦いの回数 {string.Join(", ", sims.Select(x => x.NepherisBattles))}");
+        Console.WriteLine($"ネフェリス（§0.132）：前哨戦で退かせた {WeekStat(x => x.NepherisRetreatWeek)}　決着 {WeekStat(x => x.NepherisDefeatWeek)}　倒した部隊の世代 {string.Join(", ", sims.Select(x => x.NepherisClearGen?.ToString("0.#") ?? "―"))}　倒したときの名簿 {string.Join("／", sims.Select(x => x.NepherisRosterGen).OfType<string>())}　戦いの回数 {string.Join(", ", sims.Select(x => x.NepherisBattles))}");
         Console.WriteLine($"イグニア（§0.131）：前哨戦で退かせた {WeekStat(x => x.IgniaRetreatWeek)}　決着 {WeekStat(x => x.IgniaDefeatWeek)}　戦いの回数 {string.Join(", ", sims.Select(x => x.IgniaBattles))}");
         Console.WriteLine($"オルテンシア（§0.130）：前哨戦で退かせた {WeekStat(x => x.OrtensiaRetreatWeek)}　決着 {WeekStat(x => x.OrtensiaDefeatWeek)}　戦いの回数 {string.Join(", ", sims.Select(x => x.OrtensiaBattles))}");
         Console.WriteLine($"森の主を初めて倒した週：{string.Join("・", new[] { 30, 40, 50, 60, 70, 80, 90, 100 }.Select(f => $"{f}F {WeekStat(x => x.ForestKillWeek.TryGetValue(f, out int w) ? w : null)}"))}");

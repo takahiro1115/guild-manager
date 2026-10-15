@@ -63,7 +63,7 @@ namespace GuildManager.Core.Systems
             foreach (var stat in recipe.TargetStats)
             {
                 int pa = AdventurerStatAccessor.GetPa(adventurer, stat);
-                int cap = pa > SoulFusionBalance.NormalPaCap ? SoulFusionBalance.BreakthroughPaCap : SoulFusionBalance.NormalPaCap;
+                int cap = SoulFusionSystem.PaCapOf(adventurer, stat); // 世代の血の蓄えと限界突破（§0.133）
                 int newPa = Math.Max(pa, Math.Min(cap, pa + recipe.PaBonus));
                 AdventurerStatAccessor.SetPa(adventurer, stat, newPa);
                 int current = AdventurerStatAccessor.GetStat(adventurer, stat);

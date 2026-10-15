@@ -179,6 +179,7 @@ namespace GuildManager.Core.Tests
             var (state, a) = ElixirState();
             a.PA_STR = 98; a.STR = 98;    // 100で止まる。実効値もPAを超えない
             a.PA_VIT = 110; a.VIT = 90;   // 限界突破済みは120まで
+            a.FusionBreakthroughStats = new List<string> { "VIT" };
             Assert.True(ElixirSystem.TryGive(state, a, "elixir_might"));
             Assert.Equal(100, a.PA_STR);
             Assert.Equal(100, a.STR);

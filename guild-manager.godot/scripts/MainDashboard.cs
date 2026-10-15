@@ -874,6 +874,11 @@ public partial class MainDashboard : Control
 				$"(基本 {income.BaseGold}G［初期{income.InitialBaseGold}+研究{income.ResearchBonus}{(income.TradeBonus > 0 ? $"+商い{income.TradeBonus}" : "")}］ × 機嫌倍率 {income.Multiplier:F1}［{MoodTierLabel(income.Tier)}］)[/color]");
 		}
 
+		// ギルドの店の売上（§0.134。内職と同じ4週に1回）
+		if (settlement.ShopSales.Count > 0)
+			AppendLog($"[color=lime]【ギルドの店】売上: +{settlement.ShopSales.Sum(s => s.Gold)}G（" +
+				string.Join("・", settlement.ShopSales.Select(s => $"{GuildShopSystem.Label(s.Kind)}の{s.WorkerName} {s.Gold}G")) + "）[/color]");
+
 		LogGrowthEvents(settlement.TrainingGrowthEvents); // → 03 §3.1〜3.4：成長トリガー経路2（訓練場配置）
 		LogGrowthEvents(settlement.SelfTrainingGrowthEvents); // → §0.73：自主練
 		// 教官からの特性伝授（奥義継承、→ 03 §7.1・§0.34）。

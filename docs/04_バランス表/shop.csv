@@ -1,0 +1,12 @@
+key,value,unit,note
+ItemShopSlots,2,人,ギルドの店（§0.134）：道具屋で働ける引退者の数
+TavernSlotsPerLevel,1,人,酒場で働ける引退者の数＝酒場のLv×この値
+ShopBaseSales,200,G/月,働き手1人の毎月の売上の基本（アルベールの内職と同じ4週ごとに入る）
+ShopStatLine,50,pt,得意な能力（道具屋＝DEX・INT、酒場＝LDR・MND の平均。引退したときの値）がこの値を超えた分だけ売上が上がる
+ShopSalesPerStat,5,G/月,同：超えた1ptあたりの売上
+ItemShopStockPerUnit,0.5,G/月,道具屋：倉庫の素材の在庫1つにつき、働き手1人の売上に足す（ItemShopStockCap まで）
+ItemShopStockCap,150,G/月,同：上限
+TavernFameHonor,100,G/月,酒場：働き手のいちばん高い称号が「誉」なら売上に足す（客が集まる）
+TavernFameName,200,G/月,同：「名」
+TavernFameLegend,300,G/月,同：「伝説」
+TavernHallOfFameBonus,100,G/月,酒場：殿堂入りした子なら、さらに足す

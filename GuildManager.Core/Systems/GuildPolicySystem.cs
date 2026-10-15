@@ -78,12 +78,13 @@ namespace GuildManager.Core.Systems
 
         // ==================== 引退後の進路 ====================
 
-        /// <summary>顧問・教官の役職についている引退者の Id（派遣の教官を含む）。</summary>
+        /// <summary>顧問・教官・店の働き手の役職についている引退者の Id（派遣の教官を含む）。</summary>
         public static HashSet<Guid> AppointedIds(GameState state)
         {
             var ids = state.AssignedTrainers.Values.OfType<Guid>().ToHashSet();
             if (state.AssignedAdvisor is Guid advisor) ids.Add(advisor);
             if (state.AssignedScoutMaster is Guid scout) ids.Add(scout);
+            ids.UnionWith(GuildShopSystem.AllWorkers(state)); // ギルドの店の働き手（§0.134）
             return ids;
         }
 

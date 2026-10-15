@@ -456,8 +456,10 @@ public partial class ResearchPanel : ScrollContainer
 
 		vbox.AddChild(MakeRichLabel("[font_size=18][b]🧪 培養槽（魂魄融和の秘薬）[/b][/font_size]"));
 		vbox.AddChild(MakeRichLabel(
-			$"[color=gray]相性{SoulFusionBalance.RequiredCompatibility}のペアに秘薬を処方すると、2人の素質を受け継ぐ娘が{SoulFusionBalance.CultureWeeks}週（2年）で{SoulFusionBalance.ChildJoinAge}歳まで育ち、新人として加わる。" +
-			$"その間、季節（{SoulFusionBalance.NurtureSeasonWeeks}週）ごとに選んだ育て方が娘に残る。親になれるのは1人1回まで。引退した者も親になれる。[/color]"));
+			$"[color=gray]相性{SoulFusionBalance.RequiredCompatibility}以上のペアに秘薬を処方すると、2人の素質を受け継ぐ娘が{SoulFusionBalance.CultureWeeks}週で{SoulFusionBalance.ChildJoinAge}歳まで育ち、新人として加わる。" +
+			$"その間、季節（{SoulFusionBalance.NurtureSeasonWeeks}週）ごとに選んだ育て方が娘に残る。親には何度でも、どの相手とでもなれる（引退した子は教官として残っているときだけ）。\n" +
+			$"娘の世代は親の大きいほう＋1。世代が進むほど素質の上限が上がる（1世代100・2世代{SoulFusionSystem.PaCapOf(2, false)}・3世代{SoulFusionSystem.PaCapOf(3, false)}・4世代{SoulFusionSystem.PaCapOf(4, false)}）。" +
+			$"親子・姉妹など近い血で作ると、娘の素質が下がる（近い血−{SoulFusionBalance.InbreedPenaltyClose}・やや近い血−{SoulFusionBalance.InbreedPenaltyNear}）。[/color]"));
 
 		foreach (var culture in _state.SoulFusionCultures)
 		{
@@ -472,7 +474,7 @@ public partial class ResearchPanel : ScrollContainer
 		var pairs = SoulFusionSystem.GetEligiblePairs(_state);
 		if (pairs.Count == 0)
 		{
-			vbox.AddChild(MakeRichLabel($"[color=gray]相性{SoulFusionBalance.RequiredCompatibility}のペアがいない（同じ部隊で任務を達成すると相性が上がる）。[/color]"));
+			vbox.AddChild(MakeRichLabel($"[color=gray]相性{SoulFusionBalance.RequiredCompatibility}以上のペアがいない（同じ部隊で任務を達成すると相性が上がる）。[/color]"));
 			return card;
 		}
 
@@ -489,7 +491,9 @@ public partial class ResearchPanel : ScrollContainer
 		foreach (var (pa, pb) in pairs)
 		{
 			var tier = SoulFusionSystem.GetNyxTier(pa.JobClass, pb.JobClass);
-			pairOption.AddItem($"{MemberLabel(pa)} × {MemberLabel(pb)}　百合相性：{SoulFusionSystem.GetNyxTierLabel(tier)}");
+			var kin = SoulFusionSystem.KinshipOf(_state, pa, pb);
+			pairOption.AddItem($"{MemberLabel(pa)} × {MemberLabel(pb)}　百合相性：{SoulFusionSystem.GetNyxTierLabel(tier)}　娘は{SoulFusionSystem.ChildGeneration(pa, pb)}世代" +
+				(kin != Kinship.None ? $"　⚠{SoulFusionSystem.KinshipLabel(kin)}（素質−{SoulFusionSystem.InbreedPenalty(kin)}）" : ""));
 		}
 		pairOption.Selected = _selectedPairIndex;
 		pairOption.ItemSelected += index => { _selectedPairIndex = (int)index; _selectedJobIndex = 0; RefreshDeferred(); };
@@ -686,7 +690,7 @@ public partial class ResearchPanel : ScrollContainer
 
 	/// <summary>候補の表示名。引退者は（引退）を付ける。</summary>
 	private static string MemberLabel(Adventurer a) =>
-		$"{a.Name}（{AdventurerPanel.JobLabel(a.JobClass)}{(a.IsRetired ? "・引退" : "")}）";
+		$"{a.Name}（{AdventurerPanel.JobLabel(a.JobClass)}{(a.Generation > 1 ? $"・{a.Generation}世代" : "")}{(a.IsRetired ? "・教官" : "")}）";
 
 	private static string CheckLabel(SoulFusionCheck check) => check switch
 	{

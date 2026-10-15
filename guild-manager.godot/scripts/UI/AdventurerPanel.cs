@@ -566,6 +566,8 @@ public partial class AdventurerPanel : VBoxContainer
 			_statusLabel.AppendText("　[color=lime]🔥 張り切り[/color]");
 		if (HasPoachOffer(a))
 			_statusLabel.AppendText("　[color=#ff6b6b]📨 引き抜きの話[/color]");
+		if (a.Generation > 1)
+			_statusLabel.AppendText($"　[color=#c4b5fd]🧬 {a.Generation}世代（素質の上限{SoulFusionSystem.PaCapOf(a.Generation, false)}）[/color]");
 		if (a.HasUsedSoulFusion)
 			_statusLabel.AppendText("　[color=violet]🫧 秘薬の親[/color]");
 		// 二つ名と殿堂の資格（大会と育成の栄光 段2）

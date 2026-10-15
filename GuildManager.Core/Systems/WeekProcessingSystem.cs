@@ -171,6 +171,7 @@ namespace GuildManager.Core.Systems
 
             // アルベールの市販薬・内職売上（4週に1回。→ 03 §8.1：機嫌に応じた倍率。旧・月次助成金）。
             result.SideJobIncome = _economySystem.ProcessWeeklySideJobIncome(state);
+            result.ShopSales.AddRange(GuildShopSystem.ProcessMonthlySales(state)); // ギルドの店の売上（同じ週、§0.134）
             result.UpkeepPaid = GuildFinanceSystem.PayUpkeepIfDue(state, thisWeek); // 施設の維持費（月の最後の週、§0.103）
             result.LoanRepaid = FundingSystem.PayLoansIfDue(state, thisWeek); // 借金の返済（月の最後の週、§0.104）
 

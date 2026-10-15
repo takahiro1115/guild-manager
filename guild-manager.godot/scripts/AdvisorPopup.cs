@@ -52,6 +52,19 @@ public partial class AdvisorPopup : PopupPanel
 		panelStyle.SetContentMarginAll(10);
 		AddThemeStyleboxOverride("panel", panelStyle);
 		PopupHide += () => Closed.Invoke();
+
+		// ギルドの店（§0.134）：ボタンはコードで足す（スカウトのボタンの隣）
+		var parent = _assignScoutMasterButton.GetParent();
+		foreach (var kind in Enum.GetValues<ShopKind>())
+		{
+			var k = kind;
+			var button = new Button { Text = kind == ShopKind.ItemShop ? "🏪 道具屋で働く" : "🍺 酒場で働く" };
+			button.Pressed += () => OnAssignShopPressed(k);
+			parent.AddChild(button);
+		}
+		var leave = new Button { Text = "店から外す" };
+		leave.Pressed += OnLeaveShopPressed;
+		parent.AddChild(leave);
 	}
 
 	/// <summary>
@@ -118,8 +131,18 @@ public partial class AdvisorPopup : PopupPanel
 		string advisorName = _state.AssignedAdvisor != null ? FindName(_state.AssignedAdvisor.Value) : "未配置";
 		string scoutMasterName = _state.AssignedScoutMaster != null ? FindName(_state.AssignedScoutMaster.Value) : "未任命";
 
+		string ShopText(ShopKind kind)
+		{
+			var workers = GuildShopSystem.Workers(_state, kind);
+			var names = workers.Select(id => _state.RetiredAdventurers.FirstOrDefault(a => a.Id == id)).OfType<Adventurer>()
+				.Select(a => $"{a.Name}（月{GuildShopSystem.SalesOf(_state, a, kind)}G）");
+			return $"{GuildShopSystem.Label(kind)}［{workers.Count}/{GuildShopSystem.Slots(_state, kind)}］:{(workers.Count == 0 ? "なし" : string.Join("・", names))}";
+		}
+
 		return $"現在の配置　鍛錬所:{TrainerName(FacilityType.DrillHall)}　学問所:{TrainerName(FacilityType.Academy)}　技巧所:{TrainerName(FacilityType.SkillHall)}\n" +
-			$"作戦資料室:{advisorName}　冒険者支援室:{scoutMasterName}";
+			$"作戦資料室:{advisorName}　冒険者支援室:{scoutMasterName}\n" +
+			$"{ShopText(ShopKind.ItemShop)}　{ShopText(ShopKind.Tavern)}\n" +
+			"（道具屋は DEX・INT と倉庫の在庫、酒場は LDR・MND と二つ名・殿堂入りで売上が伸びる。働き手には手当を払う）";
 	}
 
 	private string FindName(Guid id) =>
@@ -178,6 +201,31 @@ public partial class AdvisorPopup : PopupPanel
 		}
 
 		_advisorSystem.TryAssignScoutMaster(_state, candidateId);
+		RefreshList();
+	}
+
+	private void OnAssignShopPressed(ShopKind kind)
+	{
+		if (!TryGetSelectedCandidateId(out var candidateId)) return;
+		var candidate = _candidates.First(c => c.Id == candidateId);
+		if (candidate.IsGuest)
+		{
+			_statusLabel.Text = "白百合の杖から派遣された教官は、店では働けません。";
+			return;
+		}
+		if (!GuildShopSystem.TryAssign(_state, kind, candidateId))
+		{
+			_statusLabel.Text = $"{GuildShopSystem.Label(kind)}は満員です（{GuildShopSystem.Slots(_state, kind)}人まで" +
+				(kind == ShopKind.Tavern ? "。酒場のLvを上げると増える" : "") + "）。\n" + BuildStatusText();
+			return;
+		}
+		RefreshList();
+	}
+
+	private void OnLeaveShopPressed()
+	{
+		if (!TryGetSelectedCandidateId(out var candidateId)) return;
+		GuildShopSystem.Unassign(_state, candidateId);
 		RefreshList();
 	}
 

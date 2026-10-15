@@ -19,6 +19,17 @@ namespace GuildManager.Core.Models
         Destined,
     }
 
+    /// <summary>秘薬の両親の血の近さ（§0.133、→ Systems.SoulFusionSystem.KinshipOf）。近いほど娘の素質が下がる。</summary>
+    public enum Kinship
+    {
+        /// <summary>血のつながりが無い（2代さかのぼって同じ人がいない）。</summary>
+        None,
+        /// <summary>やや近い：片親が同じ姉妹・祖母と孫・おばと姪・いとこ。</summary>
+        Near,
+        /// <summary>近い：親子・同じ両親の姉妹。</summary>
+        Close,
+    }
+
     /// <summary>
     /// 培養槽で育っている子1人分（→ GameState.SoulFusionCultures、03 §5.4・§0.58）。
     /// 子は処方した時点で生成し（能力値・特性・名前・顔が決まる）、培養が終わって宿舎に空きがある週の決算で

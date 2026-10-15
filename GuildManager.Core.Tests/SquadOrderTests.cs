@@ -64,6 +64,31 @@ namespace GuildManager.Core.Tests
         // ---------------- 自動出撃 ----------------
 
         [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public void Dive_WhenTheNextBossIsARuler_GathersThatWeekInstead(bool auto)
+        {
+            // 森の60Fまで倒した状態：次の主は支配者ヴェスペラ（§0.127）。潜行はその週、採取に回す（§0.134）
+            var state = new GameState { Gold = 10000, WeekNumber = 5, DungeonFields = GuildManager.Core.Data.SampleData.CreateDefaultFields() };
+            var forest = state.DungeonFields.First(f => f.Id == "forest");
+            forest.IsUnlocked = true;
+            forest.ReachedFloor = 60;
+            foreach (var b in forest.Bosses.Where(b => b.Floor <= 60)) b.IsDefeated = true;
+            foreach (var f in state.DungeonFields.Where(f => f.Id != "forest")) f.IsUnlocked = false;
+            RulerSystem.EnsureRulers(state);
+            var a = Make("アリス", 60);
+            var b2 = Make("セリア", 60);
+            state.Adventurers.AddRange(new[] { a, b2 });
+            var saved = new SavedParty { Name = "主力", MemberIds = { a.Id, b2.Id }, Order = SquadOrder.Dive, OrderFieldId = auto ? SavedParty.AutoFieldId : "forest" };
+            state.SavedParties.Add(saved);
+
+            Assert.Null(SquadOrderSystem.GetWaitReason(state, saved));
+            var events = new SquadOrderSystem(Expedition()).Execute(state);
+            Assert.Equal(DungeonMissionType.Gathering, Assert.Single(state.ActiveDungeonMissions).MissionType);
+            Assert.Contains("採取", Assert.Single(events).Detail);
+        }
+
+        [Theory]
         [InlineData(SquadOrder.Dive, DungeonMissionType.Scouting)]
         [InlineData(SquadOrder.Survey, DungeonMissionType.Survey)]
         [InlineData(SquadOrder.Gather, DungeonMissionType.Gathering)]

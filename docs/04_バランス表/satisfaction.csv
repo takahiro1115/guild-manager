@@ -22,3 +22,5 @@ BonusWeeksEquivalent,8,×週給,一時金（ボーナス）＝週給×この倍�
 TavernRecoveryCeiling,60,pt,酒場の自然回復（§0.103）：満足度がこの値未満の子だけ回復する（酒場は不満を癒やす場所）
 ContentDriftAbove,70,pt,慣れ（§0.103）：満足度がこの値を超える子は毎週 ContentDrift だけ下がる（喜ぶことが続かないと上機嫌は保てない）
 ContentDrift,-1,pt,同：下がる量
+NegotiationSatisfactionGain,20,pt,契約交渉に応じた（昇給・一時金）とき、満足度がこの値だけ上がる（待遇に納得する。§0.134）
+NegotiationCooldownWeeks,12,週,契約交渉に応じたあと、この週数は次の交渉にならない（不満のもとが残っていても、毎週の交渉で週給がふくらむのを防ぐ。§0.134）

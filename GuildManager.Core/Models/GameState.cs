@@ -107,6 +107,9 @@ namespace GuildManager.Core.Models
         /// </summary>
         public Guid? AssignedScoutMaster { get; set; }
 
+        /// <summary>ギルドの店の働き手（§0.134。店ごとの引退者の Id、→ Systems.GuildShopSystem）。旧セーブでは空。</summary>
+        public Dictionary<ShopKind, List<Guid>> ShopWorkers { get; set; } = new();
+
         /// <summary>
         /// 9施設の現在状態（仕様書 03 §6。v1.3改訂：訓練場・道場の4分割により4大施設から
         /// 8施設に拡張。v1.4改訂：冒険者支援室（RecruitmentOffice）を新設し9施設に拡張）。
@@ -586,6 +589,7 @@ namespace GuildManager.Core.Models
                 data.AdvisorAssignments[FacilityType.WarRoom.ToString()] = AssignedAdvisor;
             if (AssignedScoutMaster.HasValue)
                 data.AdvisorAssignments[FacilityType.RecruitmentOffice.ToString()] = AssignedScoutMaster;
+            data.ShopWorkers = ShopWorkers.ToDictionary(kv => kv.Key.ToString(), kv => new List<Guid>(kv.Value)); // ギルドの店（§0.134）
 
             foreach (var mission in ActiveDungeonMissions)
             {
@@ -754,6 +758,9 @@ namespace GuildManager.Core.Models
             foreach (var r in state.Rulers) r.RepresentativeIds ??= new List<Guid>();
             Systems.RulerSystem.EnsureRulers(state);
 
+            // 世代（§0.133）。旧セーブには無く1で読まれるので、秘薬の娘の世代を親から数え直す
+            Systems.SoulFusionSystem.RecomputeGenerations(state);
+
             // 待機中の過ごし方（§0.73）。知らない過ごし方・能力名が書かれていたら既定（研究を手伝う・職業の伸び方）に戻す。
             foreach (var a in state.Adventurers.Concat(state.RetiredAdventurers).Concat(state.FallenAdventurers))
             {
@@ -813,6 +820,10 @@ namespace GuildManager.Core.Models
                 else
                     state.AssignedTrainers[facilityType] = kv.Value;
             }
+            // ギルドの店（§0.134）。旧セーブには無いので空
+            foreach (var kv in data.ShopWorkers ?? new Dictionary<string, List<Guid>>())
+                if (Enum.TryParse<ShopKind>(kv.Key, out var kind))
+                    state.ShopWorkers[kind] = new List<Guid>(kv.Value ?? new List<Guid>());
 
             // 教官の在任週数・重点伝授特性（教官深化 Step 3）。旧セーブには無いので空＝在任0週・自動のまま読む。
             // 教官のいない施設の記録は捨てる（任命が外れた記録が残らないように）。

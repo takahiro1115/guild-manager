@@ -35,8 +35,10 @@ namespace GuildManager.Core.Systems
     /// アルベールがギルドを作った理由である秘薬。相性が最大（→ soul_fusion.csv RequiredCompatibility）に達したペアに処方すると、
     /// 2人の素質を掛け合わせた娘が培養槽で育ち、CultureWeeks 週（2年、§0.118）後に16歳の新人として加わる。その間、季節ごとに選んだ育て方が反映される（→ ApplyNurture）。
     ///  - 解禁：研究「魂魄融和の秘薬」（→ ResearchIds.SoulFusion）
-    ///  - 親：ギルドにいる者（現役・引退者。除籍者は不可）。1人が親になれるのは生涯1回まで（→ Adventurer.HasUsedSoulFusion）。
-    ///    培養中も親は出撃できる
+    ///  - 親：現役の子と、役職（教官・顧問・店の働き手）についている引退者（§0.133・§0.134。ほかの引退者・除籍者は不可）。何度でも、どの相手とでも親になれる
+    ///    （ParentOnlyOnce が 1 なら生涯1回まで、→ Adventurer.HasUsedSoulFusion）。培養中も親は出撃できる
+    ///  - 世代と血の蓄え（§0.133）：娘の世代は親の大きいほう＋1。素質（PA）の上限は世代ごとに GenerationPaCapStep ずつ上がる（→ PaCapOf）。
+    ///    近い血（親子・姉妹・祖母と孫・おばと姪・いとこ）で作ると、娘の素質が下がる（→ KinshipOf）
     ///  - 費用：PrescriptionGold と、任意で触媒の素材1種（→ soul_fusion_catalysts.csv）
     ///  - 子：職業は処方時にどちらかの親のものを選ぶ。PA は能力ごとに両親の平均＋乱数（100で止める）。
     ///    百合相性（→ GetNyxTier）に応じた確率で能力限界突破が起き、最も高い能力のPAが100を超えうる（上限 BreakthroughPaCap）。
@@ -84,8 +86,90 @@ namespace GuildManager.Core.Systems
         public static int GetResearchPaBonus(GameState state) =>
             (int)Math.Round(ResearchBalance.GetTotalEffectValue(state, ResearchEffectType.SoulFusionPaBonus));
 
-        /// <summary>ギルドにいる者（現役＋引退者）。除籍者は親になれない。</summary>
-        public static IEnumerable<Adventurer> GuildMembers(GameState state) => state.Adventurers.Where(a => !a.NeverRetires).Concat(state.GuildRetirees); // 派遣の教官（§0.84）・ルミナ（§0.90）は親にならない
+        /// <summary>
+        /// 親になれる者：現役の子と、役職（教官・顧問・店の働き手）についてギルドに残っている引退者（§0.133・§0.134。ギルドを去った引退者・除籍者は親になれない）。
+        /// 引退した子の相性は引退したときのまま（任務を共にしないので上がらない）。
+        /// </summary>
+        public static IEnumerable<Adventurer> GuildMembers(GameState state)
+        {
+            var appointed = GuildPolicySystem.AppointedIds(state);
+            return state.Adventurers.Where(a => !a.NeverRetires) // 派遣の教官（§0.84）・ルミナ（§0.90）は親にならない
+                .Concat(state.GuildRetirees.Where(r => appointed.Contains(r.Id)));
+        }
+
+        // ==================== 世代・血の蓄え・近い血（§0.133） ====================
+
+        /// <summary>その世代の、能力の素質（PA）の上限：100＋GenerationPaCapStep×(世代−1)（GenerationPaCapMaxGen で止める）。限界突破した能力は BreakthroughPaCap に同じだけ足す。</summary>
+        public static int PaCapOf(int generation, bool breakthrough)
+        {
+            int gen = Math.Clamp(generation, 1, SoulFusionBalance.GenerationPaCapMaxGen);
+            return (breakthrough ? SoulFusionBalance.BreakthroughPaCap : SoulFusionBalance.NormalPaCap) + SoulFusionBalance.GenerationPaCapStep * (gen - 1);
+        }
+
+        /// <summary>その子のその能力の素質の上限（世代と限界突破から）。</summary>
+        public static int PaCapOf(Adventurer a, string stat) => PaCapOf(a.Generation, a.FusionBreakthroughStats.Contains(stat));
+
+        /// <summary>2代さかのぼった先祖（Id → 何代前か。親1・祖母2）。</summary>
+        private static Dictionary<Guid, int> Ancestors(GameState state, Adventurer a)
+        {
+            var result = new Dictionary<Guid, int>();
+            foreach (var p in a.ParentIds)
+            {
+                result.TryAdd(p, 1);
+                if (state.FindAdventurer(p) is { } parent)
+                    foreach (var g in parent.ParentIds) result.TryAdd(g, 2);
+            }
+            return result;
+        }
+
+        /// <summary>2人の血の近さ：親子・同じ両親の姉妹＝近い（Close）、片親が同じ姉妹・祖母と孫・おばと姪・いとこ＝やや近い（Near）。</summary>
+        public static Kinship KinshipOf(GameState state, Adventurer a, Adventurer b)
+        {
+            var ancA = Ancestors(state, a);
+            var ancB = Ancestors(state, b);
+            bool parentChild = ancA.TryGetValue(b.Id, out int da) && da == 1 || ancB.TryGetValue(a.Id, out int db) && db == 1;
+            bool fullSisters = a.ParentIds.Count == 2 && b.ParentIds.Count == 2 && a.ParentIds.All(b.ParentIds.Contains);
+            if (parentChild || fullSisters) return Kinship.Close;
+            if (ancA.ContainsKey(b.Id) || ancB.ContainsKey(a.Id) || ancA.Keys.Any(ancB.ContainsKey)) return Kinship.Near;
+            return Kinship.None;
+        }
+
+        /// <summary>近い血で下がる娘の素質（能力ごと、pt）。</summary>
+        public static int InbreedPenalty(Kinship k) => k switch
+        {
+            Kinship.Close => SoulFusionBalance.InbreedPenaltyClose,
+            Kinship.Near => SoulFusionBalance.InbreedPenaltyNear,
+            _ => 0,
+        };
+
+        /// <summary>血の近さの表示名。</summary>
+        public static string KinshipLabel(Kinship k) => k switch
+        {
+            Kinship.Close => "近い血",
+            Kinship.Near => "やや近い血",
+            _ => "",
+        };
+
+        /// <summary>娘の世代：親の大きいほう＋1。</summary>
+        public static int ChildGeneration(Adventurer a, Adventurer b) => Math.Max(a.Generation, b.Generation) + 1;
+
+        /// <summary>
+        /// 世代を親から数え直す（旧セーブ。§0.133 より前は世代を持っていない）。親が見つからなければ、その親は1世代として数える。
+        /// </summary>
+        public static void RecomputeGenerations(GameState state)
+        {
+            var all = state.Adventurers.Concat(state.RetiredAdventurers).Concat(state.FallenAdventurers)
+                .Concat(state.SoulFusionCultures.Select(c => c.Child)).GroupBy(a => a.Id).Select(g => g.First()).ToDictionary(a => a.Id);
+            var memo = new Dictionary<Guid, int>();
+            int Gen(Adventurer a, int depth)
+            {
+                if (memo.TryGetValue(a.Id, out int g)) return g;
+                if (a.ParentIds.Count == 0 || depth > 30) return memo[a.Id] = 1;
+                int best = a.ParentIds.Select(p => all.TryGetValue(p, out var parent) ? Gen(parent, depth + 1) : 1).Max();
+                return memo[a.Id] = best + 1;
+            }
+            foreach (var a in all.Values) a.Generation = Gen(a, 0);
+        }
 
         /// <summary>
         /// 2人が親のペアになれるか：別人で、2人ともギルドにいて（→ GuildMembers）、どちらもまだ親になっておらず、
@@ -94,7 +178,7 @@ namespace GuildManager.Core.Systems
         public static bool IsEligiblePair(GameState state, Adventurer a, Adventurer b)
         {
             if (a.Id == b.Id) return false;
-            if (a.HasUsedSoulFusion || b.HasUsedSoulFusion) return false;
+            if (SoulFusionBalance.ParentOnlyOnce && (a.HasUsedSoulFusion || b.HasUsedSoulFusion)) return false;
             var members = GuildMembers(state).ToList();
             if (!members.Contains(a) || !members.Contains(b)) return false;
             return CompatibilitySystem.GetCompatibility(state, a.Id, b.Id) >= SoulFusionBalance.RequiredCompatibility;
@@ -103,7 +187,7 @@ namespace GuildManager.Core.Systems
         /// <summary>親になれるペアの一覧（ギルドの並び順：現役→引退者）。画面の候補に使う。</summary>
         public static List<(Adventurer A, Adventurer B)> GetEligiblePairs(GameState state)
         {
-            var members = GuildMembers(state).Where(m => !m.HasUsedSoulFusion).ToList();
+            var members = GuildMembers(state).Where(m => !SoulFusionBalance.ParentOnlyOnce || !m.HasUsedSoulFusion).ToList();
             var pairs = new List<(Adventurer, Adventurer)>();
             for (int i = 0; i < members.Count; i++)
                 for (int j = i + 1; j < members.Count; j++)
@@ -215,7 +299,9 @@ namespace GuildManager.Core.Systems
                 JobClass = childJob,
                 Placement = PlacementRules.GetDefault(childJob),
                 ParentIds = new List<Guid> { a.Id, b.Id },
+                Generation = ChildGeneration(a, b), // 世代（§0.133）
             };
+            int inbreed = InbreedPenalty(KinshipOf(state, a, b)); // 近い血（§0.133）
 
             // ---- 能力の上限（PA）：両親の高い方へ寄せた基準＋ばらつき＋研究の上乗せ（§0.60）。限界突破しない能力は100で止める ----
             int varianceMin = Math.Min(SoulFusionBalance.PaVarianceMax,
@@ -224,7 +310,7 @@ namespace GuildManager.Core.Systems
             var rawPa = new Dictionary<string, int>();
             foreach (var stat in AdventurerStatAccessor.AllStatNames)
             {
-                rawPa[stat] = BasePa(AdventurerStatAccessor.GetPa(a, stat), AdventurerStatAccessor.GetPa(b, stat)) + researchBonus
+                rawPa[stat] = BasePa(AdventurerStatAccessor.GetPa(a, stat), AdventurerStatAccessor.GetPa(b, stat)) + researchBonus - inbreed
                     + _rng.NextInt(varianceMin, SoulFusionBalance.PaVarianceMax);
             }
 
@@ -234,14 +320,14 @@ namespace GuildManager.Core.Systems
             {
                 // 最も高い能力（同値なら AllStatNames の順で先のもの）の上限を外して上乗せする。
                 string best = AdventurerStatAccessor.AllStatNames.OrderByDescending(s => rawPa[s]).First();
-                rawPa[best] = Math.Min(SoulFusionBalance.BreakthroughPaCap,
+                rawPa[best] = Math.Min(PaCapOf(child.Generation, breakthrough: true),
                     rawPa[best] + _rng.NextInt(SoulFusionBalance.BreakthroughBonusMin, SoulFusionBalance.BreakthroughBonusMax));
                 breakthroughStats.Add(best);
             }
 
             foreach (var stat in AdventurerStatAccessor.AllStatNames)
             {
-                int cap = breakthroughStats.Contains(stat) ? SoulFusionBalance.BreakthroughPaCap : SoulFusionBalance.NormalPaCap;
+                int cap = PaCapOf(child.Generation, breakthroughStats.Contains(stat)); // 血の蓄え（§0.133）
                 int pa = Math.Clamp(rawPa[stat], 1, cap);
                 AdventurerStatAccessor.SetPa(child, stat, pa);
                 AdventurerStatAccessor.SetStat(child, stat, Math.Max(1, (int)(pa * RecruitmentBalance.YoungestGrowthRatio)));

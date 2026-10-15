@@ -45,6 +45,13 @@ namespace GuildManager.Core.Balance
         public static readonly int CultureWeeks = BalanceData.GetInt(FileName, "CultureWeeks");
         public static readonly int CultureTankCount = BalanceData.GetInt(FileName, "CultureTankCount");
 
+        /// <summary>親になれるのは生涯1回までか（false なら何度でも、どの相手とでも）。</summary>
+        public static readonly bool ParentOnlyOnce = BalanceData.GetInt(FileName, "ParentOnlyOnce") != 0;
+        public static readonly int GenerationPaCapStep = BalanceData.GetInt(FileName, "GenerationPaCapStep");
+        public static readonly int GenerationPaCapMaxGen = BalanceData.GetInt(FileName, "GenerationPaCapMaxGen");
+        public static readonly int InbreedPenaltyClose = BalanceData.GetInt(FileName, "InbreedPenaltyClose");
+        public static readonly int InbreedPenaltyNear = BalanceData.GetInt(FileName, "InbreedPenaltyNear");
+
         // ---- 培養槽の2年と育て方（§0.118、→ SoulFusionSystem.ProcessWeeklyCultures） ----
 
         /// <summary>娘が名簿に加わるときの年齢。</summary>

@@ -218,6 +218,10 @@ namespace GuildManager.Core.Systems
 
                     adventurer.NegotiationWeeksElapsed++;
                 }
+                else if (adventurer.NegotiationCooldownWeeks > 0)
+                {
+                    adventurer.NegotiationCooldownWeeks--; // 交渉に応じたあとの間（§0.134）
+                }
                 else if (adventurer.Satisfaction < SatisfactionBalance.NegotiationThreshold)
                 {
                     adventurer.NeedsNegotiation = true;
@@ -250,8 +254,17 @@ namespace GuildManager.Core.Systems
             ResolveNegotiation(adventurer);
         }
 
+        /// <summary>
+        /// 交渉を終える：待遇に納得して満足度が NegotiationSatisfactionGain 上がり、NegotiationCooldownWeeks のあいだは次の交渉にならない（§0.134。
+        /// 前は満足度が上がらず、不満のもとが残ると翌週また交渉になり、昇給を重ねて週給がふくらんでいた）。
+        /// </summary>
         private static void ResolveNegotiation(Adventurer adventurer)
         {
+            if (adventurer.NeedsNegotiation) // 交渉に応じたときだけ（引き抜きの引き留め・ふだんの一時金は別の決まり）
+            {
+                Adjust(adventurer, SatisfactionBalance.NegotiationSatisfactionGain);
+                adventurer.NegotiationCooldownWeeks = SatisfactionBalance.NegotiationCooldownWeeks;
+            }
             adventurer.NeedsNegotiation = false;
             adventurer.NegotiationWeeksElapsed = 0;
         }

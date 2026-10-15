@@ -58,6 +58,7 @@ namespace GuildManager.Core.Systems
             var ids = state.AssignedTrainers.Values.OfType<Guid>().ToList();
             if (state.AssignedAdvisor is Guid advisor) ids.Add(advisor);
             if (state.AssignedScoutMaster is Guid scout) ids.Add(scout);
+            ids.AddRange(GuildShopSystem.AllWorkers(state)); // ギルドの店の働き手（§0.134）
             return ids.Distinct().Select(id => state.RetiredAdventurers.FirstOrDefault(r => r.Id == id)).OfType<Adventurer>().Where(r => !r.IsGuest).ToList();
         }
 

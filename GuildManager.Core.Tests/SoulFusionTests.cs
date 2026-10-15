@@ -65,12 +65,12 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void CsvValues_AreLoaded()
         {
-            Assert.Equal(100, SoulFusionBalance.RequiredCompatibility);
+            Assert.Equal(80, SoulFusionBalance.RequiredCompatibility); // §0.133 で100→80
             Assert.Equal(2500, SoulFusionBalance.PrescriptionGold);
-            Assert.Equal(96, SoulFusionBalance.CultureWeeks); // §0.118 で12→96（2年）
+            Assert.Equal(48, SoulFusionBalance.CultureWeeks); // §0.118 で12→96（2年）、§0.133 で48（1年）
             Assert.Equal(16, SoulFusionBalance.ChildJoinAge);
             Assert.Equal(1, SoulFusionBalance.CultureTankCount);
-            Assert.Equal(-5, SoulFusionBalance.PaVarianceMin);
+            Assert.Equal(-2, SoulFusionBalance.PaVarianceMin); // §0.133 で−5→−2
             Assert.Equal(10, SoulFusionBalance.PaVarianceMax);
             Assert.Equal(30, SoulFusionBalance.BreakthroughChanceDestined);
             Assert.Equal(15, SoulFusionBalance.BreakthroughChanceComplementary);
@@ -130,23 +130,27 @@ namespace GuildManager.Core.Tests
         public void Check_NotEligible_WhenCompatibilityBelowMax_OrSamePerson_OrAlreadyParent()
         {
             var (state, a, b) = Setup();
-            state.Compatibility[CompatibilitySystem.NormalizeKey(a.Id, b.Id)] = 99;
+            state.Compatibility[CompatibilitySystem.NormalizeKey(a.Id, b.Id)] = SoulFusionBalance.RequiredCompatibility - 1;
             Assert.Equal(SoulFusionCheck.NotEligiblePair, SoulFusionSystem.CheckPrescription(state, a, b, JobClass.Cleric, null));
 
-            state.Compatibility[CompatibilitySystem.NormalizeKey(a.Id, b.Id)] = 100;
+            state.Compatibility[CompatibilitySystem.NormalizeKey(a.Id, b.Id)] = SoulFusionBalance.RequiredCompatibility;
             Assert.Equal(SoulFusionCheck.NotEligiblePair, SoulFusionSystem.CheckPrescription(state, a, a, JobClass.Warrior, null));
 
-            b.HasUsedSoulFusion = true;
-            Assert.Equal(SoulFusionCheck.NotEligiblePair, SoulFusionSystem.CheckPrescription(state, a, b, JobClass.Cleric, null));
+            b.HasUsedSoulFusion = true; // §0.133：親は何度でもなれる
+            Assert.Equal(SoulFusionCheck.Ok, SoulFusionSystem.CheckPrescription(state, a, b, JobClass.Cleric, null));
         }
 
         [Fact]
-        public void Check_RetiredParent_IsAllowed_ButExpelledIsNot()
+        public void Check_RetiredParent_IsAllowedOnlyAsATrainer_AndExpelledIsNot()
         {
             var (state, a, b) = Setup();
             state.Adventurers.Remove(b);
             b.IsRetired = true;
             state.RetiredAdventurers.Add(b);
+            Assert.Equal(SoulFusionCheck.NotEligiblePair, SoulFusionSystem.CheckPrescription(state, a, b, JobClass.Cleric, null)); // ギルドを去った（§0.133）
+            Assert.Empty(SoulFusionSystem.GetEligiblePairs(state));
+
+            state.AssignedTrainers[FacilityType.DrillHall] = b.Id; // 教官として残っている
             Assert.Equal(SoulFusionCheck.Ok, SoulFusionSystem.CheckPrescription(state, a, b, JobClass.Cleric, null));
             Assert.Single(SoulFusionSystem.GetEligiblePairs(state));
 
@@ -290,7 +294,7 @@ namespace GuildManager.Core.Tests
             foreach (var stat in AllStats) { SetPa(a, stat, 100); SetPa(b, stat, 100); }
             var capped = new SoulFusionSystem(new AlwaysMaxRng()).CreateChild(state, a, b, JobClass.Knight, null);
             Assert.Empty(capped.BreakthroughStats);
-            Assert.All(AllStats, stat => Assert.Equal(100, GetPa(capped.Child, stat)));
+            Assert.All(AllStats, stat => Assert.Equal(105, GetPa(capped.Child, stat))); // 2世代の娘は上限105（血の蓄え、§0.133）
         }
 
         [Fact]
@@ -300,8 +304,8 @@ namespace GuildManager.Core.Tests
             // 文化圏・名前 → ばらつきは下限（−100を下限に収める）×7 → 突破の判定100（外れ）→ 以降100
             var plain = new SoulFusionSystem(new SequenceRng(100, 0, -100, -100, -100, -100, -100, -100, -100, 100)).CreateChild(state, a, b, JobClass.Warrior, null).Child;
             var herb = new SoulFusionSystem(new SequenceRng(100, 0, -100, -100, -100, -100, -100, -100, -100, 100)).CreateChild(state, a, b, JobClass.Warrior, "mat_forest_herb").Child;
-            Assert.All(AllStats, stat => Assert.Equal(75, GetPa(plain, stat))); // 80−5
-            Assert.All(AllStats, stat => Assert.Equal(80, GetPa(herb, stat)));  // 80+0（両親の平均を下回らない）
+            Assert.All(AllStats, stat => Assert.Equal(78, GetPa(plain, stat))); // 80−2（§0.133）
+            Assert.All(AllStats, stat => Assert.Equal(83, GetPa(herb, stat)));  // 80−2+5（下限が5上がる）
         }
 
         [Fact]
@@ -316,9 +320,9 @@ namespace GuildManager.Core.Tests
                 .CreateChild(state, a, b, JobClass.Warrior, null);
 
             Assert.Equal(new[] { "STR" }, culture.BreakthroughStats);
-            Assert.Equal(120, culture.Child.PA_STR); // 110+15 → 上限120
+            Assert.Equal(125, culture.Child.PA_STR); // 110+15 → 2世代の限界突破の上限125（120＋血の蓄え5、§0.133）
             Assert.Equal(90, culture.Child.PA_AGI);
-            Assert.Equal((int)(120 * RecruitmentBalance.YoungestGrowthRatio), culture.Child.STR);
+            Assert.Equal((int)(125 * RecruitmentBalance.YoungestGrowthRatio), culture.Child.STR);
         }
 
         // ---------------- 特性の継承 ----------------
@@ -598,8 +602,8 @@ namespace GuildManager.Core.Tests
             Assert.DoesNotContain(lines, t => t.Contains("{母"));
 
             var report = MonthlyReport.Build(state, new List<AutoSkipWeek>(), 0);
-            Assert.Contains(report.Notes, n => n.Text.Contains($"培養槽の{culture.Child.Name}") && n.Text.Contains("2年"));
-            Assert.Equal("1年11か月", SoulFusionSystem.RemainingLabel(new SoulFusionCulture { WeeksRemaining = SoulFusionBalance.CultureWeeks - 4 }));
+            Assert.Contains(report.Notes, n => n.Text.Contains($"培養槽の{culture.Child.Name}") && n.Text.Contains("1年"));
+            Assert.Equal("11か月", SoulFusionSystem.RemainingLabel(new SoulFusionCulture { WeeksRemaining = SoulFusionBalance.CultureWeeks - 4 }));
             Assert.Equal("1か月", SoulFusionSystem.RemainingLabel(new SoulFusionCulture { WeeksRemaining = 1 }));
         }
 

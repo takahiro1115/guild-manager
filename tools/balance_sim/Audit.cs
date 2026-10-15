@@ -37,6 +37,9 @@ partial class GameSim
         UseCommissions = l3; UseElixirs = l3; UseSoulFusion = l3;
         // 個別に外す
         if (opts.Contains("notourney")) TourneyMode = "off";
+        if (opts.Contains("norulers")) NoRulerFights = true;
+        if (opts.Contains("noshop")) UseShops = false;
+        if (opts.Contains("prudent")) PrudentRulers = true;
         if (opts.Contains("tourney")) TourneyMode = "all";
         if (opts.Contains("nocomm")) UseCommissions = false;
         if (opts.Contains("comm")) UseCommissions = true;
@@ -122,7 +125,15 @@ partial class GameSim
                 WaitingSquadWeeks += orderEvents.Count(e => e.Action == SquadOrderAction.Waiting);
                 DispatchedSquadWeeks += orderEvents.Count(e => e.Action == SquadOrderAction.Dispatched);
                 int goldBefore = s.Gold;
+                int wages = s.Adventurers.Where(a => !a.IsRetired && !a.IsOnLoan).Sum(a => a.WeeklyWage);
                 var result = week.ProcessWeek(s);
+                {
+                    long side = result.SideJobIncome?.FinalGold ?? 0, shop = result.ShopSales.Sum(x => x.Gold);
+                    long stip = -result.StipendsPaid, upkeep = -result.UpkeepPaid, loan = -result.LoanRepaid, wage = -wages;
+                    YBook("内職", side); YBook("ギルドの店", shop); YBook("手当", stip); YBook("維持費", upkeep); YBook("借金の返済", loan); YBook("週給（見込み）", wage);
+                    YBook("決算のその他（迷宮・依頼・大会・訓練・退職金など）", s.Gold - goldBefore - side - shop - stip - upkeep - loan - wage);
+                    if (Trace) Console.WriteLine($"   内訳 週給{wage} 手当{stip} 維持費{upkeep} 借金{loan} 内職{side} 店{shop} その他{s.Gold - goldBefore - side - shop - stip - upkeep - loan - wage} スポンサー達成{result.Sponsors.Completed.Count}未達{result.Sponsors.Failed.Count} 大会{result.TournamentsResolved.Count} 依頼{result.Commissions}");
+                }
                 monthWeeks.Add(new AutoSkipWeek(orderEvents, result));
                 AfterWeek(result, goldBefore);
                 if (s.DefeatReason != null) { Defeat = s.DefeatReason + $"（{s.WeekNumber}週）"; return; }
@@ -197,6 +208,24 @@ partial class GameSim
     /// <summary>満足度の段階ごとの冒険者・週（§0.101）と、出来事（§0.102）・維持費と手当（§0.103）の合計。</summary>
     public readonly int[] StageWeeks = new int[4];
     public int GoodIncidents, BadIncidents, UpkeepTotal, StipendTotal, PoachLeft, LoanRepaidTotal, SponsorWins, SponsorLosses, RetireesLeft, TrainingInjuries;
+
+    /// <summary>お金の台帳（年 → 項目 → 増減の合計）。手番の手は前後の所持金の差、週の決算は内訳から数える。</summary>
+    public readonly Dictionary<int, Dictionary<string, long>> YearLedger = new();
+
+    void YBook(string key, long gold)
+    {
+        if (gold == 0) return;
+        int year = GameCalendar.YearOf(s.WeekNumber);
+        if (!YearLedger.TryGetValue(year, out var row)) YearLedger[year] = row = new Dictionary<string, long>();
+        row[key] = row.GetValueOrDefault(key) + gold;
+    }
+
+    void YLed(string key, Action act)
+    {
+        int g = s.Gold;
+        act();
+        YBook(key, s.Gold - g);
+    }
 
     void AfterWeek(WeeklySettlementResult result, int goldBefore)
     {
@@ -287,15 +316,15 @@ partial class GameSim
             if (first) SetupOnce();
             return;
         }
-        RulerTurn(); // 支配者戦（§0.127）
-        AnswerManagement();
-        if (UseNegotiation) HandleNegotiations();
-        HandleCommissions();
-        HandleLoot();
-        Shop();
-        BuildFacility();
-        CampaignUpkeep();
-        EnterTournaments();
+        YLed("支配者戦（手番）", RulerTurn); // 支配者戦（§0.127）
+        YLed("経営の判断", AnswerManagement);
+        if (UseNegotiation) YLed("契約交渉", HandleNegotiations);
+        YLed("依頼（手番）", HandleCommissions);
+        YLed("遺物・武具・素材の売買", HandleLoot);
+        YLed("店で買う", Shop);
+        YLed("施設", BuildFacility);
+        YLed("研究・霊薬・秘薬・教官", CampaignUpkeep);
+        YLed("大会の出場", EnterTournaments);
         FormSquads();
         if (UseTraining) AssignTraining();
     }
@@ -456,6 +485,27 @@ partial class GameSim
             var l = sims.Where(x => x.YearlyKills.Count > y).Select(x => (double)x.YearlyKills[y]).ToList();
             return l.Count == 0 ? null : $"{y + 2}年目 {Median(l):F0}";
         }).OfType<string>()));
+        {
+            // お金の台帳：破産した回の、破産した年の前年と前々年の平均（1年あたり）。破産しなかった回は 7〜8年目の平均
+            var broke = sims.Where(x => x.Defeat?.StartsWith("Bankruptcy") == true).ToList();
+            var safe = sims.Except(broke).ToList();
+            var keys = sims.SelectMany(x => x.YearLedger.Values.SelectMany(r => r.Keys)).Distinct().ToList();
+            string Row(List<GameSim> list, Func<GameSim, IEnumerable<int>> years)
+            {
+                var parts = keys.Select(k =>
+                {
+                    var vals = list.SelectMany(x => years(x).Select(y => x.YearLedger.TryGetValue(y, out var r) ? r.GetValueOrDefault(k) : 0L)).ToList();
+                    return (k, avg: vals.Count == 0 ? 0 : vals.Average());
+                }).Where(p => Math.Abs(p.avg) >= 1).OrderBy(p => p.avg);
+                return string.Join("　", parts.Select(p => $"{p.k} {p.avg:+0;-0}"));
+            }
+            int YearOfDefeat(GameSim x) => int.Parse(new string(x.Defeat!.SkipWhile(c => c != '（').Skip(1).TakeWhile(char.IsDigit).ToArray())) / 48 + 1;
+            if (broke.Count > 0)
+                Console.WriteLine($"お金の台帳（破産した{broke.Count}回の、破産の前々年と前年、1年あたりG）：" + Row(broke, x => new[] { YearOfDefeat(x) - 2, YearOfDefeat(x) - 1 }));
+            if (safe.Count > 0)
+                Console.WriteLine($"お金の台帳（破産しなかった{safe.Count}回の、7〜8年目、1年あたりG）：" + Row(safe, x => new[] { 7, 8 }));
+            Console.WriteLine("お金の台帳（全回の5〜6年目、1年あたりG）：" + Row(sims, x => new[] { 5, 6 }));
+        }
         double years = sims.Sum(x => (x.s.WeekNumber - 1) / 48.0);
         int turns = sims.Sum(x => x.Turns.Count);
         int idle = sims.Sum(x => x.Turns.Count(t => t.ActionCount == 0));

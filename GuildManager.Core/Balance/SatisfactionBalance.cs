@@ -76,6 +76,8 @@ namespace GuildManager.Core.Balance
         // ---- 契約交渉（§5.2） ----
         public static readonly int NegotiationThreshold = BalanceData.GetInt(FileName, "NegotiationThreshold");
         public static readonly int NegotiationGraceWeeks = BalanceData.GetInt(FileName, "NegotiationGraceWeeks");
+        public static readonly int NegotiationSatisfactionGain = BalanceData.GetInt(FileName, "NegotiationSatisfactionGain");
+        public static readonly int NegotiationCooldownWeeks = BalanceData.GetInt(FileName, "NegotiationCooldownWeeks");
 
         /// <summary>昇給倍率の許容レンジ（週給1.5〜2.0倍提示、§5.2）。</summary>
         public static readonly double MinRaiseMultiplier = BalanceData.GetDouble(FileName, "MinRaiseMultiplier");

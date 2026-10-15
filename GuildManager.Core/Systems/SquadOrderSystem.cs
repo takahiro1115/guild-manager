@@ -121,6 +121,13 @@ namespace GuildManager.Core.Systems
             {
                 case SquadOrder.Dive:
                     if (boss == null) return (false, $"{field.Name}は制覇済みで、潜る先のボスがいない");
+                    // 次が支配者（§0.127）なら、扉前で引き返すだけになるので、その週は採取して稼ぐ（§0.134）
+                    if (RulerSystem.RulerAt(state, boss) is { } waiting)
+                        return _expedition.TryDispatchGathering(state, party, field)
+                            ? (true, saved.OrderFieldId == SavedParty.AutoFieldId
+                                ? $"潜れるダンジョンの次はどこも支配者のため、{field.Name}で採取する"
+                                : $"{field.Name}の次は支配者{RulerSystem.NameOf(waiting.RulerId)}のため、採取する（支配者は支配者戦で挑む）")
+                            : (false, "出撃できなかった");
                     return _expedition.TryDispatch(state, party, boss, DungeonMissionType.Scouting)
                         ? (true, $"{field.Name}の第1層から潜行を始める（目標：第{boss.Floor}層の扉前）")
                         : (false, "出撃できなかった");
@@ -172,9 +179,10 @@ namespace GuildManager.Core.Systems
             {
                 case SquadOrder.Dive:
                 {
-                    // 支配者（§0.127）の待つフィールドは潜行の行き先にしない（扉前で必ず引き返すため）
+                    // 支配者（§0.127）の待つフィールドは潜行の行き先にしない（扉前で必ず引き返すため）。
+                    // どこも次が支配者なら、その週は採取の行き先を選ぶ（§0.134。→ DispatchByOrder が採取に回す）
                     var candidates = unlocked.Select(f => (Field: f, Boss: f.GetNextActiveBoss())).Where(x => x.Boss != null && RulerSystem.RulerAt(state, x.Boss) == null).ToList();
-                    if (candidates.Count == 0) return null;
+                    if (candidates.Count == 0) return GatherField(unlocked, party);
                     return candidates
                         .OrderByDescending(x => DungeonResolver.CalculateBossPower(party, x.Boss!, state) / Math.Max(1.0, DungeonResolver.RequiredPower(x.Boss!, state, party)))
                         .First().Field;
@@ -188,12 +196,16 @@ namespace GuildManager.Core.Systems
                     return open.Count > 0 ? open[0].Field : unlocked.OrderByDescending(f => f.ReachedFloor).First();
                 }
                 default:
-                    return unlocked
-                        .OrderByDescending(f => GuardRank(GatheringResolver.PreviewGuardTier(party, f)))
-                        .ThenByDescending(f => f.ReachedFloor)
-                        .First();
+                    return GatherField(unlocked, party);
             }
         }
+
+        /// <summary>採取の行き先：護衛の段階が最も良く、同じなら最高到達階層が深いダンジョン。</summary>
+        private static DungeonField GatherField(List<DungeonField> unlocked, Party party) =>
+            unlocked
+                .OrderByDescending(f => GuardRank(GatheringResolver.PreviewGuardTier(party, f)))
+                .ThenByDescending(f => f.ReachedFloor)
+                .First();
 
         private static int GuardRank(GuardTier tier) => tier switch
         {
@@ -218,9 +230,7 @@ namespace GuildManager.Core.Systems
             var field = ResolveField(state, saved);
             if (field == null) return saved.OrderFieldId == SavedParty.AutoFieldId ? "おまかせで選べるダンジョンがない" : "方針の対象フィールドが見つからない";
             if (!field.IsUnlocked) return $"{field.Name}がまだ開放されていない";
-            // 支配者（§0.127）の待つフィールドへは潜行しない（扉前で必ず引き返すため）。調査・採取はできる
-            if (saved.Order == SquadOrder.Dive && field.GetNextActiveBoss() is { } next && RulerSystem.RulerAt(state, next) is { } ruler)
-                return $"{field.Name}の次は支配者{RulerSystem.NameOf(ruler.RulerId)}が待っている（支配者戦で挑む。潜行の行き先を変えるか、調査で解析を進める）";
+            // 支配者（§0.127）の待つフィールドへの潜行は、その週は採取に回す（§0.134、→ DispatchByOrder）
             var members = saved.MemberIds.Select(id => state.Adventurers.FirstOrDefault(a => a.Id == id)).OfType<Adventurer>().ToList();
             if (members.Count == 0) return "部隊にメンバーがいない";
             // 訓練中の冒険者はその月は出撃せず、ほかの隊員だけで出る（§0.70）。全員が訓練中なら待機。
