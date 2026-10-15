@@ -63,7 +63,11 @@ namespace GuildManager.Core.Systems
         /// 週報の内訳に載せる。
         /// </summary>
         public static int ApplyForcedRetirementFury(GameState state, int retiredCount) =>
-            retiredCount <= 0 ? 0 : Adjust(state, -MasterMoodBalance.ForcedRetirementMoodLoss * retiredCount);
+            retiredCount <= 0 ? 0 : Adjust(state, -FuryLoss(retiredCount));
+
+        /// <summary>除籍がこの人数のときの激怒の量（正の値）。1人あたり ForcedRetirementMoodLoss、一度の戦いで ForcedRetirementMoodLossCap まで（§0.136）。</summary>
+        public static int FuryLoss(int retiredCount) =>
+            retiredCount <= 0 ? 0 : Math.Min(MasterMoodBalance.ForcedRetirementMoodLoss * retiredCount, MasterMoodBalance.ForcedRetirementMoodLossCap);
 
         /// <summary>強制除籍時のアルベールの激怒の台詞（週報の【アルベールの激怒】行）。</summary>
         public const string FuryLine = "「うちの子に何て無茶をさせたの！ あなた、自分が何をしたか分かっているの!?」";
@@ -103,7 +107,7 @@ namespace GuildManager.Core.Systems
             {
                 report.Entries.Add(new MasterMoodEntry(
                     $"アルベールの激怒（除籍{r.MasterFuryRetiredCount}名×{MasterMoodBalance.ForcedRetirementMoodLoss}）",
-                    -MasterMoodBalance.ForcedRetirementMoodLoss * r.MasterFuryRetiredCount, r.MasterFuryMoodApplied));
+                    -FuryLoss(r.MasterFuryRetiredCount), r.MasterFuryMoodApplied)); // 一度の戦いの上限あり（§0.136）
             }
 
             bool hadActivity = false;

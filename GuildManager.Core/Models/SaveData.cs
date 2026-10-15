@@ -52,6 +52,8 @@ namespace GuildManager.Core.Models
         /// 状況がリセットされてしまう（実質的なチート状態になる）ため追加した。
         /// </summary>
         public int ConsecutiveNegativeGoldWeeks { get; set; }
+        /// <summary>副官解雇の最後通告の期限の週（§0.136）。旧セーブは null。</summary>
+        public int? DismissalWarningUntilWeek { get; set; }
 
         /// <summary>
         /// 敗北理由（→ 03 §8.3）。null＝まだ敗北していない。指示書のSaveData

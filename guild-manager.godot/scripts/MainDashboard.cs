@@ -900,7 +900,15 @@ public partial class MainDashboard : Control
 
 		LogCommissionArrivals(settlement.Arrivals); // → §0.64：新しい週に届いた依頼・異変の予告・期限の近い依頼
 
-		// 敗北条件判定（→ 03 §8.3）：副官解雇（マスターの機嫌0、猶予なし即時敗北）／
+		// 危機（§0.136）：最後通告・機嫌の危機・所持金のマイナス。この週で月が止まる
+		if (settlement.Flags.DismissalWarningIssued && _state.DismissalWarningUntilWeek is int deadline)
+			AppendLog($"[color=red][b]⚠ マスターの機嫌が0になった。アルベールから最後通告：{GameCalendar.FormatMonth(deadline)}の終わりまでに機嫌を{MasterMoodBalance.DismissalRecoverMood}へ戻さなければ、副官は解雇される。[/b][/color]");
+		else if (settlement.Flags.MoodEnteredCrisis)
+			AppendLog($"[color=orange][b]⚠ マスターの機嫌が危機に入った（{_state.MasterMood}）。0になると最後通告を受ける。[/b][/color]");
+		if ((settlement.Flags.GoldTurnedNegative || settlement.Flags.BankruptcyImminent) && DefeatSystem.WeeksUntilBankruptcy(_state) is int left)
+			AppendLog($"[color=red][b]⚠ 所持金がマイナス（{_state.Gold} G）。あと{left}週マイナスが続くと破産する。[/b][/color]");
+
+		// 敗北条件判定（→ 03 §8.3）：副官解雇（最後通告の期限までに機嫌が戻らない、§0.136）／
 		// 破産（所持金マイナス4週連続、猶予あり）。期限による敗北は無い。
 		if (settlement.NewDefeatReason != null)
 		{
@@ -913,7 +921,7 @@ public partial class MainDashboard : Control
 			AppendLog($"[color=red][font_size=24][b]■■■ ゲームオーバー：{reasonLabel} ■■■[/b][/font_size][/color]");
 			AppendLog(settlement.NewDefeatReason switch
 			{
-				DefeatReason.DismissedByMaster => "[color=red]マスターの機嫌が0に達した。「退屈なギルドに副官は要らん」――あなたはアルベールに解雇された。[/color]",
+				DefeatReason.DismissedByMaster => "[color=red]最後通告の期限までに、マスターの機嫌は戻らなかった。「退屈なギルドに副官は要らん」――あなたはアルベールに解雇された。[/color]",
 				DefeatReason.Bankruptcy => "[color=red]所持金マイナスが4週連続で解消されませんでした。[/color]",
 				_ => "[color=red]脅威度が100%に到達し、街の治安が崩壊しました。[/color]",
 			});
@@ -1719,8 +1727,8 @@ public partial class MainDashboard : Control
 		if (resolution.MasterFuryRetiredCount > 0)
 		{
 			sb.AppendLine($"[color=red][b]【アルベールの激怒】{MasterMoodSystem.FuryLine} " +
-				$"(機嫌 -{MasterMoodBalance.ForcedRetirementMoodLoss * resolution.MasterFuryRetiredCount}" +
-				$"{(resolution.MasterFuryRetiredCount > 1 ? $"〔除籍{resolution.MasterFuryRetiredCount}名×{MasterMoodBalance.ForcedRetirementMoodLoss}〕" : "")})[/b][/color]");
+				$"(機嫌 -{MasterMoodSystem.FuryLoss(resolution.MasterFuryRetiredCount)}" +
+				$"{(resolution.MasterFuryRetiredCount > 1 ? $"〔除籍{resolution.MasterFuryRetiredCount}名×{MasterMoodBalance.ForcedRetirementMoodLoss}、一度の戦いで最大{MasterMoodBalance.ForcedRetirementMoodLossCap}〕" : "")})[/b][/color]");
 		}
 		if (resolution.ReturnedHome)
 		{
@@ -2216,10 +2224,14 @@ public partial class MainDashboard : Control
 		_weekLabel.TooltipText = $"通算 第{_state.WeekNumber}週（その年の第{GameCalendar.WeekOfYear(_state.WeekNumber)}週）\n" +
 			$"1年＝{GameCalendar.WeeksPerYear}週＝春夏秋冬×{GameCalendar.MonthsPerSeason}か月×{GameCalendar.WeeksPerMonth}週。「次の月へ」で1か月ずつ進む。毎年 春の第1週に新春採用試験（2年目から）。";
 		_goldLabel.Text = $"所持金: {_state.Gold} G";
+		if (DefeatSystem.WeeksUntilBankruptcy(_state) is int weeksLeft) // 危機（§0.136）
+			_goldLabel.Text += $"（⚠破産まであと{weeksLeft}週）";
 		// マスターの機嫌（→ 03 §8.1。旧・ギルド格付け／名声の表示枠を流用）。
 		var moodTier = MasterMoodSystem.GetTier(_state.MasterMood);
 		// §0.80：段階名と数値だけを見せ、内職の倍率と段階の境目はツールチップへ回す（ヘッダーが詰まって読みにくかった）。
 		_rankLabel.Text = $"マスターの機嫌：{MoodTierLabel(moodTier)}（{_state.MasterMood}）";
+		if (_state.DismissalWarningUntilWeek is int until) // 最後通告（§0.136）
+			_rankLabel.Text += $"　⚠最後通告：{GameCalendar.FormatMonth(until)}の終わりまでに{MasterMoodBalance.DismissalRecoverMood}へ";
 		_rankLabel.AddThemeColorOverride("font_color", moodTier switch
 		{
 			MasterMoodTier.Cheerful => new Color(0.55f, 0.9f, 0.55f),
@@ -2228,7 +2240,7 @@ public partial class MainDashboard : Control
 			_ => new Color(1.0f, 0.4f, 0.4f),
 		});
 		_rankLabel.MouseFilter = Control.MouseFilterEnum.Pass;
-		_rankLabel.TooltipText = $"マスター（アルベール）の機嫌 {_state.MasterMood}/100。大迷宮での成果で上がり、何もしないと下がる。0になると副官（あなた）は解雇される。\n" +
+		_rankLabel.TooltipText = $"マスター（アルベール）の機嫌 {_state.MasterMood}/100。大迷宮での成果で上がり、何もしないと下がる。0になると最後通告を受け、次の月の終わりまでに{MasterMoodBalance.DismissalRecoverMood}へ戻さないと副官（あなた）は解雇される。\n" +
 			$"内職の売上 ×{MasterMoodSystem.GetSideJobMultiplier(moodTier):0.0}（上機嫌 {MasterMoodBalance.TierThresholdCheerful}以上 ×{MasterMoodSystem.GetSideJobMultiplier(MasterMoodTier.Cheerful):0.0}／平常 {MasterMoodBalance.TierThresholdNormal}以上 ×{MasterMoodSystem.GetSideJobMultiplier(MasterMoodTier.Normal):0.0}／" +
 			$"不機嫌 {MasterMoodBalance.TierThresholdGrumpy}以上 ×{MasterMoodSystem.GetSideJobMultiplier(MasterMoodTier.Grumpy):0.0}／危機 ×{MasterMoodSystem.GetSideJobMultiplier(MasterMoodTier.Crisis):0.0}）";
 		// 同時出撃枠の使用状況（→ コアシステム刷新仕様「4. 進行管理」）。

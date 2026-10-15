@@ -41,6 +41,13 @@ namespace GuildManager.Core.Balance
         /// → MasterMoodSystem.ApplyForcedRetirementFury、2026年9月新設）。
         /// </summary>
         public static readonly int ForcedRetirementMoodLoss = BalanceData.GetInt(FileName, "ForcedRetirementMoodLoss");
+        /// <summary>強制除籍の激怒の上限（§0.136）：一度の戦いで除籍が何人出ても、機嫌はこの値までしか下がらない。</summary>
+        public static readonly int ForcedRetirementMoodLossCap = BalanceData.GetInt(FileName, "ForcedRetirementMoodLossCap");
+
+        /// <summary>副官解雇の猶予（§0.136）：機嫌0で最後通告、この月数だけ先の月の終わりまでに戻らなければ解雇。0なら即時。</summary>
+        public static readonly int DismissalGraceMonths = BalanceData.GetInt(FileName, "DismissalGraceMonths");
+        /// <summary>最後通告を解く機嫌（§0.136）。</summary>
+        public static readonly int DismissalRecoverMood = BalanceData.GetInt(FileName, "DismissalRecoverMood");
 
         /// <summary>成果ゼロ週の退屈減衰量（正の値で持つ）。</summary>
         public static readonly int BoredomMoodDecay = BalanceData.GetInt(FileName, "BoredomMoodDecay");

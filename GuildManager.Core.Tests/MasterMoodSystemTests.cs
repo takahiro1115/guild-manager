@@ -223,14 +223,94 @@ namespace GuildManager.Core.Tests
         // ---------------- 副官解雇（機嫌0でゲームオーバー） ----------------
 
         [Fact]
-        public void DefeatSystem_MoodZero_DismissedByMaster()
+        public void DefeatSystem_MoodZero_GivesAFinalWarning_ThenDismissesAtTheDeadline()
         {
-            var state = new GameState { MasterMood = 0, Gold = 1000 };
+            // 機嫌0の週は最後通告（§0.136）：期限は次の月の最後の週。期限までは負けない
+            var state = new GameState { MasterMood = 0, Gold = 1000, WeekNumber = 6 }; // 2の月の第2週
+            var defeat = new DefeatSystem();
+            Assert.Null(defeat.ProcessWeeklySettlement(state));
+            Assert.Null(state.DefeatReason);
+            Assert.Equal(12, state.DismissalWarningUntilWeek); // 3の月の第4週
+            Assert.Equal(12, DefeatSystem.DismissalDeadline(6));
+            Assert.Equal(8, DefeatSystem.DismissalDeadline(4)); // 月の最後の週に受けても、次の月の終わりまで
 
-            var reason = new DefeatSystem().ProcessWeeklySettlement(state);
-
-            Assert.Equal(DefeatReason.DismissedByMaster, reason);
+            state.WeekNumber = 11;
+            state.MasterMood = MasterMoodBalance.DismissalRecoverMood - 1;
+            Assert.Null(defeat.ProcessWeeklySettlement(state));
+            state.WeekNumber = 12;
+            Assert.Equal(DefeatReason.DismissedByMaster, defeat.ProcessWeeklySettlement(state));
             Assert.Equal(DefeatReason.DismissedByMaster, state.DefeatReason);
+        }
+
+        [Fact]
+        public void DefeatSystem_FinalWarning_IsLifted_WhenMoodRecovers()
+        {
+            var state = new GameState { MasterMood = 0, Gold = 1000, WeekNumber = 6 };
+            var defeat = new DefeatSystem();
+            defeat.ProcessWeeklySettlement(state);
+            state.WeekNumber = 9;
+            state.MasterMood = MasterMoodBalance.DismissalRecoverMood;
+            Assert.Null(defeat.ProcessWeeklySettlement(state));
+            Assert.Null(state.DismissalWarningUntilWeek);
+            state.WeekNumber = 12; // 期限だった週も負けない
+            Assert.Null(defeat.ProcessWeeklySettlement(state));
+            Assert.Null(state.DefeatReason);
+
+            // また0になれば、新しい最後通告
+            state.MasterMood = 0;
+            state.WeekNumber = 13;
+            Assert.Null(defeat.ProcessWeeklySettlement(state));
+            Assert.Equal(DefeatSystem.DismissalDeadline(13), state.DismissalWarningUntilWeek);
+        }
+
+        [Fact]
+        public void FinalWarning_IsKeptBySave_AndOldSavesHaveNone()
+        {
+            var state = new GameState { MasterMood = 0, WeekNumber = 6 };
+            new DefeatSystem().ProcessWeeklySettlement(state);
+            var loaded = GameState.FromSaveData(System.Text.Json.JsonSerializer.Deserialize<SaveData>(System.Text.Json.JsonSerializer.Serialize(state.ToSaveData()))!);
+            Assert.Equal(12, loaded.DismissalWarningUntilWeek);
+            Assert.Null(new SaveData().DismissalWarningUntilWeek); // 旧セーブは最後通告なし
+        }
+
+        [Fact]
+        public void Fury_IsCappedPerBattle()
+        {
+            Assert.Equal(MasterMoodBalance.ForcedRetirementMoodLoss, MasterMoodSystem.FuryLoss(1));
+            Assert.Equal(MasterMoodBalance.ForcedRetirementMoodLossCap, MasterMoodSystem.FuryLoss(5)); // 一度の戦いで5人でも上限まで（§0.136）
+            var state = new GameState { MasterMood = 100 };
+            Assert.Equal(-MasterMoodBalance.ForcedRetirementMoodLossCap, MasterMoodSystem.ApplyForcedRetirementFury(state, 5));
+            Assert.Equal(100 - MasterMoodBalance.ForcedRetirementMoodLossCap, state.MasterMood);
+        }
+
+        [Fact]
+        public void ProcessWeek_Crisis_StopsTheMonth()
+        {
+            var week = BuildWeekSystem();
+            // 所持金がマイナスになった週・破産まであと1週の週は止まる（§0.136）
+            var state = new GameState { MasterMood = 100, Gold = -1 };
+            var w1 = week.ProcessWeek(state);
+            Assert.True(w1.Flags.GoldTurnedNegative);
+            Assert.True(w1.Flags.ShouldStopMonth);
+            Assert.Contains(MonthlyReport.CrisisNotes(state), n => n.Contains("破産"));
+            state.Gold = -1;
+            var w2 = week.ProcessWeek(state);
+            Assert.False(w2.Flags.GoldTurnedNegative);
+            Assert.False(w2.Flags.BankruptcyImminent); // あと2週のときは止めない（月のはじめに手番がある）
+            state.Gold = -1;
+            var w3 = week.ProcessWeek(state);
+            Assert.Equal(EconomyBalance.BankruptcyConsecutiveWeeksThreshold - 1, state.ConsecutiveNegativeGoldWeeks);
+            Assert.True(w3.Flags.BankruptcyImminent);
+            Assert.True(w3.Flags.ShouldStopMonth);
+
+            // 機嫌が危機（20未満）に入った週は止まる。危機のままの次の週は止まらない
+            var moody = new GameState { MasterMood = MasterMoodBalance.TierThresholdGrumpy, Gold = 100_000 };
+            var m1 = week.ProcessWeek(moody); // 成果なしで −5
+            Assert.True(m1.Flags.MoodEnteredCrisis);
+            Assert.True(m1.Flags.ShouldStopMonth);
+            Assert.Contains(MonthlyReport.CrisisNotes(moody), n => n.Contains("危機"));
+            var m2 = week.ProcessWeek(moody);
+            Assert.False(m2.Flags.MoodEnteredCrisis);
         }
 
         [Fact]
@@ -262,7 +342,7 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void ProcessWeek_IdleWeeks_DecayMood_UntilDismissedByMaster()
         {
-            // 成果ゼロの週が続くと毎週−5ずつ減り、0に達した週の決算で副官解雇になる。
+            // 成果ゼロの週が続くと毎週−5ずつ減り、0に達した週の決算で最後通告（§0.136）。次の月の終わりまでに戻らなければ副官解雇。
             var state = new GameState { MasterMood = 2 * MasterMoodBalance.BoredomMoodDecay, Gold = 100_000 };
             var week = BuildWeekSystem();
 
@@ -275,8 +355,18 @@ namespace GuildManager.Core.Tests
             var second = week.ProcessWeek(state);
             Assert.Equal(0, state.MasterMood);
             Assert.Equal(2, state.WeeksSinceLastGuildActivity);
-            Assert.Equal(DefeatReason.DismissedByMaster, second.NewDefeatReason);
-            Assert.True(second.Flags.DefeatOccurred);
+            Assert.Null(second.NewDefeatReason);
+            Assert.True(second.Flags.DismissalWarningIssued);
+            Assert.True(second.Flags.ShouldStopMonth); // 月の途中でも止めて手番を渡す
+            int deadline = DefeatSystem.DismissalDeadline(second.Flags.Week);
+            Assert.Equal(deadline, state.DismissalWarningUntilWeek);
+
+            // 何もしないまま期限の週まで進むと、その週の決算で解雇
+            WeeklySettlementResult last;
+            do { last = week.ProcessWeek(state); } while (last.NewDefeatReason == null && state.WeekNumber <= deadline);
+            Assert.Equal(DefeatReason.DismissedByMaster, last.NewDefeatReason);
+            Assert.Equal(deadline, last.Flags.Week);
+            Assert.True(last.Flags.DefeatOccurred);
         }
 
         [Fact]

@@ -441,7 +441,7 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void ProcessWeek_ForcedRetirement_CanTriggerDismissalByMaster_SameWeek()
         {
-            // 機嫌30で2名が除籍：−40で下限0にクランプされ、その週の決算で副官解雇になる。
+            // 機嫌30で2名が除籍：−40で下限0にクランプされ、その週の決算で最後通告（§0.136。それまでは即時の副官解雇）。
             // 週報の機嫌内訳には、激怒（規定−40・実際−30）が載る。ボスは深い階層にして撤退させる
             // （撃破すると+20が乗るため。勝敗は部隊火力と「階層×要求値」で決まり、全員除籍でも撃破は成立しうる）。
             var deadly = MakeDeadlyBoss();
@@ -455,7 +455,9 @@ namespace GuildManager.Core.Tests
             var settlement = BuildWeekSystem(expedition).ProcessWeek(state);
 
             Assert.Equal(0, state.MasterMood);
-            Assert.Equal(DefeatReason.DismissedByMaster, settlement.NewDefeatReason);
+            Assert.Null(settlement.NewDefeatReason);
+            Assert.True(settlement.Flags.DismissalWarningIssued);
+            Assert.NotNull(state.DismissalWarningUntilWeek);
             var fury = Assert.Single(settlement.MoodReport.Entries, e => e.Reason.StartsWith("アルベールの激怒"));
             Assert.Equal(-40, fury.Delta);
             Assert.Equal(-30, fury.Applied);

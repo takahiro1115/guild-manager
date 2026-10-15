@@ -565,6 +565,10 @@ namespace GuildManager.Core.Systems
             if (flags.PoachOffered) reasons.Add("引き抜きの話");
             if (flags.ContractReviewDue) reasons.Add("年のはじめの契約更改");
             if (flags.SponsorOffered) reasons.Add("スポンサー契約の話");
+            if (flags.DismissalWarningIssued) reasons.Add("アルベールの最後通告"); // 危機（§0.136）
+            else if (flags.MoodEnteredCrisis) reasons.Add("マスターの機嫌が危機に入った");
+            if (flags.GoldTurnedNegative) reasons.Add("所持金がマイナスになった");
+            if (flags.BankruptcyImminent) reasons.Add("あと1週で破産");
             if (flags.GameCleared) reasons.Add("深淵100Fを制覇した");
             if (flags.DefeatOccurred) reasons.Add("ゲームオーバー");
             return reasons;
@@ -596,9 +600,28 @@ namespace GuildManager.Core.Systems
             };
         }
 
+        /// <summary>
+        /// 危機の注意（§0.136）：最後通告（期限と戻す機嫌）・機嫌の危機（0で最後通告）・所持金のマイナス（破産まであと何週）。
+        /// 月報の注意と画面の見出しで使う。
+        /// </summary>
+        public static List<string> CrisisNotes(GameState state)
+        {
+            var notes = new List<string>();
+            if (state.DismissalWarningUntilWeek is int until)
+                notes.Add($"⚠ アルベールの最後通告：{GameCalendar.FormatMonth(until)}の終わりまでに機嫌を{MasterMoodBalance.DismissalRecoverMood}まで戻さないと解雇される（いま{state.MasterMood}。ボスの撃破・新しい階層・調査・採取・研究の手伝いで上がる）");
+            else if (state.MasterMood < MasterMoodBalance.TierThresholdGrumpy)
+                notes.Add($"⚠ マスターの機嫌が危機（いま{state.MasterMood}）。0になると最後通告を受け、次の月の終わりまでに戻さないと解雇される");
+            if (DefeatSystem.WeeksUntilBankruptcy(state) is int left)
+                notes.Add($"⚠ 所持金がマイナス（{state.Gold} G）。あと{left}週マイナスが続くと破産する（売る・借りる・施設を下げるなどで戻す）");
+            return notes;
+        }
+
         /// <summary>来月への注意（移る先の画面つき）。乱数は使わない。</summary>
         private static void AddNotes(GameState state, MonthlyReport report)
         {
+            // 危機（§0.136）：最後通告・機嫌の危機・所持金のマイナスは、いちばん先に出す
+            foreach (var text in CrisisNotes(state))
+                report.Notes.Add(new MonthlyNote { Text = text, Target = text.Contains("所持金") ? MonthlyNoteTarget.Funding : MonthlyNoteTarget.None });
             if (state.Anomaly is { } anomaly)
                 report.Notes.Add(new MonthlyNote { Text = DungeonAnomalySystem.DescribeStatus(state, anomaly), Target = MonthlyNoteTarget.Dungeon });
 

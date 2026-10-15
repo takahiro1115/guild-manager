@@ -95,10 +95,10 @@ namespace GuildManager.Core.Tests
                 foreach (var stat in AllStats)
                 {
                     int before = Pa(plain[i].Candidate, stat), after = Pa(boosted[i].Candidate, stat);
-                    // 研究の+5は1世代の素質に縮める前に足す（§0.135）ので、縮めたあとは+2〜3。その子の上限は超えない
+                    // 研究の+5は1世代の素質に縮める前に足す（§0.135）ので、縮めたあとは +5×(上限−下支え)÷100 前後。その子の上限は超えない
                     Assert.Equal(SoulFusionSystem.PaCapOffsetOf(plain[i].Candidate, stat), SoulFusionSystem.PaCapOffsetOf(boosted[i].Candidate, stat));
                     Assert.InRange(after, before, SoulFusionSystem.PaCapOf(boosted[i].Candidate, stat));
-                    if (after < SoulFusionSystem.PaCapOf(boosted[i].Candidate, stat)) Assert.InRange(after - before, 2, 3);
+                    if (after < SoulFusionSystem.PaCapOf(boosted[i].Candidate, stat)) { double scaled = 5.0 * (SoulFusionSystem.PaCapOf(boosted[i].Candidate, stat) - SoulFusionBalance.GenerationFloorPa) / 100; Assert.InRange(after - before, (int)Math.Floor(scaled), (int)Math.Ceiling(scaled)); }
                 }
             }
         }

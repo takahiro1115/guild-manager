@@ -35,6 +35,15 @@ namespace GuildManager.Core.Systems
         /// </summary>
         public bool DefeatOccurred { get; set; }
 
+        /// <summary>
+        /// 危機（§0.136）：所持金がマイナスになった週・破産まであと1週の週・機嫌が危機（20未満）に入った週・最後通告を受けた週。
+        /// 月の途中でも止めて手番を渡す（前触れなしの負けを無くす）。
+        /// </summary>
+        public bool GoldTurnedNegative { get; set; }
+        public bool BankruptcyImminent { get; set; }
+        public bool MoodEnteredCrisis { get; set; }
+        public bool DismissalWarningIssued { get; set; }
+
         /// <summary>魂魄融和の子が今週誕生したか（→ SoulFusionSystem、03 §5.4・§0.58）。新しい仲間を見てもらうため自動スキップを止める。</summary>
         public bool SoulFusionBirthOccurred { get; set; }
 
@@ -82,6 +91,7 @@ namespace GuildManager.Core.Systems
             DeathOrPermanentInjuryOccurred || FieldUnlocked || SoulFusionBirthOccurred ||
             RecruitmentTrialOccurred || CommissionDeadlineNear || SatisfactionWarningOccurred ||
             CommissionsOffered || SquadStalledAtBoss || PoachOffered || ContractReviewDue || SponsorOffered ||
+            GoldTurnedNegative || BankruptcyImminent || MoodEnteredCrisis || DismissalWarningIssued || // 危機（§0.136）
             GameCleared || DefeatOccurred;
 
         public bool ShouldStopAutoSkip =>
@@ -90,6 +100,7 @@ namespace GuildManager.Core.Systems
             FacilityConstructionCompleted || ResearchCompleted || SoulFusionBirthOccurred ||
             SevereInjuryOccurred || BossDefeated || SquadStalledAtBoss || PoachOffered || ContractReviewDue || SponsorOffered ||
             DeathOrPermanentInjuryOccurred ||
+            GoldTurnedNegative || BankruptcyImminent || MoodEnteredCrisis || DismissalWarningIssued ||
             GameCleared ||
             DefeatOccurred;
     }

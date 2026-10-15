@@ -1,3 +1,4 @@
+using System;
 using GuildManager.Core.Balance;
 using GuildManager.Core.Models;
 
@@ -6,7 +7,7 @@ namespace GuildManager.Core.Systems
     /// <summary>
     /// 敗北条件の判定。仕様書 03 §8.3 参照。
     ///
-    /// - 副官解雇：マスターの機嫌（GameState.MasterMood）が0に達した（猶予なく即時。2026年9月新設）。
+    /// - 副官解雇：マスターの機嫌（GameState.MasterMood）が0に達すると最後通告。次の月の終わりまでに戻らなければ解雇（§0.136。それまでは猶予なく即時）。
     /// - 破産：所持金マイナスが4週連続で解消されない（4週間の猶予あり）。
     /// 両方が同じ週に成立した場合は副官解雇を優先する。
     ///
@@ -30,11 +31,27 @@ namespace GuildManager.Core.Systems
             if (state.DefeatReason != null)
                 return null; // 既に敗北済み：何もしない
 
-            // 副官解雇（2026年9月新設）：マスターの機嫌が0に達したら猶予なく即時敗北。
-            if (state.MasterMood <= MasterMoodBalance.Min)
+            // 副官解雇（2026年9月新設）：マスターの機嫌が0に達したら最後通告（§0.136。猶予0なら即時敗北）。
+            // 最後通告の期限（次の月の終わり）の決算で、機嫌が DismissalRecoverMood に戻っていなければ解雇。
+            if (state.DismissalWarningUntilWeek is int until)
             {
-                state.DefeatReason = DefeatReason.DismissedByMaster;
-                return DefeatReason.DismissedByMaster;
+                if (state.MasterMood >= MasterMoodBalance.DismissalRecoverMood)
+                    state.DismissalWarningUntilWeek = null; // 立て直した
+                else if (state.WeekNumber >= until)
+                {
+                    state.DismissalWarningUntilWeek = null;
+                    state.DefeatReason = DefeatReason.DismissedByMaster;
+                    return DefeatReason.DismissedByMaster;
+                }
+            }
+            else if (state.MasterMood <= MasterMoodBalance.Min)
+            {
+                if (MasterMoodBalance.DismissalGraceMonths <= 0)
+                {
+                    state.DefeatReason = DefeatReason.DismissedByMaster;
+                    return DefeatReason.DismissedByMaster;
+                }
+                state.DismissalWarningUntilWeek = DismissalDeadline(state.WeekNumber);
             }
 
             if (state.Gold < 0)
@@ -50,5 +67,13 @@ namespace GuildManager.Core.Systems
 
             return null;
         }
+
+        /// <summary>最後通告の期限（§0.136）：この週の月から DismissalGraceMonths か月先の月の、最後の週。</summary>
+        public static int DismissalDeadline(int week) =>
+            ((week - 1) / GameCalendar.WeeksPerMonth + 1 + MasterMoodBalance.DismissalGraceMonths) * GameCalendar.WeeksPerMonth;
+
+        /// <summary>破産まであと何週か（所持金がマイナスのときだけ。プラスなら null）。</summary>
+        public static int? WeeksUntilBankruptcy(GameState state) =>
+            state.Gold >= 0 ? null : Math.Max(0, EconomyBalance.BankruptcyConsecutiveWeeksThreshold - state.ConsecutiveNegativeGoldWeeks);
     }
 }

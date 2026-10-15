@@ -187,6 +187,12 @@ namespace GuildManager.Core.Models
         public int ConsecutiveNegativeGoldWeeks { get; set; } = 0;
 
         /// <summary>
+        /// 副官解雇の最後通告（§0.136）：機嫌が0になった週に、次の月の終わりの週を入れる。その週の決算で機嫌が
+        /// DismissalRecoverMood に戻っていなければ解雇。戻れば null に戻す。旧セーブは null（最後通告なし）。
+        /// </summary>
+        public int? DismissalWarningUntilWeek { get; set; }
+
+        /// <summary>
         /// 敗北理由（仕様書 03 §8.3）。null＝まだ敗北していない。一度確定したら変化しない
         /// （DefeatSystemが上書きしない）。
         /// </summary>
@@ -486,6 +492,7 @@ namespace GuildManager.Core.Models
                 ResearchCredit = ResearchCredit,
                 ResearchInProgress = ResearchInProgress == null ? null : new ResearchProgress { ResearchId = ResearchInProgress.ResearchId, WeeksRemaining = ResearchInProgress.WeeksRemaining, WeeksShortened = ResearchInProgress.WeeksShortened },
                 ConsecutiveNegativeGoldWeeks = ConsecutiveNegativeGoldWeeks,
+                DismissalWarningUntilWeek = DismissalWarningUntilWeek,
                 DefeatReason = DefeatReason?.ToString(),
                 WeeksSinceLastGuildActivity = WeeksSinceLastGuildActivity,
                 FinalQuestUnlocked = IsGameCleared,
@@ -634,6 +641,7 @@ namespace GuildManager.Core.Models
                     ? new ResearchProgress { ResearchId = rp.ResearchId, WeeksRemaining = Math.Max(1, rp.WeeksRemaining), WeeksShortened = Math.Max(0, rp.WeeksShortened) }
                     : null,
                 ConsecutiveNegativeGoldWeeks = data.ConsecutiveNegativeGoldWeeks,
+                DismissalWarningUntilWeek = data.DismissalWarningUntilWeek,
                 DefeatReason = data.DefeatReason == null ? null : ParseEnum<DefeatReason>(data.DefeatReason, nameof(DefeatReason)),
                 // 旧キー（WeeksSinceLastRankAppropriateQuest）しか無い旧セーブは、その値を引き継ぐ。
                 WeeksSinceLastGuildActivity = data.WeeksSinceLastGuildActivity ?? data.WeeksSinceLastRankAppropriateQuest ?? 0,

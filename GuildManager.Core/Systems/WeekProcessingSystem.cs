@@ -110,6 +110,7 @@ namespace GuildManager.Core.Systems
             result.Flags.Week = thisWeek;
 
             bool wasCleared = state.IsGameCleared;
+            int moodAtStart = state.MasterMood; // 機嫌が危機に入った週を見る（§0.136）
             RivalSystem.ProcessWeek(state); // ライバルギルドの名簿・年の入れ替え（§0.93）
             TournamentSystem.EnsureSchedule(state); // 今年の大会の暦（§0.82。年のはじめ・新しいゲームのとき置く）
             bool hadRetiree = state.GuildRetirees.Any(); // 最初の引退者で作戦資料室・冒険者支援室が開く（§0.78。派遣の教官は数えない）
@@ -265,8 +266,18 @@ namespace GuildManager.Core.Systems
 
             // 敗北条件判定（→ 03 §8.3）：週次決算の最後に1回だけ行う。
             // 副官解雇（マスターの機嫌0、即時）と破産（所持金マイナス4週連続、猶予あり）（→ DefeatSystem）。
+            bool hadWarning = state.DismissalWarningUntilWeek != null;
             result.NewDefeatReason = _defeatSystem.ProcessWeeklySettlement(state);
             result.Flags.DefeatOccurred = result.NewDefeatReason != null;
+            // 危機（§0.136）：月の途中でも止めて手番を渡す。所持金がマイナスになった週と破産まであと1週の週、機嫌が危機に入った週、最後通告の週。
+            if (state.DefeatReason == null)
+            {
+                result.Flags.GoldTurnedNegative = state.ConsecutiveNegativeGoldWeeks == 1;
+                result.Flags.BankruptcyImminent = state.ConsecutiveNegativeGoldWeeks == EconomyBalance.BankruptcyConsecutiveWeeksThreshold - 1
+                    && state.ConsecutiveNegativeGoldWeeks > 1;
+                result.Flags.MoodEnteredCrisis = moodAtStart >= MasterMoodBalance.TierThresholdGrumpy && state.MasterMood < MasterMoodBalance.TierThresholdGrumpy;
+                result.Flags.DismissalWarningIssued = !hadWarning && state.DismissalWarningUntilWeek != null;
+            }
 
             state.WeekNumber++;
 

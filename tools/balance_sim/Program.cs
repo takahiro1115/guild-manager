@@ -288,7 +288,7 @@ partial class GameSim
     /// campaign で買い物・研究・霊薬・秘薬に使わずに残す額：今年度末に満期を迎える者（年度末に26歳になる25歳。年の後半から数える）の退職金の見込み＋週給4週分＋3000G。
     /// 残しておかないと、年度末の退職金が重なって破産する。
     /// </summary>
-    int Reserve => Active.Where(a => a.Age >= 26 || (a.Age == 25 && GameCalendar.WeekOfYear(s.WeekNumber) >= 30)).Sum(AgingSystem.CalculateSeverancePay) + Active.Sum(a => a.WeeklyWage) * 4 + GuildFinanceSystem.MonthlyUpkeep(s) * 2 + GuildFinanceSystem.WeeklyStipends(s) * 8 + FundingSystem.MonthlyLoanPayments(s) * 2 + 3000; // 維持費2か月・手当8週・借金の返済2か月も残す（§0.103・§0.104）
+    int Reserve => Spendthrift ? 0 : Active.Where(a => a.Age >= 26 || (a.Age == 25 && GameCalendar.WeekOfYear(s.WeekNumber) >= 30)).Sum(AgingSystem.CalculateSeverancePay) + Active.Sum(a => a.WeeklyWage) * 4 + GuildFinanceSystem.MonthlyUpkeep(s) * 2 + GuildFinanceSystem.WeeklyStipends(s) * 8 + FundingSystem.MonthlyLoanPayments(s) * 2 + 3000; // 維持費2か月・手当8週・借金の返済2か月も残す（§0.103・§0.104）
     readonly AdvisorSystem advisors = new();
     SoulFusionSystem? soulFusion;
     public readonly List<(int Order, int Floor, int Week)> FieldKills = new();
@@ -692,8 +692,8 @@ partial class GameSim
             }
             if (!RulerSystem.CanChallenge(s, ruler)) continue;
             bool outpost = RulerSystem.IsOutpost(s, ruler);
-            bool rest = s.WeekNumber < rulerRestUntilWeek.GetValueOrDefault(ruler.RulerId) || s.Gold < (PrudentRulers ? 8000 : RulerMinGold)
-                || (PrudentRulers && s.Rulers.Any(r => r != ruler && RulerSystem.CanChallenge(s, r) && RulerSystem.HasParticipants(s, r)));
+            bool rest = !Reckless && (s.WeekNumber < rulerRestUntilWeek.GetValueOrDefault(ruler.RulerId) || s.Gold < (PrudentRulers ? 8000 : RulerMinGold)
+                || (PrudentRulers && s.Rulers.Any(r => r != ruler && RulerSystem.CanChallenge(s, r) && RulerSystem.HasParticipants(s, r)))); // reckless：休まず・お金にかまわず挑む（理不尽チェック）
             if (nepheris)
             {
                 // ネフェリス：4つの段の合い具合の平均が届く部隊を、合う順に3つまで（ほかの支配者に出している部隊と、稼ぐ部隊1つを残す）
@@ -811,7 +811,7 @@ partial class GameSim
         var modest = FundingSystem.Offers(s).FirstOrDefault(o => !o.Bold && s.Gold >= o.Penalty);
         if (modest != null && FundingSystem.Sign(s, modest)) Count("スポンサー契約");
         // 融資（§0.104）：所持金がマイナスなら、イザベラ（借りられれば）か商人ギルドから借りて破産を避ける。余裕があれば商人ギルドへ一括で返す
-        if (s.Gold < 0)
+        if (s.Gold < 0 && !NoLoan) // noloan：借金を知らない（理不尽チェック）
         {
             int need = -s.Gold + GuildFinanceSystem.MonthlyUpkeep(s);
             int isabella = Math.Min(FundingSystem.IsabellaLoanLimit(s), (need + FundingBalance.IsabellaLoanStep - 1) / FundingBalance.IsabellaLoanStep * FundingBalance.IsabellaLoanStep);
@@ -849,7 +849,7 @@ partial class GameSim
     {
         int lv = s.GetFacilityLevel(f);
         int upkeepAfter = GuildFinanceSystem.MonthlyUpkeep(s) - FacilityBalance.GetUpkeep(lv) + FacilityBalance.GetUpkeep(lv + 1);
-        return s.Gold - FacilityBalance.GetUpgradeCost(f, lv) >= 2500 + upkeepAfter * 3;
+        return s.Gold - FacilityBalance.GetUpgradeCost(f, lv) >= (Spendthrift ? 0 : 2500 + upkeepAfter * 3);
     }
 
     void ActInner()
@@ -1245,7 +1245,7 @@ partial class GameSim
         var offers = recruitment.GenerateCandidates(s);
         foreach (var o in offers.OrderByDescending(o => RandHire ? Rnd.NextDouble() : TotalPa(o.Candidate)))
         {
-            if (Active.Count() >= 12 || s.Gold - o.SigningBonus < 1500 + GuildFinanceSystem.MonthlyUpkeep(s) * 2) break;
+            if (Overhire ? s.Gold - o.SigningBonus < 0 : Active.Count() >= 12 || s.Gold - o.SigningBonus < (Spendthrift ? 0 : 1500 + GuildFinanceSystem.MonthlyUpkeep(s) * 2)) { if (Overhire) continue; break; } // overhire：雇えるだけ雇う（理不尽チェック）
             { if (recruitment.TryHire(s, o)) Count("採用"); }
         }
     }

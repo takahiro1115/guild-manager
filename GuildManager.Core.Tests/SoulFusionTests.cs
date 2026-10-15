@@ -65,7 +65,7 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void CsvValues_AreLoaded()
         {
-            Assert.Equal(80, SoulFusionBalance.RequiredCompatibility); // §0.133 で100→80
+            Assert.Equal(60, SoulFusionBalance.RequiredCompatibility); // §0.133 で100→80、§0.137 で60
             Assert.Equal(2500, SoulFusionBalance.PrescriptionGold);
             Assert.Equal(48, SoulFusionBalance.CultureWeeks); // §0.118 で12→96（2年）、§0.133 で48（1年）
             Assert.Equal(16, SoulFusionBalance.ChildJoinAge);

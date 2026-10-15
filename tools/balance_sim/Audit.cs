@@ -70,6 +70,7 @@ partial class GameSim
         DumpDir = opts.FirstOrDefault(o => o.StartsWith("dumpdir="))?.Substring(8) ?? DumpDir;
         PlanPolicy = opts.FirstOrDefault(o => o.StartsWith("plan="))?.Substring(5) ?? "continue";
         DumpSaveAtWeek = int.Parse(opts.FirstOrDefault(o => o.StartsWith("dump="))?.Substring(5) ?? "0");
+        ConfigureUnfair(opts); // 理不尽チェック（Unfair.cs）
     }
 
     public static int DumpSaveAtWeek;
@@ -111,6 +112,7 @@ partial class GameSim
             // 手番
             bool monthStart = GameCalendar.IsFirstWeekOfMonth(s.WeekNumber);
             turnActions = 0; turnCats.Clear();
+            UnfairTurnStart(); // 理不尽チェック（衝撃・危機の間の手番）
             ActUi(first);
             first = false;
             Turns.Add(new TurnRecord(s.WeekNumber, monthStart, turnActions, turnCats.ToArray()));
@@ -137,6 +139,7 @@ partial class GameSim
                 }
                 monthWeeks.Add(new AutoSkipWeek(orderEvents, result));
                 AfterWeek(result, goldBefore);
+                UnfairWeek(result);
                 if (s.DefeatReason != null) { Defeat = s.DefeatReason + $"（{s.WeekNumber}週）"; return; }
                 if (s.IsGameCleared) return;
                 if (DumpSaveAtWeek > 0 && s.WeekNumber == DumpSaveAtWeek)
@@ -201,6 +204,9 @@ partial class GameSim
         if (f.SatisfactionWarningOccurred) yield return "契約交渉";
         if (f.CommissionsOffered) yield return "依頼の到着";
         if (f.SquadStalledAtBoss) yield return "来月の作戦";
+        if (f.DismissalWarningIssued) yield return "最後通告"; else if (f.MoodEnteredCrisis) yield return "機嫌の危機";
+        if (f.GoldTurnedNegative) yield return "所持金のマイナス";
+        if (f.BankruptcyImminent) yield return "あと1週で破産";
         if (f.GameCleared) yield return "クリア";
         if (f.DefeatOccurred) yield return "敗北";
     }
@@ -536,6 +542,7 @@ partial class GameSim
             var l = sims.Where(x => x.GoldByYear.Count > y).Select(x => (double)x.GoldByYear[y]).ToList();
             return l.Count == 0 ? null : $"{y + 2}年目 {Median(l):F0}G";
         }).OfType<string>()));
+        PrintUnfair(sims, weeks);
         Console.WriteLine();
     }
 
