@@ -95,8 +95,10 @@ namespace GuildManager.Core.Tests
                 foreach (var stat in AllStats)
                 {
                     int before = Pa(plain[i].Candidate, stat), after = Pa(boosted[i].Candidate, stat);
-                    Assert.Equal(Math.Min(100, before + 5), after == 100 && before >= 95 ? 100 : after);
-                    Assert.InRange(after, before, 100);
+                    // 研究の+5は1世代の素質に縮める前に足す（§0.135）ので、縮めたあとは+2〜3。その子の上限は超えない
+                    Assert.Equal(SoulFusionSystem.PaCapOffsetOf(plain[i].Candidate, stat), SoulFusionSystem.PaCapOffsetOf(boosted[i].Candidate, stat));
+                    Assert.InRange(after, before, SoulFusionSystem.PaCapOf(boosted[i].Candidate, stat));
+                    if (after < SoulFusionSystem.PaCapOf(boosted[i].Candidate, stat)) Assert.InRange(after - before, 2, 3);
                 }
             }
         }
@@ -160,15 +162,15 @@ namespace GuildManager.Core.Tests
             Adventurer Parent(string name) => new()
             {
                 Name = name, JobClass = JobClass.Warrior,
-                PA_STR = 70, PA_AGI = 70, PA_VIT = 70, PA_MND = 70, PA_DEX = 70, PA_LDR = 70, PA_INT = 70,
+                PA_STR = 50, PA_AGI = 50, PA_VIT = 50, PA_MND = 50, PA_DEX = 50, PA_LDR = 50, PA_INT = 50, // 2世代の上限より低く
             };
             var a = Parent("A");
             var b = Parent("B");
             var plain = new SoulFusionSystem(new AlwaysMaxRng()).CreateChild(new GameState(), a, b, JobClass.Warrior, null).Child;
             var pure = new SoulFusionSystem(new AlwaysMaxRng()).CreateChild(WithResearch(ResearchIds.SoulFusion, "res_elixir_purity_1"), a, b, JobClass.Warrior, null).Child;
 
-            Assert.All(AllStats, stat => Assert.Equal(80, Pa(plain, stat)));  // 70＋ばらつき10
-            Assert.All(AllStats, stat => Assert.Equal(83, Pa(pure, stat)));   // ＋純度I 3
+            Assert.All(AllStats, stat => Assert.Equal(60, Pa(plain, stat)));  // 50＋ばらつき10
+            Assert.All(AllStats, stat => Assert.Equal(63, Pa(pure, stat)));   // ＋純度I 3
         }
 
         [Fact]

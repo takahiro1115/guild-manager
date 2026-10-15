@@ -52,6 +52,8 @@ namespace GuildManager.Core.Balance
         public static readonly int GenerationFloorPa = BalanceData.GetInt(FileName, "GenerationFloorPa");
         public static readonly double ChildJoinGrowthRatio = BalanceData.GetDouble(FileName, "ChildJoinGrowthRatio");
         public static readonly int GenerationPaCapMaxGen = BalanceData.GetInt(FileName, "GenerationPaCapMaxGen");
+        /// <summary>子ごと・能力ごとの上限のずれの幅（§0.135）：上限＝世代の上限＋（−この値〜+この値）。</summary>
+        public static readonly int PaCapSpread = BalanceData.GetInt(FileName, "PaCapSpread");
         public static readonly int InbreedPenaltyClose = BalanceData.GetInt(FileName, "InbreedPenaltyClose");
         public static readonly int InbreedPenaltyNear = BalanceData.GetInt(FileName, "InbreedPenaltyNear");
 

@@ -281,48 +281,60 @@ namespace GuildManager.Core.Tests
         public void ChildPa_LeansToHigherParent_PlusVariance_CappedAt100()
         {
             var (state, a, b) = Setup(JobClass.Warrior, JobClass.Knight); // ふつう（突破5%）
-            foreach (var stat in AllStats) { SetPa(a, stat, 80); SetPa(b, stat, 61); } // 80×0.75＋61×0.25＝75.25→75（§0.60）
+            foreach (var stat in AllStats) { SetPa(a, stat, 48); SetPa(b, stat, 37); } // 48×0.75＋37×0.25＝45.25→45（§0.60）
 
-            // 乱数が常に最大：ばらつき+10、突破の判定(100)は外れ、特性の判定も外れる。
+            // 乱数が常に最大：上限のずれ+5、ばらつき+10、突破の判定(100)は外れ、特性の判定も外れる。
             var child = new SoulFusionSystem(new AlwaysMaxRng()).CreateChild(state, a, b, JobClass.Knight, null).Child;
             foreach (var stat in AllStats)
             {
-                Assert.Equal(85, GetPa(child, stat));
-                Assert.Equal((int)(85 * RecruitmentBalance.YoungestGrowthRatio), GetStat(child, stat));
+                Assert.Equal(55, GetPa(child, stat));
+                Assert.Equal((int)(55 * SoulFusionBalance.ChildJoinGrowthRatio), GetStat(child, stat)); // 娘は素質×ChildJoinGrowthRatio で加わる（§0.135）
             }
 
             foreach (var stat in AllStats) { SetPa(a, stat, 100); SetPa(b, stat, 100); }
             var capped = new SoulFusionSystem(new AlwaysMaxRng()).CreateChild(state, a, b, JobClass.Knight, null);
             Assert.Empty(capped.BreakthroughStats);
-            Assert.All(AllStats, stat => Assert.Equal(105, GetPa(capped.Child, stat))); // 2世代の娘は上限105（血の蓄え、§0.133）
+            // 2世代の娘は2世代の上限＋その子の上限のずれ（血の蓄え §0.133、ずれ §0.135）で止まる
+            Assert.All(AllStats, stat => Assert.Equal(SoulFusionSystem.PaCapOf(2, false) + SoulFusionBalance.PaCapSpread, GetPa(capped.Child, stat)));
+            Assert.All(AllStats, stat => Assert.Equal(SoulFusionBalance.PaCapSpread, SoulFusionSystem.PaCapOffsetOf(capped.Child, stat)));
         }
 
         [Fact]
         public void HerbCatalyst_RaisesVarianceFloor()
         {
             var (state, a, b) = Setup();
-            // 文化圏・名前 → ばらつきは下限（−100を下限に収める）×7 → 突破の判定100（外れ）→ 以降100
-            var plain = new SoulFusionSystem(new SequenceRng(100, 0, -100, -100, -100, -100, -100, -100, -100, 100)).CreateChild(state, a, b, JobClass.Warrior, null).Child;
-            var herb = new SoulFusionSystem(new SequenceRng(100, 0, -100, -100, -100, -100, -100, -100, -100, 100)).CreateChild(state, a, b, JobClass.Warrior, "mat_forest_herb").Child;
-            Assert.All(AllStats, stat => Assert.Equal(78, GetPa(plain, stat))); // 80−2（§0.133）
-            Assert.All(AllStats, stat => Assert.Equal(83, GetPa(herb, stat)));  // 80−2+5（下限が5上がる）
+            foreach (var stat in AllStats) { SetPa(a, stat, 50); SetPa(b, stat, 50); } // 2世代の上限より低く（上限で止まらないように）
+            // 文化圏・名前 → 上限のずれ0×7 → ばらつきは下限（−100を下限に収める）×7 → 突破の判定100（外れ）→ 以降100
+            var rolls = new[] { 100, 0, 0, 0, 0, 0, 0, 0, 0, -100, -100, -100, -100, -100, -100, -100, 100 };
+            var plain = new SoulFusionSystem(new SequenceRng(rolls)).CreateChild(state, a, b, JobClass.Warrior, null).Child;
+            var herb = new SoulFusionSystem(new SequenceRng(rolls)).CreateChild(state, a, b, JobClass.Warrior, "mat_forest_herb").Child;
+            Assert.All(AllStats, stat => Assert.Equal(48, GetPa(plain, stat))); // 50−2（§0.133）
+            Assert.All(AllStats, stat => Assert.Equal(53, GetPa(herb, stat)));  // 50−2+5（下限が5上がる）
         }
 
         [Fact]
         public void Breakthrough_LiftsBestStat_Above100()
         {
             var (state, a, b) = Setup(); // 運命の一対
-            foreach (var stat in AllStats) { SetPa(a, stat, 80); SetPa(b, stat, 80); }
-            a.PA_STR = 100; b.PA_STR = 100;
+            foreach (var stat in AllStats) { SetPa(a, stat, 50); SetPa(b, stat, 50); }
+            a.PA_STR = 60; b.PA_STR = 60;
 
-            // 文化圏・名前 → ばらつき+10×7 → 突破の判定1（当たり）→ 上乗せ15 → 以降100（特性は付かない）
-            var culture = new SoulFusionSystem(new SequenceRng(100, 0, 10, 10, 10, 10, 10, 10, 10, 1, 15, 100))
+            // 文化圏・名前 → 上限のずれ0×7 → ばらつき+10×7 → 突破の判定1（当たり）→ 上乗せ15 → 以降100（特性は付かない）
+            var culture = new SoulFusionSystem(new SequenceRng(100, 0, 0, 0, 0, 0, 0, 0, 0, 10, 10, 10, 10, 10, 10, 10, 1, 15, 100))
                 .CreateChild(state, a, b, JobClass.Warrior, null);
 
             Assert.Equal(new[] { "STR" }, culture.BreakthroughStats);
-            Assert.Equal(125, culture.Child.PA_STR); // 110+15 → 2世代の限界突破の上限125（120＋血の蓄え5、§0.133）
-            Assert.Equal(90, culture.Child.PA_AGI);
-            Assert.Equal((int)(125 * RecruitmentBalance.YoungestGrowthRatio), culture.Child.STR);
+            // 70+15＝85：2世代のふつうの上限（PaCapOf(2,false)）は超え、限界突破の上限（＋BreakthroughPaCap−100）の内
+            Assert.Equal(85, culture.Child.PA_STR);
+            Assert.True(85 > SoulFusionSystem.PaCapOf(2, false) && 85 <= SoulFusionSystem.PaCapOf(2, true));
+            Assert.Equal(60, culture.Child.PA_AGI);
+            Assert.Equal((int)(85 * SoulFusionBalance.ChildJoinGrowthRatio), culture.Child.STR);
+
+            // 上乗せが大きすぎても、限界突破の上限で止まる
+            foreach (var stat in AllStats) { SetPa(a, stat, 100); SetPa(b, stat, 100); }
+            var big = new SoulFusionSystem(new SequenceRng(100, 0, 0, 0, 0, 0, 0, 0, 0, 10, 10, 10, 10, 10, 10, 10, 1, 15, 100))
+                .CreateChild(state, a, b, JobClass.Warrior, null);
+            Assert.Equal(SoulFusionSystem.PaCapOf(2, true), big.Child.PA_STR);
         }
 
         // ---------------- 特性の継承 ----------------
@@ -350,8 +362,8 @@ namespace GuildManager.Core.Tests
             var b = Make("セリア", JobClass.Cleric, 80, TraitCatalog.OldWoundId, TraitCatalog.CowardId, TraitCatalog.SicklyId);
             var state = new GameState { Gold = 10000, Adventurers = new List<Adventurer> { a, b } };
 
-            // 文化圏・名前 → ばらつき×7 → 突破の判定100（外れ）→ 継承の判定：豪胆1・天才1・臆病1・病弱1（古傷は判定しない）→ 以降100
-            var child = new SoulFusionSystem(new SequenceRng(100, 0, 0, 0, 0, 0, 0, 0, 0, 100, 1, 1, 1, 1, 100))
+            // 文化圏・名前 → 上限のずれ0×7 → ばらつき×7 → 突破の判定100（外れ）→ 継承の判定：豪胆1・天才1・臆病1・病弱1（古傷は判定しない）→ 以降100
+            var child = new SoulFusionSystem(new SequenceRng(100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 1, 1, 1, 1, 100))
                 .CreateChild(state, a, b, JobClass.Warrior, null).Child;
 
             Assert.Contains(TraitCatalog.BraveId, child.TraitIds);

@@ -66,7 +66,7 @@
 | `dungeon_anomalies.csv` | 03 §4.10 | CommissionBalance（迷宮の異変5種の名前と予告文。**テーブル形式** `Type,Name,Text`。{field}{boss}{floor}{weeks} を差し込む。倍率は commissions.csv） |
 | `elixir.csv` | 03 §4.6.2 | ElixirBalance（霊薬、2026年10月・§0.61）：1人が生涯に飲める数 `MaxPerAdventurer`（3） |
 | `elixir_recipes.csv` | 03 §4.6.2 | ElixirBalance.Recipes（霊薬の一覧。**テーブル形式** `Id,Name,Description,TargetStats,PaBonus,StatBonus,RequiredMaterials,RequiredGold`。TargetStats は能力名の `;` 区切り、RequiredMaterials は `素材Id:個数` の `;` 区切り。§0.61） |
-| `soul_fusion.csv` | 03 §5.4 | SoulFusionBalance（魂魄融和の秘薬、2026年10月・§0.58）：娘のPAの基準で高い方の親に掛ける重み `HigherParentWeight`（0.75、§0.60で新設。0.5＝平均）・処方できる相性 `RequiredCompatibility`（100）・費用 `PrescriptionGold`（2500G）・培養 `CultureWeeks`（12週）・培養槽の数 `CultureTankCount`（1）・娘のPAのばらつき `PaVarianceMin/Max`（−5〜+10）・百合相性ごとの能力限界突破の確率 `BreakthroughChance_Destined/Complementary/Ordinary`（30/15/5%）・突破の上乗せ `BreakthroughBonusMin/Max`（5〜15）と上限 `BreakthroughPaCap`（120）・特性の継承確率 `TraitInheritChancePercent`（30）・`RareTraitInheritChancePercent`（15）・`FlawInheritChancePercent`（20）。すべて仮の値。**§0.133（秘薬の世代）**：`ParentOnlyOnce`（0＝何度でも・誰とでも親になれる）・`RequiredCompatibility` 80・`CultureWeeks` 48・`PaVarianceMin` −2・血の蓄え `GenerationPaCapStep`（世代ごとに素質の上限+5）と `GenerationPaCapMaxGen`（4世代まで）・近い血 `InbreedPenaltyClose`（親子・同じ両親の姉妹 −10）と `InbreedPenaltyNear`（片親が同じ姉妹・祖母と孫・おばと姪・いとこ −5） |
+| `soul_fusion.csv` | 03 §5.4 | SoulFusionBalance（魂魄融和の秘薬、2026年10月・§0.58）：娘のPAの基準で高い方の親に掛ける重み `HigherParentWeight`（0.75、§0.60で新設。0.5＝平均）・処方できる相性 `RequiredCompatibility`（100）・費用 `PrescriptionGold`（2500G）・培養 `CultureWeeks`（12週）・培養槽の数 `CultureTankCount`（1）・娘のPAのばらつき `PaVarianceMin/Max`（−5〜+10）・百合相性ごとの能力限界突破の確率 `BreakthroughChance_Destined/Complementary/Ordinary`（30/15/5%）・突破の上乗せ `BreakthroughBonusMin/Max`（5〜15）と上限 `BreakthroughPaCap`（120）・特性の継承確率 `TraitInheritChancePercent`（30）・`RareTraitInheritChancePercent`（15）・`FlawInheritChancePercent`（20）。すべて仮の値。**§0.133（秘薬の世代）**：`ParentOnlyOnce`（0＝何度でも・誰とでも親になれる）・`RequiredCompatibility` 80・`CultureWeeks` 48・`PaVarianceMin` −2・血の蓄え `GenerationPaCapStep`（世代ごとに素質の上限+5）と `GenerationPaCapMaxGen`（4世代まで）（§0.135 で +10・6世代まで、1世代の上限 `GenerationBasePaCap` 60・上限のずれ `PaCapSpread` 5 など。→ 下の「世代の数え方で変えたキー」）・近い血 `InbreedPenaltyClose`（親子・同じ両親の姉妹 −10）と `InbreedPenaltyNear`（片親が同じ姉妹・祖母と孫・おばと姪・いとこ −5） |
 | `shop.csv` | 03 §0.134 | ShopBalance（ギルドの店：引退した子が働く道具屋・酒場）：道具屋の枠 `ItemShopSlots`（2）・酒場の枠 `TavernSlotsPerLevel`（酒場Lv×1）・毎月の売上の基本 `ShopBaseSales`（200G）・得意な能力の線 `ShopStatLine`（50。道具屋＝DEX・INT、酒場＝LDR・MND）と1ptあたり `ShopSalesPerStat`（5G）・道具屋の在庫 `ItemShopStock*`（1つ0.5G、上限150G）・酒場の名声 `TavernFame*`（誉100・名200・伝説300）と殿堂入り `TavernHallOfFameBonus`（100）。満足度の契約交渉の直し（§0.134）は satisfaction.csv の `NegotiationSatisfactionGain`（+20）・`NegotiationCooldownWeeks`（12週） |
 | `soul_fusion_catalysts.csv` | 03 §5.4 | SoulFusionBalance.Catalysts（秘薬の触媒。**テーブル形式** `MaterialId,Count,EffectType,EffectValue,Note`。EffectType は `PaVarianceMinBonus`・`TraitInheritBonus`・`FlawInheritBonus`・`BreakthroughChanceBonus`・`RareTraitInheritBonus`。各フィールドの素材を1種ずつ、§0.58） |
 | `relic.csv` | 03 §4.7・§4.8.2・§0.126 | RelicBalance（未鑑定遺物の希少度4段階＝鑑定費用・鑑定結果比率・換金額と獲得個数の幅・武具の抽選プール・**売却額**、採取ドロップ確率、深さの段の帯ごとの希少度の割合〈§0.126〉、ボス撃破ドロップの補正と2つ目）。**アフィックスの付与率・Tier範囲**（`Affix*`、→ AffixBalance） |
@@ -893,3 +893,19 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 
 シミュレーター：来訪は 2.6年目→4.6年目（森の60F）。初戦の見込み（中央値）は倍率を据え置くと28%、下げて38%。
 `campaign 20 1440` でクリア 16/20・13年目（前 18/20・12年目）、`audit 30 1440 L3 simple` で 30/30・12年目（前 28/30・12年目）。
+
+## 世代の数え方で変えたキー（2026年10月、→ 03 §0.135）
+
+**soul_fusion.csv**（すべて仮の値。ユーザー判断 2026-10-15）
+
+| キー | 値（前→今） | 意味 |
+|---|---|---|
+| `GenerationBasePaCap` | 100 → 60 | 1世代（初めからいる子・採用した子）の素質（PA）の上限 |
+| `GenerationPaCapStep` | 5 → 10 | 世代が1つ進むごとに上限が上がる量（60・70・80・90・100・110） |
+| `GenerationPaCapMaxGen` | 4 → 6 | 上限が上がるのはこの世代まで |
+| `ChildJoinGrowthRatio` | 0.3 → 0.6 | 秘薬の娘が加わるときの能力＝素質×この値（採用した子は0.3のまま） |
+| `GenerationFloorPa` | 0 → 10 | 採用の候補と初めからいる子の素質（元1〜100）を「この値＋元×(その子のその能力の上限−この値)÷100」に縮める |
+| `PaCapSpread`（新設） | 5 | 子ごと・能力ごとの上限のずれ（−5〜+5）。1世代なら55〜65。生まれたときに決めてセーブに持つ |
+
+シミュレーター：`campaign 20 1440` でクリア 19/20・14年目〔11〜20〕、ネフェリスを倒した部隊の世代 2〜4（平均2.8）。
+`audit 30 1440 L3 simple`（from=0/100/200）で 28/30・27/30・29/30（14〜15年目）、敗北は副官解雇 1・3・1、破産 1・0・0。

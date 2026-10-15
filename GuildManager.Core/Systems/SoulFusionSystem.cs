@@ -111,11 +111,55 @@ namespace GuildManager.Core.Systems
         /// 1世代の素質に縮める（§0.135）：0〜100の素質を「下支え（GenerationFloorPa）＋元×(1世代の上限−下支え)÷100」に縮める（1以上）。
         /// 採用の候補と初めからいる子に使う。有望な新人とふつうの新人の差は残る。
         /// </summary>
-        public static int ScaleToFirstGeneration(int pa) =>
-            Math.Max(1, (int)Math.Round(SoulFusionBalance.GenerationFloorPa + pa * (SoulFusionBalance.GenerationBasePaCap - SoulFusionBalance.GenerationFloorPa) / 100.0, MidpointRounding.AwayFromZero));
+        public static int ScaleToFirstGeneration(int pa, int capOffset = 0) =>
+            Math.Max(1, (int)Math.Round(SoulFusionBalance.GenerationFloorPa + pa * (SoulFusionBalance.GenerationBasePaCap + capOffset - SoulFusionBalance.GenerationFloorPa) / 100.0, MidpointRounding.AwayFromZero));
 
-        /// <summary>その子のその能力の素質の上限（世代と限界突破から）。</summary>
-        public static int PaCapOf(Adventurer a, string stat) => PaCapOf(a.Generation, a.FusionBreakthroughStats.Contains(stat));
+        /// <summary>その子のその能力の素質の上限：世代と限界突破から決まる上限＋その子の上限のずれ（§0.135）。</summary>
+        public static int PaCapOf(Adventurer a, string stat) => PaCapOf(a.Generation, a.FusionBreakthroughStats.Contains(stat)) + PaCapOffsetOf(a, stat);
+
+        /// <summary>その子の、限界突破していない能力の素質の上限の幅（§0.135。個人の欄に出す）。全能力が限界突破なら限界突破の上限の幅。</summary>
+        public static (int Min, int Max) PaCapRangeOf(Adventurer a)
+        {
+            var stats = AdventurerStatAccessor.AllStatNames.Where(s => !a.FusionBreakthroughStats.Contains(s)).ToList();
+            if (stats.Count == 0) stats = AdventurerStatAccessor.AllStatNames.ToList();
+            var caps = stats.Select(s => PaCapOf(a, s)).ToList();
+            return (caps.Min(), caps.Max());
+        }
+
+        /// <summary>その子のその能力の上限のずれ（§0.135）。決めていなければ0。</summary>
+        public static int PaCapOffsetOf(Adventurer a, string stat) => a.PaCapOffsets.TryGetValue(stat, out int o) ? o : 0;
+
+        /// <summary>上限のずれを乱数で決める（§0.135。採用の候補・秘薬の娘）。</summary>
+        public static void AssignPaCapOffsets(Adventurer a, IRng rng)
+        {
+            foreach (var stat in AdventurerStatAccessor.AllStatNames)
+                a.PaCapOffsets[stat] = rng.NextInt(-SoulFusionBalance.PaCapSpread, SoulFusionBalance.PaCapSpread);
+        }
+
+        /// <summary>
+        /// 上限のずれを文字列から決める（§0.135。初めからいる3人は名前から、旧セーブは Id から）。乱数を使わないので、同じ子はいつも同じずれになる。
+        /// </summary>
+        public static void AssignStablePaCapOffsets(Adventurer a, string seed)
+        {
+            int width = SoulFusionBalance.PaCapSpread * 2 + 1;
+            foreach (var stat in AdventurerStatAccessor.AllStatNames)
+            {
+                uint h = 2166136261; // FNV-1a（string.GetHashCode は起動ごとに変わるので使わない）
+                foreach (char c in seed + "/" + stat) { h ^= c; h *= 16777619; }
+                a.PaCapOffsets[stat] = (int)(h % (uint)width) - SoulFusionBalance.PaCapSpread;
+            }
+        }
+
+        /// <summary>上限のずれを持たない子（旧セーブ）に、Id から決めたずれを補う（§0.135）。</summary>
+        public static void EnsurePaCapOffsets(GameState state)
+        {
+            foreach (var a in state.Adventurers.Concat(state.RetiredAdventurers).Concat(state.FallenAdventurers)
+                .Concat(state.SoulFusionCultures.Select(c => c.Child)))
+            {
+                a.PaCapOffsets ??= new Dictionary<string, int>();
+                if (a.PaCapOffsets.Count == 0) AssignStablePaCapOffsets(a, a.Id.ToString());
+            }
+        }
 
         /// <summary>2代さかのぼった先祖（Id → 何代前か。親1・祖母2）。</summary>
         private static Dictionary<Guid, int> Ancestors(GameState state, Adventurer a)
@@ -309,6 +353,7 @@ namespace GuildManager.Core.Systems
                 ParentIds = new List<Guid> { a.Id, b.Id },
                 Generation = ChildGeneration(a, b), // 世代（§0.133）
             };
+            AssignPaCapOffsets(child, _rng); // 素質の上限のずれ（§0.135）
             int inbreed = InbreedPenalty(KinshipOf(state, a, b)); // 近い血（§0.133）
 
             // ---- 能力の上限（PA）：両親の高い方へ寄せた基準＋ばらつき＋研究の上乗せ（§0.60）。限界突破しない能力は100で止める ----
@@ -328,14 +373,14 @@ namespace GuildManager.Core.Systems
             {
                 // 最も高い能力（同値なら AllStatNames の順で先のもの）の上限を外して上乗せする。
                 string best = AdventurerStatAccessor.AllStatNames.OrderByDescending(s => rawPa[s]).First();
-                rawPa[best] = Math.Min(PaCapOf(child.Generation, breakthrough: true),
+                rawPa[best] = Math.Min(PaCapOf(child.Generation, breakthrough: true) + PaCapOffsetOf(child, best),
                     rawPa[best] + _rng.NextInt(SoulFusionBalance.BreakthroughBonusMin, SoulFusionBalance.BreakthroughBonusMax));
                 breakthroughStats.Add(best);
             }
 
             foreach (var stat in AdventurerStatAccessor.AllStatNames)
             {
-                int cap = PaCapOf(child.Generation, breakthroughStats.Contains(stat)); // 血の蓄え（§0.133）
+                int cap = PaCapOf(child.Generation, breakthroughStats.Contains(stat)) + PaCapOffsetOf(child, stat); // 血の蓄え（§0.133）と上限のずれ（§0.135）
                 int pa = Math.Clamp(rawPa[stat], 1, cap);
                 AdventurerStatAccessor.SetPa(child, stat, pa);
                 AdventurerStatAccessor.SetStat(child, stat, Math.Max(1, (int)(pa * SoulFusionBalance.ChildJoinGrowthRatio)));

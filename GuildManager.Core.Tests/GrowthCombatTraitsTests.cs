@@ -164,13 +164,13 @@ namespace GuildManager.Core.Tests
             var state = new GameState { Adventurers = { a, b } };
             Assert.Equal(0, SoulFusionSystem.InheritChance(TraitCatalog.SoulChildId, null));
 
-            // 文化圏・名前 → ばらつき×7 → 突破100（外れ）→ 継承（申し子は判定しない）→ 先天（外れ）→ 申し子の判定
+            // 文化圏・名前 → 上限のずれ0×7 → ばらつき×7 → 突破100（外れ）→ 継承（申し子は判定しない）→ 先天（外れ）→ 申し子の判定
             int innateRolls = 1 + RecruitmentSystem.InnateTraitPool.Length + RecruitmentSystem.InnateFlawPool.Length;
-            var luckyRolls = new[] { 100, 0, 0, 0, 0, 0, 0, 0, 0, 100 }.Concat(Enumerable.Repeat(100, innateRolls)).Append(50).Append(100).ToArray();
+            var luckyRolls = new[] { 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100 }.Concat(Enumerable.Repeat(100, innateRolls)).Append(50).Append(100).ToArray();
             var lucky = new SoulFusionSystem(new SequenceRng(luckyRolls)).CreateChild(state, a, b, JobClass.Warrior, null).Child;
             Assert.Contains(TraitCatalog.SoulChildId, lucky.TraitIds);
 
-            var unlucky = new SoulFusionSystem(new SequenceRng(100, 0, 0, 0, 0, 0, 0, 0, 0, 100, 100))
+            var unlucky = new SoulFusionSystem(new SequenceRng(100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 100))
                 .CreateChild(state, a, b, JobClass.Warrior, null).Child;
             Assert.DoesNotContain(TraitCatalog.SoulChildId, unlucky.TraitIds);
         }

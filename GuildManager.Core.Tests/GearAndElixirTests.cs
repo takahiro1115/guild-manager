@@ -130,7 +130,8 @@ namespace GuildManager.Core.Tests
 
         private static (GameState State, Adventurer A) ElixirState()
         {
-            var a = new Adventurer { Name = "アリス", STR = 40, VIT = 50, PA_STR = 60, PA_VIT = 52, AGI = 30, PA_AGI = 80 };
+            // 世代の上限（§0.133・§0.135）に当たらないよう、上限がいちばん高い世代にしておく
+            var a = new Adventurer { Name = "アリス", STR = 40, VIT = 50, PA_STR = 60, PA_VIT = 52, AGI = 30, PA_AGI = 80, Generation = SoulFusionBalance.GenerationPaCapMaxGen };
             var state = new GameState { Gold = 100_000, Adventurers = { a } };
             state.CompletedResearchIds.Add(ResearchIds.ElixirBrewing);
             foreach (var recipe in ElixirBalance.Recipes)
@@ -177,14 +178,19 @@ namespace GuildManager.Core.Tests
         public void Elixir_RespectsPaCaps()
         {
             var (state, a) = ElixirState();
-            a.PA_STR = 98; a.STR = 98;    // 100で止まる。実効値もPAを超えない
-            a.PA_VIT = 110; a.VIT = 90;   // 限界突破済みは120まで
+            int cap = SoulFusionSystem.PaCapOf(a.Generation, false), breakCap = SoulFusionSystem.PaCapOf(a.Generation, true);
+            a.PA_STR = cap - 2; a.STR = cap - 2;    // 世代の上限で止まる。実効値もPAを超えない
+            a.PA_VIT = breakCap - 10; a.VIT = 90;   // 限界突破済みは限界突破の上限まで
             a.FusionBreakthroughStats = new List<string> { "VIT" };
+            a.PaCapOffsets["AGI"] = -5;             // 上限のずれ（§0.135）も効く
+            a.PA_AGI = cap - 6;
             Assert.True(ElixirSystem.TryGive(state, a, "elixir_might"));
-            Assert.Equal(100, a.PA_STR);
-            Assert.Equal(100, a.STR);
-            Assert.Equal(115, a.PA_VIT);
+            Assert.Equal(cap, a.PA_STR);
+            Assert.Equal(cap, a.STR);
+            Assert.Equal(breakCap - 5, a.PA_VIT);
             Assert.Equal(93, a.VIT);
+            Assert.True(ElixirSystem.TryGive(state, a, "elixir_gale"));
+            Assert.Equal(cap - 5, a.PA_AGI);
         }
 
         [Fact]

@@ -671,6 +671,12 @@ namespace GuildManager.Core.Models
         /// </summary>
         public Dictionary<string, int> PaEstimateOffsets { get; set; } = new();
 
+        /// <summary>
+        /// 素質の上限のずれ（§0.135、→ Systems.SoulFusionSystem.PaCapOf）。能力名→−PaCapSpread〜+PaCapSpread。
+        /// 生まれたとき（採用の候補・初めからいる子・秘薬の娘）に一度だけ決める。旧セーブは読み込みで Id から決める。無い能力はずれ0。
+        /// </summary>
+        public Dictionary<string, int> PaCapOffsets { get; set; } = new();
+
         /// <summary>個性（志向・気質・相性の素地と見立て、2026年10月・§0.100、→ Systems.PersonalitySystem）。旧セーブ・派遣の教官などは null（効き目なし）。</summary>
         public Personality? Personality { get; set; }
 

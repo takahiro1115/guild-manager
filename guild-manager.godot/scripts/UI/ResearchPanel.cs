@@ -458,7 +458,9 @@ public partial class ResearchPanel : ScrollContainer
 		vbox.AddChild(MakeRichLabel(
 			$"[color=gray]相性{SoulFusionBalance.RequiredCompatibility}以上のペアに秘薬を処方すると、2人の素質を受け継ぐ娘が{SoulFusionBalance.CultureWeeks}週で{SoulFusionBalance.ChildJoinAge}歳まで育ち、新人として加わる。" +
 			$"その間、季節（{SoulFusionBalance.NurtureSeasonWeeks}週）ごとに選んだ育て方が娘に残る。親には何度でも、どの相手とでもなれる（引退した子は教官として残っているときだけ）。\n" +
-			$"娘の世代は親の大きいほう＋1。世代が進むほど素質の上限が上がる（1世代100・2世代{SoulFusionSystem.PaCapOf(2, false)}・3世代{SoulFusionSystem.PaCapOf(3, false)}・4世代{SoulFusionSystem.PaCapOf(4, false)}）。" +
+			$"娘の世代は親の大きいほう＋1。世代が進むほど素質の上限が上がる（" +
+			string.Join("・", Enumerable.Range(1, SoulFusionBalance.GenerationPaCapMaxGen).Select(g => $"{g}世代{SoulFusionSystem.PaCapOf(g, false)}")) +
+			$"。子ごと・能力ごとに±{SoulFusionBalance.PaCapSpread}の違いがある）。" +
 			$"親子・姉妹など近い血で作ると、娘の素質が下がる（近い血−{SoulFusionBalance.InbreedPenaltyClose}・やや近い血−{SoulFusionBalance.InbreedPenaltyNear}）。[/color]"));
 
 		foreach (var culture in _state.SoulFusionCultures)

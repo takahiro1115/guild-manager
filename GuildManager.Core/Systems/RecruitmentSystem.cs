@@ -351,12 +351,14 @@ namespace GuildManager.Core.Systems
             int maxPa = isHighPotential ? RecruitmentBalance.HighPotentialMaxPa : RecruitmentBalance.MaxGeneratedPa;
 
             // 能力を職業に寄せる（§0.72）：職業の伸び方の重みが大きい上位2能力は PA を高めに、重み0の能力は低めに出す。
+            SoulFusionSystem.AssignPaCapOffsets(candidate, _rng); // 素質の上限のずれ（§0.135）
             var aptitude = GrowthBalance.GetJobAptitudeOrder(jobClass).Take(2).ToHashSet();
             foreach (var stat in AdventurerStatAccessor.AllStatNames)
             {
                 int lean = aptitude.Contains(stat) ? RecruitmentBalance.JobAptitudePaBonus
                     : GrowthBalance.GetJobStatWeight(jobClass, stat) == 0 ? -RecruitmentBalance.JobInaptitudePaPenalty : 0;
-                int pa = SoulFusionSystem.ScaleToFirstGeneration(Math.Clamp(_rng.NextInt(minPa, maxPa) + ageBonus + paBonus + lean, 1, 100)); // 1世代の素質に縮める（§0.135）
+                int pa = SoulFusionSystem.ScaleToFirstGeneration(Math.Clamp(_rng.NextInt(minPa, maxPa) + ageBonus + paBonus + lean, 1, 100),
+                    SoulFusionSystem.PaCapOffsetOf(candidate, stat)); // 1世代の素質に縮める（§0.135。その子のその能力の上限まで）
                 int actual = Math.Max(1, (int)(pa * growthRatio));
                 AdventurerStatAccessor.SetPa(candidate, stat, pa);
                 AdventurerStatAccessor.SetStat(candidate, stat, actual);

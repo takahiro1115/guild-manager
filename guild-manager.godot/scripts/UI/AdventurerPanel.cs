@@ -567,7 +567,10 @@ public partial class AdventurerPanel : VBoxContainer
 		if (HasPoachOffer(a))
 			_statusLabel.AppendText("　[color=#ff6b6b]📨 引き抜きの話[/color]");
 		if (a.Generation > 1)
-			_statusLabel.AppendText($"　[color=#c4b5fd]🧬 {a.Generation}世代（素質の上限{SoulFusionSystem.PaCapOf(a.Generation, false)}）[/color]");
+		{
+			var (capMin, capMax) = SoulFusionSystem.PaCapRangeOf(a); // 素質の上限は能力ごとに違う（§0.135）
+			_statusLabel.AppendText($"　[color=#c4b5fd]🧬 {a.Generation}世代（素質の上限{(capMin == capMax ? $"{capMin}" : $"{capMin}〜{capMax}")}）[/color]");
+		}
 		if (a.HasUsedSoulFusion)
 			_statusLabel.AppendText("　[color=violet]🫧 秘薬の親[/color]");
 		// 二つ名と殿堂の資格（大会と育成の栄光 段2）

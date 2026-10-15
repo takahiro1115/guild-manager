@@ -65,11 +65,14 @@ namespace GuildManager.Core.Data
 
             foreach (var a in list)
             {
-                // 1世代の素質（§0.135）：初めからいる子も、素質と能力を1世代の上限÷100の割合に縮める
+                // 1世代の素質（§0.135）：初めからいる子も、素質と能力を1世代の上限÷100の割合に縮める。
+                // 上限のずれは名前から決める（乱数を使わず、毎回同じ）
+                Systems.SoulFusionSystem.AssignStablePaCapOffsets(a, a.Name);
                 foreach (var stat in Systems.AdventurerStatAccessor.AllStatNames)
                 {
-                    Systems.AdventurerStatAccessor.SetPa(a, stat, Systems.SoulFusionSystem.ScaleToFirstGeneration(Systems.AdventurerStatAccessor.GetPa(a, stat)));
-                    Systems.AdventurerStatAccessor.SetStat(a, stat, Math.Min(Systems.AdventurerStatAccessor.GetPa(a, stat), Systems.SoulFusionSystem.ScaleToFirstGeneration(Systems.AdventurerStatAccessor.GetStat(a, stat))));
+                    int offset = Systems.SoulFusionSystem.PaCapOffsetOf(a, stat);
+                    Systems.AdventurerStatAccessor.SetPa(a, stat, Systems.SoulFusionSystem.ScaleToFirstGeneration(Systems.AdventurerStatAccessor.GetPa(a, stat), offset));
+                    Systems.AdventurerStatAccessor.SetStat(a, stat, Math.Min(Systems.AdventurerStatAccessor.GetPa(a, stat), Systems.SoulFusionSystem.ScaleToFirstGeneration(Systems.AdventurerStatAccessor.GetStat(a, stat), offset)));
                 }
 
                 // 初期装備（2026年9月、武具の7大能力値補正）：職業ごとの基本装備を着た状態で加入する

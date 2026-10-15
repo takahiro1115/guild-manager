@@ -184,12 +184,15 @@ namespace GuildManager.Core.Tests
 
             var candidate = system.GenerateCandidates(new GameState())[0].Candidate;
 
-            Assert.Equal(40, candidate.PA_AGI); // 通常レンジの下限(40)にclampされる
+            // 素質は「通常レンジの下限(40)にclamp」したものを1世代の素質に縮める（§0.135）。FixedRng(30)は上限のずれも+PaCapSpread にする
+            int Scaled(int raw) => SoulFusionSystem.ScaleToFirstGeneration(raw, SoulFusionBalance.PaCapSpread);
+            Assert.All(new[] { "STR", "AGI", "VIT", "MND", "DEX", "LDR", "INT" }, s => Assert.Equal(SoulFusionBalance.PaCapSpread, SoulFusionSystem.PaCapOffsetOf(candidate, s)));
+            Assert.Equal(Scaled(40), candidate.PA_AGI);
             // 能力を職業に寄せる（§0.72）：FixedRng(30)は職業も末尾の学者にする。学者の伸び方の上位2能力（INT・MND）は+10、重み0（STR・VIT）は−10
             Assert.Equal(JobClass.Scholar, candidate.JobClass);
-            Assert.Equal(40 + RecruitmentBalance.JobAptitudePaBonus, candidate.PA_INT);
-            Assert.Equal(40 + RecruitmentBalance.JobAptitudePaBonus, candidate.PA_MND);
-            Assert.Equal(40 - RecruitmentBalance.JobInaptitudePaPenalty, candidate.PA_STR);
+            Assert.Equal(Scaled(40 + RecruitmentBalance.JobAptitudePaBonus), candidate.PA_INT);
+            Assert.Equal(Scaled(40 + RecruitmentBalance.JobAptitudePaBonus), candidate.PA_MND);
+            Assert.Equal(Scaled(40 - RecruitmentBalance.JobInaptitudePaPenalty), candidate.PA_STR);
         }
 
         [Fact]
@@ -201,7 +204,8 @@ namespace GuildManager.Core.Tests
 
             var candidate = system.GenerateCandidates(new GameState(), scoutMasterBonus: 0.10)[0].Candidate;
 
-            Assert.Equal(70, candidate.PA_AGI); // 有望新人レンジの下限(70)にclampされる（AGIは学者で寄せの対象外）
+            // 有望新人レンジの下限(70)にclampしたものを1世代の素質に縮める（§0.135。AGIは学者で寄せの対象外）
+            Assert.Equal(SoulFusionSystem.ScaleToFirstGeneration(70, SoulFusionBalance.PaCapSpread), candidate.PA_AGI);
         }
 
         [Fact]
