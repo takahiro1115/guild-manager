@@ -196,7 +196,7 @@ namespace GuildManager.Core.Tests
             }
             var hunter = Assert.Single(StorySystem.DueScenes(state, StoryTiming.AfterReport), s => s.SceneId == "s01_hunter");
             var texts = hunter.Pages.SelectMany(p => p).Select(l => l.Text).ToList();
-            Assert.Contains(texts, t => t.Contains("また40階の主"));
+            Assert.Contains(texts, t => t.Contains("また40階の番人"));
             Assert.DoesNotContain(texts, t => t.Contains("{"));
 
             boss.IsDefeated = true; // 倒したら出さない

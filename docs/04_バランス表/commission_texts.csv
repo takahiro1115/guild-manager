@@ -2,7 +2,7 @@ ClientId,Type,Text,note
 Merchants,Deliver,商人ギルドより買い付けの依頼。{material}を{count}個、{weeks}週以内に納めてくだされば言い値で引き取ります。,
 Merchants,Deliver,王都の祭りで{material}が足りません。{count}個を{weeks}週以内にお願いしたい。,
 Merchants,Deliver,大口の注文が入りました。{material}{count}個、{weeks}週以内に。代金ははずみます。,
-Academy,Survey,魔導学院より調査の依頼。{field}{floor}Fの主「{boss}」の記録を、{weeks}週以内に完全な形でいただきたい。,
+Academy,Survey,魔導学院より調査の依頼。{field}{floor}Fの番人「{boss}」の記録を、{weeks}週以内に完全な形でいただきたい。,
 Academy,Survey,「{boss}」（{field}{floor}F）の生態を論文にまとめたい。{weeks}週以内に完全解析を。討伐はその後で。,
 Academy,Survey,学院の書庫に「{boss}」の記録が欠けています。{weeks}週以内の完全解析を求む。,
 Isabella,Defeat,王都から討伐の依頼が回ってきましたの。わたくしの子たちは迷宮に潜りませんから、{weeks}週以内に{field}{floor}Fの『{boss}』を討ってくださいな。――イザベラ,§0.85（物語帳の案）
@@ -11,7 +11,7 @@ Isabella,Defeat,王都の街道が{field}の魔物で危ういそうですの。
 Noble,Loan,辺境伯家より。{stat}が{value}以上の娘を一人、ひと季節のあいだ当家の護衛として借り受けたい。{weeks}週以内に返事を。,§0.85（物語帳の案）
 Noble,Loan,当家の令嬢に剣の稽古をつけてくれる者を探している。{stat}{value}以上の者を、ひと季節お借りできないか。{weeks}週以内に返事を。,
 Noble,Loan,辺境の砦に腕の立つ者が要る。{stat}が{value}以上の冒険者を一人、ひと季節。礼は弾む。{weeks}週以内に返事を。,
-Elves,Defeat,森の主のせいで、里の子たちが薬草を摘みに行けなくて困っているんですよ。{field}{floor}Fの『{boss}』を{weeks}週以内に、お願いできますか。――ユーフェミア,§0.85（長老ユーフェミアの言葉）
+Elves,Defeat,森の番人のせいで、里の子たちが薬草を摘みに行けなくて困っているんですよ。{field}{floor}Fの『{boss}』を{weeks}週以内に、お願いできますか。――ユーフェミア,§0.85（長老ユーフェミアの言葉）
 Elves,Defeat,{field}{floor}Fの『{boss}』が騒ぐと、森の精霊たちが眠れないんですよ。{weeks}週のうちに鎮めてくださいな。――ユーフェミア,
 Elves,Survey,古い歌に出てくる『{boss}』（{field}{floor}F）が本当にいるのか、{weeks}週以内に確かめてくださいな。――ユーフェミア,
 Elves,Deliver,里の薬師が{material}を切らしてしまってね。{count}個、{weeks}週以内に届けてもらえると助かりますよ。――ユーフェミア,

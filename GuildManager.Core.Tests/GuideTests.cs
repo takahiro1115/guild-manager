@@ -134,13 +134,13 @@ namespace GuildManager.Core.Tests
             state.StoryCounters[$"retreat:{boss.Id}"] = 2;
             StorySystem.MarkSeen(state, "s01_hunter");
             var g = GuideSystem.Groups(state).Single();
-            Assert.Contains("40Fの主を解析", g.Items[0].Text);
+            Assert.Contains("40Fの番人を解析", g.Items[0].Text);
             boss.IntelRate = 0.3;
             Assert.Equal(new[] { true, false }, GuideSystem.Groups(state).Single().Items.Select(i => i.Done));
             boss.IsDefeated = true;
             var done = GuideSystem.Groups(state).Single();
             Assert.True(done.AllDone);
-            Assert.Contains("40Fの主を解析", done.Items[0].Text); // 撃破のあとも同じボスを指す
+            Assert.Contains("40Fの番人を解析", done.Items[0].Text); // 撃破のあとも同じボスを指す
         }
 
         [Fact]
