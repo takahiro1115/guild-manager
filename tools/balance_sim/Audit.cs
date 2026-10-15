@@ -40,6 +40,7 @@ partial class GameSim
         if (opts.Contains("norulers")) NoRulerFights = true;
         if (opts.Contains("noshop")) UseShops = false;
         if (opts.Contains("prudent")) PrudentRulers = true;
+        if (opts.Contains("lineage")) Lineage = true;
         if (opts.Contains("tourney")) TourneyMode = "all";
         if (opts.Contains("nocomm")) UseCommissions = false;
         if (opts.Contains("comm")) UseCommissions = true;

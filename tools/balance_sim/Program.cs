@@ -63,6 +63,7 @@ if (mode is "campaign")
     GameSim.NoRulerFights = opts.Contains("norulers");
     GameSim.UseShops = !opts.Contains("noshop");
     GameSim.PrudentRulers = opts.Contains("prudent");
+    GameSim.Lineage = opts.Contains("lineage");
     // 依頼（§0.64）：nocomm＝依頼を受けない、old＝依頼も迷宮の異変も無し（§0.63までと同じ条件で比べる）
     GameSim.UseCommissions = !opts.Contains("nocomm") && !opts.Contains("old");
     GameSim.NoAnomaly = opts.Contains("old");
@@ -652,6 +653,8 @@ partial class GameSim
     static int RulerMinGold = 3000;
     /// <summary>prudent：支配者戦は所持金 8000G 以上のときだけ、一度に1人の支配者まで（ほかの支配者に出していれば休む）。</summary>
     public static bool PrudentRulers;
+    /// <summary>lineage：秘薬は娘の世代がいちばん進むペアを先に選ぶ（§0.133 の世代を重ねる遊び方）。</summary>
+    public static bool Lineage;
 
     /// <summary>
     /// 月のはじめの支配者戦：月を終えた決闘を行い（介入は「もっと強い代表がいれば入れ替える・名はいつも呼ぶ」）、今月の代表を選び直す。
@@ -1139,7 +1142,10 @@ partial class GameSim
             || s.Gold < SoulFusionBalance.PrescriptionGold + Reserve)
             return;
         // 生まれる娘の素質の見込み（両親の高いほうへ寄せた基準＋ばらつきの平均−近い血、世代の上限で止める、§0.133）がいちばん高いペア
-        var pair = SoulFusionSystem.GetEligiblePairs(s).OrderByDescending(p => ExpectedChildPa(p.A, p.B)).FirstOrDefault();
+        // lineage：娘の世代がいちばん進むペアを先に（世代を重ねる遊び方を測る）
+        var pair = SoulFusionSystem.GetEligiblePairs(s)
+            .OrderByDescending(p => Lineage ? SoulFusionSystem.ChildGeneration(p.A, p.B) : 0)
+            .ThenByDescending(p => ExpectedChildPa(p.A, p.B)).FirstOrDefault();
         if (pair.A == null) return;
         var job = (StatSum(pair.A) >= StatSum(pair.B) ? pair.A : pair.B).JobClass;
         string? catalyst = s.Materials.GetValueOrDefault("mat_canyon_gem") >= 3 ? "mat_canyon_gem" : null;

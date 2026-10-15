@@ -356,7 +356,7 @@ namespace GuildManager.Core.Systems
             {
                 int lean = aptitude.Contains(stat) ? RecruitmentBalance.JobAptitudePaBonus
                     : GrowthBalance.GetJobStatWeight(jobClass, stat) == 0 ? -RecruitmentBalance.JobInaptitudePaPenalty : 0;
-                int pa = Math.Clamp(_rng.NextInt(minPa, maxPa) + ageBonus + paBonus + lean, 1, 100);
+                int pa = SoulFusionSystem.ScaleToFirstGeneration(Math.Clamp(_rng.NextInt(minPa, maxPa) + ageBonus + paBonus + lean, 1, 100)); // 1世代の素質に縮める（§0.135）
                 int actual = Math.Max(1, (int)(pa * growthRatio));
                 AdventurerStatAccessor.SetPa(candidate, stat, pa);
                 AdventurerStatAccessor.SetStat(candidate, stat, actual);

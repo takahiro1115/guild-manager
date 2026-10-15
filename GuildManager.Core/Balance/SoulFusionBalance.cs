@@ -48,6 +48,9 @@ namespace GuildManager.Core.Balance
         /// <summary>親になれるのは生涯1回までか（false なら何度でも、どの相手とでも）。</summary>
         public static readonly bool ParentOnlyOnce = BalanceData.GetInt(FileName, "ParentOnlyOnce") != 0;
         public static readonly int GenerationPaCapStep = BalanceData.GetInt(FileName, "GenerationPaCapStep");
+        public static readonly int GenerationBasePaCap = BalanceData.GetInt(FileName, "GenerationBasePaCap");
+        public static readonly int GenerationFloorPa = BalanceData.GetInt(FileName, "GenerationFloorPa");
+        public static readonly double ChildJoinGrowthRatio = BalanceData.GetDouble(FileName, "ChildJoinGrowthRatio");
         public static readonly int GenerationPaCapMaxGen = BalanceData.GetInt(FileName, "GenerationPaCapMaxGen");
         public static readonly int InbreedPenaltyClose = BalanceData.GetInt(FileName, "InbreedPenaltyClose");
         public static readonly int InbreedPenaltyNear = BalanceData.GetInt(FileName, "InbreedPenaltyNear");

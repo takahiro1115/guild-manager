@@ -65,6 +65,13 @@ namespace GuildManager.Core.Data
 
             foreach (var a in list)
             {
+                // 1世代の素質（§0.135）：初めからいる子も、素質と能力を1世代の上限÷100の割合に縮める
+                foreach (var stat in Systems.AdventurerStatAccessor.AllStatNames)
+                {
+                    Systems.AdventurerStatAccessor.SetPa(a, stat, Systems.SoulFusionSystem.ScaleToFirstGeneration(Systems.AdventurerStatAccessor.GetPa(a, stat)));
+                    Systems.AdventurerStatAccessor.SetStat(a, stat, Math.Min(Systems.AdventurerStatAccessor.GetPa(a, stat), Systems.SoulFusionSystem.ScaleToFirstGeneration(Systems.AdventurerStatAccessor.GetStat(a, stat))));
+                }
+
                 // 初期装備（2026年9月、武具の7大能力値補正）：職業ごとの基本装備を着た状態で加入する
                 // （→ StarterEquipment。新春ドラフトの新人と同じ表：クラウディア＝鉄の剣＋革鎧、
                 // リナ＝短剣＋革鎧、フィオナ＝メイス＋ローブ）。装備補正込みの最大HPでHPも満タンにする。

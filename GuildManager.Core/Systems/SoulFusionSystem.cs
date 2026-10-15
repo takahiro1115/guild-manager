@@ -103,8 +103,16 @@ namespace GuildManager.Core.Systems
         public static int PaCapOf(int generation, bool breakthrough)
         {
             int gen = Math.Clamp(generation, 1, SoulFusionBalance.GenerationPaCapMaxGen);
-            return (breakthrough ? SoulFusionBalance.BreakthroughPaCap : SoulFusionBalance.NormalPaCap) + SoulFusionBalance.GenerationPaCapStep * (gen - 1);
+            int cap = SoulFusionBalance.GenerationBasePaCap + SoulFusionBalance.GenerationPaCapStep * (gen - 1);
+            return breakthrough ? cap + (SoulFusionBalance.BreakthroughPaCap - SoulFusionBalance.NormalPaCap) : cap;
         }
+
+        /// <summary>
+        /// 1世代の素質に縮める（§0.135）：0〜100の素質を「下支え（GenerationFloorPa）＋元×(1世代の上限−下支え)÷100」に縮める（1以上）。
+        /// 採用の候補と初めからいる子に使う。有望な新人とふつうの新人の差は残る。
+        /// </summary>
+        public static int ScaleToFirstGeneration(int pa) =>
+            Math.Max(1, (int)Math.Round(SoulFusionBalance.GenerationFloorPa + pa * (SoulFusionBalance.GenerationBasePaCap - SoulFusionBalance.GenerationFloorPa) / 100.0, MidpointRounding.AwayFromZero));
 
         /// <summary>その子のその能力の素質の上限（世代と限界突破から）。</summary>
         public static int PaCapOf(Adventurer a, string stat) => PaCapOf(a.Generation, a.FusionBreakthroughStats.Contains(stat));
@@ -330,7 +338,7 @@ namespace GuildManager.Core.Systems
                 int cap = PaCapOf(child.Generation, breakthroughStats.Contains(stat)); // 血の蓄え（§0.133）
                 int pa = Math.Clamp(rawPa[stat], 1, cap);
                 AdventurerStatAccessor.SetPa(child, stat, pa);
-                AdventurerStatAccessor.SetStat(child, stat, Math.Max(1, (int)(pa * RecruitmentBalance.YoungestGrowthRatio)));
+                AdventurerStatAccessor.SetStat(child, stat, Math.Max(1, (int)(pa * SoulFusionBalance.ChildJoinGrowthRatio)));
             }
 
             // ---- 特性：親から受け継ぎ、そのうえで採用と同じ先天判定 ----
