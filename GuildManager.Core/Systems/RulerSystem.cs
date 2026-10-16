@@ -686,6 +686,9 @@ namespace GuildManager.Core.Systems
         /// <summary>戦い終えたあとの、支配者ごとの後片付け（メルジーネの調べの並びの入れ替えなど）。</summary>
         protected virtual void OnFinished() { }
 
+        /// <summary>最後に勝った代表の名前（決闘のように1人ずつ戦う戦いだけ。ほかは null）。</summary>
+        protected virtual string? VictorName => null;
+
         /// <summary>締める（1回だけ）。</summary>
         public void Finish()
         {
@@ -703,6 +706,7 @@ namespace GuildManager.Core.Systems
             if (OverByHp)
             {
                 if (IsOutpost) Retreated = true; else Defeated = true;
+                Ruler.LastVictorName = VictorName ?? Ruler.LastVictorName; // 物語の場面の {代表}（§0.142）
                 Boss.CurrentHp = 0;
                 Boss.IsDefeated = true;
                 DungeonExpeditionSystem.ApplyFieldProgression(State, Boss);
@@ -1015,20 +1019,17 @@ namespace GuildManager.Core.Systems
             return ("", "使う", "使わない");
         }
 
+        protected override string? VictorName => Bouts.LastOrDefault(b => b.Won)?.Name;
+
         public override List<StoryLine> ClosingLines()
         {
             var lines = new List<StoryLine>();
             int dealt = HpBefore - Ruler.Hp;
+            // 退いた・倒したときのヴェスペラの台詞は、すぐあとの物語の場面（台詞 05 の決闘 2・3）に任せ、ここは結果の地の文だけ（§0.142）
             if (Retreated)
-            {
-                lines.Add(new(StoryLineKind.Speech, "……ふん。今日のところは、退いてやる", RulerSystem.VesperaName));
                 lines.Add(new(StoryLineKind.Narration, "ヴェスペラは茨の奥へ退いた。森の70階の先へ進めるようになった"));
-            }
             else if (Defeated)
-            {
-                lines.Add(new(StoryLineKind.Speech, "……見事だ", RulerSystem.VesperaName));
                 lines.Add(new(StoryLineKind.Narration, "ヴェスペラの最後の刃が折れた。森の100階を制した"));
-            }
             if (LegendaryFound is { } blades)
                 lines.Add(new(StoryLineKind.Narration, $"ヴェスペラが置いていった「{blades.Name}」を手に入れた（伝説級の固有武具）"));
             if (Defeated)

@@ -81,12 +81,23 @@ namespace GuildManager.Core.Systems
             new("s05_face3", StoryTiming.AfterReport, s => Seen(s, "s01_lumina") && BossDefeated(s, "ruins", 30)),
             new("s05_face4", StoryTiming.AfterReport, s => Seen(s, "s01_lumina") && BossDefeated(s, "canyon", 30)),
             new("s05_face5", StoryTiming.AfterReport, s => Seen(s, "s01_lumina") && BossDefeated(s, "abyss", 30)),
+            // 届く声（顔見せから2季節あと、まだその迷宮の70Fに届いていないとき。ネフェリスは前兆が2つ出た次の季節。§0.142）
+            new("s05_voice1", StoryTiming.AfterReport, s => SeasonsSince(s, "s05_face1") >= 2 && !BossDefeated(s, "forest", 70)),
+            new("s05_voice2", StoryTiming.AfterReport, s => SeasonsSince(s, "s05_face2") >= 2 && !BossDefeated(s, "cave", 70)
+                && new[] { "s05_face1", "s05_face3", "s05_face4", "s05_face5" }.Any(id => Seen(s, id))),
+            new("s05_voice3", StoryTiming.AfterReport, s => SeasonsSince(s, "s05_face3") >= 2 && !BossDefeated(s, "ruins", 70)),
+            new("s05_voice4", StoryTiming.AfterReport, s => !Seen(s, "s04_truth") && SecondOmenWeek(s) is int omen
+                && s.WeekNumber / GameCalendar.WeeksPerSeason > (omen - 1) / GameCalendar.WeeksPerSeason),
+            // ヴェスペラとの決闘（森の60Fで挑めるようになった・70Fの前哨戦で退かせた・100Fの決着。§0.142）
+            new("s05_duel1", StoryTiming.AfterReport, s => Seen(s, "s01_lumina") && BossDefeated(s, "forest", 60)),
+            new("s05_duel2", StoryTiming.AfterReport, s => BossDefeated(s, "forest", 70)),
+            new("s05_duel3", StoryTiming.AfterReport, s => BossDefeated(s, "forest", 100)),
             // ---- 台詞04 前兆・足跡・真相・エンディング（§0.89）。前兆も足跡も森→洞窟→廃墟→峡谷の順に、前の場面を待つ ----
             new("s04_omen1", StoryTiming.AfterReport, s => Seen(s, "s01_lumina") && BossDefeated(s, "forest", 50)),
             new("s04_omen2", StoryTiming.AfterReport, s => Seen(s, "s04_omen1") && BossDefeated(s, "cave", 50)),
             new("s04_omen3", StoryTiming.AfterReport, s => Seen(s, "s04_omen2") && BossDefeated(s, "ruins", 50)),
             new("s04_omen4", StoryTiming.AfterReport, s => Seen(s, "s04_omen3") && BossDefeated(s, "canyon", 50)),
-            new("s04_trail1", StoryTiming.AfterReport, s => Seen(s, "s04_omen4") && BossDefeated(s, "forest", 100)),
+            new("s04_trail1", StoryTiming.AfterReport, s => (Seen(s, "s04_omen4") || Seen(s, "s05_duel3")) && BossDefeated(s, "forest", 100)), // ヴェスペラとの決着のすぐあと（§0.142）
             new("s04_trail2", StoryTiming.AfterReport, s => Seen(s, "s04_trail1") && BossDefeated(s, "cave", 100)),
             new("s04_trail3", StoryTiming.AfterReport, s => Seen(s, "s04_trail2") && BossDefeated(s, "ruins", 100)),
             new("s04_trail4", StoryTiming.AfterReport, s => Seen(s, "s04_trail3") && BossDefeated(s, "canyon", 100)),
@@ -305,6 +316,19 @@ namespace GuildManager.Core.Systems
         }
 
         /// <summary>
+        /// §0.142より前のセーブ：迷宮の主の場面のうち、もう過ぎたもの（倒した階の決闘、前兆が2つ出ていればネフェリスの夢）を見たことにする。
+        /// 届く声 1〜3 は顔見せから2季節あとに、その70Fにまだ届いていなければ出る（もう届いていれば出ない）ので、そのままにする。
+        /// </summary>
+        public static void MarkRulerScenesSeen(GameState state)
+        {
+            foreach (var (id, floor) in new[] { ("s05_duel1", 60), ("s05_duel2", 70), ("s05_duel3", 100) })
+                if (BossDefeated(state, "forest", floor))
+                    state.StorySeenWeeks.TryAdd(id, state.WeekNumber);
+            if (SecondOmenWeek(state) != null)
+                state.StorySeenWeeks.TryAdd("s05_voice4", state.WeekNumber);
+        }
+
+        /// <summary>
         /// 週の決算のあと：場面のきっかけを数える（扉前の撤退・決戦の負け・派遣の教官が帰った）。WeekProcessingSystem が呼ぶ。
         /// 決戦の負けも「勝てずに引き返した」1回に数える（§0.98）。
         /// </summary>
@@ -321,6 +345,18 @@ namespace GuildManager.Core.Systems
             (r.ArrivedAtBossDoor && r.DoorRetreatReason != null) || r.DungeonResult?.Outcome == DungeonOutcome.Retreat;
 
         // ==================== 条件 ====================
+
+        /// <summary>その場面を見てから何季節たったか（見ていなければ −1）。</summary>
+        private static int SeasonsSince(GameState state, string sceneId) =>
+            state.StorySeenWeeks.TryGetValue(sceneId, out int seen) ? (state.WeekNumber - seen) / GameCalendar.WeeksPerSeason : -1;
+
+        /// <summary>前兆（台詞 04）の2つ目を見た週（2つ見ていなければ null）。</summary>
+        private static int? SecondOmenWeek(GameState state)
+        {
+            var weeks = new[] { "s04_omen1", "s04_omen2", "s04_omen3", "s04_omen4" }
+                .Where(id => state.StorySeenWeeks.ContainsKey(id)).Select(id => state.StorySeenWeeks[id]).OrderBy(w => w).ToList();
+            return weeks.Count >= 2 ? weeks[1] : null;
+        }
 
         private static bool SeenBefore(GameState state, string sceneId, int week) =>
             state.StorySeenWeeks.TryGetValue(sceneId, out int seen) && seen < week;
@@ -507,6 +543,9 @@ namespace GuildManager.Core.Systems
             values[state.IsabellaEarlyVisit ? "{早めの来訪なら}" : "{森の来訪なら}"] = "";
             values["{週}"] = SatisfactionBalance.NegotiationGraceWeeks.ToString();
             if (IsabellaSystem.HasVisited(state)) values["{来訪のあとなら}"] = "";
+            // 迷宮の主の場面（§0.142）：決闘の最後に勝った代表、ネフェリスの夢の出し分け
+            values["{代表}"] = state.Rulers.FirstOrDefault(r => r.RulerId == RulerSystem.VesperaId)?.LastVictorName ?? "代表";
+            values[Seen(state, "s04_omen4") ? "{前兆4のあと}" : "{前兆4の前}"] = "";
             if (HunterBoss(state) is { } boss)
                 values["{階}"] = boss.Floor.ToString();
             if (AdviceFacility(state) is FacilityType training)

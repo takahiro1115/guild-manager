@@ -60,6 +60,9 @@ namespace GuildManager.Core.Models
 
         /// <summary>ネフェリスのその月の間（§0.132。月ごとに替わる。調べは <see cref="SongOrder"/> の先頭）。</summary>
         public CorridorTarget StageHall { get; set; }
+
+        /// <summary>前哨戦で退かせた・決着で倒した戦いで、最後に勝った代表の名前（物語の場面の {代表}、§0.142）。旧セーブ・決闘でない戦いでは null。</summary>
+        public string? LastVictorName { get; set; }
     }
 
     /// <summary>オルテンシアの回廊の行き先（§0.130）。</summary>

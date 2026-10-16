@@ -536,7 +536,7 @@ namespace GuildManager.Core.Models
                 TournamentPrizeTotal = TournamentPrizeTotal,
                 TournamentInviteKeys = new List<string>(TournamentInviteKeys),
                 NextUpgradeHalfPrice = NextUpgradeHalfPrice,
-                StoryRulesVersion = 2, // §0.140 の序盤の流れ（新春・契約交渉・顔見せの場面）
+                StoryRulesVersion = 3, // §0.140 の序盤の流れ（新春・契約交渉・顔見せの場面）・§0.142 の迷宮の主の場面
                 IsabellaVisitWeek = IsabellaVisitWeek,
                 IsabellaEarlyVisit = IsabellaEarlyVisit,
                 FundingOpenedWeek = FundingOpenedWeek,
@@ -561,7 +561,7 @@ namespace GuildManager.Core.Models
                 AutoNegotiationBonus = AutoNegotiationBonus,
                 HideSquadReports = HideSquadReports,
                 HideEventReports = HideEventReports,
-                Rulers = Rulers.Select(r => new RulerState { RulerId = r.RulerId, Hp = r.Hp, HpFloor = r.HpFloor, WeaponIndex = r.WeaponIndex, RepresentativeIds = new List<Guid>(r.RepresentativeIds), DuelCount = r.DuelCount, LastDuelWeek = r.LastDuelWeek, PendingDuelWeek = r.PendingDuelWeek, SquadIds = new List<Guid>(r.SquadIds), SongOrder = new List<SongMode>(r.SongOrder), SquadTargets = new List<CorridorTarget>(r.SquadTargets), SealHp = new List<int>(r.SealHp), ResealCounter = r.ResealCounter, ResealPending = r.ResealPending, StageHall = r.StageHall }).ToList(),
+                Rulers = Rulers.Select(r => new RulerState { RulerId = r.RulerId, Hp = r.Hp, HpFloor = r.HpFloor, WeaponIndex = r.WeaponIndex, RepresentativeIds = new List<Guid>(r.RepresentativeIds), DuelCount = r.DuelCount, LastDuelWeek = r.LastDuelWeek, PendingDuelWeek = r.PendingDuelWeek, SquadIds = new List<Guid>(r.SquadIds), SongOrder = new List<SongMode>(r.SongOrder), SquadTargets = new List<CorridorTarget>(r.SquadTargets), SealHp = new List<int>(r.SealHp), ResealCounter = r.ResealCounter, ResealPending = r.ResealPending, StageHall = r.StageHall, LastVictorName = r.LastVictorName }).ToList(),
                 FocusedAdventurerIds = new List<Guid>(FocusedAdventurerIds),
                 PoachOffers = new List<PoachOffer>(PoachOffers),
                 LastFeastSeason = LastFeastSeason,
@@ -769,6 +769,9 @@ namespace GuildManager.Core.Models
             // もう過ぎたものを見たことにする（読み込んだ月に、いくつもの場面が一度に出ないように）
             if (data.StoryRulesVersion < 2 && data.StorySeenWeeks != null)
                 Systems.StorySystem.MarkEarlyFlowSeen(state);
+            // §0.142より前のセーブ（StoryRulesVersion 0〜2）：迷宮の主の場面（決闘・ネフェリスの夢）のうち、もう過ぎたものを見たことにする
+            if (data.StoryRulesVersion < 3 && data.StorySeenWeeks != null)
+                Systems.StorySystem.MarkRulerScenesSeen(state);
 
             // ギルドを去った週（§0.122）を持たない旧セーブ：引退した週＋役職を待つ週数で去ったとして読む（初めての引退式の順に使う）。
             foreach (var r in state.RetiredAdventurers.Where(r => r.LeftGuild && r.LeftGuildAtWeek == null))

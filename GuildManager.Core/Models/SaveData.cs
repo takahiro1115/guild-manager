@@ -274,7 +274,7 @@ namespace GuildManager.Core.Models
         public bool NextUpgradeHalfPrice { get; set; }
 
         // ---- イザベラの来訪と交流戦（§0.84、→ GameState の同名の項目） ----
-        /// <summary>§0.84の決まり（大会はイザベラの来訪から・依頼は初めての入賞から）で書いたセーブなら1、§0.140の序盤の流れで書いたセーブなら2。キーを持たない旧セーブは0。</summary>
+        /// <summary>§0.84の決まり（大会はイザベラの来訪から・依頼は初めての入賞から）で書いたセーブなら1、§0.140の序盤の流れで書いたセーブなら2、§0.142の迷宮の主の場面で書いたセーブなら3。キーを持たない旧セーブは0。</summary>
         public int StoryRulesVersion { get; set; }
         public int? IsabellaVisitWeek { get; set; }
         /// <summary>早めの来訪（§0.140）。キーの無い旧セーブは false。</summary>
