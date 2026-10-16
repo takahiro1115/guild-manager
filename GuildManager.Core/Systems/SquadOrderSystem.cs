@@ -78,7 +78,7 @@ namespace GuildManager.Core.Systems
                 var refused = IncidentSystem.RollBoycotts(state, party, OrderDrive(saved.Order), _incidentRng);
                 var incidents = refused.Select(r => new IncidentEvent(r.Kind, r.Kind == IncidentKind.Refuse
                     ? $"⚡ {r.Adventurer.Name}が{r.Reason}（「{saved.Name}」の出撃に加わらなかった）"
-                    : $"💤 {r.Adventurer.Name}が出撃をボイコットした（{r.Reason}）", false)).ToList();
+                    : $"💤 {r.Adventurer.Name}が出撃をボイコットした（{r.Reason}）", false, r.Adventurer.Id, r.Other?.Id)).ToList();
                 int before = party.Members.Count;
                 foreach (var r in refused) party.Remove(r.Adventurer);
                 if (party.Members.Count == 0 || (before >= 2 && party.Members.Count < 2))

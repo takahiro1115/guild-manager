@@ -523,7 +523,7 @@ namespace GuildManager.Core.Tests
             Assert.Equal(DungeonOutcome.Victory, resolution.DungeonResult!.Outcome);
             Assert.True(boss.IsDefeated);
             Assert.Equal(11, field1.ReachedFloor);
-            Assert.True(field2.IsUnlocked); // 開放の階層の番人を倒してあれば、このフィールドの番人を倒した週に次のフィールドが開く
+            Assert.False(field2.IsUnlocked); // 洞窟（Order 2）は、森の開放の階層を倒した次の月の第1週に開く（§0.140、→ DungeonFieldTests）
             Assert.Equal(300, state.Gold);
             Assert.Equal(2, state.UnlockedSquadSlots);
             Assert.Equal(2, resolution.SquadSlotsExpandedTo);
@@ -777,9 +777,8 @@ namespace GuildManager.Core.Tests
             Assert.Equal(300, resolution.Boss!.RewardGold);
             Assert.Equal(MaterialIds.ForestHerb, resolution.Boss.RewardMaterialId);
             Assert.Equal(3, resolution.Boss.RewardMaterialCount);
-            // 🗺新フィールド開放（→ 週報の「探索域拡大」行）。
-            Assert.NotNull(resolution.FieldNewlyUnlocked);
-            Assert.Equal("第2フィールド", resolution.FieldNewlyUnlocked!.Name);
+            // 🗺新フィールド開放：洞窟（Order 2）は次の月のはじめに開くので、撃破の週には出ない（§0.140。月のはじめの決算の FieldsUnlockedAtMonthStart に出る）。
+            Assert.Null(resolution.FieldNewlyUnlocked);
             // 📡出撃枠拡張（→ 週報の「古代通信術式復元」行）。
             Assert.Equal(2, resolution.SquadSlotsExpandedTo);
         }

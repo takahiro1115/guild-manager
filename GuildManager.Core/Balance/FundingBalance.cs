@@ -25,6 +25,9 @@ namespace GuildManager.Core.Balance
         public static readonly int IsabellaLoanMonths = BalanceData.GetInt(FileName, "IsabellaLoanMonths");
         public static readonly int IsabellaLoanPerYear = BalanceData.GetInt(FileName, "IsabellaLoanPerYear");
 
+        /// <summary>アルベールのへそくり（§0.140）：資金の画面が開く前に所持金がマイナスになったとき、一度だけ足す額。</summary>
+        public static readonly int AlbertBailoutGold = BalanceData.GetInt(FileName, "AlbertBailoutGold");
+
         public static readonly int SponsorFirstWeek = BalanceData.GetInt(FileName, "SponsorFirstWeek");
         public static readonly int SponsorOffers = BalanceData.GetInt(FileName, "SponsorOffers");
         public static readonly int SponsorWeeks = BalanceData.GetInt(FileName, "SponsorWeeks");

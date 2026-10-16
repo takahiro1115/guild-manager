@@ -162,6 +162,9 @@ namespace GuildManager.Core.Systems
         /// <summary>部隊長の報告（§0.116。月報を開く前に1件ずつ見せる）。§0.116 より前の月報は空。</summary>
         public List<SquadLeaderReport> LeaderReports { get; set; } = new();
 
+        /// <summary>出来事の報告（§0.141。部隊長の報告のあとに、月の知らせを人物に話させる）。§0.141 より前の月報は空。</summary>
+        public List<EventReport> EventReports { get; set; } = new();
+
         /// <summary>冒険者ごと（この月に在籍した現役。§0.81）。</summary>
         public List<MonthlyAdventurer> Adventurers { get; set; } = new();
 
@@ -217,6 +220,7 @@ namespace GuildManager.Core.Systems
             AddSquads(state, weeks, report);
             AddAdventurers(state, weeks, report);
             report.LeaderReports = SquadReportSystem.Build(state, weeks, report); // 成長の集計（report.Growth）を使うので最後に
+            report.EventReports = EventReportSystem.Build(state, weeks); // 出来事の報告（§0.141）
             return report;
         }
 
@@ -328,9 +332,19 @@ namespace GuildManager.Core.Systems
                     string reward = standing.RewardGold > 0 ? $"。ご褒美に賞金{standing.RewardGold}G・機嫌+{standing.RewardMood}" : "";
                     Add($"{s.YearStanding.Year}年目のギルドの順位：{standing.Rank}位（栄誉点{standing.Points}）{reward}", standing.Rank <= 2 ? MonthlyTone.Good : MonthlyTone.Normal);
                 }
+                // 資金の画面が開く前の赤字（§0.140）
+                if (s.DeficitRelief is { BailoutGold: > 0 } bailout)
+                    Add($"所持金が足りなくなり、アルベールがへそくりの{bailout.BailoutGold}Gを出してくれた（次は無い）", MonthlyTone.Warning);
+                if (s.DeficitRelief is { FundingOpened: true })
+                    Add("💰 資金の画面が開いた（借金で立て直せる）", MonthlyTone.Good);
+                if (s.FundingOpened)
+                    Add("💰 イザベラが帳簿を見てくれた。資金の画面が開いた（収支の見込み・借金・スポンサー）", MonthlyTone.Good);
+                foreach (var field in s.FieldsUnlockedAtMonthStart)
+                    Add($"新しいフィールド「{field.Name}」が開いた", MonthlyTone.Good);
                 // イザベラの来訪と交流戦（§0.84）
                 if (s.IsabellaVisited)
-                    Add("白百合の杖のイザベラが来訪し、交流戦を申し込んできた（来月の第4週・剣・魔・技の3本勝負。🏆 大会のタブが開いた）", MonthlyTone.Good);
+                    Add((state.IsabellaEarlyVisit && s.DeficitRelief?.EarlyVisit == true ? "お給金にも困っているという噂を聞いて、" : "") +
+                        "白百合の杖のイザベラが来訪し、交流戦を申し込んできた（来月の第4週・剣・魔・技の3本勝負。🏆 大会のタブが開いた）", MonthlyTone.Good);
                 foreach (var m in s.ExchangeMatches)
                 {
                     string bouts = string.Join("・", m.Bouts.Select(b => $"{TournamentSystem.DisciplineLabel(b.Discipline)} {b.OurName}{(b.Won ? "○" : "×")}{b.OpponentName}"));
@@ -577,6 +591,7 @@ namespace GuildManager.Core.Systems
             if (flags.PoachOffered) reasons.Add("引き抜きの話");
             if (flags.ContractReviewDue) reasons.Add("年のはじめの契約更改");
             if (flags.SponsorOffered) reasons.Add("スポンサー契約の話");
+            if (flags.DeficitRelieved) reasons.Add("お金が足りなくなった"); // へそくり・早めの来訪（§0.140）
             if (flags.DismissalWarningIssued) reasons.Add("アルベールの最後通告"); // 危機（§0.136）
             else if (flags.MoodEnteredCrisis) reasons.Add("マスターの機嫌が危機に入った");
             if (flags.GoldTurnedNegative) reasons.Add("所持金がマイナスになった");

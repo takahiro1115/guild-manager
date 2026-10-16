@@ -17,8 +17,12 @@ namespace GuildManager.Core.Systems
         PoachLeft,
     }
 
-    /// <summary>出来事・事故の1件（月報の主な出来事に出す）。Good はプラスの出来事。</summary>
-    public sealed record IncidentEvent(IncidentKind Kind, string Text, bool Good);
+    /// <summary>
+    /// 出来事・事故の1件（月報の主な出来事に出す）。Good はプラスの出来事。
+    /// Who・Other・Detail は出来事の報告（§0.141、→ EventReportSystem）で当人に話させるためのもの：当人・相手（後輩・口論の相手など）・
+    /// 中身（無駄づかいの額・引き抜きのギルド・ひらめきで伸びた能力）。
+    /// </summary>
+    public sealed record IncidentEvent(IncidentKind Kind, string Text, bool Good, Guid? Who = null, Guid? Other = null, string Detail = "");
 
     /// <summary>引き抜きの話への答え。</summary>
     public enum PoachChoice
@@ -69,7 +73,7 @@ namespace GuildManager.Core.Systems
                 if (state.FindAdventurer(offer.AdventurerId) is { } leaver && !leaver.IsRetired)
                 {
                     SatisfactionSystem.Terminate(state, leaver);
-                    events.Add(new IncidentEvent(IncidentKind.PoachLeft, $"{leaver.Name}が{offer.GuildName}へ移籍した（引き抜きの話に応えなかった）", false));
+                    events.Add(new IncidentEvent(IncidentKind.PoachLeft, $"{leaver.Name}が{offer.GuildName}へ移籍した（引き抜きの話に応えなかった）", false, leaver.Id, null, offer.GuildName));
                 }
             }
 
@@ -110,7 +114,7 @@ namespace GuildManager.Core.Systems
                             ChangeCompat(state, x, y, PersonalityBalance.BondCompatGain);
                             SatisfactionSystem.Adjust(x, PersonalityBalance.BondSatisfaction);
                             SatisfactionSystem.Adjust(y, PersonalityBalance.BondSatisfaction);
-                            events.Add(new IncidentEvent(IncidentKind.Bond, $"🌸 {x.Name}と{y.Name}が休日に街へ出かけ、絆を深めた（相性+{PersonalityBalance.BondCompatGain}）", true));
+                            events.Add(new IncidentEvent(IncidentKind.Bond, $"🌸 {x.Name}と{y.Name}が休日に街へ出かけ、絆を深めた（相性+{PersonalityBalance.BondCompatGain}）", true, x.Id, y.Id));
                         }
                         else if (compat < CompatibilityBalance.HostileThreshold)
                         {
@@ -120,7 +124,7 @@ namespace GuildManager.Core.Systems
                             ChangeCompat(state, x, y, -loss);
                             Bruise(x);
                             Bruise(y);
-                            events.Add(new IncidentEvent(IncidentKind.Brawl, $"⚡ 宿舎で{x.Name}と{y.Name}が取っ組み合いになった（2人とも軽傷・相性−{loss}）", false));
+                            events.Add(new IncidentEvent(IncidentKind.Brawl, $"⚡ 宿舎で{x.Name}と{y.Name}が取っ組み合いになった（2人とも軽傷・相性−{loss}）", false, x.Id, y.Id));
                         }
                     }
             }
@@ -185,24 +189,24 @@ namespace GuildManager.Core.Systems
                     ChangeCompat(state, a, other, -loss);
                     SatisfactionSystem.Adjust(a, PersonalityBalance.QuarrelSatisfaction);
                     SatisfactionSystem.Adjust(other, PersonalityBalance.QuarrelSatisfaction);
-                    return new IncidentEvent(IncidentKind.Quarrel, $"⚡ {a.Name}が{other.Name}と口論した（相性−{loss}）", false);
+                    return new IncidentEvent(IncidentKind.Quarrel, $"⚡ {a.Name}が{other.Name}と口論した（相性−{loss}）", false, a.Id, other.Id);
                 }
                 case IncidentKind.Gloom:
                 {
                     int weeks = rng.NextInt(PersonalityBalance.GloomWeeksMin, PersonalityBalance.GloomWeeksMax);
                     if (state.GetFacilityLevel(FacilityType.Infirmary) >= 3) weeks--;
                     a.GloomWeeksRemaining = Math.Max(1, weeks);
-                    return new IncidentEvent(IncidentKind.Gloom, $"😞 {a.Name}が部屋にこもってしまった（{a.GloomWeeksRemaining}週、出撃も訓練もしない）", false);
+                    return new IncidentEvent(IncidentKind.Gloom, $"😞 {a.Name}が部屋にこもってしまった（{a.GloomWeeksRemaining}週、出撃も訓練もしない）", false, a.Id);
                 }
                 case IncidentKind.Waste:
                 {
                     int gold = a.WeeklyWage * PersonalityBalance.WasteWageWeeks;
                     state.Gold -= gold;
-                    return new IncidentEvent(IncidentKind.Waste, $"💸 {a.Name}がギルドのお金で勝手に買い物をした（−{gold}G）", false);
+                    return new IncidentEvent(IncidentKind.Waste, $"💸 {a.Name}がギルドのお金で勝手に買い物をした（−{gold}G）", false, a.Id, null, gold.ToString());
                 }
                 case IncidentKind.Fret:
                     a.Fretful = true;
-                    return new IncidentEvent(IncidentKind.Fret, $"😣 {a.Name}は手柄の無さに焦っている（次の決戦でけがをしやすい）", false);
+                    return new IncidentEvent(IncidentKind.Fret, $"😣 {a.Name}は手柄の無さに焦っている（次の決戦でけがをしやすい）", false, a.Id);
                 default:
                 {
                     var guild = state.RivalGuilds[rng.NextInt(0, state.RivalGuilds.Count - 1)];
@@ -212,7 +216,7 @@ namespace GuildManager.Core.Systems
                         DeadlineWeek = week + PersonalityBalance.PoachDeadlineWeeks,
                     });
                     poachOffered = true;
-                    return new IncidentEvent(IncidentKind.Poach, $"📨 {a.Name}に{guild.Name}から引き抜きの話が来た（{PersonalityBalance.PoachDeadlineWeeks}週のうちに応えないと移籍する）", false);
+                    return new IncidentEvent(IncidentKind.Poach, $"📨 {a.Name}に{guild.Name}から引き抜きの話が来た（{PersonalityBalance.PoachDeadlineWeeks}週のうちに応えないと移籍する）", false, a.Id, null, guild.Name);
                 }
             }
         }
@@ -234,7 +238,7 @@ namespace GuildManager.Core.Systems
                 case IncidentKind.Mentor:
                     ChangeCompat(state, a, younger!, PersonalityBalance.MentorCompatGain);
                     SatisfactionSystem.Adjust(younger!, PersonalityBalance.MentorSatisfaction);
-                    return new IncidentEvent(IncidentKind.Mentor, $"🤝 {a.Name}が後輩の{younger!.Name}の面倒を見た（相性+{PersonalityBalance.MentorCompatGain}）", true);
+                    return new IncidentEvent(IncidentKind.Mentor, $"🤝 {a.Name}が後輩の{younger!.Name}の面倒を見た（相性+{PersonalityBalance.MentorCompatGain}）", true, a.Id, younger.Id);
                 case IncidentKind.Insight:
                 {
                     string stat = GrowthBalance.PickJobWeightedStat(a.JobClass, rng);
@@ -243,14 +247,14 @@ namespace GuildManager.Core.Systems
                     AdventurerStatAccessor.SetStat(a, stat, after);
                     return new IncidentEvent(IncidentKind.Insight, after > before
                         ? $"💡 {a.Name}が稽古でこつをつかんだ（{stat}+1）"
-                        : $"💡 {a.Name}が稽古でこつをつかんだ（もう伸びしろは無かった）", true);
+                        : $"💡 {a.Name}が稽古でこつをつかんだ（もう伸びしろは無かった）", true, a.Id, null, after > before ? stat : "");
                 }
                 case IncidentKind.Treat:
                     foreach (var m in mates) SatisfactionSystem.Adjust(m, PersonalityBalance.TreatSatisfaction);
-                    return new IncidentEvent(IncidentKind.Treat, $"🍰 {a.Name}が部隊のみんなに差し入れをした（仲間の満足度+{PersonalityBalance.TreatSatisfaction}）", true);
+                    return new IncidentEvent(IncidentKind.Treat, $"🍰 {a.Name}が部隊のみんなに差し入れをした（仲間の満足度+{PersonalityBalance.TreatSatisfaction}）", true, a.Id);
                 default:
                     a.Pumped = true;
-                    return new IncidentEvent(IncidentKind.Pumped, $"🔥 {a.Name}が張り切っている（次の出撃で力+{PersonalityBalance.PumpedPowerBonus * 100:0}%）", true);
+                    return new IncidentEvent(IncidentKind.Pumped, $"🔥 {a.Name}が張り切っている（次の出撃で力+{PersonalityBalance.PumpedPowerBonus * 100:0}%）", true, a.Id);
             }
         }
 
@@ -303,9 +307,9 @@ namespace GuildManager.Core.Systems
         /// 犬猿の相手が同じ部隊にいれば、満足度の低い方が必ず拒む。険悪な相手がいれば RefuseChanceHostile、不満・限界ならボイコットの確率
         /// （苦手な仕事なら＋、主志向の仕事・相棒が同じ部隊なら−）。乱数は判定する子ごとに1回。
         /// </summary>
-        public static List<(Adventurer Adventurer, IncidentKind Kind, string Reason)> RollBoycotts(GameState state, Party party, Drive activity, IRng rng)
+        public static List<(Adventurer Adventurer, IncidentKind Kind, string Reason, Adventurer? Other)> RollBoycotts(GameState state, Party party, Drive activity, IRng rng)
         {
-            var refused = new List<(Adventurer, IncidentKind, string)>();
+            var refused = new List<(Adventurer, IncidentKind, string, Adventurer?)>();
             var members = party.Members.ToList();
             foreach (var a in members)
             {
@@ -313,7 +317,7 @@ namespace GuildManager.Core.Systems
                 var feud = others.FirstOrDefault(m => IsFeud(state, a.Id, m.Id) && a.Satisfaction <= m.Satisfaction);
                 if (feud != null)
                 {
-                    refused.Add((a, IncidentKind.Refuse, $"{feud.Name}と一緒なら出ない"));
+                    refused.Add((a, IncidentKind.Refuse, $"{feud.Name}と一緒なら出ない", feud));
                     continue;
                 }
                 int chance = 0;
@@ -336,7 +340,7 @@ namespace GuildManager.Core.Systems
                 }
                 if (chance <= 0) continue;
                 if (rng.NextInt(1, 100) <= chance)
-                    refused.Add((a, kind, reason));
+                    refused.Add((a, kind, reason, foe));
             }
             return refused;
         }

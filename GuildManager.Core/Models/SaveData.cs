@@ -274,9 +274,15 @@ namespace GuildManager.Core.Models
         public bool NextUpgradeHalfPrice { get; set; }
 
         // ---- イザベラの来訪と交流戦（§0.84、→ GameState の同名の項目） ----
-        /// <summary>§0.84の決まり（大会はイザベラの来訪から・依頼は初めての入賞から）で書いたセーブなら1。キーを持たない旧セーブは0。</summary>
+        /// <summary>§0.84の決まり（大会はイザベラの来訪から・依頼は初めての入賞から）で書いたセーブなら1、§0.140の序盤の流れで書いたセーブなら2。キーを持たない旧セーブは0。</summary>
         public int StoryRulesVersion { get; set; }
         public int? IsabellaVisitWeek { get; set; }
+        /// <summary>早めの来訪（§0.140）。キーの無い旧セーブは false。</summary>
+        public bool IsabellaEarlyVisit { get; set; }
+        /// <summary>資金の画面が開いた週（§0.140）。0＝まだ。キーの無い旧セーブは1（初めから開いていた）。</summary>
+        public int FundingOpenedWeek { get; set; } = 1;
+        /// <summary>アルベールのへそくりの週（§0.140）。</summary>
+        public int? AlbertBailoutWeek { get; set; }
         // ---- ライバルギルド（§0.93、→ GameState の同名の項目） ----
         public List<RivalGuild>? RivalGuilds { get; set; } = new();
         public List<RivalMember>? RetiredRivals { get; set; } = new();
@@ -304,6 +310,8 @@ namespace GuildManager.Core.Models
         public bool AutoNegotiationBonus { get; set; }
         /// <summary>部隊長の報告を見せないか（§0.116）。キーの無い旧セーブは false（見せる）。</summary>
         public bool HideSquadReports { get; set; }
+        /// <summary>出来事の報告を見せないか（§0.141）。キーの無い旧セーブは false（見せる）。</summary>
+        public bool HideEventReports { get; set; }
 
         /// <summary>大迷宮の支配者の状態（§0.127）。旧セーブでは null。</summary>
         public List<RulerState>? Rulers { get; set; }

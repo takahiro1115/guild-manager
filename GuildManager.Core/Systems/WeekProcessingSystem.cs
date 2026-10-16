@@ -116,6 +116,13 @@ namespace GuildManager.Core.Systems
             bool hadRetiree = state.GuildRetirees.Any(); // 最初の引退者で作戦資料室・冒険者支援室が開く（§0.78。派遣の教官は数えない）
             var neededNegotiationBefore = state.Adventurers.Where(a => a.NeedsNegotiation).Select(a => a.Id).ToHashSet();
             result.Flags.ContractReviewDue = GuildFinanceSystem.OpenContractReviewIfDue(state, thisWeek); // 年のはじめの契約更改（§0.103）
+            // 洞窟は、森の40Fを倒した次の月の第1週に開く（§0.140。森の40Fの月はイザベラの来訪に譲る）。方針の場所を考えてもらうため止める
+            if (GameCalendar.WeekOfMonth(thisWeek) == 1)
+            {
+                result.FieldsUnlockedAtMonthStart.AddRange(DungeonExpeditionSystem.UnlockFieldsAtMonthStart(state));
+                if (result.FieldsUnlockedAtMonthStart.Count > 0)
+                    result.Flags.FieldUnlocked = true;
+            }
 
             // 出撃中（今週出発した分も含む）の冒険者は、HP自然回復・訓練場成長の対象から外す（→ 03 §4.0.1）。
             var dispatchedIds = state.Adventurers.Where(a => a.IsDispatched).Select(a => a.Id).ToHashSet();
@@ -195,7 +202,7 @@ namespace GuildManager.Core.Systems
             // 大会（§0.82）：今週の大会を行い、ご褒美を与える。新しいフィールド・G1の優勝・入賞の累計で招待大会を置く。
             result.TournamentsResolved.AddRange(_tournamentSystem.ResolveWeek(state));
             result.TournamentInvitations.AddRange(TournamentSystem.CheckInvitations(state,
-                result.DungeonMissionResolutions.Where(r => r.FieldNewlyUnlocked != null).Select(r => r.FieldNewlyUnlocked!),
+                result.DungeonMissionResolutions.Where(r => r.FieldNewlyUnlocked != null).Select(r => r.FieldNewlyUnlocked!).Concat(result.FieldsUnlockedAtMonthStart),
                 result.TournamentsResolved));
             // 交流戦（§0.84）：最初の1回のあとに最初の訓練所が開き、次の月から大会の暦が置かれる。初めての入賞で依頼が開く。
             result.ExchangeMatches.AddRange(_isabellaSystem.ResolveWeek(state));
@@ -263,6 +270,16 @@ namespace GuildManager.Core.Systems
             // クリア（→ 03 §8.2・§0.59。深淵100Fのボス撃破で立つ）。画面はこの週にエンディングを出す。
             result.Flags.GameCleared = !wasCleared && state.IsGameCleared;
 
+            // 資金の画面が開く前の赤字（§0.140）：一度目はアルベールのへそくり、そのあともマイナスならイザベラが早めに来て資金の画面を開く。
+            // 破産の数えより先に済ませる（へそくりで埋まればマイナスに数えない）。
+            result.DeficitRelief = FundingSystem.ProcessEarlyDeficit(state);
+            if (result.DeficitRelief != null)
+            {
+                result.Flags.DeficitRelieved = true;
+                if (result.DeficitRelief.EarlyVisit)
+                    result.IsabellaVisited = true;
+            }
+
             // 敗北条件判定（→ 03 §8.3）：週次決算の最後に1回だけ行う。
             // 副官解雇（マスターの機嫌0、即時）と破産（所持金マイナス4週連続、猶予あり）（→ DefeatSystem）。
             bool hadWarning = state.DismissalWarningUntilWeek != null;
@@ -295,7 +312,8 @@ namespace GuildManager.Core.Systems
                 result.Flags.CommissionsOffered = result.Arrivals.Offered.Count > 0;
                 result.Flags.AnomalyAnnounced = result.Arrivals.AnnouncedAnomaly != null;
                 result.Flags.CommissionDeadlineNear = result.Arrivals.DeadlineNear.Count > 0;
-                result.SponsorOffered.AddRange(FundingSystem.ProcessNewWeek(state, _sponsorRng)); // スポンサー契約の話（春と秋のはじめ、§0.104）
+                result.FundingOpened = FundingSystem.ProcessFundingOpen(state); // イザベラの「帳簿」：王都の大会の次の月のはじめに資金の画面が開く（§0.140）
+                result.SponsorOffered.AddRange(FundingSystem.ProcessNewWeek(state, _sponsorRng)); // スポンサー契約の話（資金の画面が開いたあとの春と秋のはじめ、§0.104・§0.140）
                 result.Flags.SponsorOffered = result.SponsorOffered.Count > 0;
             }
 

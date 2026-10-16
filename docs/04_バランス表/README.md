@@ -37,6 +37,7 @@
 | `honor.csv` | 03 §0.83 | HonorBalance（殿堂の条件と顧問の効果の倍率・関係タグの閾値・引退式の行数。key,value 形式） |
 | `retirement_lines.csv` | 03 §0.83 | HonorBalance.RetirementLines（引退式のアルベールの言葉。**テーブル形式** `Key,Text`。Key＝HallOfFame／Legend／Name／Honor／Plain／Short、`{name}`・`{title}` を差し込む） |
 | `rulers.csv` | 03 §0.127 | RulerBalance（大迷宮の支配者と支配者戦。→ `docs/検討中_大迷宮の支配者.md` §3）：体力 `MaxHp`（100）・毎月の回復 `RegenPerMonth`（10）・前哨戦で退く体力 `OutpostRetreatHp`（50）・介入の回数 `InterventionsBase`（1）。ヴェスペラの一騎打ち `Vespera*`：代表の上限（5）・試合の上限（5）・強さ（前哨戦130／決着170。魔は大会の部門の倍率0.75を掛ける）・疲れ（試合ごと5%）・魅了の閾値（MND 60／80、相棒のいない子は+10、85%以上は揺らぐ×0.7）・削る体力（勝ち 20×強さの比〈10〜30〉、負け3）・HPの減り（勝ち10〜20%、負け30〜60%）・解析で見える手の内（30%・60%・100%）。介入「名を呼ぶ」`CallName*`（届く見込み＝40%＋相性÷4＋満足度÷4、上限90%）。見返り（§0.128）は他の表に置く：茨の欠片 `mat_ruler_thorn`（materials.csv。試合に勝つたびに1つ、売値150G、採取・鑑定では出ないよう MinFloor 999）、研究「多頭通信術式の強化」I・II `res_link_amulet_1/2`（research.csv。効果 `InterventionBonus`＝介入+1ずつ）、ヴェスペラの双剣 `LegendVesperaBlades`（uniques.csv。森70F、魅了を対策済み）。一対一の稽古場（森の100Fを倒すと個人特訓が同時に2人まで）は値を持たない。**メルジーネの調べの読み合い**（§0.129）`Melusine*`：出す部隊の上限（3）・閾値（前哨戦60／決着80）・呑まれる線（合い具合0.85）・甘い調べで魅了される線（INT が閾値の0.85倍未満）・削る体力（20×合い具合〈10〜25〉）・HPの減り（打ち破り10〜20%、呑まれ30〜50%）・解析で分かる曲（30%で1曲・60%で2曲・100%で全曲）。見返りは materials.csv の水妖の真珠 `mat_ruler_pearl`（売値150G）・uniques.csv の歌姫の耳飾り `LegendSirenEarring`（洞窟70F、再生を対策済み）・training.csv の瞑想 `MeditationGrowthMultiplier`（1.0）。**オルテンシアの玉座への回廊**（§0.130）`Ortensia*`：出す部隊の上限（3）・閾値（前哨戦60／決着80）・骸骨兵の間と玉座の人数（4）・削れる線（合い具合0.85）・幻惑の間で惑う線（0.85）・封印の強さ（100）と削る量（60×合い具合）・張り直し（3か月ごと）・援軍の守りの線（VIT 0.85）・威圧の線（LDR 0.85）と G1 の優勝1回で−1（最大−15）・玉座で削る体力（25×合い具合〈10〜35〉）・HPの減り（削れば10〜20%、押し返されれば30〜50%）・解析で張り直しが見える（50%）。見返りは materials.csv の古王の封蝋 `mat_ruler_seal`（売値150G）・uniques.csv の女王の聖骸布 `LegendQueenShroud`（廃墟70F、群れを対策済み）・古王の寝所の名のある家の娘のPA `NobleDaughterPaBonus`（+5）。**イグニアの灼熱の底**（§0.131）`Ignia*`：出す部隊の上限（3）・毎月の回復（20）・閾値（前哨戦65／決着85）・眷属と本体の人数（4）・削れる線（0.85）・削る体力（12×合い具合〈8〜20〉）・灼熱（15%×閾値÷VIT〈5〜25%〉、押し返されたら+10%）・戦線を離れる線（HP 3割）・崩れる線（2人）・押し切れ（合い具合×1.3・灼熱×1.5・強制除籍×2）・イグニアの炉（焔の鱗3枚・500G）。見返りは materials.csv の焔の鱗 `mat_ruler_scale`（売値150G）・uniques.csv の灼鱗の鎧 `LegendScorchMail`（峡谷70F、対策なし）。**ネフェリスの心臓の間**（§0.132）`Nepheris*`：出す部隊の上限（3）・閾値（前哨戦75／決着95）・削れる線（0.85）・倒していない支配者の仕掛けで外れる線（閾値の0.85倍）・削る体力（15×合い具合〈8〜25〉）・解析で調べが分かる（60%。メルジーネを倒すまでは分からない）。灼熱と押し切れはイグニアの値を使う。見返りは materials.csv の心臓のかけら `mat_ruler_shard`（売値150G）・uniques.csv のひび割れた双子冠 `LegendTwinCrown`（深淵70F、全能力+3・HP+15） |
+| `event_lines.csv` | 03 §0.141 | EventReportBalance（出来事の報告の台詞。**テーブル形式** `Kind,Speaker,Text,Jump`。正本は物語帳「台詞 06 出来事の報告」。Kind＝知らせの種類〈FieldOpen:フィールドId・ResearchDone〈:研究Id〉・FacilityBuilt・DaughterJoined・Nurture・NurtureEntrust・SponsorDone・CommissionDone:依頼人Id・Invitation・TournamentWin・YearRank・Title・HallOfFame・MotherDaughter・冒険者の出来事〈Mentor など IncidentKind の名前〉・Guard・LoanReturn・ExchangeWon・ExchangeLost・GuestArrive・Intro:Slot2／Slot3／Abyss／Visit／TournamentsOpen／GuestArrive／CommissionsOpen〉、Speaker＝`any`・`nolumina`・`temper:気質`・`char:初期の3人`、Text は `｜` で区切った段〈〔地の文〕・`アルベール「…」` などの名前のある人物・`「…」`＝当人〉、Jump＝行き先の案内〈「画面（すること）」、空なら無し〉。同じ Kind と Speaker の行が複数あれば月ごとに回す） |
 | `report_lines.csv` | 03 §0.116・§0.124 | SquadReportBalance（部隊長の報告の台詞の型。**テーブル形式** `Kind,Speaker,Text`。Kind＝Victory／Defeat／Injury／Retreat／Growth／Survey／Gather／Dive／Idle、Speaker＝`temper:cautious`・`temper:normal`・`temper:bold`（気質）／`drive:志向名`（主志向）／`char:claudia`・`char:rina`・`char:fiona`（物語帳の人物）。`{主}`・`{階}`・`{フィールド}`・`{名前}`・`{成果}`・`{解析}`・`{部隊長}` を差し込む。Text は「〔地の文〕｜台詞｜台詞」の形で、`｜` で区切った段を1コマずつ出す〈§0.124〉。備考に ASCII のカンマを含めるときと同じく、Text は `"…"` で囲む） |
 | `master_mood.csv` | 03 §8.1・§8.1.1 | MasterMoodBalance（マスターの機嫌の初期値・成果ごとの増減・退屈減衰・強制除籍への激怒・段階閾値・内職売上倍率・研究の手伝い〈旧・待機お手伝い〉の額／機嫌） |
 | `recruitment.csv` | 03 §2.4・§7.3 | RecruitmentSystem, NameGeneratorBalance（第1週の新春ドラフト：`DraftCandidateCount`・`DraftHireCount`。旧 `TutorialCandidateCount` は削除）。先天特性の確率 `InnateTraitChancePercent` は§0.55で5→3（候補19種、1人あたり平均約0.57個）。生まれつきの欠点の確率 `InnateFlawChancePercent`（2、候補9種、平均約0.18個）は§0.56で新設。レア特性の確率 `RareTraitChancePercent`（1）と重み `RareTraitWeight_Genius`（1）・`RareTraitWeight_SingleStat`（2）は§0.57で新設 |
@@ -967,3 +968,24 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 
 シミュレーター（前→今）：`campaign 20 1440` 来訪 5.2→4.6年目・森の20F 1.5→1.1年目・深淵が開く 1.8→2.5年目、クリア 20/20→17/20・13年目。
 `audit 30 1440 L3 simple` 30/30・14年目→30/30・16年目、負け0。`audit 30 720 L3 simple reckless`（from=0・100）負け 0・2 → 9・6（どれも危機の間に手番2回以上）。
+
+## 序盤の流れ（運営はイザベラから）で足した・変えたキー（2026年10月、→ 03 §0.140）
+
+**isabella.csv・funding.csv**（ユーザー判断 2026-10-16、→ docs/検討中_序盤の流れ.md）
+
+| ファイル | キー | 値（前→今） | 意味 |
+|---|---|---|---|
+| isabella.csv | `VisitFloor` | 60 → 40 | イザベラが来訪する森の番人の階層（§0.121 を戻した）。運営をイザベラから教えるので、採用や契約交渉より前に |
+| funding.csv | `AlbertBailoutGold`（新設） | 1000 | アルベールのへそくり：資金の画面（イザベラの帳簿）が開く前に所持金がマイナスになったとき、一度だけ足す額。2度目はイザベラが早めに来て資金の画面が開く |
+| funding.csv | `SponsorFirstWeek` | 25（説明だけ変更） | スポンサーが届くいちばん早い週。§0.140から、資金の画面が開いたあとの春と秋のはじめに届く |
+
+資金の画面が開く時（コード、`FundingSystem.ProcessFundingOpen`）：王都の大会の暦が置かれた次の月のはじめ。洞窟は森の40Fを倒した次の月の第1週に開く（`DungeonExpeditionSystem.UnlockFieldsAtMonthStart`）。
+
+シミュレーター（§0.139のあと→今）：`audit 30 720 L3 simple` クリア 14→21/30・負け0、来訪 4.6→1.6年目、資金の画面 1.8年目。`reckless` 負け 9→2/30。`campaign 20 1440` 17→19/20・13年目。
+へそくりは `naive`・`spendthrift` で 30回中6回（直前の所持金 −6〜−138G）。
+
+## 出来事の報告で足したファイル（2026年10月、→ 03 §0.141）
+
+**event_lines.csv**（新規、115行）：月報の知らせを人物に話させる台詞。正本は物語帳「台詞 06 出来事の報告」（script-06-00〜07）で、ここはその写し。
+物語帳を直したら写し直す（行き先の案内 Jump は「画面（すること）」の形。画面の名前は 大迷宮・研究室・施設管理・部隊・冒険者・大会）。
+シミュレーター：1か月あたり2.5件・いちばん多い月15件・差し込みの埋め残し0（`audit 10 720 L3 simple`）。

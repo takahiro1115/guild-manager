@@ -123,8 +123,17 @@ namespace GuildManager.Core.Systems
         /// <summary>今週、依頼の派遣から帰ってきた冒険者（成長と特性つき。→ CommissionSystem.ProcessLoanReturns、§0.85）。</summary>
         public List<LoanReturn> LoanReturns { get; } = new();
 
-        /// <summary>今週、イザベラが来訪した（森の60Fのボスを初めて倒した。次の月に最初の交流戦、§0.84）。</summary>
+        /// <summary>今週、イザベラが来訪した（森の40Fの番人を初めて倒した、または早めの来訪。次の月に最初の交流戦、§0.84・§0.140）。</summary>
         public bool IsabellaVisited { get; set; }
+
+        /// <summary>今週、資金の画面が開く前の赤字を手当てした（アルベールのへそくり・イザベラの早めの来訪、§0.140）。無ければ null。</summary>
+        public FundingSystem.DeficitRelief? DeficitRelief { get; set; }
+
+        /// <summary>決算のあとの新しい週に、資金の画面が開いた（イザベラの「帳簿」、§0.140）。早めの来訪で開いたときは DeficitRelief に出る。</summary>
+        public bool FundingOpened { get; set; }
+
+        /// <summary>月のはじめの週に開いたフィールド（洞窟は森の40Fを倒した次の月の第1週に開く、§0.140）。番人の撃破で開いたものは DungeonMissionResolution.FieldNewlyUnlocked。</summary>
+        public List<DungeonField> FieldsUnlockedAtMonthStart { get; } = new();
 
         /// <summary>今週行った交流戦（→ IsabellaSystem.ResolveWeek、§0.84）。</summary>
         public List<ExchangeOutcome> ExchangeMatches { get; } = new();

@@ -81,6 +81,12 @@ namespace GuildManager.Core.Systems
         public bool SponsorOffered { get; set; }
 
         /// <summary>
+        /// 資金の画面が開く前の赤字の手当て（§0.140）：アルベールのへそくり、またはイザベラの早めの来訪で資金の画面が開いた。
+        /// 何が起きたかを見てもらう（早めの来訪なら借金で立て直す）ため、月の途中でも止める。
+        /// </summary>
+        public bool DeficitRelieved { get; set; }
+
+        /// <summary>
         /// 月を1ターンとして進めているとき（→ AutoSkipService.AdvanceMonth、§0.70）、月の途中でも止めるか。
         /// 本当に決めることがあるときだけ止める：強制除籍・新しいフィールドの開放・娘の誕生・採用試験・依頼の期限・
         /// 契約交渉（2週以内に応えないと退団）・依頼の到着（季節の切れ目＝月の切れ目に来る）・潜行の部隊が主に勝てずに戻った（§0.98）・クリア・敗北。
@@ -90,7 +96,7 @@ namespace GuildManager.Core.Systems
         public bool ShouldStopMonth =>
             DeathOrPermanentInjuryOccurred || FieldUnlocked || SoulFusionBirthOccurred ||
             RecruitmentTrialOccurred || CommissionDeadlineNear || SatisfactionWarningOccurred ||
-            CommissionsOffered || SquadStalledAtBoss || PoachOffered || ContractReviewDue || SponsorOffered ||
+            CommissionsOffered || SquadStalledAtBoss || PoachOffered || ContractReviewDue || SponsorOffered || DeficitRelieved ||
             GoldTurnedNegative || BankruptcyImminent || MoodEnteredCrisis || DismissalWarningIssued || // 危機（§0.136）
             GameCleared || DefeatOccurred;
 
@@ -98,7 +104,7 @@ namespace GuildManager.Core.Systems
             CommissionsOffered || AnomalyAnnounced || CommissionDeadlineNear ||
             RecruitmentTrialOccurred || SatisfactionWarningOccurred ||
             FacilityConstructionCompleted || ResearchCompleted || SoulFusionBirthOccurred ||
-            SevereInjuryOccurred || BossDefeated || SquadStalledAtBoss || PoachOffered || ContractReviewDue || SponsorOffered ||
+            SevereInjuryOccurred || BossDefeated || SquadStalledAtBoss || PoachOffered || ContractReviewDue || SponsorOffered || DeficitRelieved ||
             DeathOrPermanentInjuryOccurred ||
             GoldTurnedNegative || BankruptcyImminent || MoodEnteredCrisis || DismissalWarningIssued ||
             GameCleared ||

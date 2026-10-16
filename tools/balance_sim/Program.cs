@@ -227,6 +227,7 @@ partial class GameSim
 
         // 大会の暦の種（§0.96）も回ごとに決める（以前は部隊の Guid から決まり、同じシードでも結果がそろわなかった）
         s = new GameState { Adventurers = SampleData.CreateStarterAdventurers(), DungeonFields = SampleData.CreateDefaultFields(), TournamentSeed = 3373 + k };
+        FundingSystem.CloseForNewGame(s); // 資金の画面はイザベラの帳簿で開く（§0.140。notutorial なら RunUi で開く）
         var draft = recruitment.StartInitialDraft(s);
         for (int guard = 0; guard < 10 && !draft.IsComplete; guard++)
         {

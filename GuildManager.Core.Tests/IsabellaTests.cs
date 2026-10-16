@@ -82,11 +82,11 @@ namespace GuildManager.Core.Tests
         // ---------------- 来訪 ----------------
 
         [Fact]
-        public void Visit_IsTheForest60F_NotThe40F()
+        public void Visit_IsTheForest40F()
         {
-            Assert.Equal(60, IsabellaBalance.VisitFloor); // §0.121：40F から遅らせた
+            Assert.Equal(40, IsabellaBalance.VisitFloor); // §0.140：60F（§0.121）から40Fに戻した。運営をイザベラから教えるので、採用や契約交渉より前に
             var state = NewGame();
-            foreach (var b in state.DungeonFields.First(f => f.Id == "forest").Bosses.Where(b => b.Floor < 60)) b.IsDefeated = true;
+            foreach (var b in state.DungeonFields.First(f => f.Id == "forest").Bosses.Where(b => b.Floor < 40)) b.IsDefeated = true;
             Assert.False(IsabellaSystem.CheckVisit(state));
             DefeatVisitFloor(state);
             Assert.True(IsabellaSystem.CheckVisit(state));

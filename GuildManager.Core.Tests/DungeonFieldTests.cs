@@ -95,9 +95,8 @@ namespace GuildManager.Core.Tests
             Assert.Equal(2, state.UnlockedSquadSlots);
         }
 
-        /// <summary>§0.139：1つ前のフィールドの開放の階層の番人を倒すと、次のフィールドが開く（森→洞窟→廃墟→峡谷）。深淵はこの経路では開かない。</summary>
+        /// <summary>§0.139：1つ前のフィールドの開放の階層の番人を倒すと、次のフィールドが開く（洞窟→廃墟→峡谷）。深淵はこの経路では開かない。</summary>
         [Theory]
-        [InlineData(2)]
         [InlineData(3)]
         [InlineData(4)]
         public void Defeating_UnlockFloorBoss_UnlocksNextField(int nextOrder)
@@ -120,14 +119,37 @@ namespace GuildManager.Core.Tests
         {
             var fields = SampleData.CreateDefaultFields();
             var state = new GameState { DungeonFields = fields };
-            var forest = fields.Single(f => f.Order == 1);
-            forest.Bosses.Single(b => b.Floor == DungeonBalance.FieldUnlockFloor(2)).IsDefeated = true;
-            var next = forest.Bosses.Single(b => b.Floor == DungeonBalance.FieldUnlockFloor(2) + 10);
+            var cave = fields.Single(f => f.Order == 2);
+            cave.Bosses.Single(b => b.Floor == DungeonBalance.FieldUnlockFloor(3)).IsDefeated = true;
+            var next = cave.Bosses.Single(b => b.Floor == DungeonBalance.FieldUnlockFloor(3) + 10);
             next.IsDefeated = true;
 
             DungeonExpeditionSystem.ApplyFieldProgression(state, next);
 
-            Assert.True(fields.Single(f => f.Order == 2).IsUnlocked);
+            Assert.True(fields.Single(f => f.Order == 3).IsUnlocked);
+        }
+
+        /// <summary>
+        /// §0.140：洞窟は森の40F（FieldUnlockFloor(2)）の番人を倒した週には開かず、次の月の第1週の決算で開く
+        /// （森の40Fの月はイザベラの来訪に譲る）。同じ月の途中の週では開かない。
+        /// </summary>
+        [Fact]
+        public void Cave_OpensAtTheStartOfTheMonthAfterTheForestUnlockFloor()
+        {
+            var fields = SampleData.CreateDefaultFields();
+            var state = new GameState { DungeonFields = fields, WeekNumber = 10 }; // 3か月目の第2週
+            var cave = fields.Single(f => f.Order == 2);
+            var boss = fields.Single(f => f.Order == 1).Bosses.Single(b => b.Floor == DungeonBalance.FieldUnlockFloor(2));
+            boss.IsDefeated = true;
+
+            DungeonExpeditionSystem.ApplyFieldProgression(state, boss);
+            Assert.False(cave.IsUnlocked);
+
+            Assert.Empty(DungeonExpeditionSystem.UnlockFieldsAtMonthStart(state)); // 倒した週のうちは開かない
+            state.WeekNumber = 13; // 次の月の第1週
+            Assert.Same(cave, Assert.Single(DungeonExpeditionSystem.UnlockFieldsAtMonthStart(state)));
+            Assert.True(cave.IsUnlocked);
+            Assert.Empty(DungeonExpeditionSystem.UnlockFieldsAtMonthStart(state)); // 二度は開かない
         }
 
         /// <summary>§0.120：森の20Fの撃破だけでは3枠にならない。現役が Slot3MinActive 人以上いれば、撃破と同時に3枠になる。</summary>

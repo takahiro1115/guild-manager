@@ -34,6 +34,7 @@ public partial class SystemPanel : ScrollContainer
 	private CheckButton _autoBonusCheck = null!;
 	/// <summary>部隊長の報告（§0.116）を見るか。</summary>
 	private CheckButton _squadReportCheck = null!;
+	private CheckButton _eventReportCheck = null!;
 	/// <summary>ギルドの方針（§0.105）：訓練の強さ・大会の賞金の分け方。</summary>
 	private OptionButton _trainingPolicyOption = null!;
 	private OptionButton _prizePolicyOption = null!;
@@ -147,6 +148,20 @@ public partial class SystemPanel : ScrollContainer
 		box.MoveChild(reportLabel, _autoBonusCheck.GetIndex() + 1);
 		box.AddChild(_squadReportCheck);
 		box.MoveChild(_squadReportCheck, reportLabel.GetIndex() + 1);
+
+		// 出来事の報告（§0.141）：部隊長の報告のあとに、月の知らせを人物が話す（GameState.HideEventReports の裏返し。部隊長の報告とは別に切り替える）
+		_eventReportCheck = new CheckButton
+		{
+			Text = "月報の前に、出来事の報告を見る",
+			TooltipText = "新しいフィールド・研究の完了・冒険者どうしの出来事などを、アルベール・ルミナ・当人が話す（月報の行はそのまま残る）",
+		};
+		_eventReportCheck.Toggled += on =>
+		{
+			if (_state != null)
+				_state.HideEventReports = !on;
+		};
+		box.AddChild(_eventReportCheck);
+		box.MoveChild(_eventReportCheck, _squadReportCheck.GetIndex() + 1);
 	}
 
 	/// <summary>
@@ -194,6 +209,7 @@ public partial class SystemPanel : ScrollContainer
 		_state = state;
 		_autoBonusCheck.SetPressedNoSignal(state.AutoNegotiationBonus);
 		_squadReportCheck.SetPressedNoSignal(!state.HideSquadReports);
+		_eventReportCheck.SetPressedNoSignal(!state.HideEventReports);
 		_trainingPolicyOption.Select(_trainingPolicyOption.GetItemIndex((int)state.TrainingPolicy));
 		_prizePolicyOption.Select(_prizePolicyOption.GetItemIndex((int)state.PrizePolicy));
 	}

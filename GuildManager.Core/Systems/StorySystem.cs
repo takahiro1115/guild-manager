@@ -40,8 +40,10 @@ namespace GuildManager.Core.Systems
             new("s01_elder", StoryTiming.AfterReport, s => SeenBefore(s, "s01_lumina", s.WeekNumber)),
             new("s01_question", StoryTiming.AfterReport, s => Seen(s, "s01_elder")),
             new("s01_research", StoryTiming.Interactive, s => Seen(s, "s01_question"), OnView: StoryView.Research), // 初めて研究室の画面を開いたとき（§0.114）
-            new("s01_sponsor", StoryTiming.AfterReport, s => FundingSystem.Offers(s).Count > 0 || FundingSystem.ActiveContract(s) != null), // 初めてスポンサー契約の話が届いた月（§0.115）
-            new("s01_hunter", StoryTiming.AfterReport, s => RetreatedBoss(s) != null),
+            new("s01_hunter", StoryTiming.AfterReport, s => Seen(s, "s01_lumina") && RetreatedBoss(s) != null), // ルミナを救出したあと（§0.140。救出前に2回引き返しても出さない）
+            new("s01_bailout", StoryTiming.AfterReport, s => s.AlbertBailoutWeek != null), // アルベールのへそくり（資金の画面が開く前の赤字、§0.140）
+            new("s01_newyear", StoryTiming.AfterReport, s => GameCalendar.YearOf(s.WeekNumber) >= 2), // 初めての新春の採用試験と契約更改（2年目のはじめ、§0.140）
+            new("s01_negotiation", StoryTiming.AfterReport, s => s.Adventurers.Any(a => !a.IsRetired && a.NeedsNegotiation)), // 初めての契約交渉（§0.140）
             // ---- 台詞02 イザベラの来訪と交流戦 ----
             new("s02_visit", StoryTiming.AfterReport, s => IsabellaSystem.HasVisited(s)),
             new("s02_disciplines", StoryTiming.AfterReport, s => Seen(s, "s02_visit") && IsabellaSystem.ExchangeThisMonth(s) is { Result: null }),
@@ -52,6 +54,8 @@ namespace GuildManager.Core.Systems
             new("s02_rematch_lost", StoryTiming.AfterReport, s => NewRematch(s) == false, Repeats: true),
             new("s02_marguerite", StoryTiming.AfterReport, s => Seen(s, "s02_advice") && s.ExchangeWins >= 1),
             new("s02_tournaments", StoryTiming.AfterReport, s => Seen(s, "s02_advice") && s.TournamentCalendarFromWeek is int from && s.WeekNumber >= from),
+            new("s02_ledger", StoryTiming.AfterReport, s => s.FundingOpenedWeek > 1 && s.TutorialEnabled), // 帳簿：資金の画面が開いた（王都の大会の次の月、または早めの来訪の月。§0.140）
+            new("s02_sponsor", StoryTiming.AfterReport, s => Seen(s, "s02_ledger") && (FundingSystem.Offers(s).Count > 0 || FundingSystem.ActiveContract(s) != null)), // 初めてのスポンサーの話（イザベラが持ってくる、§0.140）
             new("s02_marguerite_leaves", StoryTiming.AfterReport, s => Seen(s, "s02_marguerite") && s.StoryCounters.GetValueOrDefault(GuestLeftKey) > 0),
             new("s02_royal", StoryTiming.AfterReport, s => IsabellaSystem.CommissionsOpen(s) && s.TournamentPlacingsTotal > 0),
             new("s02_invite", StoryTiming.AfterReport, InviteDue, Repeats: true),
@@ -71,6 +75,12 @@ namespace GuildManager.Core.Systems
             new("s03_retire", StoryTiming.AfterReport, s => FirstRetiree(s) != null), // 引退者が役職につかずにギルドを去った月（教官・顧問で残る子では出さない、§0.122）
             new("s03_hall", StoryTiming.AfterReport, s => FirstHallOfFame(s) != null),
             new("s03_sharp", StoryTiming.AfterReport, s => s.StorySeenWeeks.TryGetValue("s01_lumina", out int w) && s.WeekNumber - w >= 5 * GameCalendar.WeeksPerYear),
+            // ---- 台詞05 迷宮の主の顔見せ（各フィールドの30F、§0.140。物語帳「台詞 05」） ----
+            new("s05_face1", StoryTiming.AfterReport, s => Seen(s, "s01_lumina") && BossDefeated(s, "forest", 30)),
+            new("s05_face2", StoryTiming.AfterReport, s => Seen(s, "s01_lumina") && BossDefeated(s, "cave", 30)),
+            new("s05_face3", StoryTiming.AfterReport, s => Seen(s, "s01_lumina") && BossDefeated(s, "ruins", 30)),
+            new("s05_face4", StoryTiming.AfterReport, s => Seen(s, "s01_lumina") && BossDefeated(s, "canyon", 30)),
+            new("s05_face5", StoryTiming.AfterReport, s => Seen(s, "s01_lumina") && BossDefeated(s, "abyss", 30)),
             // ---- 台詞04 前兆・足跡・真相・エンディング（§0.89）。前兆も足跡も森→洞窟→廃墟→峡谷の順に、前の場面を待つ ----
             new("s04_omen1", StoryTiming.AfterReport, s => Seen(s, "s01_lumina") && BossDefeated(s, "forest", 50)),
             new("s04_omen2", StoryTiming.AfterReport, s => Seen(s, "s04_omen1") && BossDefeated(s, "cave", 50)),
@@ -106,7 +116,8 @@ namespace GuildManager.Core.Systems
         public static readonly IReadOnlyCollection<string> TeachingSceneIds = new HashSet<string>
         {
             "s01_order", "s01_month", "s01_first_report", "s01_question", "s01_hunter",
-            "s02_disciplines", "s02_advice", "s02_tournaments", "s01_squad2", "s01_squad3", "s01_research", "s01_sponsor", "s03_culture",
+            "s02_disciplines", "s02_advice", "s02_tournaments", "s01_squad2", "s01_squad3", "s01_research", "s02_sponsor", "s03_culture",
+            "s01_newyear", "s01_negotiation", "s02_ledger",
         };
 
         /// <summary>
@@ -164,6 +175,7 @@ namespace GuildManager.Core.Systems
             ("s02", "二　白百合の杖"),
             ("s03", "三　ギルドの日々"),
             ("s04", "四　失われた理想郷"),
+            ("s05", "五　迷宮の主"),
         };
 
         /// <summary>
@@ -274,6 +286,22 @@ namespace GuildManager.Core.Systems
                 state.StorySeenWeeks.TryAdd(rule.Id, state.WeekNumber);
             state.StoryCounters[RematchKey] = state.ExchangeMatchesPlayed;
             GuideSystem.MarkAllDone(state); // 手引きも出さない（§0.87）
+        }
+
+        /// <summary>
+        /// §0.140より前のセーブ：序盤の流れで足した場面のうち、もう過ぎたもの（2年目に入っていれば新春・初めての契約交渉、30Fを倒したフィールドの迷宮の主の顔見せ）を
+        /// 見たことにする（読み込んだ月に、いくつもの場面が一度に出ないように）。
+        /// </summary>
+        public static void MarkEarlyFlowSeen(GameState state)
+        {
+            if (GameCalendar.YearOf(state.WeekNumber) >= 2)
+            {
+                state.StorySeenWeeks.TryAdd("s01_newyear", state.WeekNumber);
+                state.StorySeenWeeks.TryAdd("s01_negotiation", state.WeekNumber);
+            }
+            foreach (var (id, field) in new[] { ("s05_face1", "forest"), ("s05_face2", "cave"), ("s05_face3", "ruins"), ("s05_face4", "canyon"), ("s05_face5", "abyss") })
+                if (BossDefeated(state, field, 30))
+                    state.StorySeenWeeks.TryAdd(id, state.WeekNumber);
         }
 
         /// <summary>
@@ -442,6 +470,7 @@ namespace GuildManager.Core.Systems
                 "s03_fallen" => state.FallenAdventurers.FirstOrDefault()?.Name,
                 "s03_g1" => FirstG1Win(state)?.Result?.WinnerName,
                 "s03_cecilia" => CeciliaBeaten(state),
+                "s01_negotiation" => state.Adventurers.FirstOrDefault(a => !a.IsRetired && a.NeedsNegotiation)?.Name,
                 _ => null,
             };
             if (name != null) values["{名前}"] = name;
@@ -472,6 +501,12 @@ namespace GuildManager.Core.Systems
                 if (retiree.HallOfFameYear != null) values["{殿堂入りなら}"] = "";
             }
             values[Seen(state, "s04_truth") ? "{真相のあと}" : "{真相の前}"] = "";
+            // 序盤の流れ（§0.140）：へそくりの額・ルミナの有無・早めの来訪かどうか・契約交渉の期限
+            values["{金額}"] = FundingBalance.AlbertBailoutGold.ToString();
+            if (Seen(state, "s01_lumina")) values["{ルミナがいるなら}"] = "";
+            values[state.IsabellaEarlyVisit ? "{早めの来訪なら}" : "{森の来訪なら}"] = "";
+            values["{週}"] = SatisfactionBalance.NegotiationGraceWeeks.ToString();
+            if (IsabellaSystem.HasVisited(state)) values["{来訪のあとなら}"] = "";
             if (HunterBoss(state) is { } boss)
                 values["{階}"] = boss.Floor.ToString();
             if (AdviceFacility(state) is FacilityType training)

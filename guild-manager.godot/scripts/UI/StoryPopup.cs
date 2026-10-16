@@ -159,9 +159,10 @@ public partial class StoryPopup : Window
 	/// 部隊長の報告（§0.116）を見せる：コマ（話し手の名札・立ち絵・背景つき）を順に。見たことは記録しない。「報告をとばす」で残りを飛ばせる。
 	/// コマが無ければ何もせず Closed を呼ぶ。
 	/// </summary>
-	public void ShowReport(GameState state, IReadOnlyList<StoryStep> steps)
+	/// <summary>月報の前の報告（部隊長の報告・出来事の報告、§0.116・§0.141）。見出しは呼ぶ側が決める（出来事の報告があれば「今月の報告」）。</summary>
+	public void ShowReport(GameState state, IReadOnlyList<StoryStep> steps, string title = "📣 部隊長の報告")
 	{
-		Title = "📣 部隊長の報告";
+		Title = title;
 		_skipAllButton.Text = "報告をとばす ⏭";
 		_skipAllButton.Visible = true;
 		_presetSteps = steps;
@@ -305,6 +306,13 @@ public partial class StoryPopup : Window
 
 	private static string Escape(string text) => text.Replace("[", "[lb]");
 
+	/// <summary>行き先の案内の文（出来事の報告の最後のコマ、§0.141）。【画面へ】の文と同じ言い方。</summary>
+	public static string GuideLine(string label)
+	{
+		var action = JumpAction(label);
+		return action != null ? $"📍 次は上の「{NavName(label)}」の画面で、{action}。" : $"📍 次は上の「{NavName(label)}」の画面で：{label}";
+	}
+
 	/// <summary>行き先の案内に添える「そこで何をするか」の文（画面の名前だけの行き先は、読める文に言い換える。分からなければ null）。</summary>
 	private static string? JumpAction(string label)
 	{
@@ -323,6 +331,7 @@ public partial class StoryPopup : Window
 		_ when label.Contains("倉庫") => "📦 倉庫・遺物",
 		_ when label.Contains("大迷宮") || label.Contains("方針") => "🏰 大迷宮",
 		_ when label.Contains("部隊") || label.Contains("冒険者") => "📋 部隊・冒険者",
+		_ when label.Contains("資金") => "💰 資金", // §0.140：イザベラの帳簿・スポンサーの話
 		_ => label,
 	};
 }

@@ -107,7 +107,7 @@ public partial class FundingPanel : MarginContainer
 		foreach (var offer in offers)
 			box.AddChild(BuildOffer(offer));
 		if (FundingSystem.ActiveContract(_state) == null && offers.Count == 0)
-			box.AddChild(Rich($"[color=gray]結んでいる契約も、届いている話も無い（{(_state.WeekNumber < FundingBalance.SponsorFirstWeek ? "1年目の秋から、" : "")}春と秋のはじめに届く）。[/color]"));
+			box.AddChild(Rich($"[color=gray]結んでいる契約も、届いている話も無い（{(_state.WeekNumber < FundingBalance.SponsorFirstWeek ? "1年目の秋から、" : "")}春と秋のはじめに届く。帳簿を見てもらった季節の次から）。[/color]"));
 		return box;
 	}
 

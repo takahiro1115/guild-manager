@@ -418,14 +418,14 @@ namespace GuildManager.Core.Systems
                     {
                         go = true;
                         resolution.Incident = new IncidentEvent(IncidentKind.Charge,
-                            $"⚔ {disobey.Who.Name}が構えに従わず番人へ突っ込み、部隊も決戦になった（勝率{chanceNow * 100:F0}%）", false);
+                            $"⚔ {disobey.Who.Name}が構えに従わず番人へ突っ込み、部隊も決戦になった（勝率{chanceNow * 100:F0}%）", false, disobey.Who.Id);
                     }
                     else
                     {
                         go = false;
                         reason = $"{disobey.Who.Name}が構えに従わず逃げ出したため撤退";
                         IncidentSystem.ApplyFlee(state, mission.Party, disobey.Who);
-                        resolution.Incident = new IncidentEvent(IncidentKind.Flee, $"🏃 {disobey.Who.Name}が扉前で逃げ出し、部隊も撤退した（勝率{chanceNow * 100:F0}%）", false);
+                        resolution.Incident = new IncidentEvent(IncidentKind.Flee, $"🏃 {disobey.Who.Name}が扉前で逃げ出し、部隊も撤退した（勝率{chanceNow * 100:F0}%）", false, disobey.Who.Id);
                     }
                 }
                 resolution.DoorPower = DungeonResolver.CalculateBossPower(mission.Party, traversal.TargetBoss, state);
@@ -706,8 +706,9 @@ namespace GuildManager.Core.Systems
             field.ReachedFloor = Math.Min(DungeonField.MaxFloor, Math.Max(field.ReachedFloor, defeatedBoss.Floor + 1));
 
             // ③通常開放：開放の階層（DungeonBalance.FieldUnlockFloor、§0.139）の番人を倒していれば次順（Order+1）のフィールドを開放する。
-            // 開放先はOrder 2〜4のみ（深淵は④の特別条件でのみ開放される）。
-            if (field.Order + 1 <= 4)
+            // 開放先はOrder 3〜4（深淵は④の特別条件でのみ開放される）。洞窟（Order 2）は、森の40Fでイザベラが来た月を避けて、
+            // 次の月の第1週に開く（§0.140、→ UnlockFieldsAtMonthStart）。
+            if (field.Order + 1 is >= 3 and <= 4)
             {
                 var next = state.DungeonFields.FirstOrDefault(f => f.Order == field.Order + 1);
                 int unlockFloor = DungeonBalance.FieldUnlockFloor(field.Order + 1);
@@ -746,6 +747,26 @@ namespace GuildManager.Core.Systems
                 else if (defeatedBoss.Floor == 20)
                     RefreshSquadSlots(state); // 3枠目は人数がそろってから（§0.120）
             }
+        }
+
+        /// <summary>
+        /// 月のはじめの週の決算で呼ぶ（§0.140）：前の月までに森の開放の階層（FieldUnlockFloor(2)＝40F）の番人を倒していれば、洞窟（Order 2）を開く。
+        /// 森の40Fを倒した月はイザベラの来訪の月なので、洞窟はその次の月に回す。開いたフィールドを返す。
+        /// </summary>
+        public static List<DungeonField> UnlockFieldsAtMonthStart(GameState state)
+        {
+            var opened = new List<DungeonField>();
+            var first = state.DungeonFields.FirstOrDefault(f => f.Order == 1);
+            var second = state.DungeonFields.FirstOrDefault(f => f.Order == 2);
+            if (first == null || second == null || second.IsUnlocked) return opened;
+            int unlockFloor = DungeonBalance.FieldUnlockFloor(2);
+            // 倒した週が前の月まで（倒した週が分からない旧セーブは、倒していれば開く）
+            if (first.Bosses.Any(b => b.Floor == unlockFloor && b.EverDefeated && (b.LastDefeatedWeek is not int w || w < state.WeekNumber)))
+            {
+                second.IsUnlocked = true;
+                opened.Add(second);
+            }
+            return opened;
         }
 
         /// <summary>

@@ -163,11 +163,17 @@ partial class GameSim
                 var rep = MonthlyReport.Build(s, monthWeeks, goldAtTurn);
                 Reports++;
                 if (rep.Highlights.Count == 0) QuietReports++;
+                EventReportCount += rep.EventReports.Count; MaxEventReports = Math.Max(MaxEventReports, rep.EventReports.Count);
+                EventLeftovers += rep.EventReports.Count(e => e.Line.Contains('{'));
+                foreach (var e in rep.EventReports) EventKinds[e.Kind] = EventKinds.GetValueOrDefault(e.Kind) + 1;
+                foreach (var due in StorySystem.DueScenes(s, StoryTiming.AfterReport)) StorySystem.MarkSeen(s, due.SceneId); // 画面と同じく、月報のあとの場面を見たことにする（ルミナが加わる・出来事の報告の導入が場面と重なるかを画面どおりに）
                 ChoosePlans(rep);
             }
         }
     }
     public int Reports, QuietReports;
+    public int EventReportCount, MaxEventReports, EventLeftovers; // 出来事の報告（§0.141）
+    public Dictionary<string, int> EventKinds = new();
 
     // 来月の作戦（§0.98）：月報の作戦にどう答えるか。continue＝何もしない（今までどおり）、best＝見込みの勝率が最も高い手、
     // survey・other＝あればその手、rand＝くじ引き。L1以上は手番の編成（FormSquads）が方針を書き直すので、効くのは主に L0。
@@ -542,6 +548,8 @@ partial class GameSim
         { int stTotal = Math.Max(1, sims.Sum(x => x.StageWeeks.Sum())); string P(int i) => $"{100.0 * sims.Sum(x => x.StageWeeks[i]) / stTotal:F0}%";
           Console.WriteLine($"満足度の段階（冒険者・週）：上機嫌 {P(1)}・ふつう {P(0)}・不満 {P(2)}・限界 {P(3)}　出来事（1年あたり）：プラス {sims.Sum(x => x.GoodIncidents) / years:F1}・マイナス {sims.Sum(x => x.BadIncidents) / years:F1}　引き抜きで移籍 {sims.Sum(x => x.PoachLeft)}　維持費 {sims.Sum(x => x.UpkeepTotal) / years:F0}G/年・手当 {sims.Sum(x => x.StipendTotal) / years:F0}G/年"); Console.WriteLine($"資金の調達（§0.104）：借金の返済 {sims.Sum(x => x.LoanRepaidTotal) / years:F0}G/年　スポンサー契約 達成 {sims.Sum(x => x.SponsorWins)}・未達 {sims.Sum(x => x.SponsorLosses)}（全回の合計）"); Console.WriteLine($"方針と進路（§0.105）：役職につかずに去った引退者 {sims.Sum(x => x.RetireesLeft) / years:F1}人/年　厳しい訓練のけが {sims.Sum(x => x.TrainingInjuries) / years:F1}回/年"); }
         Console.WriteLine($"月報の「主な出来事」が空だった回：{sims.Sum(x => x.QuietReports)}/{sims.Sum(x => x.Reports)}（{100.0 * sims.Sum(x => x.QuietReports) / Math.Max(1, sims.Sum(x => x.Reports)):F0}%）");
+        Console.WriteLine($"出来事の報告（§0.141）：1か月あたり {(double)sims.Sum(x => x.EventReportCount) / Math.Max(1, sims.Sum(x => x.Reports)):F1}件・いちばん多い月 {sims.Max(x => x.MaxEventReports)}件・差し込みの埋め残し {sims.Sum(x => x.EventLeftovers)}件　多い順：" +
+            string.Join("・", sims.SelectMany(x => x.EventKinds).GroupBy(kv => kv.Key).Select(g => (g.Key, N: g.Sum(kv => kv.Value))).OrderByDescending(x => x.N).Take(12).Select(x => $"{x.Key} {x.N}")));
         Console.WriteLine($"1手番あたりの操作：平均 {sims.Sum(x => x.Turns.Sum(t => t.ActionCount)) / (double)Math.Max(1, turns):F1}回");
         var cats = sims.SelectMany(x => x.Actions).GroupBy(kv => kv.Key).Select(g => (g.Key, Sum: g.Sum(kv => kv.Value))).OrderByDescending(x => x.Sum).ToList();
         Console.WriteLine("操作の内訳（1年あたり）：" + string.Join("・", cats.Select(c => $"{c.Key} {c.Sum / years:F1}")));

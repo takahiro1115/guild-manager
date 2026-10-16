@@ -22,12 +22,58 @@ namespace GuildManager.Core.Systems
     ///  - イザベラの融資：来訪のあと、年に1回。手数料が安く、機嫌は下がらない。上限は交流戦に勝つほど上がる。
     ///  - 返済：月の最後の週に、維持費と一緒に1回分ずつ払う。払えなければ所持金がマイナスになり、破産の数えに入る。
     ///    一括で返すと、残りの手数料はかからない（残りの元本だけ払う）。
-    ///  - スポンサー契約：1年目の秋から、春と秋のはじめに控えめ・強気の話が1件ずつ届く。結べるのは1件まで。
+    ///  - 資金の画面が開くまで（§0.140）：借金もスポンサーも無い。赤字はアルベールのへそくり（1回）→ イザベラの早めの来訪で手当てする。
+    ///  - スポンサー契約：資金の画面が開いたあと（1年目の秋より前には来ない）、春と秋のはじめに控えめ・強気の話が1件ずつ届く。結べるのは1件まで。
     ///    結ぶと前金が入り、ノルマ（まだ倒していないボス・大会の入賞・依頼の達成の数）に届けば成功報酬と機嫌、
     ///    期限までに届かなければ違約金と機嫌の大きな低下。結ばなかった話は季節の終わりに流れる（罰なし）。
     /// </summary>
     public static class FundingSystem
     {
+        // ==================== 資金の画面が開くまで（§0.140、→ docs/検討中_序盤の流れ.md） ====================
+        // 運営はイザベラから教える。資金の画面（借金・スポンサー）は、イザベラの「帳簿」の場面で開く。
+        // それまでに所持金がマイナスになったら、アルベールが一度だけへそくりで埋め、2度目はイザベラが噂を聞いて早めに来る（帳簿もそのとき開く）。
+
+        /// <summary>資金の画面が開いているか（借金・スポンサーが使える）。手ほどき「なし」のゲームは初めから開いている。</summary>
+        public static bool IsOpen(GameState state) => state.FundingOpenedWeek > 0 || !state.TutorialEnabled;
+
+        /// <summary>新しいゲーム（手ほどきあり）は、資金の画面を閉じて始める。</summary>
+        public static void CloseForNewGame(GameState state) => state.FundingOpenedWeek = 0;
+
+        /// <summary>
+        /// 新しい週のはじめ（WeekNumber を進めたあと）：王都の大会の暦が置かれた次の月のはじめに、資金の画面を開く（イザベラの「帳簿」）。開いたら true。
+        /// </summary>
+        public static bool ProcessFundingOpen(GameState state)
+        {
+            if (IsOpen(state) || state.TournamentCalendarFromWeek is not int from) return false;
+            int week = state.WeekNumber;
+            if (week < from + GameCalendar.WeeksPerMonth || GameCalendar.WeekOfMonth(week) != 1) return false;
+            state.FundingOpenedWeek = week;
+            return true;
+        }
+
+        /// <summary>赤字の手当て（週の決算の最後、破産の数えの前）の結果。</summary>
+        public sealed record DeficitRelief(int BailoutGold, bool EarlyVisit, bool FundingOpened);
+
+        /// <summary>
+        /// 資金の画面が開く前に所持金がマイナスになったら手当てする（§0.140）：一度目はアルベールのへそくり（AlbertBailoutGold）、
+        /// へそくりのあともマイナスなら、まだ来ていなければイザベラが早めに来て、資金の画面を開く（借金で立て直せるように）。手当てが無ければ null。
+        /// </summary>
+        public static DeficitRelief? ProcessEarlyDeficit(GameState state)
+        {
+            if (IsOpen(state) || state.Gold >= 0 || state.DefeatReason != null) return null;
+            int bailout = 0;
+            if (state.AlbertBailoutWeek == null)
+            {
+                bailout = FundingBalance.AlbertBailoutGold;
+                state.Gold += bailout;
+                state.AlbertBailoutWeek = state.WeekNumber;
+                if (state.Gold >= 0) return new DeficitRelief(bailout, false, false);
+            }
+            bool early = IsabellaSystem.VisitEarly(state);
+            state.FundingOpenedWeek = state.WeekNumber;
+            return new DeficitRelief(bailout, early, true);
+        }
+
         // ==================== 融資 ====================
 
         public static GuildLoan? FindLoan(GameState state, LoanLender lender) => state.Loans.FirstOrDefault(l => l.Lender == lender && l.Remaining > 0);
@@ -35,6 +81,7 @@ namespace GuildManager.Core.Systems
         /// <summary>商人ギルドから借りられない理由（借りられるなら null）。</summary>
         public static string? MerchantLoanBlockReason(GameState state, int amount)
         {
+            if (!IsOpen(state)) return "資金の画面が開いてから（イザベラが帳簿を見てくれたあと）";
             if (FindLoan(state, LoanLender.Merchant) != null) return "商人ギルドの借金を返し終わるまで、次は借りられない";
             if (!FundingBalance.MerchantLoanAmounts.Contains(amount)) return "その額は借りられない";
             return null;
@@ -47,7 +94,8 @@ namespace GuildManager.Core.Systems
         /// <summary>イザベラから借りられない理由（借りられるなら null）。</summary>
         public static string? IsabellaLoanBlockReason(GameState state, int amount)
         {
-            if (!IsabellaSystem.HasVisited(state)) return $"イザベラが来訪してから（森の{IsabellaBalance.VisitFloor}Fのボスを倒したあと）";
+            if (!IsabellaSystem.HasVisited(state)) return $"イザベラが来訪してから（森の{IsabellaBalance.VisitFloor}Fの番人を倒したあと）";
+            if (!IsOpen(state)) return "資金の画面が開いてから（イザベラが帳簿を見てくれたあと）";
             if (FindLoan(state, LoanLender.Isabella) != null) return "イザベラへの借金を返し終わるまで、次は借りられない";
             int year = GameCalendar.YearOf(state.WeekNumber);
             if (state.IsabellaLoanWeeks.Count(w => GameCalendar.YearOf(w) == year) >= FundingBalance.IsabellaLoanPerYear) return "イザベラの融資は年に1回まで（来年また頼める）";
@@ -166,6 +214,7 @@ namespace GuildManager.Core.Systems
             var offered = new List<SponsorContract>();
             int week = state.WeekNumber;
             if (!IsOfferWeek(week) || ActiveContract(state) != null) return offered;
+            if (!IsOpen(state) || (state.TutorialEnabled && week <= state.FundingOpenedWeek)) return offered; // イザベラの帳簿のあとの季節から（§0.140）
             var frontier = CommissionSystem.GetFrontier(state);
             if (frontier.Count == 0) return offered;
             state.SponsorContracts.RemoveAll(c => !c.Signed);

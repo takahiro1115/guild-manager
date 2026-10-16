@@ -33,6 +33,7 @@ namespace GuildManager.Core.Systems
         Research,
         Tournament,
         Facility,
+        Funding,
     }
 
     /// <summary>
@@ -60,7 +61,8 @@ namespace GuildManager.Core.Systems
             ["s01_squad3"] = new Func<GameState, bool>[] { s => OrderedSquads(s) >= 3 },
             ["s01_question"] = new Func<GameState, bool>[] { s => s.CompletedResearchIds.Count > 0 },
             ["s01_research"] = new Func<GameState, bool>[] { s => s.ResearchInProgress != null || s.CompletedResearchIds.Count > 0 },
-            ["s01_sponsor"] = new Func<GameState, bool>[] { s => FundingSystem.Offers(s).Count == 0 },
+            ["s02_ledger"] = new Func<GameState, bool>[] { s => MonthPassedSince(s, "s02_ledger") },
+            ["s02_sponsor"] = new Func<GameState, bool>[] { s => FundingSystem.Offers(s).Count == 0 },
             ["s03_daughter"] = new Func<GameState, bool>[] { s => s.SoulFusionCultures.Any(c => c.Nurture != NurtureKind.Entrust || c.NurtureHistory.Count > 0) || StorySystem.FirstDaughter(s) != null },
             ["s01_hunter"] = new Func<GameState, bool>[]
             {
@@ -108,7 +110,8 @@ namespace GuildManager.Core.Systems
         public static IReadOnlyDictionary<string, int> ConditionCounts => Conditions.ToDictionary(kv => kv.Key, kv => kv.Value.Length);
 
         /// <summary>そのタブ（画面）が見えるか：教える場面を見たら現れる。</summary>
-        public static bool IsTabOpen(GameState state, GuideTab tab) => !state.TutorialEnabled || StorySystem.Seen(state, TabScenes[tab]); // 手ほどき「なし」（§0.88）は初めから全部
+        public static bool IsTabOpen(GameState state, GuideTab tab) => !state.TutorialEnabled
+            || (tab == GuideTab.Funding ? FundingSystem.IsOpen(state) : StorySystem.Seen(state, TabScenes[tab])); // 手ほどき「なし」（§0.88）は初めから全部
 
         /// <summary>
         /// 今の手引き（見た場面の順）。全部済んだ場面は、済んだ月のうちだけ残す。

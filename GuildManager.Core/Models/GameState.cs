@@ -337,8 +337,22 @@ namespace GuildManager.Core.Models
 
         // ---- イザベラの来訪と交流戦（2026年10月・§0.84、→ Systems.IsabellaSystem） ----
 
-        /// <summary>イザベラが来訪した週（森の60F（VisitFloor）のボスを初めて倒した週）。まだなら null（大会も依頼も無い）。</summary>
+        /// <summary>イザベラが来訪した週（森の VisitFloor〈40F〉の番人を初めて倒した週、または早めの来訪の週）。まだなら null（大会も依頼も無い）。</summary>
         public int? IsabellaVisitWeek { get; set; }
+
+        /// <summary>早めの来訪（§0.140）：アルベールのへそくりのあと、来訪の前にまた所持金がマイナスになって、イザベラが噂を聞いて来た。</summary>
+        public bool IsabellaEarlyVisit { get; set; }
+
+        // ---- 序盤の流れ（§0.140、→ docs/検討中_序盤の流れ.md） ----
+
+        /// <summary>
+        /// 資金の画面が開いた週（イザベラの「帳簿」。→ FundingSystem.IsOpen）。0＝まだ（新しいゲームは FundingSystem.CloseForNewGame で0から）。
+        /// 既定の1は「初めから開いている」：§0.140より前のセーブと、手ほどき「なし」のゲーム。
+        /// </summary>
+        public int FundingOpenedWeek { get; set; } = 1;
+
+        /// <summary>アルベールのへそくり（§0.140）：資金の画面が開く前に所持金がマイナスになり、アルベールが一度だけ埋めた週。まだなら null。</summary>
+        public int? AlbertBailoutWeek { get; set; }
 
         /// <summary>交流戦の相手の強さの基準（来訪したときの、自分のギルドの部門ごとの最も強い子の部門の強さ）。</summary>
         public Dictionary<TournamentDiscipline, double> ExchangeAnchor { get; set; } = new();
@@ -393,6 +407,9 @@ namespace GuildManager.Core.Models
 
         /// <summary>部隊長の報告（§0.116）を見せないか。システム画面で選ぶ。はじめは見せる（false）。</summary>
         public bool HideSquadReports { get; set; }
+
+        /// <summary>出来事の報告（§0.141）を見せないか。システム画面で選ぶ。はじめは見せる。</summary>
+        public bool HideEventReports { get; set; }
 
         /// <summary>大迷宮の支配者の状態（§0.127、→ Systems.RulerSystem）。旧セーブには無いので読み込みで補う。</summary>
         public List<RulerState> Rulers { get; set; } = new();
@@ -519,8 +536,11 @@ namespace GuildManager.Core.Models
                 TournamentPrizeTotal = TournamentPrizeTotal,
                 TournamentInviteKeys = new List<string>(TournamentInviteKeys),
                 NextUpgradeHalfPrice = NextUpgradeHalfPrice,
-                StoryRulesVersion = 1,
+                StoryRulesVersion = 2, // §0.140 の序盤の流れ（新春・契約交渉・顔見せの場面）
                 IsabellaVisitWeek = IsabellaVisitWeek,
+                IsabellaEarlyVisit = IsabellaEarlyVisit,
+                FundingOpenedWeek = FundingOpenedWeek,
+                AlbertBailoutWeek = AlbertBailoutWeek,
                 RivalGuilds = RivalGuilds,
                 RetiredRivals = RetiredRivals,
                 RetiredRivalGuilds = RetiredRivalGuilds.ToDictionary(kv => kv.Key.ToString(), kv => kv.Value),
@@ -540,6 +560,7 @@ namespace GuildManager.Core.Models
                 TutorialEnabled = TutorialEnabled,
                 AutoNegotiationBonus = AutoNegotiationBonus,
                 HideSquadReports = HideSquadReports,
+                HideEventReports = HideEventReports,
                 Rulers = Rulers.Select(r => new RulerState { RulerId = r.RulerId, Hp = r.Hp, HpFloor = r.HpFloor, WeaponIndex = r.WeaponIndex, RepresentativeIds = new List<Guid>(r.RepresentativeIds), DuelCount = r.DuelCount, LastDuelWeek = r.LastDuelWeek, PendingDuelWeek = r.PendingDuelWeek, SquadIds = new List<Guid>(r.SquadIds), SongOrder = new List<SongMode>(r.SongOrder), SquadTargets = new List<CorridorTarget>(r.SquadTargets), SealHp = new List<int>(r.SealHp), ResealCounter = r.ResealCounter, ResealPending = r.ResealPending, StageHall = r.StageHall }).ToList(),
                 FocusedAdventurerIds = new List<Guid>(FocusedAdventurerIds),
                 PoachOffers = new List<PoachOffer>(PoachOffers),
@@ -684,6 +705,9 @@ namespace GuildManager.Core.Models
                 NextUpgradeHalfPrice = data.NextUpgradeHalfPrice,
                 // イザベラの来訪と交流戦（§0.84）。§0.84より前のセーブ（StoryRulesVersion 0）は下で「来訪済み・大会と依頼は開いている」に補う。
                 IsabellaVisitWeek = data.IsabellaVisitWeek,
+                IsabellaEarlyVisit = data.IsabellaEarlyVisit, // キーの無い旧セーブは false
+                FundingOpenedWeek = data.FundingOpenedWeek, // キーの無い旧セーブは1（資金の画面は初めから開いていた、§0.140）
+                AlbertBailoutWeek = data.AlbertBailoutWeek,
                 // ライバルギルド（§0.93）。§0.93より前のセーブは空のまま読み、来訪済みなら次の週に名簿を作る（RivalSystem.ProcessWeek）
                 RivalGuilds = (data.RivalGuilds ?? new List<RivalGuild>()).Where(g => g != null).ToList(),
                 RetiredRivals = (data.RetiredRivals ?? new List<RivalMember>()).Where(m => m != null).ToList(),
@@ -709,6 +733,7 @@ namespace GuildManager.Core.Models
                 TutorialEnabled = data.TutorialEnabled ?? true, // キーの無い旧セーブは「あり」
                 AutoNegotiationBonus = data.AutoNegotiationBonus, // キーの無い旧セーブは false（しない）
                 HideSquadReports = data.HideSquadReports, // キーの無い旧セーブは false（見せる）
+                HideEventReports = data.HideEventReports, // キーの無い旧セーブは false（見せる）
                 Rulers = data.Rulers ?? new List<RulerState>(), // 旧セーブ（§0.127 より前）は空。下の EnsureRulers で補う
                 FocusedAdventurerIds = (data.FocusedAdventurerIds ?? new List<Guid>()).Distinct().ToList(), // 旧セーブは注目なし。いない子は週の決算で外す
                 PoachOffers = (data.PoachOffers ?? new List<PoachOffer>()).Where(o => o != null).ToList(),
@@ -740,6 +765,10 @@ namespace GuildManager.Core.Models
                 state.TournamentCalendarFromWeek ??= 1;
                 state.CommissionsFromWeek ??= LegacyFirstOfferWeek;
             }
+            // §0.140より前のセーブ（StoryRulesVersion 0〜1）：序盤の流れで足した場面（新春・初めての契約交渉・迷宮の主の顔見せ）のうち、
+            // もう過ぎたものを見たことにする（読み込んだ月に、いくつもの場面が一度に出ないように）
+            if (data.StoryRulesVersion < 2 && data.StorySeenWeeks != null)
+                Systems.StorySystem.MarkEarlyFlowSeen(state);
 
             // ギルドを去った週（§0.122）を持たない旧セーブ：引退した週＋役職を待つ週数で去ったとして読む（初めての引退式の順に使う）。
             foreach (var r in state.RetiredAdventurers.Where(r => r.LeftGuild && r.LeftGuildAtWeek == null))

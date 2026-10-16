@@ -184,6 +184,7 @@ namespace GuildManager.Core.Tests
         public void Hunter_AfterTwoRetreatsAtSameBoss_FillsFloor()
         {
             var state = NewGame();
+            StorySystem.MarkSeen(state, "s01_lumina"); // 獲物の癖はルミナを救出したあと（§0.140）
             var boss = Forest(state, 40);
             var field = state.DungeonFields.First(f => f.Id == "forest");
             for (int i = 0; i < 2; i++)
@@ -207,6 +208,7 @@ namespace GuildManager.Core.Tests
         public void Hunter_CountsBattleLossesToo()
         {
             var state = NewGame();
+            StorySystem.MarkSeen(state, "s01_lumina");
             var boss = Forest(state, 40);
             var field = state.DungeonFields.First(f => f.Id == "forest");
 

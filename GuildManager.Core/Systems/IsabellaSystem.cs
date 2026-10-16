@@ -92,7 +92,7 @@ namespace GuildManager.Core.Systems
         // ==================== 来訪 ====================
 
         /// <summary>
-        /// 森の VisitFloor（60F）のボスを倒していて、まだ来訪していなければ来訪する（相手の強さの基準を今のギルドで決め、最初の交流戦を次の月に置く）。
+        /// 森の VisitFloor（40F、§0.140）の番人を倒していて、まだ来訪していなければ来訪する（相手の強さの基準を今のギルドで決め、最初の交流戦を次の月に置く）。
         /// 来訪したら true。週の決算で迷宮の結果のあとに呼ぶ。
         /// </summary>
         public static bool CheckVisit(GameState state)
@@ -100,11 +100,28 @@ namespace GuildManager.Core.Systems
             if (HasVisited(state)) return false;
             var field = state.DungeonFields.FirstOrDefault(f => f.Id == IsabellaBalance.VisitFieldId);
             if (field == null || !field.Bosses.Any(b => b.Floor == IsabellaBalance.VisitFloor && b.EverDefeated)) return false;
+            Visit(state);
+            return true;
+        }
+
+        /// <summary>
+        /// 早めの来訪（§0.140）：アルベールのへそくりのあと、来訪の前にまた所持金がマイナスになったとき、イザベラが噂を聞いて来る（→ FundingSystem.ProcessEarlyDeficit）。
+        /// 交流戦はふつうの来訪と同じ。もう来ていれば何もせず false。
+        /// </summary>
+        public static bool VisitEarly(GameState state)
+        {
+            if (HasVisited(state)) return false;
+            Visit(state);
+            state.IsabellaEarlyVisit = true;
+            return true;
+        }
+
+        private static void Visit(GameState state)
+        {
             state.IsabellaVisitWeek = state.WeekNumber;
             state.ExchangeAnchor.Clear();
             EnsureAnchor(state);
             AddExchangeEvent(state, NextMonthStart(state.WeekNumber));
-            return true;
         }
 
         // ==================== 相手の強さ ====================

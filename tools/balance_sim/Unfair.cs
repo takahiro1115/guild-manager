@@ -81,9 +81,13 @@ partial class GameSim
     }
 
     /// <summary>週の決算のあと。</summary>
+    /// <summary>アルベールのへそくりの直前の所持金（§0.140。へそくりの額を決めるために測る）。</summary>
+    public int? GoldBeforeBailout;
+
     void UnfairWeek(WeeklySettlementResult result)
     {
         WallWeek(result);
+        if (result.DeficitRelief is { BailoutGold: > 0 } relief) GoldBeforeBailout = s.Gold - relief.BailoutGold;
         int kills = s.DungeonFields.Sum(f => f.Bosses.Count(b => b.IsDefeated));
         if (kills > lastKills) { lastKills = kills; lastKillWeek = s.WeekNumber; }
         monthLowMood = Math.Min(monthLowMood, s.MasterMood);
@@ -199,6 +203,12 @@ partial class GameSim
             $"ひと月で機嫌が30以上下がった：{sims.Sum(x => x.SuddenMoodDrops)}回");
         Console.WriteLine($"所持金のマイナス：{sims.Sum(x => x.GoldDangerSpells)}回（{sims.Count(x => x.GoldDangerSpells > 0)}回のうち）・3週以上続いて立て直した {sims.Sum(x => x.GoldRecoveries)}　" +
             $"立て直した危機の間の手番（機嫌／所持金）：{Spread(sims.SelectMany(x => x.MoodDangerTurnCounts))}／{Spread(sims.SelectMany(x => x.GoldDangerTurnCounts))}");
+        // 序盤の流れ（§0.140）：アルベールのへそくり・イザベラの早めの来訪・来訪と資金の画面が開いた年・へそくりの直前の所持金
+        static string Yr(IEnumerable<int> weeksList) { var l = weeksList.Select(w => 1 + (w - 1) / 48.0).OrderBy(v => v).ToList(); return l.Count == 0 ? "―" : $"{l[l.Count / 2]:F1}年目〔{l[0]:F1}〜{l[^1]:F1}〕"; }
+        Console.WriteLine($"序盤の流れ（§0.140）：へそくり {sims.Count(x => x.s.AlbertBailoutWeek != null)}/{sims.Count}回（{Yr(sims.Where(x => x.s.AlbertBailoutWeek != null).Select(x => x.s.AlbertBailoutWeek!.Value))}）・" +
+            $"直前の所持金 {Spread(sims.Where(x => x.GoldBeforeBailout != null).Select(x => x.GoldBeforeBailout!.Value))}G　早めの来訪 {sims.Count(x => x.s.IsabellaEarlyVisit)}回　" +
+            $"来訪 {Yr(sims.Where(x => x.s.IsabellaVisitWeek != null).Select(x => x.s.IsabellaVisitWeek!.Value))}（{sims.Count(x => x.s.IsabellaVisitWeek != null)}回）　" +
+            $"資金の画面 {Yr(sims.Where(x => x.s.FundingOpenedWeek > 1).Select(x => x.s.FundingOpenedWeek))}（{sims.Count(x => x.s.FundingOpenedWeek > 1)}回）");
         // 踊り場の壁：年のはじめの狙うボスと火力の割合（上位4人の火力÷要求火力、ギミック込み）、その年の扉前の撤退の勝率、撃破数（中央値）
         Console.WriteLine("年ごとの壁（中央値。狙うボス・火力÷要求・扉前で撤退したときの勝率・年末の撃破数）：");
         for (int y = 1; y <= Math.Min(12, weeks / 48); y++)

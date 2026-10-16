@@ -282,22 +282,27 @@ namespace GuildManager.Core.Tests
             Assert.Contains(FundingSystem.DeadlineClashes(state, contract), t => t.Contains("退職金"));
         }
 
-        /// <summary>§0.115：初めて話が届いた月の月報のあとにスポンサーの場面。手引きは話が無くなる（結ぶ・断る・流れる）と済む。</summary>
+        /// <summary>
+        /// §0.115：初めて話が届いた月の月報のあとにスポンサーの場面。手引きは話が無くなる（結ぶ・断る・流れる）と済む。
+        /// §0.140：スポンサーの話はイザベラが持ってくる（帳簿の場面を見たあとの、最初の話の月）。
+        /// </summary>
         [Fact]
-        public void SponsorScene_OnTheFirstOffer_GuideDoneWhenNoOfferIsLeft()
+        public void SponsorScene_OnTheFirstOfferAfterTheLedger_GuideDoneWhenNoOfferIsLeft()
         {
             var state = State(week: FundingBalance.SponsorFirstWeek - 1);
-            Assert.DoesNotContain("s01_sponsor", StorySystem.DueScenes(state, StoryTiming.AfterReport).Select(s => s.SceneId));
+            Assert.DoesNotContain("s02_sponsor", StorySystem.DueScenes(state, StoryTiming.AfterReport).Select(s => s.SceneId));
             state.WeekNumber = FundingBalance.SponsorFirstWeek;
             FundingSystem.ProcessNewWeek(state, new SeededRng(1));
-            Assert.Contains("s01_sponsor", StorySystem.DueScenes(state, StoryTiming.AfterReport).Select(s => s.SceneId));
-            StorySystem.MarkSeen(state, "s01_sponsor");
+            Assert.DoesNotContain("s02_sponsor", StorySystem.DueScenes(state, StoryTiming.AfterReport).Select(s => s.SceneId)); // 帳簿の前は出さない
+            StorySystem.MarkSeen(state, "s02_ledger");
+            Assert.Contains("s02_sponsor", StorySystem.DueScenes(state, StoryTiming.AfterReport).Select(s => s.SceneId));
+            StorySystem.MarkSeen(state, "s02_sponsor");
 
-            Assert.False(GuideSystem.Groups(state).Single(g => g.SceneId == "s01_sponsor").AllDone);
+            Assert.False(GuideSystem.Groups(state).Single(g => g.SceneId == "s02_sponsor").AllDone);
             Assert.True(FundingSystem.Decline(state, FundingSystem.Offers(state)[0]));
-            Assert.False(GuideSystem.Groups(state).Single(g => g.SceneId == "s01_sponsor").AllDone);
+            Assert.False(GuideSystem.Groups(state).Single(g => g.SceneId == "s02_sponsor").AllDone);
             Assert.True(FundingSystem.Decline(state, FundingSystem.Offers(state)[0]));
-            Assert.True(GuideSystem.Groups(state).Single(g => g.SceneId == "s01_sponsor").AllDone);
+            Assert.True(GuideSystem.Groups(state).Single(g => g.SceneId == "s02_sponsor").AllDone);
         }
 
         [Fact]

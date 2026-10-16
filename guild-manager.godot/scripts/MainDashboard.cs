@@ -428,6 +428,7 @@ public partial class MainDashboard : Control
 			// 大会の暦の種（§0.96）。ゲームごとに暦が変わるよう新しいゲームのときだけ決め、あとはセーブに残す
 			TournamentSeed = (int)GD.Randi(),
 		};
+		FundingSystem.CloseForNewGame(_state); // 資金の画面はイザベラの帳簿で開く（§0.140。手ほどき「なし」は初めから開いている）
 		if (!tutorial)
 			StorySystem.DisableTutorial(_state);
 
@@ -674,6 +675,7 @@ public partial class MainDashboard : Control
 			(DashboardView.Research, _navResearchBtn, GuideTab.Research),
 			(DashboardView.Tournament, _navTournamentBtn, GuideTab.Tournament),
 			(DashboardView.Facility, _navFacilityBtn, GuideTab.Facility),
+			(DashboardView.Funding, _navFundingBtn, GuideTab.Funding), // 資金（§0.140）：イザベラの帳簿まで隠す
 		};
 		foreach (var (view, btn, tab) in tabs)
 		{
@@ -998,6 +1000,11 @@ public partial class MainDashboard : Control
 				(standing.RewardGold > 0 ? $"。ご褒美に賞金{standing.RewardGold}G・マスターの機嫌+{standing.RewardMood}" : "") + "[/color]");
 		foreach (var ev in settlement.TournamentInvitations)
 			AppendLog($"[color=khaki][b]✉ 招待が届いた：{ev.Name}[/b]（{GameCalendar.Format(GameCalendar.WeekNumberOf(ev.Year, ev.Month, ev.Week))}）[/color]");
+		// 資金の画面が開く前の赤字（§0.140）：アルベールのへそくり／イザベラの早めの来訪
+		if (settlement.DeficitRelief is { BailoutGold: > 0 } bailout)
+			AppendLog($"[color=orange][b]👛 所持金が足りなくなり、アルベールがへそくりの{bailout.BailoutGold}Gを出してくれた。[/b]「ただし、次は無いわ」[/color]");
+		if (settlement.DeficitRelief is { FundingOpened: true } || settlement.FundingOpened)
+			AppendLog("[color=khaki][b]💰 資金の画面が開いた。[/b][/color][color=gray]（収支の見込み・借金・スポンサー契約）[/color]");
 		// イザベラの来訪と交流戦（§0.84）
 		if (settlement.IsabellaVisited)
 			AppendLog("[color=plum][b]✉ 白百合の杖のイザベラが来訪した。[/b]「わたくしの冒険者と、実力を試してみませんこと？」[/color][color=gray]（来月の第4週に交流戦。🏆 大会のタブで剣・魔・技の出場者を選ぶ）[/color]");
@@ -1224,29 +1231,49 @@ public partial class MainDashboard : Control
 	/// </summary>
 	private void ShowSquadReports(MonthlyReport report, Action then)
 	{
-		if (_state.HideSquadReports || report.LeaderReports.Count == 0)
+		const string background = "ギルドの広間";
+		var steps = new List<StoryStep>();
+		if (!_state.HideSquadReports)
+			steps.AddRange(report.LeaderReports.SelectMany(r =>
+			{
+				// 物語帳の人物（初期の3人・ルミナ）は物語の立ち絵、ほかの子は冒険者の顔。地の文の段は立ち絵を出さない（物語の小窓と同じ）
+				string portrait = PortraitOf(r.LeaderId, r.LeaderName, r.PortraitId);
+				// 段（地の文・台詞）ごとに1コマ（§0.124）
+				return SquadReportSystem.Lines(r).Select(line => new StoryStep(line, background, StoryImageBalance.BackgroundFile(background),
+					line.Kind == StoryLineKind.Speech ? portrait : null));
+			}));
+		// 出来事の報告（§0.141）：部隊長の報告のあとに続けて、月の知らせを人物が話す。判断が要る知らせは最後に行き先の案内
+		if (!_state.HideEventReports)
+			steps.AddRange(report.EventReports.SelectMany(r =>
+			{
+				string subjectPortrait = r.SubjectId is Guid id ? PortraitOf(id, r.SubjectName, r.PortraitId) : null;
+				var lines = EventReportSystem.Lines(r).Select(line => new StoryStep(line, background, StoryImageBalance.BackgroundFile(background),
+					line.Kind != StoryLineKind.Speech ? null
+					: EventReportSystem.NamedSpeakers.Contains(line.Speaker) ? StoryImageBalance.PortraitFile(line.Speaker) : subjectPortrait)).ToList();
+				if (r.Jump.Length > 0)
+					lines.Add(new StoryStep(new StoryLine(StoryLineKind.Narration, StoryPopup.GuideLine(r.Jump)), background, StoryImageBalance.BackgroundFile(background), null));
+				return lines;
+			}));
+		if (steps.Count == 0)
 		{
 			then();
 			return;
 		}
-		const string background = "ギルドの広間";
-		var steps = report.LeaderReports.SelectMany(r =>
-		{
-			// 物語帳の人物（初期の3人・ルミナ）は物語の立ち絵、ほかの子は冒険者の顔。地の文の段は立ち絵を出さない（物語の小窓と同じ）
-			var leader = _state.FindAdventurer(r.LeaderId);
-			string portrait = leader != null && SquadReportSystem.CharacterKey(leader) != null ? StoryImageBalance.PortraitFile(r.LeaderName) : null;
-			portrait ??= r.PortraitId != null ? $"res://assets/portraits/{r.PortraitId}.png" : null;
-			// 段（地の文・台詞）ごとに1コマ（§0.124）
-			return SquadReportSystem.Lines(r).Select(line => new StoryStep(line, background, StoryImageBalance.BackgroundFile(background),
-				line.Kind == StoryLineKind.Speech ? portrait : null));
-		}).ToList();
 		void OnClosed()
 		{
 			_storyPopup.Closed -= OnClosed;
 			Callable.From(then).CallDeferred(); // 別の排他ウィンドウは閉じ切ってから開く
 		}
 		_storyPopup.Closed += OnClosed;
-		_storyPopup.ShowReport(_state, steps);
+		_storyPopup.ShowReport(_state, steps, !_state.HideEventReports && report.EventReports.Count > 0 ? "📣 今月の報告" : "📣 部隊長の報告");
+	}
+
+	/// <summary>冒険者の立ち絵：物語帳の人物（初期の3人・ルミナ）は物語の立ち絵、ほかの子は冒険者の顔（無ければ null）。</summary>
+	private string PortraitOf(Guid id, string name, string portraitId)
+	{
+		var a = _state.FindAdventurer(id);
+		string portrait = a != null && SquadReportSystem.CharacterKey(a) != null ? StoryImageBalance.PortraitFile(name) : null;
+		return portrait ?? (portraitId != null ? $"res://assets/portraits/{portraitId}.png" : null);
 	}
 
 	private void ShowMonthReport(List<AutoSkipWeek> weeks, MonthlyReport report, string weekly)

@@ -162,6 +162,7 @@ namespace GuildManager.Core.Tests
         public void Tabs_HiddenUntilTaught()
         {
             var state = NewGame();
+            FundingSystem.CloseForNewGame(state); // 資金の画面はイザベラの帳簿で開く（§0.140）
             foreach (var tab in System.Enum.GetValues<GuideTab>())
                 Assert.False(GuideSystem.IsTabOpen(state, tab));
             StorySystem.MarkSeen(state, "s01_forest10");
@@ -175,6 +176,9 @@ namespace GuildManager.Core.Tests
             Assert.False(GuideSystem.IsTabOpen(state, GuideTab.Facility));
             StorySystem.MarkSeen(state, "s02_advice");
             Assert.True(GuideSystem.IsTabOpen(state, GuideTab.Facility));
+            Assert.False(GuideSystem.IsTabOpen(state, GuideTab.Funding));
+            state.FundingOpenedWeek = state.WeekNumber; // イザベラの帳簿（§0.140）
+            Assert.True(GuideSystem.IsTabOpen(state, GuideTab.Funding));
         }
 
         [Fact]
