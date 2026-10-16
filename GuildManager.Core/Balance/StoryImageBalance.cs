@@ -39,12 +39,20 @@ namespace GuildManager.Core.Balance
         public static string? BackgroundFile(string name) =>
             All.FirstOrDefault(d => d.Kind == StoryImageKind.Background && d.Names.Contains(name))?.File;
 
-        /// <summary>話者の立ち絵のファイル。表情が無ければ「通常」。話者に立ち絵が無ければ null。</summary>
+        /// <summary>
+        /// 話者の立ち絵のファイル。表情が無ければ「通常」。話者に立ち絵が無ければ null。
+        /// かっこの中が表情ではなく別の人物の名前なら、その人の立ち絵（名乗る前の「？？？（ヴェスペラ）「…」」。画面にかっこの中は出ない）。
+        /// </summary>
         public static string? PortraitFile(string speaker, string expression = "")
         {
             var own = All.Where(d => d.Kind == StoryImageKind.Portrait && d.Names.Contains(speaker)).ToList();
             string expr = expression.Length > 0 ? expression : NormalExpression;
-            return (own.FirstOrDefault(d => d.Expression == expr) ?? own.FirstOrDefault(d => d.Expression == NormalExpression))?.File;
+            if (own.FirstOrDefault(d => d.Expression == expr) is { } hit)
+                return hit.File;
+            if (expression.Length > 0 && expression != speaker
+                && All.FirstOrDefault(d => d.Kind == StoryImageKind.Portrait && d.Names.Contains(expression) && d.Expression == NormalExpression) is { } other)
+                return other.File;
+            return own.FirstOrDefault(d => d.Expression == NormalExpression)?.File;
         }
 
         /// <summary>story_images.csv のヘッダーと行を定義の一覧へ変換する。書式違反は BalanceDataException。</summary>

@@ -133,5 +133,25 @@ namespace GuildManager.Core.Tests
             Assert.Equal("portraits/lumina.png", StorySystem.StepsOf(Showing("ルミナ（照れ）「えへへ」")).Single().PortraitFile);
             Assert.Equal("portraits/albert_smile.png", StorySystem.StepsOf(Showing("アルベール（笑顔）「ふふ」")).Single().PortraitFile);
         }
+
+        [Fact]
+        public void 名乗る前の迷宮の主は_かっこの中の人物の立ち絵()
+        {
+            // 「？？？」だけならアルベール、「？？？（ヴェスペラ）」はヴェスペラ。名前の欄は「？？？」のまま
+            var steps = StorySystem.StepsOf(Showing("？？？（ヴェスペラ）「よく倒した」", "？？？（ネフェリス）「いい子」", "？？？「あら」"));
+            Assert.Equal("portraits/vespera.png", steps[0].PortraitFile);
+            Assert.Equal("？？？", steps[0].Line.Speaker);
+            Assert.Equal("portraits/nepheris.png", steps[1].PortraitFile);
+            Assert.Equal("portraits/albert.png", steps[2].PortraitFile);
+            // 表情の名前は、これまでどおりその人の表情（無ければ通常）
+            Assert.Equal("portraits/lumina.png", StorySystem.StepsOf(Showing("ルミナ（照れ）「えへへ」")).Single().PortraitFile);
+        }
+
+        [Fact]
+        public void 迷宮の主5人に立ち絵がある()
+        {
+            foreach (var name in new[] { RulerSystem.VesperaName, RulerSystem.MelusineName, RulerSystem.OrtensiaName, RulerSystem.IgniaName, RulerSystem.NepherisName })
+                Assert.NotNull(StoryImageBalance.PortraitFile(name));
+        }
     }
 }
