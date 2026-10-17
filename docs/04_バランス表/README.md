@@ -56,7 +56,7 @@
 | `gathering.csv` | 03 §4.5.5・§0.66 | GatheringBalance（採取スコア係数・職業ボーナス・報酬ゴールド、護衛の要求倍率と段階ごとの素材・損耗の倍率） |
 | `materials.csv` | 03 §4.5.5・**§4.8.1** | MaterialBalance（全5フィールドの採取素材定義・MinFloor・基準獲得数・**売却額 `SellPrice`**） |
 | `affixes.csv` | 03 §4.7.3・§4.2.2 | AffixBalance（鑑定品のランダムアフィックス＝接頭辞・接尾辞の一覧。**テーブル形式** `Id,Type,Name,TargetStat,MinValue,MaxValue,Tier,AllowedSlots,Weight`、2026年9月・§0.39） |
-| `portraits.csv` | 03 §2.1 | PortraitBalance（採用の応募者に割り当てる顔グラフィックの一覧。**テーブル形式** `Id,Jobs,HairColor,EyeColor`。Id＝`assets/portraits/{Id}.png`、Jobs＝似合う職業の `\|` 区切りまたは `All`。2026年9月・§0.46） |
+| `portraits.csv` | 03 §2.1 | PortraitBalance（採用の応募者に割り当てる顔グラフィックの一覧。**テーブル形式** `Id,Jobs,HairColor,EyeColor`。Id＝`assets/portraits/{Id}.png`、Jobs＝似合う職業の `\|` 区切りまたは `All`。2026年9月・§0.46。白背景の adv_001〜005 は §0.149 で外し、adv_010 の色違いと adv_017 に重戦士を足した） |
 | `uniques.csv` | 03 §4.7.5 | UniqueBalance（固有武具＝固定アーティファクト〈紫〉・伝説級〈金〉・依頼人の固有武具〈§0.64〉の一覧。**テーブル形式** `Id,Grade,Name,BaseItemId,HpBonus,BonusStr〜BonusLdr,CounterGimmick,DropFieldId,DropFloor,SellPrice,PatronId`。伝説級は入手元のボス〈フィールドId・階層〉と対策ギミック、売値0＝売却不可。2026年9月・§0.45。§0.64で Grade `Patron` と列 `PatronId`〈commission_clients.csv の Id。Patron 以外は空〉を追加。依頼人の固有武具は売値0＝売却不可） |
 | `research.csv` | 03 §4.6 | ResearchBalance（アルベール研究室の24プロジェクト（うち内職強化 SideBusinessGoldBonus 4種、魂魄融和の秘薬の解禁 `res_soul_fusion`＝SoulFusionUnlock・効果値0、§0.58、段階研究11種＝RecruitPaBonus・GrowthRateBonus・SoulFusionPaBonus・CultureTankBonus、§0.60）・必要素材・ゴールド・効果種別・効果値・**前提 `Prerequisite`**（§0.60で列を追加。空＝前提なし、段階研究のII・IIIは前の段のId）・**系統 `Branch`・段 `Lane`**（§0.77で列を追加。研究室のツリーの行。列は必要な素材のフィールドから決まる）・**週 `Weeks`**（§0.114で列を追加。研究にかかる週）） |
 | `squad_orders.csv` | 03 §4.0.3 | SquadOrderBalance（部隊の方針と自動出撃、2026年10月・§0.63）：自動出撃の条件 `AutoDispatchMinHpPercent`（70）・扉前の構え（慎重・標準・強気、§0.68）ごとの火力の倍率・HP・備えの条件 |

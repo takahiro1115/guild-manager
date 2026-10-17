@@ -786,6 +786,9 @@ namespace GuildManager.Core.Models
             if (data.StoryRulesVersion < 7 && data.StorySeenWeeks != null)
                 Systems.StorySystem.MarkRivalMastersSeen(state);
 
+            // プールから外した顔（2026-10-17 の adv_001〜005 など）を使っている冒険者は、プールの顔に替える（シルエットにしない）
+            Systems.RecruitmentSystem.ReplaceRemovedPortraits(state);
+
             // ギルドを去った週（§0.122）を持たない旧セーブ：引退した週＋役職を待つ週数で去ったとして読む（初めての引退式の順に使う）。
             foreach (var r in state.RetiredAdventurers.Where(r => r.LeftGuild && r.LeftGuildAtWeek == null))
                 r.LeftGuildAtWeek = (r.RetiredAtWeek ?? state.WeekNumber) + PolicyBalance.RetireeRoleGraceWeeks - 1;

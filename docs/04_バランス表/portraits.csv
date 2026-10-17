@@ -1,36 +1,31 @@
 Id,Jobs,HairColor,EyeColor,note
-adv_001,Thief|Ranger|Warrior,暗褐,紫,黒革の軽装・ポニーテール・腰に短剣。白背景（透過版に差し替え予定）
-adv_002,Thief|Ranger|Scholar,黒,緑,紺のベスト・首のバンダナ・ボブ。白背景（透過版に差し替え予定）
-adv_003,Mage|Scholar|Cleric,銀,紫,紫のローブ・フード・水晶の杖。白背景（透過版に差し替え予定）
-adv_004,Ranger|Warrior|Knight,暗褐,琥珀,革鎧・緑の外套・ボブ。白背景（透過版に差し替え予定）
-adv_005,Thief|Scholar|Ranger,黒,緑,紺のベスト・工具ポーチ。adv_002 と同じ顔立ちのため、同時に並ばないよう色違いに差し替える候補。白背景（透過版に差し替え予定）
-adv_010_black_orig,Knight,黒,青,adv_010 の色違い（背景透過）
-adv_010_black_green,Knight,黒,緑,adv_010 の色違い（背景透過）
-adv_010_black_red,Knight,黒,赤,adv_010 の色違い（背景透過）
-adv_010_chestnut_orig,Knight,栗,青,adv_010 の色違い（背景透過）
-adv_010_chestnut_green,Knight,栗,緑,adv_010 の色違い（背景透過）
-adv_010_chestnut_red,Knight,栗,赤,adv_010 の色違い（背景透過）
-adv_010_blond_orig,Knight,金,青,adv_010 の色違い（背景透過）
-adv_010_blond_green,Knight,金,緑,adv_010 の色違い（背景透過）
-adv_010_blond_red,Knight,金,赤,adv_010 の色違い（背景透過）
-adv_010_silver_orig,Knight,銀,青,adv_010 の色違い（背景透過）
-adv_010_silver_green,Knight,銀,緑,adv_010 の色違い（背景透過）
-adv_010_silver_red,Knight,銀,赤,adv_010 の色違い（背景透過）
-adv_010_red_orig,Knight,赤,青,adv_010 の色違い（背景透過）
-adv_010_red_green,Knight,赤,緑,adv_010 の色違い（背景透過）
-adv_010_red_red,Knight,赤,赤,adv_010 の色違い（背景透過）
-adv_010_blue_orig,Knight,青,青,adv_010 の色違い（背景透過）
-adv_010_blue_green,Knight,青,緑,adv_010 の色違い（背景透過）
-adv_010_blue_red,Knight,青,赤,adv_010 の色違い（背景透過）
-adv_010_green_orig,Knight,緑,青,adv_010 の色違い（背景透過）
-adv_010_green_green,Knight,緑,緑,adv_010 の色違い（背景透過）
-adv_010_green_red,Knight,緑,赤,adv_010 の色違い（背景透過）
-adv_010_pink_orig,Knight,桃,青,adv_010 の色違い（背景透過）
-adv_010_pink_green,Knight,桃,緑,adv_010 の色違い（背景透過）
-adv_010_pink_red,Knight,桃,赤,adv_010 の色違い（背景透過）
-adv_010_violet_orig,Knight,紫,青,adv_010 の色違い（背景透過）
-adv_010_violet_green,Knight,紫,緑,adv_010 の色違い（背景透過）
-adv_010_violet_red,Knight,紫,赤,adv_010 の色違い（背景透過）
+adv_010_black_orig,Knight|Warrior,黒,青,adv_010 の色違い（背景透過）
+adv_010_black_green,Knight|Warrior,黒,緑,adv_010 の色違い（背景透過）
+adv_010_black_red,Knight|Warrior,黒,赤,adv_010 の色違い（背景透過）
+adv_010_chestnut_orig,Knight|Warrior,栗,青,adv_010 の色違い（背景透過）
+adv_010_chestnut_green,Knight|Warrior,栗,緑,adv_010 の色違い（背景透過）
+adv_010_chestnut_red,Knight|Warrior,栗,赤,adv_010 の色違い（背景透過）
+adv_010_blond_orig,Knight|Warrior,金,青,adv_010 の色違い（背景透過）
+adv_010_blond_green,Knight|Warrior,金,緑,adv_010 の色違い（背景透過）
+adv_010_blond_red,Knight|Warrior,金,赤,adv_010 の色違い（背景透過）
+adv_010_silver_orig,Knight|Warrior,銀,青,adv_010 の色違い（背景透過）
+adv_010_silver_green,Knight|Warrior,銀,緑,adv_010 の色違い（背景透過）
+adv_010_silver_red,Knight|Warrior,銀,赤,adv_010 の色違い（背景透過）
+adv_010_red_orig,Knight|Warrior,赤,青,adv_010 の色違い（背景透過）
+adv_010_red_green,Knight|Warrior,赤,緑,adv_010 の色違い（背景透過）
+adv_010_red_red,Knight|Warrior,赤,赤,adv_010 の色違い（背景透過）
+adv_010_blue_orig,Knight|Warrior,青,青,adv_010 の色違い（背景透過）
+adv_010_blue_green,Knight|Warrior,青,緑,adv_010 の色違い（背景透過）
+adv_010_blue_red,Knight|Warrior,青,赤,adv_010 の色違い（背景透過）
+adv_010_green_orig,Knight|Warrior,緑,青,adv_010 の色違い（背景透過）
+adv_010_green_green,Knight|Warrior,緑,緑,adv_010 の色違い（背景透過）
+adv_010_green_red,Knight|Warrior,緑,赤,adv_010 の色違い（背景透過）
+adv_010_pink_orig,Knight|Warrior,桃,青,adv_010 の色違い（背景透過）
+adv_010_pink_green,Knight|Warrior,桃,緑,adv_010 の色違い（背景透過）
+adv_010_pink_red,Knight|Warrior,桃,赤,adv_010 の色違い（背景透過）
+adv_010_violet_orig,Knight|Warrior,紫,青,adv_010 の色違い（背景透過）
+adv_010_violet_green,Knight|Warrior,紫,緑,adv_010 の色違い（背景透過）
+adv_010_violet_red,Knight|Warrior,紫,赤,adv_010 の色違い（背景透過）
 adv_011,Ranger|Thief|Scholar,灰茶,青緑,短髪・青いマント・ベルトと小袋・水晶のお守り（背景透過）
 adv_011_blond_green,Ranger|Thief|Scholar,金,緑,adv_011 の色違い（背景透過）
 adv_011_blond_orig,Ranger|Thief|Scholar,金,青緑,adv_011 の色違い（背景透過）
@@ -45,7 +40,7 @@ adv_013,Cleric,緑,灰,神官・白と金の祭服・サイドの三つ編み（
 adv_014,Mage,紫,青,魔導士・藍のローブ・編み込みのまとめ髪（背景透過）
 adv_015,Ranger,桃,金,斥候・森色の外套・編み込みのまとめ髪（背景透過）
 adv_016,Scholar,赤銅,琥珀,学者・深緑青の学者服・編み込みのまとめ髪（背景透過）
-adv_017,Knight,赤銅,灰,騎士・黒銀の胸甲と紺の外套・ポニーテール（背景透過）
+adv_017,Knight|Warrior,赤銅,灰,騎士・黒銀の胸甲と紺の外套・ポニーテール（背景透過）
 adv_018,Thief,赤銅,緑,盗賊・海賊風の装い・ボブ（背景透過）
 adv_019,Mage,赤銅,青,魔導士・紅蓮の魔導衣・ポニーテール（背景透過）
 adv_020,Mage,赤銅,琥珀,魔導士・とんがり帽子の魔女・ボブ（背景透過）

@@ -274,6 +274,29 @@ namespace GuildManager.Core.Systems
             state.Adventurers.Where(a => !a.IsRetired && a.PortraitId != null).Select(a => a.PortraitId!).ToHashSet();
 
         /// <summary>
+        /// プールから外した顔（`adv_` で始まり portraits.csv に無い Id、例：2026-10-17 に外した adv_001〜005）を使っている冒険者に、
+        /// プールの顔を割り当て直す（旧セーブの読み込み時、→ GameState.FromSaveData）。現役・引退者・培養中の子が対象。
+        /// 乱数は使わず、職業に似合う・現役が使っていない顔から冒険者の Id で決める（同じセーブなら毎回同じ顔）。
+        /// </summary>
+        public static void ReplaceRemovedPortraits(GameState state)
+        {
+            var pool = PortraitBalance.All;
+            if (pool.Count == 0) return;
+            static bool Removed(string? id) => id != null && id.StartsWith("adv_", StringComparison.Ordinal) && PortraitBalance.FindById(id) == null;
+            var everyone = state.Adventurers.Concat(state.RetiredAdventurers).Concat(state.SoulFusionCultures.Select(c => c.Child)).ToList();
+            var used = everyone.Where(a => !a.IsRetired && a.PortraitId != null && !Removed(a.PortraitId)).Select(a => a.PortraitId!).ToHashSet();
+            foreach (var a in everyone.Where(a => Removed(a.PortraitId)).OrderBy(a => a.Id))
+            {
+                var unused = pool.Where(p => !used.Contains(p.Id)).ToList();
+                var candidates = new[] { unused.Where(p => p.Suits(a.JobClass)).ToList(), unused, pool.Where(p => p.Suits(a.JobClass)).ToList(), pool.ToList() }
+                    .First(list => list.Count > 0);
+                var picked = candidates[(int)((uint)a.Id.GetHashCode() % (uint)candidates.Count)];
+                a.PortraitId = picked.Id;
+                if (!a.IsRetired) used.Add(picked.Id);
+            }
+        }
+
+        /// <summary>
         /// 応募者に顔グラフィックを割り当てる（→ PortraitBalance・portraits.csv）。優先順は
         /// ①職業に似合う・誰も使っていない → ②誰も使っていない（職業不問） → ③職業に似合う（重複を許す） → ④プール全体（重複を許す）。
         /// プールが空なら何もしない（null＝シルエット表示）。同じ採用回の応募者同士も重複しないよう、選んだIdは usedPortraits へ足す。

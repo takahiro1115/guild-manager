@@ -1417,7 +1417,7 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
     const blob = new Blob([bytes], { type: "image/jpeg" });
     const img = await loadFile(new File([blob], "adv_004.jpg", { type: "image/jpeg" }));
     img.jobs = "Ranger|Warrior|Knight"; img.hairLabel = "暗褐"; img.eyeLabel = "琥珀";
-    // 見本はゲームに登録済みの adv_004。「全画像」の書き出し・送信と CSV の行からは外し、送ることもできない。
+    // 見本の adv_004（2026-10-17 にゲームのプールから外した）。「全画像」の書き出し・送信と CSV の行からは外し、送ることもできない。
     img.isSample = true;
     img.thumbLabel.textContent = "見本";
     img.tol.hair = 95; img.tol.eye = 90; img.hueMode.hair = false;
@@ -1519,7 +1519,7 @@ const SAMPLE_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEA
     if (!current) return;
     if (current.isSample) {
       $("sendStatus").className = "status warn";
-      $("sendStatus").textContent = "見本の adv_004 はゲームに登録済みなので送れない。自分の画像を選んで送る。";
+      $("sendStatus").textContent = "見本の adv_004 は送れない。自分の画像を選んで送る。";
       return;
     }
     sendImages([current]);

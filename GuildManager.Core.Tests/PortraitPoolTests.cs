@@ -28,14 +28,13 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void PortraitsCsv_LoadsPool()
         {
-            // 取り込みで増えていく前提（→ tools/portrait_tool/import_portraits.py）。初期の5枚が残っていることだけを確かめる。
+            // 取り込みで増えていく前提（→ tools/portrait_tool/import_portraits.py）。初期の5枚（adv_001〜005、白背景）は 2026-10-17 に外した。
             Assert.True(PortraitBalance.All.Count >= 5);
-            foreach (var id in new[] { "adv_001", "adv_002", "adv_003", "adv_004", "adv_005" })
-                Assert.NotNull(PortraitBalance.FindById(id));
-            var mage = PortraitBalance.FindById("adv_003")!;
+            Assert.Null(PortraitBalance.FindById("adv_001"));
+            var mage = PortraitBalance.FindById("adv_014")!;
             Assert.True(mage.Suits(JobClass.Mage));
             Assert.False(mage.Suits(JobClass.Warrior));
-            Assert.Equal("銀", mage.HairColor);
+            Assert.Equal("紫", mage.HairColor);
             Assert.Null(PortraitBalance.FindById("claudia")); // 初期メンバーの専用画像はプール外
         }
 
@@ -89,12 +88,12 @@ namespace GuildManager.Core.Tests
         [Fact]
         public void GenerateCandidates_PrefersPortraitSuitingTheJob()
         {
-            // AlwaysMinRng：職業は列挙の先頭（Warrior）。Warriorに似合う未使用の先頭は adv_001。
+            // AlwaysMinRng：職業は列挙の先頭（Warrior）。Warriorに似合う未使用の先頭は adv_010_black_orig。
             var candidate = new RecruitmentSystem(new AlwaysMinRng(), new AlwaysMinRng())
                 .GenerateCandidates(new GameState(), candidateCount: 1)[0].Candidate;
 
             Assert.Equal(JobClass.Warrior, candidate.JobClass);
-            Assert.Equal("adv_001", candidate.PortraitId);
+            Assert.Equal("adv_010_black_orig", candidate.PortraitId);
         }
 
         [Fact]
@@ -104,16 +103,43 @@ namespace GuildManager.Core.Tests
             {
                 Adventurers =
                 {
-                    new Adventurer { Name = "現役", JobClass = JobClass.Warrior, PortraitId = "adv_001" },
-                    new Adventurer { Name = "引退", JobClass = JobClass.Knight, PortraitId = "adv_004", IsRetired = true },
+                    new Adventurer { Name = "現役", JobClass = JobClass.Warrior, PortraitId = "adv_010_black_orig" },
+                    new Adventurer { Name = "引退", JobClass = JobClass.Knight, PortraitId = "adv_010_black_green", IsRetired = true },
                 },
             };
 
             var candidate = new RecruitmentSystem(new AlwaysMinRng(), new AlwaysMinRng())
                 .GenerateCandidates(state, candidateCount: 1)[0].Candidate;
 
-            // Warriorに似合う adv_001（使用中）・adv_004（引退者の顔＝再利用可）のうち、未使用の adv_004 が選ばれる。
-            Assert.Equal("adv_004", candidate.PortraitId);
+            // Warriorに似合う adv_010_black_orig（使用中）・adv_010_black_green（引退者の顔＝再利用可）のうち、未使用の後者が選ばれる。
+            Assert.Equal("adv_010_black_green", candidate.PortraitId);
+        }
+
+        [Fact]
+        public void OldSave_WithRemovedPortraits_GetsSuitingPortraitsFromThePool()
+        {
+            // 2026-10-17 に外した adv_001〜005 を使っていた旧セーブ：読み込みでプールの顔に替える（職業に似合う・現役同士で重ならない）。
+            // プールに無い専用の顔（claudia など）はそのまま
+            var state = new GameState
+            {
+                Adventurers =
+                {
+                    new Adventurer { Name = "甲", JobClass = JobClass.Mage, PortraitId = "adv_003" },
+                    new Adventurer { Name = "乙", JobClass = JobClass.Mage, PortraitId = "adv_003" },
+                    new Adventurer { Name = "丙", JobClass = JobClass.Warrior, PortraitId = "adv_001" },
+                    new Adventurer { Name = "クラウディア", JobClass = JobClass.Knight, PortraitId = "claudia" },
+                    new Adventurer { Name = "残す", JobClass = JobClass.Mage, PortraitId = "adv_014" },
+                },
+                RetiredAdventurers = { new Adventurer { Name = "引退", JobClass = JobClass.Thief, PortraitId = "adv_005", IsRetired = true } },
+            };
+            var restored = GameState.FromSaveData(System.Text.Json.JsonSerializer.Deserialize<SaveData>(System.Text.Json.JsonSerializer.Serialize(state.ToSaveData()))!);
+            var all = restored.Adventurers.Concat(restored.RetiredAdventurers).ToList();
+            Assert.All(all.Where(a => a.Name != "クラウディア"), a => Assert.NotNull(PortraitBalance.FindById(a.PortraitId)));
+            Assert.All(all.Where(a => a.Name != "クラウディア"), a => Assert.True(PortraitBalance.FindById(a.PortraitId)!.Suits(a.JobClass), a.Name));
+            Assert.Equal("claudia", all.Single(a => a.Name == "クラウディア").PortraitId);
+            Assert.Equal("adv_014", all.Single(a => a.Name == "残す").PortraitId);
+            var active = restored.Adventurers.Select(a => a.PortraitId).ToList();
+            Assert.Equal(active.Count, active.Distinct().Count());
         }
 
         [Fact]
