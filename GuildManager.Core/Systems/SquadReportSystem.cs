@@ -27,6 +27,8 @@ namespace GuildManager.Core.Systems
         Dive,
         /// <summary>出撃しなかった（方針はあるが待機した）。</summary>
         Idle,
+        /// <summary>調査に出たが、護衛が足りず解析が進まなかった（§0.147。セーブの値がずれないよう最後に足した）。</summary>
+        SurveyFailed,
     }
 
     /// <summary>部隊長の報告1件（月報に入れてセーブにも残す。§0.116）。</summary>
@@ -133,7 +135,8 @@ namespace GuildManager.Core.Systems
             {
                 values["{主}"] = BossName(survey);
                 values["{解析}"] = $"{survey.ScoutingResult!.IntelRateAfter * 100:0}";
-                return (SquadReportKind.Survey, values);
+                // 護衛が足りず解析が進まなかった月は「見えてきた」ではなく、進まなかった報告（§0.147）
+                return (survey.ScoutingResult.IntelGained > 0 ? SquadReportKind.Survey : SquadReportKind.SurveyFailed, values);
             }
             var gathered = resolutions.Where(r => r.GatheringResult is { MaterialCount: > 0 })
                 .GroupBy(r => r.GatheringResult!.MaterialId).Select(g => $"{MaterialBalance.GetName(g.Key)}×{g.Sum(r => r.GatheringResult!.MaterialCount)}").ToList();

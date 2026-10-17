@@ -50,6 +50,22 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
+        public void Survey_WithNoProgress_ReportsTheFailure_NotProgress()
+        {
+            // 護衛が足りず解析が進まなかった月に「見えてきた！　解析0%」と言わない（§0.147）
+            var s = NewState();
+            var party = PartyOf(s.Adventurers.ToArray());
+            var boss = Forest(s).Bosses[0];
+            var stuck = new DungeonMissionResolution(party, boss, Forest(s), 0, new ScoutingResult { IntelRateBefore = 0, IntelGained = 0, IntelRateAfter = 0 });
+            var (kind, values) = Classify(s, new() { stuck });
+            Assert.Equal(SquadReportKind.SurveyFailed, kind);
+            Assert.Equal("0", values["{解析}"]);
+
+            var moved = new DungeonMissionResolution(party, boss, Forest(s), 0, new ScoutingResult { IntelRateBefore = 0, IntelGained = 0.2, IntelRateAfter = 0.2 });
+            Assert.Equal(SquadReportKind.Survey, Classify(s, new() { moved }).Kind);
+        }
+
+        [Fact]
         public void Gather_SumsMaterials_AndIdleWhenNothingHappened()
         {
             var s = NewState();
@@ -104,6 +120,7 @@ namespace GuildManager.Core.Tests
         [InlineData(SquadReportKind.Retreat, new[] { "{主}" })]
         [InlineData(SquadReportKind.Growth, new[] { "{名前}" })]
         [InlineData(SquadReportKind.Survey, new[] { "{主}", "{解析}" })]
+        [InlineData(SquadReportKind.SurveyFailed, new[] { "{主}", "{解析}" })]
         [InlineData(SquadReportKind.Gather, new[] { "{成果}" })]
         [InlineData(SquadReportKind.Dive, new[] { "{フィールド}", "{階}" })]
         [InlineData(SquadReportKind.Idle, new string[0])]
