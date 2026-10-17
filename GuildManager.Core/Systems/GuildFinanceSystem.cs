@@ -145,54 +145,69 @@ namespace GuildManager.Core.Systems
             _ => 0,
         };
 
+        /// <summary>
+        /// 契約更改の見込み1人分（§0.151、契約更改の窓）。SatisfactionDelta は本当の増減。ShownSatisfactionDelta は画面に出す増減で、
+        /// 「お金が好き」かがまだ見立てで分かっていない子は、お金好きの分を足さない（隠れた志向を見せない）。MoneyUnknown＝まだ分かっていない（お金好きならもっと動く。みなに付くので、印から志向は漏れない）。
+        /// </summary>
+        public sealed record ContractChange(Adventurer Adventurer, int Contribution, int WageBefore, int WageAfter, int SatisfactionDelta,
+            int ShownSatisfactionDelta, bool MoneyUnknown, bool Raised);
+
+        /// <summary>方針ごとの、子ごとの見込み（並びは功績の多い順）。ApplyContractReview も同じ見込みで行う。</summary>
+        public static List<ContractChange> PreviewContractReview(GameState state, ContractPolicy policy)
+        {
+            var top = MeritTop(state).Select(a => a.Id).ToHashSet();
+            var list = new List<ContractChange>();
+            foreach (var a in Staff(state))
+            {
+                bool loves = LovesMoney(a);
+                bool known = a.Personality == null || PersonalitySystem.Knowledge(state, a, Drive.Money) != PersonalityKnowledge.Unknown;
+                bool raised = policy == ContractPolicy.Even || (policy == ContractPolicy.Merit && top.Contains(a.Id));
+                double rate = !raised ? 0 : policy == ContractPolicy.Merit ? EconomyBalance.ContractMeritRaise : EconomyBalance.ContractEvenRaise;
+                int Delta(bool money) => policy switch
+                {
+                    ContractPolicy.Merit => raised ? EconomyBalance.ContractMeritTopSatisfaction : EconomyBalance.ContractMeritOthersSatisfaction * (money ? 2 : 1),
+                    ContractPolicy.Even => EconomyBalance.ContractEvenSatisfaction + (money ? 2 : 0),
+                    _ => EconomyBalance.ContractFreezeSatisfaction * (money ? 2 : 1),
+                };
+                int actual = Delta(loves), plain = Delta(false);
+                list.Add(new ContractChange(a, YearContribution(a), a.WeeklyWage, a.WeeklyWage + (int)Math.Round(a.WeeklyWage * rate),
+                    actual, known ? actual : plain, !known && Delta(true) != plain, raised));
+            }
+            return list.OrderByDescending(c => c.Contribution).ThenBy(c => c.Adventurer.Name, StringComparer.Ordinal).ToList();
+        }
+
+        /// <summary>「成果に応じて」で、同じ部隊で上げた子と上げなかった子の組（相性が ContractGapCompatLoss 下がる）の数。</summary>
+        public static int MeritGapPairs(GameState state)
+        {
+            var top = MeritTop(state).Select(a => a.Id).ToHashSet();
+            return state.SavedParties.Sum(p => p.MemberIds.Count(top.Contains) * p.MemberIds.Count(id => !top.Contains(id)));
+        }
+
         /// <summary>契約更改を行う（返事待ちを閉じ、この年の功績を数え直す）。返事待ちが無ければ false。</summary>
         public static bool ApplyContractReview(GameState state, ContractPolicy policy)
         {
             if (state.ContractReviewPendingYear is not int year) return false;
             var staff = Staff(state);
-            switch (policy)
+            var top = MeritTop(state).Select(a => a.Id).ToHashSet();
+            foreach (var change in PreviewContractReview(state, policy))
             {
-                case ContractPolicy.Merit:
-                {
-                    var top = MeritTop(state).Select(a => a.Id).ToHashSet();
-                    foreach (var a in staff)
-                    {
-                        if (top.Contains(a.Id))
-                        {
-                            a.WeeklyWage += (int)Math.Round(a.WeeklyWage * EconomyBalance.ContractMeritRaise);
-                            SatisfactionSystem.Adjust(a, EconomyBalance.ContractMeritTopSatisfaction);
-                            PersonalitySystem.NotifyMoneyJoy(a);
-                        }
-                        else
-                            SatisfactionSystem.Adjust(a, EconomyBalance.ContractMeritOthersSatisfaction * (LovesMoney(a) ? 2 : 1));
-                    }
-                    // 差がつく：同じ部隊で上げた子と上げなかった子の相性が下がる
-                    foreach (var party in state.SavedParties)
-                    {
-                        var ids = party.MemberIds;
-                        foreach (var x in ids.Where(top.Contains))
-                            foreach (var y in ids.Where(id => !top.Contains(id)))
-                            {
-                                var key = CompatibilitySystem.NormalizeKey(x, y);
-                                int current = CompatibilitySystem.GetCompatibility(state, x, y);
-                                state.Compatibility[key] = Math.Clamp(current - EconomyBalance.ContractGapCompatLoss, CompatibilityBalance.MinValue, CompatibilityBalance.MaxValue);
-                            }
-                    }
-                    break;
-                }
-                case ContractPolicy.Even:
-                    foreach (var a in staff)
-                    {
-                        a.WeeklyWage += (int)Math.Round(a.WeeklyWage * EconomyBalance.ContractEvenRaise);
-                        SatisfactionSystem.Adjust(a, EconomyBalance.ContractEvenSatisfaction + (LovesMoney(a) ? 2 : 0));
-                        PersonalitySystem.NotifyMoneyJoy(a);
-                    }
-                    break;
-                default:
-                    foreach (var a in staff)
-                        SatisfactionSystem.Adjust(a, EconomyBalance.ContractFreezeSatisfaction * (LovesMoney(a) ? 2 : 1));
-                    break;
+                change.Adventurer.WeeklyWage = change.WageAfter;
+                SatisfactionSystem.Adjust(change.Adventurer, change.SatisfactionDelta);
+                if (change.Raised) PersonalitySystem.NotifyMoneyJoy(change.Adventurer);
             }
+            // 差がつく：同じ部隊で上げた子と上げなかった子の相性が下がる
+            if (policy == ContractPolicy.Merit)
+                foreach (var party in state.SavedParties)
+                {
+                    var ids = party.MemberIds;
+                    foreach (var x in ids.Where(top.Contains))
+                        foreach (var y in ids.Where(id => !top.Contains(id)))
+                        {
+                            var key = CompatibilitySystem.NormalizeKey(x, y);
+                            int current = CompatibilitySystem.GetCompatibility(state, x, y);
+                            state.Compatibility[key] = Math.Clamp(current - EconomyBalance.ContractGapCompatLoss, CompatibilityBalance.MinValue, CompatibilityBalance.MaxValue);
+                        }
+                }
             foreach (var a in staff)
             {
                 a.ContributionAtYearStart = a.TotalContributionScore;

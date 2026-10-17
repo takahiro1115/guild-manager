@@ -12,6 +12,8 @@ namespace GuildManager.Core.Systems
     {
         public string SceneId { get; init; } = "";
         public List<List<StoryLine>> Pages { get; init; } = new();
+        /// <summary>物語帳に立ち絵の無い話し手（場面で話す部隊長など、§0.151）の顔：名前 → 冒険者の顔の Id（assets/portraits）。</summary>
+        public Dictionary<string, string> SpeakerPortraitIds { get; init; } = new();
     }
 
     /// <summary>
@@ -40,7 +42,9 @@ namespace GuildManager.Core.Systems
             new("s01_elder", StoryTiming.AfterReport, s => SeenBefore(s, "s01_lumina", s.WeekNumber)),
             new("s01_question", StoryTiming.AfterReport, s => Seen(s, "s01_elder")),
             new("s01_research", StoryTiming.Interactive, s => Seen(s, "s01_question"), OnView: StoryView.Research), // 初めて研究室の画面を開いたとき（§0.114）
+            new("s01_personality", StoryTiming.AfterReport, s => SeenBefore(s, "s01_question", s.WeekNumber) && PersonalitySystem.AnyKnown(s)), // 誰かの志向か気質が初めて分かった月（§0.151。ルミナの最初の質問より後の月報）
             new("s01_hunter", StoryTiming.AfterReport, s => Seen(s, "s01_lumina") && RetreatedBoss(s) != null), // ルミナを救出したあと（§0.140。救出前に2回引き返しても出さない）
+            new("s01_detour", StoryTiming.AfterReport, s => SeenBefore(s, "s01_hunter", s.WeekNumber) && DetourBoss(s) != null && DetourField(s) != null), // 森の40Fのあと、同じ番人の前で2回つまずいた（§0.151。ルミナが別の迷宮を勧める）
             new("s01_bailout", StoryTiming.AfterReport, s => s.AlbertBailoutWeek != null), // アルベールのへそくり（資金の画面が開く前の赤字、§0.140）
             new("s01_newyear", StoryTiming.AfterReport, s => GameCalendar.YearOf(s.WeekNumber) >= 2), // 初めての新春の採用試験と契約更改（2年目のはじめ、§0.140）
             new("s01_negotiation", StoryTiming.AfterReport, s => s.Adventurers.Any(a => !a.IsRetired && a.NeedsNegotiation)), // 初めての契約交渉（§0.140）
@@ -55,7 +59,7 @@ namespace GuildManager.Core.Systems
             new("s02_marguerite", StoryTiming.AfterReport, s => Seen(s, "s02_advice") && s.ExchangeWins >= 1),
             new("s02_tournaments", StoryTiming.AfterReport, s => Seen(s, "s02_advice") && s.TournamentCalendarFromWeek is int from && s.WeekNumber >= from),
             new("s02_ledger", StoryTiming.AfterReport, s => s.FundingOpenedWeek > 1 && s.TutorialEnabled), // 帳簿：資金の画面が開いた（王都の大会の次の月、または早めの来訪の月。§0.140）
-            new("s02_sponsor", StoryTiming.AfterReport, s => Seen(s, "s02_ledger") && (FundingSystem.Offers(s).Count > 0 || FundingSystem.ActiveContract(s) != null)), // 初めてのスポンサーの話（イザベラが持ってくる、§0.140）
+            new("s02_sponsor", StoryTiming.BeforeReport, s => SeenBefore(s, "s02_ledger", s.WeekNumber) && (FundingSystem.Offers(s).Count > 0 || FundingSystem.ActiveContract(s) != null)), // 初めてのスポンサーの話（イザベラが持ってくる、§0.140）。§0.151：話の載った月報より前に（帳簿と同じ月なら次の月報の前）
             new("s02_marguerite_leaves", StoryTiming.AfterReport, s => Seen(s, "s02_marguerite") && s.StoryCounters.GetValueOrDefault(GuestLeftKey) > 0),
             new("s02_royal", StoryTiming.AfterReport, s => IsabellaSystem.CommissionsOpen(s) && s.TournamentPlacingsTotal > 0),
             new("s02_invite", StoryTiming.AfterReport, InviteDue, Repeats: true),
@@ -65,8 +69,8 @@ namespace GuildManager.Core.Systems
             new("s03_academy2", StoryTiming.AfterReport, s => IsabellaSystem.HasVisited(s) && (s.ExchangeWins >= 2 || BossDefeated(s, "abyss", 50))),
             new("s03_academy4", StoryTiming.AfterReport, s => Seen(s, "s03_academy2") && (s.ExchangeWins >= 4 || BossDefeated(s, "abyss", 50))),
             new("s03_academy6", StoryTiming.AfterReport, s => Seen(s, "s03_academy4") && (s.ExchangeWins >= 6 || BossDefeated(s, "abyss", 50))),
-            new("s03_culture", StoryTiming.AfterReport, s => s.SoulFusionCultures.Count > 0 && !Seen(s, "s03_daughter")), // 初めて秘薬を処方した月（§0.118）
-            new("s03_daughter", StoryTiming.AfterReport, s => FirstCulture(s) is { } c && SoulFusionBalance.CultureWeeks - c.WeeksRemaining >= GameCalendar.WeeksPerMonth || FirstDaughter(s) != null), // 初めて処方した翌月、生まれた赤子を見せる（§0.123）
+            new("s03_culture", StoryTiming.Interactive, s => s.SoulFusionCultures.Count > 0 && !Seen(s, "s03_daughter")), // 初めて秘薬を処方したとき（§0.118。§0.151 で月報のあとから処方した直後に）
+            new("s03_daughter", StoryTiming.AfterReport, s => FirstCulture(s) is { } c && SoulFusionBalance.CultureWeeks - c.WeeksRemaining >= GameCalendar.WeeksPerMonth && SeenBefore(s, "s03_culture", s.WeekNumber) || FirstDaughter(s) != null), // 初めて処方した翌月、生まれた赤子を見せる（§0.123。§0.151：培養槽の場面と同じ月報で続けて出さない）
             new("s03_g1", StoryTiming.AfterReport, s => FirstG1Win(s) != null),
             new("s03_fallen", StoryTiming.AfterReport, s => s.FallenAdventurers.Count > 0),
             new("s03_bow", StoryTiming.AfterReport, s => Seen(s, "s01_lumina") && s.ExchangeMatchesPlayed >= 3),
@@ -152,7 +156,7 @@ namespace GuildManager.Core.Systems
         {
             "s01_order", "s01_month", "s01_first_report", "s01_question", "s01_hunter",
             "s02_disciplines", "s02_advice", "s02_tournaments", "s01_squad2", "s01_squad3", "s01_research", "s02_sponsor", "s03_culture",
-            "s01_newyear", "s01_negotiation", "s02_ledger",
+            "s01_newyear", "s01_negotiation", "s02_ledger", "s01_personality", "s01_detour",
         };
 
         /// <summary>
@@ -266,7 +270,9 @@ namespace GuildManager.Core.Systems
                         background = line.Text;
                         break;
                     case StoryLineKind.Speech or StoryLineKind.Narration:
-                        string? portrait = line.Kind == StoryLineKind.Speech ? StoryImageBalance.PortraitFile(line.Speaker, line.Expression) : null;
+                        string? portrait = line.Kind != StoryLineKind.Speech ? null
+                            : StoryImageBalance.PortraitFile(line.Speaker, line.Expression)
+                              ?? (showing.SpeakerPortraitIds.TryGetValue(line.Speaker, out var face) ? $"res://assets/portraits/{face}.png" : null); // 冒険者の顔（§0.151）
                         steps.Add(new StoryStep(line, background, background.Length > 0 ? StoryImageBalance.BackgroundFile(background) : null, portrait));
                         break;
                 }
@@ -288,6 +294,12 @@ namespace GuildManager.Core.Systems
             {
                 state.StoryCounters[HunterFieldKey] = boss.FieldOrder;
                 state.StoryCounters[HunterFloorKey] = boss.Floor;
+            }
+            if (sceneId == "s01_detour" && DetourBoss(state) is { } stuck && DetourField(state) is { } to)
+            {
+                state.StoryCounters[DetourFieldKey] = stuck.FieldOrder;
+                state.StoryCounters[DetourFloorKey] = stuck.Floor;
+                state.StoryCounters[DetourToKey] = to.Order;
             }
             if (sceneId == "s02_advice" && FacilityUnlockSystem.TrainingFacilities.Where(t => FacilityUnlockSystem.GetUnlockedLevel(state, t) >= 1).ToList() is { Count: > 0 } opened)
                 state.StoryCounters[AdviceFacilityKey] = (int)opened[0];
@@ -414,6 +426,13 @@ namespace GuildManager.Core.Systems
         private static GuildStanding? FirstYearTop(GameState state) =>
             state.GuildStandings.OrderBy(st => st.Year).FirstOrDefault(st => st.Rows.Any(r => r.Ours && r.Rank == 1));
 
+        /// <summary>§0.151より前のセーブ：もう誰かの志向か気質が分かっていれば、志向と気質の説明の場面を見たことにする。</summary>
+        public static void MarkPersonalitySceneSeen(GameState state)
+        {
+            if (PersonalitySystem.AnyKnown(state))
+                state.StorySeenWeeks.TryAdd("s01_personality", state.WeekNumber);
+        }
+
         /// <summary>§0.145より前のセーブ：もう年末の順位で1位になった年があれば、初めての年間1位の場面を見たことにする。</summary>
         public static void MarkYearTopSeen(GameState state)
         {
@@ -432,9 +451,20 @@ namespace GuildManager.Core.Systems
         public static void ProcessWeek(GameState state, WeeklySettlementResult result)
         {
             foreach (var r in result.DungeonMissionResolutions.Where(r => r.Boss != null && IsStalledAtBoss(r)))
+            {
                 state.StoryCounters[RetreatKey(r.Boss!.Id)] = state.StoryCounters.GetValueOrDefault(RetreatKey(r.Boss.Id)) + 1;
+                // 別の迷宮へ（§0.151）：森の40Fを倒して洞窟が開いたあとのつまずきだけを数える
+                if (ForestBossDefeated(state, DungeonBalance.FieldUnlockFloor(2)))
+                    state.StoryCounters[DetourKey(r.Boss.Id)] = state.StoryCounters.GetValueOrDefault(DetourKey(r.Boss.Id)) + 1;
+            }
             if (result.GuestTrainer.Left != null)
                 state.StoryCounters[GuestLeftKey] = state.StoryCounters.GetValueOrDefault(GuestLeftKey) + 1;
+            // 森の10F・20Fの番人を初めて倒した部隊の部隊長を覚える（§0.151。知らせの場面で話す。bondtold と同じく鍵に Id を入れる）
+            foreach (var r in result.DungeonMissionResolutions)
+                if (r.DungeonResult?.Outcome == DungeonOutcome.Victory && r.Boss is { } boss && r.Party.Members.Count > 0
+                    && LeaderScenes.ContainsValue(boss.Floor) && r.Field.Id == IsabellaBalance.VisitFieldId
+                    && !state.StoryCounters.Keys.Any(k => k.StartsWith(BossLeaderPrefix(boss.Floor))))
+                    state.StoryCounters[BossLeaderPrefix(boss.Floor) + r.Party.Members[0].Id] = 1;
         }
 
         /// <summary>扉前で撤退したか、決戦で負けたか（§0.98）。</summary>
@@ -529,6 +559,33 @@ namespace GuildManager.Core.Systems
                 .Select(e => e.Result!.Matches.FirstOrDefault(m => m.Round == 2 && m.AWon && m.NameB == IsabellaBalance.Opponent(TournamentDiscipline.Magic)))
                 .FirstOrDefault(m => m != null)?.NameA;
 
+        private static string DetourKey(Guid bossId) => $"detour:{bossId}";
+        public const string DetourFieldKey = "detourField";
+        public const string DetourFloorKey = "detourFloor";
+        public const string DetourToKey = "detourTo";
+
+        /// <summary>
+        /// 別の迷宮へ（§0.151）：森の40Fのあと、扉前の撤退と決戦の負けが合わせて2回になった、その迷宮の次の番人（いちばん浅いもの）。
+        /// 見たあとは覚えたもの。無ければ null。
+        /// </summary>
+        public static FloorBoss? DetourBoss(GameState state) =>
+            state.StoryCounters.TryGetValue(DetourFieldKey, out int field) && state.StoryCounters.TryGetValue(DetourFloorKey, out int floor)
+                ? state.DungeonFields.SelectMany(f => f.Bosses).FirstOrDefault(b => b.FieldOrder == field && b.Floor == floor)
+                : state.DungeonFields.Where(f => f.IsUnlocked).Select(f => f.GetNextActiveBoss()).OfType<FloorBoss>()
+                    .Where(b => state.StoryCounters.GetValueOrDefault(DetourKey(b.Id)) >= 2)
+                    .OrderBy(b => b.FieldOrder).ThenBy(b => b.Floor).FirstOrDefault();
+
+        /// <summary>別の迷宮へ（§0.151）で勧める迷宮：つまずいた迷宮のほかで開いている迷宮のうち、次の番人の要求火力がいちばん低いところ（迷宮の主の待つ階は除く）。</summary>
+        public static DungeonField? DetourField(GameState state)
+        {
+            if (state.StoryCounters.TryGetValue(DetourToKey, out int to))
+                return state.DungeonFields.FirstOrDefault(f => f.Order == to);
+            if (DetourBoss(state) is not { } stuck) return null;
+            return state.DungeonFields
+                .Where(f => f.IsUnlocked && f.Order != stuck.FieldOrder && f.GetNextActiveBoss() is { } b && RulerSystem.RulerAt(state, b) == null)
+                .OrderBy(f => DungeonResolver.RequiredPower(f.GetNextActiveBoss()!, state)).FirstOrDefault();
+        }
+
         /// <summary>扉前の撤退と決戦の負けが合わせて2回以上の、まだ倒していないボス（いちばん浅いもの）。無ければ null。</summary>
         public static FloorBoss? RetreatedBoss(GameState state) =>
             state.DungeonFields.SelectMany(f => f.Bosses)
@@ -570,8 +627,10 @@ namespace GuildManager.Core.Systems
         {
             var scene = StoryBalance.Get(sceneId);
             // 埋められない {…} が残った行（記録が無い・出す条件の印が合わない）は出さない（§0.89）。空になったページも詰める。
+            // 話し手の名前にも差し込む（{部隊長}「…」、§0.151）
             var pages = scene.Pages
-                .Select(p => p.Select(l => l with { Text = Fill(state, l.Text, sceneId) }).Where(l => !l.Text.Contains('{')).ToList())
+                .Select(p => p.Select(l => l with { Text = Fill(state, l.Text, sceneId), Speaker = Fill(state, l.Speaker, sceneId) })
+                    .Where(l => !l.Text.Contains('{') && !l.Speaker.Contains('{')).ToList())
                 .Where(p => p.Count > 0).ToList();
             // 背景の指定だけが残ったページは次のページの頭へ寄せる（§0.91。背景だけの空のページを出さない）
             for (int i = pages.Count - 2; i >= 0; i--)
@@ -589,7 +648,7 @@ namespace GuildManager.Core.Systems
                 var pick = speeches.Count > 0 ? speeches[state.StoryCounters.GetValueOrDefault(SeenCountKey(sceneId)) % speeches.Count] : null;
                 pages = new List<List<StoryLine>> { pages.SelectMany(p => p).Where(l => l.Kind != StoryLineKind.Speech || ReferenceEquals(l, pick)).ToList() };
             }
-            return new StoryShowing { SceneId = sceneId, Pages = pages };
+            return new StoryShowing { SceneId = sceneId, Pages = pages, SpeakerPortraitIds = SpeakerPortraits(state, sceneId) };
         }
 
         private static Dictionary<string, string> Placeholders(GameState state, string? sceneId = null)
@@ -659,7 +718,52 @@ namespace GuildManager.Core.Systems
                 values["{施設}"] = FacilityUnlockSystem.FacilityName(training);
                 values["{部門}"] = TournamentSystem.DisciplineLabel(FacilityUnlockSystem.DisciplineOf(training));
             }
+            // 別の迷宮へ（§0.151）：つまずいた番人の迷宮と階、勧める迷宮
+            if (sceneId == "s01_detour" && DetourBoss(state) is { } detour && DetourField(state) is { } other)
+            {
+                values["{番人の迷宮}"] = state.DungeonFields.FirstOrDefault(f => f.Order == detour.FieldOrder)?.Name ?? "";
+                values["{番人の階}"] = detour.Floor.ToString();
+                values["{勧める迷宮}"] = other.Name;
+            }
+            // 森の10F・20Fの知らせ（§0.151）：番人を倒した部隊の部隊長が話す。初期の3人は専用の台詞、ほかの子は気質で3通り
+            if (sceneId != null && LeaderScenes.TryGetValue(sceneId, out int leaderFloor))
+            {
+                if (BossLeader(state, leaderFloor) is { } leader)
+                {
+                    values["{部隊長}"] = leader.Name;
+                    values["{部隊長がいるなら}"] = "";
+                    values[leader.PortraitId is { } p && WitnessNames.TryGetValue(p, out var starter) ? $"{{部隊長が{starter}なら}}"
+                        : $"{{部隊長が{SquadReportSystem.TemperKey(leader) switch { "cautious" => "慎重", "bold" => "大胆", _ => "ふつう" }}なら}}"] = "";
+                }
+                else values["{部隊長がいないなら}"] = ""; // 記録の無い旧セーブは元の地の文
+            }
             return values;
+        }
+
+        /// <summary>番人を倒した部隊長が話す場面（場面の Id → 森の階）。</summary>
+        private static readonly Dictionary<string, int> LeaderScenes = new() { ["s01_forest10"] = 10, ["s01_lumina"] = 20 };
+
+        private static string BossLeaderPrefix(int floor) => $"bossleader:forest{floor}:";
+
+        /// <summary>森のその階の番人を初めて倒した部隊の部隊長（§0.151。記録が無い・もういなければ null）。</summary>
+        public static Adventurer? BossLeader(GameState state, int floor)
+        {
+            string prefix = BossLeaderPrefix(floor);
+            var key = state.StoryCounters.Keys.FirstOrDefault(k => k.StartsWith(prefix));
+            return key != null && Guid.TryParse(key[prefix.Length..], out var id) ? Everyone(state).FirstOrDefault(a => a.Id == id) : null;
+        }
+
+        /// <summary>
+        /// 話し手の立ち絵（物語帳に絵の無い冒険者）：場面で話す部隊長の顔（→ assets/portraits）。名前 → 顔の Id。
+        /// 初期の3人は物語帳の立ち絵があるので入れない。
+        /// </summary>
+        private static Dictionary<string, string> SpeakerPortraits(GameState state, string sceneId)
+        {
+            var map = new Dictionary<string, string>();
+            if (LeaderScenes.TryGetValue(sceneId, out int floor) && BossLeader(state, floor) is { PortraitId: { } portrait } leader
+                && !WitnessNames.ContainsKey(portrait))
+                map[leader.Name] = portrait;
+            return map;
         }
     }
 }

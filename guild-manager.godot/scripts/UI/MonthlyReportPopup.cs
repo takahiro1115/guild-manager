@@ -8,7 +8,7 @@ using GuildManager.Core.Systems;
 
 /// <summary>
 /// 月報の小窓（2026年10月・§0.71、→ Core の MonthlyReport）。「次の月へ」で月を進めるたびに開き、どの画面にいても月の結果を見せる。
-/// §0.81：タブで分け、部隊・冒険者が何をしてどうなったかを見せる。
+/// §0.81：頁で分け（§0.151 でタブから「次へ」で進む頁に）、部隊・冒険者が何をしてどうなったかを見せる。
 ///  - 概要：来月の作戦（§0.98。潜行の部隊が主に勝てずに戻った月に、次の手を選ぶボタン）、見出し（月・所持金と機嫌の増減）、
 ///    主な出来事、来月への注意（項目ごとに、その画面へ移るボタン）
 ///  - 部隊：部隊ごとの方針・メンバー・週ごとの行動（出撃の結果・待機の理由）・月の結果・今のHP
@@ -44,7 +44,16 @@ public partial class MonthlyReportPopup : Window
 	private MonthlyReport _shownReport;
 
 	private OptionButton _historyOption = null!;
-	private TabContainer _tabs = null!;
+	/// <summary>月報の頁（§0.151：タブをやめ、概要→部隊→冒険者を「次へ」で進める。週ごとの記録はボタンで開く頁）。</summary>
+	private readonly List<(string Title, Control Page)> _pages = new();
+	private int _pageIndex;
+	private Label _pageLabel = null!;
+	private Button _prevPageButton = null!;
+	private Button _nextPageButton = null!;
+	private Button _lastPageButton = null!;
+	private Button _weeklyButton = null!;
+	/// <summary>月を進めた直後に開いたか（最後の頁で「閉じて次の月へ」を出す）。</summary>
+	private bool _allowNext;
 	private RichTextLabel _summary = null!;
 	private VBoxContainer _notesBox = null!;
 	private VBoxContainer _plansBox = null!;
@@ -84,8 +93,12 @@ public partial class MonthlyReportPopup : Window
 		_historyOption.ItemSelected += index => ShowEntry(_history[_history.Count - 1 - (int)index], null);
 		root.AddChild(_historyOption);
 
-		_tabs = new TabContainer { SizeFlagsVertical = Control.SizeFlags.ExpandFill };
-		root.AddChild(_tabs);
+		_pageLabel = new Label();
+		_pageLabel.AddThemeFontSizeOverride("font_size", 18);
+		root.AddChild(_pageLabel);
+		var pageHost = new MarginContainer { SizeFlagsVertical = Control.SizeFlags.ExpandFill };
+		root.AddChild(pageHost);
+		_pageHost = pageHost;
 
 		// 概要：見出し・主な出来事 ＋ 来月への注意（画面へ移るボタンつき）
 		var overview = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
@@ -117,10 +130,23 @@ public partial class MonthlyReportPopup : Window
 
 		var buttons = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.End };
 		buttons.AddThemeConstantOverride("separation", 10);
-		_closeButton = new Button { Text = "閉じる", CustomMinimumSize = new Vector2(140, 38) };
+		_weeklyButton = new Button { Text = "📜 週ごとの記録", CustomMinimumSize = new Vector2(160, 38) };
+		_weeklyButton.Pressed += () => ShowPage(WeeklyTab);
+		buttons.AddChild(_weeklyButton);
+		buttons.AddChild(new Control { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
+		_prevPageButton = new Button { Text = "◀ 戻る", CustomMinimumSize = new Vector2(120, 38) };
+		_prevPageButton.Pressed += () => ShowPage(_pageIndex == WeeklyTab ? WeeklyTab - 1 : _pageIndex - 1);
+		_lastPageButton = new Button { Text = "最後へ ⏭", CustomMinimumSize = new Vector2(120, 38) };
+		_lastPageButton.Pressed += () => ShowPage(WeeklyTab - 1);
+		_nextPageButton = new Button { Text = "次へ ▶", CustomMinimumSize = new Vector2(140, 38) };
+		_nextPageButton.Pressed += () => ShowPage(_pageIndex + 1);
+		_closeButton = new Button { Text = "閉じる", CustomMinimumSize = new Vector2(120, 38) };
 		_closeButton.Pressed += () => CloseWith(null);
 		_nextButton = new Button { Text = "📅 閉じて次の月へ", CustomMinimumSize = new Vector2(220, 38) };
 		_nextButton.Pressed += () => CloseWith(() => NextMonthRequested.Invoke());
+		buttons.AddChild(_prevPageButton);
+		buttons.AddChild(_lastPageButton);
+		buttons.AddChild(_nextPageButton);
 		buttons.AddChild(_closeButton);
 		buttons.AddChild(_nextButton);
 		root.AddChild(buttons);
@@ -145,26 +171,50 @@ public partial class MonthlyReportPopup : Window
 			pad.AddThemeConstantOverride($"margin_{side}", 8);
 		pad.AddChild(content);
 		scroll.AddChild(pad);
-		_tabs.AddChild(scroll);
-		_tabs.SetTabTitle(_tabs.GetTabCount() - 1, title);
+		scroll.Visible = false;
+		_pageHost.AddChild(scroll);
+		_pages.Add((title, scroll));
 	}
 
-	/// <summary>月を進めた直後の月報を開く。weeklyBbcode は週ごとの記録（null ならそのタブを隠す）。</summary>
+	private MarginContainer _pageHost = null!;
+
+	/// <summary>
+	/// 頁を切り替える（§0.151）。概要・部隊・冒険者は「次へ」で順に、週ごとの記録は別の頁（「戻る」で冒険者へ）。
+	/// 最後の頁（冒険者）では「次へ」の代わりに「閉じて次の月へ」（月を進めた直後だけ）。
+	/// </summary>
+	private void ShowPage(int index)
+	{
+		int last = WeeklyTab - 1;
+		_pageIndex = Math.Clamp(index, 0, WeeklyTab);
+		for (int i = 0; i < _pages.Count; i++)
+			_pages[i].Page.Visible = i == _pageIndex;
+		if (_pages[_pageIndex].Page is ScrollContainer scroll) scroll.ScrollVertical = 0;
+		bool weekly = _pageIndex == WeeklyTab;
+		_pageLabel.Text = weekly ? $"📜 {_pages[_pageIndex].Title}" : $"{_pages[_pageIndex].Title}（{_pageIndex + 1}/{last + 1}）";
+		_prevPageButton.Disabled = _pageIndex == 0;
+		_nextPageButton.Visible = _pageIndex < last;
+		_lastPageButton.Visible = _pageIndex < last - 1;
+		_nextButton.Visible = _allowNext && (_pageIndex == last || weekly);
+		(_nextPageButton.Visible ? _nextPageButton : _nextButton.Visible ? _nextButton : _closeButton).GrabFocus();
+	}
+
+	/// <summary>月を進めた直後の月報を開く。weeklyBbcode は週ごとの記録（null ならそのボタンを隠す）。</summary>
 	public void ShowMonth(MonthlyReport report, string weeklyBbcode, bool allowNext)
 	{
 		_historyOption.Visible = false;
 		_plansInteractive = true;
 		_relicResultText = "";
+		_allowNext = allowNext;
 		ShowEntry(report, weeklyBbcode);
-		_nextButton.Visible = allowNext;
 		PopupCentered(Size);
-		(allowNext ? _nextButton : _closeButton).GrabFocus();
+		ShowPage(0);
 	}
 
 	/// <summary>過去の月報（古い順の一覧）を見返す。最新から表示し、上の選択で切り替える。</summary>
 	public void ShowHistory(IReadOnlyList<MonthlyReport> reports)
 	{
 		_history = reports.ToList();
+		_allowNext = false;
 		_plansInteractive = false;
 		_historyOption.Clear();
 		for (int i = _history.Count - 1; i >= 0; i--)
@@ -186,18 +236,15 @@ public partial class MonthlyReportPopup : Window
 			_squads.Clear();
 			_adventurers.Clear();
 			_weekly.Clear();
-			_tabs.SetTabHidden(WeeklyTab, true);
-			_tabs.CurrentTab = 0;
+			_weeklyButton.Visible = false;
 		}
-		_nextButton.Visible = false;
 		PopupCentered(Size);
-		_closeButton.GrabFocus();
+		ShowPage(0);
 	}
 
 	private void ShowEntry(MonthlyReport report, string weeklyBbcode)
 	{
 		Title = report.MonthCompleted ? "📅 月報" : "📅 途中経過";
-		_tabs.CurrentTab = 0;
 		_summary.Clear();
 		_summary.AppendText(SummaryText(report));
 
@@ -233,10 +280,11 @@ public partial class MonthlyReportPopup : Window
 		_adventurers.AppendText(AdventurersText(report));
 
 		bool hasWeekly = !string.IsNullOrEmpty(weeklyBbcode);
-		_tabs.SetTabHidden(WeeklyTab, !hasWeekly);
+		_weeklyButton.Visible = hasWeekly;
 		_weekly.Clear();
 		if (hasWeekly)
 			_weekly.AppendText(weeklyBbcode);
+		ShowPage(0); // 見返しで月を選び直したときも概要から
 	}
 
 	private void ClearNotes() => ClearBox(_notesBox);
@@ -262,6 +310,12 @@ public partial class MonthlyReportPopup : Window
 		foreach (var plan in report.Plans)
 		{
 			string head = $"「{plan.PartyName}」は{plan.BossLabel}で{plan.Situation}";
+			// 選んだ手（部隊長の報告の場・月報、§0.151）は、結果の1行だけ
+			if (plan.Chosen is PlanChoice chosen && plan.Options.FirstOrDefault(o => o.Choice == chosen) is { } picked)
+			{
+				_plansBox.AddChild(new Label { Text = $"・{head}。「{picked.Label}」に決めた", AutowrapMode = TextServer.AutowrapMode.WordSmart });
+				continue;
+			}
 			if (plan.Repeated || !_plansInteractive)
 			{
 				string tail = plan.Repeated ? "。作戦は大迷宮の方針で変えられる" : "";
@@ -436,38 +490,97 @@ public partial class MonthlyReportPopup : Window
 		if (!_plansInteractive || _getState == null) return;
 		var state = _getState();
 		if (state.ContractReviewPendingYear is not int year) return;
-		var top = GuildFinanceSystem.MeritTop(state);
 		_poachBox.AddChild(new RichTextLabel
 		{
 			BbcodeEnabled = true, FitContent = true, ScrollActive = false,
 			Text = $"[b]📝 {year}年目の契約更改[/b]　[color=gray]給与をどう上げるか（答えなければ、この月の終わりに据え置く）[/color]",
 		});
-		var buttons = new List<Button>();
+		// 別の窓で、方針ごとに冒険者ひとりひとりの週給と満足度の変わり方を見て決める（§0.151）
+		var open = new Button { Text = "📝 契約更改を決める…", CustomMinimumSize = new Vector2(300, 0), SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin };
+		open.Pressed += () => OpenContractWindow(year, open);
+		_poachBox.AddChild(open);
+	}
+
+	/// <summary>
+	/// 契約更改の窓（§0.151）：3つの方針を切り替え、子ごとの「この年の功績・週給の前→後・満足度の増減」を見て決める。
+	/// 計算は Core（GuildFinanceSystem.PreviewContractReview）。お金が好きかまだ分からない子の満足度は「?」つき。
+	/// </summary>
+	private void OpenContractWindow(int year, Button opener)
+	{
+		var state = _getState!();
+		var dialog = new AcceptDialog { Title = $"📝 {year}年目の契約更改", Exclusive = true, OkButtonText = "あとで決める", Size = new Vector2I(900, 640) };
+		var box = new VBoxContainer();
+		box.AddThemeConstantOverride("separation", 8);
+		var policies = new HBoxContainer();
+		policies.AddThemeConstantOverride("separation", 8);
+		box.AddChild(policies);
+		var summary = NewText();
+		summary.CustomMinimumSize = new Vector2(860, 0); // 狭い幅で折り返して窓が縦に伸びないように
+		box.AddChild(summary);
+		var scroll = new ScrollContainer { CustomMinimumSize = new Vector2(860, 420), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+		var table = NewText();
+		scroll.AddChild(table);
+		box.AddChild(scroll);
+		var decide = new Button { CustomMinimumSize = new Vector2(320, 38), SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd };
+		box.AddChild(decide);
+		dialog.AddChild(box);
+
+		var chosen = ContractPolicy.Even;
+		var policyButtons = new Dictionary<ContractPolicy, Button>();
+		void Render()
+		{
+			foreach (var (p, b) in policyButtons) b.ButtonPressed = p == chosen;
+			var changes = GuildFinanceSystem.PreviewContractReview(state, chosen);
+			int increase = changes.Sum(c => c.WageAfter - c.WageBefore);
+			string note = chosen switch
+			{
+				ContractPolicy.Merit => $"功績の上位だけ週給+{GuildManager.Core.Balance.EconomyBalance.ContractMeritRaise:P0}。ほかの子は満足度が下がる。" +
+					(GuildFinanceSystem.MeritGapPairs(state) is int pairs and > 0 ? $"同じ部隊で差がつく{pairs}組は相性−{GuildManager.Core.Balance.EconomyBalance.ContractGapCompatLoss}。" : ""),
+				ContractPolicy.Even => $"全員の週給+{GuildManager.Core.Balance.EconomyBalance.ContractEvenRaise:P0}・満足度が少し上がる。",
+				_ => "お金はかからないが、全員の満足度が下がる（お金が好きな子は大きく下がる）。",
+			};
+			summary.Clear();
+			summary.AppendText($"[b]{GuildFinanceSystem.PolicyLabel(chosen)}[/b]：週給の合計 +{increase}G/週。{note}");
+			var sb = new StringBuilder("[table=4][cell][b]冒険者[/b]　[/cell][cell][b]この年の功績[/b]　[/cell][cell][b]週給[/b]　[/cell][cell][b]満足度[/b][/cell]");
+			foreach (var c in changes)
+			{
+				string wage = c.WageAfter != c.WageBefore ? $"{c.WageBefore} → [color=lime]{c.WageAfter}[/color]G" : $"{c.WageBefore}G";
+				int after = Math.Clamp(c.Adventurer.Satisfaction + c.ShownSatisfactionDelta, 0, 100);
+				string color = c.ShownSatisfactionDelta > 0 ? "lime" : c.ShownSatisfactionDelta < 0 ? "orange" : "gray";
+				string sat = $"{c.Adventurer.Satisfaction} → [color={color}]{after}[/color]（{c.ShownSatisfactionDelta:+0;-0;±0}{(c.MoneyUnknown ? "?" : "")}）";
+				sb.Append($"[cell]{(c.Raised ? "⬆ " : "　")}{c.Adventurer.Name}　[/cell][cell]{c.Contribution}　[/cell][cell]{wage}　[/cell][cell]{sat}[/cell]");
+			}
+			sb.Append("[/table]");
+			if (changes.Any(c => c.MoneyUnknown))
+				sb.Append("\n[color=gray]「?」＝お金が好きかまだ分からない子。お金が好きなら、満足度はもっと動く。[/color]");
+			table.Clear();
+			table.AppendText(sb.ToString());
+			decide.Text = $"この方針で決める（{GuildFinanceSystem.PolicyLabel(chosen)}）";
+		}
 		foreach (var policy in new[] { ContractPolicy.Merit, ContractPolicy.Even, ContractPolicy.Freeze })
 		{
-			string detail = policy switch
-			{
-				ContractPolicy.Merit => $"功績の上位 {top.Count}人（{string.Join("・", top.Select(a => a.Name))}）だけ週給+{GuildManager.Core.Balance.EconomyBalance.ContractMeritRaise:P0}・満足度↑。ほかの子は満足度↓、同じ部隊で差がつくと相性↓",
-				ContractPolicy.Even => $"全員の週給+{GuildManager.Core.Balance.EconomyBalance.ContractEvenRaise:P0}・満足度少し↑",
-				_ => "お金はかからないが、全員の満足度↓（お金が好きな子は大きく↓）",
-			};
-			int increase = GuildFinanceSystem.WageIncrease(state, policy);
-			var row = new HBoxContainer();
-			row.AddThemeConstantOverride("separation", 8);
-			var button = new Button { Text = $"{GuildFinanceSystem.PolicyLabel(policy)}（週給 +{increase}G/週）", CustomMinimumSize = new Vector2(300, 0), SizeFlagsVertical = Control.SizeFlags.ShrinkCenter };
-			row.AddChild(button);
-			row.AddChild(new Label { Text = detail, AutowrapMode = TextServer.AutowrapMode.WordSmart, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
-			_poachBox.AddChild(row);
-			buttons.Add(button);
-			var chosen = policy;
-			button.Pressed += () =>
-			{
-				GuildFinanceSystem.ApplyContractReview(_getState(), chosen);
-				foreach (var b in buttons) b.Disabled = true;
-				button.Text = $"✔ {button.Text}";
-				StateChanged.Invoke();
-			};
+			var p = policy;
+			var b = new Button { Text = GuildFinanceSystem.PolicyLabel(p), ToggleMode = true, CustomMinimumSize = new Vector2(220, 36) };
+			b.Pressed += () => { chosen = p; Render(); };
+			policies.AddChild(b);
+			policyButtons[p] = b;
 		}
+		decide.Pressed += () =>
+		{
+			if (GuildFinanceSystem.ApplyContractReview(_getState!(), chosen))
+			{
+				opener.Disabled = true;
+				opener.Text = $"✔ {GuildFinanceSystem.PolicyLabel(chosen)}に決めた";
+				StateChanged.Invoke();
+			}
+			dialog.Hide();
+			dialog.QueueFree();
+		};
+		dialog.Canceled += () => dialog.QueueFree();
+		dialog.Confirmed += () => dialog.QueueFree();
+		AddChild(dialog);
+		Render();
+		dialog.PopupCentered(new Vector2I(900, 640));
 	}
 
 	/// <summary>
@@ -594,7 +707,7 @@ public partial class MonthlyReportPopup : Window
 		sb.AppendLine();
 		sb.AppendLine("[b]📰 主な出来事[/b]");
 		if (report.Highlights.Count == 0)
-			sb.AppendLine("[color=gray]　目立った出来事は無かった。部隊・冒険者のタブで、それぞれの1か月を見られる。[/color]");
+			sb.AppendLine("[color=gray]　目立った出来事は無かった。「次へ」で部隊・冒険者の頁へ進むと、それぞれの1か月を見られる。[/color]");
 		foreach (var line in report.Highlights)
 			sb.AppendLine($"　・{Colored(line)}");
 		// 年末のギルドの順位表（§0.94）：年の最後の月報だけ

@@ -35,8 +35,8 @@ namespace GuildManager.Core.Data
             {
                 new Adventurer
                 {
-                    // 年齢は§0.139で24→20（6年目の年末に満期。イザベラの来訪のころまでいる）。リナ21→18・フィオナ23→19も年の順のまま下げた
-                    Name = "クラウディア", Age = 20, JobClass = JobClass.Warrior, Gender = Gender.Female,
+                    // 年齢は§0.139で24→20、§0.151で20→19（7年目の年末に満期。ユーザー判断であと1年いる）。リナ21→18・フィオナ23→19は§0.139のまま
+                    Name = "クラウディア", Age = 19, JobClass = JobClass.Warrior, Gender = Gender.Female,
                     // → 項目62。guild-manager.godot/assets/portraits/claudia.png（物語帳の立ち絵と同じ絵、§0.110）
                     PortraitId = "claudia",
                     STR = 60, AGI = 35, VIT = 55, MND = 10, DEX = 20, LDR = 40,

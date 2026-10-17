@@ -201,6 +201,35 @@ namespace GuildManager.Core.Tests
             Assert.False(GuildFinanceSystem.ApplyContractReview(state2, ContractPolicy.Even)); // もう返事待ちが無い
         }
 
+        [Fact]
+        public void ContractPreview_MatchesTheApply_AndHidesAnUnknownLoveOfMoney()
+        {
+            // §0.151：契約更改の窓の見込み。お金が好きなことがまだ分かっていない子は、お金好きの分を見せない
+            var miser = Make("守銭奴", 50, 100, main: Drive.Money);
+            var plain = Make("ふつう", 50, 100);
+            var state = State(miser, plain);
+            state.ContractReviewPendingYear = 2;
+
+            var preview = GuildFinanceSystem.PreviewContractReview(state, ContractPolicy.Freeze);
+            var m = preview.Single(c => c.Adventurer == miser);
+            Assert.Equal(EconomyBalance.ContractFreezeSatisfaction * 2, m.SatisfactionDelta);
+            Assert.Equal(EconomyBalance.ContractFreezeSatisfaction, m.ShownSatisfactionDelta);
+            Assert.True(m.MoneyUnknown);
+            var p0 = preview.Single(c => c.Adventurer == plain);
+            Assert.True(p0.MoneyUnknown); // まだ分かっていない子はみな「?」（お金好きかどうかを印で漏らさない）
+            Assert.Equal(p0.SatisfactionDelta, p0.ShownSatisfactionDelta);
+
+            miser.Personality!.Exposure[Drive.Money.ToString()] = PersonalityBalance.RevealLikely; // 「お金が好きらしい」と分かった
+            m = GuildFinanceSystem.PreviewContractReview(state, ContractPolicy.Freeze).Single(c => c.Adventurer == miser);
+            Assert.Equal(m.SatisfactionDelta, m.ShownSatisfactionDelta);
+            Assert.False(m.MoneyUnknown);
+
+            var even = GuildFinanceSystem.PreviewContractReview(state, ContractPolicy.Even);
+            GuildFinanceSystem.ApplyContractReview(state, ContractPolicy.Even);
+            Assert.All(even, c => Assert.Equal(c.WageAfter, c.Adventurer.WeeklyWage));
+            Assert.All(even, c => Assert.Equal(50 + c.SatisfactionDelta, c.Adventurer.Satisfaction));
+        }
+
         // ---------------- 満足度の慣れ・機嫌の張り合い ----------------
 
         [Fact]

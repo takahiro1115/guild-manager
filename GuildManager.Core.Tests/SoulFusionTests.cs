@@ -608,7 +608,7 @@ namespace GuildManager.Core.Tests
             var (state, a, b) = Setup();
             state.WeekNumber = 9;
             var culture = CultureOf(state, a, b);
-            Assert.Contains("s03_culture", StorySystem.DueScenes(state, StoryTiming.AfterReport).Select(s => s.SceneId));
+            Assert.Contains("s03_culture", StorySystem.DueScenes(state, StoryTiming.Interactive).Select(s => s.SceneId)); // 処方した直後（§0.151）
             var lines = StorySystem.Replay(state, "s03_culture").Pages.SelectMany(p => p).Select(l => l.Text).ToList();
             Assert.Contains(lines, t => t.Contains(a.Name) && t.Contains(b.Name));
             Assert.DoesNotContain(lines, t => t.Contains("{母"));

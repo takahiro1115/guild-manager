@@ -327,7 +327,7 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 |---|---|
 | `AppraisalCost*` | 鑑定費用（銅100／銀250／金500／虹1200G） |
 | `EquipmentRate*` / `MaterialRate*` / `GoldRate*` | 鑑定結果の比率（%）。**3つの合計が100でなければ読み込み時に例外** |
-| `GoldRewardMin*` / `GoldRewardMax*` | 換金だった場合の獲得ゴールドの幅 |
+| `GoldRewardMin*` / `GoldRewardMax*` | 換金（古代硬貨）だった場合の獲得ゴールドの幅。下限は鑑定費用より高くする（銅120〜200／銀300〜500／金600〜1100／虹1500〜3000G、§0.151。テストで確かめる） |
 | `MaterialCountMin*` / `MaterialCountMax*` | 素材だった場合の獲得個数の幅（Min>Maxなら例外） |
 | `EquipmentPool*` | 武具だった場合の抽選プール（`ItemCatalog` のIdを「;」区切り。空・未登録Idなら例外） |
 | `SellPrice*` | 鑑定で出土した武具を保管庫から売却する際の1点あたりの額（銅50／銀125／金250／虹600G、→ §4.8.2） |
@@ -857,7 +857,7 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 | `TemperamentCautiousMax`・`TemperamentBoldMin` | −1・1 | 気質がこれ以下なら慎重、これ以上なら大胆な口調（ほかと個性の無い子は中庸） |
 
 **report_lines.csv**（新規）：報告の種類9つ × 気質3つの台詞、主志向ごとの言い回し（お金・仲間・名声・訓練・潜行・調査・採取）、初期の3人（クラウディア・リナ・フィオナ）の専用の台詞。物語帳の人物は専用の台詞だけ、ほかの子は気質と主志向の台詞を合わせた中から月ごとに回して選ぶ。
-
+## 副官の注目で追加されたキー（2026年10月、→ 03 §0.117。**§0.151 で注目ごと外し、5つのキーも消した**）
 ## 副官の注目で追加されたキー（2026年10月、→ 03 §0.117）
 
 **personality.csv**（すべて仮の値）
@@ -997,3 +997,20 @@ ItemCatalog.csに直書きされていた旧値をそのまま書き起こした
 | squad_orders.csv | `CautiousMinHpPercent` | 80 → 70 | 構え「慎重」で挑む全員のHPの下限。方針の出撃の条件（`AutoDispatchMinHpPercent` 70）と同じにした。80だと道中で少し削られただけで扉前で撤退し、森の30〜40Fで何年も止まった |
 
 シミュレーター（`audit 30 1440 L3 simple cautious`）：クリア 14→29/30、16→14年目、3年目のはじめの撃破 4→18。標準（30/30・14年目）とほぼ同じになり、違いは勝率の下限（慎重9割・標準6割）に残る。
+
+## テストプレイの手直し（2026年10月、→ 03 §0.151）
+
+| ファイル | キー | 値（前→今） | 意味 |
+|---|---|---|---|
+| relic.csv | `GoldRewardMinCommon` / `GoldRewardMaxCommon` | 60〜160 → 120〜200 | 銅の古代硬貨。鑑定費用100Gより下にならない |
+| relic.csv | `GoldRewardMinRare` / `GoldRewardMaxRare` | 180〜420 → 300〜500 | 銀（費用250G） |
+| relic.csv | `GoldRewardMinEpic` / `GoldRewardMaxEpic` | 420〜900 → 600〜1100 | 金（費用500G） |
+| relic.csv | `GoldRewardMinLegendary` / `GoldRewardMaxLegendary` | 1100〜2600 → 1500〜3000 | 虹（費用1200G） |
+| research.csv | `res_scout_reagent`・`res_ruins_tactics` の説明 | 「ボスの生体解析」「ボス調査の解析効率」 → 「迷宮の解析が捗る」 | 文言だけ。効き目（解析の伸び+25%など）はそのまま |
+| personality.csv | `FocusSlots`・`FocusSlotsExtra`・`FocusExtraBosses`・`FocusExposureMultiplier`・`FocusMonthlyReveals` | 消した | 副官の注目（§0.117）をユーザー判断で外した。見立ての速さは、ふるまいを見た回数だけ（`RevealLikely` 4・`RevealSure` 8）のまま |
+| event_lines.csv | `PersonalityKnown`（気質の3通り・初期の3人） | 足した | 見立てが済んだ（志向と気質がすべて確か）週に当人が打ち明ける。`{好きなこと}` は主の志向の言い回し（`PersonalitySystem.LikePhrase`） |
+| event_lines.csv | `MoodUp:Cheerful`・`MoodUp:Normal`・`MoodUp:Grumpy`・`MoodDown:Normal`・`MoodDown:Grumpy`・`MoodDown:Crisis` | 足した | アルベールの機嫌の段階が変わった月の知らせ（同じ向きは季節に1回まで、危機はいつも） |
+| event_lines.csv | `Notice:Dismissal`・`Notice:Debt`・`Notice:ContractReview`・`Notice:RetireeRole`・`Notice:SponsorOffer`・`Notice:GuestLeaving`・`Notice:Discontent`・`Notice:NoOrder`・`Notice:TrainingOpen` | 足した | 判断が要る注意が新しく出た月にルミナが知らせる（行き先つき） |
+| event_lines.csv | `TournamentPlace`（気質の3通り・初期の3人） | 足した | 準優勝（どの格でも）・ベスト4（G1・特別）の当人の一言 |
+| personality.csv | `WarmChancePercent`・`WarmCompatGain`・`WarmSatisfaction` | 足した（0・4・2） | 出来事「打ち解けた」。案（一緒の任務の相性+1をやめ、これで上げる）は保留のため確率0（0なら乱数も引かない）。3%・+4 で機嫌の危機と負けが増えた |
+| event_lines.csv | `Warm`（気質の3通り・初期の3人） | 足した | 打ち解けたの当人の一言（その2人の初めてだけ）。今は確率0なので出ない |

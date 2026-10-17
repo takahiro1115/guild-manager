@@ -132,46 +132,40 @@ namespace GuildManager.Core.Systems
 
         public static PersonalityKnowledge Knowledge(GameState state, Adventurer a, Drive drive) => Knowledge(state, a, drive.ToString());
 
-        private static PersonalityKnowledge LevelOf(int count, (int Likely, int Sure) t) =>
-            count >= t.Sure ? PersonalityKnowledge.Sure : count >= t.Likely ? PersonalityKnowledge.Likely : PersonalityKnowledge.Unknown;
-
-        // ==================== 週の判定（満足度と見立て） ====================
-
-        // ==================== 副官の注目（§0.117） ====================
-
-        /// <summary>同時に注目できる人数：FocusSlots（倒した階層ボスが FocusExtraBosses 体以上なら FocusSlotsExtra を足す）。</summary>
-        public static int FocusSlots(GameState state) =>
-            PersonalityBalance.FocusSlots
-            + (state.DungeonFields.Sum(f => f.Bosses.Count(b => b.EverDefeated)) >= PersonalityBalance.FocusExtraBosses ? PersonalityBalance.FocusSlotsExtra : 0);
-
-        public static bool IsFocused(GameState state, Adventurer a) => state.FocusedAdventurerIds.Contains(a.Id);
-
-        /// <summary>注目を付ける・外すことができない理由（できるなら null）。変えられるのは月のはじめ（月の第1週）だけ。</summary>
-        public static string? FocusBlockReason(GameState state, Adventurer a)
-        {
-            if (a.Personality == null || a.IsRetired) return "この子の志向・気質は見立てられない";
-            if (!GameCalendar.IsFirstWeekOfMonth(state.WeekNumber)) return "注目は月のはじめだけ変えられる";
-            if (!IsFocused(state, a) && state.FocusedAdventurerIds.Count >= FocusSlots(state)) return $"注目できるのは{FocusSlots(state)}人まで";
-            return null;
-        }
-
-        /// <summary>注目を付ける（付いていれば外す）。できなければ false。</summary>
-        public static bool ToggleFocus(GameState state, Adventurer a)
-        {
-            if (FocusBlockReason(state, a) != null) return false;
-            if (!state.FocusedAdventurerIds.Remove(a.Id))
-                state.FocusedAdventurerIds.Add(a.Id);
-            return true;
-        }
-
-        /// <summary>月の最後の週の見立てで数える項目の順：主志向・副志向・苦手・気質（中庸なら数えない）。確かになったものは飛ばす。</summary>
-        private static IEnumerable<string> FocusKeys(Personality p)
+        /// <summary>見立てる項目：主志向・副志向・苦手・気質（§0.151。すべて確かになったら「見立てが済んだ」）。</summary>
+        private static IEnumerable<string> KeysToKnow(Personality p)
         {
             yield return p.Main.ToString();
             if (p.Sub is { } sub) yield return sub.ToString();
             if (p.Disliked is { } disliked) yield return disliked.ToString();
-            if (p.Temperament != 0) yield return TemperamentKey;
+            yield return TemperamentKey;
         }
+
+        /// <summary>その子の志向（主・副・苦手）と気質がすべて確かになったか（§0.151）。</summary>
+        public static bool IsFullyKnown(GameState state, Adventurer a) =>
+            a.Personality is { } p && KeysToKnow(p).All(k => Knowledge(state, a, k) == PersonalityKnowledge.Sure);
+
+        /// <summary>誰か（現役）の志向か気質が、ひとつでも「〜らしい」以上に分かっているか（志向と気質の説明の場面、§0.151）。</summary>
+        public static bool AnyKnown(GameState state) =>
+            state.Adventurers.Any(a => !a.IsRetired && a.Personality is { } p && p.Exposure.Keys.Any(k => Knowledge(state, a, k) != PersonalityKnowledge.Unknown));
+
+        /// <summary>主志向を「〜がいちばん好き」と言うときの言い回し（見立てが済んだ報告の {好きなこと}、§0.151）。</summary>
+        public static string LikePhrase(Drive d) => d switch
+        {
+            Drive.Dive => "迷宮の奥へ潜ること",
+            Drive.Survey => "番人の癖を調べること",
+            Drive.Gather => "素材を集めて歩くこと",
+            Drive.Tournament => "大会で戦うこと",
+            Drive.Training => "鍛えること",
+            Drive.Comrades => "仲間と一緒にいること",
+            Drive.Money => "しっかり稼ぐこと",
+            _ => "名を上げること",
+        };
+
+        private static PersonalityKnowledge LevelOf(int count, (int Likely, int Sure) t) =>
+            count >= t.Sure ? PersonalityKnowledge.Sure : count >= t.Likely ? PersonalityKnowledge.Likely : PersonalityKnowledge.Unknown;
+
+        // ==================== 週の判定（満足度と見立て） ====================
 
         /// <summary>昇給・ボーナスを受けた（次の週の決算で「お金」の喜ぶきっかけにする）。</summary>
         public static void NotifyMoneyJoy(Adventurer a)
@@ -196,20 +190,16 @@ namespace GuildManager.Core.Systems
                 .SelectMany(r => r.Party.Members.Select(m => m.Id)).ToHashSet();
             var severe = resolutions.SelectMany(r => r.InjuryEvents).Where(e => e.Severity == InjurySeverity.Severe).Select(e => e.AdventurerId).ToHashSet();
 
-            // 副官の注目（§0.117）：ギルドを去った子・引退した子は外す
-            state.FocusedAdventurerIds.RemoveAll(id => state.Adventurers.All(x => x.Id != id || x.IsRetired));
-
             foreach (var a in state.Adventurers.Where(a => a.Personality != null && !a.IsRetired && !a.IsOnLoan).ToList())
             {
                 var p = a.Personality!;
                 var thresholds = RevealThresholds(state, a);
                 int delta = 0;
-                bool focused = IsFocused(state, a);
 
                 void See(string key)
                 {
                     var before = LevelOf(p.Exposure.GetValueOrDefault(key), thresholds);
-                    p.Exposure[key] = p.Exposure.GetValueOrDefault(key) + (focused ? PersonalityBalance.FocusExposureMultiplier : 1);
+                    p.Exposure[key] = p.Exposure.GetValueOrDefault(key) + 1;
                     var after = LevelOf(p.Exposure[key], thresholds);
                     if (after != before)
                         discoveries.Add(new PersonalityDiscovery(a, key, after));
@@ -297,15 +287,6 @@ namespace GuildManager.Core.Systems
                     if (stance == DoorStance.Bold && door.DungeonResult != null && p.Temperament < 0 && severe.Contains(a.Id))
                         delta += PersonalityBalance.TemperamentBoldInjury;
                 }
-
-                // ---- 副官の注目（§0.117）：月の最後の週に、まだ確かでない項目を数える（1回ぶん。注目の倍率はかけない） ----
-                if (focused && GameCalendar.IsLastWeekOfMonth(week))
-                    foreach (var key in FocusKeys(p).Where(k => LevelOf(p.Exposure.GetValueOrDefault(k), thresholds) != PersonalityKnowledge.Sure).Take(PersonalityBalance.FocusMonthlyReveals))
-                    {
-                        focused = false;
-                        See(key);
-                        focused = true;
-                    }
 
                 if (delta != 0)
                     SatisfactionSystem.Adjust(a, delta);

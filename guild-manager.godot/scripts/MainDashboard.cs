@@ -1082,6 +1082,7 @@ public partial class MainDashboard : Control
 	{
 		var saved = _state.SavedParties.FirstOrDefault(p => p.Id == plan.PartyId);
 		if (saved == null) return;
+		plan.Chosen = choice; // 月報では結果の1行だけにする（§0.151）
 		if (NextMonthPlanSystem.Apply(_state, plan, choice))
 		{
 			ShowToast(choice == PlanChoice.Survey
@@ -1232,16 +1233,26 @@ public partial class MainDashboard : Control
 	private void ShowSquadReports(MonthlyReport report, Action then)
 	{
 		const string background = "ギルドの広間";
+		// 区切り：潜行の部隊が番人に勝てずに戻った報告のあとで、来月の作戦を選ぶ小窓を出す（§0.151）
+		var chunks = new List<(List<StoryStep> Steps, MonthlyPlan Plan)>();
 		var steps = new List<StoryStep>();
 		if (!_state.HideSquadReports)
-			steps.AddRange(report.LeaderReports.SelectMany(r =>
+			foreach (var r in report.LeaderReports)
 			{
 				// 物語帳の人物（初期の3人・ルミナ）は物語の立ち絵、ほかの子は冒険者の顔。地の文の段は立ち絵を出さない（物語の小窓と同じ）
 				string portrait = PortraitOf(r.LeaderId, r.LeaderName, r.PortraitId);
 				// 段（地の文・台詞）ごとに1コマ（§0.124）
-				return SquadReportSystem.Lines(r).Select(line => new StoryStep(line, background, StoryImageBalance.BackgroundFile(background),
-					line.Kind == StoryLineKind.Speech ? portrait : null));
-			}));
+				steps.AddRange(SquadReportSystem.Lines(r).Select(line => new StoryStep(line, background, StoryImageBalance.BackgroundFile(background),
+					line.Kind == StoryLineKind.Speech ? portrait : null)));
+				var plan = r.Kind is SquadReportKind.Retreat or SquadReportKind.Defeat
+					? report.Plans.FirstOrDefault(p => !p.Repeated && p.Chosen == null && p.PartyName == r.SquadName && p.Options.Count > 0)
+					: null;
+				if (plan != null)
+				{
+					chunks.Add((steps, plan));
+					steps = new List<StoryStep>();
+				}
+			}
 		// 出来事の報告（§0.141）：部隊長の報告のあとに続けて、月の知らせを人物が話す。判断が要る知らせは最後に行き先の案内
 		if (!_state.HideEventReports)
 			steps.AddRange(report.EventReports.SelectMany(r =>
@@ -1254,18 +1265,75 @@ public partial class MainDashboard : Control
 					lines.Add(new StoryStep(new StoryLine(StoryLineKind.Narration, StoryPopup.GuideLine(r.Jump)), background, StoryImageBalance.BackgroundFile(background), null));
 				return lines;
 			}));
-		if (steps.Count == 0)
+		if (steps.Count > 0)
+			chunks.Add((steps, null));
+		string title = !_state.HideEventReports && report.EventReports.Count > 0 ? "📣 今月の報告" : "📣 部隊長の報告";
+		void Play(int index)
 		{
-			then();
-			return;
+			if (index >= chunks.Count)
+			{
+				then();
+				return;
+			}
+			var (chunk, plan) = chunks[index];
+			void OnClosed()
+			{
+				_storyPopup.Closed -= OnClosed;
+				bool skipped = _storyPopup.SkippedAll; // 「報告をとばす」なら残りの区切りも飛ばす（作戦は月報で選べる）
+				Callable.From(() =>
+				{
+					if (skipped) then();
+					else if (plan != null) AskSquadPlan(plan, () => Play(index + 1));
+					else Play(index + 1);
+				}).CallDeferred(); // 別の排他ウィンドウは閉じ切ってから開く
+			}
+			_storyPopup.Closed += OnClosed;
+			_storyPopup.ShowReport(_state, chunk, title, plan != null ? "作戦を決める ▶" : index == chunks.Count - 1 ? "月報を見る ▶" : "次へ ▶");
 		}
-		void OnClosed()
+		Play(0);
+	}
+
+	/// <summary>
+	/// 部隊長の報告の場で来月の作戦を選ぶ（§0.151）：見込みつきの選択肢をボタンで。「月報で決める」なら月報の来月の作戦に残す。
+	/// </summary>
+	private void AskSquadPlan(MonthlyPlan plan, Action next)
+	{
+		var dialog = new AcceptDialog { Title = $"🧭 来月の作戦：{plan.PartyName}", Exclusive = true, OkButtonText = "月報で決める" };
+		var box = new VBoxContainer();
+		box.AddThemeConstantOverride("separation", 8);
+		var head = new RichTextLabel { BbcodeEnabled = true, FitContent = true, ScrollActive = false, CustomMinimumSize = new Vector2(620, 0) };
+		head.AppendText($"「{plan.PartyName}」は{plan.BossLabel}で{plan.Situation}。次の手は？" +
+			(plan.Advice.Length > 0 ? $"\n[color=orange]{plan.Advice}[/color]" : ""));
+		box.AddChild(head);
+		bool answered = false;
+		void Finish()
 		{
-			_storyPopup.Closed -= OnClosed;
-			Callable.From(then).CallDeferred(); // 別の排他ウィンドウは閉じ切ってから開く
+			if (answered) return;
+			answered = true;
+			dialog.Hide(); // 先に隠して排他を外す（次の小窓がすぐ開く）
+			dialog.QueueFree();
+			Callable.From(next).CallDeferred();
 		}
-		_storyPopup.Closed += OnClosed;
-		_storyPopup.ShowReport(_state, steps, !_state.HideEventReports && report.EventReports.Count > 0 ? "📣 今月の報告" : "📣 部隊長の報告");
+		foreach (var option in plan.Options)
+		{
+			var row = new HBoxContainer();
+			row.AddThemeConstantOverride("separation", 8);
+			var button = new Button { Text = option.Label, CustomMinimumSize = new Vector2(220, 0), SizeFlagsVertical = Control.SizeFlags.ShrinkCenter };
+			row.AddChild(button);
+			row.AddChild(new Label { Text = option.Detail, AutowrapMode = TextServer.AutowrapMode.WordSmart, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(380, 0) });
+			box.AddChild(row);
+			var choice = option.Choice;
+			button.Pressed += () =>
+			{
+				OnPlanChosen(plan, choice);
+				Finish();
+			};
+		}
+		dialog.AddChild(box);
+		AddChild(dialog);
+		dialog.Confirmed += Finish;
+		dialog.Canceled += Finish;
+		dialog.PopupCentered();
 	}
 
 	/// <summary>冒険者の立ち絵：物語帳の人物（初期の3人・ルミナ）は物語の立ち絵、ほかの子は冒険者の顔（無ければ null）。</summary>
@@ -1288,10 +1356,25 @@ public partial class MainDashboard : Control
 		var tournaments = weeks.SelectMany(w => w.Settlement.TournamentsResolved).ToList();
 		// 交流戦のあとのイザベラの助言で開いた施設は、交流戦の場面（月報のあと）を見てから知らせる。それ以外（大会のご褒美など）は大会の結果といっしょに
 		_pendingExchangeUnlocks = weeks.SelectMany(w => w.Settlement.ExchangeMatches).Select(m => m.OpenedFacility).OfType<FacilityUnlockNotice>().ToList();
+		// アルベールのひらめき（施設が開いた知らせのうちアルベールの言葉）も、月報のあとに見せる（§0.151）
+		_pendingExchangeUnlocks.AddRange(weeks.SelectMany(w => w.Settlement.FacilityUnlocks).Where(u => u.Style == "Albert" && !_pendingExchangeUnlocks.Contains(u)));
 		var unlocks = weeks.SelectMany(w => w.Settlement.FacilityUnlocks).Where(u => !_pendingExchangeUnlocks.Contains(u)).ToList();
 		// 部隊長の報告（§0.116）を見てから月報
 		// 支配者戦（§0.127）を待っている月は【閉じて次の月へ】を出さない（月報を閉じてから決闘を見せる）
-		void ShowReport() => ShowSquadReports(report, () => _monthlyReportPopup.ShowMonth(report, weekly, allowNext: !interrupted && RulerSystem.DueDuel(_state) == null));
+		void ShowReport() => ShowSquadReports(report, () =>
+		{
+			bool allowNext = !interrupted && RulerSystem.DueDuel(_state) == null;
+			// 月の途中で止まった理由が来月の作戦だけで、部隊長の報告の場で全部選んだなら、月報を開かずに月の残りを進める（§0.151。月報は「📅 月報」で見返せる）
+			if (allowNext && report.StopReasons.Count > 0 && report.StopReasons.All(r => r == MonthlyReport.SquadStalledStopReason)
+				&& report.Plans.Any(p => p.Chosen != null) && report.Plans.Where(p => !p.Repeated).All(p => p.Chosen != null))
+			{
+				ShowToast("[color=cyan]📅 作戦を決めたので、この月の残りを進める（途中までの月報は「📅 月報」で見返せる）。[/color]");
+				OnMonthlyReportClosed();
+				Callable.From(OnNextMonthPressed).CallDeferred();
+				return;
+			}
+			_monthlyReportPopup.ShowMonth(report, weekly, allowNext);
+		});
 		// 年度末に満期で引退した者は、大会の結果のあと・月報の前に引退式（1人1枚、大会と育成の栄光 段2）
 		var retirees = weeks.SelectMany(w => w.Settlement.Retirees).Select(id => _state.FindAdventurer(id)).Where(a => a != null).ToList();
 		void ShowCeremonies()

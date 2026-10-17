@@ -26,6 +26,13 @@ namespace GuildManager.Core.Systems
     {
         public string Text { get; set; } = "";
         public MonthlyNoteTarget Target { get; set; }
+        /// <summary>
+        /// 判断が要る注意の種類（§0.151。「ContractReview」「Discontent:Id」など）。前の月報に無かった種類は、出来事の報告でルミナが知らせる。
+        /// 状態の知らせ（毒・重傷・培養槽など）と旧セーブは空。
+        /// </summary>
+        public string Key { get; set; } = "";
+        /// <summary>知らせの台詞に差し込む値（{名前}・{部隊}・{直し方}）。</summary>
+        public Dictionary<string, string> Values { get; set; } = new();
     }
 
     /// <summary>月報の冒険者1人分の成長（能力名→上がった量）。</summary>
@@ -220,7 +227,7 @@ namespace GuildManager.Core.Systems
             AddSquads(state, weeks, report);
             AddAdventurers(state, weeks, report);
             report.LeaderReports = SquadReportSystem.Build(state, weeks, report); // 成長の集計（report.Growth）を使うので最後に
-            report.EventReports = EventReportSystem.Build(state, weeks); // 出来事の報告（§0.141）
+            report.EventReports = EventReportSystem.Build(state, weeks, report.Notes); // 出来事の報告（§0.141）。判断が要る注意の新しいものも（§0.151）
             return report;
         }
 
@@ -300,7 +307,7 @@ namespace GuildManager.Core.Systems
                     Add($"{bonus.Adventurer.Name}の契約の不満に、ボーナス{bonus.Gold}Gで応えた（交渉の自動）", MonthlyTone.Normal);
                 foreach (var found in s.PersonalityDiscoveries)
                     if (PersonalitySystem.DiscoveryText(found) is { } text)
-                        Add($"{(state.FocusedAdventurerIds.Contains(found.Adventurer.Id) ? "👁 副官の見立て：" : "🔎 ")}{text}", MonthlyTone.Normal); // 見立てで分かった志向・気質（§0.100）。注目している子は副官の見立て（§0.117）
+                        Add($"🔎 {text}", MonthlyTone.Normal); // 見立てで分かった志向・気質（§0.100）
                 foreach (var done in s.Commissions.Completed)
                     Add(done.LoanedAdventurerName != null
                         ? $"依頼を果たした（{done.ClientName}）：{done.LoanedAdventurerName}をひと季節派遣した"
@@ -575,6 +582,8 @@ namespace GuildManager.Core.Systems
 
         /// <summary>止まった理由のうち、ゲームオーバー（月報で「残りを進める」と案内しない）。</summary>
         public const string GameOverStopReason = "ゲームオーバー";
+        /// <summary>止まった理由：潜行の部隊が番人に勝てずに戻った（来月の作戦、§0.98）。部隊長の報告で作戦を決めたら、この理由だけの月は月報を開かずに進める（§0.151）。</summary>
+        public const string SquadStalledStopReason = "潜行の部隊が番人に勝てずに戻った";
 
         /// <summary>月の途中で止まった理由（→ WeekResult.ShouldStopMonth の各条件）。</summary>
         public static List<string> StopReasonsOf(WeekResult flags)
@@ -587,7 +596,7 @@ namespace GuildManager.Core.Systems
             if (flags.CommissionDeadlineNear) reasons.Add("依頼の期限が近い");
             if (flags.SatisfactionWarningOccurred) reasons.Add("契約交渉の申し出");
             if (flags.CommissionsOffered) reasons.Add("依頼が届いた");
-            if (flags.SquadStalledAtBoss) reasons.Add("潜行の部隊が番人に勝てずに戻った");
+            if (flags.SquadStalledAtBoss) reasons.Add(SquadStalledStopReason);
             if (flags.PoachOffered) reasons.Add("引き抜きの話");
             if (flags.ContractReviewDue) reasons.Add("年のはじめの契約更改");
             if (flags.SponsorOffered) reasons.Add("スポンサー契約の話");
@@ -649,7 +658,8 @@ namespace GuildManager.Core.Systems
         {
             // 危機（§0.136）：最後通告・機嫌の危機・所持金のマイナスは、いちばん先に出す
             foreach (var text in CrisisNotes(state))
-                report.Notes.Add(new MonthlyNote { Text = text, Target = text.Contains("所持金") ? MonthlyNoteTarget.Funding : MonthlyNoteTarget.None });
+                report.Notes.Add(new MonthlyNote { Text = text, Target = text.Contains("所持金") ? MonthlyNoteTarget.Funding : MonthlyNoteTarget.None,
+                    Key = text.Contains("最後通告") ? "Dismissal" : text.Contains("所持金") ? "Debt" : "" }); // 機嫌の危機は機嫌の知らせ（MoodDown:Crisis）が話す
             if (state.Anomaly is { } anomaly)
                 report.Notes.Add(new MonthlyNote { Text = DungeonAnomalySystem.DescribeStatus(state, anomaly), Target = MonthlyNoteTarget.Dungeon });
 
@@ -658,15 +668,15 @@ namespace GuildManager.Core.Systems
             foreach (var a in state.Adventurers.Where(a => a.Injury == InjurySeverity.Severe))
                 report.Notes.Add(new MonthlyNote { Text = $"{a.Name}は重傷（あと{a.InjuryWeeksRemaining}週）", Target = MonthlyNoteTarget.Adventurer });
             if (state.ContractReviewPendingYear is int reviewYear)
-                report.Notes.Add(new MonthlyNote { Text = $"{reviewYear}年目の契約更改を決める（月報の「契約更改」で。答えなければ月の終わりに据え置く）", Target = MonthlyNoteTarget.Adventurer }); // §0.103
+                report.Notes.Add(new MonthlyNote { Text = $"{reviewYear}年目の契約更改を決める（月報の「契約更改」で。答えなければ月の終わりに据え置く）", Target = MonthlyNoteTarget.Adventurer, Key = "ContractReview" }); // §0.103
             foreach (var r in GuildPolicySystem.WaitingRetirees(state))
                 if (GuildPolicySystem.LeaveWeek(state, r) is int leave)
-                    report.Notes.Add(new MonthlyNote { Text = $"引退した{r.Name}は、{GameCalendar.FormatMonth(leave)} 第{GameCalendar.WeekOfMonth(leave)}週までに顧問・教官の役職につけないとギルドを去る", Target = MonthlyNoteTarget.Facility }); // §0.105
+                    report.Notes.Add(new MonthlyNote { Text = $"引退した{r.Name}は、{GameCalendar.FormatMonth(leave)} 第{GameCalendar.WeekOfMonth(leave)}週までに顧問・教官の役職につけないとギルドを去る", Target = MonthlyNoteTarget.Facility, Key = $"RetireeRole:{r.Id}", Values = { ["{名前}"] = r.Name } }); // §0.105
             foreach (var c in state.Coachings)
                 if (state.FindAdventurer(c.AdventurerId) is { } coached)
                     report.Notes.Add(new MonthlyNote { Text = $"{coached.Name}に個人特訓がついている（{GameCalendar.FormatMonth(c.UntilWeek)} 第{GameCalendar.WeekOfMonth(c.UntilWeek)}週まで）", Target = MonthlyNoteTarget.Adventurer });
             if (FundingSystem.Offers(state).Count > 0)
-                report.Notes.Add(new MonthlyNote { Text = "スポンサー契約の話が届いている（資金の画面か月報の「スポンサー契約」で。結ばなければ季節の終わりに流れる）", Target = MonthlyNoteTarget.Funding }); // §0.104・§0.115
+                report.Notes.Add(new MonthlyNote { Text = "スポンサー契約の話が届いている（資金の画面か月報の「スポンサー契約」で。結ばなければ季節の終わりに流れる）", Target = MonthlyNoteTarget.Funding, Key = "SponsorOffer" }); // §0.104・§0.115
             if (FundingSystem.ActiveContract(state) is { } sponsor)
                 report.Notes.Add(new MonthlyNote { Text = $"{sponsor.SponsorName}とのスポンサー契約：{FundingSystem.QuotaLabel(sponsor)}（いま {FundingSystem.Progress(state, sponsor)}/{sponsor.Target}、{GameCalendar.FormatMonth(sponsor.DeadlineWeek)} 第{GameCalendar.WeekOfMonth(sponsor.DeadlineWeek)}週まで・あと{FundingSystem.WeeksLeft(state, sponsor)}週。届かなければ違約金 {sponsor.Penalty} G）", Target = MonthlyNoteTarget.Funding });
             // 3つ目の部隊（§0.120）：森の20Fは倒したが、人数が足りない
@@ -674,27 +684,25 @@ namespace GuildManager.Core.Systems
                 report.Notes.Add(new MonthlyNote { Text = $"3つ目の部隊は、現役が{ProgressionBalance.Slot3MinActive}人以上になると出せる（いま{DungeonExpeditionSystem.ActiveCount(state)}人。新春の採用試験で迎える）", Target = MonthlyNoteTarget.Adventurer });
             // 派遣の教官（§0.84）：帰る2か月前から知らせる（§0.119。帰る場面が唐突にならないように）
             if (state.GuestTrainerUntilWeek is int guestUntil && guestUntil - state.WeekNumber < 2 * GameCalendar.WeeksPerMonth && IsabellaSystem.GuestTrainer(state) is { } guest)
-                report.Notes.Add(new MonthlyNote { Text = $"派遣の教官{guest.Name}は、{GameCalendar.FormatMonth(guestUntil)}に王都へ帰る（教官の任命は施設の画面で）", Target = MonthlyNoteTarget.Facility });
+                report.Notes.Add(new MonthlyNote { Text = $"派遣の教官{guest.Name}は、{GameCalendar.FormatMonth(guestUntil)}に王都へ帰る（教官の任命は施設の画面で）", Target = MonthlyNoteTarget.Facility, Key = "GuestLeaving", Values = { ["{名前}"] = guest.Name } });
             // 培養槽の娘（§0.118）：あとどれくらいで加わるかと、いまの育て方
             foreach (var c in state.SoulFusionCultures)
                 report.Notes.Add(new MonthlyNote { Text = SoulFusionSystem.IsWaitingForRoom(c)
                     ? $"培養槽の{c.Child.Name}は育ちきった。宿舎に空きができると加わる"
                     : $"培養槽の{c.Child.Name}はすくすく育っている（あと{SoulFusionSystem.RemainingLabel(c)}・育て方：{SoulFusionSystem.NurtureLabel(c.Nurture)}。研究室の培養槽で変えられる）", Target = MonthlyNoteTarget.None });
-            // 副官の注目（§0.117）：空きがあれば、月のはじめに選べることを知らせる
-            if (state.FocusedAdventurerIds.Count < PersonalitySystem.FocusSlots(state) && state.Adventurers.Any(a => a.Personality != null && !a.IsRetired && !PersonalitySystem.IsFocused(state, a)))
-                report.Notes.Add(new MonthlyNote { Text = $"副官の注目に空きがある（{state.FocusedAdventurerIds.Count}/{PersonalitySystem.FocusSlots(state)}人。冒険者の詳細で、志向・気質を見立てたい子を選ぶ。変えられるのは月のはじめだけ）", Target = MonthlyNoteTarget.Adventurer });
             // 返事を待っている引き抜きの話（§0.102）
             foreach (var offer in state.PoachOffers)
                 report.Notes.Add(new MonthlyNote { Text = $"{offer.AdventurerName}に{offer.GuildName}から引き抜きの話（{GameCalendar.FormatMonth(offer.DeadlineWeek)} 第{GameCalendar.WeekOfMonth(offer.DeadlineWeek)}週までに応えないと移籍する）。月報の「引き抜きの話」で応える", Target = MonthlyNoteTarget.Adventurer });
             // 満足度の段階（§0.101）：不満・限界の子と、分かっている志向からの直し方の手がかり
             foreach (var a in state.Adventurers.Where(a => !a.IsRetired && MoraleSystem.IsLow(a)))
-                report.Notes.Add(new MonthlyNote { Text = $"{a.Name}は{MoraleSystem.StageLabel(a.MoraleStage)}（満足度{a.Satisfaction}）。{MoraleRemedy(state, a)}", Target = MonthlyNoteTarget.Adventurer });
+                report.Notes.Add(new MonthlyNote { Text = $"{a.Name}は{MoraleSystem.StageLabel(a.MoraleStage)}（満足度{a.Satisfaction}）。{MoraleRemedy(state, a)}", Target = MonthlyNoteTarget.Adventurer,
+                    Key = $"Discontent:{a.Id}", Values = { ["{名前}"] = a.Name, ["{直し方}"] = MoraleRemedy(state, a) } });
 
             foreach (var p in state.SavedParties.Where(p => p.MemberIds.Count > 0))
             {
                 if (p.Order == SquadOrder.None)
                 {
-                    report.Notes.Add(new MonthlyNote { Text = $"「{p.Name}」は方針が無いので出撃しない", Target = MonthlyNoteTarget.Dungeon });
+                    report.Notes.Add(new MonthlyNote { Text = $"「{p.Name}」は方針が無いので出撃しない", Target = MonthlyNoteTarget.Dungeon, Key = $"NoOrder:{p.Id}", Values = { ["{部隊}"] = p.Name } });
                     continue;
                 }
                 if (SquadOrderSystem.IsOut(state, p)) continue;
@@ -711,7 +719,7 @@ namespace GuildManager.Core.Systems
                     .ToList();
                 bool idle = state.Adventurers.Any(a => !a.IsRetired && !a.IsDispatched && !TrainingSystem.IsTraining(state, a.Id));
                 if (open.Count > 0 && idle)
-                    report.Notes.Add(new MonthlyNote { Text = $"訓練施設に空きがある（{open.Count}施設）。今月の訓練生を決められる", Target = MonthlyNoteTarget.Facility });
+                    report.Notes.Add(new MonthlyNote { Text = $"訓練施設に空きがある（{open.Count}施設）。今月の訓練生を決められる", Target = MonthlyNoteTarget.Facility, Key = "TrainingOpen" });
             }
         }
 

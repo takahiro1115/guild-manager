@@ -312,90 +312,15 @@ namespace GuildManager.Core.Tests
             Assert.Null(GameState.FromSaveData(JsonSerializer.Deserialize<SaveData>(oldJson)!).Adventurers.Single().Personality);
         }
 
-        // ---------------- 副官の注目（§0.117） ----------------
-
         [Fact]
-        public void Focus_OnlyAtMonthStart_UpToTheSlots()
+        public void SaveWithTheRemovedFocusList_StillLoads()
         {
-            var a = Make("A", P(Drive.Dive)); var b = Make("B", P(Drive.Gather)); var c = Make("C", P(Drive.Money)); var none = Make("D");
-            var state = State(a, b, c, none);
-            Assert.Equal(PersonalityBalance.FocusSlots, PersonalitySystem.FocusSlots(state));
-
-            state.WeekNumber = 6; // 月の第2週
-            Assert.NotNull(PersonalitySystem.FocusBlockReason(state, a));
-            Assert.False(PersonalitySystem.ToggleFocus(state, a));
-
-            state.WeekNumber = 5; // 月の第1週
-            Assert.NotNull(PersonalitySystem.FocusBlockReason(state, none)); // 個性の無い子
-            Assert.True(PersonalitySystem.ToggleFocus(state, a));
-            Assert.True(PersonalitySystem.ToggleFocus(state, b));
-            Assert.Contains("2人まで", PersonalitySystem.FocusBlockReason(state, c));
-            Assert.True(PersonalitySystem.ToggleFocus(state, a)); // 外す
-            Assert.False(PersonalitySystem.IsFocused(state, a));
-            Assert.True(PersonalitySystem.ToggleFocus(state, c));
-
-            foreach (var boss in state.DungeonFields.SelectMany(f => f.Bosses).Take(PersonalityBalance.FocusExtraBosses))
-                boss.IsDefeated = true;
-            Assert.Equal(PersonalityBalance.FocusSlots + PersonalityBalance.FocusSlotsExtra, PersonalitySystem.FocusSlots(state));
-        }
-
-        [Fact]
-        public void Focused_CountsExposureByTheMultiplier()
-        {
-            var focused = Make("A", P(Drive.Dive)); var other = Make("B", P(Drive.Dive));
-            var state = State(focused, other);
-            state.FocusedAdventurerIds.Add(focused.Id);
-            Week(state, new List<ActiveDungeonMission> { Mission(DungeonMissionType.Gathering, focused, other) });
-            Assert.Equal(PersonalityBalance.FocusExposureMultiplier, focused.Personality!.Exposure["Gather"]);
-            Assert.Equal(1, other.Personality!.Exposure["Gather"]);
-        }
-
-        [Fact]
-        public void Focused_AtMonthEnd_SeesTheFirstUnsureOfMainSubDislikedTemperament()
-        {
-            var focused = Make("A", P(Drive.Money, disliked: Drive.Survey, temperament: 1)); var other = Make("B", P(Drive.Money));
-            var state = State(focused, other);
-            state.FocusedAdventurerIds.Add(focused.Id);
-            state.WeekNumber = 8; // 月の最後の週
-            Week(state);
-            Assert.Equal(PersonalityBalance.FocusMonthlyReveals, focused.Personality!.Exposure.GetValueOrDefault("Money")); // 主志向から
-            Assert.Equal(0, other.Personality!.Exposure.GetValueOrDefault("Money"));
-
-            focused.Personality.Exposure["Money"] = 100; // 確かになったら次（苦手）へ
-            Week(state);
-            Assert.Equal(PersonalityBalance.FocusMonthlyReveals, focused.Personality.Exposure.GetValueOrDefault("Survey"));
-
-            state.WeekNumber = 7; // 月の最後でなければ数えない
-            Week(state);
-            Assert.Equal(PersonalityBalance.FocusMonthlyReveals, focused.Personality.Exposure.GetValueOrDefault("Survey"));
-        }
-
-        [Fact]
-        public void Focus_DropsRetired_RoundTripsInTheSave_OldSaveHasNone()
-        {
-            var a = Make("A", P(Drive.Dive)); var b = Make("B", P(Drive.Gather));
-            var state = State(a, b);
-            state.FocusedAdventurerIds.AddRange(new[] { a.Id, b.Id });
-            var restored = GameState.FromSaveData(JsonSerializer.Deserialize<SaveData>(JsonSerializer.Serialize(state.ToSaveData()))!);
-            Assert.Equal(new[] { a.Id, b.Id }, restored.FocusedAdventurerIds);
-
-            var node = System.Text.Json.Nodes.JsonNode.Parse(JsonSerializer.Serialize(state.ToSaveData()))!;
-            node.AsObject().Remove("FocusedAdventurerIds"); // §0.117 より前のセーブ
-            Assert.Empty(GameState.FromSaveData(JsonSerializer.Deserialize<SaveData>(node.ToJsonString())!).FocusedAdventurerIds);
-
-            b.IsRetired = true;
-            Week(state);
-            Assert.Equal(new[] { a.Id }, state.FocusedAdventurerIds);
-        }
-
-        [Fact]
-        public void MonthlyReport_NotesAnEmptyFocusSlot()
-        {
+            // §0.151：副官の注目（§0.117）は外した。注目の一覧が残った旧セーブも、その項目を無視して読める
             var state = State(Make("A", P(Drive.Dive)));
-            var report = MonthlyReport.Build(state, new List<AutoSkipWeek>(), 0);
-            Assert.Contains(report.Notes, n => n.Text.StartsWith("副官の注目に空きがある") && n.Target == MonthlyNoteTarget.Adventurer);
-            state.FocusedAdventurerIds.Add(state.Adventurers[0].Id);
-            Assert.DoesNotContain(MonthlyReport.Build(state, new List<AutoSkipWeek>(), 0).Notes, n => n.Text.StartsWith("副官の注目に空きがある")); // 注目できる子が残っていない
+            var node = System.Text.Json.Nodes.JsonNode.Parse(JsonSerializer.Serialize(state.ToSaveData()))!;
+            node["FocusedAdventurerIds"] = new System.Text.Json.Nodes.JsonArray(state.Adventurers[0].Id.ToString());
+            var restored = GameState.FromSaveData(JsonSerializer.Deserialize<SaveData>(node.ToJsonString())!);
+            Assert.Equal("A", restored.Adventurers.Single().Name);
         }
     }
 }

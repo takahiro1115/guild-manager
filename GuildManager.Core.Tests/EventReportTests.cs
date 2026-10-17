@@ -57,6 +57,97 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
+        public void PersonalityKnown_IsToldOnceEverythingIsSure_WithTheMainDrive()
+        {
+            // §0.151：志向（主・副・苦手）と気質がすべて確かになった週に、当人が打ち明ける
+            var state = NewGame();
+            var rookie = Named(state, "新人");
+            rookie.Personality!.Main = Drive.Gather;
+            int sure = PersonalityBalance.RevealSure;
+            rookie.Personality.Exposure["Gather"] = sure;
+            var settlement = new WeeklySettlementResult();
+            settlement.PersonalityDiscoveries.Add(new PersonalityDiscovery(rookie, "Gather", PersonalityKnowledge.Sure));
+            Assert.Empty(Build(state, settlement)); // 気質はまだ確かでない
+
+            rookie.Personality.Exposure[PersonalitySystem.TemperamentKey] = sure;
+            settlement.PersonalityDiscoveries.Add(new PersonalityDiscovery(rookie, PersonalitySystem.TemperamentKey, PersonalityKnowledge.Sure));
+            var report = Assert.Single(Build(state, settlement));
+            Assert.Equal("PersonalityKnown", report.Kind);
+            Assert.Equal(rookie.Id, report.SubjectId);
+            Assert.Contains("素材を集めて歩くこと", report.Line); // 主志向の言い回し
+            Assert.Contains("無理をしない", report.Line); // 慎重の台詞
+            Assert.DoesNotContain("{", report.Line);
+        }
+
+        [Fact]
+        public void MasterMood_TierChange_IsToldByAlbert_OncePerSeasonPerDirection()
+        {
+            // §0.151：機嫌の段階が前の月報から変わったら、アルベールが話す。同じ向きは季節に1回まで、危機はいつも
+            var state = NewGame();
+            state.WeekNumber = 5;
+            state.MasterMood = 60; // 平常
+            Assert.Empty(Build(state, new WeeklySettlementResult())); // 初めて比べる月は覚えるだけ
+
+            state.MasterMood = 85;
+            var up = Assert.Single(Build(state, new WeeklySettlementResult()));
+            Assert.Equal("MoodUp:Cheerful", up.Kind);
+            Assert.Contains(EventReportSystem.Lines(up), l => l.Speaker == "アルベール");
+
+            state.MasterMood = 70;
+            Assert.Equal("MoodDown:Normal", Assert.Single(Build(state, new WeeklySettlementResult())).Kind);
+            state.MasterMood = 85;
+            Assert.Empty(Build(state, new WeeklySettlementResult())); // 同じ季節にもう一度上がっても言わない
+            state.MasterMood = 70;
+            Assert.Empty(Build(state, new WeeklySettlementResult()));
+            state.MasterMood = 10;
+            var crisis = Assert.Single(Build(state, new WeeklySettlementResult())); // 危機はいつも
+            Assert.Equal("MoodDown:Crisis", crisis.Kind);
+            Assert.NotEmpty(crisis.Jump);
+
+            state.WeekNumber += GameCalendar.WeeksPerSeason; // 次の季節
+            state.MasterMood = 85;
+            Assert.Equal("MoodUp:Cheerful", Assert.Single(Build(state, new WeeklySettlementResult())).Kind);
+        }
+
+        [Fact]
+        public void Notices_NewOnes_AreToldByLumina_OncePerAppearance()
+        {
+            // §0.151：判断が要る注意は、前の月報に無かったものだけルミナが行き先つきで知らせる（2人の不満は2件）
+            var state = NewGame();
+            var fiona = Named(state, "フィオナ");
+            var rina = Named(state, "リナ");
+            MonthlyNote Discontent(Adventurer a) => new() { Text = "不満", Key = $"Discontent:{a.Id}", Values = { ["{名前}"] = a.Name, ["{直し方}"] = "休ませてあげてください" } };
+            var notes = new List<MonthlyNote> { Discontent(fiona), Discontent(rina), new() { Text = "毒", Key = "" } };
+            var reports = EventReportSystem.Build(state, new List<AutoSkipWeek>(), notes);
+            Assert.Equal(2, reports.Count(r => r.Kind == "Notice:Discontent"));
+            Assert.All(reports, r => Assert.NotEmpty(r.Jump));
+            Assert.Contains(reports, r => r.Line.Contains("フィオナさんの元気") && r.Line.Contains("休ませて"));
+
+            state.MonthlyReports.Add(new MonthlyReport { MonthCompleted = true, Notes = { Discontent(fiona) } });
+            var next = EventReportSystem.Build(state, new List<AutoSkipWeek>(), notes);
+            var only = Assert.Single(next); // フィオナは先月も出ていたので話さない
+            Assert.Contains("リナさん", only.Line);
+        }
+
+        [Fact]
+        public void TournamentPlace_RunnerUpAnyGrade_Best4OnlyAtG1()
+        {
+            // §0.151：準優勝はどの格でも、ベスト4は G1・特別だけ当人が話す
+            var state = NewGame();
+            var rina = Named(state, "リナ");
+            var fiona = Named(state, "フィオナ");
+            var settlement = new WeeklySettlementResult();
+            settlement.TournamentsResolved.Add(new TournamentEvent { Name = "森の弓比べ", Kind = TournamentKind.Local, Grade = TournamentGrade.G3,
+                Result = new TournamentResult { Placings = { new TournamentPlacing { AdventurerId = rina.Id, Placing = 2 }, new TournamentPlacing { AdventurerId = fiona.Id, Placing = 4 } } } });
+            var report = Assert.Single(Build(state, settlement));
+            Assert.Equal("TournamentPlace", report.Kind);
+            Assert.Contains("森の弓比べ、準優勝", report.Line); // リナの専用の台詞
+
+            settlement.TournamentsResolved[0].Grade = TournamentGrade.G1;
+            Assert.Equal(2, Build(state, settlement).Count(r => r.Kind == "TournamentPlace"));
+        }
+
+        [Fact]
         public void Temperament_PicksTheLines_AndFallsBackToNormal()
         {
             var state = NewGame();

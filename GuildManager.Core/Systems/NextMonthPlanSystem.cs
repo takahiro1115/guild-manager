@@ -58,6 +58,8 @@ namespace GuildManager.Core.Systems
         public string Advice { get; set; } = "";
         public bool Repeated { get; set; }
         public List<PlanOption> Options { get; set; } = new();
+        /// <summary>部隊長の報告の場で選んだ手（§0.151。月報ではボタンの代わりに結果を1行で出す）。まだ選んでいなければ null（旧セーブも null）。</summary>
+        public PlanChoice? Chosen { get; set; }
     }
 
     /// <summary>

@@ -414,9 +414,6 @@ namespace GuildManager.Core.Models
         /// <summary>大迷宮の支配者の状態（§0.127、→ Systems.RulerSystem）。旧セーブには無いので読み込みで補う。</summary>
         public List<RulerState> Rulers { get; set; } = new();
 
-        /// <summary>副官が注目している冒険者（§0.117、→ PersonalitySystem）。見立てが早く進む。旧セーブは空（注目なし）。</summary>
-        public List<Guid> FocusedAdventurerIds { get; set; } = new();
-
         /// <summary>返事を待っている引き抜きの話（§0.102、→ IncidentSystem）。</summary>
         public List<PoachOffer> PoachOffers { get; set; } = new();
 
@@ -536,7 +533,7 @@ namespace GuildManager.Core.Models
                 TournamentPrizeTotal = TournamentPrizeTotal,
                 TournamentInviteKeys = new List<string>(TournamentInviteKeys),
                 NextUpgradeHalfPrice = NextUpgradeHalfPrice,
-                StoryRulesVersion = 7, // §0.140 の序盤の流れ（新春・契約交渉・顔見せの場面）・§0.142〜§0.144 の迷宮の主の場面と作戦会議・§0.145 の年間1位・§0.146 のライバルのマスター
+                StoryRulesVersion = 8, // §0.151 の志向と気質の説明・§0.140 の序盤の流れ（新春・契約交渉・顔見せの場面）・§0.142〜§0.144 の迷宮の主の場面と作戦会議・§0.145 の年間1位・§0.146 のライバルのマスター
                 IsabellaVisitWeek = IsabellaVisitWeek,
                 IsabellaEarlyVisit = IsabellaEarlyVisit,
                 FundingOpenedWeek = FundingOpenedWeek,
@@ -562,7 +559,6 @@ namespace GuildManager.Core.Models
                 HideSquadReports = HideSquadReports,
                 HideEventReports = HideEventReports,
                 Rulers = Rulers.Select(r => new RulerState { RulerId = r.RulerId, Hp = r.Hp, HpFloor = r.HpFloor, WeaponIndex = r.WeaponIndex, RepresentativeIds = new List<Guid>(r.RepresentativeIds), DuelCount = r.DuelCount, LastDuelWeek = r.LastDuelWeek, PendingDuelWeek = r.PendingDuelWeek, SquadIds = new List<Guid>(r.SquadIds), SongOrder = new List<SongMode>(r.SongOrder), SquadTargets = new List<CorridorTarget>(r.SquadTargets), SealHp = new List<int>(r.SealHp), ResealCounter = r.ResealCounter, ResealPending = r.ResealPending, StageHall = r.StageHall, LastVictorName = r.LastVictorName }).ToList(),
-                FocusedAdventurerIds = new List<Guid>(FocusedAdventurerIds),
                 PoachOffers = new List<PoachOffer>(PoachOffers),
                 LastFeastSeason = LastFeastSeason,
                 ContractReviewDoneYear = ContractReviewDoneYear,
@@ -735,7 +731,6 @@ namespace GuildManager.Core.Models
                 HideSquadReports = data.HideSquadReports, // キーの無い旧セーブは false（見せる）
                 HideEventReports = data.HideEventReports, // キーの無い旧セーブは false（見せる）
                 Rulers = data.Rulers ?? new List<RulerState>(), // 旧セーブ（§0.127 より前）は空。下の EnsureRulers で補う
-                FocusedAdventurerIds = (data.FocusedAdventurerIds ?? new List<Guid>()).Distinct().ToList(), // 旧セーブは注目なし。いない子は週の決算で外す
                 PoachOffers = (data.PoachOffers ?? new List<PoachOffer>()).Where(o => o != null).ToList(),
                 LastFeastSeason = data.LastFeastSeason,
                 ContractReviewDoneYear = Math.Max(1, data.ContractReviewDoneYear),
@@ -785,6 +780,9 @@ namespace GuildManager.Core.Models
             // §0.146より前のセーブ（StoryRulesVersion 0〜6）：もう大会で当たったライバルギルドのマスターの初登場を見たことにする
             if (data.StoryRulesVersion < 7 && data.StorySeenWeeks != null)
                 Systems.StorySystem.MarkRivalMastersSeen(state);
+            // §0.151より前のセーブ（StoryRulesVersion 0〜7）：もう誰かの志向か気質が分かっていれば、その説明の場面を見たことにする
+            if (data.StoryRulesVersion < 8 && data.StorySeenWeeks != null)
+                Systems.StorySystem.MarkPersonalitySceneSeen(state);
 
             // プールから外した顔（2026-10-17 の adv_001〜005 など）を使っている冒険者は、プールの顔に替える（シルエットにしない）
             Systems.RecruitmentSystem.ReplaceRemovedPortraits(state);

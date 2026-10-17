@@ -48,13 +48,6 @@ namespace GuildManager.Core.Balance
         /// <summary>見立て：この回数で確か。</summary>
         public static readonly int RevealSure = BalanceData.GetInt(FileName, "RevealSure");
 
-        // ---- 副官の注目（§0.117、→ PersonalitySystem.FocusSlots・ProcessWeek） ----
-
-        public static readonly int FocusSlots = BalanceData.GetInt(FileName, "FocusSlots");
-        public static readonly int FocusSlotsExtra = BalanceData.GetInt(FileName, "FocusSlotsExtra");
-        public static readonly int FocusExtraBosses = BalanceData.GetInt(FileName, "FocusExtraBosses");
-        public static readonly int FocusExposureMultiplier = BalanceData.GetInt(FileName, "FocusExposureMultiplier");
-        public static readonly int FocusMonthlyReveals = BalanceData.GetInt(FileName, "FocusMonthlyReveals");
         /// <summary>採用の一言が主志向を言い当てる確率（%）。</summary>
         public static readonly int HintTruthPercent = BalanceData.GetInt(FileName, "HintTruthPercent");
 
@@ -140,6 +133,10 @@ namespace GuildManager.Core.Balance
         public static readonly int BondChancePercent = BalanceData.GetInt(FileName, "BondChancePercent");
         public static readonly int BondCompatGain = BalanceData.GetInt(FileName, "BondCompatGain");
         public static readonly int BondSatisfaction = BalanceData.GetInt(FileName, "BondSatisfaction");
+        /// <summary>打ち解けた（§0.151）：同じ部隊の、相棒でも険悪でもない2人に起きる確率（%、週ごと・組ごと）・相性・満足度。</summary>
+        public static readonly int WarmChancePercent = BalanceData.GetInt(FileName, "WarmChancePercent");
+        public static readonly int WarmCompatGain = BalanceData.GetInt(FileName, "WarmCompatGain");
+        public static readonly int WarmSatisfaction = BalanceData.GetInt(FileName, "WarmSatisfaction");
         public static readonly int BrawlChancePercent = BalanceData.GetInt(FileName, "BrawlChancePercent");
         public static readonly int BrawlCompatLoss = BalanceData.GetInt(FileName, "BrawlCompatLoss");
         public static readonly int PoachDeadlineWeeks = BalanceData.GetInt(FileName, "PoachDeadlineWeeks");

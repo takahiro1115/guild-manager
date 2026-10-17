@@ -332,7 +332,8 @@ namespace GuildManager.Core.Systems
             if (outcome.First)
             {
                 outcome.OpenedFacility = OpenFirstTrainingFacility(state, outcome.Bouts);
-                state.TournamentCalendarFromWeek = NextMonthStart(state.WeekNumber);
+                // 大会の暦は、交流戦の次の月を1つ空けて始まる（§0.151）。イザベラが「ひと月後」に大会の話をしに来る月（s02_tournaments）と合わせる
+                state.TournamentCalendarFromWeek = NextMonthStart(state.WeekNumber) + GameCalendar.WeeksPerMonth;
             }
 
             ev.Result = new TournamentResult

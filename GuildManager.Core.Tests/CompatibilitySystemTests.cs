@@ -132,7 +132,7 @@ namespace GuildManager.Core.Tests
         [InlineData(DungeonMissionType.Scouting)]
         [InlineData(DungeonMissionType.Survey)]
         [InlineData(DungeonMissionType.Gathering)]
-        public void ApplyExpeditionOutcome_TraversalSurveyGathering_RaiseAllPairsByOne(DungeonMissionType missionType)
+        public void ApplyExpeditionOutcome_TraversalSurveyGathering_RaiseAllPairsByTheTable(DungeonMissionType missionType)
         {
             var a = new Adventurer(); var b = new Adventurer(); var c = new Adventurer();
             var state = StateWith(a, b, c);
@@ -140,8 +140,16 @@ namespace GuildManager.Core.Tests
             int gain = new CompatibilitySystem(new AlwaysMaxRng())
                 .ApplyExpeditionOutcome(state, PartyOf(a, b, c), missionType, isSuccess: true);
 
-            Assert.Equal(1, gain);
-            AssertAllPairs(state, CompatibilityBalance.InitialValue + 1, a, b, c);
+            Assert.Equal(CompatibilitySystem.GetExpeditionGain(missionType), gain);
+            AssertAllPairs(state, CompatibilityBalance.InitialValue + gain, a, b, c);
+        }
+
+        [Fact]
+        public void WarmEvent_IsOnHold_AndSquadmatesStillBondByWorkingTogether()
+        {
+            // §0.151：「一緒の任務では上がらず、打ち解けたで上がる」案は、機嫌の危機と負けが増えたので保留（仕組みだけ残し、確率0）
+            Assert.Equal(0, PersonalityBalance.WarmChancePercent);
+            Assert.Equal(1, CompatibilityBalance.ExpeditionGainTraversal);
         }
 
         [Fact]

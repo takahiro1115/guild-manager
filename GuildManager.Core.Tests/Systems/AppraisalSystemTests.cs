@@ -187,6 +187,19 @@ namespace GuildManager.Core.Tests.Systems
 
         // ---------------- 換金 ----------------
 
+        [Theory]
+        [InlineData(ItemRarity.Common)]
+        [InlineData(ItemRarity.Rare)]
+        [InlineData(ItemRarity.Epic)]
+        [InlineData(ItemRarity.Legendary)]
+        public void GoldReward_IsAlwaysAboveTheAppraisalCost(ItemRarity rarity)
+        {
+            // 古代硬貨（換金）が出た鑑定は、いちばん少なくても鑑定費用より多い（赤字にしない、2026-10-18）
+            var profile = RelicBalance.Get(rarity);
+            Assert.True(profile.GoldRewardMin > profile.AppraisalCost);
+            Assert.True(profile.GoldRewardMax >= profile.GoldRewardMin);
+        }
+
         [Fact]
         public void Appraise_GeneratesGold_AndAddsToTreasury()
         {

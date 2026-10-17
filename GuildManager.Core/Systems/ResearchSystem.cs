@@ -84,6 +84,7 @@ namespace GuildManager.Core.Systems
         /// <summary>
         /// 週の決算（研究の手伝いが貯まったあと）：進めている研究を1週進める。研究の手伝いが ResearchCreditPerWeek 以上あり、
         /// 縮めた週が MaxShortenWeeks に届いていなければ、それを使ってもう1週進める。残り週が0になったら完了し、その研究を返す。
+        /// 完了したら研究の手伝いは0に戻る（§0.151。次の研究へ持ち越さない）。
         /// </summary>
         public static ResearchDefinition? ProcessWeek(GameState state)
         {
@@ -109,6 +110,7 @@ namespace GuildManager.Core.Systems
 
             state.CompletedResearchIds.Add(research.Id);
             state.ResearchInProgress = null;
+            state.ResearchCredit = 0; // 研究の手伝いは、その研究のためのもの。済んだら0から貯め直す（§0.151）
             return research;
         }
 

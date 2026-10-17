@@ -46,8 +46,6 @@ public partial class AdventurerPanel : VBoxContainer
 	private ProgressBar _satisfactionBar = null!;
 	/// <summary>志向・気質の見立て（§0.100）。満足度のバーの下にコードで置く。</summary>
 	private RichTextLabel _personalityLabel = null!;
-	/// <summary>副官の注目（§0.117）。</summary>
-	private Button _focusButton = null!;
 
 	// ---- 7大能力値 ----
 	private TripleStatBar _barSTR = null!;
@@ -163,11 +161,6 @@ public partial class AdventurerPanel : VBoxContainer
 		var conditionGrid = _satisfactionBar.GetParent<Control>(); // HP・満足度の表（グリッド）の下の行に置く
 		conditionGrid.GetParent().AddChild(_personalityLabel);
 		conditionGrid.GetParent().MoveChild(_personalityLabel, conditionGrid.GetIndex() + 1);
-		// 副官の注目（§0.117）：見立ての下に、注目する・やめるボタン
-		_focusButton = new Button { SizeFlagsHorizontal = SizeFlags.ShrinkBegin };
-		_focusButton.Pressed += OnFocusPressed;
-		conditionGrid.GetParent().AddChild(_focusButton);
-		conditionGrid.GetParent().MoveChild(_focusButton, _personalityLabel.GetIndex() + 1);
 
 		// 7大能力値
 		_barSTR = GetNode<TripleStatBar>("%Bar_STR");
@@ -735,16 +728,7 @@ public partial class AdventurerPanel : VBoxContainer
 		_personalityLabel.Clear();
 		var state = _state;
 		_personalityLabel.Visible = a.Personality != null && state != null;
-		_focusButton.Visible = _personalityLabel.Visible && !a.IsRetired;
 		if (a.Personality is not { } p || state == null) return;
-		// 副官の注目（§0.117）：付けられるか・外せるかと理由は Core（PersonalitySystem.FocusBlockReason）
-		bool focused = PersonalitySystem.IsFocused(state, a);
-		string? block = PersonalitySystem.FocusBlockReason(state, a);
-		_focusButton.Text = focused ? $"👁 副官が注目している（{state.FocusedAdventurerIds.Count}/{PersonalitySystem.FocusSlots(state)}人）" : $"👁 副官が注目する（{state.FocusedAdventurerIds.Count}/{PersonalitySystem.FocusSlots(state)}人）";
-		_focusButton.Disabled = block != null;
-		_focusButton.TooltipText = (block != null ? block + "\n" : "") +
-			$"注目している子は、志向・気質のきっかけを見た回数が{PersonalityBalance.FocusExposureMultiplier}倍で数えられ、月の終わりに副官がまだ確かでない志向・気質を1つ見立てる。" +
-			$"\n注目を付ける・外すのは月のはじめだけ（{PersonalitySystem.FocusSlots(state)}人まで。倒した番人が{PersonalityBalance.FocusExtraBosses}体を超えると{PersonalityBalance.FocusSlots + PersonalityBalance.FocusSlotsExtra}人）。";
 		var known = new System.Collections.Generic.List<string>();
 		var neutral = new System.Collections.Generic.List<string>();
 		foreach (var drive in PersonalitySystem.AllDrives)
@@ -770,14 +754,6 @@ public partial class AdventurerPanel : VBoxContainer
 		_personalityLabel.TooltipText = "何をしたがるか（志向）と、扉前の構えの好み（気質）。いろいろな仕事をさせ、扉前の判断を重ねると分かってくる（「?」は〜らしい）。\n" +
 			"好きな仕事をした週・喜ぶことがあった週は満足度が上がり、苦手な仕事では下がる。気質に合わない構えで出すと満足度が下がる。\n" +
 			$"採用のときの言葉：{PersonalitySystem.HintText(p.HintDrive)}";
-	}
-
-	/// <summary>副官の注目を付ける・外す（§0.117）。</summary>
-	private void OnFocusPressed()
-	{
-		if (_state == null || _detailAdventurerId is not Guid id || _state.FindAdventurer(id) is not { } a) return;
-		if (PersonalitySystem.ToggleFocus(_state, a))
-			StateChanged.Invoke();
 	}
 
 	private void BindStatRow(TripleStatBar bar, Label valLabel, Adventurer a, string stat)

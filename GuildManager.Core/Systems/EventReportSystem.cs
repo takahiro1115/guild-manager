@@ -39,9 +39,16 @@ namespace GuildManager.Core.Systems
         /// <summary>名前のある人物の台詞の話し手（ここに無い名前は当人の台詞と同じ扱いにしない）。</summary>
         public static readonly IReadOnlyCollection<string> NamedSpeakers = new HashSet<string> { "アルベール", "ルミナ", "イザベラ", "マルグリット" };
 
-        public static List<EventReport> Build(GameState state, IReadOnlyList<AutoSkipWeek> weeks)
+        public static List<EventReport> Build(GameState state, IReadOnlyList<AutoSkipWeek> weeks, IReadOnlyList<MonthlyNote>? notes = null)
         {
             var b = new Builder(state);
+            // 判断が要る注意（§0.151）：前の月の月報（月の終わりまで進んだもの）に無かった種類だけ、ルミナが行き先つきで知らせる
+            if (notes != null)
+            {
+                var before = state.MonthlyReports.LastOrDefault(r => r.MonthCompleted)?.Notes.Select(n => n.Key).ToHashSet() ?? new HashSet<string>();
+                foreach (var note in notes.Where(n => n.Key.Length > 0 && !before.Contains(n.Key)))
+                    b.Notice(note);
+            }
             foreach (var w in weeks)
             {
                 var s = w.Settlement;
@@ -79,6 +86,11 @@ namespace GuildManager.Core.Systems
                 foreach (var ev in s.TournamentsResolved)
                     foreach (var p in (ev.Result?.Placings ?? new List<TournamentPlacing>()).Where(p => p.Placing == 1 && p.AdventurerId != null))
                         b.Subject("TournamentWin", p.AdventurerId!.Value, new() { ["{大会}"] = ev.Name });
+                // 優勝に届かなかった入賞（§0.151）：準優勝はどの格でも、ベスト4は G1・特別だけ（毎月の大会で出すぎないように）
+                foreach (var ev in s.TournamentsResolved.Where(e => e.Kind != TournamentKind.Exchange))
+                    foreach (var p in (ev.Result?.Placings ?? new List<TournamentPlacing>()).Where(p => p.AdventurerId != null
+                        && (p.Placing == 2 || (p.Placing == 4 && ev.Grade is TournamentGrade.G1 or TournamentGrade.Special))))
+                        b.Subject("TournamentPlace", p.AdventurerId!.Value, new() { ["{大会}"] = ev.Name, ["{順位}"] = TournamentSystem.PlacingLabel(p.Placing) });
                 if (s.YearStanding?.Rows.FirstOrDefault(r => r.Ours) is { Rank: <= 2 } standing
                     && !(standing.Rank == 1 && b.Intro("Intro:YearTop", "s03_yeartop"))) // 初めての1位は、場面のイザベラにつなぐ導入の一言（§0.145）
                     b.Fixed("YearRank", new() { ["{順位}"] = standing.Rank.ToString() });
@@ -104,9 +116,17 @@ namespace GuildManager.Core.Systems
                     });
                 foreach (var notice in s.HonorNotices)
                     b.Honor(notice);
+                // 見立てが済んだ（志向と気質がすべて確かになった週、§0.151）：当人が打ち明ける
+                foreach (var found in s.PersonalityDiscoveries.Where(d => d.Level == PersonalityKnowledge.Sure).GroupBy(d => d.Adventurer.Id))
+                    if (found.First().Adventurer is { Personality: { } p } a && PersonalitySystem.IsFullyKnown(state, a))
+                        b.Subject("PersonalityKnown", a.Id, new() { ["{好きなこと}"] = PersonalitySystem.LikePhrase(p.Main) });
             }
+            b.Mood();
             return b.Result();
         }
+
+        /// <summary>前の月報のときのマスターの機嫌の段階（§0.151。無ければ、まだ一度も比べていない）。</summary>
+        public const string MoodTierKey = "moodtier";
 
         /// <summary>報告を小窓の行に分ける（地の文・名前のある人物の台詞・当人の台詞）。当人の台詞の話し手は当人の名前。</summary>
         public static List<StoryLine> Lines(EventReport report)
@@ -145,6 +165,7 @@ namespace GuildManager.Core.Systems
             IncidentKind.Poach => "Poach", IncidentKind.Mentor => "Mentor", IncidentKind.Insight => "Insight", IncidentKind.Treat => "Treat",
             IncidentKind.Pumped => "Pumped", IncidentKind.Bond => "Bond", IncidentKind.Brawl => "Brawl", IncidentKind.Boycott => "Boycott",
             IncidentKind.Refuse => "Refuse", IncidentKind.Charge => "Charge", IncidentKind.Flee => "Flee", IncidentKind.PoachLeft => "PoachLeft",
+            IncidentKind.Warm => "Warm",
             _ => "",
         };
 
@@ -181,6 +202,32 @@ namespace GuildManager.Core.Systems
                 else if (slots == 3) Intro("Intro:Slot3", "s01_squad3");
             }
 
+            /// <summary>
+            /// マスターの機嫌の段階が前の月報から変わった（§0.151）：アルベールが話す（ルミナがいれば添える）。
+            /// 上機嫌の境目の行き来で毎月出ないよう、同じ向きは季節に1回まで（危機に落ちたときはいつも話す）。初めて比べる月（旧セーブ）は覚えるだけ。
+            /// </summary>
+            public void Mood()
+            {
+                int tier = (int)MasterMoodSystem.GetTier(_state.MasterMood);
+                bool compared = _state.StoryCounters.TryGetValue(MoodTierKey, out int last);
+                _state.StoryCounters[MoodTierKey] = tier;
+                if (!compared || tier == last) return;
+                bool up = tier > last;
+                string toldKey = up ? "moodtold:up" : "moodtold:down";
+                int season = (_state.WeekNumber - 1) / GameCalendar.WeeksPerSeason + 1; // 0 を「まだ」と分ける
+                if (tier != (int)MasterMoodTier.Crisis && _state.StoryCounters.GetValueOrDefault(toldKey) == season) return;
+                if (Fixed($"{(up ? "MoodUp" : "MoodDown")}:{(MasterMoodTier)tier}", new()))
+                    _state.StoryCounters[toldKey] = season;
+            }
+
+            /// <summary>判断が要る注意の知らせ（§0.151。Kind は Notice:種類。種類のあとの「:Id」は台詞を分けない）。初めてのスポンサーの話は場面が話すので出さない。</summary>
+            public void Notice(MonthlyNote note)
+            {
+                string kind = note.Key.Split(':')[0];
+                if (kind == "SponsorOffer" && StorySystem.DueScenes(_state, StoryTiming.BeforeReport).Any(s => s.SceneId == "s02_sponsor")) return;
+                Fixed($"Notice:{kind}", new Dictionary<string, string>(note.Values), other: null, dedupeKey: note.Key);
+            }
+
             /// <summary>物語の場面と重なる知らせの導入の一言（その場面がこの月に出るときだけ）。出したら true。</summary>
             public bool Intro(string kind, string sceneId) => _dueScenes.Contains(sceneId) && Fixed(kind, new());
 
@@ -208,6 +255,13 @@ namespace GuildManager.Core.Systems
                 string kind = IncidentKindKey(ev.Kind);
                 if (kind.Length == 0 || ev.Who is not Guid who) return;
                 // 休日の絆は、その2人の初めてのときだけ話す（2回目からは月報の行だけ。§0.148）
+                // 打ち解けたも同じく、その2人の初めてだけ（§0.151。組が多く、毎月のように起きる）
+                if (ev.Kind == IncidentKind.Warm && ev.Other is Guid friend)
+                {
+                    string key = "warm" + BondToldKey(who, friend);
+                    if (_state.StoryCounters.ContainsKey(key)) return;
+                    _state.StoryCounters[key] = _state.WeekNumber;
+                }
                 if (ev.Kind == IncidentKind.Bond && ev.Other is Guid partner)
                 {
                     string key = BondToldKey(who, partner);
@@ -232,11 +286,11 @@ namespace GuildManager.Core.Systems
             }
 
             /// <summary>名前のある人物が話す知らせ（当人の気質で変わらない）。出したら true。</summary>
-            public bool Fixed(string kind, Dictionary<string, string> values, Guid? subjectId = null, Guid? other = null)
+            public bool Fixed(string kind, Dictionary<string, string> values, Guid? subjectId = null, Guid? other = null, string? dedupeKey = null)
             {
                 var rows = !_lumina && EventReportBalance.Get(kind, "nolumina").Count > 0 ? EventReportBalance.Get(kind, "nolumina") : EventReportBalance.Get(kind, "any");
                 var subject = subjectId is Guid id ? _state.FindAdventurer(id) : null;
-                return Add(kind, rows, values, subject, subjectId, other, false);
+                return Add(kind, rows, values, subject, subjectId, other, false, dedupeKey);
             }
 
             /// <summary>当人が話す知らせ（初期の3人は専用の台詞、ほかは気質の台詞。無ければ中庸）。</summary>
@@ -253,10 +307,10 @@ namespace GuildManager.Core.Systems
             }
 
             private bool Add(string kind, IReadOnlyList<EventReportBalance.EventLine> rows, Dictionary<string, string> values,
-                Adventurer? subject, Guid? subjectId, Guid? other, bool noGrowth)
+                Adventurer? subject, Guid? subjectId, Guid? other, bool noGrowth, string? dedupeKey = null)
             {
                 if (rows.Count == 0) return false;
-                string dedupe = $"{kind}:{subjectId}:{other}";
+                string dedupe = dedupeKey ?? $"{kind}:{subjectId}:{other}";
                 if (!_seen.Add(dedupe)) return false; // 同じ種類・同じ当人の知らせは月に1回（ボイコットが毎週続くときなど）
                 int n = _kindCounts.GetValueOrDefault(kind);
                 _kindCounts[kind] = n + 1;

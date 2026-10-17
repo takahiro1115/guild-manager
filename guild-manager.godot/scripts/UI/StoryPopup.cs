@@ -19,6 +19,9 @@ public partial class StoryPopup : Window
 	/// <summary>全部の場面を見終えて閉じた。</summary>
 	public event Action Closed = delegate { };
 
+	/// <summary>「報告をとばす」で閉じたか（部隊長の報告を区切って見せるとき、残りの区切りも飛ばす。§0.151）。開くたびに false に戻る。</summary>
+	public bool SkippedAll { get; private set; }
+
 	/// <summary>【画面へ】の行き先が今見ている画面か（そうなら案内を出さない。MainDashboard が決める、§0.108）。</summary>
 	public Func<string, bool> IsCurrentScreen { get; init; } = _ => false;
 
@@ -122,6 +125,7 @@ public partial class StoryPopup : Window
 		_skipAllButton.AddThemeFontSizeOverride("font_size", 18);
 		_skipAllButton.Pressed += () =>
 		{
+			SkippedAll = true;
 			Hide();
 			Closed.Invoke();
 		};
@@ -160,13 +164,13 @@ public partial class StoryPopup : Window
 	/// コマが無ければ何もせず Closed を呼ぶ。
 	/// </summary>
 	/// <summary>月報の前の報告（部隊長の報告・出来事の報告、§0.116・§0.141）。見出しは呼ぶ側が決める（出来事の報告があれば「今月の報告」）。</summary>
-	public void ShowReport(GameState state, IReadOnlyList<StoryStep> steps, string title = "📣 部隊長の報告")
+	public void ShowReport(GameState state, IReadOnlyList<StoryStep> steps, string title = "📣 部隊長の報告", string lastText = "月報を見る ▶")
 	{
 		Title = title;
 		_skipAllButton.Text = "報告をとばす ⏭";
 		_skipAllButton.Visible = true;
 		_presetSteps = steps;
-		_presetLastText = "月報を見る ▶";
+		_presetLastText = lastText;
 		Open(state, new[] { new StoryShowing { SceneId = "squad_report" } }, replay: true);
 	}
 
@@ -195,6 +199,7 @@ public partial class StoryPopup : Window
 
 	private void Open(GameState state, IEnumerable<StoryShowing> scenes, bool replay)
 	{
+		SkippedAll = false;
 		_state = state;
 		_replay = replay;
 		_scenes.Clear();

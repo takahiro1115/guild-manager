@@ -433,7 +433,7 @@ public partial class ResearchPanel : ScrollContainer
 			return;
 		}
 
-		_detailBox.AddChild(MakeRichLabel($"必要資材：{BuildCostLine(research)}"));
+		_detailBox.AddChild(MakeRichLabel($"必要資材（必要数/現在値）：{BuildCostLine(research)}"));
 		_detailBox.AddChild(MakeRichLabel($"期間：{research.Weeks} 週[color=gray]（研究の手伝いで最大 {ResearchSystem.MaxShortenWeeks(research)} 週縮む）[/color]"));
 		if (ResearchSystem.InProgress(_state) is { } doing)
 			_detailBox.AddChild(MakeRichLabel($"[color=gray]いまは「{doing.Name}」を研究中（あと {_state.ResearchInProgress!.WeeksRemaining} 週）。研究室で進められる研究は1つずつ。[/color]"));
@@ -528,11 +528,11 @@ public partial class ResearchPanel : ScrollContainer
 		vbox.AddChild(MakeRow("触媒", catalystOption));
 
 		var nyx = SoulFusionSystem.GetNyxTier(a.JobClass, b.JobClass);
-		string goldPart = $"{_state.Gold}/{SoulFusionBalance.PrescriptionGold}G";
+		string goldPart = $"{SoulFusionBalance.PrescriptionGold}/{_state.Gold}G";
 		if (_state.Gold < SoulFusionBalance.PrescriptionGold)
 			goldPart = $"[color=red]{goldPart}[/color]";
 		vbox.AddChild(MakeRichLabel(
-			$"費用：{goldPart}　能力限界突破の確率：{SoulFusionSystem.GetBreakthroughChance(nyx, _selectedCatalystId)}%"));
+			$"費用（必要/所持）：{goldPart}　能力限界突破の確率：{SoulFusionSystem.GetBreakthroughChance(nyx, _selectedCatalystId)}%"));
 
 		var check = SoulFusionSystem.CheckPrescription(_state, a, b, job, _selectedCatalystId);
 		var button = new Button { Text = "秘薬を処方する", Disabled = check != SoulFusionCheck.Ok || _soulFusionSystem == null };
@@ -588,15 +588,15 @@ public partial class ResearchPanel : ScrollContainer
 		var recipe = ElixirBalance.Recipes[_selectedElixirIndex];
 		vbox.AddChild(MakeRichLabel($"[color=gray]{recipe.Description}[/color]"));
 
-		string goldPart = $"{_state.Gold}/{recipe.RequiredGold}G";
+		string goldPart = $"{recipe.RequiredGold}/{_state.Gold}G";
 		if (_state.Gold < recipe.RequiredGold) goldPart = $"[color=red]{goldPart}[/color]";
 		var materialParts = recipe.RequiredMaterials.Select(kv =>
 		{
 			int have = _state.Materials.TryGetValue(kv.Key, out int count) ? count : 0;
-			string part = $"{MaterialBalance.GetName(kv.Key)}: {have}/{kv.Value}";
+			string part = $"{MaterialBalance.GetName(kv.Key)}: {kv.Value}/{have}";
 			return have < kv.Value ? $"[color=red]{part}[/color]" : part;
 		});
-		vbox.AddChild(MakeRichLabel($"必要資材：{string.Join("、", new[] { goldPart }.Concat(materialParts))}"));
+		vbox.AddChild(MakeRichLabel($"必要資材（必要数/現在値）：{string.Join("、", new[] { goldPart }.Concat(materialParts))}"));
 
 		var check = ElixirSystem.Check(_state, target, recipe.Id);
 		var button = new Button { Text = "調合して飲ませる", Disabled = check != ElixirCheck.Ok };
@@ -754,17 +754,17 @@ public partial class ResearchPanel : ScrollContainer
 		return row;
 	}
 
-	/// <summary>「月光草: 3/5」のような充足状況の文字列。不足している項目は赤字にする。</summary>
+	/// <summary>「月光草: 5/3」（必要数/今の数）のような充足状況の文字列。不足している項目は赤字にする。</summary>
 	private string BuildCostLine(ResearchDefinition research)
 	{
-		string goldPart = $"{_state.Gold}/{research.RequiredGold}G";
+		string goldPart = $"{research.RequiredGold}/{_state.Gold}G";
 		if (_state.Gold < research.RequiredGold)
 			goldPart = $"[color=red]{goldPart}[/color]";
 
 		var materialParts = research.RequiredMaterials.Select(kv =>
 		{
 			int have = _state.Materials.TryGetValue(kv.Key, out int count) ? count : 0;
-			string part = $"{MaterialBalance.GetName(kv.Key)}: {have}/{kv.Value}";
+			string part = $"{MaterialBalance.GetName(kv.Key)}: {kv.Value}/{have}";
 			return have < kv.Value ? $"[color=red]{part}[/color]" : part;
 		});
 

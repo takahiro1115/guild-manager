@@ -15,6 +15,8 @@ namespace GuildManager.Core.Systems
         Bond, Brawl,
         Boycott, Refuse, Charge, Flee,
         PoachLeft,
+        /// <summary>打ち解けた（§0.151。セーブの値がずれないよう最後に足した）。</summary>
+        Warm,
     }
 
     /// <summary>
@@ -115,6 +117,16 @@ namespace GuildManager.Core.Systems
                             SatisfactionSystem.Adjust(x, PersonalityBalance.BondSatisfaction);
                             SatisfactionSystem.Adjust(y, PersonalityBalance.BondSatisfaction);
                             events.Add(new IncidentEvent(IncidentKind.Bond, $"🌸 {x.Name}と{y.Name}が休日に街へ出かけ、絆を深めた（相性+{PersonalityBalance.BondCompatGain}）", true, x.Id, y.Id));
+                        }
+                        else if (compat >= CompatibilityBalance.HostileThreshold && PersonalityBalance.WarmChancePercent > 0) // 0なら乱数も引かない（§0.151 の案は保留）
+                        {
+                            // 打ち解けた（§0.151）：一緒の任務では相性が上がらないので、ふだんの相性はこの出来事で上がる（素地の帯で上がり方が変わる）
+                            if (rng.NextInt(1, 100) > PersonalityBalance.WarmChancePercent) continue;
+                            int gain = (int)Math.Round(PersonalityBalance.WarmCompatGain * MoraleSystem.GainMultiplier(MoraleSystem.BandOf(x, y)), MidpointRounding.AwayFromZero);
+                            ChangeCompat(state, x, y, gain);
+                            SatisfactionSystem.Adjust(x, PersonalityBalance.WarmSatisfaction);
+                            SatisfactionSystem.Adjust(y, PersonalityBalance.WarmSatisfaction);
+                            events.Add(new IncidentEvent(IncidentKind.Warm, $"☕ {x.Name}と{y.Name}が、野営の夜に打ち解けた（相性+{gain}）", true, x.Id, y.Id));
                         }
                         else if (compat < CompatibilityBalance.HostileThreshold)
                         {

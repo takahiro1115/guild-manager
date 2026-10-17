@@ -372,7 +372,7 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
-        public void Expedition_TraversalAdvance_RaisesPairCompatibilityByOne()
+        public void Expedition_TraversalAdvance_RaisesPairCompatibilityByTheTable()
         {
             var far = new FloorBoss { Name = "遠くのボス", Floor = 50, MaxHp = 1, CurrentHp = 1 };
             var field = new DungeonField { Id = "forest", Name = "森", Order = 1, IsUnlocked = true, Bosses = { far } };
@@ -383,12 +383,12 @@ namespace GuildManager.Core.Tests
             var resolution = Assert.Single(system.ProcessWeeklyMissions(state));
 
             Assert.True(resolution.TraversalResult!.FloorAfter > resolution.TraversalResult.FloorBefore);
-            Assert.Equal(1, resolution.CompatibilityGain);
-            Assert.Equal(CompatibilityBalance.InitialValue + 1, CompatibilitySystem.GetCompatibility(state, a.Id, b.Id));
+            Assert.Equal(CompatibilityBalance.ExpeditionGainTraversal, resolution.CompatibilityGain); // §0.151 から0（一緒にいるだけでは上がらない）
+            Assert.Equal(CompatibilityBalance.InitialValue + CompatibilityBalance.ExpeditionGainTraversal, CompatibilitySystem.GetCompatibility(state, a.Id, b.Id));
         }
 
         [Fact]
-        public void Expedition_Gathering_WithMaterials_RaisesPairCompatibilityByOne()
+        public void Expedition_Gathering_WithMaterials_RaisesPairCompatibilityByTheTable()
         {
             var field = new DungeonField { Id = "forest", Name = "森", Order = 1, IsUnlocked = true, ReachedFloor = 1 };
             var (state, a, b) = StateWithPair(40, field);
@@ -398,12 +398,12 @@ namespace GuildManager.Core.Tests
             var resolution = Assert.Single(system.ProcessWeeklyMissions(state));
 
             Assert.True(resolution.GatheringResult!.MaterialCount >= 1);
-            Assert.Equal(1, resolution.CompatibilityGain);
-            Assert.Equal(CompatibilityBalance.InitialValue + 1, CompatibilitySystem.GetCompatibility(state, a.Id, b.Id));
+            Assert.Equal(CompatibilityBalance.ExpeditionGainGathering, resolution.CompatibilityGain);
+            Assert.Equal(CompatibilityBalance.InitialValue + CompatibilityBalance.ExpeditionGainGathering, CompatibilitySystem.GetCompatibility(state, a.Id, b.Id));
         }
 
         [Theory]
-        [InlineData(200, true)]   // 護衛十分以上 → +1
+        [InlineData(200, true)]   // 護衛十分以上 → 表の値（§0.151 から0）
         [InlineData(1, false)]    // 護衛不足（潰走）→ 上昇しない
         public void Expedition_Survey_RaisesCompatibility_OnlyWhenNotRouted(int stat, bool expectRaise)
         {
@@ -416,8 +416,8 @@ namespace GuildManager.Core.Tests
             var resolution = Assert.Single(system.ProcessWeeklyMissions(state));
 
             Assert.Equal(expectRaise, resolution.ScoutingResult!.GuardTier != GuardTier.Deficient);
-            Assert.Equal(expectRaise ? 1 : 0, resolution.CompatibilityGain);
-            Assert.Equal(CompatibilityBalance.InitialValue + (expectRaise ? 1 : 0), CompatibilitySystem.GetCompatibility(state, a.Id, b.Id));
+            Assert.Equal(expectRaise ? CompatibilityBalance.ExpeditionGainSurvey : 0, resolution.CompatibilityGain);
+            Assert.Equal(CompatibilityBalance.InitialValue + (expectRaise ? CompatibilityBalance.ExpeditionGainSurvey : 0), CompatibilitySystem.GetCompatibility(state, a.Id, b.Id));
         }
 
         // ---------------- アルベールの激怒（強制除籍1名につき機嫌−20、2026年9月新設） ----------------

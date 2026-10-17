@@ -20,11 +20,6 @@ TemperamentMismatch,-1,pt,同：構えが気質と反対の向き（「とても
 TemperamentBoldInjury,-5,pt,同：強気の構えの決戦で重傷を負った慎重寄りの子
 RevealLikely,4,回,見立て（§0.100）：その志向のきっかけをこの回数見ると「〜らしい」と分かる（目利きで減る。魂魄融和の娘は半分）
 RevealSure,8,回,見立て：この回数で確か
-FocusSlots,2,人,副官の注目（§0.117）：同時に注目できる人数
-FocusSlotsExtra,1,人,同：ギルドが育つと（倒した階層ボスが FocusExtraBosses 体以上）増える人数
-FocusExtraBosses,20,体,同：注目できる人数が増える、倒した階層ボスの総数（全フィールドの合計）
-FocusExposureMultiplier,2,倍,同：注目している子は、きっかけを見た回数をこの倍で数える
-FocusMonthlyReveals,1,回,同：注目している子は、月の最後の週に、まだ確かでない主志向・副志向・苦手・気質（中庸でなければ）をこの回数ぶん数える（主志向から順に）
 HintTruthPercent,75,%,採用の一言が主志向を言い当てる確率（外れのときはほかの志向を匂わせる）
 MoraleCheerfulEnter,80,pt,満足度の段階（§0.101）：この値以上で上機嫌
 MoraleCheerfulExit,75,pt,同：上機嫌はこの値未満に下がると抜ける（のりしろ）
@@ -88,6 +83,9 @@ PumpedPowerBonus,0.05,倍,張り切り：次に出た週の力の上乗せ
 BondChancePercent,3,%,休日の絆：同じ部隊の相棒の2人に起きる確率（週ごと・組ごと）
 BondCompatGain,3,pt,同：相性
 BondSatisfaction,5,pt,同：2人の満足度
+WarmChancePercent,0,%,打ち解けた（§0.151）：同じ部隊の、相棒でも険悪でもない2人に起きる確率（週ごと・組ごと）。一緒の任務では相性が上がらなくなったので、ふだんの相性はこれで上がる（0なら起きず乱数も引かない。案は保留：3%・+4 で機嫌の危機と負けが増えたため、原因を調べてから入れ直す）
+WarmCompatGain,4,pt,同：相性（素地の帯の倍率を掛ける）
+WarmSatisfaction,2,pt,同：2人の満足度
 BrawlChancePercent,4,%,宿舎の衝突：同じ部隊の険悪な2人に起きる確率（素地の帯の下がり方を掛ける）
 BrawlCompatLoss,5,pt,同：相性（2人とも軽傷で1週出撃できない）
 PoachDeadlineWeeks,2,週,引き抜きの話（限界の子・ライバルギルドから）：この週数のうちに応えないと移籍する

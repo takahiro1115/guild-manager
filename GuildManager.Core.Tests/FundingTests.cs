@@ -283,19 +283,23 @@ namespace GuildManager.Core.Tests
         }
 
         /// <summary>
-        /// §0.115：初めて話が届いた月の月報のあとにスポンサーの場面。手引きは話が無くなる（結ぶ・断る・流れる）と済む。
+        /// §0.115：初めて話が届いた月にスポンサーの場面（§0.151 から月報の前）。手引きは話が無くなる（結ぶ・断る・流れる）と済む。
         /// §0.140：スポンサーの話はイザベラが持ってくる（帳簿の場面を見たあとの、最初の話の月）。
         /// </summary>
         [Fact]
         public void SponsorScene_OnTheFirstOfferAfterTheLedger_GuideDoneWhenNoOfferIsLeft()
         {
             var state = State(week: FundingBalance.SponsorFirstWeek - 1);
-            Assert.DoesNotContain("s02_sponsor", StorySystem.DueScenes(state, StoryTiming.AfterReport).Select(s => s.SceneId));
+            Assert.DoesNotContain("s02_sponsor", StorySystem.DueScenes(state, StoryTiming.BeforeReport).Select(s => s.SceneId));
             state.WeekNumber = FundingBalance.SponsorFirstWeek;
             FundingSystem.ProcessNewWeek(state, new SeededRng(1));
-            Assert.DoesNotContain("s02_sponsor", StorySystem.DueScenes(state, StoryTiming.AfterReport).Select(s => s.SceneId)); // 帳簿の前は出さない
+            Assert.DoesNotContain("s02_sponsor", StorySystem.DueScenes(state, StoryTiming.BeforeReport).Select(s => s.SceneId)); // 帳簿の前は出さない
             StorySystem.MarkSeen(state, "s02_ledger");
-            Assert.Contains("s02_sponsor", StorySystem.DueScenes(state, StoryTiming.AfterReport).Select(s => s.SceneId));
+            Assert.DoesNotContain("s02_sponsor", StorySystem.DueScenes(state, StoryTiming.BeforeReport).Select(s => s.SceneId)); // 帳簿と同じ月報では、次の月報まで待つ
+            state.WeekNumber++;
+            // §0.151：話の載った月報より前に出す（月報のあとではない）
+            Assert.DoesNotContain("s02_sponsor", StorySystem.DueScenes(state, StoryTiming.AfterReport).Select(s => s.SceneId));
+            Assert.Contains("s02_sponsor", StorySystem.DueScenes(state, StoryTiming.BeforeReport).Select(s => s.SceneId));
             StorySystem.MarkSeen(state, "s02_sponsor");
 
             Assert.False(GuideSystem.Groups(state).Single(g => g.SceneId == "s02_sponsor").AllDone);

@@ -228,6 +228,145 @@ namespace GuildManager.Core.Tests
             Assert.Contains("s01_hunter", Ids(state, StoryTiming.AfterReport));
         }
 
+        /// <summary>森の10F・20Fの番人を倒した部隊で、部隊長がその子になるようにして勝ったことにする（§0.151）。</summary>
+        private static void WinForestBoss(GameState state, int floor, Adventurer leader, params Adventurer[] others)
+        {
+            var party = new Party();
+            party.TryAdd(leader);
+            foreach (var o in others) party.TryAdd(o);
+            var boss = Forest(state, floor);
+            boss.IsDefeated = true;
+            var result = new WeeklySettlementResult();
+            result.DungeonMissionResolutions.Add(new DungeonMissionResolution(party, boss, state.DungeonFields.First(f => f.Id == "forest"), 0.5,
+                new DungeonResult { Outcome = DungeonOutcome.Victory }));
+            StorySystem.ProcessWeek(state, result);
+        }
+
+        private static StoryShowing Due(GameState state, string sceneId) =>
+            Assert.Single(StorySystem.DueScenes(state, StoryTiming.AfterReport), s => s.SceneId == sceneId);
+
+        [Theory]
+        [InlineData(-2, "確かめに行きました")]
+        [InlineData(0, "行ってみたら")]
+        [InlineData(2, "ぶっ倒した")]
+        public void Forest10_TheLeaderWhoBeatTheBoss_Reports_InTheirTemper(int temperament, string phrase)
+        {
+            // §0.151：森の10Fの知らせは、番人を倒した部隊の部隊長が話す（気質で3通り）。顔は冒険者の顔
+            var state = NewGame();
+            var leader = new Adventurer { Name = "マリー", PortraitId = "adv_010", Personality = new Personality { Temperament = temperament } };
+            state.Adventurers.Add(leader);
+            WinForestBoss(state, 10, leader, Starter(state, "claudia"));
+
+            var scene = Due(state, "s01_forest10");
+            var lines = scene.Pages.SelectMany(p => p).ToList();
+            var speech = lines.Where(l => l.Kind == StoryLineKind.Speech && l.Speaker == "マリー").ToList();
+            Assert.Equal(2, speech.Count);
+            Assert.Contains(speech, l => l.Text.Contains(phrase));
+            Assert.DoesNotContain(lines, l => l.Text.Contains("{") || l.Speaker.Contains("{") || l.Speaker == "クラウディア");
+            Assert.Contains(lines, l => l.Text.Contains("マリーが差し出した"));
+            Assert.DoesNotContain(lines, l => l.Text.StartsWith("主の巣の奥から、かすかな声")); // 元の地の文は出さない
+            var step = StorySystem.StepsOf(scene).First(s => s.Line.Speaker == "マリー");
+            Assert.Equal("res://assets/portraits/adv_010.png", step.PortraitFile);
+        }
+
+        [Fact]
+        public void Lumina_StarterLeader_SpeaksTheirOwnLines_AndTheFirstWinnerIsKept()
+        {
+            var state = NewGame();
+            var rina = Starter(state, "rina");
+            WinForestBoss(state, 20, rina);
+            WinForestBoss(state, 20, Starter(state, "fiona")); // 2度目の勝ちでは替わらない
+            Assert.Same(rina, StorySystem.BossLeader(state, 20));
+
+            var lines = Due(state, "s01_lumina").Pages.SelectMany(p => p).ToList();
+            Assert.Equal(2, lines.Count(l => l.Kind == StoryLineKind.Speech && l.Speaker == "リナ"));
+            Assert.DoesNotContain(lines, l => l.Speaker == "フィオナ" || l.Text.Contains("{"));
+            Assert.Contains(lines, l => l.Text.Contains("リナの肩に"));
+        }
+
+        [Fact]
+        public void Forest10_WithoutARecordedLeader_KeepsTheNarration()
+        {
+            // 旧セーブ（倒した部隊長の記録が無い）は元の地の文
+            var state = NewGame();
+            Forest(state, 10).IsDefeated = true;
+            var lines = Due(state, "s01_forest10").Pages.SelectMany(p => p).ToList();
+            Assert.Contains(lines, l => l.Text.StartsWith("主の巣の奥から、かすかな声"));
+            Assert.DoesNotContain(lines, l => l.Kind == StoryLineKind.Speech && l.Text.Contains("たすけて"));
+            Assert.DoesNotContain(lines, l => l.Text.Contains("{") || l.Speaker.Contains("{"));
+        }
+
+        [Fact]
+        public void PersonalityScene_AfterTheFirstQuestion_WhenSomeoneIsFirstKnown()
+        {
+            // §0.151：誰かの志向か気質が初めて「〜らしい」と分かった月（ルミナの最初の質問より後の月報）
+            var state = NewGame();
+            var claudia = Starter(state, "claudia");
+            claudia.Personality!.Exposure.Clear();
+            foreach (var a in state.Adventurers) a.Personality?.Exposure.Clear();
+            state.StorySeenWeeks["s01_question"] = state.WeekNumber;
+            claudia.Personality.Exposure[claudia.Personality.Main.ToString()] = PersonalityBalance.RevealLikely;
+            Assert.DoesNotContain("s01_personality", Ids(state, StoryTiming.AfterReport)); // 最初の質問と同じ月報では出さない
+
+            state.WeekNumber += GameCalendar.WeeksPerMonth;
+            claudia.Personality.Exposure.Clear();
+            Assert.DoesNotContain("s01_personality", Ids(state, StoryTiming.AfterReport)); // まだ誰も分かっていない
+            claudia.Personality.Exposure[PersonalitySystem.TemperamentKey] = PersonalityBalance.RevealLikely;
+            var scene = Assert.Single(StorySystem.DueScenes(state, StoryTiming.AfterReport), s => s.SceneId == "s01_personality");
+            Assert.Contains(Texts(scene), t => t.Contains("志向、というのよ"));
+            Assert.Contains(scene.Pages.SelectMany(p => p), l => l.Kind == StoryLineKind.GuideNote && l.Text.Contains("8回で確か"));
+        }
+
+        [Fact]
+        public void OldSave_WithSomeoneAlreadyKnown_MarksThePersonalitySceneSeen()
+        {
+            var state = NewGame();
+            var claudia = Starter(state, "claudia");
+            claudia.Personality!.Exposure[claudia.Personality.Main.ToString()] = PersonalityBalance.RevealSure;
+            var node = System.Text.Json.Nodes.JsonNode.Parse(System.Text.Json.JsonSerializer.Serialize(state.ToSaveData()))!;
+            node["StoryRulesVersion"] = 7; // §0.151 より前のセーブ
+            var restored = GameState.FromSaveData(System.Text.Json.JsonSerializer.Deserialize<SaveData>(node.ToJsonString())!);
+            Assert.True(StorySystem.Seen(restored, "s01_personality"));
+        }
+
+        private static void StallAt(GameState state, FloorBoss boss, string fieldId)
+        {
+            var result = new WeeklySettlementResult();
+            result.DungeonMissionResolutions.Add(new DungeonMissionResolution(new Party(), boss, state.DungeonFields.First(f => f.Id == fieldId), 0.5,
+                new DungeonResult { Outcome = DungeonOutcome.Retreat, WinChance = 0.4 }));
+            StorySystem.ProcessWeek(state, result);
+        }
+
+        [Fact]
+        public void Detour_AfterForest40_TwoStallsAtTheSameWarden_RecommendsTheEasiestOtherField()
+        {
+            // §0.151：森の40Fのあと、同じ番人の前で2回つまずくと、ルミナが別の迷宮を勧める（一度だけ）
+            var state = NewGame();
+            state.StorySeenWeeks["s01_hunter"] = 0;
+            foreach (int floor in new[] { 10, 20, 30 }) Forest(state, floor).IsDefeated = true;
+            var forest40 = Forest(state, 40);
+            StallAt(state, forest40, "forest");
+            StallAt(state, forest40, "forest"); // 40Fを倒す前のつまずきは数えない
+            Assert.DoesNotContain("s01_detour", Ids(state, StoryTiming.AfterReport));
+
+            forest40.IsDefeated = true;
+            var cave = state.DungeonFields.First(f => f.Id == "cave");
+            cave.IsUnlocked = true;
+            var forest50 = Forest(state, 50);
+            StallAt(state, forest50, "forest");
+            Assert.DoesNotContain("s01_detour", Ids(state, StoryTiming.AfterReport)); // 1回ではまだ
+            StallAt(state, forest50, "forest");
+
+            var scene = Assert.Single(StorySystem.DueScenes(state, StoryTiming.AfterReport), s => s.SceneId == "s01_detour");
+            var texts = Texts(scene);
+            Assert.Contains(texts, t => t.Contains("翠緑の原生林の50階の番人"));
+            Assert.Contains(texts, t => t.Contains($"{cave.Name}の番人なら"));
+            Assert.DoesNotContain(texts, t => t.Contains("{"));
+            StorySystem.MarkSeen(state, "s01_detour");
+            Assert.DoesNotContain("s01_detour", Ids(state, StoryTiming.AfterReport));
+            Assert.Contains($"{cave.Name}の番人なら", string.Join("", Texts(StorySystem.Replay(state, "s01_detour")))); // 見返しても同じ迷宮
+        }
+
         [Fact]
         public void Hunter_DoesNotCountWins()
         {
@@ -262,7 +401,11 @@ namespace GuildManager.Core.Tests
             new IsabellaSystem(new AlwaysMaxRng()).ResolveWeek(state); // 負ける
             state.WeekNumber = 9;
             var shown = Show(state, StoryTiming.AfterReport);
-            Assert.Equal(new[] { "s02_lost", "s02_advice", "s02_tournaments" }, shown.Where(id => id.StartsWith("s02")).ToArray());
+            Assert.Equal(new[] { "s02_lost", "s02_advice" }, shown.Where(id => id.StartsWith("s02")).ToArray());
+
+            // 「ひと月後」の大会の話は、次の月の月報のあと（§0.151。前は助言のすぐあとに続いていた）
+            state.WeekNumber = 13;
+            Assert.Contains("s02_tournaments", Show(state, StoryTiming.AfterReport));
         }
 
         [Fact]
@@ -289,7 +432,7 @@ namespace GuildManager.Core.Tests
             new IsabellaSystem(new AlwaysMinRng()).ResolveWeek(state); // 勝つ
             state.WeekNumber = 9;
             var shown = Show(state, StoryTiming.AfterReport).Where(id => id.StartsWith("s02")).ToArray();
-            Assert.Equal(new[] { "s02_visit", "s02_won", "s02_advice", "s02_marguerite", "s02_tournaments" }, shown);
+            Assert.Equal(new[] { "s02_visit", "s02_won", "s02_advice", "s02_marguerite" }, shown);
 
             var result = new WeeklySettlementResult { GuestTrainer = new GuestTrainerChange { Left = new Adventurer { Name = "マルグリット" } } };
             StorySystem.ProcessWeek(state, result);
@@ -536,10 +679,14 @@ namespace GuildManager.Core.Tests
             var state = NewGame();
             var (claudia, fiona) = (Starter(state, "claudia"), Starter(state, "fiona"));
             var culture = AddCulture(state, claudia, fiona, 0);
-            Assert.Contains("s03_culture", Ids(state, StoryTiming.AfterReport));
+            Assert.Contains("s03_culture", Show(state, StoryTiming.Interactive)); // 処方した直後（§0.151）
+            Assert.DoesNotContain("s03_culture", Ids(state, StoryTiming.AfterReport));
             Assert.DoesNotContain("s03_daughter", Ids(state, StoryTiming.AfterReport));
 
+            // 月のはじめに処方して月を終えても、培養槽の場面と同じ週には続けて出さない（§0.151）
             culture.WeeksRemaining -= GameCalendar.WeeksPerMonth;
+            Assert.DoesNotContain("s03_daughter", Ids(state, StoryTiming.AfterReport));
+            state.WeekNumber += GameCalendar.WeeksPerMonth;
             var scene = Assert.Single(StorySystem.DueScenes(state, StoryTiming.AfterReport), s => s.SceneId == "s03_daughter");
             var texts = Texts(scene);
             Assert.Contains(texts, t => t.Contains($"{claudia.Name}さんと{fiona.Name}さんの娘"));
@@ -558,6 +705,7 @@ namespace GuildManager.Core.Tests
             state.Adventurers.AddRange(outsiders);
             AddCulture(state, outsiders[0], outsiders[1], GameCalendar.WeeksPerMonth);
             Assert.Equal(fiona, StorySystem.DaughterWitness(state)); // 母が初期の3人でなければフィオナ
+            state.StorySeenWeeks["s03_culture"] = 0; // 培養槽の場面は前の週に見た
 
             state.SoulFusionCultures.Clear();
             AddCulture(state, fiona, outsiders[0], GameCalendar.WeeksPerMonth);

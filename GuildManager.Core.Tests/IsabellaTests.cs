@@ -166,7 +166,7 @@ namespace GuildManager.Core.Tests
         // ---------------- 最初の交流戦 ----------------
 
         [Fact]
-        public void FirstExchange_Lost_OpensTrainingFacility_AndTournamentsFromNextMonth()
+        public void FirstExchange_Lost_OpensTrainingFacility_AndTournamentsFromTheMonthAfterNext()
         {
             var (state, ev) = Visited();
             state.WeekNumber = 8; // 2の月 第4週
@@ -178,19 +178,19 @@ namespace GuildManager.Core.Tests
             Assert.NotNull(ev.Result);
             Assert.False(state.GuestTrainerPending); // 負けたら教官は来ない
             Assert.Equal(1, state.ExchangeMatchesPlayed);
-            Assert.Equal(9, state.TournamentCalendarFromWeek);
+            Assert.Equal(13, state.TournamentCalendarFromWeek); // 次の月を1つ空ける（§0.151。「ひと月後」の大会の話と合わせる）
             Assert.NotNull(outcome.OpenedFacility);
             Assert.Equal("Isabella", outcome.OpenedFacility!.Style);
             Assert.Equal(1, FacilityUnlockSystem.GetUnlockedLevel(state, outcome.OpenedFacility.Facility));
             Assert.Equal(1, FacilityUnlockSystem.TrainingFacilities.Count(t => FacilityUnlockSystem.GetUnlockedLevel(state, t) == 1));
             Assert.DoesNotContain("{", outcome.OpenedFacility.Line);
 
-            // 次の月から大会の暦（その年の、それより前の大会は置かない）
-            state.WeekNumber = 9;
+            // 次の次の月から大会の暦（その年の、それより前の大会は置かない）
+            state.WeekNumber = 13;
             TournamentSystem.EnsureSchedule(state);
             var year1 = TournamentSystem.EventsOfYear(state, 1).Where(e => e.Kind != TournamentKind.Exchange).ToList();
             Assert.NotEmpty(year1);
-            Assert.All(year1, e => Assert.True(GameCalendar.WeekNumberOf(e.Year, e.Month, e.Week) >= 9));
+            Assert.All(year1, e => Assert.True(GameCalendar.WeekNumberOf(e.Year, e.Month, e.Week) >= 13));
             Assert.DoesNotContain(year1, e => e.Kind == TournamentKind.Rookie); // 新人戦（春1の月）は翌年から
             Assert.Contains(year1, e => e.Kind == TournamentKind.Final);
         }

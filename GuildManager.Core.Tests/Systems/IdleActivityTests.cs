@@ -339,10 +339,24 @@ namespace GuildManager.Core.Tests.Systems
             Assert.True(ResearchSystem.StartResearch(state, research));
 
             int weeks = 0;
-            while (ResearchSystem.ProcessWeek(state) == null) weeks++;
+            while (ResearchSystem.ProcessWeek(state) == null)
+            {
+                weeks++;
+                Assert.Equal(10_000 - Math.Min(weeks, max) * TrainingBalance.ResearchCreditPerWeek, state.ResearchCredit);
+            }
             weeks++;
             Assert.Equal(research.Weeks - max, weeks);
-            Assert.Equal(10_000 - max * TrainingBalance.ResearchCreditPerWeek, state.ResearchCredit);
+        }
+
+        [Fact]
+        public void Credit_IsResetToZero_WhenTheResearchCompletes()
+        {
+            // §0.151：研究の手伝いは、その研究のためのもの。余った分は次の研究へ持ち越さない
+            var research = ResearchBalance.Find(ResearchIds.HerbPoultice)!;
+            var state = ReadyFor(research, credit: 10_000);
+            Assert.True(ResearchSystem.StartResearch(state, research));
+            while (ResearchSystem.ProcessWeek(state) == null) { }
+            Assert.Equal(0, state.ResearchCredit);
         }
 
         [Fact]

@@ -356,6 +356,20 @@ namespace GuildManager.Core.Tests
             Assert.True(party.ResumeDiveAfterSurvey);
             var plan = Assert.Single(Assert.Single(restored.MonthlyReports).Plans);
             Assert.Equal(PlanChoice.Survey, Assert.Single(plan.Options).Choice);
+            Assert.Null(plan.Chosen); // 選ぶ前（旧セーブも）
+        }
+
+        [Fact]
+        public void ChosenPlan_RoundTripsInTheSave()
+        {
+            // §0.151：部隊長の報告の場で選んだ手は、月報の見返しで結果の1行にするので、セーブに残す
+            var (state, saved, _, _) = Setup();
+            state.MonthlyReports.Add(new MonthlyReport
+            {
+                Plans = { new MonthlyPlan { PartyId = saved.Id, PartyName = "主力", Chosen = PlanChoice.OtherBoss, Options = { new PlanOption { Choice = PlanChoice.OtherBoss, Label = "別の主を狙う" } } } },
+            });
+            var restored = GameState.FromSaveData(JsonSerializer.Deserialize<SaveData>(JsonSerializer.Serialize(state.ToSaveData()))!);
+            Assert.Equal(PlanChoice.OtherBoss, Assert.Single(Assert.Single(restored.MonthlyReports).Plans).Chosen);
         }
     }
 }

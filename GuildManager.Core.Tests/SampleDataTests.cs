@@ -114,7 +114,7 @@ namespace GuildManager.Core.Tests
 
         /// <summary>
         /// §0.139：初期の3人は若めに始め、イザベラの来訪（森の60F、4〜5年目）のころまで在籍する。
-        /// 年の順（クラウディア＞フィオナ＞リナ）は保ち、クラウディアは6年目の年末に満期を迎える。
+        /// 年の順（クラウディア≧フィオナ＞リナ）は保ち、クラウディアは7年目の年末に満期を迎える（§0.151 で19歳に。フィオナと同い年）。
         /// </summary>
         [Fact]
         public void StarterAdventurers_StayUntilAroundIsabellasVisit()
@@ -124,10 +124,10 @@ namespace GuildManager.Core.Tests
             var fiona = list.Single(a => a.Name == "フィオナ");
             var rina = list.Single(a => a.Name == "リナ");
 
-            Assert.True(claudia.Age > fiona.Age && fiona.Age > rina.Age);
+            Assert.True(claudia.Age >= fiona.Age && fiona.Age > rina.Age);
             Assert.True(rina.Age >= GuildManager.Core.Balance.RecruitmentBalance.MinCandidateAge);
             int claudiaYears = GuildManager.Core.Systems.AgingSystem.GetRemainingActiveWeeks(claudia, 1) / GameCalendar.WeeksPerYear;
-            Assert.Equal(6, claudiaYears);
+            Assert.Equal(7, claudiaYears);
         }
     }
 }

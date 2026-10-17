@@ -15,14 +15,14 @@ GoldRateEpic,20,%,金：換金率
 EquipmentRateLegendary,60,%,虹：武具率
 MaterialRateLegendary,25,%,虹：素材率
 GoldRateLegendary,15,%,虹：換金率
-GoldRewardMinCommon,60,G,銅：換金だった場合の獲得ゴールド下限（鑑定費用100Gに対し赤字もあり得る）
-GoldRewardMaxCommon,160,G,銅：同上の上限
-GoldRewardMinRare,180,G,銀：換金だった場合の獲得ゴールド下限
-GoldRewardMaxRare,420,G,銀：同上の上限
-GoldRewardMinEpic,420,G,金：換金だった場合の獲得ゴールド下限
-GoldRewardMaxEpic,900,G,金：同上の上限
-GoldRewardMinLegendary,1100,G,虹：換金だった場合の獲得ゴールド下限
-GoldRewardMaxLegendary,2600,G,虹：同上の上限
+GoldRewardMinCommon,120,G,銅：換金だった場合の獲得ゴールド下限（鑑定費用より高くする。古代硬貨で赤字にならないように、2026-10-18 で60→120）
+GoldRewardMaxCommon,200,G,銅：同上の上限
+GoldRewardMinRare,300,G,銀：換金だった場合の獲得ゴールド下限
+GoldRewardMaxRare,500,G,銀：同上の上限
+GoldRewardMinEpic,600,G,金：換金だった場合の獲得ゴールド下限
+GoldRewardMaxEpic,1100,G,金：同上の上限
+GoldRewardMinLegendary,1500,G,虹：換金だった場合の獲得ゴールド下限
+GoldRewardMaxLegendary,3000,G,虹：同上の上限
 MaterialCountMinCommon,1,個,銅：素材だった場合の獲得個数下限
 MaterialCountMaxCommon,3,個,銅：同上の上限
 MaterialCountMinRare,3,個,銀：素材だった場合の獲得個数下限

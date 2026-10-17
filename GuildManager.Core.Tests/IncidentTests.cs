@@ -89,6 +89,7 @@ namespace GuildManager.Core.Tests
 
             Assert.Contains(events, e => e.Kind == IncidentKind.Quarrel);
             int loss = (int)Math.Round(PersonalityBalance.QuarrelCompatLoss * MoraleSystem.LossMultiplier(MoraleSystem.BandOf(a, mate)), MidpointRounding.AwayFromZero); // 2人とも素地0＝共鳴
+            Assert.DoesNotContain(events, e => e.Kind == IncidentKind.Warm); // 打ち解けた（§0.151）は保留中で起きない
             Assert.Equal(50 - loss, CompatibilitySystem.GetCompatibility(state, a.Id, mate.Id));
             Assert.Equal(30 + PersonalityBalance.QuarrelSatisfaction, a.Satisfaction);
         }
@@ -103,7 +104,7 @@ namespace GuildManager.Core.Tests
             SetCompat(state, senior, junior, 50);
 
             // 先輩：起きる→面倒（いちばん目）。後輩：ふつうの子は起きない（100を引く）
-            var events = Week(state, new SequenceRng(1, 1, 100), out _);
+            var events = Week(state, new SequenceRng(1, 1, 100, 100), out _); // 4つ目＝2人の出来事（打ち解けた、§0.151）は起きない
 
             var ev = Assert.Single(events);
             Assert.Equal(IncidentKind.Mentor, ev.Kind);
