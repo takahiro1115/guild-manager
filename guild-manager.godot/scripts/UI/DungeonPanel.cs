@@ -370,6 +370,7 @@ public partial class DungeonPanel : ScrollContainer
 		sb.Append(intel >= RulerBalance.VesperaIntelCharmReveal
 			? $"魅了の閾値：MND {charm}（相棒のいない子は{charm + RulerBalance.VesperaLonelyThresholdBonus}）\n"
 			: $"魅了の閾値：[color=gray]？？？（解析{RulerBalance.VesperaIntelCharmReveal * 100:F0}%で分かる）[/color]\n");
+		sb.Append("[color=gray]MND の上げ方：学問所・待機の自主練（MND）や瞑想（静寂の泉）・叡智／統率の霊薬・MND の付いた装備[/color]\n");
 		sb.Append(intel >= RulerBalance.VesperaIntelStrengthReveal
 			? "強さ：" + string.Join("・", RulerSystem.VesperaWeapons.Select(d => $"{TournamentSystem.DisciplineLabel(d)}{RulerSystem.VesperaStrength(outpost, d):F0}")) + "\n"
 			: $"強さ：[color=gray]？？？（解析{RulerBalance.VesperaIntelStrengthReveal * 100:F0}%で分かる）[/color]\n");
