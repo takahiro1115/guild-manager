@@ -90,6 +90,9 @@ namespace GuildManager.Core.Systems
                 && s.WeekNumber / GameCalendar.WeeksPerSeason > (omen - 1) / GameCalendar.WeeksPerSeason),
             // ヴェスペラとの決闘（森の60Fで挑めるようになった・70Fの前哨戦で退かせた・100Fの決着。§0.142）
             new("s05_duel1", StoryTiming.AfterReport, s => Seen(s, "s01_lumina") && BossDefeated(s, "forest", 60)),
+            // 作戦会議（初めて戦った月、退かせられなかったとき。攻め方のヒントはここで初めて話す。初戦で退かせたら決闘 2 の最後に一言。§0.143）
+            // 招待と同じ月には出さない（招待の前に戦ってしまった月は、招待だけ。会議は次に戦った月）
+            new("s05_meet1", StoryTiming.AfterReport, s => SeenBefore(s, "s05_duel1") && DuelCount(s, RulerSystem.VesperaId) >= 1 && !BossDefeated(s, "forest", 70)),
             new("s05_duel2", StoryTiming.AfterReport, s => BossDefeated(s, "forest", 70)),
             new("s05_duel3", StoryTiming.AfterReport, s => BossDefeated(s, "forest", 100)),
             // ---- 台詞04 前兆・足跡・真相・エンディング（§0.89）。前兆も足跡も森→洞窟→廃墟→峡谷の順に、前の場面を待つ ----
@@ -329,6 +332,24 @@ namespace GuildManager.Core.Systems
         }
 
         /// <summary>
+        /// §0.143より前のセーブ：もう迷宮の主と戦ったことがあれば、その作戦会議を見たことにする
+        /// （前の決闘 1 で攻め方を聞いているので、読み込んだ月に会議が出たり、決闘 2 に初戦の一言が足されたりしないように）。
+        /// </summary>
+        public static void MarkStrategyMeetingsSeen(GameState state)
+        {
+            if (DuelCount(state, RulerSystem.VesperaId) >= 1)
+                state.StorySeenWeeks.TryAdd("s05_meet1", state.WeekNumber);
+        }
+
+        /// <summary>その場面を、今より前の週に見たか（同じ月報のあとに続けて出す場面とは分ける）。</summary>
+        private static bool SeenBefore(GameState state, string sceneId) =>
+            state.StorySeenWeeks.TryGetValue(sceneId, out int seen) && seen < state.WeekNumber;
+
+        /// <summary>その迷宮の主と戦った回数（まだ現れていなければ0）。</summary>
+        private static int DuelCount(GameState state, string rulerId) =>
+            state.Rulers.FirstOrDefault(r => r.RulerId == rulerId)?.DuelCount ?? 0;
+
+        /// <summary>
         /// 週の決算のあと：場面のきっかけを数える（扉前の撤退・決戦の負け・派遣の教官が帰った）。WeekProcessingSystem が呼ぶ。
         /// 決戦の負けも「勝てずに引き返した」1回に数える（§0.98）。
         /// </summary>
@@ -546,6 +567,7 @@ namespace GuildManager.Core.Systems
             // 迷宮の主の場面（§0.142）：決闘の最後に勝った代表、ネフェリスの夢の出し分け
             values["{代表}"] = state.Rulers.FirstOrDefault(r => r.RulerId == RulerSystem.VesperaId)?.LastVictorName ?? "代表";
             values[Seen(state, "s04_omen4") ? "{前兆4のあと}" : "{前兆4の前}"] = "";
+            if (!Seen(state, "s05_meet1")) values["{初戦で退かせたなら}"] = ""; // 作戦会議を見ていない＝初戦で退かせた（§0.143）
             if (HunterBoss(state) is { } boss)
                 values["{階}"] = boss.Floor.ToString();
             if (AdviceFacility(state) is FacilityType training)

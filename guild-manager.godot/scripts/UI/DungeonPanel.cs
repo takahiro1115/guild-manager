@@ -289,7 +289,7 @@ public partial class DungeonPanel : ScrollContainer
 		bool corridor = ruler.RulerId == RulerSystem.OrtensiaId;
 		bool heat = ruler.RulerId == RulerSystem.IgniaId;
 		bool heart = ruler.RulerId == RulerSystem.NepherisId;
-		string style = corridor ? "玉座への回廊" : heat ? "灼熱の消耗戦" : heart ? "心臓の間（4つの段）" : squads ? "調べの読み合い" : "勝ち抜きの一騎打ち";
+		string style = corridor ? "玉座への回廊" : heat ? "灼熱の消耗戦" : heart ? "心臓の間（4つの戦い）" : squads ? "調べの読み合い" : "勝ち抜きの一騎打ち";
 		sb.Append($"[b]👑 迷宮の主{RulerSystem.NameOf(ruler.RulerId)}[/b]　{(outpost ? "前哨戦（70F）" : "決着（100F）")}　[color=gray]{style}[/color]\n");
 		int filled = (int)Math.Round(10.0 * ruler.Hp / RulerBalance.MaxHp);
 		sb.Append($"体力 [color=#f87171]{new string('■', filled)}[/color][color=#4b5563]{new string('□', 10 - filled)}[/color] {ruler.Hp}/{RulerBalance.MaxHp}" +
@@ -424,21 +424,21 @@ public partial class DungeonPanel : ScrollContainer
 			? $"{MelusineBattle.ModeLabel(NepherisBattle.SongOf(ruler))}（{MelusineBattle.ModeStatLabel(NepherisBattle.SongOf(ruler))}）"
 			: NepherisBattle.Shadowed(_state!, NepherisStage.Song) ? "[color=gray]？？？（メルジーネを倒すまで分からない）[/color]"
 			: $"[color=gray]？？？（解析{RulerBalance.NepherisIntelSongReveal * 100:F0}%で分かる）[/color]";
-		sb.Append($"段：決闘 → 調べ {song} → 間 {OrtensiaBattle.TargetLabel(ruler.StageHall)} → 灼熱\n");
-		sb.Append($"閾値 {NepherisBattle.Threshold(outpost)}（合い具合{RulerBalance.NepherisBreakRate * 100:F0}%で削れる）。各段は、出した部隊のうちいちばん合う部隊が受け持つ\n");
+		sb.Append($"4つの戦い：決闘 → 調べ {song} → 間 {OrtensiaBattle.TargetLabel(ruler.StageHall)} → 灼熱\n");
+		sb.Append($"閾値 {NepherisBattle.Threshold(outpost)}（合い具合{RulerBalance.NepherisBreakRate * 100:F0}%で削れる）。それぞれの戦いは、出した部隊のうちいちばん合う部隊が受け持つ\n");
 		var shadows = Enum.GetValues<NepherisStage>().Where(s => NepherisBattle.Shadowed(_state!, s)).Select(s => s switch
 		{
 			NepherisStage.Duel => "ヴェスペラ＝決闘で魅了（MND）",
 			NepherisStage.Song => "メルジーネ＝調べが分からない・甘い調べで魅了",
 			NepherisStage.Hall => "オルテンシア＝間で威圧（LDR）",
-			_ => "イグニア＝灼熱がすべての段に",
+			_ => "イグニア＝灼熱がすべての戦いに",
 		}).ToList();
 		sb.Append(shadows.Count > 0
 			? $"[color=#c084fc]倒していない迷宮の主の影[/color]：{string.Join("／", shadows)}\n"
 			: "[color=#86efac]4人の迷宮の主を倒した。影は無い[/color]\n");
 		if (NepherisBattle.CityVoiceReady(_state!))
-			sb.Append("[color=#a5f3fc]都の声：ルミナが心臓の姉の声を呼び、届かない段を1つ打ち消せる（1回の戦いで1回）[/color]\n");
-		sb.Append("[color=gray]部隊を選ぶ（調べが分からない段は、順番どおりの部隊が受け持つ）。戦いは月を終えたあと。出す部隊はその月、ほかに出ない。" +
+			sb.Append("[color=#a5f3fc]都の声：ルミナが心臓の姉の声を呼び、届かない戦いを1つ打ち消せる（1回の戦いで1回）[/color]\n");
+		sb.Append("[color=gray]部隊を選ぶ（調べが分からない戦いは、順番どおりの部隊が受け持つ）。戦いは月を終えたあと。出す部隊はその月、ほかに出ない。" +
 			(canChange ? "" : "[color=orange]部隊を変えられるのは月のはじめだけ。[/color]") + "[/color]");
 	}
 
@@ -460,8 +460,8 @@ public partial class DungeonPanel : ScrollContainer
 	private static void AppendIgniaInfo(StringBuilder sb, bool outpost, bool canChange)
 	{
 		int threshold = IgniaBattle.Threshold(outpost);
-		sb.Append("幕：" + string.Join(" → ", Enum.GetValues<IgniaAct>().Select(a => $"{IgniaBattle.ActLabel(a)}（{IgniaBattle.ActStatLabel(a)}）")) + "\n");
-		sb.Append($"閾値 {threshold}（合い具合{RulerBalance.IgniaBreakRate * 100:F0}%で削れる）。[color=#fb923c]灼熱[/color]：幕ごとに前の部隊の全員の HP が {RulerBalance.IgniaHeatPct}%×{threshold}÷VIT（{RulerBalance.IgniaHeatPctMin}〜{RulerBalance.IgniaHeatPctMax}%）削れる。HP が{RulerBalance.IgniaLeaveHpRate * 100:F0}%を切った子は戦線を離れる\n");
+		sb.Append("炎の波：" + string.Join(" → ", Enum.GetValues<IgniaAct>().Select(a => $"{IgniaBattle.ActLabel(a)}（{IgniaBattle.ActStatLabel(a)}）")) + "\n");
+		sb.Append($"閾値 {threshold}（合い具合{RulerBalance.IgniaBreakRate * 100:F0}%で削れる）。[color=#fb923c]灼熱[/color]：波ごとに前の部隊の全員の HP が {RulerBalance.IgniaHeatPct}%×{threshold}÷VIT（{RulerBalance.IgniaHeatPctMin}〜{RulerBalance.IgniaHeatPctMax}%）削れる。HP が{RulerBalance.IgniaLeaveHpRate * 100:F0}%を切った子は戦線を離れる\n");
 		sb.Append($"[color=#fb923c]回復が速い[/color]：毎月+{RulerBalance.IgniaRegenPerMonth}（ほかの迷宮の主は+{RulerBalance.RegenPerMonth}）。戦った子は HP が減ったまま翌月を迎える\n");
 		sb.Append("[color=gray]部隊を順番に選ぶ（先鋒・本隊・後詰め）。戦いは月を終えたあと。出す部隊はその月、ほかに出ない。" +
 			(canChange ? "" : "[color=orange]部隊を変えられるのは月のはじめだけ。[/color]") + "[/color]");

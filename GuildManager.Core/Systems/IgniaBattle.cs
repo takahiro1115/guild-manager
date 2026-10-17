@@ -277,7 +277,7 @@ namespace GuildManager.Core.Systems
             {
                 if (r.NewFront)
                     lines.Add(new(StoryLineKind.Narration, $"前の部隊が崩れた。{r.SquadName}が前に出る"));
-                lines.Add(new(StoryLineKind.Narration, $"第{r.Number}幕　{ActLabel(r.Act)}（{ActStatLabel(r.Act)}）。{r.SquadName}が迎え撃つ"));
+                lines.Add(new(StoryLineKind.Narration, $"第{r.Number}波　{ActLabel(r.Act)}（{ActStatLabel(r.Act)}）。{r.SquadName}が迎え撃つ"));
                 if (r.Pushed)
                     lines.Add(new(StoryLineKind.Narration, $"護符から「押し切れ！」の声。{r.SquadName}が灼熱の中へ踏み込む"));
                 lines.Add(new(StoryLineKind.Narration, r.Won
@@ -300,12 +300,12 @@ namespace GuildManager.Core.Systems
         {
             DuelPromptKind.Push => new()
             {
-                new(StoryLineKind.Narration, $"第{_act + 1}幕　{ActLabel(PendingAct)}。{FrontSquad?.Name}の手が、あと少し届かない……"),
+                new(StoryLineKind.Narration, $"第{_act + 1}波　{ActLabel(PendingAct)}。{FrontSquad?.Name}の手が、あと少し届かない……"),
                 new(StoryLineKind.Narration, "【護符】押し切れと伝えれば、届くかもしれない（灼熱は重くなる）"),
             },
             DuelPromptKind.Withdraw => new()
             {
-                new(StoryLineKind.Narration, $"第{_act + 1}幕　{ActLabel(PendingAct)}。{FrontSquad?.Name}では届きそうにない……"),
+                new(StoryLineKind.Narration, $"第{_act + 1}波　{ActLabel(PendingAct)}。{FrontSquad?.Name}では届きそうにない……"),
                 new(StoryLineKind.Narration, "【護符】退けと伝えれば、ここで打ち切れる"),
             },
             DuelPromptKind.Reserve => new()
@@ -321,11 +321,11 @@ namespace GuildManager.Core.Systems
             string left = $"[color=gray]声が届くのは、この戦いであと{InterventionsLeft}回。[/color]";
             return Prompt switch
             {
-                DuelPromptKind.Push => ($"第{_act + 1}幕は[b]{ActLabel(PendingAct)}[/b]（{ActStatLabel(PendingAct)}）。\n{FrontSquad?.Name}の合い具合は {PendingFit * 100:F0}%（{RulerBalance.IgniaBreakRate * 100:F0}%に届かないと削れない）。\n" +
+                DuelPromptKind.Push => ($"第{_act + 1}波は[b]{ActLabel(PendingAct)}[/b]（{ActStatLabel(PendingAct)}）。\n{FrontSquad?.Name}の合い具合は {PendingFit * 100:F0}%（{RulerBalance.IgniaBreakRate * 100:F0}%に届かないと削れない）。\n" +
                     $"押し切れと伝えれば合い具合×{RulerBalance.IgniaPushFitRate}。ただし灼熱は×{RulerBalance.IgniaPushHeatRate}、HP0での強制除籍は×{RulerBalance.IgniaPushFatalRate}。\n{left}", "押し切れと伝える", "伝えない"),
-                DuelPromptKind.Withdraw => ($"第{_act + 1}幕は[b]{ActLabel(PendingAct)}[/b]（{ActStatLabel(PendingAct)}）。\n{FrontSquad?.Name}の合い具合は {PendingFit * 100:F0}%。押し切っても届かない。\n" +
+                DuelPromptKind.Withdraw => ($"第{_act + 1}波は[b]{ActLabel(PendingAct)}[/b]（{ActStatLabel(PendingAct)}）。\n{FrontSquad?.Name}の合い具合は {PendingFit * 100:F0}%。押し切っても届かない。\n" +
                     $"退けと伝えれば、ここで戦いを打ち切る（残りの灼熱を受けない）。\n{left}", "退けと伝える", "伝えない"),
-                _ => ($"{Leaver?.Name}が熱に耐えきれず、戦線を離れようとしている。\n入れ替えを伝えれば、後の部隊の子と替えて、次の幕を戦わせる。\n{left}", "入れ替える", "入れ替えない"),
+                _ => ($"{Leaver?.Name}が熱に耐えきれず、戦線を離れようとしている。\n入れ替えを伝えれば、後の部隊の子と替えて、次の波を戦わせる。\n{left}", "入れ替える", "入れ替えない"),
             };
         }
 

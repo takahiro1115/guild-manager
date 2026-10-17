@@ -536,7 +536,7 @@ namespace GuildManager.Core.Models
                 TournamentPrizeTotal = TournamentPrizeTotal,
                 TournamentInviteKeys = new List<string>(TournamentInviteKeys),
                 NextUpgradeHalfPrice = NextUpgradeHalfPrice,
-                StoryRulesVersion = 3, // §0.140 の序盤の流れ（新春・契約交渉・顔見せの場面）・§0.142 の迷宮の主の場面
+                StoryRulesVersion = 4, // §0.140 の序盤の流れ（新春・契約交渉・顔見せの場面）・§0.142 の迷宮の主の場面・§0.143 の作戦会議
                 IsabellaVisitWeek = IsabellaVisitWeek,
                 IsabellaEarlyVisit = IsabellaEarlyVisit,
                 FundingOpenedWeek = FundingOpenedWeek,
@@ -772,6 +772,9 @@ namespace GuildManager.Core.Models
             // §0.142より前のセーブ（StoryRulesVersion 0〜2）：迷宮の主の場面（決闘・ネフェリスの夢）のうち、もう過ぎたものを見たことにする
             if (data.StoryRulesVersion < 3 && data.StorySeenWeeks != null)
                 Systems.StorySystem.MarkRulerScenesSeen(state);
+            // §0.143より前のセーブ（StoryRulesVersion 0〜3）：もう迷宮の主と戦っていれば、作戦会議を見たことにする
+            if (data.StoryRulesVersion < 4 && data.StorySeenWeeks != null)
+                Systems.StorySystem.MarkStrategyMeetingsSeen(state);
 
             // ギルドを去った週（§0.122）を持たない旧セーブ：引退した週＋役職を待つ週数で去ったとして読む（初めての引退式の順に使う）。
             foreach (var r in state.RetiredAdventurers.Where(r => r.LeftGuild && r.LeftGuildAtWeek == null))

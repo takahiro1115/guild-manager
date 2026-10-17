@@ -1,11 +1,11 @@
 Kind,Name,Expression,File,note
 background,森を抜ける街道,,bg/road.jpg,序章
-background,ギルドの門の前,,bg/guild_gate.jpg,
+background,ギルドの門の前|朝のギルドの門の前,,bg/guild_gate.jpg,「朝の〜」は別名（同じ画像。§0.143）
 background,ギルドの広間,,bg/guild_hall.jpg,"いちばん多く使う。木造の広間（物語帳の「場面」から作った。エンディングの石造りの背景は使わない）"
 background,応接間,,bg/parlor.jpg,長老の来訪・イザベラの来訪
 background,医務室,,bg/infirmary.jpg,
 background,研究室,,bg/lab.jpg,アルベールの研究室
-background,ギルドの裏庭,,bg/backyard.jpg,ルミナの稽古
+background,ギルドの裏庭|夜のギルドの裏庭,,bg/backyard.jpg,ルミナの稽古。「夜の〜」は別名（同じ画像。§0.143）
 background,祝宴の広間,,bg/banquet.png,エンディング
 background,王都の闘技場,,bg/arena.jpg,交流戦・大会
 background,エルフの里の縁側,,bg/elf_veranda.jpg,

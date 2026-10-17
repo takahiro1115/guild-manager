@@ -67,30 +67,30 @@ OrtensiaIntelResealReveal,0.5,割合,解析がこれ以上なら、張り直し�
 NobleDaughterPaBonus,5,pt,古王の寝所（オルテンシアとの決着の見返り）：採用試験に毎回1人、名のある家の娘（有望新人。PA にこの値を足す）が加わる
 IgniaMaxSquads,3,部隊,イグニアの灼熱の底（§0.131、設計書 §3-9）：出す部隊の上限（順番つき＝先鋒・本隊・後詰め。前の部隊が崩れたら次が代わる）
 IgniaRegenPerMonth,20,pt,イグニアの体力が毎月のはじめに回復する量（ほかの迷宮の主は RegenPerMonth）。続けて挑まないと削りきれない
-IgniaThresholdOutpost,65,pt,幕の閾値（前哨戦）。合い具合＝幕ごとの能力÷この値
-IgniaThresholdFinal,85,pt,幕の閾値（決着）
-IgniaFullSquadSize,4,人,炎の眷属と本体の幕は、部隊の合計÷（閾値×この人数）で合い具合を見る
-IgniaBreakRate,0.85,割合,合い具合がこの値以上なら、その幕で体力を削る
-IgniaDamageBase,12,pt,幕で削る体力＝この値×合い具合（Min〜Max で止める）。1回の戦いは3幕
+IgniaThresholdOutpost,65,pt,波の閾値（前哨戦）。合い具合＝波ごとの能力÷この値
+IgniaThresholdFinal,85,pt,波の閾値（決着）
+IgniaFullSquadSize,4,人,炎の眷属と本体の波は、部隊の合計÷（閾値×この人数）で合い具合を見る
+IgniaBreakRate,0.85,割合,合い具合がこの値以上なら、その波で体力を削る
+IgniaDamageBase,12,pt,波で削る体力＝この値×合い具合（Min〜Max で止める）。1回の戦いは炎の3つの波
 IgniaDamageMin,8,pt,同・下限
 IgniaDamageMax,20,pt,同・上限
-IgniaHeatPct,15,%,灼熱：幕ごとに、前に出ている部隊の全員の HP がこの%×閾値÷VIT（装備込み）だけ削れる（Min〜Max で止める）
+IgniaHeatPct,15,%,灼熱：波ごとに、前に出ている部隊の全員の HP がこの%×閾値÷VIT（装備込み）だけ削れる（Min〜Max で止める）
 IgniaHeatPctMin,5,%,同・下限
 IgniaHeatPctMax,25,%,同・上限
-IgniaFailExtraPct,10,%,幕で押し返されたとき、灼熱に足す HP の減り
+IgniaFailExtraPct,10,%,波で押し返されたとき、灼熱に足す HP の減り
 IgniaLeaveHpRate,0.3,割合,HP が最大HPのこの割合を切った子は戦線を離れる。戦える子が IgniaMinFighters を切ると、次の部隊と入れ替わる
 IgniaMinFighters,2,人,部隊が崩れる線（戦える子がこの人数より少なくなると、次の部隊が前に出る）
-IgniaPushFitRate,1.3,倍,介入「押し切れ」：その幕の合い具合にこの倍率を掛ける
+IgniaPushFitRate,1.3,倍,介入「押し切れ」：その波の合い具合にこの倍率を掛ける
 IgniaPushHeatRate,1.5,倍,押し切れ：灼熱にこの倍率を掛ける
-IgniaPushFatalRate,2,倍,押し切れ：その幕で HP0 になったときの強制除籍の確率（combat.csv FatalChancePercent）にこの倍率を掛ける
+IgniaPushFatalRate,2,倍,押し切れ：その波で HP0 になったときの強制除籍の確率（combat.csv FatalChancePercent）にこの倍率を掛ける
 IgniaForgeScaleCost,3,個,イグニアの炉（イグニアとの決着の見返り）：武具1つのアフィックスを1段強くするのに使う焔の鱗の数
 IgniaForgeGoldCost,500,G,同・費用
-NepherisMaxSquads,3,部隊,ネフェリスの心臓の間（§0.132、設計書 §3-10）：出す部隊の上限（各段は、出した部隊のうちいちばん合う部隊が受け持つ。調べが分からない段は順番どおり）
-NepherisThresholdOutpost,75,pt,4つの段の閾値（前哨戦）
-NepherisThresholdFinal,95,pt,4つの段の閾値（決着）。限界突破（素質が100を超える能力）の子がいて届く高さ
-NepherisBreakRate,0.85,割合,合い具合がこの値以上なら、その段で体力を削る
+NepherisMaxSquads,3,部隊,ネフェリスの心臓の間（§0.132、設計書 §3-10）：出す部隊の上限（それぞれの戦いは、出した部隊のうちいちばん合う部隊が受け持つ。調べが分からない段は順番どおり）
+NepherisThresholdOutpost,75,pt,4つの戦いの閾値（前哨戦）
+NepherisThresholdFinal,95,pt,4つの戦いの閾値（決着）。限界突破（素質が100を超える能力）の子がいて届く高さ
+NepherisBreakRate,0.85,割合,合い具合がこの値以上なら、その戦いで体力を削る
 NepherisCharmRate,0.85,割合,倒していない迷宮の主の仕掛け：決闘の魅了（MND）・甘い調べの魅了（INT）・幻惑の間（INT・MND）・威圧（LDR）は、閾値×この値より下の子を外す
-NepherisDamageBase,15,pt,段で削る体力＝この値×合い具合（Min〜Max で止める）。1回の戦いは4段
+NepherisDamageBase,15,pt,戦いで削る体力＝この値×合い具合（Min〜Max で止める）。1回の挑戦で4つの戦い
 NepherisDamageMin,8,pt,同・下限
 NepherisDamageMax,25,pt,同・上限
 NepherisIntelSongReveal,0.6,割合,解析がこれ以上なら、その月の調べが分かる（メルジーネを倒していないうちは分からない）

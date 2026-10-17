@@ -8,7 +8,7 @@ using Xunit;
 
 namespace GuildManager.Core.Tests
 {
-    /// <summary>迷宮の主の場面（§0.142、→ story_05.txt）：届く声 1〜4・ヴェスペラとの決闘 1〜3、足跡 1 は決着のすぐあと。</summary>
+    /// <summary>迷宮の主の場面（§0.142・§0.143、→ story_05.txt）：届く声 1〜4・ヴェスペラとの決闘 1〜3と作戦会議、足跡 1 は決着のすぐあと。</summary>
     public class RulerSceneTests
     {
         private static GameState NewGame(int week = 100)
@@ -99,6 +99,72 @@ namespace GuildManager.Core.Tests
             Assert.True(StorySystem.Seen(old, "s05_duel2"));
             Assert.False(StorySystem.Seen(old, "s05_duel3"));
             Assert.DoesNotContain("s05_duel2", Due(old));
+        }
+
+        [Fact]
+        public void Duel1_GivesNoTactics_TheMeetingAfterTheFirstDuelDoes()
+        {
+            // 攻め方のヒントは、はじめは話さず、初めて戦った月の作戦会議で話す（§0.143）
+            var state = NewGame();
+            Defeat(state, "forest", 60);
+            var invite = Texts(state, "s05_duel1");
+            Assert.DoesNotContain(invite, t => t.Contains("MND") || t.Contains("魅入られ"));
+            StorySystem.MarkSeen(state, "s05_duel1");
+            Assert.DoesNotContain("s05_meet1", Due(state)); // まだ戦っていない
+
+            state.Rulers.Single(r => r.RulerId == RulerSystem.VesperaId).DuelCount = 1;
+            Assert.DoesNotContain("s05_meet1", Due(state)); // 招待と同じ月に戦っていても、会議は次の月から
+            state.WeekNumber += GameCalendar.WeeksPerMonth;
+            var meeting = Texts(state, "s05_meet1");
+            Assert.Contains(meeting, t => t.Contains("得物を替えて"));
+            Assert.Contains(meeting, t => t.Contains("相棒（相性80以上）"));
+            Assert.DoesNotContain(meeting, t => t.Contains("{"));
+            StorySystem.MarkSeen(state, "s05_meet1");
+
+            // 会議を見たあとの決闘 2 には、初戦の一言を足さない
+            Defeat(state, "forest", 70);
+            var retreat = Texts(state, "s05_duel2");
+            Assert.DoesNotContain(retreat, t => t.Contains("一度で退かせた"));
+            Assert.DoesNotContain(retreat, t => t.Contains("{"));
+        }
+
+        [Fact]
+        public void FirstDuelRetreat_SkipsTheMeeting_AndDuel2CarriesTheHints()
+        {
+            var state = NewGame();
+            Defeat(state, "forest", 60);
+            StorySystem.MarkSeen(state, "s05_duel1");
+            state.Rulers.Single(r => r.RulerId == RulerSystem.VesperaId).DuelCount = 1;
+            Defeat(state, "forest", 70); // 初戦でいきなり退かせた
+            var due = Due(state);
+            Assert.DoesNotContain("s05_meet1", due);
+            var retreat = Texts(state, "s05_duel2");
+            Assert.Contains(retreat, t => t.Contains("一度で退かせた"));
+            Assert.Contains(retreat, t => t.Contains("魅了は MND で耐える"));
+            Assert.DoesNotContain(retreat, t => t.Contains("{"));
+        }
+
+        [Fact]
+        public void OldSaves_WhoAlreadyFoughtVespera_SkipTheMeeting()
+        {
+            var state = NewGame();
+            StorySystem.MarkSeen(state, "s01_prologue");
+            Defeat(state, "forest", 60);
+            StorySystem.MarkSeen(state, "s05_duel1");
+            JsonObject Saved(int duels, int version)
+            {
+                state.Rulers.Single(r => r.RulerId == RulerSystem.VesperaId).DuelCount = duels;
+                var node = JsonNode.Parse(JsonSerializer.Serialize(state.ToSaveData()))!.AsObject();
+                node["StoryRulesVersion"] = version;
+                return node;
+            }
+            var fought = GameState.FromSaveData(Saved(1, 3).Deserialize<SaveData>()!); // §0.143より前・もう戦った
+            Assert.True(StorySystem.Seen(fought, "s05_meet1"));
+            Assert.DoesNotContain("s05_meet1", Due(fought));
+            var notYet = GameState.FromSaveData(Saved(0, 3).Deserialize<SaveData>()!); // まだ戦っていない
+            Assert.False(StorySystem.Seen(notYet, "s05_meet1"));
+            var current = GameState.FromSaveData(Saved(1, 4).Deserialize<SaveData>()!); // §0.143のセーブは補わない
+            Assert.False(StorySystem.Seen(current, "s05_meet1"));
         }
     }
 }

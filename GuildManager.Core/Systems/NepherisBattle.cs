@@ -363,7 +363,7 @@ namespace GuildManager.Core.Systems
             var (squad, fit) = PendingSquad();
             if (Prompt == DuelPromptKind.CityVoice)
                 return ($"[b]{StageLabel(PendingStage)}[/b]。{squad?.Name}の合い具合は {fit * 100:F0}%（{RulerBalance.NepherisBreakRate * 100:F0}%に届かない）。\n" +
-                        "ルミナに、心臓に残る都の声を呼んでもらえば、この段の術を打ち消して削ったことにできる。\n[color=gray]都の声は1回の戦いで1回だけ（護符の回数とは別）。[/color]", "都の声を呼ぶ", "呼ばない");
+                        "ルミナに、心臓に残る都の声を呼んでもらえば、この戦いの術を打ち消して削ったことにできる。\n[color=gray]都の声は1回の戦いで1回だけ（護符の回数とは別）。[/color]", "都の声を呼ぶ", "呼ばない");
             return ($"[b]{StageLabel(PendingStage)}[/b]。{squad?.Name}の合い具合は {fit * 100:F0}%（{RulerBalance.NepherisBreakRate * 100:F0}%に届かないと削れない）。\n" +
                     $"押し切れと伝えれば合い具合×{RulerBalance.IgniaPushFitRate}。ただし灼熱は×{RulerBalance.IgniaPushHeatRate}、HP0での強制除籍は×{RulerBalance.IgniaPushFatalRate}。\n" +
                     $"[color=gray]声が届くのは、この戦いであと{InterventionsLeft}回。[/color]", "押し切れと伝える", "伝えない");
