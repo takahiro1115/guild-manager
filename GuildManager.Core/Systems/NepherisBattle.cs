@@ -373,14 +373,13 @@ namespace GuildManager.Core.Systems
         {
             var lines = new List<StoryLine>();
             int dealt = HpBefore - HpAfter;
+            // 退いた・倒したときのネフェリスの台詞は、すぐあとの物語の場面（台詞 05 の決闘）に任せ、ここは結果の地の文だけ（§0.144）
             if (Retreated)
             {
-                lines.Add(new(StoryLineKind.Speech, "……そう。少しは、やるのね。続きは、心臓の前でしましょうね", RulerSystem.NepherisName));
                 lines.Add(new(StoryLineKind.Narration, "ネフェリスは影の中へ溶けていった。深淵の70階の先へ進めるようになった"));
             }
             else if (Defeated)
             {
-                lines.Add(new(StoryLineKind.Speech, "……どうして。どうして、いつも姉さまなの", RulerSystem.NepherisName));
                 lines.Add(new(StoryLineKind.Narration, "ネフェリスの姿がほどけ、心臓の間に静けさが戻った。深淵の100階を制した"));
             }
             if (LegendaryFound is { } crown)

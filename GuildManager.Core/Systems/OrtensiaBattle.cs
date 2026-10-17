@@ -439,14 +439,13 @@ namespace GuildManager.Core.Systems
         {
             var lines = new List<StoryLine>();
             int dealt = HpBefore - Ruler.Hp;
+            // 退いた・倒したときのオルテンシアの台詞は、すぐあとの物語の場面（台詞 05 の決闘）に任せ、ここは結果の地の文だけ（§0.144）
             if (Retreated)
             {
-                lines.Add(new(StoryLineKind.Speech, "……興が削がれた。今日のところは下がってやろう。妾の玉座は、まだ奥にある", RulerSystem.OrtensiaName));
                 lines.Add(new(StoryLineKind.Narration, "オルテンシアは崩れた回廊の奥へ消えた。廃墟の70階の先へ進めるようになった"));
             }
             else if (Defeated)
             {
-                lines.Add(new(StoryLineKind.Speech, "……妾の都は、もう、どこにも無いのだな", RulerSystem.OrtensiaName));
                 lines.Add(new(StoryLineKind.Narration, "折れた王冠が床に転がった。廃墟の100階を制した"));
             }
             if (LegendaryFound is { } shroud)

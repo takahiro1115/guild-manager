@@ -333,16 +333,15 @@ namespace GuildManager.Core.Systems
         {
             var lines = new List<StoryLine>();
             int dealt = HpBefore - Ruler.Hp;
+            // 退いた・倒したときのイグニアの台詞は、すぐあとの物語の場面（台詞 05 の決闘）に任せ、ここは結果の地の文だけ（§0.144）
             if (Withdrew)
                 lines.Add(new(StoryLineKind.Narration, "護符の声で、部隊は灼熱の底から退いた"));
             if (Retreated)
             {
-                lines.Add(new(StoryLineKind.Speech, "……ちっ。今日はここまでにしといてやるよ。下で待ってるからね", RulerSystem.IgniaName));
                 lines.Add(new(StoryLineKind.Narration, "イグニアは炎の中へ沈んでいった。峡谷の70階の先へ進めるようになった"));
             }
             else if (Defeated)
             {
-                lines.Add(new(StoryLineKind.Speech, "……あの二人と、同じ目をしてるね。あたしの負けさ", RulerSystem.IgniaName));
                 lines.Add(new(StoryLineKind.Narration, "灼熱が引いていく。峡谷の100階を制した"));
             }
             if (LegendaryFound is { } mail)

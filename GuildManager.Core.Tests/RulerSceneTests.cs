@@ -163,8 +163,126 @@ namespace GuildManager.Core.Tests
             Assert.DoesNotContain("s05_meet1", Due(fought));
             var notYet = GameState.FromSaveData(Saved(0, 3).Deserialize<SaveData>()!); // まだ戦っていない
             Assert.False(StorySystem.Seen(notYet, "s05_meet1"));
-            var current = GameState.FromSaveData(Saved(1, 4).Deserialize<SaveData>()!); // §0.143のセーブは補わない
+            var current = GameState.FromSaveData(Saved(1, 5).Deserialize<SaveData>()!); // 今の版のセーブは補わない
             Assert.False(StorySystem.Seen(current, "s05_meet1"));
+        }
+
+        // ---------------- メルジーネ・オルテンシア・イグニア・ネフェリス（§0.144） ----------------
+
+        public static TheoryData<string, string, string, string, string, string, string> LaterRulers => new()
+        {
+            // 迷宮の主, フィールド, 招待, 作戦会議, 退く, 決着, 決着のすぐあとの足跡（ネフェリスはエンディング）
+            { RulerSystem.MelusineId, "cave", "s05_duel4", "s05_meet2", "s05_duel5", "s05_duel6", "s04_trail2" },
+            { RulerSystem.OrtensiaId, "ruins", "s05_duel7", "s05_meet3", "s05_duel8", "s05_duel9", "s04_trail3" },
+            { RulerSystem.IgniaId, "canyon", "s05_duel10", "s05_meet4", "s05_duel11", "s05_duel12", "s04_trail4" },
+            { RulerSystem.NepherisId, "abyss", "s05_duel13", "s05_meet5", "s05_duel14", "s05_duel15", "" },
+        };
+
+        [Theory]
+        [MemberData(nameof(LaterRulers))]
+        public void LaterRulers_InviteMeetingRetreatFinal(string rulerId, string field, string invite, string meeting, string retreat, string final, string trail)
+        {
+            var state = NewGame();
+            Defeat(state, field, 50);
+            Assert.DoesNotContain(invite, Due(state));
+            Defeat(state, field, 60);
+            Assert.DoesNotContain(Texts(state, invite), t => t.Contains("{"));
+            StorySystem.MarkSeen(state, invite);
+
+            state.Rulers.Single(r => r.RulerId == rulerId).DuelCount = 1;
+            Assert.DoesNotContain(meeting, Due(state)); // 招待と同じ月は出さない
+            state.WeekNumber += GameCalendar.WeeksPerMonth;
+            Assert.DoesNotContain(Texts(state, meeting), t => t.Contains("{"));
+            StorySystem.MarkSeen(state, meeting);
+
+            Defeat(state, field, 70);
+            var retreatTexts = Texts(state, retreat);
+            Assert.DoesNotContain(retreatTexts, t => t.Contains("{"));
+            Assert.DoesNotContain(retreatTexts, t => t.Contains("噂を聞いたイザベラ")); // 会議を見たので初戦の一言は無し
+            StorySystem.MarkSeen(state, retreat);
+
+            Defeat(state, field, 100);
+            if (trail.Length > 0)
+            {
+                var due = Due(state).ToList();
+                Assert.Contains(final, due);
+                Assert.Contains(trail, due); // 前の足跡を待たずに、決着のすぐあと
+                Assert.True(due.IndexOf(final) < due.IndexOf(trail));
+            }
+            else
+            {
+                Assert.DoesNotContain(final, Due(state)); // ネフェリスの決着は月報のあとではなく、エンディングの最初
+                state.IsGameCleared = true;
+                var ending = StorySystem.DueScenes(state, StoryTiming.Ending).Select(s => s.SceneId).ToList();
+                Assert.Equal(final, ending[0]);
+                Assert.Equal("s04_heart", ending[1]);
+            }
+        }
+
+        [Theory]
+        [MemberData(nameof(LaterRulers))]
+        public void LaterRulers_FirstDuelRetreat_SkipsTheMeeting(string rulerId, string field, string invite, string meeting, string retreat, string final, string trail)
+        {
+            var state = NewGame();
+            Defeat(state, field, 60);
+            StorySystem.MarkSeen(state, invite);
+            state.Rulers.Single(r => r.RulerId == rulerId).DuelCount = 1;
+            state.WeekNumber += GameCalendar.WeeksPerMonth;
+            Defeat(state, field, 70); // 初戦でいきなり退かせた
+            Assert.DoesNotContain(meeting, Due(state));
+            var retreatTexts = Texts(state, retreat);
+            Assert.Contains(retreatTexts, t => t.Contains("噂を聞いたイザベラ"));
+            Assert.DoesNotContain(retreatTexts, t => t.Contains("{"));
+        }
+
+        [Fact]
+        public void Meeting2_LuminasEar_OnlyAfterOmen2()
+        {
+            var state = NewGame();
+            Defeat(state, "cave", 60);
+            StorySystem.MarkSeen(state, "s05_duel4");
+            state.Rulers.Single(r => r.RulerId == RulerSystem.MelusineId).DuelCount = 1;
+            state.WeekNumber += GameCalendar.WeeksPerMonth;
+            Assert.DoesNotContain(Texts(state, "s05_meet2"), t => t.Contains("あなたの耳"));
+            StorySystem.MarkSeen(state, "s04_omen2");
+            Assert.Contains(Texts(state, "s05_meet2"), t => t.Contains("あなたの耳"));
+        }
+
+        [Fact]
+        public void BattleWindows_LeaveTheClosingSpeechesToTheScenes()
+        {
+            // 退いた・倒したときの迷宮の主の台詞は、戦いの小窓に出さない（すぐあとの物語の場面で話す）
+            foreach (var file in new[] { "MelusineBattle", "OrtensiaBattle", "IgniaBattle", "NepherisBattle" })
+            {
+                string src = System.IO.File.ReadAllText(System.IO.Path.Combine(RepoRoot(), "GuildManager.Core", "Systems", file + ".cs"));
+                foreach (var gone in new[] { "楽しかったわ。また聞かせてね", "妾の都は、もう、どこにも無いのだな", "あたしの負けさ", "いつも姉さまなの" })
+                    Assert.DoesNotContain(gone, src);
+            }
+        }
+
+        private static string RepoRoot()
+        {
+            var dir = new System.IO.DirectoryInfo(System.AppContext.BaseDirectory);
+            while (dir != null && !System.IO.Directory.Exists(System.IO.Path.Combine(dir.FullName, "GuildManager.Core"))) dir = dir.Parent;
+            return dir!.FullName;
+        }
+
+        [Fact]
+        public void OldSaves_MarkPassedLaterRulerScenes()
+        {
+            var state = NewGame();
+            StorySystem.MarkSeen(state, "s01_prologue");
+            Defeat(state, "cave", 70);
+            state.Rulers.Single(r => r.RulerId == RulerSystem.MelusineId).DuelCount = 2;
+            var node = JsonNode.Parse(JsonSerializer.Serialize(state.ToSaveData()))!.AsObject();
+            node["StoryRulesVersion"] = 4; // §0.144より前
+            var old = GameState.FromSaveData(node.Deserialize<SaveData>()!);
+            Assert.True(StorySystem.Seen(old, "s05_duel4"));
+            Assert.True(StorySystem.Seen(old, "s05_meet2"));
+            Assert.True(StorySystem.Seen(old, "s05_duel5"));
+            Assert.False(StorySystem.Seen(old, "s05_duel6"));
+            Assert.False(StorySystem.Seen(old, "s05_duel7"));
+            Assert.DoesNotContain("s05_duel5", Due(old));
         }
     }
 }

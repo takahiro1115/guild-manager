@@ -92,22 +92,39 @@ namespace GuildManager.Core.Systems
             new("s05_duel1", StoryTiming.AfterReport, s => Seen(s, "s01_lumina") && BossDefeated(s, "forest", 60)),
             // 作戦会議（初めて戦った月、退かせられなかったとき。攻め方のヒントはここで初めて話す。初戦で退かせたら決闘 2 の最後に一言。§0.143）
             // 招待と同じ月には出さない（招待の前に戦ってしまった月は、招待だけ。会議は次に戦った月）
-            new("s05_meet1", StoryTiming.AfterReport, s => SeenBefore(s, "s05_duel1") && DuelCount(s, RulerSystem.VesperaId) >= 1 && !BossDefeated(s, "forest", 70)),
+            new("s05_meet1", StoryTiming.AfterReport, s => MeetingDue(s, RulerSystem.VesperaId)),
             new("s05_duel2", StoryTiming.AfterReport, s => BossDefeated(s, "forest", 70)),
             new("s05_duel3", StoryTiming.AfterReport, s => BossDefeated(s, "forest", 100)),
+            // メルジーネ・オルテンシア・イグニア・ネフェリスとの決闘（60Fで挑めるようになった・初戦のあとの作戦会議・70Fの前哨戦で退かせた・100Fの決着。§0.144）
+            new("s05_duel4", StoryTiming.AfterReport, s => Seen(s, "s01_lumina") && BossDefeated(s, "cave", 60)),
+            new("s05_meet2", StoryTiming.AfterReport, s => MeetingDue(s, RulerSystem.MelusineId)),
+            new("s05_duel5", StoryTiming.AfterReport, s => BossDefeated(s, "cave", 70)),
+            new("s05_duel6", StoryTiming.AfterReport, s => BossDefeated(s, "cave", 100)),
+            new("s05_duel7", StoryTiming.AfterReport, s => Seen(s, "s01_lumina") && BossDefeated(s, "ruins", 60)),
+            new("s05_meet3", StoryTiming.AfterReport, s => MeetingDue(s, RulerSystem.OrtensiaId)),
+            new("s05_duel8", StoryTiming.AfterReport, s => BossDefeated(s, "ruins", 70)),
+            new("s05_duel9", StoryTiming.AfterReport, s => BossDefeated(s, "ruins", 100)),
+            new("s05_duel10", StoryTiming.AfterReport, s => Seen(s, "s01_lumina") && BossDefeated(s, "canyon", 60)),
+            new("s05_meet4", StoryTiming.AfterReport, s => MeetingDue(s, RulerSystem.IgniaId)),
+            new("s05_duel11", StoryTiming.AfterReport, s => BossDefeated(s, "canyon", 70)),
+            new("s05_duel12", StoryTiming.AfterReport, s => BossDefeated(s, "canyon", 100)),
+            new("s05_duel13", StoryTiming.AfterReport, s => Seen(s, "s01_lumina") && BossDefeated(s, "abyss", 60)),
+            new("s05_meet5", StoryTiming.AfterReport, s => MeetingDue(s, RulerSystem.NepherisId)),
+            new("s05_duel14", StoryTiming.AfterReport, s => BossDefeated(s, "abyss", 70)),
             // ---- 台詞04 前兆・足跡・真相・エンディング（§0.89）。前兆も足跡も森→洞窟→廃墟→峡谷の順に、前の場面を待つ ----
             new("s04_omen1", StoryTiming.AfterReport, s => Seen(s, "s01_lumina") && BossDefeated(s, "forest", 50)),
             new("s04_omen2", StoryTiming.AfterReport, s => Seen(s, "s04_omen1") && BossDefeated(s, "cave", 50)),
             new("s04_omen3", StoryTiming.AfterReport, s => Seen(s, "s04_omen2") && BossDefeated(s, "ruins", 50)),
             new("s04_omen4", StoryTiming.AfterReport, s => Seen(s, "s04_omen3") && BossDefeated(s, "canyon", 50)),
             new("s04_trail1", StoryTiming.AfterReport, s => (Seen(s, "s04_omen4") || Seen(s, "s05_duel3")) && BossDefeated(s, "forest", 100)), // ヴェスペラとの決着のすぐあと（§0.142）
-            new("s04_trail2", StoryTiming.AfterReport, s => Seen(s, "s04_trail1") && BossDefeated(s, "cave", 100)),
-            new("s04_trail3", StoryTiming.AfterReport, s => Seen(s, "s04_trail2") && BossDefeated(s, "ruins", 100)),
-            new("s04_trail4", StoryTiming.AfterReport, s => Seen(s, "s04_trail3") && BossDefeated(s, "canyon", 100)),
+            new("s04_trail2", StoryTiming.AfterReport, s => (Seen(s, "s04_trail1") || Seen(s, "s05_duel6")) && BossDefeated(s, "cave", 100)), // 決着のすぐあと（§0.144）
+            new("s04_trail3", StoryTiming.AfterReport, s => (Seen(s, "s04_trail2") || Seen(s, "s05_duel9")) && BossDefeated(s, "ruins", 100)),
+            new("s04_trail4", StoryTiming.AfterReport, s => (Seen(s, "s04_trail3") || Seen(s, "s05_duel12")) && BossDefeated(s, "canyon", 100)),
             // 真相は峡谷の制覇（足跡4）か深淵の90Fの早いほう。深淵が先なら「名を呼ぶ声」→真相の順（足跡4はあとで{真相のあと}の台詞で出る）
             new("s04_namecall", StoryTiming.AfterReport, s => Seen(s, "s01_lumina") && BossDefeated(s, "abyss", 90)),
             new("s04_truth", StoryTiming.AfterReport, s => Seen(s, "s04_trail4") || Seen(s, "s04_namecall")),
             new("s04_home", StoryTiming.AfterReport, s => SeenBefore(s, "s04_truth", s.WeekNumber)),
+            new("s05_duel15", StoryTiming.Ending, s => s.IsGameCleared), // ネフェリスとの決着は、都の心臓の前（§0.144）
             new("s04_heart", StoryTiming.Ending, s => s.IsGameCleared),
             new("s04_banquet", StoryTiming.Ending, s => s.IsGameCleared),
             new("s04_sortie", StoryTiming.Ending, s => s.IsGameCleared),
@@ -337,13 +354,42 @@ namespace GuildManager.Core.Systems
         /// </summary>
         public static void MarkStrategyMeetingsSeen(GameState state)
         {
-            if (DuelCount(state, RulerSystem.VesperaId) >= 1)
-                state.StorySeenWeeks.TryAdd("s05_meet1", state.WeekNumber);
+            foreach (var r in RulerScenes)
+                if (DuelCount(state, r.RulerId) >= 1)
+                    state.StorySeenWeeks.TryAdd(r.Meeting, state.WeekNumber);
         }
 
-        /// <summary>その場面を、今より前の週に見たか（同じ月報のあとに続けて出す場面とは分ける）。</summary>
-        private static bool SeenBefore(GameState state, string sceneId) =>
-            state.StorySeenWeeks.TryGetValue(sceneId, out int seen) && seen < state.WeekNumber;
+        /// <summary>
+        /// §0.144より前のセーブ：メルジーネ・オルテンシア・イグニア・ネフェリスとの決闘の場面のうち、もう倒した階のもの（60F・70F・100F）を見たことにする
+        /// （読み込んだ月に、過ぎた場面が一度に出ないように。ネフェリスの決着はクリアのときだけ出るので、クリア済みなら見たことにする）。
+        /// </summary>
+        public static void MarkLaterRulerScenesSeen(GameState state)
+        {
+            foreach (var r in RulerScenes.Where(r => r.RulerId != RulerSystem.VesperaId))
+                foreach (var (id, floor) in new[] { (r.Invite, 60), (r.Retreat, 70), (r.Final, 100) })
+                    if (BossDefeated(state, r.FieldId, floor))
+                        state.StorySeenWeeks.TryAdd(id, state.WeekNumber);
+        }
+
+        /// <summary>迷宮の主ごとの場面のId（招待・作戦会議・退く・決着）。</summary>
+        private static readonly (string RulerId, string FieldId, string Invite, string Meeting, string Retreat, string Final)[] RulerScenes =
+        {
+            (RulerSystem.VesperaId, RulerSystem.ForestId, "s05_duel1", "s05_meet1", "s05_duel2", "s05_duel3"),
+            (RulerSystem.MelusineId, RulerSystem.CaveId, "s05_duel4", "s05_meet2", "s05_duel5", "s05_duel6"),
+            (RulerSystem.OrtensiaId, RulerSystem.RuinsId, "s05_duel7", "s05_meet3", "s05_duel8", "s05_duel9"),
+            (RulerSystem.IgniaId, RulerSystem.CanyonId, "s05_duel10", "s05_meet4", "s05_duel11", "s05_duel12"),
+            (RulerSystem.NepherisId, RulerSystem.AbyssId, "s05_duel13", "s05_meet5", "s05_duel14", "s05_duel15"),
+        };
+
+        /// <summary>
+        /// 作戦会議を出すか：招待を前の週までに見ていて、その迷宮の主と1回以上戦い、70Fをまだ倒していない（初戦で退かせたら出さない）。
+        /// 招待と同じ月に戦っていたら、その月は招待だけで、会議は次に戦った月（§0.143）。
+        /// </summary>
+        private static bool MeetingDue(GameState state, string rulerId)
+        {
+            var r = RulerScenes.First(x => x.RulerId == rulerId);
+            return SeenBefore(state, r.Invite, state.WeekNumber) && DuelCount(state, rulerId) >= 1 && !BossDefeated(state, r.FieldId, 70);
+        }
 
         /// <summary>その迷宮の主と戦った回数（まだ現れていなければ0）。</summary>
         private static int DuelCount(GameState state, string rulerId) =>
@@ -567,7 +613,10 @@ namespace GuildManager.Core.Systems
             // 迷宮の主の場面（§0.142）：決闘の最後に勝った代表、ネフェリスの夢の出し分け
             values["{代表}"] = state.Rulers.FirstOrDefault(r => r.RulerId == RulerSystem.VesperaId)?.LastVictorName ?? "代表";
             values[Seen(state, "s04_omen4") ? "{前兆4のあと}" : "{前兆4の前}"] = "";
-            if (!Seen(state, "s05_meet1")) values["{初戦で退かせたなら}"] = ""; // 作戦会議を見ていない＝初戦で退かせた（§0.143）
+            // 退く場面で、その迷宮の主の作戦会議を見ていない＝初戦で退かせた（§0.143・§0.144）
+            if (sceneId != null && RulerScenes.FirstOrDefault(r => r.Retreat == sceneId) is { Meeting: { } meeting } && !Seen(state, meeting))
+                values["{初戦で退かせたなら}"] = "";
+            values[Seen(state, "s04_omen2") ? "{前兆2のあと}" : "{前兆2の前}"] = ""; // ルミナが水妖の歌を聞き取ったあとか（作戦会議 2）
             if (HunterBoss(state) is { } boss)
                 values["{階}"] = boss.Floor.ToString();
             if (AdviceFacility(state) is FacilityType training)

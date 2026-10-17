@@ -581,13 +581,13 @@ namespace GuildManager.Core.Tests
             Assert.Empty(StorySystem.DueScenes(state, StoryTiming.Ending));
             state.IsGameCleared = true;
             var due = StorySystem.DueScenes(state, StoryTiming.Ending);
-            Assert.Equal(new[] { "s04_heart", "s04_banquet", "s04_sortie" }, due.Select(s => s.SceneId));
-            Assert.DoesNotContain(Texts(due[0]), t => t.Contains("{") || t.Contains("生まれた日のこと")); // 娘も殿堂もいない
-            Assert.Contains(Texts(due[0]), t => t == "ここです");
+            Assert.Equal(new[] { "s05_duel15", "s04_heart", "s04_banquet", "s04_sortie" }, due.Select(s => s.SceneId)); // ネフェリスとの決着が最初（§0.144）
+            Assert.DoesNotContain(Texts(due[1]), t => t.Contains("{") || t.Contains("生まれた日のこと")); // 娘も殿堂もいない
+            Assert.Contains(Texts(due[1]), t => t == "ここです");
 
             foreach (var s in due) StorySystem.MarkSeen(state, s.SceneId);
             Assert.Empty(StorySystem.DueScenes(state, StoryTiming.Ending));
-            Assert.Equal(3, StorySystem.EndingScenes(state).Count); // 見直すときは見た場面も出す
+            Assert.Equal(4, StorySystem.EndingScenes(state).Count); // 見直すときは見た場面も出す
 
             var narration = StorySystem.Narration(state);
             Assert.Equal("失われた理想郷", narration[0].Text);
