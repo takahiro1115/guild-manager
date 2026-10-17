@@ -1251,6 +1251,14 @@ partial class GameSim
 
     void Snapshot()
     {
+        if (Trace)
+        {
+            // 年ごとの診断：ヴェスペラの決着（100F）に届く代表（どれかの得物で強さ1.0以上・魅了されない）の数と、いちばん強い子
+            var fit = Active.Select(a => (a, Best: RulerSystem.VesperaWeapons.Max(d => TournamentSystem.MatchStrength(a, d) / RulerSystem.VesperaStrength(false, d)),
+                    Charm: RulerSystem.JudgeCharm(s, a, false))).OrderByDescending(x => x.Best).ToList();
+            Console.WriteLine($"[年] {GameCalendar.Format(s.WeekNumber)} 現役{Active.Count()} 決着に届く{fit.Count(x => x.Best >= 1.0 && x.Charm != DuelCharm.Charmed)}人" +
+                $"（強さ上位：{string.Join(" ", fit.Take(5).Select(x => $"{x.a.Name}{x.a.Age}歳G{x.a.Generation}:{x.Best:F2}M{x.a.GetEffectiveStat("MND"):F0}{(RulerSystem.HasBuddy(s, x.a) ? "相" : "")}{(x.Charm == DuelCharm.Charmed ? "魅" : "")}"))}）所持金{s.Gold}");
+        }
         RosterByYear.Add(Active.Count());
         var top = Active.OrderByDescending(StatSum).Take(4).ToList();
         double w = top.Count == 0 ? 0 : top.Average(a => StatSum(a) / WeightSum);

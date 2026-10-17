@@ -121,6 +121,22 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
+        public void Bond_IsToldOnlyTheFirstTimeForThePair()
+        {
+            // 休日の絆は、その2人の初めてのときだけ話す。2回目からは月報の行だけ（§0.148）
+            var state = NewGame();
+            var fiona = Named(state, "フィオナ");
+            var rina = Named(state, "リナ");
+            var settlement = new WeeklySettlementResult();
+            settlement.Incidents.Add(new IncidentEvent(IncidentKind.Bond, "🌸", true, fiona.Id, rina.Id));
+            Assert.Equal("Bond", Assert.Single(Build(state, settlement)).Kind);
+            Assert.Empty(Build(state, settlement));
+            var reversed = new WeeklySettlementResult();
+            reversed.Incidents.Add(new IncidentEvent(IncidentKind.Bond, "🌸", true, rina.Id, fiona.Id)); // 並びが逆でも同じ組
+            Assert.Empty(Build(state, reversed));
+        }
+
+        [Fact]
         public void FirstYearTop_SceneWithRivalLetters_AndTheIntroReplacesTheRankLine()
         {
             // 年末の順位で初めて1位：導入の一言のあとに場面（イザベラ）。手紙の行はそのギルドが王都にいるときだけ（§0.145）

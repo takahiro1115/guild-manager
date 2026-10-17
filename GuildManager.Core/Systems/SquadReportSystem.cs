@@ -83,6 +83,8 @@ namespace GuildManager.Core.Systems
                     .Where(r => r.Party.Members.Any(m => party.MemberIds.Contains(m.Id))).ToList();
                 var (kind, values) = Classify(state, leader, members, resolutions, report);
                 values["{部隊長}"] = leader.Name;
+                if (kind == SquadReportKind.Growth && members.FirstOrDefault(m => m.Name == values["{名前}"]) is { } grown)
+                    state.StoryCounters[GrowthToldKey(grown)] = state.WeekNumber;
                 list.Add(new SquadLeaderReport
                 {
                     SquadName = party.Name,
@@ -96,6 +98,13 @@ namespace GuildManager.Core.Systems
             }
             return list;
         }
+
+        /// <summary>成長を話した週の記録のキー（§0.148）。</summary>
+        public static string GrowthToldKey(Adventurer a) => $"growthtold:{a.Id}";
+
+        /// <summary>この季節のうちに、もう成長を話した子か（同じ子は季節に1回まで、§0.148）。</summary>
+        private static bool GrowthToldRecently(GameState state, Adventurer a) =>
+            state.StoryCounters.TryGetValue(GrowthToldKey(a), out int week) && state.WeekNumber - week < GameCalendar.WeeksPerSeason;
 
         /// <summary>その月の出来事のうち、いちばん優先の高い種類と、台詞に埋める値。</summary>
         public static (SquadReportKind Kind, Dictionary<string, string> Values) Classify(
@@ -124,7 +133,8 @@ namespace GuildManager.Core.Systems
                 values["{主}"] = BossName(retreat);
                 return (SquadReportKind.Retreat, values);
             }
-            var grower = report.Growth.Where(g => members.Skip(1).Any(m => m.Name == g.Name))
+            // 同じ子の成長は季節に1回まで（§0.148）
+            var grower = report.Growth.Where(g => members.Skip(1).Any(m => m.Name == g.Name && !GrowthToldRecently(state, m)))
                 .Select(g => (g.Name, Gain: g.Gains.Values.Sum())).OrderByDescending(x => x.Gain).FirstOrDefault();
             if (grower.Name != null && grower.Gain >= SquadReportBalance.GrowthMinGain)
             {

@@ -39,6 +39,7 @@ partial class GameSim
         // 個別に外す
         if (opts.Contains("notourney")) TourneyMode = "off";
         if (opts.Contains("norulers")) NoRulerFights = true;
+        if (opts.Contains("nomnd")) NoMndPlan = true;
         if (opts.Contains("noshop")) UseShops = false;
         if (opts.Contains("prudent")) PrudentRulers = true;
         if (opts.Contains("lineage")) Lineage = true;
@@ -341,8 +342,39 @@ partial class GameSim
         YLed("施設", BuildFacility);
         YLed("研究・霊薬・秘薬・教官", CampaignUpkeep);
         YLed("大会の出場", EnterTournaments);
+        UpdateMndTrainees();
         FormSquads();
         if (UseTraining) AssignTraining();
+        ApplyMndIdle();
+    }
+
+    /// <summary>
+    /// ヴェスペラの決着（森の100F）で行き詰まったとき、強いのに魅了される子（MND が間口に届かない）を部隊から外して MND を鍛える（2026-10-17、終盤の行き詰まりの調べ）。
+    /// 行き詰まり＝前哨戦で退かせたあと、決着に出せる代表（強さ1.0以上で魅了されない）が2人未満。`nomnd` で切る。
+    /// </summary>
+    readonly HashSet<Guid> MndTrainees = new();
+    public static bool NoMndPlan;
+    void UpdateMndTrainees()
+    {
+        MndTrainees.Clear();
+        if (NoMndPlan || NoRulerFights) return;
+        if (!Forest.Bosses.Any(b => b.Floor == 70 && b.IsDefeated) || Forest.Bosses.Any(b => b.Floor == 100 && b.IsDefeated)) return;
+        var fit = Active.Where(a => RulerSystem.RepresentativeBlockReason(s, a) == null)
+            .Select(a => (a, Best: RulerSystem.VesperaWeapons.Max(d => TournamentSystem.MatchStrength(a, d) / RulerSystem.VesperaStrength(false, d)), Charm: RulerSystem.JudgeCharm(s, a, false)))
+            .Where(x => x.Best >= 1.0).ToList();
+        if (fit.Count(x => x.Charm != DuelCharm.Charmed) >= 2) return;
+        foreach (var x in fit.Where(x => x.Charm == DuelCharm.Charmed).OrderByDescending(x => x.Best).Take(4))
+            MndTrainees.Add(x.a.Id);
+    }
+
+    /// <summary>MND を鍛える子の待機中の過ごし方：静寂の泉が開いていれば瞑想、なければ自主練（MND）。</summary>
+    void ApplyMndIdle()
+    {
+        foreach (var a in Active.Where(a => MndTrainees.Contains(a.Id)))
+        {
+            if (RulerSystem.IsMeditationOpen(s)) a.IdleActivity = IdleActivity.Meditation;
+            else { a.IdleActivity = IdleActivity.SelfTraining; a.SelfTrainingStat = "MND"; }
+        }
     }
 
     void SetupOnce()
@@ -394,7 +426,7 @@ partial class GameSim
             if (sq != null && SquadOrderSystem.IsOut(s, sq))
                 foreach (var id in sq.MemberIds) used.Add(id);
         }
-        bool Avail(Adventurer a) => !used.Contains(a.Id) && !a.IsDispatched && a.Injury != InjurySeverity.Severe
+        bool Avail(Adventurer a) => !used.Contains(a.Id) && !MndTrainees.Contains(a.Id) && !a.IsDispatched && a.Injury != InjurySeverity.Severe
             && !TournamentSystem.IsEntered(s, a.Id) && (monthStart || !TrainingSystem.IsTraining(s, a.Id));
 
         var target = PickTarget();
@@ -479,7 +511,8 @@ partial class GameSim
             }
             var best = TrainingFacilities
                 .Where(f => training.GetSlotCapacity(s, f) > 0)
-                .OrderByDescending(f => RandTrain ? Rnd.NextDouble() : FacilityBalance.GetTrainingTargetStats(f).Sum(n => Acc.Pa(a, n) - Acc.Stat(a, n)))
+                .OrderByDescending(f => MndTrainees.Contains(a.Id) && FacilityBalance.GetTrainingTargetStats(f).Contains("MND") ? 1 : 0) // 魅了を越えるため MND の訓練所を先に
+                .ThenByDescending(f => RandTrain ? Rnd.NextDouble() : FacilityBalance.GetTrainingTargetStats(f).Sum(n => Acc.Pa(a, n) - Acc.Stat(a, n)))
                 .ToList();
             if (RandTrain && before != null) continue; // くじで決めたら、その子はそのまま
             if (best.Count == 0) continue;

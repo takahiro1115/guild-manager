@@ -135,6 +135,10 @@ namespace GuildManager.Core.Systems
             _ => n.Gains.Count > 0 ? string.Join("・", n.Gains.Select(g => $"{g.Key}+{g.Value}")) : "少し伸びた",
         };
 
+        /// <summary>休日の絆を話した2人の記録のキー（2人の並びによらない）。</summary>
+        public static string BondToldKey(Guid a, Guid b) =>
+            string.CompareOrdinal(a.ToString(), b.ToString()) < 0 ? $"bondtold:{a}:{b}" : $"bondtold:{b}:{a}";
+
         private static string IncidentKindKey(IncidentKind kind) => kind switch
         {
             IncidentKind.Quarrel => "Quarrel", IncidentKind.Gloom => "Gloom", IncidentKind.Waste => "Waste", IncidentKind.Fret => "Fret",
@@ -203,6 +207,13 @@ namespace GuildManager.Core.Systems
             {
                 string kind = IncidentKindKey(ev.Kind);
                 if (kind.Length == 0 || ev.Who is not Guid who) return;
+                // 休日の絆は、その2人の初めてのときだけ話す（2回目からは月報の行だけ。§0.148）
+                if (ev.Kind == IncidentKind.Bond && ev.Other is Guid partner)
+                {
+                    string key = BondToldKey(who, partner);
+                    if (_state.StoryCounters.ContainsKey(key)) return;
+                    _state.StoryCounters[key] = _state.WeekNumber;
+                }
                 string other = ev.Other is Guid o ? NameOf(_state, o) : "";
                 var values = new Dictionary<string, string> { ["{相手}"] = other, ["{後輩}"] = other };
                 switch (ev.Kind)

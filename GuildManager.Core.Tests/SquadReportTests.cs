@@ -95,6 +95,23 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
+        public void Growth_OfTheSameMember_AtMostOncePerSeason()
+        {
+            // 同じ子の「腕を上げた」は季節に1回まで。そのあいだは、ほかに伸びた子がいればその子（§0.148）
+            var s = NewState();
+            var report = new MonthlyReport();
+            report.Growth.Add(new MonthlyGrowth { Name = s.Adventurers[1].Name, Gains = { ["AGI"] = 9 } });
+            report.Growth.Add(new MonthlyGrowth { Name = s.Adventurers[2].Name, Gains = { ["STR"] = SquadReportBalance.GrowthMinGain } });
+            s.StoryCounters[SquadReportSystem.GrowthToldKey(s.Adventurers[1])] = s.WeekNumber - 1; // 先月話した
+            var (kind, values) = Classify(s, new(), report);
+            Assert.Equal(SquadReportKind.Growth, kind);
+            Assert.Equal(s.Adventurers[2].Name, values["{名前}"]);
+
+            s.WeekNumber += GameCalendar.WeeksPerSeason; // 季節が変われば、また話す
+            Assert.Equal(s.Adventurers[1].Name, Classify(s, new(), report).Values["{名前}"]);
+        }
+
+        [Fact]
         public void StoryCharacters_UseTheirOwnLines_OthersUseTemperAndDrive()
         {
             var s = NewState();

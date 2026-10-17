@@ -117,6 +117,7 @@ dotnet run --project tools/balance_sim -c Release -- audit 30 1440 L3 simple ran
 |---|---|
 | `simple` | 部隊を強い順の4人＋おまかせで組む（付けないとボスのギミックに合わせて組む） |
 | `notourney` `nocomm` `noloot` `nofac` `notrain` `noresearch` `noelixir` `nosf` `nonego` `notrainer` `norecruit` | その手入れをしない |
+| `nomnd` | ヴェスペラの決着で行き詰まったとき、強いのに魅了される子を部隊から外して MND を鍛える（訓練所は MND を先に、待機は瞑想か自主練 MND）のをやめる（2026-10-17 から既定で鍛える） |
 | `randhire` `randtourney` `randcomm` `randequip` `randbuild` `randtrain` `randsquad` | その選び方をくじ引きにする |
 | `bold` `cautious` | 扉前の構えを強気・慎重にする（既定は標準） |
 | `plan=continue` `plan=best` `plan=survey` `plan=other` `plan=rand` | 月報の来月の作戦（03 §0.98）への答え方。既定は continue（何もしない）。best＝見込みの勝率が最も高い手。L1以上は手番の編成が方針を書き直すので、効くのは主に L0 |
