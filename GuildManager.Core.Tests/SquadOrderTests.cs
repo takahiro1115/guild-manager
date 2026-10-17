@@ -53,7 +53,7 @@ namespace GuildManager.Core.Tests
         {
             Assert.Equal(70, SquadOrderBalance.AutoDispatchMinHpPercent);
             // §0.98：火力の倍率から勝率の下限に置き換えた
-            Assert.Equal(new SquadOrderBalance.StanceRule(0.9, 80), SquadOrderBalance.Cautious);
+            Assert.Equal(new SquadOrderBalance.StanceRule(0.9, 70), SquadOrderBalance.Cautious);
             Assert.Equal(new SquadOrderBalance.StanceRule(0.6, 60), SquadOrderBalance.Standard);
             Assert.Equal(new SquadOrderBalance.StanceRule(0.3, 40), SquadOrderBalance.Bold);
             Assert.Same(SquadOrderBalance.Cautious, SquadOrderBalance.For(DoorStance.Cautious));
