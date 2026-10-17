@@ -127,7 +127,7 @@ namespace GuildManager.Core.Tests
             var state = NewGame();
             var standing = new GuildStanding { Year = 3, Rows = { new GuildStandingRow { Ours = true, Rank = 1, Name = "わがギルド" }, new GuildStandingRow { GuildId = "whitelily", Rank = 2 } } };
             state.GuildStandings.Add(standing);
-            state.RivalGuilds.Add(new RivalGuild { Id = "crimson", Name = "紅蓮の牙" });
+            StorySystem.MarkSeen(state, "s03_valeria"); // ヴァレリアには会った（シルヴィアにはまだ）
             var settlement = new WeeklySettlementResult { YearStanding = standing };
             Assert.Equal("Intro:YearTop", Assert.Single(Build(state, settlement)).Kind);
 

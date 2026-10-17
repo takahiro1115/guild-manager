@@ -74,6 +74,9 @@ namespace GuildManager.Core.Systems
             new("s03_cecilia", StoryTiming.AfterReport, s => CeciliaBeaten(s) != null),
             new("s03_retire", StoryTiming.AfterReport, s => FirstRetiree(s) != null), // 引退者が役職につかずにギルドを去った月（教官・顧問で残る子では出さない、§0.122）
             new("s03_hall", StoryTiming.AfterReport, s => FirstHallOfFame(s) != null),
+            // ライバルギルドのマスターの初登場（大会で初めてその子と当たった月。シルヴィアはルミナと話すので救出のあと。§0.146）
+            new("s03_valeria", StoryTiming.AfterReport, s => FacedRival(s, "crimson")),
+            new("s03_sylvia", StoryTiming.AfterReport, s => Seen(s, "s01_lumina") && FacedRival(s, "silvermoon")),
             new("s03_yeartop", StoryTiming.AfterReport, s => FirstYearTop(s) != null), // 年末のギルドの順位で初めて1位（§0.145）
             new("s03_sharp", StoryTiming.AfterReport, s => s.StorySeenWeeks.TryGetValue("s01_lumina", out int w) && s.WeekNumber - w >= 5 * GameCalendar.WeeksPerYear),
             // ---- 台詞05 迷宮の主の顔見せ（各フィールドの30F、§0.140。物語帳「台詞 05」） ----
@@ -392,6 +395,21 @@ namespace GuildManager.Core.Systems
             return SeenBefore(state, r.Invite, state.WeekNumber) && DuelCount(state, rulerId) >= 1 && !BossDefeated(state, r.FieldId, 70);
         }
 
+        /// <summary>大会（交流戦を除く）で、自分のギルドの子がそのライバルギルドの子と当たったことがあるか。</summary>
+        private static bool FacedRival(GameState state, string guildId)
+        {
+            string? name = state.RivalGuilds.FirstOrDefault(g => g.Id == guildId)?.Name;
+            return name != null && state.TournamentEvents.Any(e => e.Kind != TournamentKind.Exchange && e.Result != null
+                && e.Result.Matches.Any(m => (m.OursA && m.GuildB == name) || (m.OursB && m.GuildA == name)));
+        }
+
+        /// <summary>§0.146より前のセーブ：もう当たったことのあるライバルギルドのマスターの初登場の場面を見たことにする。</summary>
+        public static void MarkRivalMastersSeen(GameState state)
+        {
+            if (FacedRival(state, "crimson")) state.StorySeenWeeks.TryAdd("s03_valeria", state.WeekNumber);
+            if (FacedRival(state, "silvermoon")) state.StorySeenWeeks.TryAdd("s03_sylvia", state.WeekNumber);
+        }
+
         /// <summary>年末のギルドの順位で初めて1位になった年の順位表（無ければ null）。</summary>
         private static GuildStanding? FirstYearTop(GameState state) =>
             state.GuildStandings.OrderBy(st => st.Year).FirstOrDefault(st => st.Rows.Any(r => r.Ours && r.Rank == 1));
@@ -622,8 +640,8 @@ namespace GuildManager.Core.Systems
             values[state.IsabellaEarlyVisit ? "{早めの来訪なら}" : "{森の来訪なら}"] = "";
             values["{週}"] = SatisfactionBalance.NegotiationGraceWeeks.ToString();
             if (IsabellaSystem.HasVisited(state)) values["{来訪のあとなら}"] = "";
-            // 初めての年間1位（§0.145）：手紙をくれるライバルギルドが王都にいるか
-            bool crimson = state.RivalGuilds.Any(g => g.Id == "crimson"), silvermoon = state.RivalGuilds.Any(g => g.Id == "silvermoon");
+            // 初めての年間1位（§0.145）：手紙をくれるライバルのマスターに、もう会っているか（初登場の場面、§0.146）
+            bool crimson = Seen(state, "s03_valeria"), silvermoon = Seen(state, "s03_sylvia");
             if (crimson) values["{紅蓮の牙がいるなら}"] = "";
             if (silvermoon) values["{銀月の弓がいるなら}"] = "";
             if (crimson || silvermoon) values["{手紙が来たなら}"] = "";

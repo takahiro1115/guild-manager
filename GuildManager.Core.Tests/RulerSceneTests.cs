@@ -299,5 +299,33 @@ namespace GuildManager.Core.Tests
             var current = GameState.FromSaveData(JsonSerializer.Deserialize<SaveData>(JsonSerializer.Serialize(state.ToSaveData()))!);
             Assert.Contains("s03_yeartop", Due(current));
         }
+
+        [Fact]
+        public void RivalMasters_AppearAfterTheFirstTournamentMatch_NotTheExchange()
+        {
+            // ライバルギルドのマスターの初登場（§0.146）：大会で初めてその子と当たった月。交流戦（白百合の杖）は数えない
+            var state = NewGame();
+            state.RivalGuilds.Add(new RivalGuild { Id = "crimson", Name = "紅蓮の牙" });
+            state.RivalGuilds.Add(new RivalGuild { Id = "silvermoon", Name = "銀月の弓" });
+            TournamentEvent Event(TournamentKind kind, string guild) => new()
+            {
+                Kind = kind,
+                Result = new TournamentResult { Matches = { new TournamentMatch { NameA = "リナ", OursA = true, NameB = "相手", GuildB = guild } } },
+            };
+            state.TournamentEvents.Add(Event(TournamentKind.Exchange, "紅蓮の牙"));
+            Assert.DoesNotContain("s03_valeria", Due(state));
+            state.TournamentEvents.Add(Event(TournamentKind.Local, "紅蓮の牙"));
+            var due = Due(state);
+            Assert.Contains("s03_valeria", due);
+            Assert.DoesNotContain("s03_sylvia", due);
+            Assert.DoesNotContain(Texts(state, "s03_valeria"), t => t.Contains("{"));
+
+            state.TournamentEvents.Add(Event(TournamentKind.Royal, "銀月の弓"));
+            var node = JsonNode.Parse(JsonSerializer.Serialize(state.ToSaveData()))!.AsObject();
+            node["StoryRulesVersion"] = 6; // §0.146より前：もう当たったマスターは見たことにする
+            var old = GameState.FromSaveData(node.Deserialize<SaveData>()!);
+            Assert.True(StorySystem.Seen(old, "s03_valeria"));
+            Assert.True(StorySystem.Seen(old, "s03_sylvia"));
+        }
     }
 }
