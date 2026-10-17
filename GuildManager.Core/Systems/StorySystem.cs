@@ -74,6 +74,7 @@ namespace GuildManager.Core.Systems
             new("s03_cecilia", StoryTiming.AfterReport, s => CeciliaBeaten(s) != null),
             new("s03_retire", StoryTiming.AfterReport, s => FirstRetiree(s) != null), // 引退者が役職につかずにギルドを去った月（教官・顧問で残る子では出さない、§0.122）
             new("s03_hall", StoryTiming.AfterReport, s => FirstHallOfFame(s) != null),
+            new("s03_yeartop", StoryTiming.AfterReport, s => FirstYearTop(s) != null), // 年末のギルドの順位で初めて1位（§0.145）
             new("s03_sharp", StoryTiming.AfterReport, s => s.StorySeenWeeks.TryGetValue("s01_lumina", out int w) && s.WeekNumber - w >= 5 * GameCalendar.WeeksPerYear),
             // ---- 台詞05 迷宮の主の顔見せ（各フィールドの30F、§0.140。物語帳「台詞 05」） ----
             new("s05_face1", StoryTiming.AfterReport, s => Seen(s, "s01_lumina") && BossDefeated(s, "forest", 30)),
@@ -391,6 +392,17 @@ namespace GuildManager.Core.Systems
             return SeenBefore(state, r.Invite, state.WeekNumber) && DuelCount(state, rulerId) >= 1 && !BossDefeated(state, r.FieldId, 70);
         }
 
+        /// <summary>年末のギルドの順位で初めて1位になった年の順位表（無ければ null）。</summary>
+        private static GuildStanding? FirstYearTop(GameState state) =>
+            state.GuildStandings.OrderBy(st => st.Year).FirstOrDefault(st => st.Rows.Any(r => r.Ours && r.Rank == 1));
+
+        /// <summary>§0.145より前のセーブ：もう年末の順位で1位になった年があれば、初めての年間1位の場面を見たことにする。</summary>
+        public static void MarkYearTopSeen(GameState state)
+        {
+            if (FirstYearTop(state) != null)
+                state.StorySeenWeeks.TryAdd("s03_yeartop", state.WeekNumber);
+        }
+
         /// <summary>その迷宮の主と戦った回数（まだ現れていなければ0）。</summary>
         private static int DuelCount(GameState state, string rulerId) =>
             state.Rulers.FirstOrDefault(r => r.RulerId == rulerId)?.DuelCount ?? 0;
@@ -610,6 +622,11 @@ namespace GuildManager.Core.Systems
             values[state.IsabellaEarlyVisit ? "{早めの来訪なら}" : "{森の来訪なら}"] = "";
             values["{週}"] = SatisfactionBalance.NegotiationGraceWeeks.ToString();
             if (IsabellaSystem.HasVisited(state)) values["{来訪のあとなら}"] = "";
+            // 初めての年間1位（§0.145）：手紙をくれるライバルギルドが王都にいるか
+            bool crimson = state.RivalGuilds.Any(g => g.Id == "crimson"), silvermoon = state.RivalGuilds.Any(g => g.Id == "silvermoon");
+            if (crimson) values["{紅蓮の牙がいるなら}"] = "";
+            if (silvermoon) values["{銀月の弓がいるなら}"] = "";
+            if (crimson || silvermoon) values["{手紙が来たなら}"] = "";
             // 迷宮の主の場面（§0.142）：決闘の最後に勝った代表、ネフェリスの夢の出し分け
             values["{代表}"] = state.Rulers.FirstOrDefault(r => r.RulerId == RulerSystem.VesperaId)?.LastVictorName ?? "代表";
             values[Seen(state, "s04_omen4") ? "{前兆4のあと}" : "{前兆4の前}"] = "";

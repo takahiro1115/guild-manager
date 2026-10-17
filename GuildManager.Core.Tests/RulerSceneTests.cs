@@ -284,5 +284,20 @@ namespace GuildManager.Core.Tests
             Assert.False(StorySystem.Seen(old, "s05_duel7"));
             Assert.DoesNotContain("s05_duel5", Due(old));
         }
+
+        [Fact]
+        public void OldSaves_WithAPastYearTop_SkipTheYearTopScene()
+        {
+            // 年間1位の場面（§0.145）：もう1位になった年がある旧セーブでは出さない
+            var state = NewGame();
+            StorySystem.MarkSeen(state, "s01_prologue");
+            state.GuildStandings.Add(new GuildStanding { Year = 2, Rows = { new GuildStandingRow { Ours = true, Rank = 1 } } });
+            var node = JsonNode.Parse(JsonSerializer.Serialize(state.ToSaveData()))!.AsObject();
+            node["StoryRulesVersion"] = 5;
+            var old = GameState.FromSaveData(node.Deserialize<SaveData>()!);
+            Assert.True(StorySystem.Seen(old, "s03_yeartop"));
+            var current = GameState.FromSaveData(JsonSerializer.Deserialize<SaveData>(JsonSerializer.Serialize(state.ToSaveData()))!);
+            Assert.Contains("s03_yeartop", Due(current));
+        }
     }
 }

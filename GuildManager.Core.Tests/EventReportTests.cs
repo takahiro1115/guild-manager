@@ -121,6 +121,27 @@ namespace GuildManager.Core.Tests
         }
 
         [Fact]
+        public void FirstYearTop_SceneWithRivalLetters_AndTheIntroReplacesTheRankLine()
+        {
+            // 年末の順位で初めて1位：導入の一言のあとに場面（イザベラ）。手紙の行はそのギルドが王都にいるときだけ（§0.145）
+            var state = NewGame();
+            var standing = new GuildStanding { Year = 3, Rows = { new GuildStandingRow { Ours = true, Rank = 1, Name = "わがギルド" }, new GuildStandingRow { GuildId = "whitelily", Rank = 2 } } };
+            state.GuildStandings.Add(standing);
+            state.RivalGuilds.Add(new RivalGuild { Id = "crimson", Name = "紅蓮の牙" });
+            var settlement = new WeeklySettlementResult { YearStanding = standing };
+            Assert.Equal("Intro:YearTop", Assert.Single(Build(state, settlement)).Kind);
+
+            var texts = StorySystem.DueScenes(state, StoryTiming.AfterReport).Single(s => s.SceneId == "s03_yeartop").Pages.SelectMany(p => p).Select(l => l.Text).ToList();
+            Assert.Contains(texts, t => t.Contains("ヴァレリアさん"));
+            Assert.DoesNotContain(texts, t => t.Contains("シルヴィアさん"));
+            Assert.Contains(texts, t => t.Contains("らしいわね"));
+            Assert.DoesNotContain(texts, t => t.Contains("{"));
+
+            StorySystem.MarkSeen(state, "s03_yeartop"); // 2回目からは、ふつうの順位の一言
+            Assert.Equal("YearRank", Assert.Single(Build(state, settlement)).Kind);
+        }
+
+        [Fact]
         public void Order_DecisionsFirst_ThenAdventurers_ThenLetters_AndSameEventOncePerMonth()
         {
             var state = NewGame();

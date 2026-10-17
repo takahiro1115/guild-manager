@@ -79,7 +79,8 @@ namespace GuildManager.Core.Systems
                 foreach (var ev in s.TournamentsResolved)
                     foreach (var p in (ev.Result?.Placings ?? new List<TournamentPlacing>()).Where(p => p.Placing == 1 && p.AdventurerId != null))
                         b.Subject("TournamentWin", p.AdventurerId!.Value, new() { ["{大会}"] = ev.Name });
-                if (s.YearStanding?.Rows.FirstOrDefault(r => r.Ours) is { Rank: <= 2 } standing)
+                if (s.YearStanding?.Rows.FirstOrDefault(r => r.Ours) is { Rank: <= 2 } standing
+                    && !(standing.Rank == 1 && b.Intro("Intro:YearTop", "s03_yeartop"))) // 初めての1位は、場面のイザベラにつなぐ導入の一言（§0.145）
                     b.Fixed("YearRank", new() { ["{順位}"] = standing.Rank.ToString() });
                 if (s.IsabellaVisited) b.Intro("Intro:Visit", "s02_visit");
                 foreach (var m in s.ExchangeMatches)
